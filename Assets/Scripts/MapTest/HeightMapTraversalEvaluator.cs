@@ -1,0 +1,1558 @@
+using UnityEngine;
+using UnityEngine.Serialization;
+
+namespace AnimalGame.MapTest
+{
+    public enum TraversalBlockReason
+    {
+        None,
+        Slope,
+        Step,
+        UnsafeDownhill,
+        Boundary,
+        Obstacle,
+        DeepWater
+    }
+
+    public enum UphillSlopeLevel
+    {
+        LevelOne,
+        LevelTwo,
+        LevelThree
+    }
+
+    public struct SlopeTraversalResult
+    {
+        public bool HasData { get; }
+        public bool IsPassable { get; }
+        public bool RequiresHardStop { get; }
+        public UphillSlopeLevel UphillLevel { get; }
+        public float SlopeAngle { get; }
+        public float SignedSlopeAngle { get; }
+        public float MaximumUphillAngle { get; }
+        public float MaximumDownhillAngle { get; }
+        public float MaximumSurfaceSlopeAngle { get; }
+        public float MaximumStepHeight { get; }
+        public float SurfaceRoughness { get; }
+        public Vector2 DownhillWorldDirection { get; }
+        public TraversalBlockReason BlockReason { get; }
+
+        public SlopeTraversalResult(
+            bool hasData,
+            bool isPassable,
+            bool requiresHardStop,
+            UphillSlopeLevel uphillLevel,
+            float slopeAngle,
+            float signedSlopeAngle,
+            float maximumUphillAngle,
+            float maximumDownhillAngle,
+            float maximumSurfaceSlopeAngle,
+            float maximumStepHeight,
+            float surfaceRoughness,
+            Vector2 downhillWorldDirection,
+            TraversalBlockReason blockReason)
+        {
+            HasData = hasData;
+            IsPassable = isPassable;
+            RequiresHardStop = requiresHardStop;
+            UphillLevel = uphillLevel;
+            SlopeAngle = slopeAngle;
+            SignedSlopeAngle = signedSlopeAngle;
+            MaximumUphillAngle = maximumUphillAngle;
+            MaximumDownhillAngle = maximumDownhillAngle;
+            MaximumSurfaceSlopeAngle = maximumSurfaceSlopeAngle;
+            MaximumStepHeight = maximumStepHeight;
+            SurfaceRoughness = surfaceRoughness;
+            DownhillWorldDirection = downhillWorldDirection;
+            BlockReason = blockReason;
+        }
+
+        public static SlopeTraversalResult NoData =>
+            new SlopeTraversalResult(
+                false,
+                false,
+                false,
+                UphillSlopeLevel.LevelOne,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                Vector2.zero,
+                TraversalBlockReason.None);
+
+        public static SlopeTraversalResult BlockedBoundary =>
+            new SlopeTraversalResult(
+                true,
+                false,
+                true,
+                UphillSlopeLevel.LevelOne,
+                90f,
+                90f,
+                0f,
+                0f,
+                90f,
+                0f,
+                0f,
+                Vector2.zero,
+                TraversalBlockReason.Boundary);
+
+        public static SlopeTraversalResult BlockedObstacle =>
+            new SlopeTraversalResult(
+                true,
+                false,
+                true,
+                UphillSlopeLevel.LevelOne,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                Vector2.zero,
+                TraversalBlockReason.Obstacle);
+
+        public static SlopeTraversalResult BlockedDeepWater =>
+            new SlopeTraversalResult(
+                true,
+                false,
+                true,
+                UphillSlopeLevel.LevelOne,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                Vector2.zero,
+                TraversalBlockReason.DeepWater);
+    }
+
+    /// <summary>
+    /// Pure geometric terrain profile for one requested tumble displacement.
+    /// Distances and heights are expressed in logical map metres. This result
+    /// intentionally does not apply normal driving slope or downhill rules.
+    /// </summary>
+    public readonly struct TumbleTerrainSegment
+    {
+        public bool HasData { get; }
+        public bool IsComplete { get; }
+        public bool HitBoundary { get; }
+        public bool HasUpwardObstacle { get; }
+        public Vector2 StartMapPosition { get; }
+        public Vector2 RequestedEndMapPosition { get; }
+        public Vector2 EndMapPosition { get; }
+        public Vector2 LastValidMapPosition { get; }
+        public Vector2 StartWorldPosition { get; }
+        public Vector2 RequestedEndWorldPosition { get; }
+        public Vector2 EndWorldPosition { get; }
+        public Vector2 LastValidWorldPosition { get; }
+        public float StartSurfaceHeightMeters { get; }
+        public float EndSurfaceHeightMeters { get; }
+        public float MaximumPositiveRiseMeters { get; }
+        public float MaximumDownwardDropMeters { get; }
+        public float MaximumUpwardDetailStepMeters { get; }
+        public float MaximumDownwardDetailStepMeters { get; }
+        public float RequestedDistanceMeters { get; }
+        public float TraversedDistanceMeters { get; }
+
+        public TumbleTerrainSegment(
+            bool hasData,
+            bool isComplete,
+            bool hitBoundary,
+            bool hasUpwardObstacle,
+            Vector2 startMapPosition,
+            Vector2 requestedEndMapPosition,
+            Vector2 endMapPosition,
+            Vector2 lastValidMapPosition,
+            Vector2 startWorldPosition,
+            Vector2 requestedEndWorldPosition,
+            Vector2 endWorldPosition,
+            Vector2 lastValidWorldPosition,
+            float startSurfaceHeightMeters,
+            float endSurfaceHeightMeters,
+            float maximumPositiveRiseMeters,
+            float maximumDownwardDropMeters,
+            float maximumUpwardDetailStepMeters,
+            float maximumDownwardDetailStepMeters,
+            float requestedDistanceMeters,
+            float traversedDistanceMeters)
+        {
+            HasData = hasData;
+            IsComplete = isComplete;
+            HitBoundary = hitBoundary;
+            HasUpwardObstacle = hasUpwardObstacle;
+            StartMapPosition = startMapPosition;
+            RequestedEndMapPosition = requestedEndMapPosition;
+            EndMapPosition = endMapPosition;
+            LastValidMapPosition = lastValidMapPosition;
+            StartWorldPosition = startWorldPosition;
+            RequestedEndWorldPosition = requestedEndWorldPosition;
+            EndWorldPosition = endWorldPosition;
+            LastValidWorldPosition = lastValidWorldPosition;
+            StartSurfaceHeightMeters = startSurfaceHeightMeters;
+            EndSurfaceHeightMeters = endSurfaceHeightMeters;
+            MaximumPositiveRiseMeters = maximumPositiveRiseMeters;
+            MaximumDownwardDropMeters = maximumDownwardDropMeters;
+            MaximumUpwardDetailStepMeters = maximumUpwardDetailStepMeters;
+            MaximumDownwardDetailStepMeters = maximumDownwardDetailStepMeters;
+            RequestedDistanceMeters = requestedDistanceMeters;
+            TraversedDistanceMeters = traversedDistanceMeters;
+        }
+    }
+
+    public sealed class HeightMapTraversalEvaluator : MonoBehaviour
+    {
+        [Header("Robot Physical Contact Area")]
+        [Tooltip("Length of the ground-contact footprint in logical map meters, measured along the requested movement direction. This defines the physical scale used to fit the ground plane.")]
+        [SerializeField, Min(0.25f)] private float robotFootprintLengthMeters = 4f;
+
+        [Tooltip("Width of the ground-contact footprint in logical map meters, measured perpendicular to the requested movement direction.")]
+        [SerializeField, Min(0.25f)] private float robotFootprintWidthMeters = 3f;
+
+        [Tooltip("Number of height samples along the footprint length. Odd values keep one sample at the footprint centre.")]
+        [SerializeField, Range(3, 11)] private int footprintLongitudinalSamples = 5;
+
+        [Tooltip("Number of height samples across the footprint width. Odd values keep one sample at the footprint centre.")]
+        [SerializeField, Range(3, 11)] private int footprintLateralSamples = 5;
+
+        [Header("Slope Ability")]
+        [Tooltip("Largest uphill angle treated as Level One. Level One does not change top speed and does not make the robot slide while idle.")]
+        [SerializeField, Range(0f, 89f)] private float levelOneMaximumUphillAngle = 12f;
+
+        [Tooltip("Uphill angle at which Level Three begins. Between the Level One limit and this value is Level Two. Level Three no longer hard-stops the robot; it produces strong downhill and lateral instability instead.")]
+        [FormerlySerializedAs("blockSlopeAngle")]
+        [SerializeField, Range(0f, 89f)] private float levelThreeUphillAngle = 45f;
+
+        [Tooltip("Maximum downhill angle that remains controllable. A downhill steeper than this still performs a hard stop for safety.")]
+        [SerializeField, Range(0f, 89f)] private float maximumDownhillSlopeAngle = 55f;
+
+        [Tooltip("Distance for which an unsafe downhill must continue before it hard-stops movement. This rejects isolated short noisy samples.")]
+        [FormerlySerializedAs("minimumBlockingSlopeLengthMeters")]
+        [SerializeField, Min(0f)] private float minimumUnsafeDownhillLengthMeters = 1.5f;
+
+        [Header("Step and Ledge Detection")]
+        [Tooltip("Maximum abrupt height residual the robot can cross, in meters. The expected rise of the fitted slope is subtracted first, so a continuous steep slope is not mistaken for a vertical step.")]
+        [SerializeField, Min(0f)] private float maximumStepHeightMeters = 0.65f;
+
+        [Tooltip("Distance between detail-height samples used to find abrupt steps. This may be smaller than the slope evaluation spacing because it measures discontinuities rather than overall inclination.")]
+        [SerializeField, Min(0.1f)] private float stepProbeSpacingMeters = 0.5f;
+
+        [Tooltip("Number of parallel step probes distributed across the robot width. Odd values include the centre line. Each longitudinal slice uses the median residual across these probes, so an isolated noisy lane cannot hard-stop the robot.")]
+        [SerializeField, Range(1, 9)] private int stepLateralSamples = 3;
+
+        [Header("Path Evaluation")]
+        [Tooltip("Distance ahead of the robot that is evaluated before each movement update. It should normally be at least as long as the contact footprint.")]
+        [SerializeField, Min(0.25f)] private float movementProbeDistanceMeters = 6f;
+
+        [Tooltip("Spacing in logical map meters between consecutive fitted-footprint evaluations along a path. Smaller values are more precise but more expensive.")]
+        [SerializeField, Min(0.1f)] private float pathEvaluationSpacingMeters = 1f;
+
+        [Tooltip("Short look-ahead used only for hard blockers (steps, unsafe drops and map boundaries) during real movement. Keep this near the robot footprint so a blocker several meters ahead does not feel like an invisible wall.")]
+        [SerializeField, Min(0.25f)] private float hardStopProbeDistanceMeters = 2f;
+
+        [Header("Map Obstacles")]
+        [Tooltip("Circular player radius used when sweeping against solid map props. This is independent from the terrain contact footprint so collisions stop at the visible core instead of at the terrain look-ahead distance.")]
+        [SerializeField, Min(0.05f)]
+        private float robotObstacleCollisionRadiusMeters = 0.75f;
+
+        [Tooltip("Small extra separation kept between the player and a solid prop to avoid numerical re-entry at exact contact.")]
+        [SerializeField, Min(0f)] private float obstacleContactSkinMeters = 0.02f;
+
+        private MapTestSceneController map;
+        private readonly float[] stepPreviousHeightScratch = new float[9];
+        private readonly float[] stepResidualScratch = new float[9];
+        private readonly float[] stepRawPreviousHeightScratch = new float[9];
+        private readonly float[] stepRawResidualScratch = new float[9];
+        private readonly float[] tumbleStartSurfaceScratch = new float[9];
+        private readonly float[] tumblePreviousSurfaceScratch = new float[9];
+        private readonly float[] tumblePreviousDetailScratch = new float[9];
+        private readonly float[] tumbleCurrentSurfaceScratch = new float[9];
+        private readonly float[] tumbleCurrentDetailScratch = new float[9];
+        private readonly float[] tumbleDetailResidualScratch = new float[9];
+
+        public float LevelOneMaximumUphillAngle => levelOneMaximumUphillAngle;
+        public float LevelThreeUphillAngle => levelThreeUphillAngle;
+        public float BlockSlopeAngle => levelThreeUphillAngle;
+        public float MaximumDownhillSlopeAngle => maximumDownhillSlopeAngle;
+        public float RobotFootprintLengthMeters => robotFootprintLengthMeters;
+        public float RobotFootprintWidthMeters => robotFootprintWidthMeters;
+        public float MaximumStepHeightMeters => maximumStepHeightMeters;
+        public float MovementProbeDistanceMeters => movementProbeDistanceMeters;
+        public float HardStopProbeDistanceMeters => hardStopProbeDistanceMeters;
+        public float RobotObstacleCollisionRadiusMeters =>
+            robotObstacleCollisionRadiusMeters;
+        public float PathSampleSpacingMeters => pathEvaluationSpacingMeters;
+        public bool IsInitialized => map != null && map.HasGeneratedMap;
+
+        public void Initialize(MapTestSceneController mapController)
+        {
+            map = mapController;
+        }
+
+        public void SetMaximumPassableSlopeAngle(float maximumSlopeAngle)
+        {
+            levelThreeUphillAngle = Mathf.Clamp(
+                maximumSlopeAngle,
+                levelOneMaximumUphillAngle + 0.1f,
+                89f);
+        }
+
+        public UphillSlopeLevel ClassifyUphillSlope(float uphillAngle)
+        {
+            float angle = Mathf.Max(0f, uphillAngle);
+            if (angle <= levelOneMaximumUphillAngle)
+                return UphillSlopeLevel.LevelOne;
+            return angle < levelThreeUphillAngle
+                ? UphillSlopeLevel.LevelTwo
+                : UphillSlopeLevel.LevelThree;
+        }
+
+        public void SetMaximumDownhillSlopeAngle(float maximumSlopeAngle)
+        {
+            maximumDownhillSlopeAngle = Mathf.Clamp(maximumSlopeAngle, 0f, 89f);
+        }
+
+        /// <summary>
+        /// Converts a planar Unity-world velocity to logical map metres per
+        /// second while respecting a potentially anisotropic map transform.
+        /// Returns zero until the evaluator has been initialized.
+        /// </summary>
+        public float WorldSpeedToMapSpeed(Vector2 worldVelocity)
+        {
+            if (!IsInitialized || worldVelocity.sqrMagnitude < 0.000001f)
+                return 0f;
+
+            float worldUnitsPerMapMeter = map.MapMetersToWorldDistance(
+                worldVelocity.normalized,
+                1f);
+            return worldUnitsPerMapMeter > 0.000001f
+                ? worldVelocity.magnitude / worldUnitsPerMapMeter
+                : 0f;
+        }
+
+        /// <summary>
+        /// Samples authored static-water depth under a world-space point and
+        /// returns the configured deepest still-traversable water depth. Deep
+        /// water blocking remains part of the normal traversal evaluation;
+        /// callers can use this data for effects within the passable range.
+        /// </summary>
+        public bool TrySamplePassableStaticWater(
+            Vector2 worldPosition,
+            out float depthMeters,
+            out float maximumPassableDepthMeters)
+        {
+            depthMeters = 0f;
+            maximumPassableDepthMeters = 0f;
+            HeightMapLevelAsset levelAsset = map != null
+                ? map.LevelAsset
+                : null;
+            if (!IsInitialized || levelAsset == null)
+                return false;
+
+            maximumPassableDepthMeters = Mathf.Max(
+                0f,
+                levelAsset.MaximumPassableStaticWaterDepthMeters);
+            return map.TrySampleStaticWaterWorldPosition(
+                worldPosition,
+                out depthMeters)
+                   && depthMeters > 0.0001f
+                   && depthMeters <= maximumPassableDepthMeters + 0.0001f;
+        }
+
+        /// <summary>
+        /// Samples the swept terrain profile for an externally driven tumble.
+        /// Normal traversal passability, slope levels and unsafe-downhill hard
+        /// stops are deliberately ignored. A true return value means the start
+        /// point had usable terrain data; inspect IsComplete and HitBoundary to
+        /// determine whether the complete requested displacement is available.
+        /// </summary>
+        public bool TryEvaluateTumbleSegment(
+            Vector2 startWorldPosition,
+            Vector2 worldDirection,
+            float distanceMeters,
+            float sweepWidthMeters,
+            out TumbleTerrainSegment result)
+        {
+            result = default;
+            if (!IsInitialized
+                || worldDirection.sqrMagnitude < 0.000001f
+                || distanceMeters < 0f
+                || !map.TrySampleWorldPosition(
+                    startWorldPosition,
+                    out Vector2 startMapPosition,
+                    out float startSurfaceHeight))
+            {
+                return false;
+            }
+
+            Vector2 normalizedWorldDirection = worldDirection.normalized;
+            Vector2 mapDirection = map.WorldDirectionToMapDirection(
+                normalizedWorldDirection);
+            if (mapDirection.sqrMagnitude < 0.000001f)
+                return false;
+
+            float requestedDistance = Mathf.Max(0f, distanceMeters);
+            float sweepWidth = Mathf.Max(0f, sweepWidthMeters);
+            Vector2 requestedEndMapPosition = startMapPosition
+                                              + mapDirection
+                                              * requestedDistance;
+            float requestedWorldDistance = map.MapMetersToWorldDistance(
+                normalizedWorldDirection,
+                requestedDistance);
+            Vector2 requestedEndWorldPosition = startWorldPosition
+                                                + normalizedWorldDirection
+                                                * requestedWorldDistance;
+            bool hasMapObstacle = IsObstacleSweepBlocked(
+                startMapPosition,
+                requestedEndMapPosition,
+                sweepWidth * 0.5f);
+            Vector2 mapRight = new Vector2(mapDirection.y, -mapDirection.x);
+            int lateralSampleCount = CalculateTumbleLateralSampleCount(
+                sweepWidth);
+
+            if (!TrySampleTumbleSlice(
+                    startMapPosition,
+                    mapRight,
+                    sweepWidth,
+                    lateralSampleCount,
+                    out _))
+            {
+                result = CreateTumbleTerrainSegment(
+                    false,
+                    true,
+                    hasMapObstacle,
+                    startMapPosition,
+                    requestedEndMapPosition,
+                    startMapPosition,
+                    startWorldPosition,
+                    requestedEndWorldPosition,
+                    startWorldPosition,
+                    startSurfaceHeight,
+                    startSurfaceHeight,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    requestedDistance,
+                    0f);
+                return true;
+            }
+
+            for (int lateralIndex = 0;
+                 lateralIndex < lateralSampleCount;
+                 lateralIndex++)
+            {
+                float surfaceHeight = tumbleCurrentSurfaceScratch[lateralIndex];
+                tumbleStartSurfaceScratch[lateralIndex] = surfaceHeight;
+                tumblePreviousSurfaceScratch[lateralIndex] = surfaceHeight;
+                tumblePreviousDetailScratch[lateralIndex] =
+                    tumbleCurrentDetailScratch[lateralIndex];
+            }
+
+            float endSurfaceHeight =
+                tumbleCurrentSurfaceScratch[lateralSampleCount / 2];
+            float maximumPositiveRise = 0f;
+            float maximumDownwardDrop = 0f;
+            float maximumUpwardDetailStep = 0f;
+            float maximumDownwardDetailStep = 0f;
+            float traversedDistance = 0f;
+            Vector2 lastValidMapPosition = startMapPosition;
+            bool hitBoundary = false;
+
+            float maximumSpacing = Mathf.Clamp(
+                stepProbeSpacingMeters,
+                0.1f,
+                0.5f);
+            int longitudinalSegmentCount = requestedDistance > 0.000001f
+                ? Mathf.Max(
+                    1,
+                    Mathf.CeilToInt(requestedDistance / maximumSpacing))
+                : 0;
+            float segmentSpacing = longitudinalSegmentCount > 0
+                ? requestedDistance / longitudinalSegmentCount
+                : 0f;
+
+            for (int segmentIndex = 1;
+                 segmentIndex <= longitudinalSegmentCount;
+                 segmentIndex++)
+            {
+                float sampleDistance = segmentIndex * segmentSpacing;
+                Vector2 sampleCenter = startMapPosition
+                                       + mapDirection * sampleDistance;
+                if (!TrySampleTumbleSlice(
+                        sampleCenter,
+                        mapRight,
+                        sweepWidth,
+                        lateralSampleCount,
+                        out float sampledCenterSurface))
+                {
+                    hitBoundary = true;
+                    float refinedDistance = RefineLastValidTumbleDistance(
+                        startMapPosition,
+                        mapDirection,
+                        mapRight,
+                        sweepWidth,
+                        lateralSampleCount,
+                        traversedDistance,
+                        sampleDistance);
+                    if (refinedDistance > traversedDistance + 0.00001f)
+                    {
+                        Vector2 refinedCenter = startMapPosition
+                                                + mapDirection
+                                                * refinedDistance;
+                        if (TrySampleTumbleSlice(
+                                refinedCenter,
+                                mapRight,
+                                sweepWidth,
+                                lateralSampleCount,
+                                out sampledCenterSurface))
+                        {
+                            AccumulateTumbleSlice(
+                                lateralSampleCount,
+                                ref maximumPositiveRise,
+                                ref maximumDownwardDrop,
+                                ref maximumUpwardDetailStep,
+                                ref maximumDownwardDetailStep);
+                            traversedDistance = refinedDistance;
+                            lastValidMapPosition = refinedCenter;
+                            endSurfaceHeight = sampledCenterSurface;
+                        }
+                    }
+                    break;
+                }
+
+                AccumulateTumbleSlice(
+                    lateralSampleCount,
+                    ref maximumPositiveRise,
+                    ref maximumDownwardDrop,
+                    ref maximumUpwardDetailStep,
+                    ref maximumDownwardDetailStep);
+                traversedDistance = sampleDistance;
+                lastValidMapPosition = sampleCenter;
+                endSurfaceHeight = sampledCenterSurface;
+            }
+
+            bool isComplete = !hitBoundary
+                              && traversedDistance
+                              >= requestedDistance - 0.00001f;
+            Vector2 lastValidWorldPosition =
+                map.MapPositionToWorld(lastValidMapPosition);
+            result = CreateTumbleTerrainSegment(
+                isComplete,
+                hitBoundary,
+                hasMapObstacle,
+                startMapPosition,
+                requestedEndMapPosition,
+                lastValidMapPosition,
+                startWorldPosition,
+                requestedEndWorldPosition,
+                lastValidWorldPosition,
+                startSurfaceHeight,
+                endSurfaceHeight,
+                maximumPositiveRise,
+                maximumDownwardDrop,
+                maximumUpwardDetailStep,
+                maximumDownwardDetailStep,
+                requestedDistance,
+                traversedDistance);
+            return true;
+        }
+
+        private int CalculateTumbleLateralSampleCount(float sweepWidthMeters)
+        {
+            if (sweepWidthMeters <= 0.0001f)
+                return 1;
+
+            float spacing = Mathf.Clamp(stepProbeSpacingMeters, 0.1f, 0.5f);
+            int count = Mathf.CeilToInt(sweepWidthMeters / spacing) + 1;
+            return EnsureOdd(count, 3, 9);
+        }
+
+        private bool TrySampleTumbleSlice(
+            Vector2 centerMapPosition,
+            Vector2 mapRight,
+            float sweepWidthMeters,
+            int lateralSampleCount,
+            out float centerSurfaceHeightMeters)
+        {
+            centerSurfaceHeightMeters = 0f;
+            float halfWidth = sweepWidthMeters * 0.5f;
+            for (int lateralIndex = 0;
+                 lateralIndex < lateralSampleCount;
+                 lateralIndex++)
+            {
+                float lateralOffset = lateralSampleCount == 1
+                    ? 0f
+                    : Mathf.Lerp(
+                        -halfWidth,
+                        halfWidth,
+                        lateralIndex / (float)(lateralSampleCount - 1));
+                Vector2 samplePosition = centerMapPosition
+                                         + mapRight * lateralOffset;
+                if (!map.TrySampleMapPosition(
+                        samplePosition,
+                        out float surfaceHeight)
+                    || !map.TrySampleRawDetailMapPosition(
+                        samplePosition,
+                        out float detailHeight))
+                {
+                    return false;
+                }
+
+                tumbleCurrentSurfaceScratch[lateralIndex] = surfaceHeight;
+                tumbleCurrentDetailScratch[lateralIndex] = detailHeight;
+            }
+
+            centerSurfaceHeightMeters =
+                tumbleCurrentSurfaceScratch[lateralSampleCount / 2];
+            return true;
+        }
+
+        private void AccumulateTumbleSlice(
+            int lateralSampleCount,
+            ref float maximumPositiveRiseMeters,
+            ref float maximumDownwardDropMeters,
+            ref float maximumUpwardDetailStepMeters,
+            ref float maximumDownwardDetailStepMeters)
+        {
+            for (int lateralIndex = 0;
+                 lateralIndex < lateralSampleCount;
+                 lateralIndex++)
+            {
+                float surfaceHeight = tumbleCurrentSurfaceScratch[lateralIndex];
+                float relativeSurfaceHeight = surfaceHeight
+                                              - tumbleStartSurfaceScratch[lateralIndex];
+                maximumPositiveRiseMeters = Mathf.Max(
+                    maximumPositiveRiseMeters,
+                    relativeSurfaceHeight);
+                maximumDownwardDropMeters = Mathf.Max(
+                    maximumDownwardDropMeters,
+                    -relativeSurfaceHeight);
+
+                float surfaceChange = surfaceHeight
+                                      - tumblePreviousSurfaceScratch[lateralIndex];
+                float detailChange = tumbleCurrentDetailScratch[lateralIndex]
+                                     - tumblePreviousDetailScratch[lateralIndex];
+                float detailResidual = detailChange - surfaceChange;
+                tumbleDetailResidualScratch[lateralIndex] = detailResidual;
+
+                tumblePreviousSurfaceScratch[lateralIndex] = surfaceHeight;
+                tumblePreviousDetailScratch[lateralIndex] =
+                    tumbleCurrentDetailScratch[lateralIndex];
+            }
+
+            // Use the median swept-lane residual, matching normal step detection.
+            // This still respects the requested body width while rejecting one
+            // isolated source-height pixel at either edge of the footprint.
+            SortAscending(tumbleDetailResidualScratch, lateralSampleCount);
+            float medianResidual =
+                tumbleDetailResidualScratch[lateralSampleCount / 2];
+            maximumUpwardDetailStepMeters = Mathf.Max(
+                maximumUpwardDetailStepMeters,
+                medianResidual);
+            maximumDownwardDetailStepMeters = Mathf.Max(
+                maximumDownwardDetailStepMeters,
+                -medianResidual);
+        }
+
+        private float RefineLastValidTumbleDistance(
+            Vector2 startMapPosition,
+            Vector2 mapDirection,
+            Vector2 mapRight,
+            float sweepWidthMeters,
+            int lateralSampleCount,
+            float knownValidDistance,
+            float knownInvalidDistance)
+        {
+            float validDistance = knownValidDistance;
+            float invalidDistance = knownInvalidDistance;
+            for (int iteration = 0; iteration < 10; iteration++)
+            {
+                float candidateDistance = (validDistance + invalidDistance) * 0.5f;
+                Vector2 candidateCenter = startMapPosition
+                                          + mapDirection * candidateDistance;
+                if (TrySampleTumbleSlice(
+                        candidateCenter,
+                        mapRight,
+                        sweepWidthMeters,
+                        lateralSampleCount,
+                        out _))
+                {
+                    validDistance = candidateDistance;
+                }
+                else
+                {
+                    invalidDistance = candidateDistance;
+                }
+            }
+
+            return validDistance;
+        }
+
+        private TumbleTerrainSegment CreateTumbleTerrainSegment(
+            bool isComplete,
+            bool hitBoundary,
+            bool hasMapObstacle,
+            Vector2 startMapPosition,
+            Vector2 requestedEndMapPosition,
+            Vector2 lastValidMapPosition,
+            Vector2 startWorldPosition,
+            Vector2 requestedEndWorldPosition,
+            Vector2 lastValidWorldPosition,
+            float startSurfaceHeightMeters,
+            float endSurfaceHeightMeters,
+            float maximumPositiveRiseMeters,
+            float maximumDownwardDropMeters,
+            float maximumUpwardDetailStepMeters,
+            float maximumDownwardDetailStepMeters,
+            float requestedDistanceMeters,
+            float traversedDistanceMeters)
+        {
+            return new TumbleTerrainSegment(
+                true,
+                isComplete,
+                hitBoundary,
+                hasMapObstacle
+                || maximumUpwardDetailStepMeters > maximumStepHeightMeters,
+                startMapPosition,
+                requestedEndMapPosition,
+                lastValidMapPosition,
+                lastValidMapPosition,
+                startWorldPosition,
+                requestedEndWorldPosition,
+                lastValidWorldPosition,
+                lastValidWorldPosition,
+                startSurfaceHeightMeters,
+                endSurfaceHeightMeters,
+                maximumPositiveRiseMeters,
+                maximumDownwardDropMeters,
+                maximumUpwardDetailStepMeters,
+                maximumDownwardDetailStepMeters,
+                requestedDistanceMeters,
+                traversedDistanceMeters);
+        }
+
+        /// <summary>
+        /// Tests only solid authored map props over the exact requested frame
+        /// displacement. Terrain look-ahead intentionally stays separate so a
+        /// small tree core does not stop the robot several metres too early.
+        /// </summary>
+        public SlopeTraversalResult EvaluateObstacleSweep(
+            Vector2 startWorldPosition,
+            Vector2 endWorldPosition)
+        {
+            if (!IsInitialized
+                || !map.TrySampleWorldPosition(
+                    startWorldPosition,
+                    out Vector2 startMapPosition,
+                    out _))
+            {
+                return SlopeTraversalResult.NoData;
+            }
+
+            if (!map.TrySampleWorldPosition(
+                    endWorldPosition,
+                    out Vector2 endMapPosition,
+                    out _))
+            {
+                return SlopeTraversalResult.BlockedBoundary;
+            }
+
+            return IsObstacleSweepBlocked(
+                    startMapPosition,
+                    endMapPosition,
+                    robotObstacleCollisionRadiusMeters)
+                ? SlopeTraversalResult.BlockedObstacle
+                : SlopeTraversalResult.NoData;
+        }
+
+        private bool IsObstacleSweepBlocked(
+            Vector2 startMapPosition,
+            Vector2 endMapPosition,
+            float movingRadiusMeters)
+        {
+            Vector2 displacement = endMapPosition - startMapPosition;
+            float displacementLengthSquared = displacement.sqrMagnitude;
+            if (displacementLengthSquared <= 0.0000001f)
+                return false;
+
+            foreach (HeightMapObstacleFootprint obstacle
+                     in HeightMapObstacleFootprint.ActiveFootprints)
+            {
+                if (obstacle == null
+                    || !obstacle.isActiveAndEnabled
+                    || !obstacle.BlocksTraversal
+                    || obstacle.RadiusMeters <= 0f
+                    || obstacle.gameObject.scene != map.gameObject.scene
+                    || !map.TrySampleWorldPosition(
+                        obstacle.transform.position,
+                        out Vector2 obstacleMapPosition,
+                        out _))
+                {
+                    continue;
+                }
+
+                float combinedRadius = Mathf.Max(0f, movingRadiusMeters)
+                                       + obstacle.RadiusMeters
+                                       + obstacleContactSkinMeters;
+                float combinedRadiusSquared = combinedRadius * combinedRadius;
+                Vector2 startFromObstacle =
+                    startMapPosition - obstacleMapPosition;
+
+                // A prop placed over an existing player must not trap it. Any
+                // tangent or outward motion is allowed until it leaves contact.
+                if (startFromObstacle.sqrMagnitude
+                    <= combinedRadiusSquared + 0.0001f
+                    && Vector2.Dot(displacement, startFromObstacle) >= 0f)
+                {
+                    continue;
+                }
+
+                float closestTime = Mathf.Clamp01(
+                    Vector2.Dot(
+                        obstacleMapPosition - startMapPosition,
+                        displacement)
+                    / displacementLengthSquared);
+                Vector2 closestPoint = startMapPosition
+                                       + displacement * closestTime;
+                if ((closestPoint - obstacleMapPosition).sqrMagnitude
+                    <= combinedRadiusSquared)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public SlopeTraversalResult EvaluateMovement(
+            Vector2 startWorld,
+            Vector2 worldDirection)
+        {
+            return EvaluateMovement(
+                startWorld,
+                worldDirection,
+                movementProbeDistanceMeters,
+                true);
+        }
+
+        public SlopeTraversalResult EvaluateImmediateSafety(
+            Vector2 startWorld,
+            Vector2 worldDirection)
+        {
+            return EvaluateMovement(
+                startWorld,
+                worldDirection,
+                hardStopProbeDistanceMeters,
+                false);
+        }
+
+        private SlopeTraversalResult EvaluateMovement(
+            Vector2 startWorld,
+            Vector2 worldDirection,
+            float probeDistanceMeters,
+            bool includeMapObstacles)
+        {
+            if (!IsInitialized || worldDirection.sqrMagnitude < 0.000001f)
+                return SlopeTraversalResult.NoData;
+
+            if (!map.TrySampleWorldPosition(startWorld, out Vector2 startMapPosition, out _))
+                return SlopeTraversalResult.NoData;
+
+            Vector2 mapDirection = map.WorldDirectionToMapDirection(worldDirection);
+            if (mapDirection.sqrMagnitude < 0.000001f)
+                return SlopeTraversalResult.NoData;
+
+            Vector2 endMapPosition = startMapPosition
+                                     + mapDirection * Mathf.Max(
+                                         0.25f,
+                                         probeDistanceMeters);
+            return EvaluateMapPathInternal(
+                startMapPosition,
+                endMapPosition,
+                includeMapObstacles);
+        }
+
+        public SlopeTraversalResult EvaluateMapPath(
+            Vector2 startMapPosition,
+            Vector2 endMapPosition)
+        {
+            return EvaluateMapPathInternal(
+                startMapPosition,
+                endMapPosition,
+                true);
+        }
+
+        private SlopeTraversalResult EvaluateMapPathInternal(
+            Vector2 startMapPosition,
+            Vector2 endMapPosition,
+            bool includeMapObstacles)
+        {
+            if (!IsInitialized
+                || !map.TrySampleMapPosition(startMapPosition, out _))
+            {
+                return SlopeTraversalResult.NoData;
+            }
+
+            if (!map.TrySampleMapPosition(endMapPosition, out _))
+                return SlopeTraversalResult.BlockedBoundary;
+
+            Vector2 path = endMapPosition - startMapPosition;
+            float pathLength = path.magnitude;
+            if (pathLength <= 0.0001f)
+            {
+                return CreateResult(
+                    true,
+                    false,
+                    UphillSlopeLevel.LevelOne,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    Vector2.zero,
+                    TraversalBlockReason.None);
+            }
+
+            Vector2 direction = path / pathLength;
+            if (includeMapObstacles
+                && IsObstacleSweepBlocked(
+                    startMapPosition,
+                    endMapPosition,
+                    robotObstacleCollisionRadiusMeters))
+            {
+                return SlopeTraversalResult.BlockedObstacle;
+            }
+
+            int evaluationCount = Mathf.Max(
+                1,
+                Mathf.CeilToInt(pathLength /
+                                Mathf.Max(0.1f, pathEvaluationSpacingMeters)));
+            float segmentLength = pathLength / evaluationCount;
+            float consecutiveUnsafeDownhillLength = 0f;
+            float maximumDirectionalSlope = 0f;
+            float signedSlopeAtMaximum = 0f;
+            float maximumUphillSlope = 0f;
+            float maximumDownhillSlope = 0f;
+            float maximumSurfaceSlope = 0f;
+            float maximumStepHeight = 0f;
+            float maximumRoughness = 0f;
+            Vector2 downhillMapDirectionAtMaximum = Vector2.zero;
+
+            for (int evaluationIndex = 0;
+                 evaluationIndex < evaluationCount;
+                 evaluationIndex++)
+            {
+                float t = (evaluationIndex + 0.5f) / evaluationCount;
+                Vector2 center = Vector2.Lerp(startMapPosition, endMapPosition, t);
+                if (IsStaticWaterTooDeep(center, direction))
+                    return SlopeTraversalResult.BlockedDeepWater;
+
+                if (!TryAnalyzeSurface(center, direction, out SurfaceAnalysis analysis))
+                    return SlopeTraversalResult.BlockedBoundary;
+
+                float absoluteDirectionalSlope = Mathf.Abs(
+                    analysis.SignedDirectionalSlopeAngle);
+                if (absoluteDirectionalSlope > maximumDirectionalSlope)
+                {
+                    maximumDirectionalSlope = absoluteDirectionalSlope;
+                    signedSlopeAtMaximum = analysis.SignedDirectionalSlopeAngle;
+                }
+
+                maximumUphillSlope = Mathf.Max(
+                    maximumUphillSlope,
+                    Mathf.Max(0f, analysis.SignedDirectionalSlopeAngle));
+                maximumDownhillSlope = Mathf.Max(
+                    maximumDownhillSlope,
+                    Mathf.Max(0f, -analysis.SignedDirectionalSlopeAngle));
+
+                if (analysis.MaximumSurfaceSlopeAngle > maximumSurfaceSlope)
+                {
+                    maximumSurfaceSlope = analysis.MaximumSurfaceSlopeAngle;
+                    downhillMapDirectionAtMaximum = analysis.DownhillMapDirection;
+                }
+                maximumStepHeight = Mathf.Max(
+                    maximumStepHeight,
+                    analysis.MaximumStepResidualHeight);
+                maximumRoughness = Mathf.Max(
+                    maximumRoughness,
+                    analysis.SurfaceRoughness);
+
+                if (analysis.MaximumStepResidualHeight > maximumStepHeightMeters)
+                {
+                    return CreateResult(
+                        false,
+                        true,
+                        ClassifyUphillSlope(maximumUphillSlope),
+                        maximumDirectionalSlope,
+                        signedSlopeAtMaximum,
+                        maximumUphillSlope,
+                        maximumDownhillSlope,
+                        maximumSurfaceSlope,
+                        maximumStepHeight,
+                        maximumRoughness,
+                        downhillMapDirectionAtMaximum,
+                        TraversalBlockReason.Step);
+                }
+
+                bool unsafeDownhill = analysis.SignedDirectionalSlopeAngle
+                                      < -maximumDownhillSlopeAngle;
+                consecutiveUnsafeDownhillLength = unsafeDownhill
+                    ? consecutiveUnsafeDownhillLength + segmentLength
+                    : 0f;
+
+                if (unsafeDownhill
+                    && consecutiveUnsafeDownhillLength
+                    >= Mathf.Max(0f, minimumUnsafeDownhillLengthMeters))
+                {
+                    return CreateResult(
+                        false,
+                        true,
+                        ClassifyUphillSlope(maximumUphillSlope),
+                        maximumDirectionalSlope,
+                        signedSlopeAtMaximum,
+                        maximumUphillSlope,
+                        maximumDownhillSlope,
+                        maximumSurfaceSlope,
+                        maximumStepHeight,
+                        maximumRoughness,
+                        downhillMapDirectionAtMaximum,
+                        TraversalBlockReason.UnsafeDownhill);
+                }
+            }
+
+            UphillSlopeLevel uphillLevel = ClassifyUphillSlope(maximumUphillSlope);
+            bool deliberatelyPassable = uphillLevel != UphillSlopeLevel.LevelThree;
+            return CreateResult(
+                deliberatelyPassable,
+                false,
+                uphillLevel,
+                maximumDirectionalSlope,
+                signedSlopeAtMaximum,
+                maximumUphillSlope,
+                maximumDownhillSlope,
+                maximumSurfaceSlope,
+                maximumStepHeight,
+                maximumRoughness,
+                downhillMapDirectionAtMaximum,
+                deliberatelyPassable
+                    ? TraversalBlockReason.None
+                    : TraversalBlockReason.Slope);
+        }
+
+        public SlopeTraversalResult EvaluateLocalSurface(Vector2 worldPosition)
+        {
+            return EvaluateCurrentSurface(worldPosition, Vector2.up);
+        }
+
+        public SlopeTraversalResult EvaluateCurrentSurface(
+            Vector2 worldPosition,
+            Vector2 worldDirection)
+        {
+            if (!IsInitialized
+                || worldDirection.sqrMagnitude < 0.000001f
+                || !map.TrySampleWorldPosition(worldPosition, out Vector2 mapPosition, out _))
+            {
+                return SlopeTraversalResult.NoData;
+            }
+
+            Vector2 mapDirection = map.WorldDirectionToMapDirection(worldDirection);
+            if (mapDirection.sqrMagnitude < 0.000001f
+                || !TryAnalyzeSurface(mapPosition, mapDirection, out SurfaceAnalysis analysis))
+            {
+                return SlopeTraversalResult.BlockedBoundary;
+            }
+
+            if (IsStaticWaterTooDeep(mapPosition, mapDirection))
+                return SlopeTraversalResult.BlockedDeepWater;
+
+            bool stepBlocked = analysis.MaximumStepResidualHeight > maximumStepHeightMeters;
+            bool unsafeDownhill = analysis.SignedDirectionalSlopeAngle
+                                  < -maximumDownhillSlopeAngle;
+            float uphillAngle = Mathf.Max(0f, analysis.SignedDirectionalSlopeAngle);
+            float downhillAngle = Mathf.Max(0f, -analysis.SignedDirectionalSlopeAngle);
+            UphillSlopeLevel uphillLevel = ClassifyUphillSlope(uphillAngle);
+            bool deliberatelyPassable = uphillLevel != UphillSlopeLevel.LevelThree;
+            TraversalBlockReason reason = stepBlocked
+                ? TraversalBlockReason.Step
+                : unsafeDownhill
+                    ? TraversalBlockReason.UnsafeDownhill
+                    : deliberatelyPassable
+                        ? TraversalBlockReason.None
+                        : TraversalBlockReason.Slope;
+
+            return CreateResult(
+                deliberatelyPassable && !stepBlocked && !unsafeDownhill,
+                stepBlocked || unsafeDownhill,
+                uphillLevel,
+                Mathf.Abs(analysis.SignedDirectionalSlopeAngle),
+                analysis.SignedDirectionalSlopeAngle,
+                uphillAngle,
+                downhillAngle,
+                analysis.MaximumSurfaceSlopeAngle,
+                analysis.MaximumStepResidualHeight,
+                analysis.SurfaceRoughness,
+                analysis.DownhillMapDirection,
+                reason);
+        }
+
+        private bool IsStaticWaterTooDeep(
+            Vector2 centreMapPosition,
+            Vector2 forwardMapDirection)
+        {
+            HeightMapLevelAsset levelAsset = map != null
+                ? map.LevelAsset
+                : null;
+            if (levelAsset == null)
+                return false;
+
+            float passableDepth = Mathf.Max(
+                0f,
+                levelAsset.MaximumPassableStaticWaterDepthMeters);
+            Vector2 normalizedForward = forwardMapDirection.sqrMagnitude
+                                        > 0.000001f
+                ? forwardMapDirection.normalized
+                : Vector2.up;
+            Vector2 lateral = new Vector2(
+                -normalizedForward.y,
+                normalizedForward.x);
+            float halfWidth = Mathf.Max(
+                0f,
+                robotFootprintWidthMeters * 0.5f);
+
+            for (int sampleIndex = -1; sampleIndex <= 1; sampleIndex++)
+            {
+                Vector2 samplePosition = centreMapPosition
+                                         + lateral * halfWidth * sampleIndex;
+                if (levelAsset.SampleStaticWaterDepth(samplePosition)
+                    > passableDepth + 0.0001f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryAnalyzeSurface(
+            Vector2 center,
+            Vector2 forward,
+            out SurfaceAnalysis analysis)
+        {
+            analysis = default;
+            if (forward.sqrMagnitude < 0.000001f)
+                return false;
+
+            forward.Normalize();
+            Vector2 right = new Vector2(forward.y, -forward.x);
+            int longitudinalSamples = EnsureOdd(footprintLongitudinalSamples, 3, 11);
+            int lateralSamples = EnsureOdd(footprintLateralSamples, 3, 11);
+            float halfLength = robotFootprintLengthMeters * 0.5f;
+            float halfWidth = robotFootprintWidthMeters * 0.5f;
+            int sampleCount = longitudinalSamples * lateralSamples;
+            float heightSum = 0f;
+            float heightSquaredSum = 0f;
+            float longitudinalHeightSum = 0f;
+            float lateralHeightSum = 0f;
+            float longitudinalSquaredSum = 0f;
+            float lateralSquaredSum = 0f;
+
+            for (int longitudinalIndex = 0;
+                 longitudinalIndex < longitudinalSamples;
+                 longitudinalIndex++)
+            {
+                float longitudinal = Mathf.Lerp(
+                    -halfLength,
+                    halfLength,
+                    longitudinalIndex / (float)(longitudinalSamples - 1));
+
+                for (int lateralIndex = 0;
+                     lateralIndex < lateralSamples;
+                     lateralIndex++)
+                {
+                    float lateral = Mathf.Lerp(
+                        -halfWidth,
+                        halfWidth,
+                        lateralIndex / (float)(lateralSamples - 1));
+                    Vector2 samplePosition = center
+                                             + forward * longitudinal
+                                             + right * lateral;
+                    if (!map.TrySampleMapPosition(samplePosition, out float height))
+                        return false;
+
+                    heightSum += height;
+                    heightSquaredSum += height * height;
+                    longitudinalHeightSum += longitudinal * height;
+                    lateralHeightSum += lateral * height;
+                    longitudinalSquaredSum += longitudinal * longitudinal;
+                    lateralSquaredSum += lateral * lateral;
+                }
+            }
+
+            float forwardGradient = longitudinalHeightSum /
+                                    Mathf.Max(0.000001f, longitudinalSquaredSum);
+            float lateralGradient = lateralHeightSum /
+                                    Mathf.Max(0.000001f, lateralSquaredSum);
+            float meanHeight = heightSum / sampleCount;
+            float regressionError = heightSquaredSum
+                                    - heightSum * meanHeight
+                                    - forwardGradient * longitudinalHeightSum
+                                    - lateralGradient * lateralHeightSum;
+            float surfaceRoughness = Mathf.Sqrt(
+                Mathf.Max(0f, regressionError) / sampleCount);
+            float signedDirectionalSlope = Mathf.Atan(forwardGradient) * Mathf.Rad2Deg;
+            float maximumSurfaceSlope = Mathf.Atan(
+                Mathf.Sqrt(
+                    forwardGradient * forwardGradient
+                    + lateralGradient * lateralGradient)) * Mathf.Rad2Deg;
+            Vector2 heightGradient = forward * forwardGradient
+                                     + right * lateralGradient;
+            Vector2 downhillMapDirection = heightGradient.sqrMagnitude > 0.000001f
+                ? -heightGradient.normalized
+                : Vector2.zero;
+
+            if (!TryMeasureMaximumStepResidual(
+                    center,
+                    forward,
+                    right,
+                    forwardGradient,
+                    out float maximumStepResidual))
+            {
+                return false;
+            }
+
+            analysis = new SurfaceAnalysis(
+                signedDirectionalSlope,
+                maximumSurfaceSlope,
+                maximumStepResidual,
+                surfaceRoughness,
+                downhillMapDirection);
+            return true;
+        }
+
+        private bool TryMeasureMaximumStepResidual(
+            Vector2 center,
+            Vector2 forward,
+            Vector2 right,
+            float fittedForwardGradient,
+            out float maximumResidual)
+        {
+            maximumResidual = 0f;
+            float length = Mathf.Max(0.25f, robotFootprintLengthMeters);
+            float width = Mathf.Max(0.25f, robotFootprintWidthMeters);
+            int segments = Mathf.Max(
+                1,
+                Mathf.CeilToInt(length / Mathf.Max(0.1f, stepProbeSpacingMeters)));
+            int lateralSamples = EnsureOdd(stepLateralSamples, 1, 9);
+            float actualSpacing = length / segments;
+            HeightMapLevelAsset levelAsset = map != null
+                ? map.LevelAsset
+                : null;
+            float preserveLargeStepHeight = levelAsset != null
+                ? Mathf.Max(0f, levelAsset.PreserveLargeStepHeightMeters)
+                : 0f;
+            float confirmationDistance = levelAsset != null
+                ? Mathf.Max(
+                    0f,
+                    levelAsset.LargeStepConfirmationDistanceMeters)
+                : 0f;
+            // The filtered channel handles ordinary steps. A raw spike is only
+            // restored as a blocker when the height difference is still present
+            // beyond the suspected transition on most of the swept lanes.
+            bool preservePersistentLargeSteps = levelAsset != null
+                                                && levelAsset.DetailSmoothingSigmaMeters
+                                                > 0.0001f
+                                                && preserveLargeStepHeight
+                                                > 0.0001f;
+
+            Vector2 footprintBack = center - forward * (length * 0.5f);
+            for (int lateralIndex = 0; lateralIndex < lateralSamples; lateralIndex++)
+            {
+                float lateral = lateralSamples == 1
+                    ? 0f
+                    : Mathf.Lerp(
+                        -width * 0.5f,
+                        width * 0.5f,
+                        lateralIndex / (float)(lateralSamples - 1));
+                Vector2 previousPosition = footprintBack + right * lateral;
+                if (!map.TrySampleDetailMapPosition(
+                        previousPosition,
+                        out stepPreviousHeightScratch[lateralIndex]))
+                {
+                    return false;
+                }
+
+                if (preservePersistentLargeSteps
+                    && !map.TrySampleRawDetailMapPosition(
+                        previousPosition,
+                        out stepRawPreviousHeightScratch[lateralIndex]))
+                {
+                    return false;
+                }
+            }
+
+            for (int segmentIndex = 1; segmentIndex <= segments; segmentIndex++)
+            {
+                float forwardOffset = segmentIndex * actualSpacing;
+                for (int lateralIndex = 0;
+                     lateralIndex < lateralSamples;
+                     lateralIndex++)
+                {
+                    float lateral = lateralSamples == 1
+                        ? 0f
+                        : Mathf.Lerp(
+                            -width * 0.5f,
+                            width * 0.5f,
+                            lateralIndex / (float)(lateralSamples - 1));
+                    Vector2 currentPosition = footprintBack
+                                              + forward * forwardOffset
+                                              + right * lateral;
+                    if (!map.TrySampleDetailMapPosition(
+                            currentPosition,
+                            out float currentHeight))
+                    {
+                        return false;
+                    }
+
+                    float measuredHeightChange = currentHeight
+                                                 - stepPreviousHeightScratch[lateralIndex];
+                    float expectedSlopeChange = fittedForwardGradient * actualSpacing;
+                    stepResidualScratch[lateralIndex] = Mathf.Abs(
+                        measuredHeightChange - expectedSlopeChange);
+                    stepPreviousHeightScratch[lateralIndex] = currentHeight;
+
+                    if (preservePersistentLargeSteps)
+                    {
+                        if (!map.TrySampleRawDetailMapPosition(
+                                currentPosition,
+                                out float currentRawHeight))
+                        {
+                            return false;
+                        }
+
+                        float measuredRawHeightChange = currentRawHeight
+                            - stepRawPreviousHeightScratch[lateralIndex];
+                        stepRawResidualScratch[lateralIndex] = Mathf.Abs(
+                            measuredRawHeightChange - expectedSlopeChange);
+                        stepRawPreviousHeightScratch[lateralIndex] =
+                            currentRawHeight;
+                    }
+                }
+
+                SortAscending(stepResidualScratch, lateralSamples);
+                float medianResidual = stepResidualScratch[lateralSamples / 2];
+                maximumResidual = Mathf.Max(maximumResidual, medianResidual);
+
+                if (!preservePersistentLargeSteps)
+                    continue;
+
+                SortAscending(stepRawResidualScratch, lateralSamples);
+                float medianRawResidual =
+                    stepRawResidualScratch[lateralSamples / 2];
+                if (medianRawResidual <= maximumStepHeightMeters)
+                    continue;
+
+                Vector2 transitionCenter = footprintBack
+                                           + forward * (
+                                               forwardOffset
+                                               - actualSpacing * 0.5f);
+                if (TryConfirmPersistentLargeRawStep(
+                        transitionCenter,
+                        forward,
+                        right,
+                        width,
+                        lateralSamples,
+                        actualSpacing,
+                        confirmationDistance,
+                        preserveLargeStepHeight,
+                        out float confirmedRawHeightDifference))
+                {
+                    maximumResidual = Mathf.Max(
+                        maximumResidual,
+                        confirmedRawHeightDifference);
+                }
+            }
+
+            return true;
+        }
+
+        private bool TryConfirmPersistentLargeRawStep(
+            Vector2 transitionCenter,
+            Vector2 forward,
+            Vector2 right,
+            float width,
+            int lateralSamples,
+            float actualSpacing,
+            float confirmationDistance,
+            float requiredHeightDifference,
+            out float confirmedHeightDifference)
+        {
+            confirmedHeightDifference = 0f;
+            float halfSpan = actualSpacing * 0.5f + confirmationDistance;
+
+            for (int lateralIndex = 0;
+                 lateralIndex < lateralSamples;
+                 lateralIndex++)
+            {
+                float lateral = lateralSamples == 1
+                    ? 0f
+                    : Mathf.Lerp(
+                        -width * 0.5f,
+                        width * 0.5f,
+                        lateralIndex / (float)(lateralSamples - 1));
+                Vector2 lateralOffset = right * lateral;
+                Vector2 beforePosition = transitionCenter
+                                         - forward * halfSpan
+                                         + lateralOffset;
+                Vector2 afterPosition = transitionCenter
+                                        + forward * halfSpan
+                                        + lateralOffset;
+                if (!map.TrySampleRawDetailMapPosition(
+                        beforePosition,
+                        out float beforeHeight)
+                    || !map.TrySampleRawDetailMapPosition(
+                        afterPosition,
+                        out float afterHeight))
+                {
+                    return false;
+                }
+
+                stepRawResidualScratch[lateralIndex] = Mathf.Abs(
+                    afterHeight - beforeHeight);
+            }
+
+            SortAscending(stepRawResidualScratch, lateralSamples);
+            confirmedHeightDifference =
+                stepRawResidualScratch[lateralSamples / 2];
+            return confirmedHeightDifference >= requiredHeightDifference;
+        }
+
+        private static void SortAscending(float[] values, int count)
+        {
+            for (int index = 1; index < count; index++)
+            {
+                float value = values[index];
+                int insertionIndex = index - 1;
+                while (insertionIndex >= 0 && values[insertionIndex] > value)
+                {
+                    values[insertionIndex + 1] = values[insertionIndex];
+                    insertionIndex--;
+                }
+
+                values[insertionIndex + 1] = value;
+            }
+        }
+
+        private SlopeTraversalResult CreateResult(
+            bool isPassable,
+            bool requiresHardStop,
+            UphillSlopeLevel uphillLevel,
+            float slopeAngle,
+            float signedSlopeAngle,
+            float maximumUphillAngle,
+            float maximumDownhillAngle,
+            float maximumSurfaceSlopeAngle,
+            float maximumStepHeight,
+            float surfaceRoughness,
+            Vector2 downhillMapDirection,
+            TraversalBlockReason blockReason)
+        {
+            return new SlopeTraversalResult(
+                true,
+                isPassable,
+                requiresHardStop,
+                uphillLevel,
+                slopeAngle,
+                signedSlopeAngle,
+                maximumUphillAngle,
+                maximumDownhillAngle,
+                maximumSurfaceSlopeAngle,
+                maximumStepHeight,
+                surfaceRoughness,
+                map != null
+                    ? map.MapDirectionToWorldDirection(downhillMapDirection)
+                    : Vector2.zero,
+                blockReason);
+        }
+
+        private static int EnsureOdd(int value, int minimum, int maximum)
+        {
+            value = Mathf.Clamp(value, minimum, maximum);
+            if ((value & 1) == 0)
+                value = Mathf.Min(maximum, value + 1);
+            return value;
+        }
+
+        private void OnValidate()
+        {
+            robotFootprintLengthMeters = Mathf.Max(0.25f, robotFootprintLengthMeters);
+            robotFootprintWidthMeters = Mathf.Max(0.25f, robotFootprintWidthMeters);
+            footprintLongitudinalSamples = EnsureOdd(
+                footprintLongitudinalSamples,
+                3,
+                11);
+            footprintLateralSamples = EnsureOdd(footprintLateralSamples, 3, 11);
+            levelOneMaximumUphillAngle = Mathf.Clamp(
+                levelOneMaximumUphillAngle,
+                0f,
+                88f);
+            levelThreeUphillAngle = Mathf.Clamp(
+                levelThreeUphillAngle,
+                levelOneMaximumUphillAngle + 0.1f,
+                89f);
+            maximumDownhillSlopeAngle = Mathf.Clamp(
+                maximumDownhillSlopeAngle,
+                0f,
+                89f);
+            minimumUnsafeDownhillLengthMeters = Mathf.Max(
+                0f,
+                minimumUnsafeDownhillLengthMeters);
+            maximumStepHeightMeters = Mathf.Max(0f, maximumStepHeightMeters);
+            stepProbeSpacingMeters = Mathf.Max(0.1f, stepProbeSpacingMeters);
+            stepLateralSamples = EnsureOdd(stepLateralSamples, 1, 9);
+            movementProbeDistanceMeters = Mathf.Max(
+                robotFootprintLengthMeters,
+                movementProbeDistanceMeters);
+            pathEvaluationSpacingMeters = Mathf.Max(0.1f, pathEvaluationSpacingMeters);
+            hardStopProbeDistanceMeters = Mathf.Max(
+                0.25f,
+                hardStopProbeDistanceMeters);
+            robotObstacleCollisionRadiusMeters = Mathf.Max(
+                0.05f,
+                robotObstacleCollisionRadiusMeters);
+            obstacleContactSkinMeters = Mathf.Max(
+                0f,
+                obstacleContactSkinMeters);
+        }
+
+        private readonly struct SurfaceAnalysis
+        {
+            public float SignedDirectionalSlopeAngle { get; }
+            public float MaximumSurfaceSlopeAngle { get; }
+            public float MaximumStepResidualHeight { get; }
+            public float SurfaceRoughness { get; }
+            public Vector2 DownhillMapDirection { get; }
+
+            public SurfaceAnalysis(
+                float signedDirectionalSlopeAngle,
+                float maximumSurfaceSlopeAngle,
+                float maximumStepResidualHeight,
+                float surfaceRoughness,
+                Vector2 downhillMapDirection)
+            {
+                SignedDirectionalSlopeAngle = signedDirectionalSlopeAngle;
+                MaximumSurfaceSlopeAngle = maximumSurfaceSlopeAngle;
+                MaximumStepResidualHeight = maximumStepResidualHeight;
+                SurfaceRoughness = surfaceRoughness;
+                DownhillMapDirection = downhillMapDirection;
+            }
+        }
+    }
+}

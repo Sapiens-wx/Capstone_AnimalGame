@@ -1,0 +1,467 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4839072109466370475
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1075418996823516578}
+  - component: {fileID: 5167503192331160194}
+  - component: {fileID: 6754498989903123456}
+  - component: {fileID: 6754498989903123999}
+  - component: {fileID: 7410917293342164201}
+  - component: {fileID: 9016834624170285310}
+  - component: {fileID: 8127351094236507811}
+  - component: {fileID: 6754498989903123457}
+  - component: {fileID: 3540108170491067500}
+  - component: {fileID: 6128041736594210834}
+  - component: {fileID: 775533119844220011}
+  m_Layer: 0
+  m_Name: RobotMarker
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1075418996823516578
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5167503192331160194
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd26522b95a63ad47912ec0bb2cdf8c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  overallMotionScale: 0.88
+  forwardSpeed: 4.2
+  reverseSpeed: 3
+  turnSpeed: 60
+  turnAcceleration: 60
+  turnDeceleration: 240
+  useTriggerThrottleGamepadMode: 1
+  stickDeadZone: 0.15
+  triggerDeadZone: 0.05
+  invertTriggerThrottle: 0
+  launchAcceleration: 2.2
+  runningAcceleration: 4.8
+  coastDeceleration: 5
+  brakingDeceleration: 8
+  levelTwoMinimumTopSpeedMultiplier: 0.55
+  levelTwoMaximumSlideSpeedFraction: 0.18
+  levelTwoSlideAcceleration: 2.2
+  levelTwoPhysicalDownhillWeight: 0.3
+  levelTwoLateralSlipRetention: 0.2
+  levelTwoLateralGripAcceleration: 12
+  levelThreeForwardSpeedMultiplier: 0.5
+  levelThreeSlideSpeedFraction: 0.55
+  levelThreePhysicalDownhillWeight: 0.85
+  levelThreeSlideAcceleration: 10
+  levelThreeLateralDriftSpeedFraction: 0.65
+  levelThreeInitialLateralDriftStrength: 0.3
+  levelThreeDriftDirectionChangeInterval: 0.55
+  levelThreeDriftSmoothing: 0.12
+  useLevelThreeClimbFailureSequence: 1
+  levelThreeGripDuration: 0.35
+  levelThreeGripForwardSpeedMultiplier: 0.75
+  levelThreeGripSlideMultiplier: 0.25
+  levelThreeStrainDuration: 0.45
+  levelThreeStrainEndForwardSpeedMultiplier: 0.25
+  levelThreeSlipDuration: 0.45
+  levelThreeAngularDriftSpeed: 90
+  levelThreeAngularDriftAcceleration: 180
+  levelThreeAngularRecoveryAcceleration: 420
+  automaticallyAlignDownhillAfterLevelThreeSlip: 1
+  downhillHeadingAlignmentSpeed: 90
+  downhillHeadingRecoveryDuration: 0.45
+  downhillSlideLateralDamping: 18
+  terrainVelocityRecoveryAcceleration: 4
+  downhillBoostStartAngle: 4
+  downhillFullBoostAngle: 35
+  downhillMaximumSpeedMultiplier: 1.5
+  downhillAccelerationBonus: 3
+  shallowWaterSpeedReduction: 0.2
+  deepWaterSpeedReduction: 0.3
+--- !u!114 &6754498989903123456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1c31e825b5b4e79b2bdf2d9207d8c63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  centerOfMassHeightMeters: 0.9
+  usableSupportFraction: 0.98
+  slopeBalanceInfluence: 0.65
+  accelerationForFullOffset: 8
+  inertiaInfluence: 0.08
+  accelerationSmoothingTime: 0.22
+  maximumMeasuredAcceleration: 30
+  maximumCounterbalance: 0.6
+  rightStickDeadZone: 0.2
+  counterbalanceInputExponent: 1.6
+  counterbalanceResponseTime: 0.16
+  counterbalanceReturnTime: 0.34
+  balanceSpringFrequency: 2
+  balanceDampingRatio: 1.3
+  maximumNormalizedOffset: 1.2
+  edgeResistanceStart: 0.72
+  edgeResistanceStrength: 1.8
+  influenceMovement: 1
+  movementInfluenceStart: 0.75
+  minimumDriveAuthority: 0.68
+  minimumSteeringAuthority: 0.45
+  cameraFollowOffsetAtRing: 1.25
+--- !u!114 &6754498989903123999
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d30202cbe3874c039669cdcbf63acf51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  keyboardToggleKey: 112
+  keyboardFocusAndShutterKey: 32
+  rightStickDeadZone: 0.2
+  rightStickExponent: 1.35
+  guideOriginSideOffset: 0
+  guideOriginForwardDistance: 0.6
+  guideHalfAngleDegrees: 28.88889
+  minimumAimDistance: 2
+  maximumAimDistance: 6.066667
+  lateralFramePadding: 0.2
+  lateralAimSpeed: 5
+  depthAimSpeed: 4
+  focusDuration: 0.75
+  focusCancelBlendDuration: 0.25
+  focusZoomMagnification: 1.3
+  normalCameraAimFollowFraction: 0.5
+  focusedCameraAimFollowFraction: 1
+  focusRetargetCancelDeadZone: 0.3
+  shutterFlashInDuration: 0.04
+  shutterFlashHoldDuration: 0.02
+  shutterFlashOutDuration: 0.14
+  entryDuration: 0.7
+  exitDuration: 0.6
+  photoCameraPositionDamping: 0.15
+  returnCameraPositionDamping: 0.15
+  returnCameraBlendDuration: 0.45
+  entryShakePositionAmplitude: 0.02
+  entryShakeRotationAmplitude: 0.15
+  entryShakeFrequency: 5
+--- !u!114 &7410917293342164201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b84e64a953154db2a09c7de7e55c1731, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableHeightMotionDetection: 1
+  virtualGravityMetersPerSecondSquared: 9.81
+  minimumTakeoffPlanarSpeed: 0.65
+  minimumGroundFallAwaySpeed: 1.25
+  takeoffClearanceMeters: 0.025
+  landingClearanceMeters: 0.02
+  minimumAirborneDurationSeconds: 0.055
+  recentAirborneMemorySeconds: 0.6
+  minimumLandingImpactSpeed: 0.45
+  fullLandingImpactSpeed: 3.6
+  landingImpactStrengthExponent: 0.7
+  groundVerticalSpeedSmoothingTime: 0.06
+  maximumGroundVerticalSpeed: 20
+  maximumVerticalAcceleration: 60
+--- !u!114 &9016834624170285310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f06a9e3d2c7b4a1598d1e64c5b20f7a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotHeightMeters: 1.8
+  gravityMetersPerSecondSquared: 9.81
+  effectiveInertiaFactor: 1.3
+  impactEnergyRetention: 0.42
+  rollingResistanceCoefficient: 0.05
+  energySafetyMargin: 0.05
+  minimumContinuationSpeed: 0.25
+  firstTipCommitSpeed: 0.3
+  balanceOverflowEnergyScale: 0.25
+  minimumStepMotionSpeed: 0.8
+  minimumStepDuration: 0.18
+  maximumStepDuration: 0.8
+  finalRockDuration: 1.2
+  finalRockMinimumAngleDegrees: 6
+  finalRockMaximumAngleDegrees: 18
+  finalRockBalanceSwingDegrees: 14
+  outerBalanceMagnitude: 1.66
+  minimumSwingMagnitude: 0.98
+  inwardSwingSharpness: 8
+  lateralSwingDegrees: 12
+  laterStepSwingDamping: 0.08
+  tumbleBalanceArcOutwardScale: 0.14
+  tumbleBalanceLandingKick: 0.12
+  tumbleBalanceLandingReboundDuration: 0.18
+  uprightBalanceRecoveryDuration: 0.58
+  uprightBalanceRecoveryOvershootRatio: 0.12
+  uprightBalanceRecoveryOscillationCount: 1
+  uprightBalanceVelocityCarrySeconds: 0.08
+  finalRockRecoveryInfluence: 0.5
+  maximumGroundedDetailStepMeters: 1.8
+  maximumStepCount: 12
+  maximumTumbleDuration: 10
+--- !u!114 &8127351094236507811
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f3a986c5d3441da8c621bb09c842e7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  supportDirectionToleranceDegrees: 18
+  minimumArmPushMagnitude: 0.9
+  requiredEffortPushFrequencyPerSecond: 3
+  effortPushWindowSeconds: 1
+  effortCadenceLossGraceSeconds: 0.55
+  armDirectionLossGraceSeconds: 0.14
+  balancePullDuration: 3
+  rightStickDeadZone: 0.2
+  minimumEffortPushMagnitude: 0.65
+  effortPushRearmMagnitude: 0.3
+  effortPushToleranceDegrees: 38
+  recoveredInsideMagnitude: 0.88
+  failedReturnDuration: 0.8
+  chassisRightingDuration: 0.46
+  uprightLandingBalanceMagnitude: 0.82
+  oppositeInertiaMagnitude: 1.5
+  oppositeInertiaDuration: 1.2
+  guideDistanceOfBalanceRadius: 0.8
+  guideWidthOfBodyDiameter: 1.05
+  guideDepthOfBodyDiameter: 0.12
+  guideLineWidthPixels: 2.2
+  guideFadeDuration: 0.14
+  guideNeutralColor: {r: 0.45, g: 0.9, b: 1, a: 0.34}
+  guideReadyColor: {r: 1, g: 0.82, b: 0.18, a: 0.72}
+--- !u!114 &6754498989903123457
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7f9b1c263da4b20b95f52c0a6d98931, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showBalanceDisplay: 1
+  ringColor: {r: 0.92, g: 0.98, b: 1, a: 1}
+  lineColor: {r: 0.92, g: 0.98, b: 1, a: 1}
+  pointColor: {r: 0.92, g: 0.98, b: 1, a: 1}
+  centeredPointAlpha: 0.084
+  edgePointAlpha: 0.8
+  centeredGuideAlpha: 0.015
+  edgeGuideAlpha: 0.35
+  controlRingDiameterPixels: 150
+  pointTravelRangePixels: 75
+  lineStartInsetPixels: 0
+  lineEndInsetPixels: 0
+  displayedOverflowLimit: 1.9
+  ringThicknessPixels: 1
+  lineThicknessPixels: 1.1
+  minimumPointRadiusPixels: 2.2
+  maximumPointRadiusPixels: 8.5
+  fallenPointCrossSizeOfPointDiameter: 1.6
+  fallenPointCrossOutlinePixels: 1.25
+  tumbleBalanceOpacityMultiplier: 1.2
+  selfRightingBalancePointColor: {r: 1, g: 0.78, b: 0.12, a: 1}
+  circleSegments: 64
+  canvasSortingOrder: 40
+  showTumbleBalanceTrail: 1
+  tumbleBalanceTrailCount: 5
+  tumbleBalanceTrailLifetime: 0.16
+  tumbleBalanceTrailAlpha: 0.38
+  tumbleBalanceTrailEndScale: 0.55
+--- !u!114 &3540108170491067500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9872b6121e68dda46b20083085d5b46d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotBodySprite: {fileID: 21300000, guid: d8a7a1ecebca36f4ba3b3f2b2c222603, type: 3}
+  robotBodyFillSprite: {fileID: 21300000, guid: b202381eb90f91040a281a4f4577b9e1, type: 3}
+  bodyDiameter: 0.72
+  visualBodyDiameterRatio: 0.85
+  bodyArtworkVisibleDiameterPixels: 72.5
+  bodyFillArtworkVisibleDiameterPixels: 82.5
+  keepMarkerSizeConstantOnScreen: 1
+  bodyScreenDiameterPixels: 45
+  bodyFillDiameterRatio: 1
+  bodyFillColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
+  matchBodyFillToCameraBackground: 1
+  bodyOutlineColor: {r: 0.89622635, g: 0.97395486, b: 1, a: 1}
+  visualDepthOffset: -0.1
+  indicatorSprite: {fileID: 21300000, guid: 8855a116fe17eeb4c913dbee10e1dc04, type: 3}
+  indicatorScale: 1.35
+  indicatorRotationOffsetDegrees: 0
+  indicatorBodyInsetRatio: 0.2
+  indicatorColor: {r: 0.92, g: 0.98, b: 1, a: 1}
+  indicatorArmModeFadeOutDuration: 0.16
+  indicatorArmModeFadeInDuration: 0.2
+  indicatorTumbleEdgeOffsetRatio: 0.18
+  indicatorMinimumProjectedScale: 0.04
+  indicatorTumbleFadeExponent: 0.72
+  cameraFirstPartSprite: {fileID: 21300000, guid: ad04dbb83f19b354390faaa3f278c9b3, type: 3}
+  cameraSecondPartSprite: {fileID: 21300000, guid: 07236b203f7e05344a755de812a923dd, type: 3}
+  photoCameraArtworkScale: 0.7
+  photoCameraBodyOverlapRatio: 0.035
+  photoCameraHeadRevealStart: 0.3
+  photoCameraColor: {r: 0.92, g: 0.98, b: 1, a: 1}
+  rolloverSignSprite: {fileID: 21300000, guid: c645d70685587da4097b880ac22a0cae, type: 3}
+  rolloverSignDiameterRatio: 1
+  rolloverSignVisibleDiameterPixels: 60
+  rolloverSignColor: {r: 1, g: 1, b: 1, a: 1}
+  finalRockVisualOffsetRatio: 0.045
+  showDriveBob: 0
+  driveBobAmplitude: 0.1
+  driveBobCyclesPerMeter: 0.32
+  driveBobFullStrengthSpeed: 1.25
+  driveBobEnterSmoothing: 0.12
+  driveBobExitSmoothing: 0.2
+  driveBobPositionSmoothing: 0.06
+  driveBobAmplitudeRandomness: 0.18
+  driveBobFrequencyRandomness: 0.22
+  driveBobNoiseAmplitudeRatio: 0.12
+  driveBobNoiseFrequency: 0.65
+  levelTwoDriveBobMultiplier: 1.4
+  levelThreeGripDriveBobMultiplier: 1.8
+  showMotionTail: 0
+--- !u!114 &6128041736594210834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5e4f83a69d9471aa4d52f48c9e4162b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  keyboardArmKey: 301
+  leftStickDeadZone: 0.016
+  robotArmOneSprite: {fileID: 21300000, guid: 0e7ef59a589ff6a46be1369ef2c82689, type: 3}
+  robotArmTwoSprite: {fileID: 21300000, guid: 904198a61bfc02c499c4214c64930010, type: 3}
+  robotHandSprite: {fileID: 21300000, guid: 3bf259085e8413645b743733fc0e4963, type: 3}
+  armColor: {r: 1, g: 1, b: 1, a: 1}
+  artworkScale: 0.7
+  artworkThicknessScale: 2.57
+  socketRadiusOfBody: 1
+  maximumReachOfBalanceRadius: 0.808
+  maximumExtensionOffset: 0
+  maximumExtensionOfBodyDiameter: 0.5
+  connectorLengthOfBodyDiameter: 0.2
+  connectorDirectionDegrees: 0
+  perpendicularAngleDegrees: 90
+  connectorThicknessScale: 2.57
+  connectorExtendDuration: 0.24
+  connectorRetractDuration: 0.2
+  outerArmExtendStartNormalized: 0.55
+  connectorRetractStartOuterNormalized: 0.4
+  extendDuration: 0.4
+  retractDuration: 0.3
+  secondArmDelay: 0.03
+  aimSmoothingTime: 0.2
+  socketPositionSmoothingTime: 0.12
+  aimEnterMagnitude: 0.12
+  aimExitMagnitude: 0.06
+  fullAimMagnitude: 0.7
+  aimBlendExponent: 1.6
+  maximumAimSpeedDegreesPerSecond: 240
+  lengthSmoothingTime: 0.07
+--- !u!114 &775533119844220011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b71342c4956646a5a854940323903bf0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mechanicalArmSprite: {fileID: 21300000, guid: 904198a61bfc02c499c4214c64930010, type: 3}
+  biologicalRadarSprite: {fileID: 21300000, guid: cb154e293d3de3649b4ef2ad5f50dca3, type: 3}
+  biologicalSignalClipShader: {fileID: 4800000, guid: aa45bb6104a64fe6a10bda70603de7ef, type: 3}
+  scannerArtworkColor: {r: 1, g: 1, b: 1, a: 1}
+  mechanicalArmArtworkScale: 0.9
+  mechanicalArmLengthMultiplier: 0.68
+  radarArtworkScale: 0.72
+  signalFormationStartCharge01: 0.62
+  readyRingPulseAmplitude: 0.07
+  readyRingPulseFrequency: 2.5
+  deployedHoldDuration: 0.12
+  retractionDuration: 0.25
+  signalPointCount: 120
+  automaticAngularCoverage: 1
+  maximumPointCount: 120
+  pointCoverageOverlap: 0.1
+  formedRingRadius: 0.2
+  signalSpeed: 6.58
+  maximumSignalDistance: 20
+  signalPointDiameter: 0.1
+  signalHeadCoreRatio: 0.377
+  signalHeadPulseAmount: 0.06
+  signalHeadPulseFrequency: 4.5
+  scanWaveHalfThickness: 0.14
+  signalClipSoftnessPixels: 1.5
+  temporaryRevealDuration: 1.17
+  biologicalSignalColor: {r: 1, g: 0.78039217, b: 0.12156863, a: 1}

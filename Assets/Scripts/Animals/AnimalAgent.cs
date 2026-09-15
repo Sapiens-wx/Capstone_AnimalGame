@@ -1,0 +1,346 @@
+using System.Collections.Generic;
+using AnimalGame.MapTest;
+using AnimalGame.Rendering;
+using UnityEngine;
+
+namespace AnimalGame.Animals
+{
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(HeightMapPlacedObject))]
+    [RequireComponent(typeof(AnimalMotor))]
+    [RequireComponent(typeof(AnimalPerception))]
+    [RequireComponent(typeof(AnimalSoundEmitter))]
+    [AddComponentMenu("Animal Game/Animals/Animal Agent")]
+    public sealed class AnimalAgent : MonoBehaviour
+    {
+        private static readonly HashSet<AnimalAgent> activeAgents =
+            new HashSet<AnimalAgent>();
+
+        [SerializeField] private AnimalSpeciesConfig config;
+        [SerializeField] private AnimalBehaviourSet behaviourSet;
+        [SerializeField] private AnimalPlaceholderView placeholderView;
+        [SerializeField] private AnimalSoundEmitter soundEmitter;
+
+        public AnimalSpeciesConfig Config => config;
+        public static IEnumerable<AnimalAgent> ActiveAgents => activeAgents;
+        public AnimalMotor Motor { get; private set; }
+        public AnimalPerception Perception { get; private set; }
+        public AnimalPlaceholderView PlaceholderView => placeholderView;
+        public AnimalSoundEmitter SoundEmitter => soundEmitter;
+        public MapTestSceneController Map { get; private set; }
+        public Vector2 HomeMapPosition { get; private set; }
+        public AnimalState CurrentState { get; private set; } = AnimalState.Daily;
+        public bool PerceptionSuppressed { get; private set; }
+        public bool IsHidden => CurrentState == AnimalState.Hiding
+                                || CurrentState == AnimalState.Despawned;
+        public bool IsPresent => initialized && !IsHidden;
+
+        private bool initialized;
+        private float reactionCountdown;
+        private float outsideAlertTimer;
+        private float detectionGraceRemaining;
+        private SpriteRenderer[] playerUiVisibilityRenderers;
+
+        private void OnEnable()
+        {
+            CachePlayerUiVisibilityRenderers();
+            if (gameObject.scene.IsValid())
+                activeAgents.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            activeAgents.Remove(this);
+        }
+
+        private void OnDestroy()
+        {
+            activeAgents.Remove(this);
+            PlayerUiOrganicVisibility.UnregisterRenderers(
+                playerUiVisibilityRenderers);
+        }
+
+        private void CachePlayerUiVisibilityRenderers()
+        {
+            playerUiVisibilityRenderers =
+                GetComponentsInChildren<SpriteRenderer>(true);
+            PlayerUiOrganicVisibility.RegisterRenderers(
+                playerUiVisibilityRenderers);
+        }
+
+        private void Start()
+        {
+            TryInitialize();
+        }
+
+        private void Update()
+        {
+            if (!initialized && !TryInitialize())
+                return;
+
+            float deltaTime = Time.deltaTime;
+            detectionGraceRemaining = Mathf.Max(
+                0f,
+                detectionGraceRemaining - deltaTime);
+            if (CurrentState == AnimalState.Daily
+                && !PerceptionSuppressed
+                && detectionGraceRemaining <= 0f
+                && Perception.TickDetection(deltaTime))
+            {
+                EnterCurious();
+            }
+
+            switch (CurrentState)
+            {
+                case AnimalState.Daily:
+                    behaviourSet.TickDaily(deltaTime);
+                    break;
+                case AnimalState.Curious:
+                    TickCurious(deltaTime);
+                    break;
+                case AnimalState.Fleeing:
+                    behaviourSet.TickFleeing(deltaTime);
+                    break;
+                case AnimalState.Aggressive:
+                    behaviourSet.TickAggressive(deltaTime);
+                    break;
+                case AnimalState.Hiding:
+                    behaviourSet.TickHiding(deltaTime);
+                    break;
+            }
+
+            if (CurrentState != AnimalState.Despawned)
+            {
+                Motor.Tick(deltaTime);
+                soundEmitter?.Tick(deltaTime);
+            }
+        }
+
+        public void ConfigureEditorDefaults(
+            AnimalSpeciesConfig speciesConfig,
+            AnimalBehaviourSet speciesBehaviour,
+            AnimalPlaceholderView view)
+        {
+            config = speciesConfig;
+            behaviourSet = speciesBehaviour;
+            placeholderView = view;
+        }
+
+        public void SetPerceptionSuppressed(bool suppressed)
+        {
+            PerceptionSuppressed = suppressed;
+        }
+
+        public void ReturnToDaily()
+        {
+            if (!initialized || CurrentState == AnimalState.Despawned)
+                return;
+
+            ExitCurrentState();
+            CurrentState = AnimalState.Daily;
+            PerceptionSuppressed = false;
+            detectionGraceRemaining = 0f;
+            outsideAlertTimer = 0f;
+            Perception.ResetDetection();
+            behaviourSet.EnterDaily();
+        }
+
+        public void BeginHiding()
+        {
+            if (!initialized
+                || CurrentState == AnimalState.Hiding
+                || CurrentState == AnimalState.Despawned)
+            {
+                return;
+            }
+
+            ExitCurrentState();
+            CurrentState = AnimalState.Hiding;
+            PerceptionSuppressed = true;
+            detectionGraceRemaining = 0f;
+            outsideAlertTimer = 0f;
+            Motor.Stop();
+            behaviourSet.EnterHiding();
+        }
+
+        public void CompleteHiding()
+        {
+            if (!initialized || CurrentState != AnimalState.Hiding)
+                return;
+
+            ExitCurrentState();
+            CurrentState = AnimalState.Daily;
+            PerceptionSuppressed = false;
+            detectionGraceRemaining = config.PostReappearGraceDurationSeconds;
+            outsideAlertTimer = 0f;
+            Perception.ResetDetection();
+            behaviourSet.EnterDaily();
+        }
+
+        public void Despawn()
+        {
+            if (CurrentState == AnimalState.Despawned)
+                return;
+
+            ExitCurrentState();
+            CurrentState = AnimalState.Despawned;
+            Motor.Stop();
+            gameObject.SetActive(false);
+        }
+
+        private bool TryInitialize()
+        {
+            if (initialized)
+                return true;
+            if (config == null)
+            {
+                Debug.LogError("Animal Agent has no species configuration.", this);
+                enabled = false;
+                return false;
+            }
+
+            HeightMapPlacedObject placedObject =
+                GetComponent<HeightMapPlacedObject>();
+            Map = placedObject != null ? placedObject.Map : null;
+            if (Map == null)
+                Map = FindObjectOfType<MapTestSceneController>();
+            if (Map == null || !Map.HasGeneratedMap
+                || !Map.TrySampleWorldPosition(
+                    transform.position,
+                    out Vector2 homePosition,
+                    out _))
+            {
+                return false;
+            }
+
+            Motor = GetComponent<AnimalMotor>();
+            Perception = GetComponent<AnimalPerception>();
+            if (behaviourSet == null)
+                behaviourSet = GetComponent<AnimalBehaviourSet>();
+            if (placeholderView == null)
+                placeholderView = GetComponent<AnimalPlaceholderView>();
+            if (soundEmitter == null)
+                soundEmitter = GetComponent<AnimalSoundEmitter>();
+            if (soundEmitter == null)
+                soundEmitter = gameObject.AddComponent<AnimalSoundEmitter>();
+            if (Motor == null || Perception == null || behaviourSet == null)
+            {
+                Debug.LogError(
+                    "Animal Agent is missing its motor, perception, or behaviour set.",
+                    this);
+                enabled = false;
+                return false;
+            }
+
+            HomeMapPosition = homePosition;
+            Motor.Initialize(Map, config);
+            Perception.Initialize(Map, config);
+            behaviourSet.Initialize(this);
+            soundEmitter.Initialize(this);
+            placeholderView?.RestoreVisibleAppearance();
+            initialized = true;
+            CurrentState = AnimalState.Daily;
+            detectionGraceRemaining = 0f;
+            behaviourSet.EnterDaily();
+            return true;
+        }
+
+        private void EnterCurious()
+        {
+            if (CurrentState != AnimalState.Daily)
+                return;
+
+            behaviourSet.ExitDaily();
+            CurrentState = AnimalState.Curious;
+            PerceptionSuppressed = false;
+            outsideAlertTimer = 0f;
+            reactionCountdown = config.ReactionIntervalSeconds;
+            Motor.Stop();
+            behaviourSet.EnterCurious();
+        }
+
+        private void TickCurious(float deltaTime)
+        {
+            Motor.Stop();
+            behaviourSet.TickCurious(deltaTime);
+
+            if (!Perception.TryGetPlayerProximity(
+                    out float proximity,
+                    out _))
+            {
+                outsideAlertTimer += deltaTime;
+                if (outsideAlertTimer >= config.CuriousLostPlayerDelaySeconds)
+                    ReturnToDaily();
+                return;
+            }
+
+            outsideAlertTimer = 0f;
+            reactionCountdown -= deltaTime;
+            if (reactionCountdown > 0f)
+                return;
+
+            reactionCountdown += config.ReactionIntervalSeconds;
+            float fleeChance = Mathf.Clamp01(
+                config.BaseFleeChancePerCheck
+                * Mathf.Lerp(1f, config.NearestFleeMultiplier, proximity));
+            float aggressionChance = behaviourSet.SupportsAggression
+                ? Mathf.Clamp01(
+                    config.BaseAggressionChancePerCheck
+                    * Mathf.Lerp(
+                        1f,
+                        config.NearestAggressionMultiplier,
+                        proximity))
+                : 0f;
+            float roll = Random.value;
+            if (roll < aggressionChance)
+            {
+                EnterAggressive();
+            }
+            else if (roll < aggressionChance + fleeChance)
+            {
+                EnterFleeing();
+            }
+        }
+
+        private void EnterFleeing()
+        {
+            behaviourSet.ExitCurious();
+            CurrentState = AnimalState.Fleeing;
+            PerceptionSuppressed = true;
+            Motor.Stop();
+            behaviourSet.EnterFleeing();
+        }
+
+        private void EnterAggressive()
+        {
+            behaviourSet.ExitCurious();
+            CurrentState = AnimalState.Aggressive;
+            PerceptionSuppressed = true;
+            Motor.Stop();
+            behaviourSet.EnterAggressive();
+        }
+
+        private void ExitCurrentState()
+        {
+            switch (CurrentState)
+            {
+                case AnimalState.Daily:
+                    behaviourSet?.ExitDaily();
+                    break;
+                case AnimalState.Curious:
+                    behaviourSet?.ExitCurious();
+                    break;
+                case AnimalState.Fleeing:
+                    behaviourSet?.ExitFleeing();
+                    break;
+                case AnimalState.Aggressive:
+                    behaviourSet?.ExitAggressive();
+                    break;
+                case AnimalState.Hiding:
+                    behaviourSet?.ExitHiding();
+                    break;
+            }
+        }
+
+    }
+}

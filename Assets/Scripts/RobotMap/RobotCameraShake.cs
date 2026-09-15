@@ -1,0 +1,2355 @@
+using System;
+using System.Runtime.InteropServices;
+using AnimalGame.MapTest;
+using UnityEngine;
+using Random = UnityEngine.Random;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+namespace AnimalGame.RobotMap
+{
+    [DefaultExecutionOrder(250)]
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(Camera))]
+    [RequireComponent(typeof(RobotCameraFollow))]
+    public sealed class RobotCameraShake : MonoBehaviour
+    {
+        [Header("General")]
+        [SerializeField] private bool enableCameraShake = true;
+
+        [Tooltip("Global multiplier applied once to all continuous vibration and event impacts.")]
+        [SerializeField, Range(0f, 3f)] private float globalIntensity = 1f;
+
+        [Tooltip("Maximum camera displacement in Unity world units after all shake sources are mixed.")]
+        [SerializeField, Min(0f)] private float maximumPositionOffset = 0.28f;
+
+        [Tooltip("Maximum clockwise or counter-clockwise shake angle.")]
+        [SerializeField, Range(0f, 12f)] private float maximumRotationDegrees = 4f;
+
+        [Tooltip("Maximum orthographic-size change as a fraction of the base camera size. 0.03 means three percent.")]
+        [SerializeField, Range(0f, 0.1f)] private float maximumZoomFraction = 0.03f;
+
+        [Header("Gamepad Rumble")]
+        [Tooltip("Sends vibration to the detected Xbox/XInput or native Sony gamepad using the final, visible screen-shake amplitude.")]
+        [SerializeField] private bool enableGamepadRumble = true;
+
+        [Tooltip("XInput controller slot for Xbox devices. Native Sony devices are selected from the Input System device list.")]
+        [SerializeField, Range(0, 3)] private int gamepadIndex;
+
+        [Tooltip("Camera position offset that maps to full controller vibration.")]
+        [SerializeField, Min(0.001f)] private float positionOffsetAtFullRumble = 0.16f;
+
+        [Tooltip("Camera rotation offset that maps to full controller vibration.")]
+        [SerializeField, Min(0.01f)] private float rotationDegreesAtFullRumble = 2.2f;
+
+        [Tooltip("Camera zoom offset fraction that maps to full controller vibration.")]
+        [SerializeField, Min(0.0001f)] private float zoomFractionAtFullRumble = 0.018f;
+
+        [Tooltip("Strength multiplier for the low-frequency motor, mainly driven by camera displacement and zoom impact.")]
+        [SerializeField, Range(0f, 2f)] private float lowFrequencyMotorMultiplier = 0.55f;
+
+        [Tooltip("Strength multiplier for the high-frequency motor, mainly driven by camera rotation and fine vibration.")]
+        [SerializeField, Range(0f, 2f)] private float highFrequencyMotorMultiplier = 0.45f;
+
+        [Tooltip("Fraction of camera position shake also sent to the high-frequency motor.")]
+        [SerializeField, Range(0f, 1f)] private float positionToHighFrequencyMotor = 0.35f;
+
+        [Tooltip("Non-linear response applied to visible screen-shake strength before driving the motors. Values above one suppress small everyday vibration while preserving large impacts.")]
+        [SerializeField, Range(0.5f, 3f)] private float rumbleResponseExponent = 1.45f;
+
+        [Tooltip("Additional motor-strength multiplier when the centre of mass reaches maximum imbalance.")]
+        [SerializeField, Range(1f, 5f)] private float fullImbalanceRumbleMultiplier = 2.6f;
+
+        [Tooltip("Shapes when the imbalance boost becomes prominent. Values above one reserve most of the boost for severe imbalance.")]
+        [SerializeField, Range(0.5f, 4f)] private float imbalanceRumbleExponent = 1.6f;
+
+        [Header("Severe Imbalance Rumble")]
+        [Tooltip("Enables a continuous controller warning once centre-of-mass displacement exceeds the severe threshold.")]
+        [SerializeField] private bool enableSevereImbalanceRumble = true;
+
+        [Tooltip("Normalized centre-of-mass displacement at which continuous warning vibration begins. 0.65 means sixty-five percent of the balance radius.")]
+        [SerializeField, Range(0f, 1f)] private float severeImbalanceRumbleThreshold = 0.65f;
+
+        [Tooltip("Low-frequency motor strength reserved for the severe-imbalance warning at maximum displacement.")]
+        [SerializeField, Range(0f, 1f)] private float severeImbalanceLowFrequencyStrength = 0.72f;
+
+        [Tooltip("High-frequency motor strength reserved for the severe-imbalance warning at maximum displacement.")]
+        [SerializeField, Range(0f, 1f)] private float severeImbalanceHighFrequencyStrength = 0.46f;
+
+        [Tooltip("Temporary controller-vibration multiplier applied at the moment of a detected airborne landing.")]
+        [SerializeField, Range(1f, 4f)] private float landingRumbleMultiplier = 1.8f;
+
+        [Tooltip("Time for the landing-specific controller boost to fade while the screen impact spring settles.")]
+        [SerializeField, Min(0.01f)] private float landingRumbleBoostDuration = 0.45f;
+
+        [Tooltip("How quickly controller vibration rises toward the current screen-shake strength.")]
+        [SerializeField, Min(0.1f)] private float rumbleAttackSpeed = 12f;
+
+        [Tooltip("How quickly controller vibration fades after the screen shake subsides.")]
+        [SerializeField, Min(0.1f)] private float rumbleReleaseSpeed = 6f;
+
+        [Tooltip("Motor values below this threshold are sent as zero to prevent faint residual buzzing.")]
+        [SerializeField, Range(0f, 0.2f)] private float minimumRumbleOutput = 0.025f;
+
+        [Header("Sony Gamepad Rumble Calibration")]
+        [Tooltip("Applies a separate final-output calibration to native Sony controllers. Camera shake and Xbox/XInput vibration are not changed.")]
+        [SerializeField] private bool enableSonyRumbleCalibration = true;
+
+        [Tooltip("Final multiplier for the Sony low-frequency motor after all common impact, landing, and imbalance calculations.")]
+        [SerializeField, Range(0f, 1f)] private float sonyLowFrequencyMultiplier = 0.3f;
+
+        [Tooltip("Final multiplier for the Sony high-frequency motor after all common impact, landing, and imbalance calculations.")]
+        [SerializeField, Range(0f, 1f)] private float sonyHighFrequencyMultiplier = 0.2f;
+
+        [Tooltip("Sony-only response curve. Values above one reduce ordinary vibration proportionally more than major impacts.")]
+        [SerializeField, Range(0.5f, 3f)] private float sonyRumbleResponseExponent = 1.35f;
+
+        [Tooltip("Hard ceiling for the final Sony low-frequency motor output.")]
+        [SerializeField, Range(0f, 1f)] private float sonyMaximumLowFrequencyStrength = 0.42f;
+
+        [Tooltip("Hard ceiling for the final Sony high-frequency motor output.")]
+        [SerializeField, Range(0f, 1f)] private float sonyMaximumHighFrequencyStrength = 0.28f;
+
+        [Tooltip("Final Sony motor values below this threshold are sent as zero to prevent residual buzzing after calibration.")]
+        [SerializeField, Range(0f, 0.2f)] private float sonyMinimumRumbleOutput = 0.01f;
+
+        [Header("Continuous Chassis Vibration")]
+        [Tooltip("Planar speed at which ordinary drive vibration reaches full strength.")]
+        [SerializeField, Min(0.1f)] private float fullVibrationSpeed = 4f;
+
+        [Tooltip("Minimum fraction of normal chassis vibration retained once the robot is actually moving. This keeps low-speed travel perceptible without increasing major impact strength.")]
+        [SerializeField, Range(0f, 1f)] private float minimumMovingVibrationStrength = 0.35f;
+
+        [Tooltip("Amount of slow chassis vibration caused by balance displacement even when planar speed is very low.")]
+        [SerializeField, Range(0f, 1f)] private float stationaryBalanceVibrationStrength = 0.28f;
+
+        [Tooltip("Position amplitude of normal powered movement, in world units.")]
+        [SerializeField, Min(0f)] private float drivePositionAmplitude = 0.03f;
+
+        [Tooltip("Rotation amplitude of normal powered movement, in degrees.")]
+        [SerializeField, Min(0f)] private float driveRotationAmplitude = 0.24f;
+
+        [Tooltip("Base frequency of the smooth mechanical vibration.")]
+        [SerializeField, Min(0.1f)] private float driveVibrationFrequency = 3.4f;
+
+        [Tooltip("Continuous-vibration multiplier while travelling on a Level Two slope.")]
+        [SerializeField, Min(0f)] private float levelTwoVibrationMultiplier = 1.8f;
+
+        [Tooltip("Continuous-vibration multiplier while travelling or slipping on a Level Three slope.")]
+        [SerializeField, Min(0f)] private float levelThreeVibrationMultiplier = 2.8f;
+
+        [Tooltip("Additional vibration multiplier at full balance displacement.")]
+        [SerializeField, Min(0f)] private float balanceVibrationInfluence = 1.05f;
+
+        [Tooltip("Surface roughness value at which its additional vibration reaches full strength.")]
+        [SerializeField, Min(0.001f)] private float roughnessAtFullVibration = 0.35f;
+
+        [Tooltip("Additional multiplier contributed by fully rough terrain.")]
+        [SerializeField, Min(0f)] private float roughnessVibrationInfluence = 0.75f;
+
+        [Tooltip("Fraction of ground vibration retained while the height detector considers the robot airborne.")]
+        [SerializeField, Range(0f, 1f)] private float airborneVibrationMultiplier = 0.18f;
+
+        [Header("Solid Obstacle Collision Impact")]
+        [Tooltip("Incoming planar speed that begins producing the dedicated solid-obstacle impact.")]
+        [SerializeField, Min(0f)] private float obstacleCollisionMinimumSpeed = 0.08f;
+
+        [Tooltip("Incoming planar speed mapped to full solid-obstacle impact strength.")]
+        [SerializeField, Min(0.01f)] private float obstacleCollisionFullSpeed = 3.4f;
+
+        [Tooltip("Minimum impact retained once a moving robot contacts a solid obstacle. Keep this low enough that a slow touch remains much weaker than a high-speed crash.")]
+        [SerializeField, Range(0f, 1f)]
+        private float obstacleCollisionMinimumStrength = 0.18f;
+
+        [Tooltip("Shapes impact strength between minimum and full collision speed. Values below one strengthen ordinary-speed contacts.")]
+        [SerializeField, Range(0.1f, 3f)]
+        private float obstacleCollisionStrengthExponent = 0.9f;
+
+        [SerializeField, Min(0f)] private float obstacleCollisionPositionImpact = 0.26f;
+        [SerializeField, Min(0f)] private float obstacleCollisionRotationImpactDegrees = 3.8f;
+        [SerializeField, Range(0f, 0.1f)]
+        private float obstacleCollisionZoomImpactFraction = 0.022f;
+
+        [Tooltip("Fraction of the obstacle impact applied immediately before the spring recoil. Higher values make contact feel harder and less delayed.")]
+        [SerializeField, Range(0f, 1f)]
+        private float obstacleCollisionImmediateImpactFraction = 0.45f;
+
+        [Header("Solid Obstacle Collision Gamepad Rumble")]
+        [SerializeField, Range(0f, 1f)]
+        private float obstacleCollisionLowFrequencyStrength = 0.95f;
+        [SerializeField, Range(0f, 1f)]
+        private float obstacleCollisionHighFrequencyStrength = 0.8f;
+        [SerializeField, Min(0f)]
+        private float obstacleCollisionRumblePeakHoldDuration = 0.12f;
+        [SerializeField, Min(0.01f)]
+        private float obstacleCollisionRumbleDuration = 0.55f;
+        [SerializeField, Range(0.5f, 4f)]
+        private float obstacleCollisionRumbleFalloffExponent = 1.15f;
+        [SerializeField, Range(0f, 1f)]
+        private float sonyObstacleMaximumLowFrequencyStrength = 0.9f;
+        [SerializeField, Range(0f, 1f)]
+        private float sonyObstacleMaximumHighFrequencyStrength = 0.75f;
+
+        [Header("Step Collision Impact")]
+        [SerializeField, Min(0f)] private float stepPositionImpact = 0.15f;
+        [SerializeField, Min(0f)] private float stepRotationImpactDegrees = 1.7f;
+        [SerializeField, Range(0f, 0.1f)] private float stepZoomImpactFraction = 0.01f;
+
+        [Header("Unsafe Downhill Impact")]
+        [SerializeField, Min(0f)] private float unsafeDownhillPositionImpact = 0.18f;
+        [SerializeField, Min(0f)] private float unsafeDownhillRotationImpactDegrees = 1.8f;
+        [SerializeField, Range(0f, 0.1f)] private float unsafeDownhillZoomImpactFraction = 0.016f;
+
+        [Header("Level Three Grip Failure Impact")]
+        [SerializeField, Min(0f)] private float levelThreeSlipPositionImpact = 0.2f;
+        [SerializeField, Min(0f)] private float levelThreeSlipRotationImpactDegrees = 2.8f;
+        [SerializeField, Range(0f, 0.1f)] private float levelThreeSlipZoomImpactFraction = 0.008f;
+
+        [Header("Tumble Impacts")]
+        [Tooltip("Moderate camera displacement applied when an authoritative tumble begins.")]
+        [SerializeField, Min(0f)] private float tumbleStartPositionImpact = 0.16f;
+
+        [Tooltip("Moderate camera roll applied when an authoritative tumble begins.")]
+        [SerializeField, Min(0f)] private float tumbleStartRotationImpactDegrees = 1.8f;
+
+        [Tooltip("Moderate orthographic zoom impulse applied when an authoritative tumble begins.")]
+        [SerializeField, Range(0f, 0.1f)] private float tumbleStartZoomImpactFraction = 0.01f;
+
+        [Tooltip("Lost specific energy that maps a completed tumble step to full impact strength.")]
+        [SerializeField, Min(0.01f)] private float tumbleImpactEnergyAtFullStrength = 8f;
+
+        [Tooltip("Smallest impact strength retained for a completed quarter-turn landing.")]
+        [SerializeField, Range(0f, 1f)] private float tumbleStepMinimumImpactStrength = 0.65f;
+
+        [SerializeField, Min(0f)] private float tumbleStepPositionImpact = 0.28f;
+        [SerializeField, Min(0f)] private float tumbleStepRotationImpactDegrees = 4f;
+        [SerializeField, Range(0f, 0.1f)] private float tumbleStepZoomImpactFraction = 0.03f;
+
+        [Tooltip("Multiplier applied only to tumble-start and tumble-step impacts.")]
+        [SerializeField, Range(1f, 6f)] private float tumbleImpactMultiplier = 4.5f;
+
+        [Tooltip("Fraction of each tumble impact applied as immediate displacement before the spring recoil begins.")]
+        [SerializeField, Range(0f, 1f)] private float tumbleImmediateImpactFraction = 0.72f;
+
+        [Tooltip("Tumble-only camera displacement ceiling. This deliberately exceeds the normal driving ceiling.")]
+        [SerializeField, Min(0f)] private float tumbleMaximumPositionOffset = 1.3f;
+
+        [Tooltip("Tumble-only camera roll ceiling in degrees.")]
+        [SerializeField, Range(0f, 30f)] private float tumbleMaximumRotationDegrees = 22f;
+
+        [Tooltip("Tumble-only orthographic zoom ceiling as a fraction of the base size.")]
+        [SerializeField, Range(0f, 0.2f)] private float tumbleMaximumZoomFraction = 0.12f;
+
+        [Tooltip("Continuous violent displacement retained between tumble landing impacts.")]
+        [SerializeField, Min(0f)] private float tumbleContinuousPositionAmplitude = 0.28f;
+
+        [Tooltip("Continuous violent camera roll retained between tumble landing impacts.")]
+        [SerializeField, Min(0f)] private float tumbleContinuousRotationDegrees = 5f;
+
+        [Tooltip("Frequency of the continuous tumble vibration.")]
+        [SerializeField, Min(0.1f)] private float tumbleContinuousFrequency = 9.5f;
+
+        [Tooltip("Time the tumble-only camera limits remain active after the final landing impact.")]
+        [SerializeField, Min(0f)] private float tumbleImpactLimitHoldDuration = 1f;
+
+        [Tooltip("Duration of the violent high-frequency aftershock following every tumble landing.")]
+        [SerializeField, Min(0f)] private float tumbleAftershockDuration = 0.8f;
+
+        [Header("Final Settling Rock Impacts")]
+        [Tooltip("Camera displacement used by the smaller support-edge contacts during the final rocking phase.")]
+        [SerializeField, Min(0f)] private float finalRockPositionImpact = 0.1f;
+
+        [Tooltip("Camera roll used by the smaller support-edge contacts during the final rocking phase.")]
+        [SerializeField, Min(0f)] private float finalRockRotationImpactDegrees = 1.6f;
+
+        [Tooltip("Orthographic zoom impulse used by final rocking contacts.")]
+        [SerializeField, Range(0f, 0.1f)] private float finalRockZoomImpactFraction = 0.006f;
+
+        [Header("Self Righting Impacts")]
+        [SerializeField, Min(0f)] private float selfRightForcePositionImpact = 0.055f;
+        [SerializeField, Min(0f)] private float selfRightForceRotationImpactDegrees = 0.8f;
+        [SerializeField, Range(0f, 0.1f)] private float selfRightForceZoomImpactFraction = 0.002f;
+        [SerializeField, Min(0f)] private float selfRightFailurePositionImpact = 0.22f;
+        [SerializeField, Min(0f)] private float selfRightFailureRotationImpactDegrees = 3.2f;
+        [SerializeField, Range(0f, 0.1f)] private float selfRightFailureZoomImpactFraction = 0.015f;
+        [SerializeField, Min(0f)] private float selfRightLandingPositionImpact = 0.48f;
+        [SerializeField, Min(0f)] private float selfRightLandingRotationImpactDegrees = 7f;
+        [SerializeField, Range(0f, 0.1f)] private float selfRightLandingZoomImpactFraction = 0.055f;
+
+        [Header("Tumble Gamepad Rumble")]
+        [Tooltip("Low-frequency motor strength maintained throughout an active tumble.")]
+        [SerializeField, Range(0f, 1f)] private float tumbleContinuousLowFrequencyStrength = 0.95f;
+
+        [Tooltip("High-frequency motor strength maintained throughout an active tumble.")]
+        [SerializeField, Range(0f, 1f)] private float tumbleContinuousHighFrequencyStrength = 0.82f;
+
+        [Tooltip("Minimum low-frequency motor strength applied immediately after every tumble landing.")]
+        [SerializeField, Range(0f, 1f)] private float tumbleLandingLowFrequencyStrength = 1f;
+
+        [Tooltip("Minimum high-frequency motor strength applied immediately after every tumble landing.")]
+        [SerializeField, Range(0f, 1f)] private float tumbleLandingHighFrequencyStrength = 1f;
+
+        [Tooltip("Time both motors remain at their landing peak before the impact begins to decay.")]
+        [SerializeField, Min(0f)] private float tumbleLandingRumblePeakHoldDuration = 0.24f;
+
+        [Tooltip("Duration of the dedicated gamepad impact envelope after every tumble landing.")]
+        [SerializeField, Min(0.01f)] private float tumbleLandingRumbleDuration = 0.95f;
+
+        [Tooltip("Response curve used by the tumble landing rumble. Higher values keep the initial hit violent and make the tail fall away faster.")]
+        [SerializeField, Range(0.5f, 4f)] private float tumbleLandingRumbleFalloffExponent = 0.75f;
+
+        [Tooltip("Sony low-frequency ceiling while tumble feedback is active.")]
+        [SerializeField, Range(0f, 1f)] private float sonyTumbleMaximumLowFrequencyStrength = 1f;
+
+        [Tooltip("Sony high-frequency ceiling while tumble feedback is active.")]
+        [SerializeField, Range(0f, 1f)] private float sonyTumbleMaximumHighFrequencyStrength = 1f;
+
+        [Header("Landing Impact")]
+        [SerializeField, Min(0f)] private float landingPositionImpact = 0.36f;
+        [SerializeField, Min(0f)] private float landingRotationImpactDegrees = 5.2f;
+        [SerializeField, Range(0f, 0.1f)] private float landingZoomImpactFraction = 0.042f;
+
+        [Header("Supported Terrain Height Impact")]
+        [Tooltip("Upward logical-height acceleration that begins producing a small suspension/chassis compression impact while the robot remains grounded.")]
+        [SerializeField, Min(0.1f)] private float minimumHeightImpactAcceleration = 3.5f;
+
+        [Tooltip("Upward logical-height acceleration mapped to a full suspension/chassis compression impact.")]
+        [SerializeField, Min(0.1f)] private float fullHeightImpactAcceleration = 16f;
+
+        [SerializeField, Min(0f)] private float heightPositionImpact = 0.075f;
+        [SerializeField, Min(0f)] private float heightRotationImpactDegrees = 0.65f;
+        [SerializeField, Range(0f, 0.1f)] private float heightZoomImpactFraction = 0.006f;
+
+        [Header("Sudden Deceleration Impact")]
+        [Tooltip("Planar deceleration that begins producing a smaller generic inertia impact.")]
+        [SerializeField, Min(0.1f)] private float minimumImpactDeceleration = 3.25f;
+
+        [Tooltip("Planar deceleration mapped to full generic inertia impact strength.")]
+        [SerializeField, Min(0.1f)] private float fullImpactDeceleration = 10f;
+
+        [SerializeField, Min(0f)] private float decelerationPositionImpact = 0.085f;
+        [SerializeField, Min(0f)] private float decelerationRotationImpactDegrees = 0.95f;
+        [SerializeField, Range(0f, 0.1f)] private float decelerationZoomImpactFraction = 0.004f;
+
+        [Tooltip("Minimum delay between discrete collision/deceleration impacts.")]
+        [SerializeField, Min(0f)] private float impactCooldownSeconds = 0.22f;
+
+        [Tooltip("Converts an impact amplitude into spring velocity. Higher values make the eventual peak stronger without reintroducing a one-frame camera jump.")]
+        [SerializeField, Range(0.5f, 3f)] private float impactVelocityMultiplier = 1.8f;
+
+        [Header("Directional Balance Coupling")]
+        [Tooltip("How strongly the current centre-of-mass direction biases impact rotation.")]
+        [SerializeField, Min(0f)] private float balanceImpactRotationInfluence = 0.75f;
+
+        [Header("Impact Spring - Position")]
+        [SerializeField, Range(0.1f, 20f)] private float positionSpringFrequency = 3f;
+        [SerializeField, Range(0.05f, 2f)] private float positionSpringDamping = 0.62f;
+
+        [Header("Impact Spring - Rotation")]
+        [SerializeField, Range(0.1f, 20f)] private float rotationSpringFrequency = 2.4f;
+        [SerializeField, Range(0.05f, 2f)] private float rotationSpringDamping = 0.58f;
+
+        [Header("Impact Spring - Zoom")]
+        [SerializeField, Range(0.1f, 20f)] private float zoomSpringFrequency = 3.4f;
+        [SerializeField, Range(0.05f, 2f)] private float zoomSpringDamping = 0.68f;
+
+        public Vector2 CurrentLocalPositionOffset { get; private set; }
+        public float CurrentRotationOffsetDegrees { get; private set; }
+        public float CurrentZoomOffsetFraction { get; private set; }
+        public float BaseOrthographicSize => Mathf.Max(0.01f, baseOrthographicSize);
+
+        private Camera attachedCamera;
+        private RobotMover mover;
+        private RobotBalanceController balance;
+        private RobotTumbleController tumble;
+        private RobotSelfRightingController selfRighting;
+        private RobotHeightMotionDetector heightMotion;
+        private float baseOrthographicSize;
+        private float scanZoomMultiplier = 1f;
+        private float photoFocusMagnification = 1f;
+        private float scanChargeShakeStrength;
+        private float scanChargePositionAmplitude;
+        private float scanChargeRotationAmplitude;
+        private float scanChargeFrequency = 1f;
+        private float photoModeRevealShakeStrength;
+        private float photoModeRevealPositionAmplitude;
+        private float photoModeRevealRotationAmplitude;
+        private float photoModeRevealFrequency = 1f;
+        private Vector2 springPosition;
+        private Vector2 springPositionVelocity;
+        private float springRotation;
+        private float springRotationVelocity;
+        private float springZoom;
+        private float springZoomVelocity;
+        private Vector2 continuousPosition;
+        private float continuousRotation;
+        private Vector2 previousWorldVelocity;
+        private bool previousMotionInitialized;
+        private bool previousBlocked;
+        private TraversalBlockReason previousBlockReason;
+        private LevelThreeClimbFailurePhase previousLevelThreePhase;
+        private bool tumbleEventsSubscribed;
+        private bool selfRightingEventsSubscribed;
+        private RobotTumbleState observedTumbleState = RobotTumbleState.Upright;
+        private float nextDiscreteImpactTime;
+        private float noiseSeedX;
+        private float noiseSeedY;
+        private float noiseSeedRotation;
+        private float currentLowFrequencyRumble;
+        private float currentHighFrequencyRumble;
+        private float lastSentLowFrequencyRumble;
+        private float lastSentHighFrequencyRumble;
+        private float nextRumbleRefreshTime;
+        private bool rumbleWasSent;
+        private float lastLandingRumbleTime = float.NegativeInfinity;
+        private float lastLandingRumbleStrength;
+        private float tumbleHighIntensityUntil = float.NegativeInfinity;
+        private float tumbleAftershockStartTime = float.NegativeInfinity;
+        private float tumbleAftershockEndTime = float.NegativeInfinity;
+        private float tumbleAftershockStrength;
+        private float tumbleLandingRumbleStartTime = float.NegativeInfinity;
+        private float tumbleLandingRumbleEndTime = float.NegativeInfinity;
+        private float tumbleLandingRumbleStrength;
+        private float obstacleCollisionRumbleStartTime = float.NegativeInfinity;
+        private float obstacleCollisionRumbleEndTime = float.NegativeInfinity;
+        private float obstacleCollisionRumbleStrength;
+
+        private void Awake()
+        {
+            attachedCamera = GetComponent<Camera>();
+            baseOrthographicSize = attachedCamera != null
+                ? attachedCamera.orthographicSize
+                : 1f;
+            noiseSeedX = Random.Range(10f, 1000f);
+            noiseSeedY = Random.Range(10f, 1000f);
+            noiseSeedRotation = Random.Range(10f, 1000f);
+        }
+
+        public void SetScanZoomMultiplier(float multiplier)
+        {
+            scanZoomMultiplier = Mathf.Clamp(multiplier, 0.05f, 4f);
+        }
+
+        public void SetPhotoFocusMagnification(float magnification)
+        {
+            photoFocusMagnification = Mathf.Clamp(magnification, 1f, 4f);
+        }
+
+        public void SetScanChargeShake(
+            float strength,
+            float positionAmplitude,
+            float rotationAmplitudeDegrees,
+            float frequency)
+        {
+            scanChargeShakeStrength = Mathf.Clamp01(strength);
+            scanChargePositionAmplitude = Mathf.Max(0f, positionAmplitude);
+            scanChargeRotationAmplitude = Mathf.Max(
+                0f,
+                rotationAmplitudeDegrees);
+            scanChargeFrequency = Mathf.Max(0.1f, frequency);
+        }
+
+        public void SetPhotoModeRevealShake(
+            float strength,
+            float positionAmplitude,
+            float rotationAmplitudeDegrees,
+            float frequency)
+        {
+            photoModeRevealShakeStrength = Mathf.Clamp01(strength);
+            photoModeRevealPositionAmplitude = Mathf.Max(
+                0f,
+                positionAmplitude);
+            photoModeRevealRotationAmplitude = Mathf.Max(
+                0f,
+                rotationAmplitudeDegrees);
+            photoModeRevealFrequency = Mathf.Max(0.1f, frequency);
+        }
+
+        public void Initialize(
+            RobotMover robotMover,
+            RobotBalanceController balanceController,
+            RobotHeightMotionDetector heightMotionDetector)
+        {
+            UnsubscribeFromTumbleEvents();
+            UnsubscribeFromSelfRightingEvents();
+
+            mover = robotMover;
+            balance = balanceController;
+            tumble = mover != null
+                ? mover.GetComponent<RobotTumbleController>()
+                : null;
+            selfRighting = mover != null
+                ? mover.GetComponent<RobotSelfRightingController>()
+                : null;
+            heightMotion = heightMotionDetector;
+            observedTumbleState = tumble != null
+                ? tumble.State
+                : RobotTumbleState.Upright;
+            SubscribeToTumbleEvents();
+            SubscribeToSelfRightingEvents();
+
+            previousMotionInitialized = false;
+            previousBlocked = mover != null && mover.IsSlopeBlocked;
+            previousBlockReason = mover != null
+                ? mover.CurrentTraversalResult.BlockReason
+                : TraversalBlockReason.None;
+            previousLevelThreePhase = mover != null
+                ? mover.CurrentLevelThreeClimbPhase
+                : LevelThreeClimbFailurePhase.None;
+        }
+
+        private bool IsTumbleFeedbackSuppressed =>
+            observedTumbleState != RobotTumbleState.Upright
+            || (tumble != null && tumble.State != RobotTumbleState.Upright);
+
+        private bool IsActivelyTumbling =>
+            observedTumbleState == RobotTumbleState.Tumbling
+            || (tumble != null && tumble.State == RobotTumbleState.Tumbling);
+
+        private bool UseTumbleIntensityLimits =>
+            IsActivelyTumbling || Time.time < tumbleHighIntensityUntil;
+
+        private bool HasTumbleAftershock =>
+            Time.time < tumbleAftershockEndTime
+            && tumbleAftershockStrength > 0f;
+
+        private bool HasTumbleLandingRumble =>
+            Time.time < tumbleLandingRumbleEndTime
+            && tumbleLandingRumbleStrength > 0f;
+
+        private bool HasObstacleCollisionRumble =>
+            Time.time < obstacleCollisionRumbleEndTime
+            && obstacleCollisionRumbleStrength > 0f;
+
+        private void SubscribeToTumbleEvents()
+        {
+            if (tumbleEventsSubscribed
+                || tumble == null
+                || !isActiveAndEnabled)
+            {
+                return;
+            }
+
+            tumble.Started += HandleTumbleStarted;
+            tumble.StepCompleted += HandleTumbleStepCompleted;
+            tumble.FinalRockingStarted += HandleFinalRockingStarted;
+            tumble.RockImpact += HandleTumbleRockImpact;
+            tumble.Settled += HandleTumbleSettled;
+            tumbleEventsSubscribed = true;
+            observedTumbleState = tumble.State;
+        }
+
+        private void UnsubscribeFromTumbleEvents()
+        {
+            if (!tumbleEventsSubscribed)
+                return;
+
+            if (tumble != null)
+            {
+                tumble.Started -= HandleTumbleStarted;
+                tumble.StepCompleted -= HandleTumbleStepCompleted;
+                tumble.FinalRockingStarted -= HandleFinalRockingStarted;
+                tumble.RockImpact -= HandleTumbleRockImpact;
+                tumble.Settled -= HandleTumbleSettled;
+            }
+
+            tumbleEventsSubscribed = false;
+        }
+
+        private void SubscribeToSelfRightingEvents()
+        {
+            if (selfRightingEventsSubscribed
+                || selfRighting == null
+                || !isActiveAndEnabled)
+            {
+                return;
+            }
+
+            selfRighting.ForcePulse += HandleSelfRightingForcePulse;
+            selfRighting.SupportFailed += HandleSelfRightingFailure;
+            selfRighting.RightingLanded += HandleSelfRightingLanded;
+            selfRightingEventsSubscribed = true;
+        }
+
+        private void UnsubscribeFromSelfRightingEvents()
+        {
+            if (!selfRightingEventsSubscribed)
+                return;
+
+            if (selfRighting != null)
+            {
+                selfRighting.ForcePulse -= HandleSelfRightingForcePulse;
+                selfRighting.SupportFailed -= HandleSelfRightingFailure;
+                selfRighting.RightingLanded -= HandleSelfRightingLanded;
+            }
+
+            selfRightingEventsSubscribed = false;
+        }
+
+        private void HandleSelfRightingForcePulse(
+            RobotSelfRightingForcePulseInfo pulse)
+        {
+            float strength = pulse.Accepted ? 0.38f : 0.2f;
+            ExtendTumbleIntensityLimits();
+            StartTumbleLandingRumble(strength);
+            AddTumbleDirectionalImpact(
+                pulse.WorldDirection,
+                strength,
+                selfRightForcePositionImpact,
+                selfRightForceRotationImpactDegrees,
+                selfRightForceZoomImpactFraction);
+        }
+
+        private void HandleSelfRightingFailure(
+            RobotSelfRightingFailureInfo failure)
+        {
+            ExtendTumbleIntensityLimits();
+            StartTumbleLandingRumble(0.72f);
+            StartTumbleAftershock(0.48f);
+            AddTumbleDirectionalImpact(
+                failure.WorldDirection,
+                0.82f,
+                selfRightFailurePositionImpact,
+                selfRightFailureRotationImpactDegrees,
+                selfRightFailureZoomImpactFraction);
+        }
+
+        private void HandleSelfRightingLanded(RobotSelfRightingLandedInfo landed)
+        {
+            observedTumbleState = RobotTumbleState.Upright;
+            ExtendTumbleIntensityLimits();
+            StartTumbleLandingRumble(1f);
+            StartTumbleAftershock(1f);
+            AddTumbleDirectionalImpact(
+                -landed.OriginalTumbleDirectionWorld,
+                1f,
+                selfRightLandingPositionImpact,
+                selfRightLandingRotationImpactDegrees,
+                selfRightLandingZoomImpactFraction);
+        }
+
+        private void HandleTumbleStarted(RobotTumbleStartedInfo started)
+        {
+            observedTumbleState = RobotTumbleState.Tumbling;
+            // Discard any ordinary drive/collision spring already in flight so
+            // the tumble phase contains only explicit tumble and scan feedback.
+            ResetShakeState();
+            StartTumbleLandingRumble(1f);
+            ExtendTumbleIntensityLimits();
+            AddTumbleDirectionalImpact(
+                started.WorldDirection,
+                1f,
+                tumbleStartPositionImpact * tumbleImpactMultiplier,
+                tumbleStartRotationImpactDegrees * tumbleImpactMultiplier,
+                tumbleStartZoomImpactFraction * tumbleImpactMultiplier);
+        }
+
+        private void HandleTumbleStepCompleted(RobotTumbleStepInfo step)
+        {
+            observedTumbleState = RobotTumbleState.Tumbling;
+            float normalizedEnergy = Mathf.Clamp01(
+                step.ImpactLostSpecificEnergy
+                / Mathf.Max(0.01f, tumbleImpactEnergyAtFullStrength));
+            float impactStrength = Mathf.Lerp(
+                tumbleStepMinimumImpactStrength,
+                1f,
+                Mathf.Sqrt(normalizedEnergy));
+            ExtendTumbleIntensityLimits();
+
+            // Tumble landings are authoritative events and deliberately bypass
+            // the ordinary collision/deceleration impact cooldown.
+            StartTumbleLandingRumble(1f);
+            StartTumbleAftershock(impactStrength);
+            AddTumbleDirectionalImpact(
+                tumble != null ? tumble.DirectionWorld : Vector2.up,
+                impactStrength,
+                tumbleStepPositionImpact * tumbleImpactMultiplier,
+                tumbleStepRotationImpactDegrees * tumbleImpactMultiplier,
+                tumbleStepZoomImpactFraction * tumbleImpactMultiplier);
+        }
+
+        private void HandleTumbleSettled(RobotTumbleSettledInfo settled)
+        {
+            observedTumbleState = settled.RecoveredUpright
+                ? RobotTumbleState.Upright
+                : RobotTumbleState.Fallen;
+            continuousPosition = Vector2.zero;
+            continuousRotation = 0f;
+        }
+
+        private void HandleFinalRockingStarted(RobotTumbleFinalRockInfo rocking)
+        {
+            observedTumbleState = RobotTumbleState.FinalRocking;
+            continuousPosition = Vector2.zero;
+            continuousRotation = 0f;
+        }
+
+        private void HandleTumbleRockImpact(RobotTumbleRockImpactInfo impact)
+        {
+            float strength = Mathf.Clamp01(impact.Strength);
+            ExtendTumbleIntensityLimits();
+            StartTumbleLandingRumble(strength);
+            StartTumbleAftershock(strength * 0.45f);
+            AddTumbleDirectionalImpact(
+                impact.WorldDirection,
+                strength,
+                finalRockPositionImpact,
+                finalRockRotationImpactDegrees,
+                finalRockZoomImpactFraction);
+        }
+
+        private void LateUpdate()
+        {
+            float deltaTime = Mathf.Min(Time.deltaTime, 0.05f);
+            if (deltaTime <= 0.000001f || attachedCamera == null)
+                return;
+
+            if (!enableCameraShake)
+            {
+                ResetShakeState();
+                StopGamepadRumble();
+                attachedCamera.orthographicSize = GetComposedBaseOrthographicSize();
+                StorePreviousMotionState();
+                return;
+            }
+
+            DetectDiscreteImpacts(deltaTime);
+            UpdateContinuousVibration();
+            IntegrateSprings(deltaTime);
+            ApplyShakeToCamera();
+            UpdateGamepadRumble(deltaTime);
+            StorePreviousMotionState();
+        }
+
+        private void DetectDiscreteImpacts(float deltaTime)
+        {
+            if (mover == null || IsTumbleFeedbackSuppressed)
+                return;
+
+            Vector2 currentVelocity = GetCurrentWorldVelocity();
+            bool triggeredMajorImpact = false;
+            SlopeTraversalResult traversal = mover.CurrentTraversalResult;
+            bool blocked = mover.IsSlopeBlocked && traversal.HasData;
+            if (blocked
+                && (!previousBlocked || traversal.BlockReason != previousBlockReason)
+                && Time.time >= nextDiscreteImpactTime)
+            {
+                if (traversal.BlockReason == TraversalBlockReason.Obstacle)
+                {
+                    float incomingSpeed = previousWorldVelocity.magnitude;
+                    if (incomingSpeed >= obstacleCollisionMinimumSpeed)
+                    {
+                        float speedProgress = Mathf.InverseLerp(
+                            obstacleCollisionMinimumSpeed,
+                            Mathf.Max(
+                                obstacleCollisionMinimumSpeed + 0.01f,
+                                obstacleCollisionFullSpeed),
+                            incomingSpeed);
+                        float shapedSpeed = Mathf.Pow(
+                            Mathf.Clamp01(speedProgress),
+                            obstacleCollisionStrengthExponent);
+                        float strength = Mathf.Lerp(
+                            obstacleCollisionMinimumStrength,
+                            1f,
+                            shapedSpeed);
+                        AddObstacleCollisionImpact(
+                            GetReliableTravelDirection(
+                                previousWorldVelocity,
+                                transform.up),
+                            strength);
+                        triggeredMajorImpact = true;
+                    }
+                }
+                else if (traversal.BlockReason == TraversalBlockReason.Step)
+                {
+                    Vector2 direction = GetReliableTravelDirection(
+                        previousWorldVelocity,
+                        transform.up);
+                    float speedStrength = Mathf.InverseLerp(
+                        0.25f,
+                        Mathf.Max(0.5f, fullVibrationSpeed),
+                        previousWorldVelocity.magnitude);
+                    float stepStrength = Mathf.InverseLerp(
+                        0.15f,
+                        1.25f,
+                        traversal.MaximumStepHeight);
+                    float strength = Mathf.Clamp01(
+                        Mathf.Max(0.25f, speedStrength * 0.65f + stepStrength * 0.35f));
+                    AddDirectionalImpact(
+                        direction,
+                        strength,
+                        stepPositionImpact,
+                        stepRotationImpactDegrees,
+                        stepZoomImpactFraction);
+                    triggeredMajorImpact = true;
+                }
+                else if (traversal.BlockReason
+                         == TraversalBlockReason.UnsafeDownhill)
+                {
+                    Vector2 direction = GetReliableTravelDirection(
+                        traversal.DownhillWorldDirection,
+                        previousWorldVelocity);
+                    float angleStrength = Mathf.InverseLerp(
+                        30f,
+                        75f,
+                        traversal.MaximumDownhillAngle);
+                    float speedStrength = Mathf.InverseLerp(
+                        0.25f,
+                        Mathf.Max(0.5f, fullVibrationSpeed),
+                        previousWorldVelocity.magnitude);
+                    AddDirectionalImpact(
+                        direction,
+                        Mathf.Clamp01(Mathf.Max(0.3f,
+                            angleStrength * 0.6f + speedStrength * 0.4f)),
+                        unsafeDownhillPositionImpact,
+                        unsafeDownhillRotationImpactDegrees,
+                        unsafeDownhillZoomImpactFraction);
+                    triggeredMajorImpact = true;
+                }
+            }
+
+            if (mover.CurrentLevelThreeClimbPhase
+                    == LevelThreeClimbFailurePhase.Slip
+                && previousLevelThreePhase
+                    != LevelThreeClimbFailurePhase.Slip
+                && Time.time >= nextDiscreteImpactTime)
+            {
+                Vector2 direction = GetReliableTravelDirection(
+                    traversal.DownhillWorldDirection,
+                    mover.CurrentTerrainVelocity);
+                float balanceStrength = balance != null
+                    ? Mathf.Clamp01(balance.CurrentState.Magnitude)
+                    : 0f;
+                AddDirectionalImpact(
+                    direction,
+                    Mathf.Lerp(0.65f, 1f, balanceStrength),
+                    levelThreeSlipPositionImpact,
+                    levelThreeSlipRotationImpactDegrees,
+                    levelThreeSlipZoomImpactFraction);
+                triggeredMajorImpact = true;
+            }
+
+            if (heightMotion != null && heightMotion.LandedThisFrame)
+            {
+                RobotLandingImpact landing = heightMotion.LastLandingImpact;
+                Vector2 direction = GetReliableTravelDirection(
+                    landing.TravelWorldDirection,
+                    traversal.DownhillWorldDirection);
+                AddDirectionalImpact(
+                    direction,
+                    landing.Strength01,
+                    landingPositionImpact,
+                    landingRotationImpactDegrees,
+                    landingZoomImpactFraction);
+                if (landing.Strength01 > 0f)
+                {
+                    lastLandingRumbleTime = Time.time;
+                    lastLandingRumbleStrength = landing.Strength01;
+                }
+                triggeredMajorImpact = landing.Strength01 > 0f
+                                       || triggeredMajorImpact;
+            }
+
+            if (!triggeredMajorImpact
+                && heightMotion != null
+                && heightMotion.HasData
+                && !heightMotion.IsAirborne
+                && heightMotion.VerticalAccelerationMetersPerSecondSquared
+                >= minimumHeightImpactAcceleration
+                && Time.time >= nextDiscreteImpactTime)
+            {
+                float strength = Mathf.InverseLerp(
+                    minimumHeightImpactAcceleration,
+                    Mathf.Max(minimumHeightImpactAcceleration + 0.1f,
+                        fullHeightImpactAcceleration),
+                    heightMotion.VerticalAccelerationMetersPerSecondSquared);
+                AddDirectionalImpact(
+                    GetReliableTravelDirection(
+                        currentVelocity,
+                        traversal.DownhillWorldDirection),
+                    strength,
+                    heightPositionImpact,
+                    heightRotationImpactDegrees,
+                    heightZoomImpactFraction);
+                triggeredMajorImpact = strength > 0f;
+            }
+
+            if (!triggeredMajorImpact
+                && previousMotionInitialized
+                && Time.time >= nextDiscreteImpactTime)
+            {
+                Vector2 velocityChange = currentVelocity - previousWorldVelocity;
+                float deceleration = Mathf.Max(
+                    0f,
+                    previousWorldVelocity.magnitude - currentVelocity.magnitude)
+                                     / deltaTime;
+                if (deceleration >= minimumImpactDeceleration
+                    && velocityChange.sqrMagnitude > 0.000001f)
+                {
+                    float strength = Mathf.InverseLerp(
+                        minimumImpactDeceleration,
+                        Mathf.Max(minimumImpactDeceleration + 0.1f,
+                            fullImpactDeceleration),
+                        deceleration);
+                    AddDirectionalImpact(
+                        GetReliableTravelDirection(
+                            previousWorldVelocity,
+                            -velocityChange),
+                        strength,
+                        decelerationPositionImpact,
+                        decelerationRotationImpactDegrees,
+                        decelerationZoomImpactFraction);
+                    triggeredMajorImpact = true;
+                }
+            }
+
+            if (triggeredMajorImpact)
+                nextDiscreteImpactTime = Time.time + impactCooldownSeconds;
+        }
+
+        private void UpdateContinuousVibration()
+        {
+            continuousPosition = Vector2.zero;
+            continuousRotation = 0f;
+            if (IsActivelyTumbling || HasTumbleAftershock)
+            {
+                AddTumbleContinuousVibration();
+                AddScanChargeVibration();
+                return;
+            }
+
+            if (IsTumbleFeedbackSuppressed)
+            {
+                // Tumbling and fallen robots receive only explicit tumble impacts
+                // plus scan charge. Frozen drive/balance state must not shake forever.
+                AddScanChargeVibration();
+                return;
+            }
+
+            if (mover == null)
+            {
+                AddScanChargeVibration();
+                return;
+            }
+
+            Vector2 velocity = GetCurrentWorldVelocity();
+            float speed = velocity.magnitude;
+            float speedProgress = Mathf.InverseLerp(
+                0.08f,
+                Mathf.Max(0.1f, fullVibrationSpeed),
+                speed);
+            float movementPresence = Mathf.InverseLerp(
+                0.02f,
+                0.35f,
+                speed);
+            speedProgress = movementPresence
+                            * Mathf.Lerp(
+                                minimumMovingVibrationStrength,
+                                1f,
+                                speedProgress);
+
+            float balanceMagnitude = balance != null
+                                     && !IsTumbleFeedbackSuppressed
+                ? Mathf.Clamp01(balance.CurrentState.Magnitude)
+                : 0f;
+            float baseStrength = Mathf.Max(
+                speedProgress,
+                balanceMagnitude * stationaryBalanceVibrationStrength);
+            if (baseStrength <= 0f)
+            {
+                AddScanChargeVibration();
+                return;
+            }
+
+            SlopeTraversalResult traversal = mover.CurrentTraversalResult;
+            float slopeMultiplier = 1f;
+            if (traversal.HasData)
+            {
+                slopeMultiplier = traversal.UphillLevel switch
+                {
+                    UphillSlopeLevel.LevelTwo => levelTwoVibrationMultiplier,
+                    UphillSlopeLevel.LevelThree => levelThreeVibrationMultiplier,
+                    _ => 1f
+                };
+
+                float roughness = Mathf.InverseLerp(
+                    0f,
+                    Mathf.Max(0.001f, roughnessAtFullVibration),
+                    traversal.SurfaceRoughness);
+                slopeMultiplier *= 1f + roughness * roughnessVibrationInfluence;
+            }
+
+            if (mover.CurrentLevelThreeClimbPhase
+                == LevelThreeClimbFailurePhase.Strain)
+            {
+                slopeMultiplier *= 1.25f;
+            }
+            else if (mover.CurrentLevelThreeClimbPhase
+                     == LevelThreeClimbFailurePhase.Slip)
+            {
+                slopeMultiplier *= 1.45f;
+            }
+
+            float balanceMultiplier = 1f
+                                      + balanceMagnitude
+                                      * balanceVibrationInfluence;
+            float airborneMultiplier = heightMotion != null
+                                       && heightMotion.IsAirborne
+                ? airborneVibrationMultiplier
+                : 1f;
+            float amplitude = baseStrength
+                              * slopeMultiplier
+                              * balanceMultiplier
+                              * airborneMultiplier;
+            float time = Time.time * driveVibrationFrequency;
+            float noiseX = SignedPerlin(noiseSeedX, time);
+            float noiseY = SignedPerlin(noiseSeedY, time * 0.83f);
+            float noiseRotation = SignedPerlin(
+                noiseSeedRotation,
+                time * 0.67f);
+            continuousPosition = new Vector2(noiseX, noiseY)
+                                 * drivePositionAmplitude
+                                 * amplitude;
+            continuousRotation = noiseRotation
+                                 * driveRotationAmplitude
+                                 * amplitude;
+            AddScanChargeVibration();
+        }
+
+        private void AddTumbleContinuousVibration()
+        {
+            float aftershockStrength = IsActivelyTumbling
+                ? 1f
+                : tumbleAftershockStrength * Mathf.Clamp01(
+                    (tumbleAftershockEndTime - Time.time)
+                    / Mathf.Max(
+                        0.01f,
+                        tumbleAftershockEndTime - tumbleAftershockStartTime));
+            float time = Time.time * tumbleContinuousFrequency;
+            float stepPulse = tumble != null
+                ? Mathf.Lerp(
+                    0.7f,
+                    1f,
+                    Mathf.Sin(Mathf.Clamp01(tumble.StepProgress01) * Mathf.PI))
+                : 1f;
+            Vector2 direction = tumble != null
+                ? WorldToCameraLocalDirection(tumble.DirectionWorld)
+                : Vector2.up;
+            if (direction.sqrMagnitude < 0.000001f)
+                direction = Vector2.up;
+
+            float noiseX = SignedPerlin(noiseSeedX + 613.7f, time);
+            float noiseY = SignedPerlin(noiseSeedY + 827.3f, time * 0.79f);
+            float directionalNoise = SignedPerlin(
+                noiseSeedX + noiseSeedY + 947.1f,
+                time * 0.61f);
+            float rotationNoise = SignedPerlin(
+                noiseSeedRotation + 1031.9f,
+                time * 0.73f);
+            Vector2 mixedNoise = new Vector2(noiseX, noiseY) * 0.75f
+                                 + direction * directionalNoise * 0.55f;
+            continuousPosition += Vector2.ClampMagnitude(mixedNoise, 1f)
+                                  * tumbleContinuousPositionAmplitude
+                                  * stepPulse
+                                  * aftershockStrength;
+            continuousRotation += rotationNoise
+                                  * tumbleContinuousRotationDegrees
+                                  * stepPulse
+                                  * aftershockStrength;
+        }
+
+        private void AddTumbleDirectionalImpact(
+            Vector2 worldDirection,
+            float strength01,
+            float positionAmplitude,
+            float rotationAmplitudeDegrees,
+            float zoomAmplitudeFraction)
+        {
+            float strength = Mathf.Clamp01(strength01);
+            Vector2 localDirection = WorldToCameraLocalDirection(worldDirection);
+            if (localDirection.sqrMagnitude < 0.000001f)
+                localDirection = Vector2.up;
+
+            float immediateStrength = strength * tumbleImmediateImpactFraction;
+            springPosition += localDirection
+                              * positionAmplitude
+                              * immediateStrength;
+            springRotation += -localDirection.x
+                              * rotationAmplitudeDegrees
+                              * immediateStrength;
+            springZoom += zoomAmplitudeFraction * immediateStrength;
+            AddDirectionalImpact(
+                worldDirection,
+                strength,
+                positionAmplitude,
+                rotationAmplitudeDegrees,
+                zoomAmplitudeFraction);
+        }
+
+        private void AddObstacleCollisionImpact(
+            Vector2 worldDirection,
+            float strength01)
+        {
+            float strength = Mathf.Clamp01(strength01);
+            Vector2 localDirection = WorldToCameraLocalDirection(worldDirection);
+            if (localDirection.sqrMagnitude < 0.000001f)
+                localDirection = Vector2.up;
+
+            float immediateStrength = strength
+                                      * obstacleCollisionImmediateImpactFraction;
+            springPosition += localDirection
+                              * obstacleCollisionPositionImpact
+                              * immediateStrength;
+            springRotation += -localDirection.x
+                              * obstacleCollisionRotationImpactDegrees
+                              * immediateStrength;
+            springZoom += obstacleCollisionZoomImpactFraction
+                          * immediateStrength;
+            AddDirectionalImpact(
+                worldDirection,
+                strength,
+                obstacleCollisionPositionImpact,
+                obstacleCollisionRotationImpactDegrees,
+                obstacleCollisionZoomImpactFraction);
+            StartObstacleCollisionRumble(strength);
+        }
+
+        private void StartTumbleAftershock(float strength)
+        {
+            tumbleAftershockStartTime = Time.time;
+            tumbleAftershockEndTime = Time.time + tumbleAftershockDuration;
+            tumbleAftershockStrength = Mathf.Max(
+                tumbleAftershockStrength,
+                Mathf.Clamp01(strength));
+            ExtendTumbleIntensityLimits();
+        }
+
+        private void AddScanChargeVibration()
+        {
+            if (scanChargeShakeStrength > 0f)
+            {
+                float time = Time.time * scanChargeFrequency;
+                float noiseX = SignedPerlin(noiseSeedX + 173.4f, time);
+                float noiseY = SignedPerlin(
+                    noiseSeedY + 291.7f,
+                    time * 0.87f);
+                float noiseRotation = SignedPerlin(
+                    noiseSeedRotation + 419.2f,
+                    time * 0.71f);
+                continuousPosition += new Vector2(noiseX, noiseY)
+                                      * scanChargePositionAmplitude
+                                      * scanChargeShakeStrength;
+                continuousRotation += noiseRotation
+                                      * scanChargeRotationAmplitude
+                                      * scanChargeShakeStrength;
+            }
+
+            if (photoModeRevealShakeStrength <= 0f)
+                return;
+
+            float revealTime = Time.unscaledTime * photoModeRevealFrequency;
+            float revealNoiseX = SignedPerlin(
+                noiseSeedX + 547.6f,
+                revealTime);
+            float revealNoiseY = SignedPerlin(
+                noiseSeedY + 683.2f,
+                revealTime * 0.89f);
+            float revealNoiseRotation = SignedPerlin(
+                noiseSeedRotation + 761.9f,
+                revealTime * 0.73f);
+            continuousPosition += new Vector2(
+                                      revealNoiseX,
+                                      revealNoiseY)
+                                  * photoModeRevealPositionAmplitude
+                                  * photoModeRevealShakeStrength;
+            continuousRotation += revealNoiseRotation
+                                  * photoModeRevealRotationAmplitude
+                                  * photoModeRevealShakeStrength;
+        }
+
+        private void AddDirectionalImpact(
+            Vector2 worldDirection,
+            float strength01,
+            float positionAmplitude,
+            float rotationAmplitudeDegrees,
+            float zoomAmplitudeFraction)
+        {
+            float strength = Mathf.Clamp01(strength01);
+            if (strength <= 0f)
+                return;
+
+            Vector2 localDirection = WorldToCameraLocalDirection(worldDirection);
+            if (localDirection.sqrMagnitude < 0.000001f)
+                localDirection = Vector2.up;
+
+            float balanceRoll = 0f;
+            if (!IsTumbleFeedbackSuppressed
+                && balance != null
+                && balance.CurrentState.NormalizedWorldOffset.sqrMagnitude
+                > 0.000001f)
+            {
+                Vector2 localBalance = WorldToCameraLocalDirection(
+                    balance.CurrentState.NormalizedWorldOffset);
+                balanceRoll = -localBalance.x
+                              * Mathf.Clamp01(balance.CurrentState.Magnitude)
+                              * balanceImpactRotationInfluence;
+            }
+
+            // Feed impacts into spring velocity instead of changing the camera
+            // displacement immediately. The camera now takes a short, readable
+            // time to reach the impact peak and no longer jumps in one frame.
+            float positionAngularFrequency = Mathf.PI
+                                             * 2f
+                                             * Mathf.Max(
+                                                 0.1f,
+                                                 positionSpringFrequency);
+            float rotationAngularFrequency = Mathf.PI
+                                             * 2f
+                                             * Mathf.Max(
+                                                 0.1f,
+                                                 rotationSpringFrequency);
+            float zoomAngularFrequency = Mathf.PI
+                                         * 2f
+                                         * Mathf.Max(
+                                             0.1f,
+                                             zoomSpringFrequency);
+            springPositionVelocity += localDirection
+                                      * positionAmplitude
+                                      * strength
+                                      * positionAngularFrequency
+                                      * impactVelocityMultiplier;
+            springRotationVelocity += (-localDirection.x + balanceRoll)
+                                      * rotationAmplitudeDegrees
+                                      * strength
+                                      * rotationAngularFrequency
+                                      * impactVelocityMultiplier;
+            springZoomVelocity += zoomAmplitudeFraction
+                                  * strength
+                                  * zoomAngularFrequency
+                                  * impactVelocityMultiplier;
+        }
+
+        private void IntegrateSprings(float deltaTime)
+        {
+            int substeps = Mathf.Max(1, Mathf.CeilToInt(deltaTime / (1f / 120f)));
+            float step = deltaTime / substeps;
+            for (int i = 0; i < substeps; i++)
+            {
+                IntegrateSpring(
+                    ref springPosition,
+                    ref springPositionVelocity,
+                    positionSpringFrequency,
+                    positionSpringDamping,
+                    step);
+                IntegrateSpring(
+                    ref springRotation,
+                    ref springRotationVelocity,
+                    rotationSpringFrequency,
+                    rotationSpringDamping,
+                    step);
+                IntegrateSpring(
+                    ref springZoom,
+                    ref springZoomVelocity,
+                    zoomSpringFrequency,
+                    zoomSpringDamping,
+                    step);
+            }
+
+            springPosition = Vector2.ClampMagnitude(
+                springPosition,
+                GetMaximumPositionOffset());
+            springRotation = Mathf.Clamp(
+                springRotation,
+                -GetMaximumRotationDegrees(),
+                GetMaximumRotationDegrees());
+            springZoom = Mathf.Clamp(
+                springZoom,
+                -GetMaximumZoomFraction(),
+                GetMaximumZoomFraction());
+        }
+
+        private void ApplyShakeToCamera()
+        {
+            Vector2 localOffset = Vector2.ClampMagnitude(
+                (springPosition + continuousPosition) * globalIntensity,
+                GetMaximumPositionOffset());
+            float rotationOffset = Mathf.Clamp(
+                (springRotation + continuousRotation) * globalIntensity,
+                -GetMaximumRotationDegrees(),
+                GetMaximumRotationDegrees());
+            float zoomOffset = Mathf.Clamp(
+                springZoom * globalIntensity,
+                -GetMaximumZoomFraction(),
+                GetMaximumZoomFraction());
+
+            CurrentLocalPositionOffset = localOffset;
+            CurrentRotationOffsetDegrees = rotationOffset;
+            CurrentZoomOffsetFraction = zoomOffset;
+
+            Quaternion baseRotation = transform.rotation;
+            transform.position += baseRotation
+                                  * new Vector3(localOffset.x, localOffset.y, 0f);
+            transform.rotation = baseRotation
+                                 * Quaternion.Euler(0f, 0f, rotationOffset);
+            attachedCamera.orthographicSize = Mathf.Max(
+                0.01f,
+                GetComposedBaseOrthographicSize() * (1f + zoomOffset));
+        }
+
+        private float GetComposedBaseOrthographicSize()
+        {
+            return Mathf.Max(
+                0.01f,
+                baseOrthographicSize
+                * scanZoomMultiplier
+                / Mathf.Max(1f, photoFocusMagnification));
+        }
+
+        private void UpdateGamepadRumble(float deltaTime)
+        {
+            if (!enableGamepadRumble
+                || !Application.isFocused
+                || Time.timeScale <= 0.0001f)
+            {
+                StopGamepadRumble();
+                return;
+            }
+
+            float positionStrength = Mathf.Clamp01(
+                CurrentLocalPositionOffset.magnitude
+                / Mathf.Max(0.001f, positionOffsetAtFullRumble));
+            float rotationStrength = Mathf.Clamp01(
+                Mathf.Abs(CurrentRotationOffsetDegrees)
+                / Mathf.Max(0.01f, rotationDegreesAtFullRumble));
+            float zoomStrength = Mathf.Clamp01(
+                Mathf.Abs(CurrentZoomOffsetFraction)
+                / Mathf.Max(0.0001f, zoomFractionAtFullRumble));
+            positionStrength = Mathf.Pow(
+                positionStrength,
+                rumbleResponseExponent);
+            rotationStrength = Mathf.Pow(
+                rotationStrength,
+                rumbleResponseExponent);
+            zoomStrength = Mathf.Pow(
+                zoomStrength,
+                rumbleResponseExponent);
+
+            float balanceMagnitude = balance != null
+                                     && !IsTumbleFeedbackSuppressed
+                ? Mathf.Clamp01(balance.CurrentState.Magnitude)
+                : 0f;
+            float imbalanceBoost = Mathf.Lerp(
+                1f,
+                fullImbalanceRumbleMultiplier,
+                Mathf.Pow(balanceMagnitude, imbalanceRumbleExponent));
+            float landingEnvelope = 1f - Mathf.Clamp01(
+                (Time.time - lastLandingRumbleTime)
+                / Mathf.Max(0.01f, landingRumbleBoostDuration));
+            float landingBoost = Mathf.Lerp(
+                1f,
+                landingRumbleMultiplier,
+                landingEnvelope * lastLandingRumbleStrength);
+
+            float targetLow = Mathf.Clamp01(
+                Mathf.Max(positionStrength, zoomStrength)
+                * lowFrequencyMotorMultiplier
+                * imbalanceBoost
+                * landingBoost);
+            float targetHigh = Mathf.Clamp01(
+                Mathf.Max(
+                    rotationStrength,
+                    positionStrength * positionToHighFrequencyMotor)
+                * highFrequencyMotorMultiplier
+                * imbalanceBoost
+                * landingBoost);
+            ApplyTumbleRumble(ref targetLow, ref targetHigh);
+            ApplyObstacleCollisionRumble(ref targetLow, ref targetHigh);
+            if (!IsTumbleFeedbackSuppressed
+                && enableSevereImbalanceRumble
+                && balanceMagnitude >= severeImbalanceRumbleThreshold)
+            {
+                float severeProgress = Mathf.InverseLerp(
+                    severeImbalanceRumbleThreshold,
+                    1f,
+                    balanceMagnitude);
+                // Start with a clearly perceptible warning at the threshold,
+                // then increase toward the configured full-displacement level.
+                float warningStrength = Mathf.Lerp(
+                    0.65f,
+                    1f,
+                    severeProgress);
+                targetLow = Mathf.Max(
+                    targetLow,
+                    severeImbalanceLowFrequencyStrength * warningStrength);
+                targetHigh = Mathf.Max(
+                    targetHigh,
+                    severeImbalanceHighFrequencyStrength * warningStrength);
+            }
+
+            currentLowFrequencyRumble = MoveRumbleTowards(
+                currentLowFrequencyRumble,
+                targetLow,
+                deltaTime);
+            currentHighFrequencyRumble = MoveRumbleTowards(
+                currentHighFrequencyRumble,
+                targetHigh,
+                deltaTime);
+
+            float outputLow = currentLowFrequencyRumble
+                              >= minimumRumbleOutput
+                ? currentLowFrequencyRumble
+                : 0f;
+            float outputHigh = currentHighFrequencyRumble
+                               >= minimumRumbleOutput
+                ? currentHighFrequencyRumble
+                : 0f;
+            bool changed = Mathf.Abs(
+                               outputLow - lastSentLowFrequencyRumble)
+                           >= 0.005f
+                           || Mathf.Abs(
+                               outputHigh - lastSentHighFrequencyRumble)
+                           >= 0.005f;
+            if (!changed
+                && rumbleWasSent
+                && Time.unscaledTime < nextRumbleRefreshTime)
+            {
+                return;
+            }
+
+            rumbleWasSent = AdaptiveGamepadRumble.SetMotorSpeeds(
+                gamepadIndex,
+                outputLow,
+                outputHigh,
+                CreateSonyRumbleCalibration(
+                    IsActivelyTumbling || HasTumbleLandingRumble,
+                    HasObstacleCollisionRumble));
+            lastSentLowFrequencyRumble = outputLow;
+            lastSentHighFrequencyRumble = outputHigh;
+            nextRumbleRefreshTime = Time.unscaledTime + 0.25f;
+        }
+
+        private float MoveRumbleTowards(
+            float current,
+            float target,
+            float deltaTime)
+        {
+            float speed = target > current
+                ? rumbleAttackSpeed
+                : rumbleReleaseSpeed;
+            return Mathf.MoveTowards(
+                current,
+                target,
+                Mathf.Max(0f, speed) * deltaTime);
+        }
+
+        private void StopGamepadRumble()
+        {
+            if (rumbleWasSent
+                || currentLowFrequencyRumble > 0f
+                || currentHighFrequencyRumble > 0f)
+            {
+                AdaptiveGamepadRumble.SetMotorSpeeds(
+                    gamepadIndex,
+                    0f,
+                    0f,
+                    CreateSonyRumbleCalibration(false));
+            }
+
+            currentLowFrequencyRumble = 0f;
+            currentHighFrequencyRumble = 0f;
+            lastSentLowFrequencyRumble = 0f;
+            lastSentHighFrequencyRumble = 0f;
+            rumbleWasSent = false;
+            lastLandingRumbleTime = float.NegativeInfinity;
+            lastLandingRumbleStrength = 0f;
+            obstacleCollisionRumbleStartTime = float.NegativeInfinity;
+            obstacleCollisionRumbleEndTime = float.NegativeInfinity;
+            obstacleCollisionRumbleStrength = 0f;
+        }
+
+        private void ApplyTumbleRumble(ref float targetLow, ref float targetHigh)
+        {
+            if (IsActivelyTumbling)
+            {
+                float stepPulse = tumble != null
+                    ? Mathf.Lerp(
+                        0.82f,
+                        1f,
+                        Mathf.Sin(
+                            Mathf.Clamp01(tumble.StepProgress01) * Mathf.PI))
+                    : 1f;
+                targetLow = Mathf.Max(
+                    targetLow,
+                    tumbleContinuousLowFrequencyStrength * stepPulse);
+                targetHigh = Mathf.Max(
+                    targetHigh,
+                    tumbleContinuousHighFrequencyStrength * stepPulse);
+            }
+
+            if (!HasTumbleLandingRumble)
+                return;
+
+            float elapsed = Mathf.Max(
+                0f,
+                Time.time - tumbleLandingRumbleStartTime);
+            float falloffDuration = Mathf.Max(
+                0.01f,
+                tumbleLandingRumbleDuration
+                - tumbleLandingRumblePeakHoldDuration);
+            float falloffProgress = Mathf.Clamp01(
+                (elapsed - tumbleLandingRumblePeakHoldDuration)
+                / falloffDuration);
+            float envelope = elapsed <= tumbleLandingRumblePeakHoldDuration
+                ? 1f
+                : Mathf.Pow(
+                    1f - falloffProgress,
+                    tumbleLandingRumbleFalloffExponent);
+            float impactEnvelope = envelope * tumbleLandingRumbleStrength;
+            targetLow = Mathf.Max(
+                targetLow,
+                tumbleLandingLowFrequencyStrength * impactEnvelope);
+            targetHigh = Mathf.Max(
+                targetHigh,
+                tumbleLandingHighFrequencyStrength * impactEnvelope);
+
+            // The impact is authoritative and must be felt on the same frame as
+            // the quarter-turn landing instead of waiting for the generic attack.
+            currentLowFrequencyRumble = Mathf.Max(
+                currentLowFrequencyRumble,
+                targetLow);
+            currentHighFrequencyRumble = Mathf.Max(
+                currentHighFrequencyRumble,
+                targetHigh);
+        }
+
+        private void StartTumbleLandingRumble(float strength)
+        {
+            tumbleLandingRumbleStartTime = Time.time;
+            tumbleLandingRumbleEndTime = Time.time
+                                          + tumbleLandingRumbleDuration;
+            tumbleLandingRumbleStrength = Mathf.Clamp01(strength);
+        }
+
+        private void ApplyObstacleCollisionRumble(
+            ref float targetLow,
+            ref float targetHigh)
+        {
+            if (!HasObstacleCollisionRumble)
+                return;
+
+            float elapsed = Mathf.Max(
+                0f,
+                Time.time - obstacleCollisionRumbleStartTime);
+            float falloffDuration = Mathf.Max(
+                0.01f,
+                obstacleCollisionRumbleDuration
+                - obstacleCollisionRumblePeakHoldDuration);
+            float falloffProgress = Mathf.Clamp01(
+                (elapsed - obstacleCollisionRumblePeakHoldDuration)
+                / falloffDuration);
+            float envelope = elapsed <= obstacleCollisionRumblePeakHoldDuration
+                ? 1f
+                : Mathf.Pow(
+                    1f - falloffProgress,
+                    obstacleCollisionRumbleFalloffExponent);
+            float impactEnvelope = envelope
+                                   * obstacleCollisionRumbleStrength;
+            targetLow = Mathf.Max(
+                targetLow,
+                obstacleCollisionLowFrequencyStrength * impactEnvelope);
+            targetHigh = Mathf.Max(
+                targetHigh,
+                obstacleCollisionHighFrequencyStrength * impactEnvelope);
+
+            // A solid obstacle contact must be felt on its first frame rather
+            // than being weakened by the ordinary rumble attack smoothing.
+            currentLowFrequencyRumble = Mathf.Max(
+                currentLowFrequencyRumble,
+                targetLow);
+            currentHighFrequencyRumble = Mathf.Max(
+                currentHighFrequencyRumble,
+                targetHigh);
+        }
+
+        private void StartObstacleCollisionRumble(float strength)
+        {
+            obstacleCollisionRumbleStartTime = Time.time;
+            obstacleCollisionRumbleEndTime = Time.time
+                                              + obstacleCollisionRumbleDuration;
+            obstacleCollisionRumbleStrength = Mathf.Clamp01(strength);
+        }
+
+        private SonyRumbleCalibration CreateSonyRumbleCalibration(
+            bool useTumbleCalibration,
+            bool useObstacleCalibration = false)
+        {
+            bool useDedicatedImpactCalibration = useTumbleCalibration
+                                                  || useObstacleCalibration;
+            float maximumLowFrequencyStrength =
+                sonyMaximumLowFrequencyStrength;
+            float maximumHighFrequencyStrength =
+                sonyMaximumHighFrequencyStrength;
+            if (useTumbleCalibration)
+            {
+                maximumLowFrequencyStrength = Mathf.Max(
+                    maximumLowFrequencyStrength,
+                    sonyTumbleMaximumLowFrequencyStrength);
+                maximumHighFrequencyStrength = Mathf.Max(
+                    maximumHighFrequencyStrength,
+                    sonyTumbleMaximumHighFrequencyStrength);
+            }
+            if (useObstacleCalibration)
+            {
+                maximumLowFrequencyStrength = Mathf.Max(
+                    maximumLowFrequencyStrength,
+                    sonyObstacleMaximumLowFrequencyStrength);
+                maximumHighFrequencyStrength = Mathf.Max(
+                    maximumHighFrequencyStrength,
+                    sonyObstacleMaximumHighFrequencyStrength);
+            }
+
+            return new SonyRumbleCalibration(
+                enableSonyRumbleCalibration,
+                useDedicatedImpactCalibration
+                    ? 1f
+                    : sonyLowFrequencyMultiplier,
+                useDedicatedImpactCalibration
+                    ? 1f
+                    : sonyHighFrequencyMultiplier,
+                useDedicatedImpactCalibration
+                    ? 1f
+                    : sonyRumbleResponseExponent,
+                maximumLowFrequencyStrength,
+                maximumHighFrequencyStrength,
+                sonyMinimumRumbleOutput);
+        }
+
+        private Vector2 GetCurrentWorldVelocity()
+        {
+            return mover == null
+                ? Vector2.zero
+                : (Vector2)mover.transform.up * mover.CurrentSpeed
+                  + mover.CurrentTerrainVelocity;
+        }
+
+        private void StorePreviousMotionState()
+        {
+            if (mover == null)
+                return;
+
+            previousWorldVelocity = GetCurrentWorldVelocity();
+            previousMotionInitialized = true;
+            previousBlocked = mover.IsSlopeBlocked;
+            previousBlockReason = mover.CurrentTraversalResult.BlockReason;
+            previousLevelThreePhase = mover.CurrentLevelThreeClimbPhase;
+        }
+
+        private Vector2 WorldToCameraLocalDirection(Vector2 worldDirection)
+        {
+            if (worldDirection.sqrMagnitude < 0.000001f)
+                return Vector2.zero;
+
+            Vector3 local = Quaternion.Inverse(transform.rotation)
+                            * new Vector3(worldDirection.x, worldDirection.y, 0f);
+            return new Vector2(local.x, local.y).normalized;
+        }
+
+        private static Vector2 GetReliableTravelDirection(
+            Vector2 preferred,
+            Vector2 fallback)
+        {
+            if (preferred.sqrMagnitude > 0.000001f)
+                return preferred.normalized;
+            return fallback.sqrMagnitude > 0.000001f
+                ? fallback.normalized
+                : Vector2.up;
+        }
+
+        private static float SignedPerlin(float seed, float time)
+        {
+            return Mathf.PerlinNoise(seed, time) * 2f - 1f;
+        }
+
+        private static void IntegrateSpring(
+            ref Vector2 value,
+            ref Vector2 velocity,
+            float frequency,
+            float dampingRatio,
+            float deltaTime)
+        {
+            float angularFrequency = Mathf.PI * 2f * Mathf.Max(0.1f, frequency);
+            Vector2 acceleration = -value * angularFrequency * angularFrequency
+                                   - velocity
+                                   * (2f * Mathf.Max(0.05f, dampingRatio)
+                                      * angularFrequency);
+            velocity += acceleration * deltaTime;
+            value += velocity * deltaTime;
+        }
+
+        private static void IntegrateSpring(
+            ref float value,
+            ref float velocity,
+            float frequency,
+            float dampingRatio,
+            float deltaTime)
+        {
+            float angularFrequency = Mathf.PI * 2f * Mathf.Max(0.1f, frequency);
+            float acceleration = -value * angularFrequency * angularFrequency
+                                 - velocity
+                                 * (2f * Mathf.Max(0.05f, dampingRatio)
+                                    * angularFrequency);
+            velocity += acceleration * deltaTime;
+            value += velocity * deltaTime;
+        }
+
+        private void ResetShakeState()
+        {
+            springPosition = Vector2.zero;
+            springPositionVelocity = Vector2.zero;
+            springRotation = 0f;
+            springRotationVelocity = 0f;
+            springZoom = 0f;
+            springZoomVelocity = 0f;
+            continuousPosition = Vector2.zero;
+            continuousRotation = 0f;
+            CurrentLocalPositionOffset = Vector2.zero;
+            CurrentRotationOffsetDegrees = 0f;
+            CurrentZoomOffsetFraction = 0f;
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeFromTumbleEvents();
+            UnsubscribeFromSelfRightingEvents();
+            ResetShakeState();
+            StopGamepadRumble();
+            scanZoomMultiplier = 1f;
+            photoFocusMagnification = 1f;
+            SetScanChargeShake(0f, 0f, 0f, 1f);
+            SetPhotoModeRevealShake(0f, 0f, 0f, 1f);
+            if (attachedCamera != null)
+                attachedCamera.orthographicSize = baseOrthographicSize;
+        }
+
+        private float GetMaximumPositionOffset()
+        {
+            return UseTumbleIntensityLimits
+                ? Mathf.Max(maximumPositionOffset, tumbleMaximumPositionOffset)
+                : maximumPositionOffset;
+        }
+
+        private float GetMaximumRotationDegrees()
+        {
+            return UseTumbleIntensityLimits
+                ? Mathf.Max(maximumRotationDegrees, tumbleMaximumRotationDegrees)
+                : maximumRotationDegrees;
+        }
+
+        private float GetMaximumZoomFraction()
+        {
+            return UseTumbleIntensityLimits
+                ? Mathf.Max(maximumZoomFraction, tumbleMaximumZoomFraction)
+                : maximumZoomFraction;
+        }
+
+        private void ExtendTumbleIntensityLimits()
+        {
+            tumbleHighIntensityUntil = Mathf.Max(
+                tumbleHighIntensityUntil,
+                Time.time + tumbleImpactLimitHoldDuration);
+        }
+
+        private void OnEnable()
+        {
+            SubscribeToTumbleEvents();
+            SubscribeToSelfRightingEvents();
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus)
+                StopGamepadRumble();
+        }
+
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (pauseStatus)
+                StopGamepadRumble();
+        }
+
+        private void OnDestroy()
+        {
+            UnsubscribeFromTumbleEvents();
+            UnsubscribeFromSelfRightingEvents();
+            StopGamepadRumble();
+        }
+
+        private void OnValidate()
+        {
+            globalIntensity = Mathf.Clamp(globalIntensity, 0f, 3f);
+            maximumPositionOffset = Mathf.Max(0f, maximumPositionOffset);
+            maximumRotationDegrees = Mathf.Clamp(maximumRotationDegrees, 0f, 12f);
+            maximumZoomFraction = Mathf.Clamp(maximumZoomFraction, 0f, 0.1f);
+            obstacleCollisionMinimumSpeed = Mathf.Max(
+                0f,
+                obstacleCollisionMinimumSpeed);
+            obstacleCollisionFullSpeed = Mathf.Max(
+                obstacleCollisionMinimumSpeed + 0.01f,
+                obstacleCollisionFullSpeed);
+            obstacleCollisionMinimumStrength = Mathf.Clamp01(
+                obstacleCollisionMinimumStrength);
+            obstacleCollisionStrengthExponent = Mathf.Clamp(
+                obstacleCollisionStrengthExponent,
+                0.1f,
+                3f);
+            obstacleCollisionPositionImpact = Mathf.Max(
+                0f,
+                obstacleCollisionPositionImpact);
+            obstacleCollisionRotationImpactDegrees = Mathf.Max(
+                0f,
+                obstacleCollisionRotationImpactDegrees);
+            obstacleCollisionZoomImpactFraction = Mathf.Clamp(
+                obstacleCollisionZoomImpactFraction,
+                0f,
+                0.1f);
+            obstacleCollisionImmediateImpactFraction = Mathf.Clamp01(
+                obstacleCollisionImmediateImpactFraction);
+            obstacleCollisionLowFrequencyStrength = Mathf.Clamp01(
+                obstacleCollisionLowFrequencyStrength);
+            obstacleCollisionHighFrequencyStrength = Mathf.Clamp01(
+                obstacleCollisionHighFrequencyStrength);
+            obstacleCollisionRumblePeakHoldDuration = Mathf.Max(
+                0f,
+                obstacleCollisionRumblePeakHoldDuration);
+            obstacleCollisionRumbleDuration = Mathf.Max(
+                obstacleCollisionRumblePeakHoldDuration + 0.01f,
+                obstacleCollisionRumbleDuration);
+            obstacleCollisionRumbleFalloffExponent = Mathf.Clamp(
+                obstacleCollisionRumbleFalloffExponent,
+                0.5f,
+                4f);
+            sonyObstacleMaximumLowFrequencyStrength = Mathf.Clamp01(
+                sonyObstacleMaximumLowFrequencyStrength);
+            sonyObstacleMaximumHighFrequencyStrength = Mathf.Clamp01(
+                sonyObstacleMaximumHighFrequencyStrength);
+            tumbleStartPositionImpact = Mathf.Max(
+                0f,
+                tumbleStartPositionImpact);
+            tumbleStartRotationImpactDegrees = Mathf.Max(
+                0f,
+                tumbleStartRotationImpactDegrees);
+            tumbleStartZoomImpactFraction = Mathf.Clamp(
+                tumbleStartZoomImpactFraction,
+                0f,
+                0.1f);
+            tumbleImpactEnergyAtFullStrength = Mathf.Max(
+                0.01f,
+                tumbleImpactEnergyAtFullStrength);
+            tumbleStepMinimumImpactStrength = Mathf.Clamp01(
+                tumbleStepMinimumImpactStrength);
+            tumbleStepPositionImpact = Mathf.Max(
+                0f,
+                tumbleStepPositionImpact);
+            tumbleStepRotationImpactDegrees = Mathf.Max(
+                0f,
+                tumbleStepRotationImpactDegrees);
+            tumbleStepZoomImpactFraction = Mathf.Clamp(
+                tumbleStepZoomImpactFraction,
+                0f,
+                0.1f);
+            tumbleImpactMultiplier = Mathf.Clamp(
+                tumbleImpactMultiplier,
+                1f,
+                6f);
+            tumbleImmediateImpactFraction = Mathf.Clamp01(
+                tumbleImmediateImpactFraction);
+            tumbleMaximumPositionOffset = Mathf.Max(
+                0f,
+                tumbleMaximumPositionOffset);
+            tumbleMaximumRotationDegrees = Mathf.Clamp(
+                tumbleMaximumRotationDegrees,
+                0f,
+                30f);
+            tumbleMaximumZoomFraction = Mathf.Clamp(
+                tumbleMaximumZoomFraction,
+                0f,
+                0.2f);
+            tumbleContinuousPositionAmplitude = Mathf.Max(
+                0f,
+                tumbleContinuousPositionAmplitude);
+            tumbleContinuousRotationDegrees = Mathf.Max(
+                0f,
+                tumbleContinuousRotationDegrees);
+            tumbleContinuousFrequency = Mathf.Max(
+                0.1f,
+                tumbleContinuousFrequency);
+            tumbleImpactLimitHoldDuration = Mathf.Max(
+                0f,
+                tumbleImpactLimitHoldDuration);
+            tumbleAftershockDuration = Mathf.Max(
+                0f,
+                tumbleAftershockDuration);
+            finalRockPositionImpact = Mathf.Max(0f, finalRockPositionImpact);
+            finalRockRotationImpactDegrees = Mathf.Max(
+                0f,
+                finalRockRotationImpactDegrees);
+            finalRockZoomImpactFraction = Mathf.Clamp(
+                finalRockZoomImpactFraction,
+                0f,
+                0.1f);
+            tumbleContinuousLowFrequencyStrength = Mathf.Clamp01(
+                tumbleContinuousLowFrequencyStrength);
+            tumbleContinuousHighFrequencyStrength = Mathf.Clamp01(
+                tumbleContinuousHighFrequencyStrength);
+            tumbleLandingLowFrequencyStrength = Mathf.Clamp01(
+                tumbleLandingLowFrequencyStrength);
+            tumbleLandingHighFrequencyStrength = Mathf.Clamp01(
+                tumbleLandingHighFrequencyStrength);
+            tumbleLandingRumblePeakHoldDuration = Mathf.Max(
+                0f,
+                tumbleLandingRumblePeakHoldDuration);
+            tumbleLandingRumbleDuration = Mathf.Max(
+                tumbleLandingRumblePeakHoldDuration + 0.01f,
+                tumbleLandingRumbleDuration);
+            tumbleLandingRumbleFalloffExponent = Mathf.Clamp(
+                tumbleLandingRumbleFalloffExponent,
+                0.5f,
+                4f);
+            sonyTumbleMaximumLowFrequencyStrength = Mathf.Clamp01(
+                sonyTumbleMaximumLowFrequencyStrength);
+            sonyTumbleMaximumHighFrequencyStrength = Mathf.Clamp01(
+                sonyTumbleMaximumHighFrequencyStrength);
+            gamepadIndex = Mathf.Clamp(gamepadIndex, 0, 3);
+            positionOffsetAtFullRumble = Mathf.Max(
+                0.001f,
+                positionOffsetAtFullRumble);
+            rotationDegreesAtFullRumble = Mathf.Max(
+                0.01f,
+                rotationDegreesAtFullRumble);
+            zoomFractionAtFullRumble = Mathf.Max(
+                0.0001f,
+                zoomFractionAtFullRumble);
+            lowFrequencyMotorMultiplier = Mathf.Clamp(
+                lowFrequencyMotorMultiplier,
+                0f,
+                2f);
+            highFrequencyMotorMultiplier = Mathf.Clamp(
+                highFrequencyMotorMultiplier,
+                0f,
+                2f);
+            positionToHighFrequencyMotor = Mathf.Clamp01(
+                positionToHighFrequencyMotor);
+            rumbleResponseExponent = Mathf.Clamp(
+                rumbleResponseExponent,
+                0.5f,
+                3f);
+            fullImbalanceRumbleMultiplier = Mathf.Clamp(
+                fullImbalanceRumbleMultiplier,
+                1f,
+                5f);
+            imbalanceRumbleExponent = Mathf.Clamp(
+                imbalanceRumbleExponent,
+                0.5f,
+                4f);
+            severeImbalanceRumbleThreshold = Mathf.Clamp01(
+                severeImbalanceRumbleThreshold);
+            severeImbalanceLowFrequencyStrength = Mathf.Clamp01(
+                severeImbalanceLowFrequencyStrength);
+            severeImbalanceHighFrequencyStrength = Mathf.Clamp01(
+                severeImbalanceHighFrequencyStrength);
+            landingRumbleMultiplier = Mathf.Clamp(
+                landingRumbleMultiplier,
+                1f,
+                4f);
+            landingRumbleBoostDuration = Mathf.Max(
+                0.01f,
+                landingRumbleBoostDuration);
+            rumbleAttackSpeed = Mathf.Max(0.1f, rumbleAttackSpeed);
+            rumbleReleaseSpeed = Mathf.Max(0.1f, rumbleReleaseSpeed);
+            minimumRumbleOutput = Mathf.Clamp(
+                minimumRumbleOutput,
+                0f,
+                0.2f);
+            sonyLowFrequencyMultiplier = Mathf.Clamp01(
+                sonyLowFrequencyMultiplier);
+            sonyHighFrequencyMultiplier = Mathf.Clamp01(
+                sonyHighFrequencyMultiplier);
+            sonyRumbleResponseExponent = Mathf.Clamp(
+                sonyRumbleResponseExponent,
+                0.5f,
+                3f);
+            sonyMaximumLowFrequencyStrength = Mathf.Clamp01(
+                sonyMaximumLowFrequencyStrength);
+            sonyMaximumHighFrequencyStrength = Mathf.Clamp01(
+                sonyMaximumHighFrequencyStrength);
+            sonyMinimumRumbleOutput = Mathf.Clamp(
+                sonyMinimumRumbleOutput,
+                0f,
+                0.2f);
+            fullVibrationSpeed = Mathf.Max(0.1f, fullVibrationSpeed);
+            minimumMovingVibrationStrength = Mathf.Clamp01(
+                minimumMovingVibrationStrength);
+            stationaryBalanceVibrationStrength = Mathf.Clamp01(
+                stationaryBalanceVibrationStrength);
+            drivePositionAmplitude = Mathf.Max(0f, drivePositionAmplitude);
+            driveRotationAmplitude = Mathf.Max(0f, driveRotationAmplitude);
+            driveVibrationFrequency = Mathf.Max(0.1f, driveVibrationFrequency);
+            roughnessAtFullVibration = Mathf.Max(0.001f, roughnessAtFullVibration);
+            minimumImpactDeceleration = Mathf.Max(0.1f, minimumImpactDeceleration);
+            fullImpactDeceleration = Mathf.Max(
+                minimumImpactDeceleration + 0.1f,
+                fullImpactDeceleration);
+            impactCooldownSeconds = Mathf.Max(0f, impactCooldownSeconds);
+            impactVelocityMultiplier = Mathf.Clamp(
+                impactVelocityMultiplier,
+                0.5f,
+                3f);
+            minimumHeightImpactAcceleration = Mathf.Max(
+                0.1f,
+                minimumHeightImpactAcceleration);
+            fullHeightImpactAcceleration = Mathf.Max(
+                minimumHeightImpactAcceleration + 0.1f,
+                fullHeightImpactAcceleration);
+        }
+    }
+
+    internal readonly struct SonyRumbleCalibration
+    {
+        private readonly bool enabled;
+        private readonly float lowFrequencyMultiplier;
+        private readonly float highFrequencyMultiplier;
+        private readonly float responseExponent;
+        private readonly float maximumLowFrequencyStrength;
+        private readonly float maximumHighFrequencyStrength;
+        private readonly float minimumOutput;
+
+        public SonyRumbleCalibration(
+            bool enabled,
+            float lowFrequencyMultiplier,
+            float highFrequencyMultiplier,
+            float responseExponent,
+            float maximumLowFrequencyStrength,
+            float maximumHighFrequencyStrength,
+            float minimumOutput)
+        {
+            this.enabled = enabled;
+            this.lowFrequencyMultiplier = Mathf.Clamp01(
+                lowFrequencyMultiplier);
+            this.highFrequencyMultiplier = Mathf.Clamp01(
+                highFrequencyMultiplier);
+            this.responseExponent = Mathf.Clamp(responseExponent, 0.5f, 3f);
+            this.maximumLowFrequencyStrength = Mathf.Clamp01(
+                maximumLowFrequencyStrength);
+            this.maximumHighFrequencyStrength = Mathf.Clamp01(
+                maximumHighFrequencyStrength);
+            this.minimumOutput = Mathf.Clamp(minimumOutput, 0f, 0.2f);
+        }
+
+        public void Apply(ref float lowFrequency, ref float highFrequency)
+        {
+            lowFrequency = Mathf.Clamp01(lowFrequency);
+            highFrequency = Mathf.Clamp01(highFrequency);
+            if (enabled)
+            {
+                lowFrequency = Mathf.Min(
+                    maximumLowFrequencyStrength,
+                    Mathf.Pow(lowFrequency, responseExponent)
+                    * lowFrequencyMultiplier);
+                highFrequency = Mathf.Min(
+                    maximumHighFrequencyStrength,
+                    Mathf.Pow(highFrequency, responseExponent)
+                    * highFrequencyMultiplier);
+            }
+
+            if (lowFrequency < minimumOutput)
+                lowFrequency = 0f;
+            if (highFrequency < minimumOutput)
+                highFrequency = 0f;
+        }
+    }
+
+    internal static class AdaptiveGamepadRumble
+    {
+        private enum RumbleBackend
+        {
+            None,
+            XInput,
+            SonyInputSystem
+        }
+
+        private static RumbleBackend activeBackend;
+
+        public static bool SetMotorSpeeds(
+            int gamepadIndex,
+            float lowFrequency,
+            float highFrequency,
+            SonyRumbleCalibration sonyCalibration)
+        {
+            bool stopping = lowFrequency <= 0f && highFrequency <= 0f;
+            if (stopping)
+            {
+                StopActiveBackend(gamepadIndex);
+                return true;
+            }
+
+            LegacyGamepadFamily family =
+                AdaptiveLegacyGamepadInput.ActiveFamily;
+            if (family == LegacyGamepadFamily.Sony)
+            {
+                if (activeBackend == RumbleBackend.XInput)
+                {
+                    WindowsXInputRumble.SetMotorSpeeds(
+                        gamepadIndex,
+                        0f,
+                        0f);
+                    activeBackend = RumbleBackend.None;
+                }
+
+#if ENABLE_INPUT_SYSTEM
+                if (SonyInputSystemRumble.SetMotorSpeeds(
+                        lowFrequency,
+                        highFrequency,
+                        sonyCalibration))
+                {
+                    activeBackend = RumbleBackend.SonyInputSystem;
+                    return true;
+                }
+#endif
+                return false;
+            }
+
+            if (activeBackend == RumbleBackend.SonyInputSystem)
+            {
+#if ENABLE_INPUT_SYSTEM
+                SonyInputSystemRumble.Stop();
+#endif
+                activeBackend = RumbleBackend.None;
+            }
+
+            bool xInputSucceeded = WindowsXInputRumble.SetMotorSpeeds(
+                gamepadIndex,
+                lowFrequency,
+                highFrequency);
+            if (xInputSucceeded)
+                activeBackend = RumbleBackend.XInput;
+            return xInputSucceeded;
+        }
+
+        private static void StopActiveBackend(int gamepadIndex)
+        {
+            if (activeBackend == RumbleBackend.SonyInputSystem)
+            {
+#if ENABLE_INPUT_SYSTEM
+                SonyInputSystemRumble.Stop();
+#endif
+            }
+            else if (activeBackend == RumbleBackend.XInput)
+            {
+                WindowsXInputRumble.SetMotorSpeeds(
+                    gamepadIndex,
+                    0f,
+                    0f);
+            }
+
+            activeBackend = RumbleBackend.None;
+        }
+    }
+
+#if ENABLE_INPUT_SYSTEM
+    internal static class SonyInputSystemRumble
+    {
+        private static Gamepad cachedSonyGamepad;
+
+        public static bool SetMotorSpeeds(
+            float lowFrequency,
+            float highFrequency,
+            SonyRumbleCalibration calibration)
+        {
+            Gamepad gamepad = ResolveSonyGamepad();
+            if (gamepad == null)
+                return false;
+
+            calibration.Apply(ref lowFrequency, ref highFrequency);
+            gamepad.SetMotorSpeeds(lowFrequency, highFrequency);
+            return true;
+        }
+
+        public static void Stop()
+        {
+            if (cachedSonyGamepad == null)
+                return;
+
+            cachedSonyGamepad.SetMotorSpeeds(0f, 0f);
+        }
+
+        private static Gamepad ResolveSonyGamepad()
+        {
+            if (cachedSonyGamepad != null
+                && cachedSonyGamepad.added
+                && IsSony(cachedSonyGamepad))
+            {
+                return cachedSonyGamepad;
+            }
+
+            cachedSonyGamepad = null;
+            foreach (Gamepad gamepad in Gamepad.all)
+            {
+                if (!IsSony(gamepad))
+                    continue;
+
+                cachedSonyGamepad = gamepad;
+                break;
+            }
+
+            return cachedSonyGamepad;
+        }
+
+        private static bool IsSony(Gamepad gamepad)
+        {
+            if (gamepad == null)
+                return false;
+
+            string identity = string.Join(
+                    " ",
+                    gamepad.name,
+                    gamepad.displayName,
+                    gamepad.description.manufacturer,
+                    gamepad.description.product)
+                .ToLowerInvariant();
+            return identity.Contains("dualsense")
+                   || identity.Contains("dualshock")
+                   || identity.Contains("wireless controller")
+                   || identity.Contains("playstation")
+                   || identity.Contains("sony")
+                   || identity.Contains("ps4")
+                   || identity.Contains("ps5");
+        }
+    }
+#endif
+
+    internal static class WindowsXInputRumble
+    {
+        private const uint Success = 0;
+
+        private enum Backend
+        {
+            Unknown,
+            XInput14,
+            XInput13,
+            XInput910,
+            Unavailable
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct XInputVibration
+        {
+            public ushort LeftMotorSpeed;
+            public ushort RightMotorSpeed;
+        }
+
+        private static Backend backend;
+
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+        [DllImport("xinput1_4.dll", EntryPoint = "XInputSetState")]
+        private static extern uint XInputSetState14(
+            uint userIndex,
+            ref XInputVibration vibration);
+
+        [DllImport("xinput1_3.dll", EntryPoint = "XInputSetState")]
+        private static extern uint XInputSetState13(
+            uint userIndex,
+            ref XInputVibration vibration);
+
+        [DllImport("xinput9_1_0.dll", EntryPoint = "XInputSetState")]
+        private static extern uint XInputSetState910(
+            uint userIndex,
+            ref XInputVibration vibration);
+#endif
+
+        public static bool SetMotorSpeeds(
+            int gamepadIndex,
+            float lowFrequency,
+            float highFrequency)
+        {
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+            XInputVibration vibration = new()
+            {
+                LeftMotorSpeed = ToMotorSpeed(lowFrequency),
+                RightMotorSpeed = ToMotorSpeed(highFrequency)
+            };
+            uint index = (uint)Mathf.Clamp(gamepadIndex, 0, 3);
+            try
+            {
+                return SetState(index, ref vibration) == Success;
+            }
+            catch (DllNotFoundException)
+            {
+                backend = Backend.Unavailable;
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                backend = Backend.Unavailable;
+                return false;
+            }
+#else
+            return false;
+#endif
+        }
+
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+        private static uint SetState(
+            uint index,
+            ref XInputVibration vibration)
+        {
+            switch (backend)
+            {
+                case Backend.XInput14:
+                    return XInputSetState14(index, ref vibration);
+                case Backend.XInput13:
+                    return XInputSetState13(index, ref vibration);
+                case Backend.XInput910:
+                    return XInputSetState910(index, ref vibration);
+                case Backend.Unavailable:
+                    return 1;
+            }
+
+            try
+            {
+                backend = Backend.XInput14;
+                return XInputSetState14(index, ref vibration);
+            }
+            catch (DllNotFoundException)
+            {
+                // Older Windows/Unity installations may only include another
+                // XInput redistributable, so try each known ABI once.
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+
+            try
+            {
+                backend = Backend.XInput13;
+                return XInputSetState13(index, ref vibration);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+
+            backend = Backend.XInput910;
+            return XInputSetState910(index, ref vibration);
+        }
+#endif
+
+        private static ushort ToMotorSpeed(float strength)
+        {
+            return (ushort)Mathf.RoundToInt(
+                Mathf.Clamp01(strength) * ushort.MaxValue);
+        }
+    }
+}
