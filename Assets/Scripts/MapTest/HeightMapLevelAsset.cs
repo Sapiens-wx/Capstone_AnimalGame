@@ -164,6 +164,10 @@ namespace AnimalGame.MapTest
         [Tooltip("Additional physical distance removed inside the detected silhouette, keeping the robot away from antialiased edge pixels.")]
         [SerializeField, Min(0f)] private float heightMapBorderInsetMeters;
 
+        [Header("Pre-Baked Height Field")]
+        [Tooltip("Generated with Animal Game/Pre-Bake Height Map after changing physical height settings.")]
+        [SerializeField] private HeightMapPrebakedData prebakedHeightField;
+
         [Header("Map Presentation")]
         [SerializeField, Range(128, 8000)] private int previewResolution = 2160;
         [SerializeField, Min(1f)] private float contourIntervalMeters = 8f;
@@ -379,6 +383,7 @@ namespace AnimalGame.MapTest
         public float HeightMapBorderMaskThreshold =>
             heightMapBorderMaskThreshold;
         public float HeightMapBorderInsetMeters => heightMapBorderInsetMeters;
+        public HeightMapPrebakedData PrebakedHeightField => prebakedHeightField;
         public int PreviewResolution => previewResolution;
         public float ContourIntervalMeters => contourIntervalMeters;
         public float PixelsPerUnit => pixelsPerUnit;
@@ -564,6 +569,11 @@ namespace AnimalGame.MapTest
         }
 
 #if UNITY_EDITOR
+        public void SetPrebakedHeightField(HeightMapPrebakedData data)
+        {
+            prebakedHeightField = data;
+        }
+
         public IReadOnlyList<TerrainSurfaceDefinition> SurfacePalette =>
             surfacePalette;
         public float SurfaceTransitionWidthMeters =>

@@ -170,6 +170,7 @@ namespace AnimalGame.MapTest
         private bool appliedSurfaceRevealEnabled;
         private int appliedWaterPresentationHash = int.MinValue;
         private Texture2D generatedPreviewTexture;
+        private bool generatedPreviewTextureIsPrebaked;
         private Sprite generatedMapSprite;
         private GameObject generatedMapObject;
         private int lastViewportUpdateFrame = -1;
@@ -622,6 +623,22 @@ namespace AnimalGame.MapTest
         private void BakePhysicalHeightField()
         {
             heightField?.Dispose();
+            HeightMapPrebakedData prebakedData = levelAsset != null
+                ? levelAsset.PrebakedHeightField
+                : null;
+            if (Application.isPlaying
+                && prebakedData != null
+                && prebakedData.Matches(levelAsset))
+            {
+                heightField = BakedHeightField.FromPrebakedData(prebakedData);
+                if (heightField != null)
+                    return;
+
+                Debug.LogWarning(
+                    "Could not read the pre-baked height field. Falling back to runtime baking.",
+                    this);
+            }
+
             int requestedResolution = Application.isPlaying
                 ? bakedHeightResolution
                 : Mathf.Min(bakedHeightResolution, editorHeightResolution);
@@ -667,51 +684,20 @@ namespace AnimalGame.MapTest
             int generatedResolution = Application.isPlaying
                 ? previewResolution
                 : Mathf.Min(previewResolution, editorPreviewResolution);
-            generatedPreviewTexture = new Texture2D(
-                generatedResolution,
-                generatedResolution,
-                TextureFormat.RGBA32,
-                false,
-                true)
-            {
-                name = "Generated Height Preview",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            // The texture is RGBA32, so retaining four 32-bit floats per channel
-            // only multiplies temporary memory without preserving more output data.
-            // Color32 keeps the 4096 formal-map preview comfortably bounded.
-            var colors = new Color32[generatedResolution * generatedResolution];
-            float onePixel = 1f / generatedResolution;
-            float heightRange = maximumHeightMeters - minimumHeightMeters;
-            for (int y = 0; y < generatedResolution; y++)
-            {
-                for (int x = 0; x < generatedResolution; x++)
-                {
-                    Vector2 uv = new Vector2(
-                        (x + 0.5f) / generatedResolution,
-                        (y + 0.5f) / generatedResolution);
-                    if (!heightField.IsPlayable(uv))
-                    {
-                        colors[y * generatedResolution + x] = backgroundColor;
-                        continue;
-                    }
-
-                    float height = SampleHeight(uv);
-                    float normalized = Mathf.InverseLerp(minimumHeightMeters, maximumHeightMeters, height);
-                    float heightRight = SampleHeight(uv + Vector2.right * onePixel);
-                    float heightUp = SampleHeight(uv + Vector2.up * onePixel);
-                    float lighting = Mathf.Clamp((heightRight - heightUp) / Mathf.Max(1f, heightRange) * 9f, -0.22f, 0.22f);
-                    Color color = EvaluateHeightColor(normalized) * (1f + lighting);
-
-                    color.a = 1f;
-                    colors[y * generatedResolution + x] = color;
-                }
-            }
-
-            generatedPreviewTexture.SetPixels32(colors);
-            generatedPreviewTexture.Apply(false, false);
+            HeightMapPrebakedData prebakedData = levelAsset != null
+                ? levelAsset.PrebakedHeightField
+                : null;
+            generatedPreviewTextureIsPrebaked = Application.isPlaying
+                                               && prebakedData != null
+                                               && prebakedData.Matches(levelAsset);
+            generatedPreviewTexture = generatedPreviewTextureIsPrebaked
+                ? prebakedData.PreviewTexture
+                : heightField.CreateVisualizationTexture(
+                    generatedResolution,
+                    backgroundColor,
+                    lowHeightColor,
+                    middleHeightColor,
+                    highHeightColor);
             float runtimeWorldSize = previewResolution
                                      / Mathf.Max(1f, pixelsPerUnit);
             float generatedPixelsPerUnit = generatedResolution
@@ -1313,9 +1299,10 @@ namespace AnimalGame.MapTest
                 DestroyGeneratedObject(generatedMapSprite);
             generatedMapSprite = null;
 
-            if (generatedPreviewTexture != null)
+            if (generatedPreviewTexture != null && !generatedPreviewTextureIsPrebaked)
                 DestroyGeneratedObject(generatedPreviewTexture);
             generatedPreviewTexture = null;
+            generatedPreviewTextureIsPrebaked = false;
 
             if (generatedMapObject != null)
                 DestroyGeneratedObject(generatedMapObject);

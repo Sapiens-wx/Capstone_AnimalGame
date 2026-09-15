@@ -15,6 +15,7 @@ namespace AnimalGame.MapTest
         private readonly float[] detailHeightsMeters;
         private readonly float[] surfaceHeightsMeters;
         private readonly byte[] playableMask;
+        private readonly bool ownsTextures;
 
         public int Width { get; }
         public int Height { get; }
@@ -45,7 +46,8 @@ namespace AnimalGame.MapTest
             float[] surfaceHeights,
             byte[] bakedPlayableMask,
             Texture2D bakedPlayableMaskTexture,
-            Texture2D surfaceTexture)
+            Texture2D surfaceTexture,
+            bool ownsTextures = true)
         {
             Width = width;
             Height = height;
@@ -60,6 +62,7 @@ namespace AnimalGame.MapTest
             playableMask = bakedPlayableMask;
             PlayableMaskTexture = bakedPlayableMaskTexture;
             SurfaceTexture = surfaceTexture;
+            this.ownsTextures = ownsTextures;
         }
 
         public static BakedHeightField Bake(
@@ -243,8 +246,42 @@ namespace AnimalGame.MapTest
             return surfaceHeightsMeters[clampedY * Width + clampedX];
         }
 
+        public static BakedHeightField FromPrebakedData(
+            HeightMapPrebakedData data)
+        {
+            if (data == null || data.RawDetailTexture == null
+                || data.DetailTexture == null || data.SurfaceTexture == null)
+            {
+                return null;
+            }
+
+            int sampleCount = data.Resolution * data.Resolution;
+            float[] raw = ReadHeightTexture(data.RawDetailTexture, sampleCount);
+            float[] detail = data.DetailTexture == data.RawDetailTexture
+                ? raw
+                : ReadHeightTexture(data.DetailTexture, sampleCount);
+            float[] surface = ReadHeightTexture(data.SurfaceTexture, sampleCount);
+            byte[] mask = data.PlayableMaskTexture != null
+                ? ReadMaskTexture(data.PlayableMaskTexture, sampleCount)
+                : null;
+            if (raw == null || detail == null || surface == null
+                || (data.PlayableMaskTexture != null && mask == null))
+            {
+                return null;
+            }
+
+            return new BakedHeightField(
+                data.Resolution, data.Resolution, data.MapSizeMeters,
+                data.MinimumHeightMeters, data.MaximumHeightMeters,
+                data.SourceMinimum, data.SourceMaximum, raw, detail, surface,
+                mask, data.PlayableMaskTexture, data.SurfaceTexture, false);
+        }
+
         public void Dispose()
         {
+            if (!ownsTextures)
+                return;
+
             if (SurfaceTexture != null)
             {
                 if (Application.isPlaying)
@@ -328,6 +365,131 @@ namespace AnimalGame.MapTest
             for (int index = 0; index < pixelCount; index++)
                 samples[index] = GetGrayscale(colors[index]);
             return samples;
+        }
+
+        public Texture2D CreateRawDetailTexture()
+        {
+            return CreateHeightTexture(
+                rawDetailHeightsMeters, Width, Height, MinimumHeightMeters,
+                MaximumHeightMeters, "Pre-Baked Raw Detail Height Field", false);
+        }
+
+        public Texture2D CreateDetailTexture()
+        {
+            return ReferenceEquals(detailHeightsMeters, rawDetailHeightsMeters)
+                ? null
+                : CreateHeightTexture(
+                    detailHeightsMeters, Width, Height, MinimumHeightMeters,
+                    MaximumHeightMeters, "Pre-Baked Detail Height Field", false);
+        }
+
+        public Texture2D CreateSurfaceTextureCopy()
+        {
+            return CreateHeightTexture(
+                surfaceHeightsMeters, Width, Height, MinimumHeightMeters,
+                MaximumHeightMeters, "Pre-Baked Surface Height Field", false);
+        }
+
+        public Texture2D CreatePlayableMaskTextureCopy()
+        {
+            return playableMask != null
+                ? CreatePlayableMaskTexture(playableMask, Width, Height, false)
+                : null;
+        }
+
+        public Texture2D CreateVisualizationTexture(
+            int resolution, Color backgroundColor, Color lowHeightColor,
+            Color middleHeightColor, Color highHeightColor)
+        {
+            var texture = new Texture2D(
+                resolution, resolution, TextureFormat.RGBA32, false, true)
+            {
+                name = "Pre-Baked Height Preview",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            var colors = new Color32[resolution * resolution];
+            float onePixel = 1f / resolution;
+            float heightRange = MaximumHeightMeters - MinimumHeightMeters;
+            for (int y = 0; y < resolution; y++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    Vector2 uv = new Vector2(
+                        (x + 0.5f) / resolution, (y + 0.5f) / resolution);
+                    if (!IsPlayable(uv))
+                    {
+                        colors[y * resolution + x] = backgroundColor;
+                        continue;
+                    }
+
+                    float height = SampleSurfaceHeight(uv);
+                    float normalized = Mathf.InverseLerp(
+                        MinimumHeightMeters, MaximumHeightMeters, height);
+                    float heightRight = SampleSurfaceHeight(
+                        uv + Vector2.right * onePixel);
+                    float heightUp = SampleSurfaceHeight(
+                        uv + Vector2.up * onePixel);
+                    float lighting = Mathf.Clamp(
+                        (heightRight - heightUp) / Mathf.Max(1f, heightRange) * 9f,
+                        -0.22f,
+                        0.22f);
+                    Color color = (normalized < 0.55f
+                        ? Color.Lerp(lowHeightColor, middleHeightColor, normalized / 0.55f)
+                        : Color.Lerp(middleHeightColor, highHeightColor, (normalized - 0.55f) / 0.45f))
+                        * (1f + lighting);
+                    color.a = 1f;
+                    colors[y * resolution + x] = color;
+                }
+            }
+
+            texture.SetPixels32(colors);
+            texture.Apply(false, true);
+            return texture;
+        }
+
+        private static float[] ReadHeightTexture(
+            Texture2D texture, int sampleCount)
+        {
+            if (texture.width * texture.height != sampleCount)
+                return null;
+
+            try
+            {
+                var source = texture.GetPixelData<float>(0);
+                if (source.Length < sampleCount)
+                    return null;
+                var values = new float[sampleCount];
+                for (int index = 0; index < sampleCount; index++)
+                    values[index] = source[index];
+                return values;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static byte[] ReadMaskTexture(
+            Texture2D texture, int sampleCount)
+        {
+            if (texture.width * texture.height != sampleCount)
+                return null;
+
+            try
+            {
+                var source = texture.GetPixelData<byte>(0);
+                if (source.Length < sampleCount)
+                    return null;
+                var values = new byte[sampleCount];
+                for (int index = 0; index < sampleCount; index++)
+                    values[index] = source[index];
+                return values;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         private static float SampleSource(
@@ -644,6 +806,24 @@ namespace AnimalGame.MapTest
             float minimumHeightMeters,
             float maximumHeightMeters)
         {
+            return CreateHeightTexture(
+                heightsMeters,
+                width,
+                height,
+                minimumHeightMeters,
+                maximumHeightMeters,
+                "Baked Physical Height Field");
+        }
+
+        private static Texture2D CreateHeightTexture(
+            float[] heightsMeters,
+            int width,
+            int height,
+            float minimumHeightMeters,
+            float maximumHeightMeters,
+            string textureName,
+            bool makeNoLongerReadable = true)
+        {
             var texture = new Texture2D(
                 width,
                 height,
@@ -651,7 +831,7 @@ namespace AnimalGame.MapTest
                 false,
                 true)
             {
-                name = "Baked Physical Height Field",
+                name = textureName,
                 filterMode = FilterMode.Bilinear,
                 wrapMode = TextureWrapMode.Clamp,
                 hideFlags = HideFlags.DontSave
@@ -667,14 +847,15 @@ namespace AnimalGame.MapTest
             }
 
             texture.SetPixelData(normalizedHeights, 0);
-            texture.Apply(false, true);
+            texture.Apply(false, makeNoLongerReadable);
             return texture;
         }
 
         private static Texture2D CreatePlayableMaskTexture(
             byte[] mask,
             int width,
-            int height)
+            int height,
+            bool makeNoLongerReadable = true)
         {
             var texture = new Texture2D(
                 width,
@@ -690,7 +871,7 @@ namespace AnimalGame.MapTest
             };
 
             texture.SetPixelData(mask, 0);
-            texture.Apply(false, true);
+            texture.Apply(false, makeNoLongerReadable);
             return texture;
         }
     }

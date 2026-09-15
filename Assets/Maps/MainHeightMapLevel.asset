@@ -27,6 +27,7 @@ MonoBehaviour:
   useHeightMapBorderMask: 0
   heightMapBorderMaskThreshold: 0.01
   heightMapBorderInsetMeters: 0
+  prebakedHeightField: {fileID: 11400000, guid: a41f5996709b43542bea64cbe6f764c4, type: 2}
   previewResolution: 2160
   contourIntervalMeters: 8
   pixelsPerUnit: 32
