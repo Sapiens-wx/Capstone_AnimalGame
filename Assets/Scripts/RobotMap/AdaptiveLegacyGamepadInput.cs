@@ -16,8 +16,10 @@ namespace AnimalGame.RobotMap
     }
 
     /// <summary>
-    /// Keeps the existing legacy Input Manager while selecting an axis layout
-    /// that matches the connected Xbox/XInput or native Sony HID controller.
+    /// Reads normalized controls from the Input System when it is available,
+    /// while retaining the project's legacy Input Manager axis mappings as a
+    /// fallback. Unity 6 can expose a controller through the Input System
+    /// without exposing its legacy joystick axes.
     /// </summary>
     public static class AdaptiveLegacyGamepadInput
     {
@@ -51,12 +53,22 @@ namespace AnimalGame.RobotMap
 
         public static float ReadMove()
         {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemGamepad(out Gamepad gamepad))
+                return gamepad.leftStick.ReadValue().y;
+#endif
+
             RefreshDeviceIfNeeded();
             return HasConnectedGamepad ? ReadAxisSafely(MoveAxis) : 0f;
         }
 
         public static float ReadSteering()
         {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemGamepad(out Gamepad gamepad))
+                return gamepad.leftStick.ReadValue().x;
+#endif
+
             RefreshDeviceIfNeeded();
             return HasConnectedGamepad ? ReadAxisSafely(TurnAxis) : 0f;
         }
@@ -87,6 +99,11 @@ namespace AnimalGame.RobotMap
 
         public static Vector2 ReadBalance()
         {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemGamepad(out Gamepad gamepad))
+                return gamepad.rightStick.ReadValue();
+#endif
+
             RefreshDeviceIfNeeded();
             if (!HasConnectedGamepad)
                 return Vector2.zero;
@@ -251,6 +268,17 @@ namespace AnimalGame.RobotMap
 
         public static float ReadTriggerThrottle()
         {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemGamepad(out Gamepad gamepad))
+            {
+                return Mathf.Clamp(
+                    gamepad.rightTrigger.ReadValue()
+                    - gamepad.leftTrigger.ReadValue(),
+                    -1f,
+                    1f);
+            }
+#endif
+
             RefreshDeviceIfNeeded();
             if (!HasConnectedGamepad)
                 return 0f;
@@ -312,6 +340,21 @@ namespace AnimalGame.RobotMap
                     }
                 }
             }
+
+#if ENABLE_INPUT_SYSTEM
+            // In Unity 6, a device can be available through the new Input
+            // System but absent from Input.GetJoystickNames(). Preserve the
+            // legacy name when it exists, otherwise use the Input System's
+            // device name solely for detection and diagnostics.
+            if (detectedFamily == LegacyGamepadFamily.None
+                && TryGetInputSystemGamepad(out Gamepad gamepad))
+            {
+                detectedName = string.IsNullOrWhiteSpace(gamepad.displayName)
+                    ? gamepad.name
+                    : gamepad.displayName;
+                detectedFamily = DetectFamily(detectedName);
+            }
+#endif
 
             if (detectedFamily == ActiveFamily
                 && string.Equals(
@@ -381,7 +424,31 @@ namespace AnimalGame.RobotMap
                     + "Exit Play Mode and run Animal Game/Repair Gamepad Input Axes.");
                 return 0f;
             }
+            catch (InvalidOperationException)
+            {
+                // This occurs when the project is switched to the new Input
+                // System only. Do not cache the axis as missing: it is still
+                // valid if the project is switched back to Both.
+                return 0f;
+            }
         }
+
+#if ENABLE_INPUT_SYSTEM
+        private static bool TryGetInputSystemGamepad(out Gamepad gamepad)
+        {
+            foreach (Gamepad candidate in Gamepad.all)
+            {
+                if (candidate != null && candidate.added)
+                {
+                    gamepad = candidate;
+                    return true;
+                }
+            }
+
+            gamepad = null;
+            return false;
+        }
+#endif
 
         private static float NormalizeSeparateTrigger(
             float rawValue,
