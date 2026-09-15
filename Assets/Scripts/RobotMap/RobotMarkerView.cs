@@ -1,10 +1,17 @@
 using AnimalGame.MapTest;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace AnimalGame.RobotMap
 {
     public sealed class RobotMarkerView : MonoBehaviour
     {
+        private const int MarkerSortingOrder = 1000;
+        // The camera looks along +Z. Larger local Z values are farther from it.
+        // These offsets avoid coplanar transparent-sprite sorting in URP.
+        private const float FillDepth = 0.003f;
+        private const float ArtworkDepth = 0.002f;
+        private const float IndicatorDepth = 0.001f;
         [Header("Body")]
         [SerializeField] private Sprite robotBodySprite;
         [Tooltip("Filled silhouette drawn directly beneath robot_body. Use Arts/robot_body_fill so both sprites share the same canvas, pivot and scale.")]
@@ -438,6 +445,12 @@ namespace AnimalGame.RobotMap
             visualRootObject.transform.SetParent(transform, false);
             markerVisualRoot = visualRootObject.transform;
             markerVisualRoot.localPosition = new Vector3(0f, 0f, visualDepthOffset);
+
+            // SpriteRenderer sorting order is global unless a SortingGroup owns
+            // the hierarchy. Grouping makes the body layers deterministic when
+            // URP batches their shared transparent material.
+            var sortingGroup = visualRootObject.AddComponent<SortingGroup>();
+            sortingGroup.sortingOrder = MarkerSortingOrder;
         }
 
         private void SynchronizeMarkerScreenSize()
@@ -471,7 +484,10 @@ namespace AnimalGame.RobotMap
 
         private void CreateForegroundSpriteMaterial()
         {
-            Shader spriteShader = Shader.Find("Sprites/Default");
+            Shader spriteShader = Shader.Find(
+                "Universal Render Pipeline/2D/Sprite-Unlit-Default");
+            if (spriteShader == null)
+                spriteShader = Shader.Find("Sprites/Default");
             if (spriteShader == null)
             {
                 Debug.LogWarning(
@@ -524,19 +540,20 @@ namespace AnimalGame.RobotMap
             bodyFill = fillObject.AddComponent<SpriteRenderer>();
             bodyFill.sprite = fillSprite;
             bodyFill.color = bodyFillColor;
-            bodyFill.sortingOrder = 1000;
+            bodyFill.sortingOrder = 0;
             if (foregroundSpriteMaterial != null)
                 bodyFill.sharedMaterial = foregroundSpriteMaterial;
             bodyFill.transform.localScale = robotBodyFillSprite != null
                 ? Vector3.one * bodyFillArtworkScale
                 : Vector3.one * targetFillDiameter;
+            bodyFill.transform.localPosition = Vector3.forward * FillDepth;
 
             var artworkObject = new GameObject("Body Artwork");
             artworkObject.transform.SetParent(bodyVisualRoot, false);
             bodyArtwork = artworkObject.AddComponent<SpriteRenderer>();
             bodyArtwork.sprite = robotBodySprite;
             bodyArtwork.color = bodyOutlineColor;
-            bodyArtwork.sortingOrder = 1001;
+            bodyArtwork.sortingOrder = 1;
             if (foregroundSpriteMaterial != null)
                 bodyArtwork.sharedMaterial = foregroundSpriteMaterial;
 
@@ -550,6 +567,7 @@ namespace AnimalGame.RobotMap
                     "RobotMarkerView is missing its Arts/robot_body Sprite.",
                     this);
             }
+            bodyArtwork.transform.localPosition = Vector3.forward * ArtworkDepth;
         }
 
         private static float CalculateArtworkScale(
@@ -601,7 +619,7 @@ namespace AnimalGame.RobotMap
             directionIndicator = indicatorObject.AddComponent<SpriteRenderer>();
             directionIndicator.sprite = indicatorSprite;
             directionIndicator.color = indicatorColor;
-            directionIndicator.sortingOrder = 1002;
+            directionIndicator.sortingOrder = 2;
             if (foregroundSpriteMaterial != null)
                 directionIndicator.sharedMaterial = foregroundSpriteMaterial;
 
@@ -611,6 +629,9 @@ namespace AnimalGame.RobotMap
                     "RobotMarkerView is missing its direction Indicator Sprite.",
                     this);
             }
+
+            directionIndicator.transform.localPosition =
+                Vector3.forward * IndicatorDepth;
         }
 
         private void CreatePhotoCameraRenderers()
@@ -622,11 +643,11 @@ namespace AnimalGame.RobotMap
             cameraFirstPart = CreatePhotoCameraPart(
                 "Camera First Part",
                 cameraFirstPartSprite,
-                1003);
+                3);
             cameraSecondPart = CreatePhotoCameraPart(
                 "Camera Second Part",
                 cameraSecondPartSprite,
-                1004);
+                4);
 
             if (cameraFirstPartSprite == null
                 || cameraSecondPartSprite == null)
@@ -989,7 +1010,8 @@ namespace AnimalGame.RobotMap
                                            -1f,
                                            1f);
             directionIndicator.transform.localPosition =
-                (Vector3)(bodyInset + tumbleEdgeOffset);
+                (Vector3)(bodyInset + tumbleEdgeOffset)
+                + Vector3.forward * IndicatorDepth;
             Color projectedColor = indicatorColor;
             float combinedVisibility = safeVisibility
                                        * indicatorArmModeVisibility
@@ -1024,7 +1046,7 @@ namespace AnimalGame.RobotMap
             rolloverSign = rolloverObject.AddComponent<SpriteRenderer>();
             rolloverSign.sprite = rolloverSignSprite;
             rolloverSign.color = rolloverSignColor;
-            rolloverSign.sortingOrder = 1003;
+            rolloverSign.sortingOrder = 5;
             if (foregroundSpriteMaterial != null)
                 rolloverSign.sharedMaterial = foregroundSpriteMaterial;
 

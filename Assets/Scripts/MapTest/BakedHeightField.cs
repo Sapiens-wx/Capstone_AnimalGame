@@ -256,11 +256,23 @@ namespace AnimalGame.MapTest
             }
 
             int sampleCount = data.Resolution * data.Resolution;
-            float[] raw = ReadHeightTexture(data.RawDetailTexture, sampleCount);
+            float[] raw = ReadHeightTexture(
+                data.RawDetailTexture,
+                sampleCount,
+                data.MinimumHeightMeters,
+                data.MaximumHeightMeters);
             float[] detail = data.DetailTexture == data.RawDetailTexture
                 ? raw
-                : ReadHeightTexture(data.DetailTexture, sampleCount);
-            float[] surface = ReadHeightTexture(data.SurfaceTexture, sampleCount);
+                : ReadHeightTexture(
+                    data.DetailTexture,
+                    sampleCount,
+                    data.MinimumHeightMeters,
+                    data.MaximumHeightMeters);
+            float[] surface = ReadHeightTexture(
+                data.SurfaceTexture,
+                sampleCount,
+                data.MinimumHeightMeters,
+                data.MaximumHeightMeters);
             byte[] mask = data.PlayableMaskTexture != null
                 ? ReadMaskTexture(data.PlayableMaskTexture, sampleCount)
                 : null;
@@ -449,7 +461,10 @@ namespace AnimalGame.MapTest
         }
 
         private static float[] ReadHeightTexture(
-            Texture2D texture, int sampleCount)
+            Texture2D texture,
+            int sampleCount,
+            float minimumHeightMeters,
+            float maximumHeightMeters)
         {
             if (texture.width * texture.height != sampleCount)
                 return null;
@@ -461,7 +476,12 @@ namespace AnimalGame.MapTest
                     return null;
                 var values = new float[sampleCount];
                 for (int index = 0; index < sampleCount; index++)
-                    values[index] = source[index];
+                {
+                    values[index] = Mathf.Lerp(
+                        minimumHeightMeters,
+                        maximumHeightMeters,
+                        source[index]);
+                }
                 return values;
             }
             catch (Exception)
