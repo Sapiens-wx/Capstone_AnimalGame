@@ -260,7 +260,6 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
-            SynchronizeMarkerScreenSize();
             SynchronizeBodyFillColor();
             UpdatePhotoCameraForm();
             UpdateDirectionIndicatorSurfaceProjection();
@@ -451,35 +450,6 @@ namespace AnimalGame.RobotMap
             // URP batches their shared transparent material.
             var sortingGroup = visualRootObject.AddComponent<SortingGroup>();
             sortingGroup.sortingOrder = MarkerSortingOrder;
-        }
-
-        private void SynchronizeMarkerScreenSize()
-        {
-            if (markerVisualRoot == null)
-                return;
-
-            if (!keepMarkerSizeConstantOnScreen)
-            {
-                markerVisualRoot.localScale = Vector3.one;
-                return;
-            }
-
-            if (markerSizingCamera == null || !markerSizingCamera.isActiveAndEnabled)
-                markerSizingCamera = Camera.main;
-
-            if (markerSizingCamera == null || !markerSizingCamera.orthographic)
-            {
-                markerVisualRoot.localScale = Vector3.one;
-                return;
-            }
-
-            float renderedHeightPixels = Mathf.Max(1f, markerSizingCamera.pixelHeight);
-            float worldUnitsPerPixel =
-                markerSizingCamera.orthographicSize * 2f / renderedHeightPixels;
-            float desiredWorldDiameter =
-                bodyScreenDiameterPixels * worldUnitsPerPixel;
-            float scale = desiredWorldDiameter / Mathf.Max(0.0001f, bodyDiameter);
-            markerVisualRoot.localScale = Vector3.one * scale;
         }
 
         private void CreateForegroundSpriteMaterial()
