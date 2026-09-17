@@ -11,6 +11,7 @@ namespace AnimalGame.MapTest
         private const float LowestVisibleContourOpacity = 0.15f;
         private const float HighestVisibleContourOpacity = 1f;
         private const float DefaultSurfaceRevealRadiusPixels = 430f;
+        private const float VisibleRangeSamplesPerSecond = 2f;
 
         [Header("Fixed Level Asset")]
         [Tooltip("Persistent map definition used by this scene. When assigned, its terrain and presentation settings override the legacy fields below.")]
@@ -78,8 +79,14 @@ namespace AnimalGame.MapTest
         [Tooltip("Softness of contour edges in screen pixels. Lower values produce crisper lines.")]
         [SerializeField, Range(0.1f, 1.5f)] private float contourEdgeSoftness = 0.4f;
 
-        [Tooltip("Number of samples used on each camera axis to find the visible height range.")]
-        [SerializeField, Range(16, 128)] private int viewportHeightSamples = 64;
+        [Tooltip("Total number of samples distributed around the viewport perimeter when finding the visible height range.")]
+        [SerializeField, Range(4, 128)] private int viewportEdgeSamples = 32;
+
+        [Tooltip("Number of interior grid samples on the viewport's vertical axis. The horizontal count scales with camera aspect ratio.")]
+        [SerializeField, Range(2, 128)] private int viewportGridHeightSamples = 16;
+
+        [Tooltip("Rate at which the displayed contour range approaches the latest sampled terrain range.")]
+        [SerializeField, Min(0.01f)] private float visibleContourRangeSmoothingSpeed = 8f;
 
         [Header("Relative Elevation Filter")]
         [Tooltip("Keyboard fallback for testing. The controller toggle is always D-pad Right.")]
@@ -174,6 +181,10 @@ namespace AnimalGame.MapTest
         private Sprite generatedMapSprite;
         private GameObject generatedMapObject;
         private int lastViewportUpdateFrame = -1;
+        private float nextVisibleRangeSampleTime;
+        private float targetVisibleMinimumHeight;
+        private float targetVisibleMaximumHeight;
+        private bool hasVisibleRangeTarget;
         private int editorConfigurationHash = int.MinValue;
         private int editorSurfacePresentationHash = int.MinValue;
         private bool rebuildingMap;
@@ -515,6 +526,8 @@ namespace AnimalGame.MapTest
             rebuildingMap = true;
             try
             {
+                hasVisibleRangeTarget = false;
+                nextVisibleRangeSampleTime = 0f;
                 ApplyFixedLevelAsset();
                 ReleaseGeneratedMap();
                 if (heightMap == null)
@@ -576,7 +589,8 @@ namespace AnimalGame.MapTest
             maximumContourWidth = levelAsset.MaximumContourWidth;
             maximumContourCoverage = levelAsset.MaximumContourCoverage;
             contourEdgeSoftness = levelAsset.ContourEdgeSoftness;
-            viewportHeightSamples = levelAsset.ViewportHeightSamples;
+            viewportEdgeSamples = levelAsset.ViewportEdgeSamples;
+            viewportGridHeightSamples = levelAsset.ViewportGridHeightSamples;
             bakedSurfaceVisual = levelAsset.BakedSurfaceVisual;
             surfaceRevealEdgePixels = levelAsset.SurfaceRevealEdgePixels;
             editorSurfacePresentationHash = levelAsset.SurfacePresentationHash;
@@ -815,35 +829,40 @@ namespace AnimalGame.MapTest
             if (cameraToSample == null || contourMaterial == null || !HasGeneratedMap)
                 return;
 
-            if (!TryFindVisibleTerrainRange(
-                    cameraToSample,
-                    out float minimumTerrain,
-                    out float maximumTerrain))
-                return;
-
-            float interval = Mathf.Max(0.0001f, contourIntervalMeters);
-            int lowestIndex = Mathf.CeilToInt(
-                (minimumTerrain - minimumHeightMeters) / interval - 0.0001f);
-            int highestIndex = Mathf.FloorToInt(
-                (maximumTerrain - minimumHeightMeters) / interval + 0.0001f);
-            int maximumMapIndex = Mathf.FloorToInt(
-                (maximumHeightMeters - minimumHeightMeters) / interval + 0.0001f);
-
-            lowestIndex = Mathf.Clamp(lowestIndex, 0, maximumMapIndex);
-            highestIndex = Mathf.Clamp(highestIndex, 0, maximumMapIndex);
-            if (lowestIndex > highestIndex)
+            float now = Time.unscaledTime;
+            if (!hasVisibleRangeTarget || now >= nextVisibleRangeSampleTime)
             {
-                int nearestIndex = Mathf.Clamp(
-                    Mathf.RoundToInt(
-                        ((minimumTerrain + maximumTerrain) * 0.5f - minimumHeightMeters) / interval),
-                    0,
-                    maximumMapIndex);
-                lowestIndex = nearestIndex;
-                highestIndex = nearestIndex;
+                nextVisibleRangeSampleTime = now + 1f / VisibleRangeSamplesPerSecond;
+                if (TryFindVisibleTerrainRange(
+                        cameraToSample,
+                        out float minimumTerrain,
+                        out float maximumTerrain))
+                {
+                    targetVisibleMinimumHeight = minimumTerrain;
+                    targetVisibleMaximumHeight = maximumTerrain;
+                    if (!hasVisibleRangeTarget)
+                    {
+                        VisibleMinimumContourHeight = minimumTerrain;
+                        VisibleMaximumContourHeight = maximumTerrain;
+                        hasVisibleRangeTarget = true;
+                    }
+                }
             }
 
-            VisibleMinimumContourHeight = minimumHeightMeters + lowestIndex * interval;
-            VisibleMaximumContourHeight = minimumHeightMeters + highestIndex * interval;
+            if (!hasVisibleRangeTarget)
+                return;
+
+            float blend = 1f - Mathf.Exp(
+                -Mathf.Max(0.01f, visibleContourRangeSmoothingSpeed)
+                * Time.unscaledDeltaTime);
+            VisibleMinimumContourHeight = Mathf.Lerp(
+                VisibleMinimumContourHeight,
+                targetVisibleMinimumHeight,
+                blend);
+            VisibleMaximumContourHeight = Mathf.Lerp(
+                VisibleMaximumContourHeight,
+                targetVisibleMaximumHeight,
+                blend);
 
             RefreshContourMaterialSettings();
             contourMaterial.SetFloat("_VisibleMinimumHeight", VisibleMinimumContourHeight);
@@ -858,44 +877,91 @@ namespace AnimalGame.MapTest
             minimumTerrain = float.PositiveInfinity;
             maximumTerrain = float.NegativeInfinity;
             Bounds bounds = WorldBounds;
-            int verticalSamples = Mathf.Max(2, viewportHeightSamples);
+            int edgeSamples = Mathf.Max(4, viewportEdgeSamples);
+            int verticalSamples = Mathf.Max(2, viewportGridHeightSamples);
             int horizontalSamples = Mathf.Max(
                 2,
                 Mathf.CeilToInt(verticalSamples * Mathf.Max(0.1f, cameraToSample.aspect)));
             int validSamples = 0;
 
+            for (int i = 0; i < edgeSamples; i++)
+            {
+                float perimeterPosition = i * 4f / edgeSamples;
+                int edge = Mathf.FloorToInt(perimeterPosition);
+                float edgeProgress = perimeterPosition - edge;
+                Vector2 viewportPoint;
+                switch (edge)
+                {
+                    case 0:
+                        viewportPoint = new Vector2(edgeProgress, 0f);
+                        break;
+                    case 1:
+                        viewportPoint = new Vector2(1f, edgeProgress);
+                        break;
+                    case 2:
+                        viewportPoint = new Vector2(1f - edgeProgress, 1f);
+                        break;
+                    default:
+                        viewportPoint = new Vector2(0f, 1f - edgeProgress);
+                        break;
+                }
+
+                TryAccumulateVisibleHeight(
+                    cameraToSample,
+                    viewportPoint,
+                    bounds,
+                    ref minimumTerrain,
+                    ref maximumTerrain,
+                    ref validSamples);
+            }
+
             for (int y = 0; y < verticalSamples; y++)
             {
-                float viewportY = y / (float)(verticalSamples - 1);
+                float viewportY = (y + 0.5f) / verticalSamples;
                 for (int x = 0; x < horizontalSamples; x++)
                 {
-                    float viewportX = x / (float)(horizontalSamples - 1);
-                    if (!TryProjectViewportPointToMapPlane(
-                            cameraToSample,
-                            new Vector2(viewportX, viewportY),
-                            mapRenderer.transform.position.z,
-                            out Vector3 world))
-                    {
-                        continue;
-                    }
-
-                    if (world.x < bounds.min.x || world.x > bounds.max.x
-                        || world.y < bounds.min.y || world.y > bounds.max.y)
-                    {
-                        continue;
-                    }
-
-                    Vector2 uv = new Vector2(
-                        Mathf.InverseLerp(bounds.min.x, bounds.max.x, world.x),
-                        Mathf.InverseLerp(bounds.min.y, bounds.max.y, world.y));
-                    float height = SampleHeight(uv);
-                    minimumTerrain = Mathf.Min(minimumTerrain, height);
-                    maximumTerrain = Mathf.Max(maximumTerrain, height);
-                    validSamples++;
+                    float viewportX = (x + 0.5f) / horizontalSamples;
+                    TryAccumulateVisibleHeight(
+                        cameraToSample,
+                        new Vector2(viewportX, viewportY),
+                        bounds,
+                        ref minimumTerrain,
+                        ref maximumTerrain,
+                        ref validSamples);
                 }
             }
 
             return validSamples > 0;
+        }
+
+        private void TryAccumulateVisibleHeight(
+            Camera cameraToSample,
+            Vector2 viewportPoint,
+            Bounds bounds,
+            ref float minimumTerrain,
+            ref float maximumTerrain,
+            ref int validSamples)
+        {
+            if (!TryProjectViewportPointToMapPlane(
+                    cameraToSample,
+                    viewportPoint,
+                    mapRenderer.transform.position.z,
+                    out Vector3 world)
+                || world.x < bounds.min.x
+                || world.x > bounds.max.x
+                || world.y < bounds.min.y
+                || world.y > bounds.max.y)
+            {
+                return;
+            }
+
+            Vector2 uv = new Vector2(
+                Mathf.InverseLerp(bounds.min.x, bounds.max.x, world.x),
+                Mathf.InverseLerp(bounds.min.y, bounds.max.y, world.y));
+            float height = SampleHeight(uv);
+            minimumTerrain = Mathf.Min(minimumTerrain, height);
+            maximumTerrain = Mathf.Max(maximumTerrain, height);
+            validSamples++;
         }
 
         private static bool TryProjectViewportPointToMapPlane(

@@ -177,7 +177,8 @@ namespace AnimalGame.MapTest
         [SerializeField, Range(0.1f, 10f)] private float maximumContourWidth = 3.68f;
         [SerializeField, Range(0.1f, 0.7f)] private float maximumContourCoverage = 0.3f;
         [SerializeField, Range(0.1f, 1.5f)] private float contourEdgeSoftness = 0.4f;
-        [SerializeField, Range(16, 128)] private int viewportHeightSamples = 64;
+        [SerializeField, Range(4, 128)] private int viewportEdgeSamples = 32;
+        [SerializeField, Range(2, 128)] private int viewportGridHeightSamples = 16;
 
         [Header("Static Water")]
         [Tooltip("Resolution of the persistent static-water depth map. A zero byte is dry land; non-zero values encode water depth.")]
@@ -392,7 +393,8 @@ namespace AnimalGame.MapTest
         public float MaximumContourWidth => maximumContourWidth;
         public float MaximumContourCoverage => maximumContourCoverage;
         public float ContourEdgeSoftness => contourEdgeSoftness;
-        public int ViewportHeightSamples => viewportHeightSamples;
+        public int ViewportEdgeSamples => viewportEdgeSamples;
+        public int ViewportGridHeightSamples => viewportGridHeightSamples;
         public int StaticWaterResolution => staticWaterResolution;
         public float MaximumStaticWaterDepthMeters =>
             maximumStaticWaterDepthMeters;
@@ -557,7 +559,8 @@ namespace AnimalGame.MapTest
                     hash = hash * 397 ^ maximumContourWidth.GetHashCode();
                     hash = hash * 397 ^ maximumContourCoverage.GetHashCode();
                     hash = hash * 397 ^ contourEdgeSoftness.GetHashCode();
-                    hash = hash * 397 ^ viewportHeightSamples;
+                    hash = hash * 397 ^ viewportEdgeSamples;
+                    hash = hash * 397 ^ viewportGridHeightSamples;
                     hash = hash * 397 ^ backgroundColor.GetHashCode();
                     hash = hash * 397 ^ lowHeightColor.GetHashCode();
                     hash = hash * 397 ^ middleHeightColor.GetHashCode();
@@ -1266,7 +1269,11 @@ namespace AnimalGame.MapTest
             maximumContourWidth = Mathf.Clamp(maximumContourWidth, 0.1f, 10f);
             maximumContourCoverage = Mathf.Clamp(maximumContourCoverage, 0.1f, 0.7f);
             contourEdgeSoftness = Mathf.Clamp(contourEdgeSoftness, 0.1f, 1.5f);
-            viewportHeightSamples = Mathf.Clamp(viewportHeightSamples, 16, 128);
+            viewportEdgeSamples = Mathf.Clamp(viewportEdgeSamples, 4, 128);
+            viewportGridHeightSamples = Mathf.Clamp(
+                viewportGridHeightSamples,
+                2,
+                128);
             staticWaterResolution = Mathf.Clamp(
                 staticWaterResolution,
                 64,

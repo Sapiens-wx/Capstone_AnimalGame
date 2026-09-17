@@ -4752,7 +4752,9 @@ MonoBehaviour:
   maximumContourWidth: 3.68
   maximumContourCoverage: 0.3
   contourEdgeSoftness: 0.4
-  viewportHeightSamples: 64
+  viewportEdgeSamples: 32
+  viewportGridHeightSamples: 16
+  visibleContourRangeSmoothingSpeed: 8
   elevationFilterKeyboardToggleKey: 104
   elevationFilterStartsEnabled: 0
   lowerElevationFilterColor: {r: 0.12, g: 0.54, b: 0.78, a: 1}

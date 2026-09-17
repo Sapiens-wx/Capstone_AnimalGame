@@ -35,7 +35,8 @@ MonoBehaviour:
   maximumContourWidth: 3.68
   maximumContourCoverage: 0.3
   contourEdgeSoftness: 0.4
-  viewportHeightSamples: 64
+  viewportEdgeSamples: 32
+  viewportGridHeightSamples: 16
   staticWaterResolution: 1024
   maximumStaticWaterDepthMeters: 10
   maximumPassableStaticWaterDepthMeters: 1.2
