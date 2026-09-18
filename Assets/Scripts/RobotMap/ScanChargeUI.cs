@@ -233,17 +233,18 @@ namespace AnimalGame.RobotMap
 
             Camera eventCamera = GetCanvasEventCamera(canvas);
             Vector3 localCenter = reference.rect.center;
+            float localRadius = GetUiRingLocalRadius(reference);
             Vector2 center = RectTransformUtility.WorldToScreenPoint(
                 eventCamera,
                 reference.TransformPoint(localCenter));
             Vector2 horizontalEdge = RectTransformUtility.WorldToScreenPoint(
                 eventCamera,
                 reference.TransformPoint(
-                    localCenter + Vector3.right * uiRingRadiusPixels));
+                    localCenter + Vector3.right * localRadius));
             Vector2 verticalEdge = RectTransformUtility.WorldToScreenPoint(
                 eventCamera,
                 reference.TransformPoint(
-                    localCenter + Vector3.up * uiRingRadiusPixels));
+                    localCenter + Vector3.up * localRadius));
 
             // The UI is authored as a circle. Using the smaller axis prevents
             // a non-uniform accidental scale from revealing content outside it.
@@ -252,6 +253,36 @@ namespace AnimalGame.RobotMap
                 Mathf.Min(
                     Vector2.Distance(center, horizontalEdge),
                     Vector2.Distance(center, verticalEdge)));
+        }
+
+        private float GetUiRingLocalRadius(RectTransform reference)
+        {
+            Image referenceImage = reference.GetComponent<Image>();
+            if (referenceImage == null
+                || !referenceImage.preserveAspect
+                || referenceImage.sprite == null)
+            {
+                return uiRingRadiusPixels;
+            }
+
+            Vector2 spriteSize = referenceImage.sprite.rect.size;
+            Rect referenceRect = reference.rect;
+            if (spriteSize.x <= 0.0001f
+                || spriteSize.y <= 0.0001f
+                || referenceRect.width <= 0.0001f
+                || referenceRect.height <= 0.0001f)
+            {
+                return uiRingRadiusPixels;
+            }
+
+            // A preserve-aspect Image does not necessarily occupy its complete
+            // RectTransform. Reproduce the scale Unity applies while fitting the
+            // sprite so this screen-space radius follows the visible artwork on
+            // aspect ratios other than the authored 16:9 layout.
+            float spriteUnitsToLocalUnits = Mathf.Min(
+                referenceRect.width / spriteSize.x,
+                referenceRect.height / spriteSize.y);
+            return uiRingRadiusPixels * spriteUnitsToLocalUnits;
         }
 
         public Vector2 GetUiCenterScreenPoint()
