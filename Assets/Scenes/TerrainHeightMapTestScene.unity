@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f904736fbae4fc1972054c8b2cc7d49, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerSpawnMapPositionMeters: {x: 104.6, y: 21.4}
+  playerSpawnMapPositionMeters: {x: 202.1, y: 193.4}
   showRobotTerrainData: 1
   showFrameRate: 1
   frameRateRefreshInterval: 0.25
@@ -196,10 +196,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a11e9ca3a547c4bbd3a97b9854dd74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  levelAsset: {fileID: 11400000, guid: 41e00378672d0714b88cc7c2b5bca0b9, type: 2}
-  heightMap: {fileID: 2800000, guid: 871d143d51973cc46b45011b97adc445, type: 3}
-  mapWidthMeters: 200
-  mapHeightMeters: 200
+  levelAsset: {fileID: 11400000, guid: 17908327ffbc8624fbcfec2a16deb7a5, type: 2}
+  heightMap: {fileID: 2800000, guid: f77ab6762abbc294ca0d09866cfa36cd, type: 3}
+  mapWidthMeters: 250
+  mapHeightMeters: 250
   minimumHeightMeters: 0
   maximumHeightMeters: 70
   bakedHeightResolution: 2048
@@ -208,7 +208,7 @@ MonoBehaviour:
   detailSmoothingSigmaMeters: 0
   previewResolution: 2048
   contourIntervalMeters: 7
-  pixelsPerUnit: 10.24
+  pixelsPerUnit: 30
   editorHeightResolution: 1024
   editorPreviewResolution: 2048
   dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}
