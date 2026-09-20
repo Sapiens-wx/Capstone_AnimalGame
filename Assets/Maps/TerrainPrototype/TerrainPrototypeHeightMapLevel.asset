@@ -1,0 +1,93 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5369c3e47e384b0483418332bc4f2cad, type: 3}
+  m_Name: TerrainPrototypeHeightMapLevel
+  m_EditorClassIdentifier: 
+  heightMap: {fileID: 2800000, guid: 04b9251ebd7b49a0b6f11177bb68b67d, type: 3}
+  mapWidthMeters: 64
+  mapHeightMeters: 64
+  minimumHeightMeters: 0
+  maximumHeightMeters: 20
+  bakedHeightResolution: 513
+  normalizeSourceRange: 0
+  surfaceSmoothingSigmaMeters: 0
+  detailSmoothingSigmaMeters: 0
+  preserveLargeStepHeightMeters: 1.8
+  largeStepConfirmationDistanceMeters: 1
+  playableAreaMask: {fileID: 0}
+  useHeightMapBorderMask: 0
+  heightMapBorderMaskThreshold: 0.01
+  heightMapBorderInsetMeters: 0
+  prebakedHeightField: {fileID: 11400000, guid: 92610e868a0a7e14491b23385be6d70b, type: 2}
+  previewResolution: 1024
+  contourIntervalMeters: 1
+  pixelsPerUnit: 16
+  dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}
+  minimumContourWidth: 0.7
+  maximumContourWidth: 3.68
+  maximumContourCoverage: 0.3
+  contourEdgeSoftness: 0.4
+  viewportEdgeSamples: 32
+  viewportGridHeightSamples: 16
+  staticWaterResolution: 512
+  maximumStaticWaterDepthMeters: 10
+  maximumPassableStaticWaterDepthMeters: 1.2
+  staticWaterDepthMap: 
+  staticWaterEditorTexture: {fileID: 0}
+  bakedStaticWaterMask: {fileID: 0}
+  staticWaterEditorTileSizeMeters: 8
+  staticWaterLayerOneSpeedMetersPerSecond: {x: 0.36, y: 0.04}
+  staticWaterLayerTwoSpeedMetersPerSecond: {x: -0.14, y: 0.22}
+  staticWaterLayerTwoScale: 1.35
+  staticWaterWaveDistortion: 0.03
+  staticWaterWaveSpeed: 0.8
+  staticWaterWaveLengthMeters: 12
+  staticWaterDeepSpeedMultiplier: 0.65
+  staticWaterMaskBakeRevision: 0
+  staticWaterEditorTint: {r: 0.18, g: 0.72, b: 1, a: 1}
+  staticWaterMaskBakeGeneratorVersion: 0
+  surfacePalette: []
+  surfaceTransitionWidthMeters: 3
+  surfaceAlphaCoreWidthMeters: 0.8
+  surfaceAlphaBlendShare: 0.6
+  surfaceBoundaryNoiseScaleMeters: 5
+  surfaceBoundaryNoiseAmplitudeMeters: 0.8
+  surfaceScatterCellSizeMeters: 0.5
+  surfaceScatterStrength: 0.35
+  surfaceNoiseSeed: 1337
+  surfaceBakeResolution: 2048
+  surfaceMaskResolution: 512
+  surfacePatternAlphaNormalizationStrength: 0.75
+  surfaceClosedContourAlphaEnabled: 1
+  surfaceClosedContourAlphaResolution: 512
+  surfaceClosedContourEdgeAlphaMultiplier: 0.3466667
+  surfaceClosedContourEdgeHoldDistanceMeters: 1.5
+  surfaceClosedContourFadeDistanceMeters: 10
+  surfaceClosedContourCenterAlphaMultiplier: 0.2
+  surfaceClosedContourDistanceCurve: 2
+  surfaceClosedContourMinimumAreaSquareMeters: 4
+  surfaceOutsideClosedContourAlphaMultiplier: 0
+  surfaceMask: 
+  surfaceDataVersion: 0
+  surfacePatternTexture: {fileID: 0}
+  surfaceTint: {r: 1, g: 1, b: 1, a: 1}
+  surfaceOpacity: 0.35
+  surfaceTileSizeMeters: 8
+  bakedSurfaceVisual: {fileID: 0}
+  surfaceRevealEdgePixels: 4
+  surfaceBakeRevision: 0
+  surfaceBakeGeneratorVersion: 0
+  backgroundColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
+  lowHeightColor: {r: 0, g: 0, b: 0, a: 1}
+  middleHeightColor: {r: 0, g: 0, b: 0, a: 1}
+  highHeightColor: {r: 0, g: 0, b: 0, a: 1}
+  contourColor: {r: 0.92, g: 0.97, b: 1, a: 1}

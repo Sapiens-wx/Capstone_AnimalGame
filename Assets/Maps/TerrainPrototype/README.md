@@ -65,3 +65,38 @@ python Tools/convert_unity_heightmap.py Assets/Maps/TerrainPrototype/terrain.raw
 脚本会重新读取 PNG，检查文件为 16 位灰度，并逐个核对高度采样值。
 `terrain_height_R16.png.meta` 已配置为线性、可读、无压缩、无 Mipmap 的 R16
 纹理，并关闭非 2 次幂缩放；其它新文件名需要设置同样的导入参数。
+
+## 在原游戏系统中测试
+
+单独打开 `Assets/Scenes/TerrainHeightMapTestScene.unity`，进入 Play。
+它使用原来的 2D Renderer、机器人、跟随相机、扫描 UI 和通行判断。
+编辑模式下在 Scene 视图查看地图；Game 视图的相机由原有启动脚本在 Play 时创建。
+关卡数据为本文件夹中的 `TerrainPrototypeHeightMapLevel.asset`；出生点是
+地图坐标 `(8, 9)`，对应 Terrain 的 `(X=8, Z=9)`，高度约 4 米。
+
+- W/S 前进、后退，A/D 转向，快速双击 E 触发地形扫描。
+  长按 E 是原有的生物扫描操作。
+- 地图尺寸 64 × 64 米，高度范围 0～20 米，高度采样 513 × 513。
+- Normalize Source Range 关闭，Surface/Detail Smoothing 都为 0。
+- 等高线间隔 1 米；无水域、边界遮罩或表面绘制数据。
+- 1024 像素显示图与 16 Pixels Per Unit 让 1 个 Unity 世界单位对应 1 地图米。
+- 更新 PNG 后，选中这份新关卡数据，执行 `Animal Game > Pre-Bake Height Map`。
+  只重建它自己的 `TerrainPrototypeHeightMapLevel_HeightPrebake.asset`。
+
+`Animal Game > Terrain Height Map Test > Validate Active Scene` 可在编辑或 Play
+模式检查 R16、2D Renderer、预烘焙引用、全图与 TerrainData 的高度误差及初始参考点。
+Play 模式还检查原有玩家/扫描/相机是否初始化，并记录坡道与陡坎的通行反馈。
+报告写入 `Temp/TerrainHeightMapTest/`。手工改变初始参考点后，基准检查会报告差异。
+`Check Scan Connection (Play)` 直接触发原有地形扫描入口，检查扫描标记是否生成；
+它验证场景连接，不模拟键盘双击时间。成功后同时保存 Game 画面到该报告目录。
+首次创建工具 `Create Scene` 不会覆盖已经存在的测试场景或关卡数据。
+
+初始实测：10°/25°/45° 坡道分别为 LevelOne/LevelTwo/LevelThree。
+全图 263169 个采样与 TerrainData 的最大高度误差约 0.000267 米；
+运行时使用这份关卡的预烘焙数据，入口高度约 4 米，扫描连接检查生成 120 个标记。
+两处陡坎在现有算法下均可通行；测得台阶残差约 0.107/0.268 米，低于原有的
+0.65 米阈值。该值经过机器人接触范围内的坡面拟合，不等同于 0.4/1.0 米的
+总高差。此测试保留原算法与通行阈值，后续可据此单独评估台阶检测。
+
+测试场景应单独加载：原有启动脚本会在已加载对象中寻找地图控制器，多个测试
+场景同时加载时可能找到另一个场景的地图。
