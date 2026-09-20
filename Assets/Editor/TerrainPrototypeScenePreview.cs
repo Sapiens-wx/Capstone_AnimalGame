@@ -39,10 +39,11 @@ namespace AnimalGame.Editor
 
         private static void Update()
         {
+            // Preview belongs to the authoring scene, regardless of whether its
+            // original prototype terrain has been renamed, replaced or deleted.
             bool shouldPreview = !EditorApplication.isPlayingOrWillChangePlaymode
                 && !EditorApplication.isCompiling && !EditorApplication.isUpdating
-                && SceneManager.GetActiveScene().path == TerrainPrototypeBuilder.ScenePath
-                && GameObject.Find("Terrain Prototype - 64m") != null;
+                && SceneManager.GetActiveScene().path == TerrainPrototypeBuilder.ScenePath;
             if (!shouldPreview)
             {
                 Restore();
