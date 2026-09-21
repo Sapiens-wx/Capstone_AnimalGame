@@ -169,7 +169,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fadeStartDistanceMeters: 3
   fadeStartAlphaReduction: 0.5
-  contactAlphaReduction: 0.9
+  contactAlphaReduction: 0.5
   contactPaddingMeters: 0.05
   fallbackPlayerRadiusMeters: 0.75
 --- !u!1 &6827638650626107215
