@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -14,6 +15,7 @@ namespace AnimalGame.RobotMap
         private float lineWidth = 1.5f;
         private float progress = 1f;
         private List<string> excludedElementNames = new List<string>();
+        private Vector2[] points = Array.Empty<Vector2>();
 
         [UxmlAttribute]
         public Vector2 startPoint
@@ -23,7 +25,7 @@ namespace AnimalGame.RobotMap
             {
                 if (lineStartPoint == value) return;
                 lineStartPoint = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -35,7 +37,7 @@ namespace AnimalGame.RobotMap
             {
                 if (lineEndPoint == value) return;
                 lineEndPoint = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -79,6 +81,8 @@ namespace AnimalGame.RobotMap
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += Draw;
+            RegisterCallback<GeometryChangedEvent>(RebuildGeometry);
+            RebuildGeometry();
         }
 
         public void Reveal(float value)
@@ -91,11 +95,11 @@ namespace AnimalGame.RobotMap
 
         private void Draw(MeshGenerationContext context)
         {
-            if (progress <= 0f || lineWidth <= 0f) return;
+            if (progress <= 0f || lineWidth <= 0f || points.Length < 2) return;
 
-            Vector2 visibleEnd = Vector2.Lerp(lineStartPoint, lineEndPoint, progress);
-            float visibleLength = Vector2.Distance(lineStartPoint, visibleEnd);
-            int segmentCount = Mathf.Max(1, Mathf.CeilToInt(visibleLength / 3f));
+            int lastPointIndex = Mathf.Min(
+                Mathf.CeilToInt((points.Length - 1) * progress),
+                points.Length - 1);
             List<Rect> excludedRects = GetExcludedWorldRects();
             Painter2D painter = context.painter2D;
             painter.strokeColor = lineColor;
@@ -103,9 +107,9 @@ namespace AnimalGame.RobotMap
             painter.BeginPath();
 
             bool connected = false;
-            for (int i = 0; i <= segmentCount; i++)
+            for (int i = 0; i <= lastPointIndex; i++)
             {
-                Vector2 point = Vector2.Lerp(lineStartPoint, visibleEnd, (float)i / segmentCount);
+                Vector2 point = points[i];
                 if (IsExcluded(point, excludedRects))
                 {
                     connected = false;
@@ -118,6 +122,23 @@ namespace AnimalGame.RobotMap
             }
 
             painter.Stroke();
+        }
+
+        private void RebuildGeometry(GeometryChangedEvent evt)
+        {
+            RebuildGeometry();
+        }
+
+        private void RebuildGeometry()
+        {
+            float lineLength = Vector2.Distance(lineStartPoint, lineEndPoint);
+            int segmentCount = Mathf.Max(1, Mathf.CeilToInt(lineLength / 30f));
+            points = new Vector2[segmentCount + 1];
+
+            for (int i = 0; i <= segmentCount; i++)
+                points[i] = Vector2.Lerp(lineStartPoint, lineEndPoint, (float)i / segmentCount);
+
+            MarkDirtyRepaint();
         }
 
         private List<Rect> GetExcludedWorldRects()

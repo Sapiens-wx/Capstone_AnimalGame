@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -16,6 +17,7 @@ namespace AnimalGame.RobotMap
         private float arcWidth = 1.5f;
         private float progress = 1f;
         private List<string> excludedElementNames = new List<string>();
+        private Vector2[] points = Array.Empty<Vector2>();
 
         [UxmlAttribute]
         public Vector2 center
@@ -25,7 +27,7 @@ namespace AnimalGame.RobotMap
             {
                 if (arcCenter == value) return;
                 arcCenter = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -38,7 +40,7 @@ namespace AnimalGame.RobotMap
                 value = Mathf.Max(0f, value);
                 if (Mathf.Approximately(arcRadius, value)) return;
                 arcRadius = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -50,7 +52,7 @@ namespace AnimalGame.RobotMap
             {
                 if (Mathf.Approximately(arcStartDegrees, value)) return;
                 arcStartDegrees = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -62,7 +64,7 @@ namespace AnimalGame.RobotMap
             {
                 if (Mathf.Approximately(arcSweepDegrees, value)) return;
                 arcSweepDegrees = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -106,6 +108,8 @@ namespace AnimalGame.RobotMap
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += Draw;
+            RegisterCallback<GeometryChangedEvent>(RebuildGeometry);
+            RebuildGeometry();
         }
 
         public void Reveal(float value)
@@ -118,12 +122,11 @@ namespace AnimalGame.RobotMap
 
         private void Draw(MeshGenerationContext context)
         {
-            float visibleSweep = arcSweepDegrees * progress;
-            if (progress <= 0f || arcRadius <= 0f || arcWidth <= 0f ||
-                Mathf.Approximately(visibleSweep, 0f)) return;
+            if (progress <= 0f || arcWidth <= 0f || points.Length < 2) return;
 
-            float arcLength = Mathf.Abs(visibleSweep) * arcRadius * Mathf.Deg2Rad;
-            int segmentCount = Mathf.Max(2, Mathf.CeilToInt(arcLength / 3f));
+            int lastPointIndex = Mathf.Min(
+                Mathf.CeilToInt((points.Length - 1) * progress),
+                points.Length - 1);
             List<Rect> excludedRects = GetExcludedWorldRects();
 
             Painter2D painter = context.painter2D;
@@ -132,11 +135,9 @@ namespace AnimalGame.RobotMap
             painter.BeginPath();
 
             bool connected = false;
-            for (int i = 0; i <= segmentCount; i++)
+            for (int i = 0; i <= lastPointIndex; i++)
             {
-                // UI coordinates point down, so increasing angles turn clockwise.
-                float angle = (arcStartDegrees + visibleSweep * i / segmentCount) * Mathf.Deg2Rad;
-                Vector2 point = arcCenter + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * arcRadius;
+                Vector2 point = points[i];
                 if (IsExcluded(point, excludedRects))
                 {
                     connected = false;
@@ -149,6 +150,34 @@ namespace AnimalGame.RobotMap
             }
 
             painter.Stroke();
+        }
+
+        private void RebuildGeometry(GeometryChangedEvent evt)
+        {
+            RebuildGeometry();
+        }
+
+        private void RebuildGeometry()
+        {
+            float arcLength = Mathf.Abs(arcSweepDegrees) * arcRadius * Mathf.Deg2Rad;
+            if (arcRadius <= 0f || Mathf.Approximately(arcSweepDegrees, 0f))
+            {
+                points = Array.Empty<Vector2>();
+                MarkDirtyRepaint();
+                return;
+            }
+
+            int segmentCount = Mathf.Max(2, Mathf.CeilToInt(arcLength / 30));
+            points = new Vector2[segmentCount + 1];
+
+            for (int i = 0; i <= segmentCount; i++)
+            {
+                // UI coordinates point down, so increasing angles turn clockwise.
+                float angle = (arcStartDegrees + arcSweepDegrees * i / segmentCount) * Mathf.Deg2Rad;
+                points[i] = arcCenter + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * arcRadius;
+            }
+
+            MarkDirtyRepaint();
         }
 
         private List<Rect> GetExcludedWorldRects()

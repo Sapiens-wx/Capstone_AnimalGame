@@ -1,9 +1,10 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace AnimalGame.RobotMap
 {
-    /// <summary>A full-element square grid with an animated reveal.</summary>
+    /// <summary>A full-element square grid.</summary>
     [UxmlElement]
     public partial class PhotoResultGridElement : VisualElement
     {
@@ -11,7 +12,7 @@ namespace AnimalGame.RobotMap
         private float cellLength = 56f;
         private float lineWidth = 1f;
         private Color lineColor = new Color(0.55f, 0.59f, 0.57f, 0.23f);
-        private float progress = 1f;
+        private Vector2[] points = Array.Empty<Vector2>();
 
         [UxmlAttribute]
         public Vector2 offset
@@ -21,7 +22,7 @@ namespace AnimalGame.RobotMap
             {
                 if (gridOffset == value) return;
                 gridOffset = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -34,7 +35,7 @@ namespace AnimalGame.RobotMap
                 value = Mathf.Max(0f, value);
                 if (Mathf.Approximately(cellLength, value)) return;
                 cellLength = value;
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
@@ -67,45 +68,69 @@ namespace AnimalGame.RobotMap
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += Draw;
-        }
-
-        public void Reveal(float value)
-        {
-            value = Mathf.Clamp01(value);
-            if (Mathf.Approximately(progress, value)) return;
-            progress = value;
-            MarkDirtyRepaint();
+            RegisterCallback<GeometryChangedEvent>(RebuildGeometry);
+            RebuildGeometry();
         }
 
         private void Draw(MeshGenerationContext context)
         {
-            Rect bounds = contentRect;
-            if (progress <= 0f || cellLength <= 0f || lineWidth <= 0f ||
-                bounds.width <= 0f || bounds.height <= 0f) return;
-
-            float firstX = bounds.xMin + Mathf.Repeat(gridOffset.x, cellLength);
-            float firstY = bounds.yMin + Mathf.Repeat(gridOffset.y, cellLength);
-            float visibleWidth = bounds.width * progress;
-            float visibleHeight = bounds.height * progress;
+            if (lineWidth <= 0f || points.Length == 0) return;
 
             Painter2D painter = context.painter2D;
             painter.strokeColor = lineColor;
             painter.lineWidth = lineWidth;
             painter.BeginPath();
 
-            for (float x = firstX; x <= bounds.xMax; x += cellLength)
+            for (int i = 0; i < points.Length; i += 2)
             {
-                painter.MoveTo(new Vector2(x, bounds.yMin));
-                painter.LineTo(new Vector2(x, bounds.yMin + visibleHeight));
-            }
-
-            for (float y = firstY; y <= bounds.yMax; y += cellLength)
-            {
-                painter.MoveTo(new Vector2(bounds.xMin, y));
-                painter.LineTo(new Vector2(bounds.xMin + visibleWidth, y));
+                painter.MoveTo(points[i]);
+                painter.LineTo(points[i + 1]);
             }
 
             painter.Stroke();
+        }
+
+        private void RebuildGeometry(GeometryChangedEvent evt)
+        {
+            RebuildGeometry();
+        }
+
+        private void RebuildGeometry()
+        {
+            Rect bounds = contentRect;
+            if (cellLength <= 0f || bounds.width <= 0f || bounds.height <= 0f)
+            {
+                points = Array.Empty<Vector2>();
+                MarkDirtyRepaint();
+                return;
+            }
+
+            float firstX = bounds.xMin + Mathf.Repeat(gridOffset.x, cellLength);
+            float firstY = bounds.yMin + Mathf.Repeat(gridOffset.y, cellLength);
+            int verticalLineCount = firstX <= bounds.xMax
+                ? Mathf.FloorToInt((bounds.xMax - firstX) / cellLength) + 1
+                : 0;
+            int horizontalLineCount = firstY <= bounds.yMax
+                ? Mathf.FloorToInt((bounds.yMax - firstY) / cellLength) + 1
+                : 0;
+            points = new Vector2[(verticalLineCount + horizontalLineCount) * 2];
+
+            int pointIndex = 0;
+            for (int line = 0; line < verticalLineCount; line++)
+            {
+                float x = firstX + line * cellLength;
+                points[pointIndex++] = new Vector2(x, bounds.yMin);
+                points[pointIndex++] = new Vector2(x, bounds.yMax);
+            }
+
+            for (int line = 0; line < horizontalLineCount; line++)
+            {
+                float y = firstY + line * cellLength;
+                points[pointIndex++] = new Vector2(bounds.xMin, y);
+                points[pointIndex++] = new Vector2(bounds.xMax, y);
+            }
+
+            MarkDirtyRepaint();
         }
     }
 }

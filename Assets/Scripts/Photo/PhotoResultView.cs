@@ -34,12 +34,11 @@ namespace AnimalGame.RobotMap
         public bool IsClosing => animationSettings.IsClosing;
         public event Action Closed;
 
-        private VisualElement root, stage, zoomContent, backdrop, circle, photo, textContent;
+        private VisualElement root, stage, zoomContent, backdrop, vectors, circle, photo, textContent;
         private Label saveLabel;
         private Image photoImage, snapshotImage;
         private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
         private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
-        private PhotoResultGridElement grid;
         private Material cardMaterial, circleMaterial;
         private RenderTexture cardOutput, circleOutput;
         private Texture photoSource, contourSource;
@@ -56,7 +55,6 @@ namespace AnimalGame.RobotMap
             root = document.rootVisualElement;
             arcs.Clear();
             lines.Clear();
-            grid = null;
             root.pickingMode = PickingMode.Ignore;
             root.style.position = Position.Absolute;
             root.style.left = root.style.top = root.style.right = root.style.bottom = 0;
@@ -64,6 +62,7 @@ namespace AnimalGame.RobotMap
             stage = root.Q("stage");
             zoomContent = root.Q("zoom-content");
             backdrop = root.Q("backdrop");
+            vectors = root.Q("vectors");
             circle = root.Q("snapshot-circle");
             photo = root.Q("photo");
             textContent = root.Q("text-content");
@@ -106,7 +105,6 @@ namespace AnimalGame.RobotMap
         {
             VisualElement arcElements = root.Q("arc-vectors");
             VisualElement lineElements = root.Q("line-vectors");
-            grid = root.Q<PhotoResultGridElement>("grid");
             if (arcElements != null) arcs.AddRange(arcElements.Query<PhotoResultArcElement>().ToList());
             if (lineElements != null) lines.AddRange(lineElements.Query<PhotoResultLineElement>().ToList());
         }
@@ -204,7 +202,7 @@ namespace AnimalGame.RobotMap
             float photoProgress = animationSettings.Evaluate(animationSettings.photoWindow);
             float textProgress = animationSettings.Evaluate(animationSettings.textWindow);
             backdrop.style.opacity = circleProgress;
-            if (grid != null) grid.Reveal(circleProgress);
+            vectors.style.opacity = circleProgress;
             foreach (var element in arcs) element.Reveal(arcProgress);
             foreach (var element in lines) element.Reveal(lineProgress);
             photo.style.opacity = photoProgress;
