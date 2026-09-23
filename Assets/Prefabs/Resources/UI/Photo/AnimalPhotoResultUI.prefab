@@ -46,11 +46,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   document: {fileID: 1195579321100125089}
-  layout: {fileID: 9197481963319205126, guid: 00e75f86af9746e6905cd6d78cf4dca0, type: 3}
   compositeShader: {fileID: 4800000, guid: 1f2e171341144516816d76dfa7b3584b, type: 3}
+  designSize: {x: 1920, y: 1080}
+  snapshotCircleCenter: {x: 1150, y: 815}
   animationSettings:
     openDuration: 1.1
     closeDuration: 0.55
+    zoomedScale: 4
+    restingScale: 1
+    zoomWindow: {x: 0, y: 1}
+    contentPositionWindow: {x: 0, y: 1}
     circleWindow: {x: 0, y: 0.7}
     arcWindow: {x: 0.1, y: 0.85}
     lineWindow: {x: 0.25, y: 0.9}
@@ -86,7 +91,6 @@ MonoBehaviour:
   stickDeadZone: 0.16
   photoResolution: 1024
   snapshotResolution: 768
-  accentColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
 --- !u!114 &1195579321100125089
 MonoBehaviour:
   m_ObjectHideFlags: 0

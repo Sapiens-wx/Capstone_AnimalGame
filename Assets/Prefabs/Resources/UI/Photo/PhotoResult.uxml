@@ -1,101 +1,103 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/Prefabs/Resources/UI/Photo/PhotoResult.uss?fileID=7433441132597879392&amp;guid=00835c787db842a4bcac4ece3905fe32&amp;type=3#PhotoResult" />
     <ui:VisualElement name="stage">
-        <ui:VisualElement name="vectors" class="fill">
-            <ui:VisualElement name="exclusion-regions" class="fill">
-                <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-catalog" style="position: absolute; left: 1005px; top: 410px; width: 275px; height: 72px;" />
-                <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-save" style="position: absolute; left: 995px; top: 533px; width: 350px; height: 77px;" />
-                <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-animal-name" style="position: absolute; left: 1250px; top: 303px; width: 340px; height: 80px;" />
-                <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-location" style="position: absolute; left: 1380px; top: 408px; width: 340px; height: 85px;" />
-                <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-altitude" style="position: absolute; left: 1385px; top: 510px; width: 285px; height: 120px;" />
-                <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-scientific-name" style="position: absolute; left: 1310px; top: 900px; width: 460px; height: 66px;" />
+        <ui:VisualElement name="zoom-content">
+            <ui:VisualElement name="backdrop" />
+            <ui:VisualElement name="vectors" class="fill">
+                <ui:VisualElement name="exclusion-regions" class="fill">
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-catalog" style="position: absolute; left: 1005px; top: 410px; width: 275px; height: 72px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-save" style="position: absolute; left: 995px; top: 533px; width: 350px; height: 77px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-animal-name" style="position: absolute; left: 1250px; top: 303px; width: 340px; height: 80px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-altitude" style="position: absolute; left: 1385px; top: 510px; width: 285px; height: 120px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-scientific-name" style="position: absolute; left: 1310px; top: 900px; width: 460px; height: 66px;" />
+                </ui:VisualElement>
+                <AnimalGame.RobotMap.PhotoResultGridElement name="grid" offset="0,12" grid-length="56" width="1" color="#8C96913B" class="fill" />
+                <ui:VisualElement name="arc-vectors" class="fill">
+                    <AnimalGame.RobotMap.PhotoResultArcElement name="outer-orbit" center="1400,550" radius="370" start-degrees="180" sweep-degrees="235" color="#F0F5F0" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-altitude,exclude-scientific-name" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultArcElement name="gold-orbit" center="1400,550" radius="342" start-degrees="180" sweep-degrees="230" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-altitude,exclude-scientific-name" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultArcElement name="upper-orbit" center="1147,0" radius="704" start-degrees="180" sweep-degrees="390" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-altitude,exclude-scientific-name" class="fill" />
+                </ui:VisualElement>
+                <ui:VisualElement name="line-vectors" class="fill">
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="baseline" start-point="25,958" end-point="1745,1011" color="#F0F5F0" width="2" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="metadata-rule" start-point="62,180" end-point="62,1015" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="top-tangent" start-point="1175,95" end-point="1166,322" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="cross-tangent" start-point="1120,305" end-point="1280,293" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="photo-save-rule" start-point="1018,598" end-point="1330,606" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="catalog-rule" start-point="1030,477" end-point="1265,482" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="altitude-rule" start-point="1390,568" end-point="1605,576" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="gold-leader" start-point="1137,698" end-point="1440,630" color="#D4B854" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="gold-diagonal" start-point="1390,569" end-point="1504,700" color="#D4B854" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-a" start-point="1496,390" end-point="1650,380" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-b" start-point="1496,390" end-point="1650,397" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-0" start-point="640,976.950581" end-point="640,954.950581" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-1" start-point="692,978.552907" end-point="692,967.552907" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-2" start-point="744,980.155233" end-point="744,958.155233" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-3" start-point="796,981.757558" end-point="796,970.757558" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-4" start-point="848,983.359884" end-point="848,961.359884" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-5" start-point="900,984.962209" end-point="900,973.962209" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-6" start-point="952,986.564535" end-point="952,964.564535" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-7" start-point="1004,988.16686" end-point="1004,977.16686" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-8" start-point="1056,989.769186" end-point="1056,967.769186" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-9" start-point="1108,991.371512" end-point="1108,980.371512" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-10" start-point="1160,992.973837" end-point="1160,970.973837" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-11" start-point="1212,994.576163" end-point="1212,983.576163" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-12" start-point="1264,996.178488" end-point="1264,974.178488" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-13" start-point="1316,997.780814" end-point="1316,986.780814" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-14" start-point="1368,999.38314" end-point="1368,977.38314" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-15" start-point="1420,1000.985465" end-point="1420,989.985465" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-16" start-point="1472,1002.587791" end-point="1472,980.587791" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-17" start-point="1524,1004.190116" end-point="1524,993.190116" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-18" start-point="1576,1005.792442" end-point="1576,983.792442" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-19" start-point="1628,1007.394767" end-point="1628,996.394767" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-20" start-point="1680,1008.997093" end-point="1680,986.997093" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-0" start-point="30,297.9" end-point="68,295.24" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-1" start-point="112,292.16" end-point="150,289.5" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-2" start-point="194,286.42" end-point="232,283.76" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-3" start-point="276,280.68" end-point="314,278.02" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-4" start-point="358,274.94" end-point="396,272.28" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-5" start-point="440,269.2" end-point="478,266.54" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-6" start-point="522,263.46" end-point="560,260.8" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-7" start-point="604,257.72" end-point="642,255.06" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-8" start-point="686,251.98" end-point="724,249.32" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-9" start-point="768,246.24" end-point="806,243.58" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-10" start-point="850,240.5" end-point="888,237.84" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-11" start-point="932,234.76" end-point="970,232.1" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-12" start-point="1014,229.02" end-point="1052,226.36" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-13" start-point="1096,223.28" end-point="1134,220.62" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-14" start-point="1178,217.54" end-point="1216,214.88" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-15" start-point="1260,211.8" end-point="1298,209.14" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-16" start-point="1342,206.06" end-point="1380,203.4" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-17" start-point="1424,200.32" end-point="1462,197.66" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-18" start-point="1506,194.58" end-point="1544,191.92" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-19" start-point="1588,188.84" end-point="1626,186.18" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-20" start-point="1670,183.1" end-point="1708,180.44" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-21" start-point="1752,177.36" end-point="1790,174.7" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-22" start-point="1834,171.62" end-point="1872,168.96" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="dash-23" start-point="1916,165.88" end-point="1954,163.22" color="#F0F5F0" width="1.5" class="fill" />
+                </ui:VisualElement>
             </ui:VisualElement>
-            <AnimalGame.RobotMap.PhotoResultGridElement name="grid" class="fill" offset="0,12" grid-length="56" width="1" color="#8C96913B" />
-            <ui:VisualElement name="arc-vectors" class="fill">
-                <AnimalGame.RobotMap.PhotoResultArcElement name="outer-orbit" class="fill" center="1400,550" radius="370" start-degrees="180" sweep-degrees="235" color="#F0F5F0" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-location,exclude-altitude,exclude-scientific-name" />
-                <AnimalGame.RobotMap.PhotoResultArcElement name="gold-orbit" class="fill" center="1400,550" radius="342" start-degrees="180" sweep-degrees="230" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-location,exclude-altitude,exclude-scientific-name" />
-                <AnimalGame.RobotMap.PhotoResultArcElement name="upper-orbit" class="fill" center="1147,0" radius="704" start-degrees="180" sweep-degrees="390" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-location,exclude-altitude,exclude-scientific-name" />
+            <ui:VisualElement name="snapshot-circle" style="height: 350px; width: 350px; top: 640px; left: 975px;">
+                <ui:Image name="snapshot-image" class="fill" />
+                <AnimalGame.RobotMap.PhotoResultArcElement name="snapshot-outline" center="175,175" radius="173" start-degrees="180" sweep-degrees="360" color="#F0F5F0" width="2.5" class="fill" />
+                <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
             </ui:VisualElement>
-            <ui:VisualElement name="line-vectors" class="fill">
-                <AnimalGame.RobotMap.PhotoResultLineElement name="baseline" class="fill" start-point="25,958" end-point="1745,1011" color="#F0F5F0" width="2" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="metadata-rule" class="fill" start-point="62,180" end-point="62,1015" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="top-tangent" class="fill" start-point="1175,95" end-point="1166,322" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="cross-tangent" class="fill" start-point="1120,305" end-point="1280,293" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="photo-save-rule" class="fill" start-point="1018,598" end-point="1330,606" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="catalog-rule" class="fill" start-point="1030,477" end-point="1265,482" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="altitude-rule" class="fill" start-point="1390,568" end-point="1605,576" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="gold-leader" class="fill" start-point="1137,698" end-point="1440,630" color="#D4B854" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="gold-diagonal" class="fill" start-point="1390,569" end-point="1504,700" color="#D4B854" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-a" class="fill" start-point="1496,390" end-point="1650,380" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-b" class="fill" start-point="1496,390" end-point="1650,397" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-0" class="fill" start-point="640,976.950581" end-point="640,954.950581" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-1" class="fill" start-point="692,978.552907" end-point="692,967.552907" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-2" class="fill" start-point="744,980.155233" end-point="744,958.155233" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-3" class="fill" start-point="796,981.757558" end-point="796,970.757558" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-4" class="fill" start-point="848,983.359884" end-point="848,961.359884" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-5" class="fill" start-point="900,984.962209" end-point="900,973.962209" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-6" class="fill" start-point="952,986.564535" end-point="952,964.564535" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-7" class="fill" start-point="1004,988.16686" end-point="1004,977.16686" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-8" class="fill" start-point="1056,989.769186" end-point="1056,967.769186" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-9" class="fill" start-point="1108,991.371512" end-point="1108,980.371512" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-10" class="fill" start-point="1160,992.973837" end-point="1160,970.973837" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-11" class="fill" start-point="1212,994.576163" end-point="1212,983.576163" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-12" class="fill" start-point="1264,996.178488" end-point="1264,974.178488" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-13" class="fill" start-point="1316,997.780814" end-point="1316,986.780814" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-14" class="fill" start-point="1368,999.38314" end-point="1368,977.38314" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-15" class="fill" start-point="1420,1000.985465" end-point="1420,989.985465" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-16" class="fill" start-point="1472,1002.587791" end-point="1472,980.587791" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-17" class="fill" start-point="1524,1004.190116" end-point="1524,993.190116" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-18" class="fill" start-point="1576,1005.792442" end-point="1576,983.792442" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-19" class="fill" start-point="1628,1007.394767" end-point="1628,996.394767" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-20" class="fill" start-point="1680,1008.997093" end-point="1680,986.997093" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-0" class="fill" start-point="30,297.9" end-point="68,295.24" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-1" class="fill" start-point="112,292.16" end-point="150,289.5" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-2" class="fill" start-point="194,286.42" end-point="232,283.76" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-3" class="fill" start-point="276,280.68" end-point="314,278.02" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-4" class="fill" start-point="358,274.94" end-point="396,272.28" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-5" class="fill" start-point="440,269.2" end-point="478,266.54" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-6" class="fill" start-point="522,263.46" end-point="560,260.8" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-7" class="fill" start-point="604,257.72" end-point="642,255.06" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-8" class="fill" start-point="686,251.98" end-point="724,249.32" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-9" class="fill" start-point="768,246.24" end-point="806,243.58" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-10" class="fill" start-point="850,240.5" end-point="888,237.84" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-11" class="fill" start-point="932,234.76" end-point="970,232.1" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-12" class="fill" start-point="1014,229.02" end-point="1052,226.36" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-13" class="fill" start-point="1096,223.28" end-point="1134,220.62" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-14" class="fill" start-point="1178,217.54" end-point="1216,214.88" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-15" class="fill" start-point="1260,211.8" end-point="1298,209.14" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-16" class="fill" start-point="1342,206.06" end-point="1380,203.4" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-17" class="fill" start-point="1424,200.32" end-point="1462,197.66" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-18" class="fill" start-point="1506,194.58" end-point="1544,191.92" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-19" class="fill" start-point="1588,188.84" end-point="1626,186.18" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-20" class="fill" start-point="1670,183.1" end-point="1708,180.44" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-21" class="fill" start-point="1752,177.36" end-point="1790,174.7" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-22" class="fill" start-point="1834,171.62" end-point="1872,168.96" color="#F0F5F0" width="1.5" />
-                <AnimalGame.RobotMap.PhotoResultLineElement name="dash-23" class="fill" start-point="1916,165.88" end-point="1954,163.22" color="#F0F5F0" width="1.5" />
+            <ui:VisualElement name="photo">
+                <ui:Image name="photo-image" class="fill" />
             </ui:VisualElement>
-        </ui:VisualElement>
-        <ui:VisualElement name="snapshot-circle">
-            <ui:Image name="snapshot-image" class="fill" />
-            <AnimalGame.RobotMap.PhotoResultArcElement name="snapshot-outline" class="fill" center="175,175" radius="173" start-degrees="180" sweep-degrees="360" color="#F0F5F0" width="2.5" />
-            <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
-        </ui:VisualElement>
-        <ui:VisualElement name="photo">
-            <ui:Image name="photo-image" class="fill" />
-        </ui:VisualElement>
-        <ui:VisualElement name="text-content" class="fill">
-            <ui:Label name="animal-name" text="Muskrat" />
-            <ui:Label name="location-title" text="Location:" />
-            <ui:Label name="region" text="Rocky Mountains" style="color: rgb(212, 184, 84);" />
-            <ui:Label name="altitude" text="123m" />
-            <ui:Label name="coordinates" text="Coordinates — —" />
-            <ui:Label name="catalog-badge" text="≡" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
-            <ui:Label name="catalog-label" text="Catalog" />
-            <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
-            <ui:Label name="save-label" text="Save Photo" />
-            <ui:Label name="scientific-name" text="Ondatra zibethicus" />
-            <ui:Label name="metadata" />
-            <ui:Label name="reward" />
+            <ui:VisualElement name="text-content" class="fill">
+                <ui:Label name="animal-name" text="Muskrat" />
+                <ui:Label name="location-title" text="Location:" />
+                <ui:Label name="region" text="Rocky Mountains" style="color: rgb(212, 184, 84);" />
+                <ui:Label name="altitude" text="123m" />
+                <ui:Label name="coordinates" text="Coordinates — —" />
+                <ui:Label name="catalog-badge" text="≡" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
+                <ui:Label name="catalog-label" text="Catalog" />
+                <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
+                <ui:Label name="save-label" text="Save Photo" />
+                <ui:Label name="scientific-name" text="Ondatra zibethicus" />
+                <ui:Label name="metadata" />
+                <ui:Label name="reward" />
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

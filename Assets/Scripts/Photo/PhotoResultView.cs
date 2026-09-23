@@ -14,8 +14,10 @@ namespace AnimalGame.RobotMap
     {
         [Header("Assets")]
         [SerializeField] private UIDocument document;
-        [SerializeField] private VisualTreeAsset layout;
         [SerializeField] private Shader compositeShader;
+        [Header("Design layout")]
+        [SerializeField] private Vector2 designSize = new Vector2(1920, 1080);
+        [SerializeField] private Vector2 snapshotCircleCenter = new Vector2(1150, 815);
         [Header("Animation tracks (normalized start/end)")]
         [SerializeField] private PhotoResultAnimation animationSettings = new PhotoResultAnimation();
         [Header("Photo perspective")]
@@ -32,23 +34,18 @@ namespace AnimalGame.RobotMap
         public bool IsClosing => animationSettings.IsClosing;
         public event Action Closed;
 
-        private VisualElement root, stage, circle, photo, textContent;
+        private VisualElement root, stage, zoomContent, backdrop, circle, photo, textContent;
         private Label saveLabel;
         private Image photoImage, snapshotImage;
         private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
         private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
         private PhotoResultGridElement grid;
-        private PhotoResultArcElement snapshotRing;
         private Material cardMaterial, circleMaterial;
         private RenderTexture cardOutput, circleOutput;
         private Texture photoSource, contourSource;
-        private Vector2 sourceCenterViewport, tilt;
-        private float sourceRadiusViewportHeight;
+        private Vector2 tilt;
         private float lastCircleReveal = -1;
         private bool showing;
-        private static readonly Vector2 FinalCircleCenter = new Vector2(1150, 815);
-        private const float FinalCircleRadius = 175;
-
         private void Awake()
         {
             BuildDocumentTree();
@@ -63,7 +60,10 @@ namespace AnimalGame.RobotMap
             root.pickingMode = PickingMode.Ignore;
             root.style.position = Position.Absolute;
             root.style.left = root.style.top = root.style.right = root.style.bottom = 0;
+            root.style.overflow = Overflow.Hidden;
             stage = root.Q("stage");
+            zoomContent = root.Q("zoom-content");
+            backdrop = root.Q("backdrop");
             circle = root.Q("snapshot-circle");
             photo = root.Q("photo");
             textContent = root.Q("text-content");
@@ -73,7 +73,33 @@ namespace AnimalGame.RobotMap
             foreach (VisualElement element in root.Query<VisualElement>().ToList())
                 element.pickingMode = PickingMode.Ignore;
             CollectVectorElements();
+            ConfigureDesignLayout();
             root.style.display = DisplayStyle.None;
+        }
+
+        private void ConfigureDesignLayout()
+        {
+            if (stage == null || zoomContent == null || circle == null) return;
+
+            float designWidth = Mathf.Max(1f, designSize.x);
+            float designHeight = Mathf.Max(1f, designSize.y);
+            stage.style.width = designWidth;
+            stage.style.height = designHeight;
+            zoomContent.style.width = designWidth;
+            zoomContent.style.height = designHeight;
+            ConfigureCircleLayout();
+            Vector2 initialOffset = new Vector2(designWidth, designHeight) * 0.5f
+                - snapshotCircleCenter;
+            zoomContent.style.left = initialOffset.x;
+            zoomContent.style.top = initialOffset.y;
+            zoomContent.style.scale = new Scale(Vector3.one * animationSettings.zoomedScale);
+        }
+
+        private void ConfigureCircleLayout()
+        {
+            zoomContent.style.transformOrigin = new TransformOrigin(
+                new Length(snapshotCircleCenter.x, LengthUnit.Pixel),
+                new Length(snapshotCircleCenter.y, LengthUnit.Pixel));
         }
 
         private void CollectVectorElements()
@@ -83,7 +109,6 @@ namespace AnimalGame.RobotMap
             grid = root.Q<PhotoResultGridElement>("grid");
             if (arcElements != null) arcs.AddRange(arcElements.Query<PhotoResultArcElement>().ToList());
             if (lineElements != null) lines.AddRange(lineElements.Query<PhotoResultLineElement>().ToList());
-            snapshotRing = root.Q<PhotoResultArcElement>("snapshot-outline");
         }
 
         internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
@@ -94,8 +119,6 @@ namespace AnimalGame.RobotMap
             ReleaseTextures();
             photoSource = result.Photo.Photo.texture;
             contourSource = capture.Texture;
-            sourceCenterViewport = capture.CenterViewport;
-            sourceRadiusViewportHeight = capture.RadiusViewportHeight;
             root.Q<Label>("animal-name").text = result.EnglishName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             root.Q<Label>("region").text = result.RegionName;
@@ -109,8 +132,9 @@ namespace AnimalGame.RobotMap
             Rect crop = SquareCrop(result.Photo.GetTextureUvRect(), photoSource);
             cardMaterial.SetVector("_Crop", new Vector4(crop.x, crop.y, crop.width, crop.height));
             cardOutput = CreateOutput("Perspective Animal Photo", photoResolution);
-            circleOutput = CreateOutput("Circular Frozen Contours", snapshotResolution);
             photoImage.image = cardOutput;
+            circleOutput = CreateOutput("Circular Frozen Contours", snapshotResolution);
+            Blit(contourSource != null ? contourSource : Texture2D.blackTexture, circleOutput, circleMaterial);
             snapshotImage.image = circleOutput;
             tilt = restingTiltDegrees;
             lastCircleReveal = -1;
@@ -146,41 +170,46 @@ namespace AnimalGame.RobotMap
         {
             float width = root.resolvedStyle.width;
             float height = root.resolvedStyle.height;
-            if (float.IsNaN(width) || width <= 0) width = Screen.width;
-            if (float.IsNaN(height) || height <= 0) height = Screen.height;
-            float scale = Mathf.Max(0.01f, Mathf.Min(width / 1920, height / 1080));
-            Vector2 offset = new Vector2((width - 1920 * scale) / 2, (height - 1080 * scale) / 2);
+            if (float.IsNaN(width) || width <= 0 || float.IsNaN(height) || height <= 0)
+                return;
+
+            float designWidth = Mathf.Max(1f, designSize.x);
+            float designHeight = Mathf.Max(1f, designSize.y);
+            float scale = Mathf.Max(0.01f, Mathf.Min(width / designWidth, height / designHeight));
+            Vector2 offset = new Vector2(
+                (width - designWidth * scale) * 0.5f,
+                (height - designHeight * scale) * 0.5f);
             stage.style.left = offset.x;
             stage.style.top = offset.y;
             stage.style.scale = new Scale(new Vector3(scale, scale, 1));
+            backdrop.style.left = -offset.x / scale;
+            backdrop.style.top = -offset.y / scale;
+            backdrop.style.width = width / scale;
+            backdrop.style.height = height / scale;
+
+            float zoomProgress = animationSettings.Evaluate(animationSettings.zoomWindow);
+            float zoom = Mathf.Lerp(animationSettings.zoomedScale,
+                animationSettings.restingScale, zoomProgress);
+            zoomContent.style.scale = new Scale(new Vector3(zoom, zoom, 1));
+
+            float positionProgress = animationSettings.Evaluate(animationSettings.contentPositionWindow);
+            Vector2 screenCenter = new Vector2(designWidth, designHeight) * 0.5f;
+            Vector2 contentOffset = Vector2.Lerp(screenCenter - snapshotCircleCenter,
+                Vector2.zero, positionProgress);
+            zoomContent.style.left = contentOffset.x;
+            zoomContent.style.top = contentOffset.y;
             float circleProgress = animationSettings.Evaluate(animationSettings.circleWindow);
             float arcProgress = animationSettings.Evaluate(animationSettings.arcWindow);
             float lineProgress = animationSettings.Evaluate(animationSettings.lineWindow);
             float photoProgress = animationSettings.Evaluate(animationSettings.photoWindow);
             float textProgress = animationSettings.Evaluate(animationSettings.textWindow);
-            root.style.backgroundColor = new Color(0, 0, 0, circleProgress);
+            backdrop.style.opacity = circleProgress;
             if (grid != null) grid.Reveal(circleProgress);
             foreach (var element in arcs) element.Reveal(arcProgress);
             foreach (var element in lines) element.Reveal(lineProgress);
-            if (snapshotRing != null) snapshotRing.Reveal(arcProgress);
             photo.style.opacity = photoProgress;
-            photo.style.translate = new Translate(-70 * (1 - photoProgress), 15 * (1 - photoProgress));
             textContent.style.opacity = textProgress;
-            circle.Q("close-badge").style.opacity = textProgress;
-            Vector2 startCenter = (new Vector2(sourceCenterViewport.x * width,
-                (1 - sourceCenterViewport.y) * height) - offset) / scale;
-            float startRadius = sourceRadiusViewportHeight * height / scale;
-            Vector2 center = Vector2.Lerp(startCenter, FinalCircleCenter, circleProgress);
-            float radius = Mathf.Lerp(Mathf.Max(1, startRadius), FinalCircleRadius, circleProgress);
-            circle.style.left = center.x - FinalCircleRadius;
-            circle.style.top = center.y - FinalCircleRadius;
-            circle.style.scale = new Scale(Vector3.one * (radius / FinalCircleRadius));
-            if (circleMaterial != null && !Mathf.Approximately(lastCircleReveal, arcProgress))
-            {
-                circleMaterial.SetFloat("_Reveal", arcProgress);
-                Blit(contourSource != null ? contourSource : Texture2D.blackTexture, circleOutput, circleMaterial);
-                lastCircleReveal = arcProgress;
-            }
+            circle.style.opacity=textProgress;
         }
 
         private void UpdateTilt()

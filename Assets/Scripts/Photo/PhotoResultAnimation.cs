@@ -9,6 +9,10 @@ namespace AnimalGame.RobotMap
     {
         [Min(0.05f)] public float openDuration = 1.1f;
         [Min(0.05f)] public float closeDuration = 0.55f;
+        [Min(0.01f)] public float zoomedScale = 6f;
+        [Min(0.01f)] public float restingScale = 1f;
+        public Vector2 zoomWindow = new Vector2(0f, 1f);
+        public Vector2 contentPositionWindow = new Vector2(0f, 1f);
         public Vector2 circleWindow = new Vector2(0f, 0.7f);
         public Vector2 arcWindow = new Vector2(0.1f, 0.85f);
         public Vector2 lineWindow = new Vector2(0.25f, 0.9f);

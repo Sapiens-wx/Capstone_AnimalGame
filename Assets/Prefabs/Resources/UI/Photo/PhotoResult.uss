@@ -1,15 +1,15 @@
 #stage {
     position: absolute;
-    width: 1920px;
-    height: 1080px;
     transform-origin: 0 0;
     color: rgb(237, 240, 236);
     -unity-font-style: normal;
 }
+#zoom-content { position: absolute; left: 0; top: 0; }
+#backdrop { position: absolute; background-color: black; }
 .fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
 Label { position: absolute; margin: 0; padding: 0; white-space: nowrap; }
 #photo { position: absolute; left: 45px; top: -12px; width: 1080px; height: 1080px; }
-#snapshot-circle { position: absolute; width: 350px; height: 350px; transform-origin: 50% 50%; }
+#snapshot-circle { position: absolute; transform-origin: 50% 50%; }
 #animal-name { left: 1265px; top: 301px; width: 550px; font-size: 61px; }
 #location-title { left: 1530px; top: 402px; font-size: 32px; }
 #region { left: 1393px; top: 447px; width: 460px; font-size: 33px; color: rgb(202, 174, 61); }
@@ -31,4 +31,4 @@ Label { position: absolute; margin: 0; padding: 0; white-space: nowrap; }
 }
 #catalog-badge { left: 1018px; top: 416px; }
 #save-badge { left: 1003px; top: 537px; }
-#close-badge { left: 146px; top: 146px; }
+#close-badge { left: 50%; top: 50%; translate: -50% -50%; }
