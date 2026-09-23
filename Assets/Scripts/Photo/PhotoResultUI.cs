@@ -497,10 +497,10 @@ namespace AnimalGame.RobotMap
         {
             if (resultView != null) return;
             PhotoResultView prefab = resultPrefab != null
-                ? resultPrefab : Resources.Load<PhotoResultView>("UI/AnimalPhotoResultUI");
+                ? resultPrefab : Resources.Load<PhotoResultView>("UI/Photo/AnimalPhotoResultUI");
             if (prefab == null)
             {
-                Debug.LogError("Missing Resources/UI/AnimalPhotoResultUI prefab.", this);
+                Debug.LogError("Missing Resources/UI/Photo/AnimalPhotoResultUI prefab.", this);
                 return;
             }
             resultView = Instantiate(prefab, transform);

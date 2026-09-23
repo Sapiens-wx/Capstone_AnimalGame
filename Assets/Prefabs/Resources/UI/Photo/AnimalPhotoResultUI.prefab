@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 400000}
   - component: {fileID: 11400000}
+  - component: {fileID: 1195579321100125089}
   m_Layer: 5
   m_Name: AnimalPhotoResultUI
   m_TagString: Untagged
@@ -44,8 +45,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad60f0d1fe2b44119c23d6006af06686, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  document: {fileID: 1195579321100125089}
   layout: {fileID: 9197481963319205126, guid: 00e75f86af9746e6905cd6d78cf4dca0, type: 3}
-  theme: {fileID: -4733365628477956816, guid: 5d351763321a441fb0bf2047de457cef, type: 3}
   compositeShader: {fileID: 4800000, guid: 1f2e171341144516816d76dfa7b3584b, type: 3}
   animationSettings:
     openDuration: 1.1
@@ -86,3 +87,22 @@ MonoBehaviour:
   photoResolution: 1024
   snapshotResolution: 768
   accentColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
+--- !u!114 &1195579321100125089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_PanelSettings: {fileID: 11400000, guid: 7a12bc35b405eff4582be5a1a880ee8e, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: 00e75f86af9746e6905cd6d78cf4dca0, type: 3}
+  m_SortingOrder: 200
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080

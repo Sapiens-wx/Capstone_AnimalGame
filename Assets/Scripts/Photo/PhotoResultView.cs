@@ -13,8 +13,8 @@ namespace AnimalGame.RobotMap
     public sealed class PhotoResultView : MonoBehaviour
     {
         [Header("Assets")]
+        [SerializeField] private UIDocument document;
         [SerializeField] private VisualTreeAsset layout;
-        [SerializeField] private ThemeStyleSheet theme;
         [SerializeField] private Shader compositeShader;
         [Header("Animation tracks (normalized start/end)")]
         [SerializeField] private PhotoResultAnimation animationSettings = new PhotoResultAnimation();
@@ -33,8 +33,6 @@ namespace AnimalGame.RobotMap
         public bool IsClosing => animationSettings.IsClosing;
         public event Action Closed;
 
-        private UIDocument document;
-        private PanelSettings panel;
         private VisualElement root, stage, circle, photo, textContent;
         private Label saveLabel;
         private Image photoImage, snapshotImage;
@@ -54,36 +52,18 @@ namespace AnimalGame.RobotMap
 
         private void Awake()
         {
-            if (layout == null) layout = Resources.Load<VisualTreeAsset>("UI/PhotoResult");
-            if (theme == null) theme = Resources.Load<ThemeStyleSheet>("UI/PhotoResultTheme");
-            if (layout == null || theme == null || compositeShader == null)
-            {
-                Debug.LogError("Photo result prefab is missing its layout, theme or composite shader.", this);
-                enabled = false;
-                return;
-            }
-            panel = ScriptableObject.CreateInstance<PanelSettings>();
-            panel.name = "Photo Result Runtime Panel";
-            panel.themeStyleSheet = theme;
-            panel.scaleMode = PanelScaleMode.ConstantPixelSize;
-            panel.sortingOrder = 200;
-            document = gameObject.AddComponent<UIDocument>();
-            document.panelSettings = panel;
-            document.sortingOrder = 200;
             BuildDocumentTree();
         }
 
         private void BuildDocumentTree()
         {
             root = document.rootVisualElement;
-            root.Clear();
             arcs.Clear();
             lines.Clear();
             grid.Clear();
             root.pickingMode = PickingMode.Ignore;
             root.style.position = Position.Absolute;
             root.style.left = root.style.top = root.style.right = root.style.bottom = 0;
-            layout.CloneTree(root);
             stage = root.Q("stage");
             circle = root.Q("snapshot-circle");
             photo = root.Q("photo");
@@ -352,7 +332,6 @@ namespace AnimalGame.RobotMap
         private void OnDestroy()
         {
             ReleaseTextures();
-            if (panel != null) Destroy(panel);
         }
     }
 }
