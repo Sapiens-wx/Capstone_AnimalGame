@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Prefabs/Resources/UI/PhotoResult.uss?fileID=7433441132597879392&amp;guid=00835c787db842a4bcac4ece3905fe32&amp;type=3#PhotoResult" />
+    <ui:VisualElement name="stage">
+        <ui:VisualElement name="vectors" class="fill" />
+        <ui:VisualElement name="snapshot-circle">
+            <ui:Image name="snapshot-image" class="fill" />
+            <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
+        </ui:VisualElement>
+        <ui:VisualElement name="photo">
+            <ui:Image name="photo-image" class="fill" />
+        </ui:VisualElement>
+        <ui:VisualElement name="text-content" class="fill">
+            <ui:Label name="animal-name" text="Muskrat" />
+            <ui:Label name="location-title" text="Location:" />
+            <ui:Label name="region" text="Rocky Mountains" style="color: rgb(212, 184, 84);" />
+            <ui:Label name="altitude" text="123m" />
+            <ui:Label name="coordinates" text="Coordinates — —" />
+            <ui:Label name="catalog-badge" text="≡" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
+            <ui:Label name="catalog-label" text="Catalog" />
+            <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
+            <ui:Label name="save-label" text="Save Photo" />
+            <ui:Label name="scientific-name" text="Ondatra zibethicus" />
+            <ui:Label name="metadata" />
+            <ui:Label name="reward" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

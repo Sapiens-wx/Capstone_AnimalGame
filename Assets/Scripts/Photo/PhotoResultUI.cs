@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using AnimalGame.Animals;
 using AnimalGame.MapTest;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace AnimalGame.RobotMap
 {
@@ -12,15 +11,9 @@ namespace AnimalGame.RobotMap
     [AddComponentMenu("Animal Game/UI/Photo Result UI")]
     public sealed class PhotoResultUI : MonoBehaviour
     {
-        private const float ReferenceWidth = 1920f;
-        private const float ReferenceHeight = 1080f;
-
-        [Header("Authored Result Layout")]
-        [Tooltip("Full-screen picture shown after photographing a supported animal.")]
-        [SerializeField] private Sprite referenceLayoutSprite;
-        [Tooltip("Temporary demonstration mode. When enabled, all generated result UI is sealed off and only the authored full-screen picture is shown until B is pressed.")]
-        [InspectorName("Reference Picture Only Mode")]
-        [SerializeField] private bool showReferenceLayoutOverlay;
+        [Header("Result Prefab")]
+        [Tooltip("Optional override. Defaults to Resources/UI/AnimalPhotoResultUI.")]
+        [SerializeField] private PhotoResultView resultPrefab;
 
         [Header("Subject Detection")]
         [Tooltip("Shrinks the visible camera frame slightly before evaluating subjects, preventing a barely touching animal from counting as photographed.")]
@@ -37,18 +30,6 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(0f)] private float centerednessScoreWeight = 0.3f;
         [SerializeField, Min(0f)] private float sizeScoreWeight = 0.15f;
 
-        [Header("Result Presentation")]
-        [SerializeField] private Font resultFont;
-        [SerializeField, Min(0.05f)] private float entryDuration = 0.45f;
-        [SerializeField] private Color backgroundColor =
-            new Color(0.008f, 0.012f, 0.014f, 1f);
-        [SerializeField] private Color gridColor =
-            new Color(0.34f, 0.38f, 0.4f, 0.24f);
-        [SerializeField] private Color primaryColor =
-            new Color(0.94f, 0.98f, 1f, 1f);
-        [SerializeField] private Color defaultAccentColor =
-            new Color(1f, 0.82f, 0.18f, 1f);
-
         [Header("Keyboard Result Controls")]
         [SerializeField] private KeyCode closeKey = KeyCode.B;
         [SerializeField] private KeyCode alternateCloseKey = KeyCode.Escape;
@@ -64,28 +45,12 @@ namespace AnimalGame.RobotMap
         private Camera mapCamera;
         private MapTestSceneController map;
 
-        private RectTransform resultCanvasRoot;
-        private Canvas resultCanvas;
-        private CanvasGroup contentGroup;
-        private RectTransform contentRoot;
-        private RectTransform photoRoot;
-        private RawImage photoImage;
-        private Image referenceOverlay;
-        private PhotoResultBackdropGraphic backdrop;
-        private Text identityText;
-        private Text recognitionText;
-        private Text rewardText;
-        private Text totalRewardText;
-        private Text controlsText;
-        private Text metadataText;
-        private Text savedText;
-
+        private PhotoResultView resultView;
+        private readonly PhotoContourCapture contourCapture = new PhotoContourCapture();
         private PhotoResultSnapshot pendingResult;
         private PhotoResultSnapshot displayedResult;
         private bool visible;
         private bool saved;
-        private float entryElapsed;
-        private Vector2 photoRestPosition;
 
         public bool IsVisible => visible;
 
@@ -126,7 +91,11 @@ namespace AnimalGame.RobotMap
             }
 
             if (!visible)
+            {
+                if (pendingResult != null && (controller == null || !controller.IsActive))
+                    HideResult(false);
                 return;
+            }
 
             if (controller == null
                 || !controller.IsActive
@@ -136,31 +105,20 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            if (!IsReferencePictureOnlyMode)
-                UpdateEntryAnimation();
-
+            if (resultView == null || resultView.IsClosing) return;
             bool closePressed = Input.GetKeyDown(closeKey)
-                                || Input.GetKeyDown(alternateCloseKey)
-                                || AdaptiveLegacyGamepadInput
-                                    .WasEastFaceButtonPressedThisFrame();
-            if (closePressed)
-            {
-                HideResult(true);
-                return;
-            }
-
-            if (!IsReferencePictureOnlyMode)
-            {
-                bool savePressed = Input.GetKeyDown(saveKey)
-                                   || AdaptiveLegacyGamepadInput
-                                       .WasNorthFaceButtonPressedThisFrame();
-                if (savePressed)
-                    SaveDisplayedResult();
-            }
+                || Input.GetKeyDown(alternateCloseKey)
+                || AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame();
+            if (closePressed) { resultView.Close(); return; }
+            bool savePressed = Input.GetKeyDown(saveKey)
+                || AdaptiveLegacyGamepadInput.WasNorthFaceButtonPressedThisFrame();
+            if (savePressed) SaveDisplayedResult();
         }
 
         private void HandlePhotoCaptured()
         {
+            if (!isActiveAndEnabled) return;
+            contourCapture.Dispose();
             pendingResult = null;
             if (!TrySelectMainSubject(
                     out AnimalPhotoSubject subject,
@@ -172,7 +130,7 @@ namespace AnimalGame.RobotMap
             AnimalResultPhoto selectedPhoto = null;
             bool hasLibraryPhoto = subject.TryChooseResultPhoto(
                 out selectedPhoto);
-            if (!IsReferencePictureOnlyMode && !hasLibraryPhoto)
+            if (!hasLibraryPhoto)
             {
                 Debug.LogWarning(
                     $"Photo result skipped because '{subject.name}' has no valid authored result photo.",
@@ -184,8 +142,14 @@ namespace AnimalGame.RobotMap
                 subject,
                 selectedPhoto,
                 frameCoverage);
-            if (controller == null || !controller.RequestPhotoReview())
+            EnsureVisuals();
+            if (resultView == null || controller == null || !controller.RequestPhotoReview())
+            {
                 pendingResult = null;
+                return;
+            }
+            // Freeze at the shutter event, before the review transition.
+            contourCapture.Capture(mapCamera, map, resultView.SnapshotResolution);
         }
 
         private bool TrySelectMainSubject(
@@ -498,142 +462,25 @@ namespace AnimalGame.RobotMap
 
         private void ShowPendingResult()
         {
-            if (pendingResult == null)
-                return;
-
+            if (pendingResult == null) return;
             EnsureVisuals();
+            if (resultView == null) { HideResult(true); return; }
             displayedResult = pendingResult;
             pendingResult = null;
             visible = true;
             saved = false;
-            entryElapsed = 0f;
-
-            if (resultCanvasRoot != null)
-                resultCanvasRoot.gameObject.SetActive(true);
-            if (resultCanvas != null)
-                resultCanvas.enabled = true;
-
-            if (IsReferencePictureOnlyMode)
-            {
-                if (referenceOverlay != null)
-                {
-                    referenceOverlay.sprite = referenceLayoutSprite;
-                    referenceOverlay.color = Color.white;
-                    referenceOverlay.enabled = true;
-                    referenceOverlay.transform.SetAsLastSibling();
-                }
-
-                if (backdrop != null)
-                    backdrop.enabled = false;
-                if (contentRoot != null)
-                    contentRoot.gameObject.SetActive(false);
-
-                Canvas.ForceUpdateCanvases();
-                return;
-            }
-
-            if (contentRoot != null)
-            {
-                contentRoot.gameObject.SetActive(true);
-                contentRoot.SetAsLastSibling();
-            }
-            if (referenceOverlay != null)
-                referenceOverlay.enabled = false;
-            if (backdrop != null)
-                backdrop.enabled = true;
-
-            SetDynamicTextVisibility(true);
-
-            if (backdrop != null)
-                backdrop.SetAccent(displayedResult.AccentColor);
-            if (photoImage != null)
-            {
-                photoImage.texture = displayedResult.Photo.Photo.texture;
-                photoImage.uvRect = displayedResult.Photo.GetTextureUvRect();
-            }
-
-            recognitionText.text =
-                $"{displayedResult.CognitionDegrees}° 物种认知";
-            identityText.text =
-                $"{displayedResult.DisplayName}\n{displayedResult.EnglishName}";
-            rewardText.text =
-                $"基础奖励  +{displayedResult.BaseReward}\n"
-                + $"认知奖励  +{displayedResult.CognitionReward}";
-            controlsText.text = "图鉴   [MENU]\n[Y] 保存照片\n[B] 返回";
-            metadataText.text = BuildMetadata(displayedResult);
-            savedText.text = string.Empty;
-            savedText.enabled = false;
-
-            ApplyEntryAnimation(0f);
-            Canvas.ForceUpdateCanvases();
-        }
-
-        private bool IsReferencePictureOnlyMode =>
-            showReferenceLayoutOverlay && referenceLayoutSprite != null;
-
-        private static string BuildMetadata(PhotoResultSnapshot result)
-        {
-            return $"{result.ScientificName}  /  "
-                   + $"X:{result.MapPositionMeters.x:0.0}  "
-                   + $"Y:{result.MapPositionMeters.y:0.0}  "
-                   + $"H:{result.HeightMeters:0.0}m  /  "
-                   + $"{result.RegionName}  /  "
-                   + result.CapturedAt.ToString("yyyy.MM.dd  HH:mm:ss");
-        }
-
-        private void UpdateEntryAnimation()
-        {
-            entryElapsed = Mathf.Min(
-                Mathf.Max(0.05f, entryDuration),
-                entryElapsed + Mathf.Max(0f, Time.unscaledDeltaTime));
-            float progress = Mathf.Clamp01(
-                entryElapsed / Mathf.Max(0.05f, entryDuration));
-            ApplyEntryAnimation(progress);
-        }
-
-        private void ApplyEntryAnimation(float progress)
-        {
-            float eased = 1f - Mathf.Pow(1f - Mathf.Clamp01(progress), 3f);
-            if (contentGroup != null)
-            {
-                // Never start completely transparent. Some result canvases
-                // can be activated after their owner's LateUpdate, which
-                // otherwise leaves the first rendered review frame looking
-                // like an empty black screen.
-                contentGroup.alpha = Mathf.Lerp(0.82f, 1f, eased);
-            }
-            if (contentRoot != null)
-                contentRoot.localScale = Vector3.one * Mathf.Lerp(0.985f, 1f, eased);
-            if (photoRoot != null)
-            {
-                photoRoot.anchoredPosition = photoRestPosition
-                                             + Vector2.Lerp(
-                                                 new Vector2(-58f, 24f),
-                                                 Vector2.zero,
-                                                 eased);
-                photoRoot.localScale = Vector3.one
-                                       * Mathf.Lerp(0.92f, 1f, eased);
-            }
-
-            if (displayedResult != null && totalRewardText != null)
-            {
-                int displayedReward = Mathf.RoundToInt(
-                    displayedResult.TotalReward * eased);
-                totalRewardText.text = $"总计  {displayedReward}";
-            }
+            resultView.Show(displayedResult, contourCapture);
         }
 
         private void SaveDisplayedResult()
         {
-            if (saved || displayedResult == null)
-                return;
-
+            if (saved || displayedResult == null) return;
             PhotoAlbumService.Save(displayedResult);
             saved = true;
-            savedText.enabled = true;
-            savedText.text = "已保存到图鉴";
-            controlsText.text = "图鉴   [MENU]\n[Y] 已保存\n[B] 返回";
+            resultView.SetSaved();
         }
+
+        private void HandleViewClosed() => HideResult(true);
 
         private void HideResult(bool returnToCamera)
         {
@@ -641,326 +488,43 @@ namespace AnimalGame.RobotMap
             pendingResult = null;
             displayedResult = null;
             saved = false;
-            if (resultCanvasRoot != null)
-                resultCanvasRoot.gameObject.SetActive(false);
-
-            if (returnToCamera)
-                controller?.EndPhotoReview();
+            if (resultView != null) resultView.HideImmediately();
+            contourCapture.Dispose();
+            if (returnToCamera) controller?.EndPhotoReview();
         }
 
         private void EnsureVisuals()
         {
-            if (resultCanvasRoot != null)
+            if (resultView != null) return;
+            PhotoResultView prefab = resultPrefab != null
+                ? resultPrefab : Resources.Load<PhotoResultView>("UI/AnimalPhotoResultUI");
+            if (prefab == null)
+            {
+                Debug.LogError("Missing Resources/UI/AnimalPhotoResultUI prefab.", this);
                 return;
-
-            Canvas parentCanvas = GetComponentInParent<Canvas>();
-            var canvasObject = new GameObject(
-                "Animal Photo Result UI",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler));
-            canvasObject.layer = LayerMask.NameToLayer("UI");
-            resultCanvasRoot = canvasObject.GetComponent<RectTransform>();
-            resultCanvas = canvasObject.GetComponent<Canvas>();
-            resultCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            resultCanvas.overrideSorting = true;
-            resultCanvas.sortingLayerID = parentCanvas != null
-                ? parentCanvas.sortingLayerID
-                : 0;
-            resultCanvas.sortingOrder = parentCanvas != null
-                ? parentCanvas.sortingOrder + 20
-                : 50;
-
-            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(
-                ReferenceWidth,
-                ReferenceHeight);
-            scaler.screenMatchMode =
-                CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-            scaler.referencePixelsPerUnit = 100f;
-
-            GameObject backgroundObject = CreateUiObject(
-                "Opaque Result Background",
-                resultCanvasRoot,
-                typeof(Image));
-            RectTransform backgroundRect =
-                backgroundObject.GetComponent<RectTransform>();
-            Stretch(backgroundRect);
-            Image background = backgroundObject.GetComponent<Image>();
-            background.color = backgroundColor;
-            background.raycastTarget = false;
-
-            GameObject backdropObject = CreateUiObject(
-                "Technical Result Backdrop",
-                resultCanvasRoot,
-                typeof(PhotoResultBackdropGraphic));
-            RectTransform backdropRect =
-                backdropObject.GetComponent<RectTransform>();
-            Stretch(backdropRect);
-            backdrop = backdropObject.GetComponent<PhotoResultBackdropGraphic>();
-            backdrop.raycastTarget = false;
-            backdrop.Configure(gridColor, primaryColor, defaultAccentColor);
-
-            GameObject contentObject = CreateUiObject(
-                "Dynamic Result Content",
-                resultCanvasRoot,
-                typeof(CanvasGroup));
-            contentRoot = contentObject.GetComponent<RectTransform>();
-            Stretch(contentRoot);
-            contentGroup = contentObject.GetComponent<CanvasGroup>();
-            contentGroup.interactable = false;
-            contentGroup.blocksRaycasts = false;
-
-            CreatePhotoPresentation();
-            CreateTextPresentation();
-            CreateReferenceOverlay();
-            resultCanvasRoot.gameObject.SetActive(false);
-        }
-
-        private void CreatePhotoPresentation()
-        {
-            GameObject photoObject = CreateUiObject(
-                "Authored Animal Photo",
-                contentRoot,
-                typeof(Image));
-            photoRoot = photoObject.GetComponent<RectTransform>();
-            photoRoot.anchorMin = new Vector2(0.5f, 0.5f);
-            photoRoot.anchorMax = new Vector2(0.5f, 0.5f);
-            photoRoot.pivot = new Vector2(0.5f, 0.5f);
-            photoRestPosition = new Vector2(-398f, 0f);
-            photoRoot.anchoredPosition = photoRestPosition;
-            photoRoot.sizeDelta = new Vector2(900f, 940f);
-            photoRoot.localRotation = Quaternion.Euler(0f, 0f, -2.4f);
-            Image backing = photoObject.GetComponent<Image>();
-            backing.color = primaryColor;
-            backing.raycastTarget = false;
-
-            GameObject rawImageObject = CreateUiObject(
-                "Selected Species Library Photo",
-                photoRoot,
-                typeof(RawImage));
-            RectTransform rawRect =
-                rawImageObject.GetComponent<RectTransform>();
-            Stretch(rawRect);
-            rawRect.offsetMin = new Vector2(6f, 6f);
-            rawRect.offsetMax = new Vector2(-6f, -6f);
-            photoImage = rawImageObject.GetComponent<RawImage>();
-            photoImage.color = Color.white;
-            photoImage.raycastTarget = false;
-        }
-
-        private void CreateTextPresentation()
-        {
-            Font font = ResolveFont();
-            metadataText = CreateText(
-                "Photo Metadata",
-                contentRoot,
-                font,
-                21,
-                TextAnchor.MiddleCenter,
-                primaryColor,
-                new Vector2(-906f, 0f),
-                new Vector2(1000f, 38f),
-                90f);
-            recognitionText = CreateText(
-                "Recognition Heading",
-                contentRoot,
-                font,
-                53,
-                TextAnchor.MiddleLeft,
-                primaryColor,
-                new Vector2(345f, 205f),
-                new Vector2(660f, 90f));
-            rewardText = CreateText(
-                "Reward Breakdown",
-                contentRoot,
-                font,
-                34,
-                TextAnchor.UpperLeft,
-                primaryColor,
-                new Vector2(450f, -8f),
-                new Vector2(510f, 120f));
-            rewardText.lineSpacing = 1.25f;
-            totalRewardText = CreateText(
-                "Total Reward",
-                contentRoot,
-                font,
-                37,
-                TextAnchor.MiddleLeft,
-                primaryColor,
-                new Vector2(545f, -142f),
-                new Vector2(390f, 65f));
-            controlsText = CreateText(
-                "Photo Result Controls",
-                contentRoot,
-                font,
-                34,
-                TextAnchor.UpperLeft,
-                primaryColor,
-                new Vector2(190f, -34f),
-                new Vector2(430f, 190f));
-            controlsText.lineSpacing = 1.12f;
-            identityText = CreateText(
-                "Species Identity",
-                contentRoot,
-                font,
-                57,
-                TextAnchor.UpperLeft,
-                primaryColor,
-                new Vector2(528f, -365f),
-                new Vector2(650f, 150f));
-            identityText.fontStyle = FontStyle.Normal;
-            savedText = CreateText(
-                "Saved Confirmation",
-                contentRoot,
-                font,
-                25,
-                TextAnchor.MiddleLeft,
-                defaultAccentColor,
-                new Vector2(285f, -170f),
-                new Vector2(330f, 45f));
-        }
-
-        private void CreateReferenceOverlay()
-        {
-            GameObject overlayObject = CreateUiObject(
-                "Optional Reference Layout Overlay",
-                resultCanvasRoot,
-                typeof(Image));
-            RectTransform overlayRect =
-                overlayObject.GetComponent<RectTransform>();
-            Stretch(overlayRect);
-            referenceOverlay = overlayObject.GetComponent<Image>();
-            referenceOverlay.sprite = referenceLayoutSprite;
-            referenceOverlay.color = Color.white;
-            referenceOverlay.preserveAspect = true;
-            referenceOverlay.raycastTarget = false;
-            referenceOverlay.enabled = false;
-        }
-
-        private void SetDynamicTextVisibility(bool visibleState)
-        {
-            if (identityText != null)
-                identityText.enabled = visibleState;
-            if (recognitionText != null)
-                recognitionText.enabled = visibleState;
-            if (rewardText != null)
-                rewardText.enabled = visibleState;
-            if (totalRewardText != null)
-                totalRewardText.enabled = visibleState;
-            if (controlsText != null)
-                controlsText.enabled = visibleState;
-            if (metadataText != null)
-                metadataText.enabled = visibleState;
-        }
-
-        private Font ResolveFont()
-        {
-            if (resultFont != null)
-                return resultFont;
-
-            string[] preferredFonts =
-            {
-                "Microsoft YaHei UI",
-                "Microsoft YaHei",
-                "SimHei",
-                "Arial"
-            };
-            resultFont = Font.CreateDynamicFontFromOSFont(
-                preferredFonts,
-                36);
-            if (resultFont == null)
-            {
-                resultFont = Resources.GetBuiltinResource<Font>(
-                    "LegacyRuntime.ttf");
             }
-
-            return resultFont;
-        }
-
-        private static Text CreateText(
-            string objectName,
-            Transform parent,
-            Font font,
-            int fontSize,
-            TextAnchor alignment,
-            Color color,
-            Vector2 anchoredPosition,
-            Vector2 size,
-            float rotationDegrees = 0f)
-        {
-            GameObject textObject = CreateUiObject(
-                objectName,
-                parent,
-                typeof(Text));
-            RectTransform textRect = textObject.GetComponent<RectTransform>();
-            textRect.anchorMin = new Vector2(0.5f, 0.5f);
-            textRect.anchorMax = new Vector2(0.5f, 0.5f);
-            textRect.pivot = new Vector2(0.5f, 0.5f);
-            textRect.anchoredPosition = anchoredPosition;
-            textRect.sizeDelta = size;
-            textRect.localRotation = Quaternion.Euler(
-                0f,
-                0f,
-                rotationDegrees);
-
-            Text text = textObject.GetComponent<Text>();
-            text.font = font;
-            text.fontSize = fontSize;
-            text.alignment = alignment;
-            text.color = color;
-            text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            return text;
-        }
-
-        private static GameObject CreateUiObject(
-            string objectName,
-            Transform parent,
-            params Type[] additionalComponents)
-        {
-            var componentTypes = new List<Type>
+            resultView = Instantiate(prefab, transform);
+            resultView.name = "Animal Photo Result UI";
+            if (!resultView.IsReady)
             {
-                typeof(RectTransform),
-                typeof(CanvasRenderer)
-            };
-            for (int index = 0; index < additionalComponents.Length; index++)
-            {
-                Type componentType = additionalComponents[index];
-                if (componentType != null
-                    && !componentTypes.Contains(componentType))
-                {
-                    componentTypes.Add(componentType);
-                }
+                Destroy(resultView.gameObject);
+                resultView = null;
+                return;
             }
-
-            var result = new GameObject(
-                objectName,
-                componentTypes.ToArray());
-            result.layer = parent.gameObject.layer;
-            result.transform.SetParent(parent, false);
-            return result;
+            resultView.Closed += HandleViewClosed;
         }
 
-        private static void Stretch(RectTransform rectTransform)
-        {
-            rectTransform.anchorMin = Vector2.zero;
-            rectTransform.anchorMax = Vector2.one;
-            rectTransform.pivot = Vector2.one * 0.5f;
-            rectTransform.anchoredPosition = Vector2.zero;
-            rectTransform.sizeDelta = Vector2.zero;
-            rectTransform.localScale = Vector3.one;
-        }
+        private void OnDisable() => HideResult(true);
 
         private void OnDestroy()
         {
-            if (controller != null)
-                controller.PhotoCaptured -= HandlePhotoCaptured;
-            if (resultCanvasRoot != null)
-                Destroy(resultCanvasRoot.gameObject);
+            if (controller != null) controller.PhotoCaptured -= HandlePhotoCaptured;
+            if (resultView != null)
+            {
+                resultView.Closed -= HandleViewClosed;
+                Destroy(resultView.gameObject);
+            }
+            contourCapture.Dispose();
         }
 
         private void OnValidate()
@@ -982,7 +546,6 @@ namespace AnimalGame.RobotMap
                 0f,
                 centerednessScoreWeight);
             sizeScoreWeight = Mathf.Max(0f, sizeScoreWeight);
-            entryDuration = Mathf.Max(0.05f, entryDuration);
         }
     }
 
@@ -1062,147 +625,4 @@ namespace AnimalGame.RobotMap
         }
     }
 
-    public sealed class PhotoResultBackdropGraphic : MaskableGraphic
-    {
-        private const float ReferenceWidth = 1920f;
-        private const float ReferenceHeight = 1080f;
-
-        private Color grid = new Color(1f, 1f, 1f, 0.16f);
-        private Color primary = Color.white;
-        private Color accent = new Color(1f, 0.82f, 0.18f, 1f);
-
-        public void Configure(
-            Color gridColor,
-            Color primaryColor,
-            Color accentColor)
-        {
-            grid = gridColor;
-            primary = primaryColor;
-            accent = accentColor;
-            SetVerticesDirty();
-        }
-
-        public void SetAccent(Color accentColor)
-        {
-            accent = accentColor;
-            SetVerticesDirty();
-        }
-
-        protected override void OnPopulateMesh(VertexHelper vertexHelper)
-        {
-            vertexHelper.Clear();
-            Rect rect = rectTransform.rect;
-            float scale = Mathf.Min(
-                rect.width / ReferenceWidth,
-                rect.height / ReferenceHeight);
-            Vector2 origin = rect.center - new Vector2(
-                ReferenceWidth * scale,
-                ReferenceHeight * scale) * 0.5f;
-
-            for (float x = 0f; x <= ReferenceWidth; x += 52f)
-            {
-                AddLine(
-                    vertexHelper,
-                    ToLocal(origin, scale, new Vector2(x, 0f)),
-                    ToLocal(origin, scale, new Vector2(x, ReferenceHeight)),
-                    2f * scale,
-                    grid);
-            }
-
-            for (float y = 0f; y <= ReferenceHeight; y += 52f)
-            {
-                AddLine(
-                    vertexHelper,
-                    ToLocal(origin, scale, new Vector2(0f, y)),
-                    ToLocal(origin, scale, new Vector2(ReferenceWidth, y)),
-                    2f * scale,
-                    grid);
-            }
-
-            AddLine(vertexHelper, ToLocal(origin, scale, new Vector2(1015f, 0f)), ToLocal(origin, scale, new Vector2(1168f, 1080f)), 2f * scale, primary);
-            AddLine(vertexHelper, ToLocal(origin, scale, new Vector2(1170f, 75f)), ToLocal(origin, scale, new Vector2(1170f, 1005f)), 2f * scale, primary);
-            AddLine(vertexHelper, ToLocal(origin, scale, new Vector2(970f, 835f)), ToLocal(origin, scale, new Vector2(1820f, 900f)), 2f * scale, primary);
-            AddLine(vertexHelper, ToLocal(origin, scale, new Vector2(990f, 120f)), ToLocal(origin, scale, new Vector2(1740f, 88f)), 3f * scale, primary);
-            AddLine(vertexHelper, ToLocal(origin, scale, new Vector2(1090f, 280f)), ToLocal(origin, scale, new Vector2(1735f, 880f)), 1f * scale, new Color(primary.r, primary.g, primary.b, 0.22f));
-
-            AddArc(vertexHelper, origin, scale, new Vector2(1425f, 500f), 385f, -48f, 172f, 3f, primary);
-            AddArc(vertexHelper, origin, scale, new Vector2(1425f, 500f), 355f, -45f, 167f, 2f, accent);
-            AddArc(vertexHelper, origin, scale, new Vector2(1170f, 165f), 160f, -40f, 215f, 3f, primary);
-            AddArc(vertexHelper, origin, scale, new Vector2(1170f, 165f), 140f, 32f, 255f, 1.5f, new Color(primary.r, primary.g, primary.b, 0.45f));
-        }
-
-        private static Vector2 ToLocal(
-            Vector2 origin,
-            float scale,
-            Vector2 referencePoint)
-        {
-            return origin + referencePoint * scale;
-        }
-
-        private static void AddArc(
-            VertexHelper vertexHelper,
-            Vector2 origin,
-            float scale,
-            Vector2 center,
-            float radius,
-            float startDegrees,
-            float endDegrees,
-            float width,
-            Color color)
-        {
-            const int SegmentCount = 64;
-            Vector2 previous = Vector2.zero;
-            for (int index = 0; index <= SegmentCount; index++)
-            {
-                float progress = index / (float)SegmentCount;
-                float radians = Mathf.Lerp(startDegrees, endDegrees, progress)
-                                * Mathf.Deg2Rad;
-                Vector2 current = ToLocal(
-                    origin,
-                    scale,
-                    center + new Vector2(
-                        Mathf.Cos(radians),
-                        Mathf.Sin(radians)) * radius);
-                if (index > 0)
-                {
-                    AddLine(
-                        vertexHelper,
-                        previous,
-                        current,
-                        width * scale,
-                        color);
-                }
-
-                previous = current;
-            }
-        }
-
-        private static void AddLine(
-            VertexHelper vertexHelper,
-            Vector2 start,
-            Vector2 end,
-            float width,
-            Color color)
-        {
-            Vector2 difference = end - start;
-            if (difference.sqrMagnitude <= 0.0001f)
-                return;
-
-            Vector2 perpendicular = new Vector2(
-                -difference.y,
-                difference.x).normalized * Mathf.Max(0.5f, width * 0.5f);
-            UIVertex vertex = UIVertex.simpleVert;
-            vertex.color = color;
-            var quad = new UIVertex[4];
-            vertex.position = start - perpendicular;
-            quad[0] = vertex;
-            vertex.position = start + perpendicular;
-            quad[1] = vertex;
-            vertex.position = end + perpendicular;
-            quad[2] = vertex;
-            vertex.position = end - perpendicular;
-            quad[3] = vertex;
-            vertexHelper.AddUIVertexQuad(quad);
-        }
-    }
 }
