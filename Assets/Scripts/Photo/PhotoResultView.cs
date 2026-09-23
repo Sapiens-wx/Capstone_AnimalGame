@@ -26,7 +26,6 @@ namespace AnimalGame.RobotMap
         [Header("Rendering")]
         [SerializeField, Range(256, 2048)] private int photoResolution = 1024;
         [SerializeField, Range(128, 2048)] private int snapshotResolution = 768;
-        [SerializeField] private Color accentColor = new Color(0.79f, 0.68f, 0.24f, 1);
 
         public int SnapshotResolution => snapshotResolution;
         public bool IsReady => root != null;
@@ -36,10 +35,10 @@ namespace AnimalGame.RobotMap
         private VisualElement root, stage, circle, photo, textContent;
         private Label saveLabel;
         private Image photoImage, snapshotImage;
-        private readonly List<PhotoResultVectorElement> arcs = new List<PhotoResultVectorElement>();
-        private readonly List<PhotoResultVectorElement> lines = new List<PhotoResultVectorElement>();
-        private readonly List<PhotoResultVectorElement> grid = new List<PhotoResultVectorElement>();
-        private PhotoResultVectorElement snapshotRing;
+        private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
+        private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
+        private PhotoResultGridElement grid;
+        private PhotoResultArcElement snapshotRing;
         private Material cardMaterial, circleMaterial;
         private RenderTexture cardOutput, circleOutput;
         private Texture photoSource, contourSource;
@@ -60,7 +59,7 @@ namespace AnimalGame.RobotMap
             root = document.rootVisualElement;
             arcs.Clear();
             lines.Clear();
-            grid.Clear();
+            grid = null;
             root.pickingMode = PickingMode.Ignore;
             root.style.position = Position.Absolute;
             root.style.left = root.style.top = root.style.right = root.style.bottom = 0;
@@ -73,75 +72,18 @@ namespace AnimalGame.RobotMap
             snapshotImage = root.Q<Image>("snapshot-image");
             foreach (VisualElement element in root.Query<VisualElement>().ToList())
                 element.pickingMode = PickingMode.Ignore;
-            BuildVectors();
+            CollectVectorElements();
             root.style.display = DisplayStyle.None;
         }
 
-        private void BuildVectors()
+        private void CollectVectorElements()
         {
-            VisualElement vectors = root.Q("vectors");
-            var exclusions = new List<Rect>
-            {
-                new Rect(1005, 410, 275, 72), new Rect(995, 533, 350, 77),
-                new Rect(1250, 303, 340, 80), new Rect(1380, 408, 340, 85),
-                new Rect(1385, 510, 285, 120), new Rect(1310, 900, 460, 66)
-            };
-            Color white = new Color(0.94f, 0.96f, 0.94f, 1);
-            Color gridColor = new Color(0.55f, 0.59f, 0.57f, 0.23f);
-            for (int x = 0; x <= 1920; x += 56)
-                AddLine(grid, vectors, "grid-v-" + x, new Vector2(x, 0), new Vector2(x, 1080), gridColor, 1);
-            for (int y = 12; y <= 1080; y += 56)
-                AddLine(grid, vectors, "grid-h-" + y, new Vector2(0, y), new Vector2(1920, y), gridColor, 1);
-
-            AddArc(vectors, "outer-orbit", new Vector2(1400, 550), 370, 180, 235, white, exclusions);
-            AddArc(vectors, "gold-orbit", new Vector2(1400, 550), 342, 180, 230, accentColor, exclusions);
-            AddArc(vectors, "upper-orbit", new Vector2(1147, 0), 704, 180, 390, accentColor, exclusions);
-            AddLine(lines, vectors, "baseline", new Vector2(25, 958), new Vector2(1745, 1011), white, 2);
-            AddLine(lines, vectors, "metadata-rule", new Vector2(62, 180), new Vector2(62, 1015), white);
-            AddLine(lines, vectors, "top-tangent", new Vector2(1175, 95), new Vector2(1166, 322), white);
-            AddLine(lines, vectors, "cross-tangent", new Vector2(1120, 305), new Vector2(1280, 293), white);
-            AddLine(lines, vectors, "photo-save-rule", new Vector2(1018, 598), new Vector2(1330, 606), white);
-            AddLine(lines, vectors, "catalog-rule", new Vector2(1030, 477), new Vector2(1265, 482), white);
-            AddLine(lines, vectors, "altitude-rule", new Vector2(1390, 568), new Vector2(1605, 576), white);
-            AddLine(lines, vectors, "gold-leader", new Vector2(1137, 698), new Vector2(1440, 630), accentColor);
-            AddLine(lines, vectors, "gold-diagonal", new Vector2(1390, 569), new Vector2(1504, 700), accentColor);
-            AddLine(lines, vectors, "location-chevron-a", new Vector2(1496, 390), new Vector2(1650, 380), white);
-            AddLine(lines, vectors, "location-chevron-b", new Vector2(1496, 390), new Vector2(1650, 397), white);
-            for (int i = 0; i < 21; i++)
-            {
-                float x = 640 + i * 52;
-                float y = 958 + (x - 25) / 1720 * 53;
-                AddLine(lines, vectors, "ruler-" + i, new Vector2(x, y), new Vector2(x, y - (i % 2 == 0 ? 22 : 11)), white);
-            }
-            for (int i = 0; i < 24; i++)
-            {
-                float x = 30 + i * 82;
-                AddLine(lines, vectors, "dash-" + i, new Vector2(x, 300 - x * 0.07f),
-                    new Vector2(x + 38, 300 - (x + 38) * 0.07f), white);
-            }
-            snapshotRing = new PhotoResultVectorElement("snapshot-outline",
-                PhotoResultVectorElement.Arc(Vector2.one * FinalCircleRadius, FinalCircleRadius - 2, 180, 360), white, 2.5f);
-            snapshotRing.style.width = snapshotRing.style.height = FinalCircleRadius * 2;
-            circle.Add(snapshotRing);
-            // Badge belongs above the snapshot and remains exactly at the circle's center.
-            circle.Q("close-badge").BringToFront();
-        }
-
-        private void AddArc(VisualElement parent, string id, Vector2 center, float radius,
-            float start, float sweep, Color color, List<Rect> exclusions)
-        {
-            var element = new PhotoResultVectorElement(id,
-                PhotoResultVectorElement.Arc(center, radius, start, sweep), color, 1.5f, exclusions);
-            parent.Add(element);
-            arcs.Add(element);
-        }
-
-        private static void AddLine(List<PhotoResultVectorElement> list, VisualElement parent,
-            string id, Vector2 start, Vector2 end, Color color, float width = 1.5f)
-        {
-            var element = new PhotoResultVectorElement(id, PhotoResultVectorElement.Line(start, end), color, width);
-            parent.Add(element);
-            list.Add(element);
+            VisualElement arcElements = root.Q("arc-vectors");
+            VisualElement lineElements = root.Q("line-vectors");
+            grid = root.Q<PhotoResultGridElement>("grid");
+            if (arcElements != null) arcs.AddRange(arcElements.Query<PhotoResultArcElement>().ToList());
+            if (lineElements != null) lines.AddRange(lineElements.Query<PhotoResultLineElement>().ToList());
+            snapshotRing = root.Q<PhotoResultArcElement>("snapshot-outline");
         }
 
         internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
@@ -217,10 +159,10 @@ namespace AnimalGame.RobotMap
             float photoProgress = animationSettings.Evaluate(animationSettings.photoWindow);
             float textProgress = animationSettings.Evaluate(animationSettings.textWindow);
             root.style.backgroundColor = new Color(0, 0, 0, circleProgress);
-            foreach (var element in grid) element.Reveal(circleProgress);
+            if (grid != null) grid.Reveal(circleProgress);
             foreach (var element in arcs) element.Reveal(arcProgress);
             foreach (var element in lines) element.Reveal(lineProgress);
-            snapshotRing.Reveal(arcProgress);
+            if (snapshotRing != null) snapshotRing.Reveal(arcProgress);
             photo.style.opacity = photoProgress;
             photo.style.translate = new Translate(-70 * (1 - photoProgress), 15 * (1 - photoProgress));
             textContent.style.opacity = textProgress;
