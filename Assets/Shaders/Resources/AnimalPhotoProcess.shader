@@ -1,4 +1,4 @@
-Shader "AnimalGame/Photos/Process"
+Shader "AnimalGame/Photos/AnimalPhotoProcess"
 {
     Properties
     {

@@ -25,13 +25,15 @@ namespace AnimalGame.Animals
                     foreach (AnimalPhotoEntry entry in group.Photos)
                     {
                         if (entry == null || entry.Image == null) continue;
+                        if (!AnimalPhotoProcessing.CanSquareCrop(entry.SubjectRect, entry.Image.width, entry.Image.height)) continue;
                         if (Random.Range(0, ++count) == 0) selected = entry;
                     }
                 }
             }
             if (selected == null) return false;
-            photo = new AnimalPhoto(selected.Image,
-                AnimalPhotoProcessing.RandomCrop(selected.SubjectRect), selected.Saturation);
+            if (!AnimalPhotoProcessing.TryRandomSquareCrop(selected.SubjectRect,
+                selected.Image.width, selected.Image.height, out Rect crop)) return false;
+            photo = new AnimalPhoto(selected.Image, crop, selected.Saturation);
             return true;
         }
     }

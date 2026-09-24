@@ -8,12 +8,15 @@ namespace AnimalGame.EditorTools
     {
         private AnimalPhotoLibrary library;
         private SerializedObject serializedLibrary;
-        private Vector2 scroll;
+        private Vector2 selectionScroll, editingScroll;
         private int selectedState = -1, selectedPhoto = -1;
-        private RenderTexture preview, cropPreview;
+        private RenderTexture preview;
         private Texture2D previewSource;
         private float previewSaturation = -1;
-        private Rect previewSubject, randomCrop;
+        private Rect randomCrop;
+        private bool hasRandomCrop;
+        private Texture2D cropSource;
+        private string cropEntryPath;
         private bool dragging;
         private Vector2 dragStart;
         private string previewError;
@@ -26,7 +29,7 @@ namespace AnimalGame.EditorTools
 
         private void OnEnable()
         {
-            minSize = new Vector2(480, 500);
+            minSize = new Vector2(850, 500);
             Undo.undoRedoPerformed += Refresh;
             OnSelectionChange();
         }
@@ -54,6 +57,8 @@ namespace AnimalGame.EditorTools
             serializedLibrary = value != null ? new SerializedObject(value) : null;
             selectedState = selectedPhoto = -1;
             dragging = false;
+            hasRandomCrop = false;
+            cropEntryPath = null;
             Refresh();
         }
 
@@ -69,7 +74,10 @@ namespace AnimalGame.EditorTools
             }
 
             serializedLibrary.Update();
-            scroll = EditorGUILayout.BeginScrollView(scroll);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Width(Mathf.Clamp(position.width * 0.35f, 280, 420)), GUILayout.ExpandHeight(true));
+            EditorGUILayout.LabelField("Photo selection", EditorStyles.boldLabel);
+            selectionScroll = EditorGUILayout.BeginScrollView(selectionScroll);
             EditorGUILayout.PropertyField(serializedLibrary.FindProperty("species"));
             SerializedProperty states = serializedLibrary.FindProperty("states");
             for (int s = 0; s < states.arraySize; s++)
@@ -135,13 +143,21 @@ namespace AnimalGame.EditorTools
                 added.isExpanded = true;
             }
 
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+            editingScroll = EditorGUILayout.BeginScrollView(editingScroll);
             if (selectedState >= 0 && selectedState < states.arraySize)
             {
                 SerializedProperty photos = states.GetArrayElementAtIndex(selectedState).FindPropertyRelative("photos");
                 if (selectedPhoto >= 0 && selectedPhoto < photos.arraySize)
                     DrawPhoto(photos.GetArrayElementAtIndex(selectedPhoto));
             }
+            else
+                EditorGUILayout.HelpBox("Select a photo on the left to edit it.", MessageType.Info);
             EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndHorizontal();
             serializedLibrary.ApplyModifiedProperties();
             if (GUILayout.Button("Save library")) AssetDatabase.SaveAssetIfDirty(library);
         }
@@ -158,44 +174,55 @@ namespace AnimalGame.EditorTools
             EditorGUILayout.HelpBox("Drag on the image to replace the required subject rectangle (green). Coordinates use a bottom-left origin, range 0–1. Saturation: 0 = grayscale, 1 = original, 2 = enhanced. Orange shows the random crop.", MessageType.Info);
 
             Texture2D source = entry.FindPropertyRelative("image").objectReferenceValue as Texture2D;
+            if (cropSource != source || cropEntryPath != entry.propertyPath)
+            {
+                cropSource = source;
+                cropEntryPath = entry.propertyPath;
+                hasRandomCrop = false;
+            }
             if (source == null) return;
-            bool regenerate = GUILayout.Button("Preview another random crop");
-            if (source != previewSource || !Mathf.Approximately(previewSaturation, saturation.floatValue) ||
-                previewSubject != subject.rectValue || regenerate)
+            bool canCrop = AnimalPhotoProcessing.CanSquareCrop(subject.rectValue, source.width, source.height);
+            if (!canCrop)
+                EditorGUILayout.HelpBox("No square inside this image can contain the entire subject rectangle. Reduce the subject rectangle or use a different image.", MessageType.Warning);
+            using (new EditorGUI.DisabledScope(!canCrop))
+            {
+                if (GUILayout.Button("Preview Another random crop"))
+                {
+                    Random.State previousRandom = Random.state;
+                    Random.InitState(System.Guid.NewGuid().GetHashCode());
+                    try
+                    {
+                        hasRandomCrop = AnimalPhotoProcessing.TryRandomSquareCrop(subject.rectValue,
+                            source.width, source.height, out randomCrop);
+                    }
+                    finally { Random.state = previousRandom; }
+                }
+            }
+            if (hasRandomCrop && (randomCrop.xMin > subject.rectValue.xMin || randomCrop.yMin > subject.rectValue.yMin ||
+                randomCrop.xMax < subject.rectValue.xMax || randomCrop.yMax < subject.rectValue.yMax))
+                EditorGUILayout.HelpBox("The previous crop no longer contains the subject. Click the preview button to generate a new crop.", MessageType.Info);
+            if (source != previewSource || !Mathf.Approximately(previewSaturation, saturation.floatValue))
             {
                 ClearPreview();
                 previewSource = source;
                 previewSaturation = saturation.floatValue;
-                previewSubject = subject.rectValue;
-                // Editor preview must not consume the game's random sequence.
-                Random.State previousRandom = Random.state;
-                Random.InitState(System.Guid.NewGuid().GetHashCode());
-                try { randomCrop = AnimalPhotoProcessing.RandomCrop(previewSubject); }
-                finally { Random.state = previousRandom; }
                 try
                 {
                     preview = AnimalPhotoProcessing.Render(source, new Rect(0, 0, 1, 1), previewSaturation, 1024);
-                    cropPreview = AnimalPhotoProcessing.Render(source, randomCrop, previewSaturation, 1024);
                 }
                 catch (System.Exception ex) { previewError = ex.Message; }
             }
             if (!string.IsNullOrEmpty(previewError)) EditorGUILayout.HelpBox(previewError, MessageType.Error);
 
-            Rect area = GUILayoutUtility.GetRect(100, 350, GUILayout.ExpandWidth(true));
+            Rect area = GUILayoutUtility.GetRect(100, Mathf.Max(250, position.height - 310), GUILayout.ExpandWidth(true));
             Rect imageRect = Fit(area, (float)source.width / source.height);
             if (Event.current.type == EventType.Repaint)
             {
                 GUI.DrawTexture(imageRect, preview != null ? (Texture)preview : source, ScaleMode.StretchToFill);
-                DrawOutline(ToGuiRect(imageRect, randomCrop), new Color(1, 0.65f, 0));
+                if (hasRandomCrop) DrawOutline(ToGuiRect(imageRect, randomCrop), new Color(1, 0.65f, 0));
                 DrawOutline(ToGuiRect(imageRect, subject.rectValue), Color.green);
             }
             HandleRectangleInput(imageRect, subject);
-            EditorGUILayout.LabelField("Processed crop (same processing as the result UI)");
-            if (cropPreview != null)
-            {
-                Rect resultArea = GUILayoutUtility.GetRect(100, 240, GUILayout.ExpandWidth(true));
-                GUI.DrawTexture(Fit(resultArea, (float)cropPreview.width / cropPreview.height), cropPreview, ScaleMode.StretchToFill);
-            }
         }
 
         private void HandleRectangleInput(Rect imageRect, SerializedProperty subject)
@@ -248,8 +275,7 @@ namespace AnimalGame.EditorTools
         private void ClearPreview()
         {
             AnimalPhotoProcessing.Release(preview);
-            AnimalPhotoProcessing.Release(cropPreview);
-            preview = cropPreview = null;
+            preview = null;
             previewSource = null;
             previewError = null;
         }

@@ -18,19 +18,34 @@ namespace AnimalGame.Animals
                 Mathf.Clamp(Mathf.Max(rect.y, rect.y + rect.height), yMin + 0.0001f, 1));
         }
 
-        public static Rect RandomCrop(Rect subjectRect)
+        public static bool CanSquareCrop(Rect subjectRect, int imageWidth, int imageHeight)
         {
             Rect subject = ClampSubjectRect(subjectRect);
-            return Rect.MinMaxRect(UnityEngine.Random.Range(0f, subject.xMin),
-                UnityEngine.Random.Range(0f, subject.yMin),
-                UnityEngine.Random.Range(subject.xMax, 1f),
-                UnityEngine.Random.Range(subject.yMax, 1f));
+            return imageWidth > 0 && imageHeight > 0 &&
+                Mathf.Max(subject.width * imageWidth, subject.height * imageHeight) <= Mathf.Min(imageWidth, imageHeight);
+        }
+
+        public static bool TryRandomSquareCrop(Rect subjectRect, int imageWidth, int imageHeight, out Rect crop)
+        {
+            crop = default;
+            if (!CanSquareCrop(subjectRect, imageWidth, imageHeight)) return false;
+            Rect subject = ClampSubjectRect(subjectRect);
+            // Square in source pixels, not normalized UV coordinates of a non-square image.
+            float side = UnityEngine.Random.Range(
+                Mathf.Max(subject.width * imageWidth, subject.height * imageHeight),
+                Mathf.Min(imageWidth, imageHeight));
+            float width = side / imageWidth;
+            float height = side / imageHeight;
+            float x = UnityEngine.Random.Range(Mathf.Max(0, subject.xMax - width), Mathf.Min(subject.xMin, 1 - width));
+            float y = UnityEngine.Random.Range(Mathf.Max(0, subject.yMax - height), Mathf.Min(subject.yMin, 1 - height));
+            crop = new Rect(x, y, width, height);
+            return true;
         }
 
         public static RenderTexture Render(Texture2D source, Rect crop, float saturation, int maximumSize)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
-            Shader shader = Resources.Load<Shader>("AnimalPhoto/Process");
+            Shader shader = Resources.Load<Shader>("AnimalPhotoProcess");
             if (shader == null || !shader.isSupported)
                 throw new InvalidOperationException("Animal photo processing shader is missing or unsupported.");
             crop = ClampSubjectRect(crop);

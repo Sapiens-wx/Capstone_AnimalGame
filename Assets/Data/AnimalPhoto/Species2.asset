@@ -19,26 +19,26 @@ MonoBehaviour:
     - image: {fileID: 2800000, guid: 01408c17d2568ec47bb0141e416cb0f0, type: 3}
       subjectRect:
         serializedVersion: 2
-        x: 0.12
-        y: 0.24450612
-        width: 0.33960748
-        height: 0.54332876
-      saturation: 0.59
+        x: 0.2916563
+        y: 0.22266662
+        width: 0.3425313
+        height: 0.31733334
+      saturation: 1
     - image: {fileID: 2800000, guid: 2ddbcc3d959fab74a99f9e13311fbe03, type: 3}
       subjectRect:
         serializedVersion: 2
-        x: 0.34
-        y: 0
-        width: 0
-        height: 0
-      saturation: 0
+        x: 0.40222234
+        y: 0.39600003
+        width: 0.26844436
+        height: 0.21599996
+      saturation: 1
   - state: 1
     photos:
     - image: {fileID: 2800000, guid: 45bfbd840d5576e498400a0257d253c2, type: 3}
       subjectRect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 0
-        height: 0
-      saturation: 0
+        x: 0.34
+        y: 0.37199998
+        width: 0.49600002
+        height: 0.45066667
+      saturation: 1
