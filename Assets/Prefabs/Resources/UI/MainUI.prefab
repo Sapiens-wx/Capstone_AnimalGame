@@ -160,8 +160,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e3f75e7fa7244a6f9f8b6ad12e5c3401, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  referenceLayoutSprite: {fileID: 21300000, guid: c522015a1e5b0df44880033aa904c00f, type: 3}
-  showReferenceLayoutOverlay: 0
+  resultPrefab: {fileID: 11400000, guid: 5b172d88c09e4f99951ccdd4949d05ef, type: 3}
+  photoLibrary: {fileID: 11400000, guid: 31cc7cf493f858a4eba15aea2638b632, type: 2}
   frameInsetNormalized: 0.025
   minimumSubjectCoverage: 0.18
   minimumSubjectLongestSidePixels: 24
@@ -169,12 +169,6 @@ MonoBehaviour:
   coverageScoreWeight: 0.55
   centerednessScoreWeight: 0.3
   sizeScoreWeight: 0.15
-  resultFont: {fileID: 0}
-  entryDuration: 0.45
-  backgroundColor: {r: 0.008, g: 0.012, b: 0.014, a: 1}
-  gridColor: {r: 0.34, g: 0.38, b: 0.4, a: 0.24}
-  primaryColor: {r: 0.94, g: 0.98, b: 1, a: 1}
-  defaultAccentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
   closeKey: 98
   alternateCloseKey: 27
   saveKey: 121

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.Animals;
 using UnityEngine;
 using UnityEngine.UIElements;
 #if ENABLE_INPUT_SYSTEM
@@ -41,6 +42,7 @@ namespace AnimalGame.RobotMap
         private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
         private Material cardMaterial, circleMaterial;
         private RenderTexture cardOutput, circleOutput;
+        private RenderTexture processedPhoto;
         private Texture photoSource, contourSource;
         private Vector2 tilt;
         private float lastCircleReveal = -1;
@@ -115,20 +117,24 @@ namespace AnimalGame.RobotMap
             if (document.rootVisualElement != root || document.rootVisualElement.Q("stage") == null)
                 BuildDocumentTree();
             ReleaseTextures();
-            photoSource = result.Photo.Photo.texture;
+            processedPhoto = result.Photo.Render(photoResolution);
+            photoSource = processedPhoto;
             contourSource = capture.Texture;
             root.Q<Label>("animal-name").text = result.EnglishName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             root.Q<Label>("region").text = result.RegionName;
-            root.Q<Label>("altitude").text = $"{result.HeightMeters:0}m";
-            root.Q<Label>("metadata").text = $"{result.ScientificName}_{result.HeightMeters:0}m_{result.CapturedAt:yyyyMMdd_HHmmss}";
+            root.Q<Label>("altitude").text = result.HasHeight ? $"{result.HeightMeters:0}m" : "— m";
+            root.Q<Label>("coordinates").text = $"Coordinates ({result.MapPositionMeters.x:0.0}, {result.MapPositionMeters.y:0.0})";
+            string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
+            root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
             root.Q<Label>("reward").text = $"Recognition {result.CognitionDegrees}°   +{result.TotalReward}";
             saveLabel.text = "Save Photo";
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial.SetFloat("_Mode", 1);
-            Rect crop = SquareCrop(result.Photo.GetTextureUvRect(), photoSource);
-            cardMaterial.SetVector("_Crop", new Vector4(crop.x, crop.y, crop.width, crop.height));
+            cardMaterial.SetVector("_Crop", new Vector4(0, 0, 1, 1));
+            // Fit the entire processed image into the square card without another crop.
+            cardMaterial.SetFloat("_ImageAspect", (float)photoSource.width / photoSource.height);
             cardOutput = CreateOutput("Perspective Animal Photo", photoResolution);
             photoImage.image = cardOutput;
             circleOutput = CreateOutput("Circular Frozen Contours", snapshotResolution);
@@ -268,14 +274,6 @@ namespace AnimalGame.RobotMap
             finally { RenderTexture.active = previous; }
         }
 
-        private static Rect SquareCrop(Rect crop, Texture texture)
-        {
-            float width = crop.width * texture.width, height = crop.height * texture.height;
-            if (width > height) { float newWidth = height / texture.width; crop.x += (crop.width - newWidth) * 0.5f; crop.width = newWidth; }
-            else { float newHeight = width / texture.height; crop.y += (crop.height - newHeight) * 0.5f; crop.height = newHeight; }
-            return crop;
-        }
-
         private static RenderTexture CreateOutput(string label, int size)
         {
             var texture = new RenderTexture(Mathf.Clamp(size, 128, 2048), Mathf.Clamp(size, 128, 2048), 0, RenderTextureFormat.ARGB32)
@@ -292,6 +290,8 @@ namespace AnimalGame.RobotMap
             if (circleOutput != null) { circleOutput.Release(); Destroy(circleOutput); }
             if (cardMaterial != null) Destroy(cardMaterial);
             if (circleMaterial != null) Destroy(circleMaterial);
+            AnimalPhotoProcessing.Release(processedPhoto);
+            processedPhoto = null;
             cardOutput = circleOutput = null;
             cardMaterial = circleMaterial = null;
             photoSource = contourSource = null;

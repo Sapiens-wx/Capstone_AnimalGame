@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using UnityEngine;
 
@@ -20,6 +21,10 @@ namespace AnimalGame.MapTest
 
         [Header("Terrain Debug Display")]
         [SerializeField] private bool showRobotTerrainData;
+
+        [Header("Animal Photos")]
+        [Tooltip("Passed to the PhotoResultUI created at runtime. Leave empty to use its prefab reference.")]
+        [SerializeField] private PhotoLibrary photoLibrary;
 
         [Header("Performance Display")]
         [SerializeField] private bool showFrameRate = true;
@@ -142,6 +147,7 @@ namespace AnimalGame.MapTest
             scanChargeUi.SetPhotoModeController(photoMode);
             bioScan.Initialize(scanChargeUi);
             photoModeUi.Initialize(photoMode, camera);
+            if (photoLibrary != null) photoResultUi.Library = photoLibrary;
             photoResultUi.Initialize(photoMode, photoModeUi, camera, map);
             RobotTumbleUiRotation uiRotation =
                 mainUiObject.GetComponent<RobotTumbleUiRotation>();

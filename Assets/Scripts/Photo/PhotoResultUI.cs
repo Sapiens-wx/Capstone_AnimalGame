@@ -15,6 +15,9 @@ namespace AnimalGame.RobotMap
         [Tooltip("Optional override. Defaults to Resources/UI/AnimalPhotoResultUI.")]
         [SerializeField] private PhotoResultView resultPrefab;
 
+        [Header("Animal Photos")]
+        [SerializeField] private PhotoLibrary photoLibrary;
+
         [Header("Subject Detection")]
         [Tooltip("Shrinks the visible camera frame slightly before evaluating subjects, preventing a barely touching animal from counting as photographed.")]
         [SerializeField, Range(0f, 0.2f)]
@@ -53,6 +56,7 @@ namespace AnimalGame.RobotMap
         private bool saved;
 
         public bool IsVisible => visible;
+        public PhotoLibrary Library { get => photoLibrary; set => photoLibrary = value; }
 
         private void Awake()
         {
@@ -127,13 +131,13 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            AnimalResultPhoto selectedPhoto = null;
-            bool hasLibraryPhoto = subject.TryChooseResultPhoto(
-                out selectedPhoto);
+            AnimalPhoto selectedPhoto = null;
+            bool hasLibraryPhoto = photoLibrary != null && photoLibrary.TryChoosePhoto(
+                subject.Species, subject.PhotoState, out selectedPhoto);
             if (!hasLibraryPhoto)
             {
                 Debug.LogWarning(
-                    $"Photo result skipped because '{subject.name}' has no valid authored result photo.",
+                    $"Photo result skipped: assign PhotoLibrary on PhotoResultUI and add a photo for {subject.Species}/{subject.PhotoState} ('{subject.name}').",
                     subject);
                 return;
             }
@@ -425,17 +429,22 @@ namespace AnimalGame.RobotMap
 
         private PhotoResultSnapshot CreateSnapshot(
             AnimalPhotoSubject subject,
-            AnimalResultPhoto selectedPhoto,
+            AnimalPhoto selectedPhoto,
             float frameCoverage)
         {
-            Vector2 mapPosition = Vector2.zero;
+            Vector2 mapPosition = subject.transform.position;
             float heightMeters = 0f;
+            bool hasMapPosition = false;
+            bool hasHeight = false;
             if (map != null)
             {
-                map.TrySampleWorldPosition(
-                    subject.transform.position,
-                    out mapPosition,
-                    out heightMeters);
+                hasMapPosition = map.TrySampleWorldPosition(subject.transform.position,
+                    out Vector2 sampledPosition, out _);
+                if (hasMapPosition) mapPosition = sampledPosition;
+                // PhotoModeController lives on the robot: elevation belongs to the shutter location.
+                if (controller != null)
+                    hasHeight = map.TrySampleWorldPosition(controller.transform.position,
+                        out _, out heightMeters);
             }
 
             string levelName = map != null && map.LevelAsset != null
@@ -457,7 +466,11 @@ namespace AnimalGame.RobotMap
                 mapPosition,
                 heightMeters,
                 Mathf.Clamp01(frameCoverage),
-                DateTime.Now);
+                DateTime.Now,
+                subject.Species,
+                subject.PhotoState,
+                hasMapPosition,
+                hasHeight);
         }
 
         private void ShowPendingResult()
@@ -469,7 +482,12 @@ namespace AnimalGame.RobotMap
             pendingResult = null;
             visible = true;
             saved = false;
-            resultView.Show(displayedResult, contourCapture);
+            try { resultView.Show(displayedResult, contourCapture); }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+                HideResult(true);
+            }
         }
 
         private void SaveDisplayedResult()
@@ -561,11 +579,15 @@ namespace AnimalGame.RobotMap
             int cognitionDegrees,
             int baseReward,
             int cognitionReward,
-            AnimalResultPhoto photo,
+            AnimalPhoto photo,
             Vector2 mapPositionMeters,
             float heightMeters,
             float frameCoverage,
-            DateTime capturedAt)
+            DateTime capturedAt,
+            AnimalSpecies species,
+            AnimalState state,
+            bool hasMapPosition,
+            bool hasHeight)
         {
             SpeciesId = speciesId;
             DisplayName = displayName;
@@ -581,6 +603,10 @@ namespace AnimalGame.RobotMap
             HeightMeters = heightMeters;
             FrameCoverage = frameCoverage;
             CapturedAt = capturedAt;
+            Species = species;
+            State = state;
+            HasMapPosition = hasMapPosition;
+            HasHeight = hasHeight;
         }
 
         public string SpeciesId { get; }
@@ -593,7 +619,11 @@ namespace AnimalGame.RobotMap
         public int BaseReward { get; }
         public int CognitionReward { get; }
         public int TotalReward => BaseReward + CognitionReward;
-        public AnimalResultPhoto Photo { get; }
+        public AnimalPhoto Photo { get; }
+        public AnimalSpecies Species { get; }
+        public AnimalState State { get; }
+        public bool HasMapPosition { get; }
+        public bool HasHeight { get; }
         public Vector2 MapPositionMeters { get; }
         public float HeightMeters { get; }
         public float FrameCoverage { get; }

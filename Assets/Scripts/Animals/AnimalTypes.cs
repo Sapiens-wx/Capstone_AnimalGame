@@ -3,16 +3,6 @@ using UnityEngine;
 
 namespace AnimalGame.Animals
 {
-    public enum AnimalState
-    {
-        Daily,
-        Curious,
-        Fleeing,
-        Aggressive,
-        Hiding,
-        Despawned
-    }
-
     public enum AnimalDailyBehaviourKind
     {
         EatAtNearbyPlant,
