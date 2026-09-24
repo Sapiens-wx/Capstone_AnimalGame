@@ -45,7 +45,8 @@ namespace AnimalGame.RobotMap
         private RenderTexture processedPhoto;
         private Texture photoSource, contourSource;
         private Vector2 tilt;
-        private float lastCircleReveal = -1;
+        private float lastAnimationProgress = -1;
+        private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
         private void Awake()
         {
@@ -55,6 +56,8 @@ namespace AnimalGame.RobotMap
         private void BuildDocumentTree()
         {
             root = document.rootVisualElement;
+            lastPanelSize = new Vector2(-1, -1);
+            lastAnimationProgress = -1;
             arcs.Clear();
             lines.Clear();
             root.pickingMode = PickingMode.Ignore;
@@ -91,8 +94,9 @@ namespace AnimalGame.RobotMap
             ConfigureCircleLayout();
             Vector2 initialOffset = new Vector2(designWidth, designHeight) * 0.5f
                 - snapshotCircleCenter;
-            zoomContent.style.left = initialOffset.x;
-            zoomContent.style.top = initialOffset.y;
+            zoomContent.style.left = 0;
+            zoomContent.style.top = 0;
+            zoomContent.style.translate = new Translate(initialOffset.x, initialOffset.y);
             zoomContent.style.scale = new Scale(Vector3.one * animationSettings.zoomedScale);
         }
 
@@ -141,7 +145,7 @@ namespace AnimalGame.RobotMap
             Blit(contourSource != null ? contourSource : Texture2D.blackTexture, circleOutput, circleMaterial);
             snapshotImage.image = circleOutput;
             tilt = restingTiltDegrees;
-            lastCircleReveal = -1;
+            lastAnimationProgress = -1;
             animationSettings.Open();
             showing = true;
             root.style.display = DisplayStyle.Flex;
@@ -164,7 +168,8 @@ namespace AnimalGame.RobotMap
             if (!showing) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
             ApplyAnimation();
-            UpdateTilt();
+            // Keep the existing card texture throughout opening and closing.
+            if (!animationSettings.IsClosing && animationSettings.Progress >= 1f) UpdateTilt();
             if (!animationSettings.IsClosed) return;
             HideImmediately();
             Closed?.Invoke();
@@ -179,17 +184,25 @@ namespace AnimalGame.RobotMap
 
             float designWidth = Mathf.Max(1f, designSize.x);
             float designHeight = Mathf.Max(1f, designSize.y);
-            float scale = Mathf.Max(0.01f, Mathf.Min(width / designWidth, height / designHeight));
-            Vector2 offset = new Vector2(
-                (width - designWidth * scale) * 0.5f,
-                (height - designHeight * scale) * 0.5f);
-            stage.style.left = offset.x;
-            stage.style.top = offset.y;
-            stage.style.scale = new Scale(new Vector3(scale, scale, 1));
-            backdrop.style.left = -offset.x / scale;
-            backdrop.style.top = -offset.y / scale;
-            backdrop.style.width = width / scale;
-            backdrop.style.height = height / scale;
+            Vector2 panelSize = new Vector2(width, height);
+            bool resized = panelSize != lastPanelSize;
+            if (resized)
+            {
+                float scale = Mathf.Max(0.01f, Mathf.Min(width / designWidth, height / designHeight));
+                Vector2 offset = new Vector2(
+                    (width - designWidth * scale) * 0.5f,
+                    (height - designHeight * scale) * 0.5f);
+                stage.style.left = offset.x;
+                stage.style.top = offset.y;
+                stage.style.scale = new Scale(new Vector3(scale, scale, 1));
+                backdrop.style.left = -offset.x / scale;
+                backdrop.style.top = -offset.y / scale;
+                backdrop.style.width = width / scale;
+                backdrop.style.height = height / scale;
+                lastPanelSize = panelSize;
+            }
+            if (!resized && lastAnimationProgress == animationSettings.Progress) return;
+            lastAnimationProgress = animationSettings.Progress;
 
             float zoomProgress = animationSettings.Evaluate(animationSettings.zoomWindow);
             float zoom = Mathf.Lerp(animationSettings.zoomedScale,
@@ -200,8 +213,7 @@ namespace AnimalGame.RobotMap
             Vector2 screenCenter = new Vector2(designWidth, designHeight) * 0.5f;
             Vector2 contentOffset = Vector2.Lerp(screenCenter - snapshotCircleCenter,
                 Vector2.zero, positionProgress);
-            zoomContent.style.left = contentOffset.x;
-            zoomContent.style.top = contentOffset.y;
+            zoomContent.style.translate = new Translate(contentOffset.x, contentOffset.y);
             float circleProgress = animationSettings.Evaluate(animationSettings.circleWindow);
             float arcProgress = animationSettings.Evaluate(animationSettings.arcWindow);
             float lineProgress = animationSettings.Evaluate(animationSettings.lineWindow);

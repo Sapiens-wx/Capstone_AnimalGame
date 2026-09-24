@@ -11,7 +11,7 @@ Shader "AnimalGame/UI/Photo Result Composite"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        Tags {"Queue" = "Transparent"}
         Cull Off ZWrite Off ZTest Always
         Pass
         {
@@ -51,13 +51,14 @@ Shader "AnimalGame/UI/Photo Result Composite"
                 float3 hit = origin + ray*t;
                 float2 local = float2(dot(hit,right), dot(hit,up));
                 float2 q = abs(local) - 0.955;
-                float distance = length(max(q,0)) + min(max(q.x,q.y),0) - 0.045;
+                float distance = length(max(q,0)) + min(max(q.x,q.y),0)-0.045;
                 float aa = max(fwidth(distance), 0.001);
                 float mask = 1 - smoothstep(-aa,aa,distance);
                 float border = smoothstep(-0.012-aa, -0.012+aa, distance);
+                border=0;
                 float2 uv = saturate(local * 0.5 + 0.5);
                 float aspect = max(_ImageAspect, 0.0001);
-                float2 fit = float2(min(1, aspect), min(1, 1 / aspect)) * 0.96;
+                float2 fit = float2(min(1, aspect), min(1, 1 / aspect));
                 uv = (uv - 0.5) / fit + 0.5;
                 float inside = step(0, uv.x) * step(uv.x, 1) * step(0, uv.y) * step(uv.y, 1);
                 uv = saturate(uv);

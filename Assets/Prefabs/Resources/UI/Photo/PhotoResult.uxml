@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/Prefabs/Resources/UI/Photo/PhotoResult.uss?fileID=7433441132597879392&amp;guid=00835c787db842a4bcac4ece3905fe32&amp;type=3#PhotoResult" />
     <ui:VisualElement name="stage">
-        <ui:VisualElement name="zoom-content">
+        <ui:VisualElement name="zoom-content" usage-hints="DynamicTransform">
             <ui:VisualElement name="backdrop" />
             <ui:VisualElement name="vectors" class="fill">
                 <ui:VisualElement name="exclusion-regions" class="fill">

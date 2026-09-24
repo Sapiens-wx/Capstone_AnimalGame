@@ -18,6 +18,7 @@ namespace AnimalGame.RobotMap
         private float progress = 1f;
         private List<string> excludedElementNames = new List<string>();
         private Vector2[] points = Array.Empty<Vector2>();
+        private readonly PhotoResultExclusionCache exclusionCache;
 
         [UxmlAttribute]
         public Vector2 center
@@ -100,34 +101,35 @@ namespace AnimalGame.RobotMap
             set
             {
                 excludedElementNames = value ?? new List<string>();
-                MarkDirtyRepaint();
+                RebuildGeometry();
             }
         }
 
         public PhotoResultArcElement()
         {
             pickingMode = PickingMode.Ignore;
+            exclusionCache = new PhotoResultExclusionCache(this, true, MarkDirtyRepaint);
             generateVisualContent += Draw;
-            RegisterCallback<GeometryChangedEvent>(RebuildGeometry);
             RebuildGeometry();
         }
 
         public void Reveal(float value)
         {
             value = Mathf.Clamp01(value);
-            if (Mathf.Approximately(progress, value)) return;
+            int previousIndex = VisiblePointIndex(progress);
             progress = value;
-            MarkDirtyRepaint();
+            if (previousIndex != VisiblePointIndex(progress)) MarkDirtyRepaint();
         }
+
+        private int VisiblePointIndex(float value) => value <= 0f || points.Length < 2
+            ? -1 : Mathf.Min(Mathf.CeilToInt((points.Length - 1) * value), points.Length - 1);
 
         private void Draw(MeshGenerationContext context)
         {
-            if (progress <= 0f || arcWidth <= 0f || points.Length < 2) return;
+            if (progress <= 0f || arcWidth <= 0f || points.Length < 2 || !exclusionCache.IsReady) return;
 
-            int lastPointIndex = Mathf.Min(
-                Mathf.CeilToInt((points.Length - 1) * progress),
-                points.Length - 1);
-            List<Rect> excludedRects = GetExcludedWorldRects();
+            int lastPointIndex = VisiblePointIndex(progress);
+            bool[] excluded = exclusionCache.Excluded;
 
             Painter2D painter = context.painter2D;
             painter.strokeColor = arcColor;
@@ -138,7 +140,7 @@ namespace AnimalGame.RobotMap
             for (int i = 0; i <= lastPointIndex; i++)
             {
                 Vector2 point = points[i];
-                if (IsExcluded(point, excludedRects))
+                if (excluded.Length != 0 && excluded[i])
                 {
                     connected = false;
                     continue;
@@ -152,17 +154,13 @@ namespace AnimalGame.RobotMap
             painter.Stroke();
         }
 
-        private void RebuildGeometry(GeometryChangedEvent evt)
-        {
-            RebuildGeometry();
-        }
-
         private void RebuildGeometry()
         {
             float arcLength = Mathf.Abs(arcSweepDegrees) * arcRadius * Mathf.Deg2Rad;
             if (arcRadius <= 0f || Mathf.Approximately(arcSweepDegrees, 0f))
             {
                 points = Array.Empty<Vector2>();
+                exclusionCache.Configure(excludedElementNames, points);
                 MarkDirtyRepaint();
                 return;
             }
@@ -177,31 +175,8 @@ namespace AnimalGame.RobotMap
                 points[i] = arcCenter + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * arcRadius;
             }
 
+            exclusionCache.Configure(excludedElementNames, points);
             MarkDirtyRepaint();
-        }
-
-        private List<Rect> GetExcludedWorldRects()
-        {
-            var rects = new List<Rect>(excludedElementNames.Count);
-            VisualElement root = this;
-            while (root.parent != null) root = root.parent;
-
-            foreach (string elementName in excludedElementNames)
-            {
-                if (string.IsNullOrEmpty(elementName)) continue;
-                PhotoResultExcludeElement element = root.Q<PhotoResultExcludeElement>(elementName);
-                if (element != null) rects.Add(element.worldBound);
-            }
-
-            return rects;
-        }
-
-        private bool IsExcluded(Vector2 localPoint, List<Rect> excludedRects)
-        {
-            Vector2 worldPoint = this.LocalToWorld(localPoint);
-            foreach (Rect rect in excludedRects)
-                if (rect.Contains(worldPoint)) return true;
-            return false;
         }
     }
 }
