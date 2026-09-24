@@ -47,7 +47,6 @@ namespace AnimalGame.Animals
     /// for one animal species prefab.
     /// </summary>
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(AnimalAgent))]
     [AddComponentMenu("Animal Game/Animals/Animal Photo Subject")]
     public sealed class AnimalPhotoSubject : MonoBehaviour
     {

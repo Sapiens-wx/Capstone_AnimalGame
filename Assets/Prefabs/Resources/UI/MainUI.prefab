@@ -115,8 +115,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7d7bc29c01764233bf7bfc2eafeb1840, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   cameraFrameSprite: {fileID: 21300000, guid: 0cf7acded41b51b45aaee72ce2e027d4, type: 3}
   cameraAimSmallSprite: {fileID: 21300000, guid: f779f896118866e4f8f89e1b9d796c23, type: 3}
   cameraAimBigSprite: {fileID: 21300000, guid: 12de25bd6e1efca43a2e642af7109261, type: 3}
@@ -158,10 +158,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e3f75e7fa7244a6f9f8b6ad12e5c3401, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   referenceLayoutSprite: {fileID: 21300000, guid: c522015a1e5b0df44880033aa904c00f, type: 3}
-  showReferenceLayoutOverlay: 1
+  showReferenceLayoutOverlay: 0
   frameInsetNormalized: 0.025
   minimumSubjectCoverage: 0.18
   minimumSubjectLongestSidePixels: 24
@@ -345,7 +345,7 @@ CanvasGroup:
   m_IgnoreParentGroups: 0
 --- !u!95 &950000002
 Animator:
-  serializedVersion: 5
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -359,6 +359,7 @@ Animator:
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1

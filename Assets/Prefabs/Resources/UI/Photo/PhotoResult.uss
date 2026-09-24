@@ -1,0 +1,34 @@
+#stage {
+    position: absolute;
+    transform-origin: 0 0;
+    color: rgb(237, 240, 236);
+    -unity-font-style: normal;
+}
+#zoom-content { position: absolute; left: 0; top: 0; }
+#backdrop { position: absolute; background-color: black; }
+.fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+Label { position: absolute; margin: 0; padding: 0; white-space: nowrap; }
+#photo { position: absolute; left: 45px; top: -12px; width: 1080px; height: 1080px; }
+#snapshot-circle { position: absolute; transform-origin: 50% 50%; }
+#animal-name { left: 1265px; top: 301px; width: 550px; font-size: 61px; }
+#location-title { left: 1530px; top: 402px; font-size: 32px; }
+#region { left: 1393px; top: 447px; width: 460px; font-size: 33px; color: rgb(202, 174, 61); }
+#altitude { left: 1395px; top: 517px; font-size: 36px; }
+#coordinates { left: 1430px; top: 583px; font-size: 27px; color: rgb(133, 137, 133); }
+#catalog-label { left: 1085px; top: 414px; font-size: 48px; }
+#save-label { left: 1075px; top: 539px; font-size: 48px; }
+#scientific-name { left: 1315px; top: 904px; font-size: 42px; color: rgb(178, 182, 178); }
+#metadata { left: 74px; top: 164px; rotate: 90deg; transform-origin: 0 0; font-size: 24px; }
+#reward { left: 1350px; top: 674px; font-size: 22px; color: rgb(159, 156, 132); }
+.badge {
+    width: 58px; height: 58px;
+    border-left-width: 6px; border-right-width: 6px; border-top-width: 6px; border-bottom-width: 6px;
+    border-left-color: rgb(202, 174, 61); border-right-color: rgb(202, 174, 61);
+    border-top-color: rgb(202, 174, 61); border-bottom-color: rgb(202, 174, 61);
+    border-top-left-radius: 50%; border-top-right-radius: 50%;
+    border-bottom-left-radius: 50%; border-bottom-right-radius: 50%;
+    background-color: black; color: white; font-size: 34px; -unity-text-align: middle-center;
+}
+#catalog-badge { left: 1018px; top: 416px; }
+#save-badge { left: 1003px; top: 537px; }
+#close-badge { left: 50%; top: 50%; translate: -50% -50%; }
