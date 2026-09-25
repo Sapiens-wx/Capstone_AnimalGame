@@ -180,6 +180,8 @@ namespace AnimalGame.MapTest
         public int VisibleMarkerCount => markers.Count;
         public bool HasActiveSnapshot => scanIsRevealing || markers.Count > 0;
 
+        public Canvas OverlayCanvas { get; private set; }
+
         public void Initialize(
             MapTestSceneController mapController,
             HeightMapTraversalEvaluator traversalEvaluator,
@@ -1017,6 +1019,7 @@ namespace AnimalGame.MapTest
                 Vector3.zero,
                 Quaternion.identity);
             Canvas canvas = overlayRoot.GetComponent<Canvas>();
+            OverlayCanvas = canvas;
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = true;
             canvas.overrideSorting = true;

@@ -3,6 +3,7 @@ Shader "AnimalGame/Dynamic Height Contours"
     Properties
     {
         [PerRendererData] _MainTex ("Base Map", 2D) = "white" {}
+        [HideInInspector] _PhotoContoursOnly ("Photo Contours Only", Float) = 0
         _HeightTex ("Height Map", 2D) = "black" {}
         _PlayableMaskTex ("Playable Area Mask", 2D) = "white" {}
         _PlayableMaskEnabled ("Playable Area Mask Enabled", Float) = 0
@@ -90,6 +91,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             };
 
             sampler2D _MainTex;
+            float _PhotoContoursOnly;
             sampler2D _HeightTex;
             sampler2D _PlayableMaskTex;
             sampler2D _SurfaceTex;
@@ -202,6 +204,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             fixed4 frag(v2f input) : SV_Target
             {
                 fixed4 baseColor = tex2D(_MainTex, input.uv) * input.color;
+                if (_PhotoContoursOnly > 0.5) baseColor = fixed4(0, 0, 0, 1);
                 if (_PlayableMaskEnabled > 0.5
                     && tex2D(_PlayableMaskTex, input.uv).r < 0.5)
                 {

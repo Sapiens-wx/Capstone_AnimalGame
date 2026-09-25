@@ -209,6 +209,19 @@ namespace AnimalGame.MapTest
 
         public bool HasGeneratedMap => mapRenderer != null && heightField != null;
 
+        // Capture reads the live contour material; it never owns or destroys this renderer.
+        internal SpriteRenderer PhotoContourRenderer => mapRenderer;
+
+        internal void GetPhotoSnapshotCircle(out Vector2 centerPixels, out float radiusPixels)
+        {
+            centerPixels = surfaceRevealUi != null
+                ? surfaceRevealUi.GetUiCenterScreenPoint()
+                : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            radiusPixels = surfaceRevealUi != null
+                ? surfaceRevealUi.GetUiRingScreenRadiusPixels()
+                : DefaultSurfaceRevealRadiusPixels;
+        }
+
         public Bounds WorldBounds
         {
             get

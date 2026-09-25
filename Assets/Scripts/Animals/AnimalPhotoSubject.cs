@@ -47,7 +47,6 @@ namespace AnimalGame.Animals
     /// for one animal species prefab.
     /// </summary>
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(AnimalAgent))]
     [AddComponentMenu("Animal Game/Animals/Animal Photo Subject")]
     public sealed class AnimalPhotoSubject : MonoBehaviour
     {
@@ -57,6 +56,9 @@ namespace AnimalGame.Animals
             LastPhotoIndexBySpecies = new Dictionary<string, int>();
 
         [Header("Species Result Identity")]
+        [SerializeField] private AnimalSpecies species = AnimalSpecies.Unknown;
+        [Tooltip("Manually authored capture state; not synchronized with AnimalAgent yet.")]
+        [SerializeField] private AnimalState photoState = AnimalState.Daily;
         [SerializeField] private string speciesId = "unknown";
         [SerializeField] private string displayName = "Unknown Animal";
         [SerializeField] private string englishName = "Unknown Animal";
@@ -75,10 +77,6 @@ namespace AnimalGame.Animals
         [SerializeField] private SpriteRenderer[] photoBoundsRenderers =
             Array.Empty<SpriteRenderer>();
 
-        [Header("Authored Result Photo Library")]
-        [SerializeField] private AnimalResultPhoto[] resultPhotoLibrary =
-            Array.Empty<AnimalResultPhoto>();
-
         private AnimalAgent agent;
         private SpriteRenderer[] visibilityRenderers =
             Array.Empty<SpriteRenderer>();
@@ -89,6 +87,8 @@ namespace AnimalGame.Animals
             ? gameObject.name
             : speciesId;
         public string DisplayName => displayName;
+        public AnimalSpecies Species => species;
+        public AnimalState PhotoState => photoState;
         public string EnglishName => englishName;
         public string ScientificName => scientificName;
         public string RegionName => regionName;
@@ -170,49 +170,6 @@ namespace AnimalGame.Animals
             return hasBounds && bounds.size.sqrMagnitude > 0.000001f;
         }
 
-        public bool TryChooseResultPhoto(out AnimalResultPhoto resultPhoto)
-        {
-            resultPhoto = null;
-            if (resultPhotoLibrary == null || resultPhotoLibrary.Length == 0)
-                return false;
-
-            var validIndices = new List<int>(resultPhotoLibrary.Length);
-            for (int index = 0; index < resultPhotoLibrary.Length; index++)
-            {
-                if (resultPhotoLibrary[index] != null
-                    && resultPhotoLibrary[index].IsValid)
-                {
-                    validIndices.Add(index);
-                }
-            }
-
-            if (validIndices.Count == 0)
-                return false;
-
-            string key = SpeciesId;
-            bool hasPrevious = LastPhotoIndexBySpecies.TryGetValue(
-                key,
-                out int previousIndex);
-            int selectedListIndex = UnityEngine.Random.Range(
-                0,
-                validIndices.Count);
-            if (hasPrevious
-                && validIndices.Count > 1
-                && validIndices[selectedListIndex] == previousIndex)
-            {
-                selectedListIndex = (selectedListIndex
-                                     + UnityEngine.Random.Range(
-                                         1,
-                                         validIndices.Count))
-                                    % validIndices.Count;
-            }
-
-            int selectedIndex = validIndices[selectedListIndex];
-            LastPhotoIndexBySpecies[key] = selectedIndex;
-            resultPhoto = resultPhotoLibrary[selectedIndex];
-            return true;
-        }
-
         private void CacheRuntimeReferences()
         {
             if (agent == null)
@@ -242,8 +199,6 @@ namespace AnimalGame.Animals
             cognitionReward = Mathf.Max(0, cognitionReward);
             if (photoBoundsRenderers == null)
                 photoBoundsRenderers = Array.Empty<SpriteRenderer>();
-            if (resultPhotoLibrary == null)
-                resultPhotoLibrary = Array.Empty<AnimalResultPhoto>();
         }
     }
 }
