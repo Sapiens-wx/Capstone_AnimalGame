@@ -254,6 +254,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d8c5ab2f1034e499f5d1c76a7b84320, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  species: 1
+  photoState: 0
   speciesId: muskrat
   displayName: "\u9E9D\u9F20"
   englishName: Muskrat
@@ -266,14 +268,6 @@ MonoBehaviour:
   photoBoundsRenderers:
   - {fileID: 6051157855037081251}
   - {fileID: 1874912894510113343}
-  resultPhotoLibrary:
-  - photo: {fileID: 21300000, guid: a60fbc6ebda91c24abc400e29429ddf9, type: 3}
-    normalizedCrop:
-      serializedVersion: 2
-      x: 0
-      y: 0
-      width: 0
-      height: 0
 --- !u!1 &3470056907385243293
 GameObject:
   m_ObjectHideFlags: 0

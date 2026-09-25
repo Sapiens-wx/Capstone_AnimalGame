@@ -18,6 +18,8 @@ namespace AnimalGame.RobotMap
         public Vector2 lineWindow = new Vector2(0.25f, 0.9f);
         public Vector2 photoWindow = new Vector2(0.18f, 0.8f);
         public Vector2 textWindow = new Vector2(0.45f, 1f);
+        [Tooltip("Normalized start/end of the MainUI fade-out; closing reverses the fade.")]
+        public Vector2 mainUIWindow = new Vector2(0f, 0.7f);
         public AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
         public float Progress { get; private set; }

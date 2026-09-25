@@ -12,7 +12,7 @@ namespace AnimalGame.RobotMap
         [Tooltip("Keyboard fallback used to enter or leave photo mode while testing without a gamepad.")]
         [SerializeField] private KeyCode keyboardToggleKey = KeyCode.P;
 
-        [Tooltip("Keyboard fallback for the RB focus-and-shutter interaction.")]
+        [Tooltip("Keyboard fallback for RB: enter photo mode, hold to focus, then press again to take a photo.")]
         [SerializeField] private KeyCode keyboardFocusAndShutterKey =
             KeyCode.Space;
 
@@ -277,17 +277,13 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
-            bool togglePressed = Input.GetKeyDown(keyboardToggleKey)
-                                 || AdaptiveLegacyGamepadInput
-                                     .WasWestFaceButtonPressedThisFrame();
-            if (togglePressed)
-            {
-                if (state == PhotoModeState.Active)
-                    SetPhotoModeActive(false);
-                else if (state == PhotoModeState.Inactive
-                         && CanEnterPhotoMode())
-                    SetPhotoModeActive(true);
-            }
+            bool shoulderHeld = Input.GetKey(keyboardFocusAndShutterKey)
+                                || AdaptiveLegacyGamepadInput
+                                    .IsRightShoulderHeld();
+            bool shoulderPressed = Input.GetKeyDown(keyboardFocusAndShutterKey)
+                                   || AdaptiveLegacyGamepadInput
+                                       .WasRightShoulderPressedThisFrame();
+            HandleModeInput(shoulderPressed);
 
             if (!IsActive)
                 return;
@@ -301,7 +297,7 @@ namespace AnimalGame.RobotMap
             if (state == PhotoModeState.Entering)
             {
                 UpdateFocusPresentation();
-                UpdateEntryPresentation();
+                UpdateEntryPresentation(shoulderHeld);
                 return;
             }
 
@@ -312,12 +308,40 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            UpdateCaptureState();
+            UpdateCaptureState(shoulderHeld, shoulderPressed);
             UpdateFocusPresentation();
             if (captureState == PhotoCaptureState.Framing)
                 UpdateAimFromRightStick();
             UpdateAimFollowTarget();
             ApplyFocusCameraPresentation();
+        }
+
+        private void HandleModeInput(bool shoulderPressed)
+        {
+            // The result UI owns close input until its closing animation finishes.
+            // In particular, gamepad B must not also exit the underlying photo mode.
+            if (IsReviewing) return;
+
+            bool togglePressed = Input.GetKeyDown(keyboardToggleKey)
+                                 || AdaptiveLegacyGamepadInput
+                                     .WasWestFaceButtonPressedThisFrame();
+
+            // Keep mode changes locked during entry and exit transitions.
+            switch (state)
+            {
+                case PhotoModeState.Inactive:
+                    if (togglePressed || shoulderPressed)
+                        SetPhotoModeActive(true);
+                    break;
+
+                case PhotoModeState.Active:
+                    if (togglePressed || AdaptiveLegacyGamepadInput
+                            .WasEastFaceButtonPressedThisFrame())
+                    {
+                        SetPhotoModeActive(false);
+                    }
+                    break;
+            }
         }
 
         public void InitializeCamera(
@@ -437,15 +461,8 @@ namespace AnimalGame.RobotMap
                 mover?.SetPhotoModeInputLocked(false);
         }
 
-        private void UpdateCaptureState()
+        private void UpdateCaptureState(bool shoulderHeld, bool shoulderPressed)
         {
-            bool shoulderHeld = Input.GetKey(keyboardFocusAndShutterKey)
-                                || AdaptiveLegacyGamepadInput
-                                    .IsRightShoulderHeld();
-            bool shoulderPressed = Input.GetKeyDown(
-                                       keyboardFocusAndShutterKey)
-                                   || AdaptiveLegacyGamepadInput
-                                       .WasRightShoulderPressedThisFrame();
             float deltaTime = Mathf.Max(0f, Time.unscaledDeltaTime);
 
             switch (captureState)
@@ -650,7 +667,7 @@ namespace AnimalGame.RobotMap
             AimLocalPosition = target;
         }
 
-        private void UpdateEntryPresentation()
+        private void UpdateEntryPresentation(bool shoulderHeld)
         {
             entryElapsed = Mathf.Min(
                 entryDuration,
@@ -674,6 +691,11 @@ namespace AnimalGame.RobotMap
             cameraShake?.SetPhotoModeRevealShake(0f, 0f, 0f, 1f);
             photoStickArmed = AdaptiveLegacyGamepadInput
                 .ReadRightStick().magnitude <= rightStickDeadZone;
+
+            // The original press may predate this frame; carry a held input
+            // into focus only at the entry boundary, not after cancelling focus.
+            if (shoulderHeld)
+                BeginFocus();
         }
 
         private void BeginExitPresentation()

@@ -1,10 +1,10 @@
-using System.Collections.Generic;
+using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using UnityEngine;
 
 namespace AnimalGame.MapTest
 {
-    public sealed class HeightMapPlayerSceneBootstrap : MonoBehaviour
+    public sealed class HeightMapPlayerSceneBootstrap : Singleton<HeightMapPlayerSceneBootstrap>
     {
         private const string MapResourcePath = "MapTest/MapTestController";
         private const string RobotResourcePath = "Robot/RobotMarker";
@@ -21,13 +21,47 @@ namespace AnimalGame.MapTest
         [Header("Terrain Debug Display")]
         [SerializeField] private bool showRobotTerrainData;
 
+        [Header("Animal Photos")]
+        [Tooltip("Passed to the PhotoResultUI created at runtime. Leave empty to use its prefab reference.")]
+        [SerializeField] private PhotoLibrary photoLibrary;
+
         [Header("Performance Display")]
         [SerializeField] private bool showFrameRate = true;
         [SerializeField, Min(0.05f)] private float frameRateRefreshInterval = 0.25f;
 
-        private MapTestSceneController map;
-        private RobotMover robot;
-        private HeightMapTraversalEvaluator traversalEvaluator;
+        [HideInInspector] public MapTestSceneController map;
+        [HideInInspector] public RobotMover robot;
+        [HideInInspector] public HeightMapTraversalEvaluator traversalEvaluator;
+        [HideInInspector] public GameObject mapObject;
+        [HideInInspector] public GameObject robotObject;
+        [HideInInspector] public GameObject cameraObject;
+        [HideInInspector] public GameObject traversalObject;
+        [HideInInspector] public GameObject overlayObject;
+        [HideInInspector] public GameObject scanOverlayObject;
+        [HideInInspector] public GameObject mainUiObject;
+        [HideInInspector] public RobotBalanceController balance;
+        [HideInInspector] public PhotoModeController photoMode;
+        [HideInInspector] public RobotTumbleController tumble;
+        [HideInInspector] public RobotHeightMotionDetector heightMotion;
+        [HideInInspector] public BioScanController bioScan;
+        [HideInInspector] public Camera mapCamera;
+        [HideInInspector] public RobotCameraFollow cameraFollow;
+        [HideInInspector] public RobotCameraShake cameraShake;
+        [HideInInspector] public TraversalOverlayUI traversalOverlay;
+        [HideInInspector] public TraversalScanOverlayUI scanOverlay;
+        [HideInInspector] public ScanChargeUI scanChargeUi;
+        [HideInInspector] public PhotoModeUI photoModeUi;
+        [HideInInspector] public PhotoResultUI photoResultUi;
+        [HideInInspector] public RobotTumbleUiRotation uiRotation;
+        [HideInInspector] public RobotBalanceView balanceView;
+        [HideInInspector] public RobotArmController armController;
+        [HideInInspector] public RobotSelfRightingController selfRightingController;
+        [HideInInspector] public Canvas mainUiCanvas;
+        [HideInInspector] public Canvas traversalOverlayCanvas;
+        [HideInInspector] public Canvas scanOverlayCanvas;
+        [HideInInspector] public GameObject traversalOverlayCanvasObject;
+        [HideInInspector] public GameObject scanOverlayCanvasObject;
+
         private Vector2 playerMapPosition;
         private float playerHeight;
         private bool playerInsideMap;
@@ -38,24 +72,25 @@ namespace AnimalGame.MapTest
         public Vector2 PlayerSpawnMapPositionMeters =>
             playerSpawnMapPositionMeters;
 
-        private void Awake()
+        protected override void Awake()
         {
+            base.Awake();
             map = FindObjectOfType<MapTestSceneController>();
-            GameObject mapObject = map != null
+            mapObject = map != null
                 ? map.gameObject
                 : InstantiateResource(MapResourcePath, "Map Test Controller");
-            GameObject robotObject = InstantiateResource(RobotResourcePath, "Robot Marker");
-            GameObject cameraObject = InstantiateResource(CameraResourcePath, "Robot Camera");
-            GameObject traversalObject = InstantiateResource(
+            robotObject = InstantiateResource(RobotResourcePath, "Robot Marker");
+            cameraObject = InstantiateResource(CameraResourcePath, "Robot Camera");
+            traversalObject = InstantiateResource(
                 TraversalResourcePath,
                 "Height Map Traversal Evaluator");
-            GameObject overlayObject = InstantiateResource(
+            overlayObject = InstantiateResource(
                 OverlayResourcePath,
                 "Debug Traversal Overlay");
-            GameObject scanOverlayObject = InstantiateResource(
+            scanOverlayObject = InstantiateResource(
                 ScanOverlayResourcePath,
                 "Scanned Traversal Overlay");
-            GameObject mainUiObject = InstantiateResource(
+            mainUiObject = InstantiateResource(
                 MainUiResourcePath,
                 "Main UI");
             if (mapObject == null || robotObject == null || cameraObject == null
@@ -69,52 +104,55 @@ namespace AnimalGame.MapTest
             if (map == null)
                 map = mapObject.GetComponent<MapTestSceneController>();
             robot = robotObject.GetComponent<RobotMover>();
-            RobotBalanceController balance =
+            balance =
                 robotObject.GetComponent<RobotBalanceController>();
             if (balance == null)
                 balance = robotObject.AddComponent<RobotBalanceController>();
-            PhotoModeController photoMode =
+            photoMode =
                 robotObject.GetComponent<PhotoModeController>();
             if (photoMode == null)
                 photoMode = robotObject.AddComponent<PhotoModeController>();
-            RobotTumbleController tumble =
+            tumble =
                 robotObject.GetComponent<RobotTumbleController>();
             if (tumble == null)
                 tumble = robotObject.AddComponent<RobotTumbleController>();
-            RobotHeightMotionDetector heightMotion =
+            heightMotion =
                 robotObject.GetComponent<RobotHeightMotionDetector>();
             if (heightMotion == null)
                 heightMotion = robotObject.AddComponent<RobotHeightMotionDetector>();
-            if (robotObject.GetComponent<RobotBalanceView>() == null)
-                robotObject.AddComponent<RobotBalanceView>();
-            if (robotObject.GetComponent<RobotArmController>() == null)
-                robotObject.AddComponent<RobotArmController>();
-            BioScanController bioScan =
+            balanceView = robotObject.GetComponent<RobotBalanceView>();
+            if (balanceView == null)
+                balanceView = robotObject.AddComponent<RobotBalanceView>();
+            armController = robotObject.GetComponent<RobotArmController>();
+            if (armController == null)
+                armController = robotObject.AddComponent<RobotArmController>();
+            bioScan =
                 robotObject.GetComponent<BioScanController>();
             if (bioScan == null)
                 bioScan = robotObject.AddComponent<BioScanController>();
-            if (robotObject.GetComponent<RobotSelfRightingController>() == null)
-                robotObject.AddComponent<RobotSelfRightingController>();
-            Camera camera = cameraObject.GetComponent<Camera>();
-            RobotCameraFollow cameraFollow = cameraObject.GetComponent<RobotCameraFollow>();
-            RobotCameraShake cameraShake =
+            selfRightingController = robotObject.GetComponent<RobotSelfRightingController>();
+            if (selfRightingController == null)
+                selfRightingController = robotObject.AddComponent<RobotSelfRightingController>();
+            mapCamera = cameraObject.GetComponent<Camera>();
+            cameraFollow = cameraObject.GetComponent<RobotCameraFollow>();
+            cameraShake =
                 cameraObject.GetComponent<RobotCameraShake>();
             if (cameraShake == null)
                 cameraShake = cameraObject.AddComponent<RobotCameraShake>();
             traversalEvaluator = traversalObject.GetComponent<HeightMapTraversalEvaluator>();
-            TraversalOverlayUI traversalOverlay = overlayObject.GetComponent<TraversalOverlayUI>();
-            TraversalScanOverlayUI scanOverlay =
+            traversalOverlay = overlayObject.GetComponent<TraversalOverlayUI>();
+            scanOverlay =
                 scanOverlayObject.GetComponent<TraversalScanOverlayUI>();
-            ScanChargeUI scanChargeUi =
+            scanChargeUi =
                 mainUiObject.GetComponentInChildren<ScanChargeUI>(true);
-            PhotoModeUI photoModeUi =
+            photoModeUi =
                 mainUiObject.GetComponent<PhotoModeUI>();
-            PhotoResultUI photoResultUi =
+            photoResultUi =
                 mainUiObject.GetComponent<PhotoResultUI>();
             if (photoResultUi == null)
                 photoResultUi = mainUiObject.AddComponent<PhotoResultUI>();
 
-            if (map == null || robot == null || camera == null || cameraFollow == null
+            if (map == null || robot == null || mapCamera == null || cameraFollow == null
                 || traversalEvaluator == null || traversalOverlay == null
                 || scanOverlay == null || scanChargeUi == null
                 || photoMode == null || photoModeUi == null
@@ -128,7 +166,7 @@ namespace AnimalGame.MapTest
             }
 
             robot.transform.position = map.MapPositionToWorld(playerSpawnMapPositionMeters);
-            map.UseCamera(camera);
+            map.UseCamera(mapCamera);
             map.UseSurfaceRevealUi(scanChargeUi);
             map.UseElevationFilterTarget(robot.transform);
             cameraFollow.FollowBalanceTarget(balance);
@@ -141,20 +179,26 @@ namespace AnimalGame.MapTest
             photoMode.InitializeCamera(cameraFollow, cameraShake);
             scanChargeUi.SetPhotoModeController(photoMode);
             bioScan.Initialize(scanChargeUi);
-            photoModeUi.Initialize(photoMode, camera);
-            photoResultUi.Initialize(photoMode, photoModeUi, camera, map);
-            RobotTumbleUiRotation uiRotation =
+            photoModeUi.Initialize(photoMode, mapCamera);
+            if (photoLibrary != null) photoResultUi.Library = photoLibrary;
+            photoResultUi.Initialize(photoMode, photoModeUi, mapCamera, map);
+            uiRotation =
                 mainUiObject.GetComponent<RobotTumbleUiRotation>();
             if (uiRotation == null)
                 uiRotation = mainUiObject.AddComponent<RobotTumbleUiRotation>();
-            uiRotation.Initialize(tumble, camera);
-            traversalOverlay.Initialize(map, traversalEvaluator, camera, robot);
+            uiRotation.Initialize(tumble, mapCamera);
+            traversalOverlay.Initialize(map, traversalEvaluator, mapCamera, robot);
             scanOverlay.Initialize(
                 map,
                 traversalEvaluator,
-                camera,
+                mapCamera,
                 robot,
                 scanChargeUi);
+            mainUiCanvas = mainUiObject.GetComponent<Canvas>();
+            traversalOverlayCanvas = traversalOverlay.OverlayCanvas;
+            scanOverlayCanvas = scanOverlay.OverlayCanvas;
+            traversalOverlayCanvasObject = traversalOverlayCanvas != null ? traversalOverlayCanvas.gameObject : null;
+            scanOverlayCanvasObject = scanOverlayCanvas != null ? scanOverlayCanvas.gameObject : null;
             if (showRobotTerrainData)
                 UpdatePlayerHeight();
         }
@@ -371,242 +415,6 @@ namespace AnimalGame.MapTest
         private void OnValidate()
         {
             frameRateRefreshInterval = Mathf.Max(0.05f, frameRateRefreshInterval);
-        }
-    }
-
-    [DefaultExecutionOrder(350)]
-    [DisallowMultipleComponent]
-    public sealed class RobotTumbleUiRotation : MonoBehaviour
-    {
-        public static float ActiveRotationDegrees { get; private set; }
-
-        [Tooltip("How often newly created root canvases are added to the rotating UI layer.")]
-        [SerializeField, Min(0.05f)] private float canvasRefreshInterval = 0.5f;
-
-        private readonly Dictionary<Canvas, RectTransform> canvasPivots = new();
-        private RobotTumbleController tumble;
-        private Camera mapCamera;
-        private Canvas mainUiCanvas;
-        private Vector2 mainUiInitialPivotPosition;
-        private bool mainUiInitialPositionCaptured;
-        private float currentRotationDegrees;
-        private float nextCanvasRefreshTime;
-        private int screenQuarterTurnSign = 1;
-        private bool tumbleDirectionLocked;
-
-        public void Initialize(RobotTumbleController tumbleController, Camera camera)
-        {
-            tumble = tumbleController;
-            mapCamera = camera;
-            mainUiCanvas = GetComponent<Canvas>();
-            RefreshCanvasRoots();
-        }
-
-        private void LateUpdate()
-        {
-            if (Time.unscaledTime >= nextCanvasRefreshTime)
-                RefreshCanvasRoots();
-
-            currentRotationDegrees = CalculateTargetRotation();
-            ActiveRotationDegrees = currentRotationDegrees;
-            ApplyRotationToCanvasPivots();
-        }
-
-        public static Matrix4x4 BeginImmediateModeGuiRotation()
-        {
-            Matrix4x4 previousMatrix = GUI.matrix;
-            if (Mathf.Abs(ActiveRotationDegrees) > 0.0001f)
-            {
-                GUIUtility.RotateAroundPivot(
-                    ActiveRotationDegrees,
-                    new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
-            }
-
-            return previousMatrix;
-        }
-
-        private float CalculateTargetRotation()
-        {
-            if (tumble == null || tumble.State == RobotTumbleState.Upright)
-            {
-                tumbleDirectionLocked = false;
-                return 0f;
-            }
-
-            if (!tumbleDirectionLocked)
-                LockScreenQuarterTurnSign();
-
-            float quarterTurnProgress = tumble.ContinuousQuarterTurnProgress;
-            return screenQuarterTurnSign * quarterTurnProgress * 90f;
-        }
-
-        private void LockScreenQuarterTurnSign()
-        {
-            screenQuarterTurnSign = tumble != null
-                ? tumble.QuarterTurnSign
-                : 1;
-            if (tumble != null
-                && mapCamera != null
-                && tumble.DirectionWorld.sqrMagnitude > 0.000001f)
-            {
-                Vector3 originScreen = mapCamera.WorldToScreenPoint(
-                    tumble.transform.position);
-                Vector3 directionScreen = mapCamera.WorldToScreenPoint(
-                    tumble.transform.position + (Vector3)tumble.DirectionWorld);
-                float screenDirectionX = directionScreen.x - originScreen.x;
-                if (Mathf.Abs(screenDirectionX) > 0.001f)
-                    screenQuarterTurnSign = screenDirectionX > 0f ? -1 : 1;
-            }
-
-            tumbleDirectionLocked = true;
-        }
-
-        private void RefreshCanvasRoots()
-        {
-            nextCanvasRefreshTime = Time.unscaledTime
-                                    + Mathf.Max(0.05f, canvasRefreshInterval);
-            Canvas[] canvases = FindObjectsOfType<Canvas>(true);
-            foreach (Canvas canvas in canvases)
-            {
-                if (canvas == null
-                    || !canvas.isRootCanvas
-                    || canvas.renderMode == RenderMode.WorldSpace)
-                {
-                    continue;
-                }
-
-                if (canvas.gameObject.name == RobotBalanceView.BalanceCanvasName)
-                {
-                    if (canvasPivots.TryGetValue(
-                            canvas,
-                            out RectTransform excludedPivot)
-                        && excludedPivot != null)
-                    {
-                        excludedPivot.localRotation = Quaternion.identity;
-                    }
-
-                    canvasPivots.Remove(canvas);
-                    continue;
-                }
-
-                if (!canvasPivots.TryGetValue(canvas, out RectTransform pivot)
-                    || pivot == null)
-                {
-                    pivot = FindOrCreateRotationPivot(canvas);
-                    canvasPivots[canvas] = pivot;
-                }
-
-                if (canvas == mainUiCanvas
-                    && !mainUiInitialPositionCaptured)
-                {
-                    mainUiInitialPivotPosition = pivot.anchoredPosition;
-                    mainUiInitialPositionCaptured = true;
-                }
-
-                MoveDirectCanvasChildrenUnderPivot(canvas, pivot);
-            }
-        }
-
-        private static RectTransform FindOrCreateRotationPivot(Canvas canvas)
-        {
-            const string PivotName = "Tumble UI Rotation Pivot";
-            Transform canvasTransform = canvas.transform;
-            for (int i = 0; i < canvasTransform.childCount; i++)
-            {
-                Transform child = canvasTransform.GetChild(i);
-                if (child.name == PivotName && child is RectTransform existingPivot)
-                    return existingPivot;
-            }
-
-            var pivotObject = new GameObject(PivotName, typeof(RectTransform));
-            pivotObject.layer = canvas.gameObject.layer;
-            RectTransform pivot = pivotObject.GetComponent<RectTransform>();
-            pivot.SetParent(canvasTransform, false);
-            pivot.anchorMin = Vector2.zero;
-            pivot.anchorMax = Vector2.one;
-            pivot.offsetMin = Vector2.zero;
-            pivot.offsetMax = Vector2.zero;
-            pivot.pivot = Vector2.one * 0.5f;
-            return pivot;
-        }
-
-        private static void MoveDirectCanvasChildrenUnderPivot(
-            Canvas canvas,
-            RectTransform pivot)
-        {
-            Transform canvasTransform = canvas.transform;
-            for (int i = canvasTransform.childCount - 1; i >= 0; i--)
-            {
-                Transform child = canvasTransform.GetChild(i);
-                if (child == pivot)
-                    continue;
-
-                child.SetParent(pivot, false);
-            }
-        }
-
-        private void ApplyRotationToCanvasPivots()
-        {
-            var missingCanvases = new List<Canvas>();
-            foreach (KeyValuePair<Canvas, RectTransform> canvasPivot in canvasPivots)
-            {
-                if (canvasPivot.Key == null || canvasPivot.Value == null)
-                {
-                    missingCanvases.Add(canvasPivot.Key);
-                    continue;
-                }
-
-                canvasPivot.Value.localRotation = Quaternion.Euler(
-                    0f,
-                    0f,
-                    currentRotationDegrees);
-                if (canvasPivot.Key == mainUiCanvas
-                    && mainUiInitialPositionCaptured)
-                {
-                    // Only MainUI is position-locked. Player/world canvases keep
-                    // their own positioning rules and are never forced to zero.
-                    canvasPivot.Value.anchoredPosition =
-                        mainUiInitialPivotPosition;
-                }
-            }
-
-            foreach (Canvas missingCanvas in missingCanvases)
-                canvasPivots.Remove(missingCanvas);
-        }
-
-        private void RestoreCanvasRotations()
-        {
-            foreach (KeyValuePair<Canvas, RectTransform> canvasPivot in canvasPivots)
-            {
-                if (canvasPivot.Value != null)
-                {
-                    canvasPivot.Value.localRotation = Quaternion.identity;
-                    if (canvasPivot.Key == mainUiCanvas
-                        && mainUiInitialPositionCaptured)
-                    {
-                        canvasPivot.Value.anchoredPosition =
-                            mainUiInitialPivotPosition;
-                    }
-                }
-            }
-
-            currentRotationDegrees = 0f;
-            ActiveRotationDegrees = 0f;
-        }
-
-        private void OnDisable()
-        {
-            RestoreCanvasRotations();
-        }
-
-        private void OnDestroy()
-        {
-            RestoreCanvasRotations();
-        }
-
-        private void OnValidate()
-        {
-            canvasRefreshInterval = Mathf.Max(0.05f, canvasRefreshInterval);
         }
     }
 }

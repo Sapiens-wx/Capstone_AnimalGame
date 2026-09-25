@@ -316,7 +316,6 @@ namespace AnimalGame.RobotMap
                 animator = GetComponent<Animator>();
 
             ResolveUiRingVisualReference();
-            SynchronizeUiArtworkScale();
             ringCoordinateSpace = transform as RectTransform;
             CreateScanRing();
             ResolveTrackingReferences();
@@ -486,8 +485,6 @@ namespace AnimalGame.RobotMap
 
         private void LateUpdate()
         {
-            SynchronizeUiArtworkScale();
-            PinRingToPlayerUiCenter();
             UpdateOrganicVisibilityClip();
         }
 
@@ -773,46 +770,6 @@ namespace AnimalGame.RobotMap
             uiRingVisualReference = candidate as RectTransform;
         }
 
-        private void SynchronizeUiArtworkScale()
-        {
-            if (!synchronizeWithUiRingVisual)
-                return;
-
-            ResolveUiRingVisualReference();
-            RectTransform controlRect = transform as RectTransform;
-            RectTransform reference = uiRingVisualReference;
-            if (controlRect == null || reference == null || controlRect == reference)
-                return;
-
-            Vector3 targetScale;
-            if (controlRect.parent == reference.parent)
-            {
-                targetScale = reference.localScale;
-            }
-            else
-            {
-                Vector3 currentLocalScale = controlRect.localScale;
-                Vector3 currentWorldScale = controlRect.lossyScale;
-                Vector3 referenceWorldScale = reference.lossyScale;
-                targetScale = new Vector3(
-                    ScaleLocalAxis(
-                        currentLocalScale.x,
-                        currentWorldScale.x,
-                        referenceWorldScale.x),
-                    ScaleLocalAxis(
-                        currentLocalScale.y,
-                        currentWorldScale.y,
-                        referenceWorldScale.y),
-                    ScaleLocalAxis(
-                        currentLocalScale.z,
-                        currentWorldScale.z,
-                        referenceWorldScale.z));
-            }
-
-            if ((controlRect.localScale - targetScale).sqrMagnitude > 0.000001f)
-                controlRect.localScale = targetScale;
-        }
-
         private float GetRingLocalUnitsPerCanvasPixel()
         {
             if (ringCoordinateSpace == null)
@@ -846,17 +803,6 @@ namespace AnimalGame.RobotMap
                 : null;
         }
 
-        private static float ScaleLocalAxis(
-            float currentLocalScale,
-            float currentWorldScale,
-            float targetWorldScale)
-        {
-            if (Mathf.Abs(currentWorldScale) <= 0.0001f)
-                return currentLocalScale;
-
-            return currentLocalScale * targetWorldScale / currentWorldScale;
-        }
-
         private void HideScanRing()
         {
             ringPhase = ScanRingPhase.Hidden;
@@ -887,17 +833,6 @@ namespace AnimalGame.RobotMap
             rect.anchoredPosition = Vector2.zero;
             rect.localScale = Vector3.one;
             ringObject.SetActive(false);
-        }
-
-        private void PinRingToPlayerUiCenter()
-        {
-            if (ringGraphic == null || !ringGraphic.gameObject.activeSelf)
-                return;
-
-            // Scan Activation Controls stretches across the canvas with a
-            // centred pivot, so zero is the stable centre of the player UI.
-            ringGraphic.enabled = true;
-            ringGraphic.rectTransform.anchoredPosition = Vector2.zero;
         }
 
         private void ResolveTrackingReferences()

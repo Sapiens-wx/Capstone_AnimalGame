@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.Animals;
 using UnityEngine;
 using UnityEngine.UIElements;
 #if ENABLE_INPUT_SYSTEM
@@ -10,11 +11,14 @@ namespace AnimalGame.RobotMap
 {
     /// <summary>Prefab presentation only: no subject detection, review state or album ownership.</summary>
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(400)]
     public sealed class PhotoResultView : MonoBehaviour
     {
         [Header("Assets")]
         [SerializeField] private UIDocument document;
         [SerializeField] private Shader compositeShader;
+        [Tooltip("Optional. Finds the MainUI animation component when unset.")]
+        [SerializeField] private PhotoResultMainUIAnimation mainUIAnimation;
         [Header("Design layout")]
         [SerializeField] private Vector2 designSize = new Vector2(1920, 1080);
         [SerializeField] private Vector2 snapshotCircleCenter = new Vector2(1150, 815);
@@ -41,9 +45,11 @@ namespace AnimalGame.RobotMap
         private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
         private Material cardMaterial, circleMaterial;
         private RenderTexture cardOutput, circleOutput;
+        private RenderTexture processedPhoto;
         private Texture photoSource, contourSource;
         private Vector2 tilt;
-        private float lastCircleReveal = -1;
+        private float lastAnimationProgress = -1;
+        private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
         private void Awake()
         {
@@ -53,6 +59,8 @@ namespace AnimalGame.RobotMap
         private void BuildDocumentTree()
         {
             root = document.rootVisualElement;
+            lastPanelSize = new Vector2(-1, -1);
+            lastAnimationProgress = -1;
             arcs.Clear();
             lines.Clear();
             root.pickingMode = PickingMode.Ignore;
@@ -89,8 +97,9 @@ namespace AnimalGame.RobotMap
             ConfigureCircleLayout();
             Vector2 initialOffset = new Vector2(designWidth, designHeight) * 0.5f
                 - snapshotCircleCenter;
-            zoomContent.style.left = initialOffset.x;
-            zoomContent.style.top = initialOffset.y;
+            zoomContent.style.left = 0;
+            zoomContent.style.top = 0;
+            zoomContent.style.translate = new Translate(initialOffset.x, initialOffset.y);
             zoomContent.style.scale = new Scale(Vector3.one * animationSettings.zoomedScale);
         }
 
@@ -111,31 +120,37 @@ namespace AnimalGame.RobotMap
 
         internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
         {
+            if (mainUIAnimation == null)
+                mainUIAnimation = FindFirstObjectByType<PhotoResultMainUIAnimation>();
             // UIDocument may rebuild its root after its parent GameObject is re-enabled.
             if (document.rootVisualElement != root || document.rootVisualElement.Q("stage") == null)
                 BuildDocumentTree();
             ReleaseTextures();
-            photoSource = result.Photo.Photo.texture;
+            processedPhoto = result.Photo.Render(photoResolution);
+            photoSource = processedPhoto;
             contourSource = capture.Texture;
             root.Q<Label>("animal-name").text = result.EnglishName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             root.Q<Label>("region").text = result.RegionName;
-            root.Q<Label>("altitude").text = $"{result.HeightMeters:0}m";
-            root.Q<Label>("metadata").text = $"{result.ScientificName}_{result.HeightMeters:0}m_{result.CapturedAt:yyyyMMdd_HHmmss}";
+            root.Q<Label>("altitude").text = result.HasHeight ? $"{result.HeightMeters:0}m" : "— m";
+            root.Q<Label>("coordinates").text = $"Coordinates ({result.MapPositionMeters.x:0.0}, {result.MapPositionMeters.y:0.0})";
+            string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
+            root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
             root.Q<Label>("reward").text = $"Recognition {result.CognitionDegrees}°   +{result.TotalReward}";
             saveLabel.text = "Save Photo";
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial.SetFloat("_Mode", 1);
-            Rect crop = SquareCrop(result.Photo.GetTextureUvRect(), photoSource);
-            cardMaterial.SetVector("_Crop", new Vector4(crop.x, crop.y, crop.width, crop.height));
+            cardMaterial.SetVector("_Crop", new Vector4(0, 0, 1, 1));
+            // Fit the entire processed image into the square card without another crop.
+            cardMaterial.SetFloat("_ImageAspect", (float)photoSource.width / photoSource.height);
             cardOutput = CreateOutput("Perspective Animal Photo", photoResolution);
             photoImage.image = cardOutput;
             circleOutput = CreateOutput("Circular Frozen Contours", snapshotResolution);
             Blit(contourSource != null ? contourSource : Texture2D.blackTexture, circleOutput, circleMaterial);
             snapshotImage.image = circleOutput;
             tilt = restingTiltDegrees;
-            lastCircleReveal = -1;
+            lastAnimationProgress = -1;
             animationSettings.Open();
             showing = true;
             root.style.display = DisplayStyle.Flex;
@@ -149,16 +164,19 @@ namespace AnimalGame.RobotMap
         public void HideImmediately()
         {
             showing = false;
+            if (mainUIAnimation != null) mainUIAnimation.Restore();
             if (root != null) root.style.display = DisplayStyle.None;
             ReleaseTextures();
         }
 
-        private void Update()
+        // Run after RobotTumbleUiRotation's LateUpdate (350), which locks the HUD position.
+        private void LateUpdate()
         {
             if (!showing) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
             ApplyAnimation();
-            UpdateTilt();
+            // Keep the existing card texture throughout opening and closing.
+            if (!animationSettings.IsClosing && animationSettings.Progress >= 1f) UpdateTilt();
             if (!animationSettings.IsClosed) return;
             HideImmediately();
             Closed?.Invoke();
@@ -173,29 +191,41 @@ namespace AnimalGame.RobotMap
 
             float designWidth = Mathf.Max(1f, designSize.x);
             float designHeight = Mathf.Max(1f, designSize.y);
-            float scale = Mathf.Max(0.01f, Mathf.Min(width / designWidth, height / designHeight));
-            Vector2 offset = new Vector2(
-                (width - designWidth * scale) * 0.5f,
-                (height - designHeight * scale) * 0.5f);
-            stage.style.left = offset.x;
-            stage.style.top = offset.y;
-            stage.style.scale = new Scale(new Vector3(scale, scale, 1));
-            backdrop.style.left = -offset.x / scale;
-            backdrop.style.top = -offset.y / scale;
-            backdrop.style.width = width / scale;
-            backdrop.style.height = height / scale;
-
+            Vector2 panelSize = new Vector2(width, height);
+            bool resized = panelSize != lastPanelSize;
+            if (resized)
+            {
+                float scale = Mathf.Max(0.01f, Mathf.Min(width / designWidth, height / designHeight));
+                Vector2 offset = new Vector2(
+                    (width - designWidth * scale) * 0.5f,
+                    (height - designHeight * scale) * 0.5f);
+                stage.style.left = offset.x;
+                stage.style.top = offset.y;
+                stage.style.scale = new Scale(new Vector3(scale, scale, 1));
+                backdrop.style.left = -offset.x / scale;
+                backdrop.style.top = -offset.y / scale;
+                backdrop.style.width = width / scale;
+                backdrop.style.height = height / scale;
+                lastPanelSize = panelSize;
+            }
             float zoomProgress = animationSettings.Evaluate(animationSettings.zoomWindow);
             float zoom = Mathf.Lerp(animationSettings.zoomedScale,
                 animationSettings.restingScale, zoomProgress);
-            zoomContent.style.scale = new Scale(new Vector3(zoom, zoom, 1));
-
             float positionProgress = animationSettings.Evaluate(animationSettings.contentPositionWindow);
             Vector2 screenCenter = new Vector2(designWidth, designHeight) * 0.5f;
             Vector2 contentOffset = Vector2.Lerp(screenCenter - snapshotCircleCenter,
                 Vector2.zero, positionProgress);
-            zoomContent.style.left = contentOffset.x;
-            zoomContent.style.top = contentOffset.y;
+            if (mainUIAnimation != null && mainUIAnimation.isActiveAndEnabled)
+            {
+                mainUIAnimation.SetZoomPose(zoom / Mathf.Max(0.01f, animationSettings.zoomedScale),
+                    new Vector2(designWidth, designHeight),
+                    snapshotCircleCenter + contentOffset - screenCenter);
+                mainUIAnimation.RevealAnimation(animationSettings.Evaluate(animationSettings.mainUIWindow));
+            }
+            if (!resized && lastAnimationProgress == animationSettings.Progress) return;
+            lastAnimationProgress = animationSettings.Progress;
+            zoomContent.style.scale = new Scale(new Vector3(zoom, zoom, 1));
+            zoomContent.style.translate = new Translate(contentOffset.x, contentOffset.y);
             float circleProgress = animationSettings.Evaluate(animationSettings.circleWindow);
             float arcProgress = animationSettings.Evaluate(animationSettings.arcWindow);
             float lineProgress = animationSettings.Evaluate(animationSettings.lineWindow);
@@ -207,7 +237,7 @@ namespace AnimalGame.RobotMap
             foreach (var element in lines) element.Reveal(lineProgress);
             photo.style.opacity = photoProgress;
             textContent.style.opacity = textProgress;
-            circle.style.opacity=textProgress;
+            circle.style.opacity=circleProgress;
         }
 
         private void UpdateTilt()
@@ -268,14 +298,6 @@ namespace AnimalGame.RobotMap
             finally { RenderTexture.active = previous; }
         }
 
-        private static Rect SquareCrop(Rect crop, Texture texture)
-        {
-            float width = crop.width * texture.width, height = crop.height * texture.height;
-            if (width > height) { float newWidth = height / texture.width; crop.x += (crop.width - newWidth) * 0.5f; crop.width = newWidth; }
-            else { float newHeight = width / texture.height; crop.y += (crop.height - newHeight) * 0.5f; crop.height = newHeight; }
-            return crop;
-        }
-
         private static RenderTexture CreateOutput(string label, int size)
         {
             var texture = new RenderTexture(Mathf.Clamp(size, 128, 2048), Mathf.Clamp(size, 128, 2048), 0, RenderTextureFormat.ARGB32)
@@ -292,6 +314,8 @@ namespace AnimalGame.RobotMap
             if (circleOutput != null) { circleOutput.Release(); Destroy(circleOutput); }
             if (cardMaterial != null) Destroy(cardMaterial);
             if (circleMaterial != null) Destroy(circleMaterial);
+            AnimalPhotoProcessing.Release(processedPhoto);
+            processedPhoto = null;
             cardOutput = circleOutput = null;
             cardMaterial = circleMaterial = null;
             photoSource = contourSource = null;

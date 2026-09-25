@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/Prefabs/Resources/UI/Photo/PhotoResult.uss?fileID=7433441132597879392&amp;guid=00835c787db842a4bcac4ece3905fe32&amp;type=3#PhotoResult" />
     <ui:VisualElement name="stage">
-        <ui:VisualElement name="zoom-content">
+        <ui:VisualElement name="zoom-content" usage-hints="DynamicTransform">
             <ui:VisualElement name="backdrop" />
             <ui:VisualElement name="vectors" class="fill">
                 <ui:VisualElement name="exclusion-regions" class="fill">
@@ -76,10 +76,10 @@
                     <AnimalGame.RobotMap.PhotoResultLineElement name="dash-23" start-point="1916,165.88" end-point="1954,163.22" color="#F0F5F0" width="1.5" class="fill" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="snapshot-circle" style="height: 350px; width: 350px; top: 640px; left: 975px;">
+            <ui:VisualElement name="snapshot-circle" style="height: 350px; width: 350px; top: 640px; left: 975px; opacity: 0;">
                 <ui:Image name="snapshot-image" class="fill" />
                 <AnimalGame.RobotMap.PhotoResultArcElement name="snapshot-outline" center="175,175" radius="173" start-degrees="180" sweep-degrees="360" color="#F0F5F0" width="2.5" class="fill" />
-                <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
+                <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); opacity: 1;" />
             </ui:VisualElement>
             <ui:VisualElement name="photo">
                 <ui:Image name="photo-image" class="fill" />
