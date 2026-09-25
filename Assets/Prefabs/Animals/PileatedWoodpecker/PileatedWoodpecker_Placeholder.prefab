@@ -49,6 +49,9 @@ SpriteRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 0
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -133,6 +136,9 @@ SpriteRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 0
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -186,6 +192,7 @@ GameObject:
   - component: {fileID: 1275120524590967715}
   - component: {fileID: 6012108510752505119}
   - component: {fileID: 5055605387045942725}
+  - component: {fileID: -3843962255671004437}
   m_Layer: 0
   m_Name: PileatedWoodpecker_Placeholder
   m_TagString: Untagged
@@ -459,6 +466,32 @@ MonoBehaviour:
   fieldScaleTransitionDuration: {x: 0.4, y: 0.9}
   unknownPositionUpdateInterval: 0.01
   unknownPositionRefreshAnimationDuration: 0.02
+--- !u!114 &-3843962255671004437
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4118156342335042637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d8c5ab2f1034e499f5d1c76a7b84320, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  species: 2
+  photoState: 0
+  speciesId: pileated_woodpecker
+  displayName: "\u5317\u7F8E\u9ED1\u5544\u6728\u9E1F"
+  englishName: Pileated Woodpecker
+  scientificName: Dryocopus pileatus
+  regionName: Rocky Mountains
+  accentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
+  cognitionDegrees: 100
+  baseReward: 10
+  cognitionReward: 0
+  photoBoundsRenderers:
+  - {fileID: 6051157855037081251, guid: 2645e53e76c8ec846b09ee78b13275be, type: 3}
+  - {fileID: 1874912894510113343, guid: 2645e53e76c8ec846b09ee78b13275be, type: 3}
 --- !u!1 &4309270336449829723
 GameObject:
   m_ObjectHideFlags: 0
@@ -508,6 +541,9 @@ SpriteRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 0
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -592,6 +628,9 @@ SpriteRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 0
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
