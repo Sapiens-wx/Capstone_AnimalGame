@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 114000002}
   - component: {fileID: 114000006}
   - component: {fileID: 114000007}
+  - component: {fileID: 7433652710412772339}
   m_Layer: 5
   m_Name: MainUI
   m_TagString: Untagged
@@ -33,8 +34,7 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 224000001}
-  - {fileID: 224000002}
+  - {fileID: 347963026725823544}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -172,6 +172,19 @@ MonoBehaviour:
   closeKey: 98
   alternateCloseKey: 27
   saveKey: 121
+--- !u!114 &7433652710412772339
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7af03b76ffcbd2d42a3f64910b2a6946, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  canvasRefreshInterval: 0.5
 --- !u!1 &100000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -197,17 +210,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 100000001}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.1237, y: 1.1237, z: 1.1237}
+  m_LocalScale: {x: 1.1237001, y: 1.1237001, z: 1.1237001}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 224000000}
+  m_Father: {fileID: 347963026725823544}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 2008, y: 1032}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &222000001
 CanvasRenderer:
@@ -275,17 +288,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 100000002}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.1237, y: 1.1237, z: 1.1237}
+  m_LocalScale: {x: 1.1237001, y: 1.1237001, z: 1.1237001}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 224000000}
+  m_Father: {fileID: 347963026725823544}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 2008, y: 1032}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &222000002
 CanvasRenderer:
@@ -373,7 +386,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animator: {fileID: 950000002}
   uiRingVisualReference: {fileID: 224000001}
-  synchronizeWithUiRingVisual: 1
+  synchronizeWithUiRingVisual: 0
   keyboardScanKey: 101
   gamepadScanButton: 334
   biologicalScanMinimumHoldDuration: 0.25
@@ -400,3 +413,40 @@ MonoBehaviour:
   releaseRingColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 0.92}
   playerUiClippedSpriteShader: {fileID: 4800000, guid: 4f7e6ab0c9ef4f5da8e215fdadfb0c3b, type: 3}
   organicVisibilityClipSoftnessPixels: 1.5
+--- !u!1 &7807811953214470102
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 347963026725823544}
+  m_Layer: 5
+  m_Name: Tumble UI Rotation Pivot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &347963026725823544
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7807811953214470102}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 224000001}
+  - {fileID: 224000002}
+  m_Father: {fileID: 224000000}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: -2008, y: -1032}
+  m_Pivot: {x: 0.5, y: 0.5}

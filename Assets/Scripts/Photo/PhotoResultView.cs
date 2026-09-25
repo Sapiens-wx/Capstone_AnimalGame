@@ -68,7 +68,7 @@ namespace AnimalGame.RobotMap
             zoomContent = root.Q("zoom-content");
             backdrop = root.Q("backdrop");
             vectors = root.Q("vectors");
-            circle = root.Q("snapshot-circle");
+            circle = root.Q("close-badge");
             photo = root.Q("photo");
             textContent = root.Q("text-content");
             saveLabel = root.Q<Label>("save-label");
