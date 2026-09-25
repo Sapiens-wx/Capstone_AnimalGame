@@ -11,11 +11,14 @@ namespace AnimalGame.RobotMap
 {
     /// <summary>Prefab presentation only: no subject detection, review state or album ownership.</summary>
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(400)]
     public sealed class PhotoResultView : MonoBehaviour
     {
         [Header("Assets")]
         [SerializeField] private UIDocument document;
         [SerializeField] private Shader compositeShader;
+        [Tooltip("Optional. Finds the MainUI animation component when unset.")]
+        [SerializeField] private PhotoResultMainUIAnimation mainUIAnimation;
         [Header("Design layout")]
         [SerializeField] private Vector2 designSize = new Vector2(1920, 1080);
         [SerializeField] private Vector2 snapshotCircleCenter = new Vector2(1150, 815);
@@ -68,7 +71,7 @@ namespace AnimalGame.RobotMap
             zoomContent = root.Q("zoom-content");
             backdrop = root.Q("backdrop");
             vectors = root.Q("vectors");
-            circle = root.Q("close-badge");
+            circle = root.Q("snapshot-circle");
             photo = root.Q("photo");
             textContent = root.Q("text-content");
             saveLabel = root.Q<Label>("save-label");
@@ -117,6 +120,8 @@ namespace AnimalGame.RobotMap
 
         internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
         {
+            if (mainUIAnimation == null)
+                mainUIAnimation = FindFirstObjectByType<PhotoResultMainUIAnimation>();
             // UIDocument may rebuild its root after its parent GameObject is re-enabled.
             if (document.rootVisualElement != root || document.rootVisualElement.Q("stage") == null)
                 BuildDocumentTree();
@@ -159,11 +164,13 @@ namespace AnimalGame.RobotMap
         public void HideImmediately()
         {
             showing = false;
+            if (mainUIAnimation != null) mainUIAnimation.Restore();
             if (root != null) root.style.display = DisplayStyle.None;
             ReleaseTextures();
         }
 
-        private void Update()
+        // Run after RobotTumbleUiRotation's LateUpdate (350), which locks the HUD position.
+        private void LateUpdate()
         {
             if (!showing) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
@@ -201,18 +208,23 @@ namespace AnimalGame.RobotMap
                 backdrop.style.height = height / scale;
                 lastPanelSize = panelSize;
             }
-            if (!resized && lastAnimationProgress == animationSettings.Progress) return;
-            lastAnimationProgress = animationSettings.Progress;
-
             float zoomProgress = animationSettings.Evaluate(animationSettings.zoomWindow);
             float zoom = Mathf.Lerp(animationSettings.zoomedScale,
                 animationSettings.restingScale, zoomProgress);
-            zoomContent.style.scale = new Scale(new Vector3(zoom, zoom, 1));
-
             float positionProgress = animationSettings.Evaluate(animationSettings.contentPositionWindow);
             Vector2 screenCenter = new Vector2(designWidth, designHeight) * 0.5f;
             Vector2 contentOffset = Vector2.Lerp(screenCenter - snapshotCircleCenter,
                 Vector2.zero, positionProgress);
+            if (mainUIAnimation != null && mainUIAnimation.isActiveAndEnabled)
+            {
+                mainUIAnimation.SetZoomPose(zoom / Mathf.Max(0.01f, animationSettings.zoomedScale),
+                    new Vector2(designWidth, designHeight),
+                    snapshotCircleCenter + contentOffset - screenCenter);
+                mainUIAnimation.RevealAnimation(animationSettings.Evaluate(animationSettings.mainUIWindow));
+            }
+            if (!resized && lastAnimationProgress == animationSettings.Progress) return;
+            lastAnimationProgress = animationSettings.Progress;
+            zoomContent.style.scale = new Scale(new Vector3(zoom, zoom, 1));
             zoomContent.style.translate = new Translate(contentOffset.x, contentOffset.y);
             float circleProgress = animationSettings.Evaluate(animationSettings.circleWindow);
             float arcProgress = animationSettings.Evaluate(animationSettings.arcWindow);
@@ -225,7 +237,7 @@ namespace AnimalGame.RobotMap
             foreach (var element in lines) element.Reveal(lineProgress);
             photo.style.opacity = photoProgress;
             textContent.style.opacity = textProgress;
-            circle.style.opacity=textProgress;
+            circle.style.opacity=circleProgress;
         }
 
         private void UpdateTilt()

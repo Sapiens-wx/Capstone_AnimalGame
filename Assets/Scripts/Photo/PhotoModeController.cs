@@ -318,6 +318,10 @@ namespace AnimalGame.RobotMap
 
         private void HandleModeInput(bool shoulderPressed)
         {
+            // The result UI owns close input until its closing animation finishes.
+            // In particular, gamepad B must not also exit the underlying photo mode.
+            if (IsReviewing) return;
+
             bool togglePressed = Input.GetKeyDown(keyboardToggleKey)
                                  || AdaptiveLegacyGamepadInput
                                      .WasWestFaceButtonPressedThisFrame();

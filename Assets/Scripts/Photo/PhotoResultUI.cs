@@ -12,8 +12,7 @@ namespace AnimalGame.RobotMap
     public sealed class PhotoResultUI : MonoBehaviour
     {
         [Header("Result Prefab")]
-        [Tooltip("Optional override. Defaults to Resources/UI/AnimalPhotoResultUI.")]
-        [SerializeField] private PhotoResultView resultPrefab;
+        [SerializeField] private PhotoResultView resultView;
 
         [Header("Animal Photos")]
         [SerializeField] private PhotoLibrary photoLibrary;
@@ -48,19 +47,32 @@ namespace AnimalGame.RobotMap
         private Camera mapCamera;
         private MapTestSceneController map;
 
-        private PhotoResultView resultView;
         private readonly PhotoContourCapture contourCapture = new PhotoContourCapture();
         private PhotoResultSnapshot pendingResult;
         private PhotoResultSnapshot displayedResult;
         private bool visible;
         private bool saved;
+        private PhotoResultView subscribedView;
 
         public bool IsVisible => visible;
         public PhotoLibrary Library { get => photoLibrary; set => photoLibrary = value; }
 
-        private void Awake()
+        private void OnEnable() => BindResultView();
+
+        private void BindResultView()
         {
-            EnsureVisuals();
+            if (subscribedView == resultView) return;
+            UnbindResultView();
+            subscribedView = resultView;
+            if (subscribedView != null)
+                subscribedView.Closed += HandleViewClosed;
+        }
+
+        private void UnbindResultView()
+        {
+            if (subscribedView != null)
+                subscribedView.Closed -= HandleViewClosed;
+            subscribedView = null;
         }
 
         public void Initialize(
@@ -76,7 +88,6 @@ namespace AnimalGame.RobotMap
             photoModeUi = cameraUi;
             mapCamera = camera;
             map = mapController;
-            EnsureVisuals();
 
             if (controller != null)
                 controller.PhotoCaptured += HandlePhotoCaptured;
@@ -146,7 +157,6 @@ namespace AnimalGame.RobotMap
                 subject,
                 selectedPhoto,
                 frameCoverage);
-            EnsureVisuals();
             if (resultView == null || controller == null || !controller.RequestPhotoReview())
             {
                 pendingResult = null;
@@ -476,8 +486,8 @@ namespace AnimalGame.RobotMap
         private void ShowPendingResult()
         {
             if (pendingResult == null) return;
-            EnsureVisuals();
             if (resultView == null) { HideResult(true); return; }
+            BindResultView();
             displayedResult = pendingResult;
             pendingResult = null;
             visible = true;
@@ -511,37 +521,16 @@ namespace AnimalGame.RobotMap
             if (returnToCamera) controller?.EndPhotoReview();
         }
 
-        private void EnsureVisuals()
+        private void OnDisable()
         {
-            if (resultView != null) return;
-            PhotoResultView prefab = resultPrefab != null
-                ? resultPrefab : Resources.Load<PhotoResultView>("UI/Photo/AnimalPhotoResultUI");
-            if (prefab == null)
-            {
-                Debug.LogError("Missing Resources/UI/Photo/AnimalPhotoResultUI prefab.", this);
-                return;
-            }
-            resultView = Instantiate(prefab, transform);
-            resultView.name = "Animal Photo Result UI";
-            if (!resultView.IsReady)
-            {
-                Destroy(resultView.gameObject);
-                resultView = null;
-                return;
-            }
-            resultView.Closed += HandleViewClosed;
+            UnbindResultView();
+            HideResult(true);
         }
-
-        private void OnDisable() => HideResult(true);
 
         private void OnDestroy()
         {
             if (controller != null) controller.PhotoCaptured -= HandlePhotoCaptured;
-            if (resultView != null)
-            {
-                resultView.Closed -= HandleViewClosed;
-                Destroy(resultView.gameObject);
-            }
+            UnbindResultView();
             contourCapture.Dispose();
         }
 
