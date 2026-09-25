@@ -64,6 +64,8 @@ namespace AnimalGame.MapTest
 
         public bool IsOverlayVisible => isOverlayVisible;
 
+        public Canvas OverlayCanvas { get; private set; }
+
         public void Initialize(
             MapTestSceneController mapController,
             HeightMapTraversalEvaluator traversalEvaluator,
@@ -276,6 +278,7 @@ namespace AnimalGame.MapTest
             overlayRoot.layer = LayerMask.NameToLayer("UI");
 
             Canvas canvas = overlayRoot.GetComponent<Canvas>();
+            OverlayCanvas = canvas;
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = true;
             canvas.overrideSorting = true;
@@ -306,7 +309,8 @@ namespace AnimalGame.MapTest
                     typeof(CanvasRenderer),
                     typeof(Image));
                 imageObject.layer = uiLayer;
-                imageObject.transform.SetParent(overlayRoot.transform, false);
+                Transform pivot = overlayRoot.transform.Find("Tumble UI Rotation Pivot");
+                imageObject.transform.SetParent(pivot != null ? pivot : overlayRoot.transform, false);
 
                 Image image = imageObject.GetComponent<Image>();
                 image.raycastTarget = false;

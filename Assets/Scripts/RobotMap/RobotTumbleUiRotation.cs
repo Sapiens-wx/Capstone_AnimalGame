@@ -1,3 +1,4 @@
+using AnimalGame.MapTest;
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -8,9 +9,6 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
 {
     public static float ActiveRotationDegrees { get; private set; }
 
-    [Tooltip("How often newly created root canvases are added to the rotating UI layer.")]
-    [SerializeField, Min(0.05f)] private float canvasRefreshInterval = 0.5f;
-
     private readonly Dictionary<Canvas, RectTransform> canvasPivots = new();
     private RobotTumbleController tumble;
     private Camera mapCamera;
@@ -18,7 +16,6 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
     private Vector2 mainUiInitialPivotPosition;
     private bool mainUiInitialPositionCaptured;
     private float currentRotationDegrees;
-    private float nextCanvasRefreshTime;
     private int screenQuarterTurnSign = 1;
     private bool tumbleDirectionLocked;
 
@@ -27,14 +24,10 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
         tumble = tumbleController;
         mapCamera = camera;
         mainUiCanvas = GetComponent<Canvas>();
-        RefreshCanvasRoots();
     }
 
     private void LateUpdate()
     {
-        if (Time.unscaledTime >= nextCanvasRefreshTime)
-            RefreshCanvasRoots();
-
         currentRotationDegrees = CalculateTargetRotation();
         ActiveRotationDegrees = currentRotationDegrees;
         ApplyRotationToCanvasPivots();
@@ -89,50 +82,28 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
         tumbleDirectionLocked = true;
     }
 
-    private void RefreshCanvasRoots()
+    private void Start()
     {
-        nextCanvasRefreshTime = Time.unscaledTime
-                                + Mathf.Max(0.05f, canvasRefreshInterval);
-        Canvas[] canvases = FindObjectsOfType<Canvas>(true);
-        foreach (Canvas canvas in canvases)
+        RegisterCanvas(mainUiCanvas);
+        HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
+        if (bootstrap == null)
+            return;
+
+        RegisterCanvas(bootstrap.scanOverlayCanvas);
+        RegisterCanvas(bootstrap.traversalOverlayCanvas);
+    }
+
+    private void RegisterCanvas(Canvas canvas)
+    {
+        if (canvas == null || canvasPivots.ContainsKey(canvas))
+            return;
+
+        RectTransform pivot = FindOrCreateRotationPivot(canvas);
+        canvasPivots.Add(canvas, pivot);
+        if (canvas == mainUiCanvas)
         {
-            if (canvas == null
-                || !canvas.isRootCanvas
-                || canvas.renderMode == RenderMode.WorldSpace)
-            {
-                continue;
-            }
-
-            if (canvas.gameObject.name == RobotBalanceView.BalanceCanvasName)
-            {
-                if (canvasPivots.TryGetValue(
-                        canvas,
-                        out RectTransform excludedPivot)
-                    && excludedPivot != null)
-                {
-                    excludedPivot.localRotation = Quaternion.identity;
-                }
-
-                canvasPivots.Remove(canvas);
-                continue;
-            }
-
-            if (!canvasPivots.TryGetValue(canvas, out RectTransform pivot)
-                || pivot == null)
-            {
-                pivot = FindOrCreateRotationPivot(canvas);
-                canvasPivots[canvas] = pivot;
-            }
-
-            if (canvas == mainUiCanvas
-                && !mainUiInitialPositionCaptured)
-            {
-                mainUiInitialPivotPosition = pivot.anchoredPosition;
-                mainUiInitialPositionCaptured = true;
-            }
-
-            MoveDirectCanvasChildrenUnderPivot(canvas, pivot);
-            Debug.Log(canvas.name);
+            mainUiInitialPivotPosition = pivot.anchoredPosition;
+            mainUiInitialPositionCaptured = true;
         }
     }
 
@@ -156,6 +127,7 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
         pivot.offsetMin = Vector2.zero;
         pivot.offsetMax = Vector2.zero;
         pivot.pivot = Vector2.one * 0.5f;
+        MoveDirectCanvasChildrenUnderPivot(canvas, pivot);
         return pivot;
     }
 
@@ -231,11 +203,6 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
     private void OnDestroy()
     {
         RestoreCanvasRotations();
-    }
-
-    private void OnValidate()
-    {
-        canvasRefreshInterval = Mathf.Max(0.05f, canvasRefreshInterval);
     }
 }
 }

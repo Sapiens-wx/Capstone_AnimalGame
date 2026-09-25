@@ -1,11 +1,10 @@
-using System.Collections.Generic;
 using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using UnityEngine;
 
 namespace AnimalGame.MapTest
 {
-    public sealed class HeightMapPlayerSceneBootstrap : MonoBehaviour
+    public sealed class HeightMapPlayerSceneBootstrap : Singleton<HeightMapPlayerSceneBootstrap>
     {
         private const string MapResourcePath = "MapTest/MapTestController";
         private const string RobotResourcePath = "Robot/RobotMarker";
@@ -30,9 +29,39 @@ namespace AnimalGame.MapTest
         [SerializeField] private bool showFrameRate = true;
         [SerializeField, Min(0.05f)] private float frameRateRefreshInterval = 0.25f;
 
-        private MapTestSceneController map;
-        private RobotMover robot;
-        private HeightMapTraversalEvaluator traversalEvaluator;
+        [HideInInspector] public MapTestSceneController map;
+        [HideInInspector] public RobotMover robot;
+        [HideInInspector] public HeightMapTraversalEvaluator traversalEvaluator;
+        [HideInInspector] public GameObject mapObject;
+        [HideInInspector] public GameObject robotObject;
+        [HideInInspector] public GameObject cameraObject;
+        [HideInInspector] public GameObject traversalObject;
+        [HideInInspector] public GameObject overlayObject;
+        [HideInInspector] public GameObject scanOverlayObject;
+        [HideInInspector] public GameObject mainUiObject;
+        [HideInInspector] public RobotBalanceController balance;
+        [HideInInspector] public PhotoModeController photoMode;
+        [HideInInspector] public RobotTumbleController tumble;
+        [HideInInspector] public RobotHeightMotionDetector heightMotion;
+        [HideInInspector] public BioScanController bioScan;
+        [HideInInspector] public Camera mapCamera;
+        [HideInInspector] public RobotCameraFollow cameraFollow;
+        [HideInInspector] public RobotCameraShake cameraShake;
+        [HideInInspector] public TraversalOverlayUI traversalOverlay;
+        [HideInInspector] public TraversalScanOverlayUI scanOverlay;
+        [HideInInspector] public ScanChargeUI scanChargeUi;
+        [HideInInspector] public PhotoModeUI photoModeUi;
+        [HideInInspector] public PhotoResultUI photoResultUi;
+        [HideInInspector] public RobotTumbleUiRotation uiRotation;
+        [HideInInspector] public RobotBalanceView balanceView;
+        [HideInInspector] public RobotArmController armController;
+        [HideInInspector] public RobotSelfRightingController selfRightingController;
+        [HideInInspector] public Canvas mainUiCanvas;
+        [HideInInspector] public Canvas traversalOverlayCanvas;
+        [HideInInspector] public Canvas scanOverlayCanvas;
+        [HideInInspector] public GameObject traversalOverlayCanvasObject;
+        [HideInInspector] public GameObject scanOverlayCanvasObject;
+
         private Vector2 playerMapPosition;
         private float playerHeight;
         private bool playerInsideMap;
@@ -43,24 +72,25 @@ namespace AnimalGame.MapTest
         public Vector2 PlayerSpawnMapPositionMeters =>
             playerSpawnMapPositionMeters;
 
-        private void Awake()
+        protected override void Awake()
         {
+            base.Awake();
             map = FindObjectOfType<MapTestSceneController>();
-            GameObject mapObject = map != null
+            mapObject = map != null
                 ? map.gameObject
                 : InstantiateResource(MapResourcePath, "Map Test Controller");
-            GameObject robotObject = InstantiateResource(RobotResourcePath, "Robot Marker");
-            GameObject cameraObject = InstantiateResource(CameraResourcePath, "Robot Camera");
-            GameObject traversalObject = InstantiateResource(
+            robotObject = InstantiateResource(RobotResourcePath, "Robot Marker");
+            cameraObject = InstantiateResource(CameraResourcePath, "Robot Camera");
+            traversalObject = InstantiateResource(
                 TraversalResourcePath,
                 "Height Map Traversal Evaluator");
-            GameObject overlayObject = InstantiateResource(
+            overlayObject = InstantiateResource(
                 OverlayResourcePath,
                 "Debug Traversal Overlay");
-            GameObject scanOverlayObject = InstantiateResource(
+            scanOverlayObject = InstantiateResource(
                 ScanOverlayResourcePath,
                 "Scanned Traversal Overlay");
-            GameObject mainUiObject = InstantiateResource(
+            mainUiObject = InstantiateResource(
                 MainUiResourcePath,
                 "Main UI");
             if (mapObject == null || robotObject == null || cameraObject == null
@@ -74,52 +104,55 @@ namespace AnimalGame.MapTest
             if (map == null)
                 map = mapObject.GetComponent<MapTestSceneController>();
             robot = robotObject.GetComponent<RobotMover>();
-            RobotBalanceController balance =
+            balance =
                 robotObject.GetComponent<RobotBalanceController>();
             if (balance == null)
                 balance = robotObject.AddComponent<RobotBalanceController>();
-            PhotoModeController photoMode =
+            photoMode =
                 robotObject.GetComponent<PhotoModeController>();
             if (photoMode == null)
                 photoMode = robotObject.AddComponent<PhotoModeController>();
-            RobotTumbleController tumble =
+            tumble =
                 robotObject.GetComponent<RobotTumbleController>();
             if (tumble == null)
                 tumble = robotObject.AddComponent<RobotTumbleController>();
-            RobotHeightMotionDetector heightMotion =
+            heightMotion =
                 robotObject.GetComponent<RobotHeightMotionDetector>();
             if (heightMotion == null)
                 heightMotion = robotObject.AddComponent<RobotHeightMotionDetector>();
-            if (robotObject.GetComponent<RobotBalanceView>() == null)
-                robotObject.AddComponent<RobotBalanceView>();
-            if (robotObject.GetComponent<RobotArmController>() == null)
-                robotObject.AddComponent<RobotArmController>();
-            BioScanController bioScan =
+            balanceView = robotObject.GetComponent<RobotBalanceView>();
+            if (balanceView == null)
+                balanceView = robotObject.AddComponent<RobotBalanceView>();
+            armController = robotObject.GetComponent<RobotArmController>();
+            if (armController == null)
+                armController = robotObject.AddComponent<RobotArmController>();
+            bioScan =
                 robotObject.GetComponent<BioScanController>();
             if (bioScan == null)
                 bioScan = robotObject.AddComponent<BioScanController>();
-            if (robotObject.GetComponent<RobotSelfRightingController>() == null)
-                robotObject.AddComponent<RobotSelfRightingController>();
-            Camera camera = cameraObject.GetComponent<Camera>();
-            RobotCameraFollow cameraFollow = cameraObject.GetComponent<RobotCameraFollow>();
-            RobotCameraShake cameraShake =
+            selfRightingController = robotObject.GetComponent<RobotSelfRightingController>();
+            if (selfRightingController == null)
+                selfRightingController = robotObject.AddComponent<RobotSelfRightingController>();
+            mapCamera = cameraObject.GetComponent<Camera>();
+            cameraFollow = cameraObject.GetComponent<RobotCameraFollow>();
+            cameraShake =
                 cameraObject.GetComponent<RobotCameraShake>();
             if (cameraShake == null)
                 cameraShake = cameraObject.AddComponent<RobotCameraShake>();
             traversalEvaluator = traversalObject.GetComponent<HeightMapTraversalEvaluator>();
-            TraversalOverlayUI traversalOverlay = overlayObject.GetComponent<TraversalOverlayUI>();
-            TraversalScanOverlayUI scanOverlay =
+            traversalOverlay = overlayObject.GetComponent<TraversalOverlayUI>();
+            scanOverlay =
                 scanOverlayObject.GetComponent<TraversalScanOverlayUI>();
-            ScanChargeUI scanChargeUi =
+            scanChargeUi =
                 mainUiObject.GetComponentInChildren<ScanChargeUI>(true);
-            PhotoModeUI photoModeUi =
+            photoModeUi =
                 mainUiObject.GetComponent<PhotoModeUI>();
-            PhotoResultUI photoResultUi =
+            photoResultUi =
                 mainUiObject.GetComponent<PhotoResultUI>();
             if (photoResultUi == null)
                 photoResultUi = mainUiObject.AddComponent<PhotoResultUI>();
 
-            if (map == null || robot == null || camera == null || cameraFollow == null
+            if (map == null || robot == null || mapCamera == null || cameraFollow == null
                 || traversalEvaluator == null || traversalOverlay == null
                 || scanOverlay == null || scanChargeUi == null
                 || photoMode == null || photoModeUi == null
@@ -133,7 +166,7 @@ namespace AnimalGame.MapTest
             }
 
             robot.transform.position = map.MapPositionToWorld(playerSpawnMapPositionMeters);
-            map.UseCamera(camera);
+            map.UseCamera(mapCamera);
             map.UseSurfaceRevealUi(scanChargeUi);
             map.UseElevationFilterTarget(robot.transform);
             cameraFollow.FollowBalanceTarget(balance);
@@ -146,21 +179,26 @@ namespace AnimalGame.MapTest
             photoMode.InitializeCamera(cameraFollow, cameraShake);
             scanChargeUi.SetPhotoModeController(photoMode);
             bioScan.Initialize(scanChargeUi);
-            photoModeUi.Initialize(photoMode, camera);
+            photoModeUi.Initialize(photoMode, mapCamera);
             if (photoLibrary != null) photoResultUi.Library = photoLibrary;
-            photoResultUi.Initialize(photoMode, photoModeUi, camera, map);
-            RobotTumbleUiRotation uiRotation =
+            photoResultUi.Initialize(photoMode, photoModeUi, mapCamera, map);
+            uiRotation =
                 mainUiObject.GetComponent<RobotTumbleUiRotation>();
             if (uiRotation == null)
                 uiRotation = mainUiObject.AddComponent<RobotTumbleUiRotation>();
-            uiRotation.Initialize(tumble, camera);
-            traversalOverlay.Initialize(map, traversalEvaluator, camera, robot);
+            uiRotation.Initialize(tumble, mapCamera);
+            traversalOverlay.Initialize(map, traversalEvaluator, mapCamera, robot);
             scanOverlay.Initialize(
                 map,
                 traversalEvaluator,
-                camera,
+                mapCamera,
                 robot,
                 scanChargeUi);
+            mainUiCanvas = mainUiObject.GetComponent<Canvas>();
+            traversalOverlayCanvas = traversalOverlay.OverlayCanvas;
+            scanOverlayCanvas = scanOverlay.OverlayCanvas;
+            traversalOverlayCanvasObject = traversalOverlayCanvas != null ? traversalOverlayCanvas.gameObject : null;
+            scanOverlayCanvasObject = scanOverlayCanvas != null ? scanOverlayCanvas.gameObject : null;
             if (showRobotTerrainData)
                 UpdatePlayerHeight();
         }
