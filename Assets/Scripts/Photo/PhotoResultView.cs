@@ -38,7 +38,8 @@ namespace AnimalGame.RobotMap
         public bool IsClosing => animationSettings.IsClosing;
         public event Action Closed;
 
-        private VisualElement root, stage, zoomContent, backdrop, vectors, circle, photo, textContent;
+        private VisualElement root, stage, zoomContent, backdrop, vectors, photo, textContent;
+        private VisualElement snapshotCircle, snapshotCloseBadge, snapshotImg;
         private Label saveLabel;
         private Image photoImage, snapshotImage;
         private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
@@ -71,7 +72,9 @@ namespace AnimalGame.RobotMap
             zoomContent = root.Q("zoom-content");
             backdrop = root.Q("backdrop");
             vectors = root.Q("vectors");
-            circle = root.Q("snapshot-circle");
+            snapshotCircle = root.Q("snapshot-outline");
+            snapshotCloseBadge = root.Q("close-badge");
+            snapshotImg = root.Q("snapshot-image");
             photo = root.Q("photo");
             textContent = root.Q("text-content");
             saveLabel = root.Q<Label>("save-label");
@@ -86,7 +89,7 @@ namespace AnimalGame.RobotMap
 
         private void ConfigureDesignLayout()
         {
-            if (stage == null || zoomContent == null || circle == null) return;
+            if (stage == null || zoomContent == null) return;
 
             float designWidth = Mathf.Max(1f, designSize.x);
             float designHeight = Mathf.Max(1f, designSize.y);
@@ -231,13 +234,16 @@ namespace AnimalGame.RobotMap
             float lineProgress = animationSettings.Evaluate(animationSettings.lineWindow);
             float photoProgress = animationSettings.Evaluate(animationSettings.photoWindow);
             float textProgress = animationSettings.Evaluate(animationSettings.textWindow);
+            float snapshotImgProgress = animationSettings.Evaluate(animationSettings.snapshotImgWindow);
             backdrop.style.opacity = circleProgress;
             vectors.style.opacity = circleProgress;
             foreach (var element in arcs) element.Reveal(arcProgress);
             foreach (var element in lines) element.Reveal(lineProgress);
             photo.style.opacity = photoProgress;
             textContent.style.opacity = textProgress;
-            circle.style.opacity=circleProgress;
+            snapshotCircle.style.opacity=circleProgress;
+            snapshotCloseBadge.style.opacity=circleProgress;
+            snapshotImg.style.opacity=snapshotImgProgress;
         }
 
         private void UpdateTilt()
