@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 1348dc50587fc9740bc8e1351c2f8900
+guid: fb90d64b92368f34aa1e413ce6c86180
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3099851551127167824
-    second: small_garbage_center_icon_0
+      213: 6794359544525270965
+    second: MiddleGarbageCenterIcon_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: small_garbage_center_icon_0
+      name: MiddleGarbageCenterIcon_0
       rect:
         serializedVersion: 2
-        x: 500
-        y: 500
-        width: 24
-        height: 24
+        x: 483
+        y: 483
+        width: 58
+        height: 58
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 0bc1f9e107d1bf4d0800000000000000
-      internalID: -3099851551127167824
+      spriteID: 5bfa6b7f10a6a4e50800000000000000
+      internalID: 6794359544525270965
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      small_garbage_center_icon_0: -3099851551127167824
+      MiddleGarbageCenterIcon_0: 6794359544525270965
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
