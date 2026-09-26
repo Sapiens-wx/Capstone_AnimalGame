@@ -121,7 +121,7 @@ namespace AnimalGame.RobotMap
         public PhotoResultArcElement()
         {
             pickingMode = PickingMode.Ignore;
-            exclusionCache = new PhotoResultExclusionCache(this, true, MarkDirtyRepaint);
+            exclusionCache = new PhotoResultExclusionCache(this, OnExclusionsChanged);
             generateVisualContent += Draw;
             RebuildGeometry();
         }
@@ -189,6 +189,12 @@ namespace AnimalGame.RobotMap
             }
 
             exclusionCache.Configure(excludedElementNames, points);
+            MarkDirtyRepaint();
+        }
+
+        private void OnExclusionsChanged()
+        {
+            points = exclusionCache.Points;
             MarkDirtyRepaint();
         }
     }

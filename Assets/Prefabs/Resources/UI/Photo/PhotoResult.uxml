@@ -1,5 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Prefabs/Resources/UI/Photo/PhotoResult.uss?fileID=7433441132597879392&amp;guid=00835c787db842a4bcac4ece3905fe32&amp;type=3" />
+    <Style src="project://database/Assets/Prefabs/Resources/UI/Photo/PhotoResult.uss?fileID=7433441132597879392&amp;guid=00835c787db842a4bcac4ece3905fe32&amp;type=3#PhotoResult" />
     <ui:VisualElement name="stage" style="width: 1920px; height: 1080px;">
         <ui:VisualElement name="zoom-content" usage-hints="DynamicTransform" style="width: 1920px; height: 1080px;">
             <ui:VisualElement name="backdrop" />
@@ -8,18 +8,20 @@
                     <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-catalog" style="position: absolute; left: 1005px; top: 410px; width: 275px; height: 72px;" />
                     <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-save" style="position: absolute; left: 995px; top: 533px; width: 350px; height: 77px;" />
                     <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-animal-name" style="position: absolute; left: 1250px; top: 303px; width: 340px; height: 80px;" />
-                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-altitude" style="position: absolute; left: 1385px; top: 378px; width: 355px; height: 252px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-altitude" style="position: absolute; left: 1458px; top: 378px; width: 282px; height: 290px;" />
                     <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-scientific-name" style="position: absolute; left: 1310px; top: 900px; width: 460px; height: 66px;" />
-                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-snapshot" style="position: absolute; left: 1042px; top: 670px; width: 18px; height: 10px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-snapshot" style="position: absolute; left: 1042px; top: 668px; width: 18px; height: 12px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-catalog-save" style="position: absolute; left: 1075px; top: 411px; width: 205px; height: 187px;" />
                 </ui:VisualElement>
                 <AnimalGame.RobotMap.PhotoResultGridElement name="grid" offset="0,12" grid-length="56" width="1" color="#8C96913B" class="fill" />
                 <ui:VisualElement name="line-vectors" class="fill">
                     <AnimalGame.RobotMap.PhotoResultLineElement name="baseline" start-point="0,0" end-point="1720,53" color="#F0F5F0" width="2" class="fill" style="bottom: 66px; right: 173px; left: 25px; top: 958px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="metadata-rule" start-point="0,0" end-point="0,835" color="#F0F5F0" width="1.5" class="fill" style="opacity: 1; left: 62px; top: 180px; bottom: 55px; right: 1837px;" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="top-tangent" start-point="20,0" end-point="0,547.8" color="#F0F5F0" width="1.5" exclusions="exclude-catalog,exclude-save" class="fill" style="opacity: 1; bottom: 438px; right: 706px; left: 1155px; top: 95px;" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="top-tangent" start-point="20,0" end-point="0,547.8" color="#F0F5F0" width="1.5" exclusions="exclude-catalog-save" class="fill" style="opacity: 1; bottom: 438px; right: 706px; left: 1155px; top: 95px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="cross-tangent" start-point="1120,305" end-point="1280,293" color="#F0F5F0" width="1.5" class="fill" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="photo-save-rule" start-point="1018,598" end-point="1330,606" color="#F0F5F0" width="1.5" class="fill" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="catalog-rule" start-point="1030,477" end-point="1265,482" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="photo-save-rule" start-point="15,12.8" end-point="315.9,21.1" color="#F0F5F0" width="1.5" class="fill" style="left: 1018px; top: 582px; right: 536px; bottom: 414px;" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="catalog-upper-rule" start-point="8.39,7.66" end-point="78.8,10.1" color="#F0F5F0" width="1.5" class="fill" style="left: 1096px; top: 401px; bottom: 662px; right: 738px;" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="catalog-rule" start-point="8.39,7.66" end-point="237.7,15.51" color="#F0F5F0" width="1.5" class="fill" style="left: 1037px; top: 466px; bottom: 582px; right: 619px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="white-diagonal" start-point="0,0" end-point="450,513" color="#8C96913B" width="1.5" class="fill" style="left: 1168px; top: 302px; bottom: 264px; right: 301px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="white-upper-diagonal" start-point="0,171.88" end-point="195.8,-75" color="#8C96913B" width="1.5" class="fill" style="left: 1168px; top: 129px; bottom: 264px; right: 301px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="altitude-rule" start-point="0,0" end-point="205.6,4.22" color="#F0F5F0" width="1.5" class="fill" style="left: 1399px; top: 565px; bottom: 485px; right: 296px;" />
@@ -78,12 +80,12 @@
             </ui:VisualElement>
             <ui:VisualElement name="snapshot-circle" style="height: 350px; width: 350px; top: 640px; left: 975px; opacity: 1;">
                 <ui:Image name="snapshot-image" class="fill" style="opacity: 0;" />
-                <AnimalGame.RobotMap.PhotoResultArcElement name="snapshot-outline" center="175,175" radius="173" start-degrees="180" sweep-degrees="360" color="#F0F5F0" width="2.5" class="fill" style="opacity: 1;" />
-                <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); opacity: 1;" />
+                <AnimalGame.RobotMap.PhotoResultArcElement name="snapshot-outline" center="175,175" radius="173" start-degrees="180" sweep-degrees="360" color="#F0F5F0" width="2.5" class="fill" style="opacity: 0;" />
+                <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); opacity: 0;" />
             </ui:VisualElement>
             <ui:VisualElement name="arc-vectors" class="fill">
                 <AnimalGame.RobotMap.PhotoResultArcElement name="outer-orbit" center="1400,550" radius="370" start-degrees="139.4" sweep-degrees="271" color="#F0F5F0" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-scientific-name,exclude-snapshot" class="fill" />
-                <AnimalGame.RobotMap.PhotoResultArcElement name="gold-orbit" center="1400,550" radius="342" start-degrees="180" sweep-degrees="230.6" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-scientific-name" class="fill" />
+                <AnimalGame.RobotMap.PhotoResultArcElement name="gold-orbit" center="1400,552" radius="342" start-degrees="227.2" sweep-degrees="183.3" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-scientific-name" class="fill" />
                 <AnimalGame.RobotMap.PhotoResultArcElement name="upper-orbit" center="1147,0" radius="704" start-degrees="99.9" sweep-degrees="351.1" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-altitude,exclude-scientific-name" class="fill" />
                 <AnimalGame.RobotMap.PhotoResultArcElement name="diagonal-angle" center="0,36.4" radius="38.5" start-degrees="293" sweep-degrees="129.1" color="#8C96913B" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-altitude,exclude-scientific-name" min-segments="7" class="fill" style="top: 266px; bottom: 743px; right: 699px; left: 1180px;" />
                 <AnimalGame.RobotMap.PhotoResultArcElement name="ring" center="20,20" radius="8.4" start-degrees="99.9" sweep-degrees="360" color="#D4B854" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-altitude,exclude-scientific-name" min-segments="9" class="fill" style="top: 683px; left: 1107px; bottom: 361px; right: 768px;" />
@@ -102,7 +104,7 @@
                 <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
                 <ui:Label name="save-label" text="Save Photo" style="rotate: 1deg;" />
                 <ui:Label name="scientific-name" text="Ondatra zibethicus" />
-                <ui:Label name="metadata" />
+                <ui:Label name="metadata" style="height: 55px; width: 323px; top: 185px; left: 115px; rotate: 90deg;" />
                 <ui:Label name="reward" />
             </ui:VisualElement>
         </ui:VisualElement>

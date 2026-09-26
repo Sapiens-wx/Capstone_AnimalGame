@@ -81,7 +81,7 @@ namespace AnimalGame.RobotMap
         public PhotoResultLineElement()
         {
             pickingMode = PickingMode.Ignore;
-            exclusionCache = new PhotoResultExclusionCache(this, false, MarkDirtyRepaint);
+            exclusionCache = new PhotoResultExclusionCache(this, OnExclusionsChanged);
             generateVisualContent += Draw;
             RebuildGeometry();
         }
@@ -126,7 +126,8 @@ namespace AnimalGame.RobotMap
             if (connected && progress < 1f)
             {
                 Vector2 tip = Vector2.Lerp(lineStartPoint, lineEndPoint, progress);
-                if (!exclusionCache.Contains(tip)) painter.LineTo(tip);
+                if (!exclusionCache.Contains(tip)
+                    && !exclusionCache.Intersects(points[lastPointIndex], tip)) painter.LineTo(tip);
             }
             painter.Stroke();
         }
@@ -148,6 +149,12 @@ namespace AnimalGame.RobotMap
                 points[i] = Vector2.Lerp(lineStartPoint, lineEndPoint, (float)i / segmentCount);
 
             exclusionCache.Configure(excludedElementNames, points);
+            MarkDirtyRepaint();
+        }
+
+        private void OnExclusionsChanged()
+        {
+            points = exclusionCache.Points;
             MarkDirtyRepaint();
         }
     }
