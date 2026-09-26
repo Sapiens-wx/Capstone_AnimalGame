@@ -52,6 +52,7 @@ namespace AnimalGame.RobotMap
         private float lastAnimationProgress = -1;
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
+        private IDisposable animalPause;
         private void Awake()
         {
             BuildDocumentTree();
@@ -123,6 +124,8 @@ namespace AnimalGame.RobotMap
 
         internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
         {
+            // pause animals
+            animalPause ??= AnimalSimulation.AcquirePause();
             if (mainUIAnimation == null)
                 mainUIAnimation = FindFirstObjectByType<PhotoResultMainUIAnimation>();
             // UIDocument may rebuild its root after its parent GameObject is re-enabled.
@@ -166,10 +169,17 @@ namespace AnimalGame.RobotMap
 
         public void HideImmediately()
         {
+            ReleaseAnimalPause();
             showing = false;
             if (mainUIAnimation != null) mainUIAnimation.Restore();
             if (root != null) root.style.display = DisplayStyle.None;
             ReleaseTextures();
+        }
+
+        private void ReleaseAnimalPause()
+        {
+            animalPause?.Dispose();
+            animalPause = null;
         }
 
         // Run after RobotTumbleUiRotation's LateUpdate (350), which locks the HUD position.
@@ -330,6 +340,7 @@ namespace AnimalGame.RobotMap
         private void OnDisable() => HideImmediately();
         private void OnDestroy()
         {
+            ReleaseAnimalPause();
             ReleaseTextures();
         }
     }

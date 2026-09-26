@@ -232,6 +232,9 @@ namespace AnimalGame.Animals
 
         private void Update()
         {
+            if (AnimalSimulation.IsPaused)
+                return;
+
             float deltaTime = Mathf.Max(0f, Time.deltaTime);
             for (int index = 0; index < waves.Count; index++)
             {
