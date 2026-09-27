@@ -63,7 +63,7 @@ MonoBehaviour:
         y: 0.33626372
         width: 0.6212454
         height: 0.5956044
-      saturation: 0.25
+      saturation: 0.3
     - image: {fileID: 2800000, guid: 79568b2ed5f9905499254f78946c6141, type: 3}
       subjectRect:
         serializedVersion: 2
