@@ -1,19 +1,31 @@
 fileFormatVersion: 2
-guid: b985e8e31f0dcd948b76a5fa758da5ab
+guid: baa7b4d5cc8da154480eefc0bac20cca
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -5889613950202758321
-    second: TreeTrunk_0
+      213: -6962615492736706618
+    second: BushLeaves_0
   - first:
-      213: -4545841376143743805
-    second: TreeTrunk_1
+      213: 3053891899715179937
+    second: BushLeaves_1
   - first:
-      213: 2227172527523186
-    second: TreeTrunk_2
+      213: -1669558288011700292
+    second: BushLeaves_2
   - first:
-      213: -5903393134876962341
-    second: TreeTrunk_3
+      213: -8958610664785598677
+    second: BushLeaves_3
+  - first:
+      213: -8962139158184315322
+    second: BushLeaves_4
+  - first:
+      213: 4285124511729176918
+    second: BushLeaves_5
+  - first:
+      213: 270138151928157076
+    second: BushLeaves_6
+  - first:
+      213: -9024001480791498707
+    second: BushLeaves_7
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -109,13 +121,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: TreeTrunk_0
+      name: BushLeaves_0
       rect:
         serializedVersion: 2
-        x: 436
-        y: 526
-        width: 62
-        height: 62
+        x: 325
+        y: 626
+        width: 73
+        height: 73
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -124,20 +136,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: f4bbaf91153e34ea0800000000000000
-      internalID: -5889613950202758321
+      spriteID: 6c71ccf4912df5f90800000000000000
+      internalID: -6962615492736706618
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: TreeTrunk_1
+      name: BushLeaves_1
       rect:
         serializedVersion: 2
-        x: 526
-        y: 526
-        width: 62
-        height: 62
+        x: 420
+        y: 682
+        width: 185
+        height: 58
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -146,20 +158,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 3c4eda17a5de9e0c0800000000000000
-      internalID: -4545841376143743805
+      spriteID: 1a557f8a08a916a20800000000000000
+      internalID: 3053891899715179937
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: TreeTrunk_2
+      name: BushLeaves_2
       rect:
         serializedVersion: 2
-        x: 436
-        y: 436
-        width: 62
-        height: 62
+        x: 626
+        y: 626
+        width: 73
+        height: 73
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -168,20 +180,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 2754b530a99e70000800000000000000
-      internalID: 2227172527523186
+      spriteID: cb7d04f259984d8e0800000000000000
+      internalID: -1669558288011700292
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: TreeTrunk_3
+      name: BushLeaves_3
       rect:
         serializedVersion: 2
-        x: 526
-        y: 436
-        width: 62
-        height: 62
+        x: 284
+        y: 420
+        width: 58
+        height: 185
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -190,8 +202,96 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: bd1dd2aa83fe21ea0800000000000000
-      internalID: -5903393134876962341
+      spriteID: b27ad6ca01f9ca380800000000000000
+      internalID: -8958610664785598677
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BushLeaves_4
+      rect:
+        serializedVersion: 2
+        x: 682
+        y: 420
+        width: 58
+        height: 185
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6463ec84be510a380800000000000000
+      internalID: -8962139158184315322
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BushLeaves_5
+      rect:
+        serializedVersion: 2
+        x: 325
+        y: 325
+        width: 73
+        height: 73
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 651dfe33a02d77b30800000000000000
+      internalID: 4285124511729176918
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BushLeaves_6
+      rect:
+        serializedVersion: 2
+        x: 420
+        y: 284
+        width: 185
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 49355f9c739bfb300800000000000000
+      internalID: 270138151928157076
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BushLeaves_7
+      rect:
+        serializedVersion: 2
+        x: 626
+        y: 325
+        width: 73
+        height: 73
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d20e2d4e67e44c280800000000000000
+      internalID: -9024001480791498707
       vertices: []
       indices: 
       edges: []
@@ -210,10 +310,14 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      TreeTrunk_0: -5889613950202758321
-      TreeTrunk_1: -4545841376143743805
-      TreeTrunk_2: 2227172527523186
-      TreeTrunk_3: -5903393134876962341
+      BushLeaves_0: -6962615492736706618
+      BushLeaves_1: 3053891899715179937
+      BushLeaves_2: -1669558288011700292
+      BushLeaves_3: -8958610664785598677
+      BushLeaves_4: -8962139158184315322
+      BushLeaves_5: 4285124511729176918
+      BushLeaves_6: 270138151928157076
+      BushLeaves_7: -9024001480791498707
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
