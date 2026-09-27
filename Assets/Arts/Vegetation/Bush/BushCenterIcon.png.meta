@@ -103,10 +103,10 @@ TextureImporter:
       name: BushCenterIcon_0
       rect:
         serializedVersion: 2
-        x: 500
-        y: 500
-        width: 24
-        height: 24
+        x: 497
+        y: 497
+        width: 30
+        height: 30
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

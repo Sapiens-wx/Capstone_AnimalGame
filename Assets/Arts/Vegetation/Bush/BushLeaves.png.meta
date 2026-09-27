@@ -124,10 +124,10 @@ TextureImporter:
       name: BushLeaves_0
       rect:
         serializedVersion: 2
-        x: 325
-        y: 626
-        width: 73
-        height: 73
+        x: 322
+        y: 623
+        width: 79
+        height: 79
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -146,10 +146,10 @@ TextureImporter:
       name: BushLeaves_1
       rect:
         serializedVersion: 2
-        x: 420
-        y: 682
-        width: 185
-        height: 58
+        x: 417
+        y: 679
+        width: 191
+        height: 64
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -168,10 +168,10 @@ TextureImporter:
       name: BushLeaves_2
       rect:
         serializedVersion: 2
-        x: 626
-        y: 626
-        width: 73
-        height: 73
+        x: 623
+        y: 623
+        width: 79
+        height: 79
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -190,10 +190,10 @@ TextureImporter:
       name: BushLeaves_3
       rect:
         serializedVersion: 2
-        x: 284
-        y: 420
-        width: 58
-        height: 185
+        x: 281
+        y: 417
+        width: 64
+        height: 191
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -212,10 +212,10 @@ TextureImporter:
       name: BushLeaves_4
       rect:
         serializedVersion: 2
-        x: 682
-        y: 420
-        width: 58
-        height: 185
+        x: 679
+        y: 417
+        width: 64
+        height: 191
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -234,10 +234,10 @@ TextureImporter:
       name: BushLeaves_5
       rect:
         serializedVersion: 2
-        x: 325
-        y: 325
-        width: 73
-        height: 73
+        x: 322
+        y: 322
+        width: 79
+        height: 79
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -256,10 +256,10 @@ TextureImporter:
       name: BushLeaves_6
       rect:
         serializedVersion: 2
-        x: 420
-        y: 284
-        width: 185
-        height: 58
+        x: 417
+        y: 281
+        width: 191
+        height: 64
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -278,10 +278,10 @@ TextureImporter:
       name: BushLeaves_7
       rect:
         serializedVersion: 2
-        x: 626
-        y: 325
-        width: 73
-        height: 73
+        x: 623
+        y: 322
+        width: 79
+        height: 79
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

@@ -112,10 +112,10 @@ TextureImporter:
       name: BushBranch_0
       rect:
         serializedVersion: 2
-        x: 421
-        y: 523
-        width: 80
-        height: 80
+        x: 418
+        y: 520
+        width: 86
+        height: 86
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,10 +134,10 @@ TextureImporter:
       name: BushBranch_1
       rect:
         serializedVersion: 2
-        x: 523
-        y: 523
-        width: 80
-        height: 80
+        x: 520
+        y: 520
+        width: 86
+        height: 86
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,10 +156,10 @@ TextureImporter:
       name: BushBranch_2
       rect:
         serializedVersion: 2
-        x: 421
-        y: 421
-        width: 80
-        height: 80
+        x: 418
+        y: 418
+        width: 86
+        height: 86
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -178,10 +178,10 @@ TextureImporter:
       name: BushBranch_3
       rect:
         serializedVersion: 2
-        x: 523
-        y: 421
-        width: 80
-        height: 80
+        x: 520
+        y: 418
+        width: 86
+        height: 86
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
