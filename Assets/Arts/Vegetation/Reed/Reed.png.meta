@@ -1,31 +1,22 @@
 fileFormatVersion: 2
-guid: baa7b4d5cc8da154480eefc0bac20cca
+guid: c212e9165a4fa7a42bf41156f36143db
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -6962615492736706618
-    second: BushLeaves_0
+      213: -4292141645959811470
+    second: Reed_0
   - first:
-      213: 3053891899715179937
-    second: BushLeaves_1
+      213: 6056315297927000147
+    second: Reed_1
   - first:
-      213: -1669558288011700292
-    second: BushLeaves_2
+      213: -2724493263864141315
+    second: Reed_2
   - first:
-      213: -8958610664785598677
-    second: BushLeaves_3
+      213: -6866419474161542144
+    second: Reed_3
   - first:
-      213: -8962139158184315322
-    second: BushLeaves_4
-  - first:
-      213: 4285124511729176918
-    second: BushLeaves_5
-  - first:
-      213: 270138151928157076
-    second: BushLeaves_6
-  - first:
-      213: -9024001480791498707
-    second: BushLeaves_7
+      213: 665624677000670318
+    second: Reed_4
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -121,13 +112,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: BushLeaves_0
+      name: Reed_0
       rect:
         serializedVersion: 2
-        x: 344
-        y: 601
-        width: 79
-        height: 79
+        x: 364
+        y: 504
+        width: 149
+        height: 141
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -136,20 +127,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 6c71ccf4912df5f90800000000000000
-      internalID: -6962615492736706618
+      spriteID: 27ea7eae9ef3f64c0800000000000000
+      internalID: -4292141645959811470
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: BushLeaves_1
+      name: Reed_1
       rect:
         serializedVersion: 2
-        x: 417
-        y: 635
-        width: 190
-        height: 64
+        x: 403
+        y: 364
+        width: 133
+        height: 149
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -158,20 +149,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 1a557f8a08a916a20800000000000000
-      internalID: 3053891899715179937
+      spriteID: 350f3bcfcaa5c0450800000000000000
+      internalID: 6056315297927000147
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: BushLeaves_2
+      name: Reed_2
       rect:
         serializedVersion: 2
-        x: 601
-        y: 601
-        width: 79
-        height: 79
+        x: 496
+        y: 511
+        width: 94
+        height: 134
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -180,20 +171,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: cb7d04f259984d8e0800000000000000
-      internalID: -1669558288011700292
+      spriteID: df9ee6ebfc7a03ad0800000000000000
+      internalID: -2724493263864141315
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: BushLeaves_3
+      name: Reed_3
       rect:
         serializedVersion: 2
-        x: 325
-        y: 417
-        width: 64
-        height: 190
+        x: 589
+        y: 511
+        width: 58
+        height: 73
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -202,20 +193,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b27ad6ca01f9ca380800000000000000
-      internalID: -8958610664785598677
+      spriteID: 00cd6cb3ed395b0a0800000000000000
+      internalID: -6866419474161542144
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: BushLeaves_4
+      name: Reed_4
       rect:
         serializedVersion: 2
-        x: 344
-        y: 344
-        width: 79
-        height: 79
+        x: 527
+        y: 411
+        width: 87
+        height: 94
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -224,74 +215,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 6463ec84be510a380800000000000000
-      internalID: -8962139158184315322
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: BushLeaves_5
-      rect:
-        serializedVersion: 2
-        x: 601
-        y: 344
-        width: 79
-        height: 79
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 651dfe33a02d77b30800000000000000
-      internalID: 4285124511729176918
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: BushLeaves_6
-      rect:
-        serializedVersion: 2
-        x: 635
-        y: 417
-        width: 64
-        height: 190
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 49355f9c739bfb300800000000000000
-      internalID: 270138151928157076
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: BushLeaves_7
-      rect:
-        serializedVersion: 2
-        x: 417
-        y: 325
-        width: 190
-        height: 64
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: d20e2d4e67e44c280800000000000000
-      internalID: -9024001480791498707
+      spriteID: e6ceb5afd16cc3900800000000000000
+      internalID: 665624677000670318
       vertices: []
       indices: 
       edges: []
@@ -310,14 +235,11 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      BushLeaves_0: -6962615492736706618
-      BushLeaves_1: 3053891899715179937
-      BushLeaves_2: -1669558288011700292
-      BushLeaves_3: -8958610664785598677
-      BushLeaves_4: -8962139158184315322
-      BushLeaves_5: 4285124511729176918
-      BushLeaves_6: 270138151928157076
-      BushLeaves_7: -9024001480791498707
+      Reed_0: -4292141645959811470
+      Reed_1: 6056315297927000147
+      Reed_2: -2724493263864141315
+      Reed_3: -6866419474161542144
+      Reed_4: 665624677000670318
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
