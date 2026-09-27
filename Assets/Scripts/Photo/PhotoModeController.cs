@@ -118,7 +118,8 @@ namespace AnimalGame.RobotMap
         public bool IsFocusing => captureState == PhotoCaptureState.Focusing;
         public bool IsFocusComplete =>
             captureState == PhotoCaptureState.Focused
-            || captureState == PhotoCaptureState.Capturing;
+            || captureState == PhotoCaptureState.Capturing
+            || captureState == PhotoCaptureState.Reviewing;
         public bool IsCapturing =>
             captureState == PhotoCaptureState.Capturing;
         public bool IsReviewing =>
@@ -586,7 +587,8 @@ namespace AnimalGame.RobotMap
             bool focusPresentationActive =
                 captureState == PhotoCaptureState.Focusing
                 || captureState == PhotoCaptureState.Focused
-                || captureState == PhotoCaptureState.Capturing;
+                || captureState == PhotoCaptureState.Capturing
+                || captureState == PhotoCaptureState.Reviewing;
             if (focusPresentationActive)
             {
                 focusPresentation01 = FocusProgress01;
