@@ -38,7 +38,8 @@ namespace AnimalGame.RobotMap
         public bool IsClosing => animationSettings.IsClosing;
         public event Action Closed;
 
-        private VisualElement root, stage, zoomContent, backdrop, vectors, circle, photo, textContent;
+        private VisualElement root, stage, zoomContent, backdrop, vectors, photo, textContent;
+        private VisualElement snapshotCircle, snapshotCloseBadge, snapshotImg;
         private Label saveLabel;
         private Image photoImage, snapshotImage;
         private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
@@ -51,6 +52,7 @@ namespace AnimalGame.RobotMap
         private float lastAnimationProgress = -1;
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
+        private IDisposable animalPause;
         private void Awake()
         {
             BuildDocumentTree();
@@ -71,7 +73,9 @@ namespace AnimalGame.RobotMap
             zoomContent = root.Q("zoom-content");
             backdrop = root.Q("backdrop");
             vectors = root.Q("vectors");
-            circle = root.Q("snapshot-circle");
+            snapshotCircle = root.Q("snapshot-outline");
+            snapshotCloseBadge = root.Q("close-badge");
+            snapshotImg = root.Q("snapshot-image");
             photo = root.Q("photo");
             textContent = root.Q("text-content");
             saveLabel = root.Q<Label>("save-label");
@@ -86,7 +90,7 @@ namespace AnimalGame.RobotMap
 
         private void ConfigureDesignLayout()
         {
-            if (stage == null || zoomContent == null || circle == null) return;
+            if (stage == null || zoomContent == null) return;
 
             float designWidth = Mathf.Max(1f, designSize.x);
             float designHeight = Mathf.Max(1f, designSize.y);
@@ -120,6 +124,8 @@ namespace AnimalGame.RobotMap
 
         internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
         {
+            // pause animals
+            animalPause ??= AnimalSimulation.AcquirePause();
             if (mainUIAnimation == null)
                 mainUIAnimation = FindFirstObjectByType<PhotoResultMainUIAnimation>();
             // UIDocument may rebuild its root after its parent GameObject is re-enabled.
@@ -163,10 +169,17 @@ namespace AnimalGame.RobotMap
 
         public void HideImmediately()
         {
+            ReleaseAnimalPause();
             showing = false;
             if (mainUIAnimation != null) mainUIAnimation.Restore();
             if (root != null) root.style.display = DisplayStyle.None;
             ReleaseTextures();
+        }
+
+        private void ReleaseAnimalPause()
+        {
+            animalPause?.Dispose();
+            animalPause = null;
         }
 
         // Run after RobotTumbleUiRotation's LateUpdate (350), which locks the HUD position.
@@ -231,13 +244,16 @@ namespace AnimalGame.RobotMap
             float lineProgress = animationSettings.Evaluate(animationSettings.lineWindow);
             float photoProgress = animationSettings.Evaluate(animationSettings.photoWindow);
             float textProgress = animationSettings.Evaluate(animationSettings.textWindow);
+            float snapshotImgProgress = animationSettings.Evaluate(animationSettings.snapshotImgWindow);
             backdrop.style.opacity = circleProgress;
             vectors.style.opacity = circleProgress;
             foreach (var element in arcs) element.Reveal(arcProgress);
             foreach (var element in lines) element.Reveal(lineProgress);
             photo.style.opacity = photoProgress;
             textContent.style.opacity = textProgress;
-            circle.style.opacity=circleProgress;
+            snapshotCircle.style.opacity=circleProgress;
+            snapshotCloseBadge.style.opacity=circleProgress;
+            snapshotImg.style.opacity=snapshotImgProgress;
         }
 
         private void UpdateTilt()
@@ -324,6 +340,7 @@ namespace AnimalGame.RobotMap
         private void OnDisable() => HideImmediately();
         private void OnDestroy()
         {
+            ReleaseAnimalPause();
             ReleaseTextures();
         }
     }

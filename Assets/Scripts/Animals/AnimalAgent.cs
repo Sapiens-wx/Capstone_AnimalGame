@@ -75,6 +75,9 @@ namespace AnimalGame.Animals
 
         private void Update()
         {
+            if (AnimalSimulation.IsPaused)
+                return;
+
             if (!initialized && !TryInitialize())
                 return;
 
@@ -192,6 +195,8 @@ namespace AnimalGame.Animals
         {
             if (initialized)
                 return true;
+            if (AnimalSimulation.IsPaused)
+                return false;
             if (config == null)
             {
                 Debug.LogError("Animal Agent has no species configuration.", this);

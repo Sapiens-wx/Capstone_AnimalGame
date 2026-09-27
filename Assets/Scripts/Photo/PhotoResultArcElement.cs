@@ -13,6 +13,7 @@ namespace AnimalGame.RobotMap
         private float arcRadius = 50f;
         private float arcStartDegrees;
         private float arcSweepDegrees = 90f;
+        private int _minSegments = 2;
         private Color arcColor = Color.white;
         private float arcWidth = 1.5f;
         private float progress = 1f;
@@ -70,6 +71,18 @@ namespace AnimalGame.RobotMap
         }
 
         [UxmlAttribute]
+        public int minSegments
+        {
+            get => _minSegments;
+            set
+            {
+                if (_minSegments==value) return;
+                _minSegments = value;
+                RebuildGeometry();
+            }
+        }
+
+        [UxmlAttribute]
         public Color color
         {
             get => arcColor;
@@ -108,7 +121,7 @@ namespace AnimalGame.RobotMap
         public PhotoResultArcElement()
         {
             pickingMode = PickingMode.Ignore;
-            exclusionCache = new PhotoResultExclusionCache(this, true, MarkDirtyRepaint);
+            exclusionCache = new PhotoResultExclusionCache(this, OnExclusionsChanged);
             generateVisualContent += Draw;
             RebuildGeometry();
         }
@@ -165,7 +178,7 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            int segmentCount = Mathf.Max(2, Mathf.CeilToInt(arcLength / 30));
+            int segmentCount = Mathf.Max(_minSegments, Mathf.CeilToInt(arcLength / 30));
             points = new Vector2[segmentCount + 1];
 
             for (int i = 0; i <= segmentCount; i++)
@@ -176,6 +189,12 @@ namespace AnimalGame.RobotMap
             }
 
             exclusionCache.Configure(excludedElementNames, points);
+            MarkDirtyRepaint();
+        }
+
+        private void OnExclusionsChanged()
+        {
+            points = exclusionCache.Points;
             MarkDirtyRepaint();
         }
     }
