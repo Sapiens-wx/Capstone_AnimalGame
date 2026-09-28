@@ -267,7 +267,6 @@ MonoBehaviour:
   cognitionReward: 0
   photoBoundsRenderers:
   - {fileID: 6051157855037081251}
-  - {fileID: 1874912894510113343}
 --- !u!1 &3470056907385243293
 GameObject:
   m_ObjectHideFlags: 0
