@@ -19,18 +19,18 @@
                 <ui:VisualElement name="line-vectors" class="fill">
                     <AnimalGame.RobotMap.PhotoResultLineElement name="baseline" start-point="0,0" end-point="1720,53" color="#F0F5F0" width="2" class="fill" style="bottom: 66px; right: 173px; left: 25px; top: 958px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="metadata-rule" start-point="0,0" end-point="0,835" color="#F0F5F0" width="1.5" class="fill" style="opacity: 1; left: 62px; top: 180px; bottom: 55px; right: 1837px;" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="top-tangent" start-point="20,0" end-point="0,547.8" color="#F0F5F0" width="1.5" exclusions="exclude-catalog-save" class="fill" style="opacity: 1; bottom: 438px; right: 706px; left: 1155px; top: 95px;" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="cross-tangent" start-point="1120,305" end-point="1280,293" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="top-tangent" start-point="20,0" end-point="11.783,547.8" color="#FFFFFFFF" width="1.5" exclusions="exclude-catalog-save" class="fill" style="opacity: 1; bottom: 438px; right: 706px; left: 1155px; top: 95px;" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="cross-tangent" start-point="1139,314" end-point="1299,314" color="#FFFFFFFF" width="1.5" class="fill" style="rotate: -0.0625rad;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="photo-save-rule" start-point="15,12.8" end-point="315.9,21.1" color="#F0F5F0" width="1.5" class="fill" style="left: 1018px; top: 582px; right: 536px; bottom: 414px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="catalog-upper-rule" start-point="8.39,7.66" end-point="78.8,10.1" color="#F0F5F0" width="1.5" class="fill" style="left: 1096px; top: 401px; bottom: 662px; right: 738px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="catalog-rule" start-point="8.39,7.66" end-point="237.7,15.51" color="#F0F5F0" width="1.5" class="fill" style="left: 1037px; top: 466px; bottom: 582px; right: 619px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="white-diagonal" start-point="0,0" end-point="450,513" color="#8C96913B" width="1.5" class="fill" style="left: 1168px; top: 302px; bottom: 264px; right: 301px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="white-upper-diagonal" start-point="0,171.88" end-point="195.8,-75" color="#8C96913B" width="1.5" class="fill" style="left: 1168px; top: 129px; bottom: 264px; right: 301px;" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="altitude-rule" start-point="0,0" end-point="205.6,4.22" color="#F0F5F0" width="1.5" class="fill" style="left: 1399px; top: 565px; bottom: 485px; right: 296px;" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="altitude-rule" start-point="0,0" end-point="205.6,3.084" color="#FFFFFFFF" width="1.5" class="fill" style="left: 1399px; top: 565px; bottom: 485px; right: 296px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="gold-diagonal" start-point="0,0" end-point="124,141.7" color="#D4B854" width="1.5" class="fill" style="left: 1399px; top: 565px; bottom: 376px; right: 403px;" />
                     <AnimalGame.RobotMap.PhotoResultLineElement name="gold-diagonal-cont" start-point="0,0" end-point="20,23" color="#D4B854" width="1.5" class="fill" style="width: 20px; height: 23px; top: 792px; bottom: 266px; right: 303px; left: 1598px;" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-a" start-point="1496,390" end-point="1650,380" color="#F0F5F0" width="1.5" class="fill" />
-                    <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-b" start-point="1496,390" end-point="1650,397" color="#F0F5F0" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-a" start-point="1496,390" end-point="1650,380.375" color="#FFFFFFFF" width="1.5" class="fill" />
+                    <AnimalGame.RobotMap.PhotoResultLineElement name="location-chevron-b" start-point="1496,390" end-point="1650,392.31" color="#FFFFFFFF" width="1.5" class="fill" />
                     <ui:VisualElement name="Rulers" style="flex-grow: 1;">
                         <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-0" start-point="640,976.950581" end-point="640,954.950581" color="#F0F5F0" width="1.5" class="fill" />
                         <AnimalGame.RobotMap.PhotoResultLineElement name="ruler-1" start-point="692,978.552907" end-point="692,967.552907" color="#F0F5F0" width="1.5" class="fill" />
@@ -95,16 +95,16 @@
                 <ui:Image name="photo-image" class="fill" />
             </ui:VisualElement>
             <ui:VisualElement name="text-content" class="fill">
-                <ui:Label name="animal-name" text="Muskrat" style="rotate: -5deg; width: 240px; top: 303px; left: 1286px;" />
-                <ui:Label name="location-title" text="Location:" style="rotate: 2.3deg; top: 401px; left: 1518px;" />
-                <ui:Label name="region" text="Rocky Mountains" style="color: rgb(212, 184, 84); rotate: 2.3deg; top: 449px; left: 1401px; width: 280px;" />
-                <ui:Label name="altitude" text="123m" style="rotate: 1.5deg; top: 522px; left: 1402px;" />
-                <ui:Label name="coordinates" text="Coordinates — —" style="top: 572px; left: 1438px; rotate: 1.5deg;" />
-                <ui:Label name="catalog-badge" text="≡" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
-                <ui:Label name="catalog-label" text="Catalog" style="rotate: 1deg;" />
-                <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84);" />
-                <ui:Label name="save-label" text="Save Photo" style="rotate: 1deg;" />
-                <ui:Label name="scientific-name" text="Ondatra zibethicus" />
+                <ui:Label name="animal-name" text="Muskrat" style="rotate: -0.0625rad; width: 240px; top: 303px; left: 1286px;" />
+                <ui:Label name="location-title" text="Location:" style="rotate: 0.015rad; top: 401px; left: 1518px;" />
+                <ui:Label name="region" text="Rocky Mountains" style="color: rgb(212, 184, 84); rotate: 0.015rad; top: 449px; left: 1401px; width: 280px;" />
+                <ui:Label name="altitude" text="123m" style="rotate: 0.015rad; top: 522px; left: 1402px;" />
+                <ui:Label name="coordinates" text="Coordinates — —" style="top: 572px; left: 1438px; rotate: 0.015rad;" />
+                <ui:Label name="catalog-badge" text="≡" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad;" />
+                <ui:Label name="catalog-label" text="Catalog" style="rotate: 0.015rad;" />
+                <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad;" />
+                <ui:Label name="save-label" text="Save Photo" style="rotate: 0.015rad;" />
+                <ui:Label name="scientific-name" text="Ondatra zibethicus" style="rotate: 0.015rad;" />
                 <ui:Label name="metadata" style="height: 55px; width: 323px; top: 185px; left: 115px; rotate: 90deg;" />
                 <ui:Label name="reward" />
             </ui:VisualElement>
