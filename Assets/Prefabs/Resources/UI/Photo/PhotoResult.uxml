@@ -103,7 +103,7 @@
                 <ui:Label name="catalog-badge" text="≡" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad;" />
                 <ui:Label name="catalog-label" text="Catalog" style="rotate: 0.015rad;" />
                 <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad;" />
-                <ui:Label name="save-label" text="Save Photo" style="rotate: 0.015rad;" />
+                <ui:Label name="save-label" text="Save Photo" style="rotate: 0.015rad; left: 1068px;" />
                 <ui:Label name="scientific-name" text="Ondatra zibethicus" style="rotate: 0.015rad;" />
                 <ui:Label name="metadata" style="height: 55px; width: 323px; top: 185px; left: 115px; rotate: 90deg;" />
                 <ui:Label name="reward" />
