@@ -1,4 +1,5 @@
 using AnimalGame.MapTest;
+using AnimalGame.World;
 using UnityEngine;
 
 namespace AnimalGame.Animals
@@ -197,30 +198,9 @@ namespace AnimalGame.Animals
                 return false;
             }
 
-            foreach (HeightMapObstacleFootprint footprint
-                     in HeightMapObstacleFootprint.ActiveFootprints)
-            {
-                if (footprint == null
-                    || !footprint.isActiveAndEnabled
-                    || !footprint.BlocksTraversal
-                    || !map.TrySampleWorldPosition(
-                        footprint.transform.position,
-                        out Vector2 obstaclePosition,
-                        out _))
-                {
-                    continue;
-                }
-
-                float clearance = footprint.RadiusMeters
-                                  + config.BodyRadiusMeters;
-                if ((mapPositionMeters - obstaclePosition).sqrMagnitude
-                    < clearance * clearance)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return !WorldInteractionQuery.Query(
+                InteractionShape.Capsule(mapPositionMeters, mapPositionMeters, config.BodyRadiusMeters),
+                WorldInteractionKind.Collision, map, gameObject.scene);
         }
 
         private bool TryChooseMovementDirection(
@@ -283,46 +263,10 @@ namespace AnimalGame.Animals
             Vector2 startMapPosition,
             Vector2 endMapPosition)
         {
-            foreach (HeightMapObstacleFootprint footprint
-                     in HeightMapObstacleFootprint.ActiveFootprints)
-            {
-                if (footprint == null
-                    || !footprint.isActiveAndEnabled
-                    || !footprint.BlocksTraversal
-                    || !map.TrySampleWorldPosition(
-                        footprint.transform.position,
-                        out Vector2 obstaclePosition,
-                        out _))
-                {
-                    continue;
-                }
-
-                float clearance = footprint.RadiusMeters
-                                  + config.BodyRadiusMeters;
-                float clearanceSquared = clearance * clearance;
-                float startDistanceSquared =
-                    (startMapPosition - obstaclePosition).sqrMagnitude;
-                float endDistanceSquared =
-                    (endMapPosition - obstaclePosition).sqrMagnitude;
-
-                // Allow an animal that was authored inside a footprint to move
-                // outward instead of becoming permanently trapped.
-                if (startDistanceSquared < clearanceSquared
-                    && endDistanceSquared > startDistanceSquared)
-                {
-                    continue;
-                }
-
-                if (DistanceSquaredToSegment(
-                        obstaclePosition,
-                        startMapPosition,
-                        endMapPosition) < clearanceSquared)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return WorldInteractionQuery.Query(
+                InteractionShape.Capsule(startMapPosition, endMapPosition, config.BodyRadiusMeters),
+                WorldInteractionKind.Collision, map, gameObject.scene,
+                previous: InteractionShape.Capsule(startMapPosition, startMapPosition, config.BodyRadiusMeters));
         }
 
         private void ApplyMapPosition(Vector2 mapPositionMeters)

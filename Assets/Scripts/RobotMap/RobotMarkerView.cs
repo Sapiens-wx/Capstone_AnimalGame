@@ -1,6 +1,7 @@
 using AnimalGame.MapTest;
 using UnityEngine;
 using UnityEngine.Rendering;
+using AnimalGame.RobotArm;
 
 namespace AnimalGame.RobotMap
 {

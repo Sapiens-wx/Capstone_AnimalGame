@@ -392,40 +392,40 @@ MonoBehaviour:
   m_GameObject: {fileID: 4839072109466370475}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c5e4f83a69d9471aa4d52f48c9e4162b, type: 3}
+  m_Script: {fileID: 11500000, guid: 6024031b0979efc49817bde1fbed9046, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   keyboardArmKey: 301
-  leftStickDeadZone: 0.016
+  keyboardGrabKey: 106
+  leftStickDeadZone: 0.08
   robotArmOneSprite: {fileID: 21300000, guid: 0e7ef59a589ff6a46be1369ef2c82689, type: 3}
   robotArmTwoSprite: {fileID: 21300000, guid: 904198a61bfc02c499c4214c64930010, type: 3}
   robotHandSprite: {fileID: 21300000, guid: 3bf259085e8413645b743733fc0e4963, type: 3}
   armColor: {r: 1, g: 1, b: 1, a: 1}
   artworkScale: 0.7
   artworkThicknessScale: 2.57
-  socketRadiusOfBody: 1
-  maximumReachOfBalanceRadius: 0.808
-  maximumExtensionOffset: 0
-  maximumExtensionOfBodyDiameter: 0.5
-  connectorLengthOfBodyDiameter: 0.2
-  connectorDirectionDegrees: 0
-  perpendicularAngleDegrees: 90
-  connectorThicknessScale: 2.57
+  socketRadiusOfBody: 0.88
+  armLength: 1.45
+  upperArmLengthPercent: 0.45
+  lowerArmLengthPercent: 0.65
+  handSpacingOfBodyDiameter: 0.28
+  collisionWidthOfBodyDiameter: 0.08
   connectorExtendDuration: 0.24
-  connectorRetractDuration: 0.2
-  outerArmExtendStartNormalized: 0.55
-  connectorRetractStartOuterNormalized: 0.4
-  extendDuration: 0.4
-  retractDuration: 0.3
-  secondArmDelay: 0.03
-  aimSmoothingTime: 0.2
-  socketPositionSmoothingTime: 0.12
-  aimEnterMagnitude: 0.12
-  aimExitMagnitude: 0.06
-  fullAimMagnitude: 0.7
-  aimBlendExponent: 1.6
+  extendDuration: 0.3
+  handExtendDuration: 0.12
+  retractDuration: 0.4
+  dockEnterMagnitude: 0.18
+  dockExitMagnitude: 0.26
+  dockEnterDelay: 0.1
+  maximumMagnitude: 0.95
+  followAngle: 70
+  bodyFollowSpeed: 100
   maximumAimSpeedDegreesPerSecond: 240
-  lengthSmoothingTime: 0.07
+  aimSmoothingTime: 0.2
+  smallDockPosition: {x: 0, y: 0.65}
+  mediumDockPosition: {x: 0, y: 0.8}
+  dockToleranceOfBodyDiameter: 0.045
+  recycleDuration: 0.35
 --- !u!114 &775533119844220011
 MonoBehaviour:
   m_ObjectHideFlags: 0

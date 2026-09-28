@@ -686,7 +686,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         }
 
         MapTestSceneController[] openMaps =
-            UnityEngine.Object.FindObjectsOfType<MapTestSceneController>(true);
+            UnityEngine.Object.FindObjectsByType<MapTestSceneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (openMaps.Length > 0)
             SetLevelAsset(openMaps[0].LevelAsset);
     }
@@ -751,7 +751,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             return;
 
         MapTestSceneController[] openMaps =
-            UnityEngine.Object.FindObjectsOfType<MapTestSceneController>(true);
+            FindObjectsByType<MapTestSceneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (MapTestSceneController candidate in openMaps)
         {
             if (candidate != null

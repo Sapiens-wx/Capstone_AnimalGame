@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using AnimalGame.World;
 
 namespace AnimalGame.MapTest
 {
@@ -11,7 +12,7 @@ namespace AnimalGame.MapTest
     [ExecuteAlways]
     [DisallowMultipleComponent]
     [AddComponentMenu("Animal Game/Level/Height Map Obstacle Footprint")]
-    public sealed class HeightMapObstacleFootprint : MonoBehaviour
+    public sealed class HeightMapObstacleFootprint : WorldInteraction
     {
         private static readonly HashSet<HeightMapObstacleFootprint>
             activeFootprints = new HashSet<HeightMapObstacleFootprint>();
@@ -25,25 +26,36 @@ namespace AnimalGame.MapTest
             new Color(1f, 0.48f, 0.16f, 0.9f);
 
         public bool BlocksTraversal => blocksTraversal;
+        public override WorldInteractionKind Kind => WorldInteractionKind.Collision;
+        public override bool Available => base.Available && blocksTraversal && radiusMeters > 0f;
+        public override InteractionShape GetShape(MapTestSceneController map)
+        {
+            return InteractionShape.Capsule(
+                InteractionShape.ToQuery(transform.position, map),
+                InteractionShape.ToQuery(transform.position, map), radiusMeters);
+        }
         public float RadiusMeters => radiusMeters;
         public static IEnumerable<HeightMapObstacleFootprint>
             ActiveFootprints => activeFootprints;
 
-        private void OnEnable()
+        protected override void OnEnable()
         {
+            base.OnEnable();
             // Prefab assets do not belong to a valid scene and must never act
             // like an obstacle at world origin while they are being imported.
             if (gameObject.scene.IsValid())
                 activeFootprints.Add(this);
         }
 
-        private void OnDisable()
+        protected override void OnDisable()
         {
+            base.OnDisable();
             activeFootprints.Remove(this);
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             activeFootprints.Remove(this);
         }
 
