@@ -490,8 +490,7 @@ MonoBehaviour:
   baseReward: 10
   cognitionReward: 0
   photoBoundsRenderers:
-  - {fileID: 6051157855037081251, guid: 2645e53e76c8ec846b09ee78b13275be, type: 3}
-  - {fileID: 1874912894510113343, guid: 2645e53e76c8ec846b09ee78b13275be, type: 3}
+  - {fileID: 3253483730233485182}
 --- !u!1 &4309270336449829723
 GameObject:
   m_ObjectHideFlags: 0

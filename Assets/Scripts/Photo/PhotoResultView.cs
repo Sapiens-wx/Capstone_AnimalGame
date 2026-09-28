@@ -142,7 +142,6 @@ namespace AnimalGame.RobotMap
             root.Q<Label>("coordinates").text = $"Coordinates ({result.MapPositionMeters.x:0.0}, {result.MapPositionMeters.y:0.0})";
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
             root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
-            root.Q<Label>("reward").text = $"Recognition {result.CognitionDegrees}°   +{result.TotalReward}";
             saveLabel.text = "Save Photo";
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };

@@ -106,7 +106,6 @@
                 <ui:Label name="save-label" text="Save Photo" style="rotate: 0.015rad; left: 1068px; top: 537px;" />
                 <ui:Label name="scientific-name" text="Ondatra zibethicus" style="rotate: 0.015rad;" />
                 <ui:Label name="metadata" style="height: 55px; width: 323px; top: 185px; left: 115px; rotate: 90deg;" />
-                <ui:Label name="reward" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

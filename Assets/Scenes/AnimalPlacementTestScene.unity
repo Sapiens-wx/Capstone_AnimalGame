@@ -168,6 +168,38 @@ MonoBehaviour:
   photoLibrary: {fileID: 0}
   showFrameRate: 0
   frameRateRefreshInterval: 0.25
+  map: {fileID: 0}
+  robot: {fileID: 0}
+  traversalEvaluator: {fileID: 0}
+  mapObject: {fileID: 0}
+  robotObject: {fileID: 0}
+  cameraObject: {fileID: 0}
+  traversalObject: {fileID: 0}
+  overlayObject: {fileID: 0}
+  scanOverlayObject: {fileID: 0}
+  mainUiObject: {fileID: 0}
+  balance: {fileID: 0}
+  photoMode: {fileID: 0}
+  tumble: {fileID: 0}
+  heightMotion: {fileID: 0}
+  bioScan: {fileID: 0}
+  mapCamera: {fileID: 0}
+  cameraFollow: {fileID: 0}
+  cameraShake: {fileID: 0}
+  traversalOverlay: {fileID: 0}
+  scanOverlay: {fileID: 0}
+  scanChargeUi: {fileID: 0}
+  photoModeUi: {fileID: 0}
+  photoResultUi: {fileID: 0}
+  uiRotation: {fileID: 0}
+  balanceView: {fileID: 0}
+  armController: {fileID: 0}
+  selfRightingController: {fileID: 0}
+  mainUiCanvas: {fileID: 0}
+  traversalOverlayCanvas: {fileID: 0}
+  scanOverlayCanvas: {fileID: 0}
+  traversalOverlayCanvasObject: {fileID: 0}
+  scanOverlayCanvasObject: {fileID: 0}
 --- !u!1001 &12602079
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3990,15 +4022,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 134.59259
+      value: 136.59259
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 96.296295
+      value: 123.333336
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 19.280401
+      value: 20.477438
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4567,15 +4599,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 136.59259
+      value: 66.4074
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 123.333336
+      value: 216.2963
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.477438
+      value: 30.30142
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6951,15 +6983,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 187.48343
+      value: 187.59259
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 145.49681
+      value: 153.80371
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.677169
+      value: 13.879943
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalPosition.x
