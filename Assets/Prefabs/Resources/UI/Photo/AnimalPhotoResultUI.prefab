@@ -88,7 +88,7 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-  restingTiltDegrees: {x: 3, y: -8}
+  restingTiltDegrees: {x: 3, y: 20}
   interactiveTiltDegrees: 9
   tiltResponse: 9
   stickDeadZone: 0.16
