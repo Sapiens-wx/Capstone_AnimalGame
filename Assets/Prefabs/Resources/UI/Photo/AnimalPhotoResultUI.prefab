@@ -88,9 +88,9 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-  restingTiltDegrees: {x: 3, y: 20}
-  interactiveTiltDegrees: 9
-  tiltResponse: 9
+  restingTiltDegrees: {x: 3, y: 12}
+  interactiveTiltDegrees: 16
+  tiltResponse: 3
   stickDeadZone: 0.16
   photoResolution: 1024
   snapshotResolution: 768

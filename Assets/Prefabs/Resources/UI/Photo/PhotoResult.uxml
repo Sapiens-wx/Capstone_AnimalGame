@@ -13,7 +13,7 @@
                     <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-snapshot" style="position: absolute; left: 1042px; top: 668px; width: 18px; height: 12px;" />
                     <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-catalog-save" style="position: absolute; left: 1075px; top: 411px; width: 205px; height: 185px;" />
                     <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-top" style="position: absolute; left: 1160px; top: 250px; width: 18px; height: 25px;" />
-                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-B" style="position: absolute; left: 1097px; top: 794px; width: 93px; height: 61px;" />
+                    <AnimalGame.RobotMap.PhotoResultExcludeElement name="exclude-B" style="position: absolute; left: 965px; top: 766px; width: 225px; height: 89px;" />
                 </ui:VisualElement>
                 <AnimalGame.RobotMap.PhotoResultGridElement name="grid" offset="0,12" grid-length="56" width="1" color="#8C96913B" class="fill" />
                 <ui:VisualElement name="line-vectors" class="fill">
