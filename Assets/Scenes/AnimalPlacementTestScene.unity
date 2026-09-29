@@ -3422,6 +3422,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
   m_PrefabInstance: {fileID: 1015744305}
   m_PrefabAsset: {fileID: 0}
+--- !u!212 &1034148600 stripped
+SpriteRenderer:
+  m_CorrespondingSourceObject: {fileID: 1874912894510113343, guid: 2645e53e76c8ec846b09ee78b13275be, type: 3}
+  m_PrefabInstance: {fileID: 1433887769}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1051029476
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5300,6 +5305,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7339224301837501201, guid: 2645e53e76c8ec846b09ee78b13275be, type: 3}
+      propertyPath: photoBoundsRenderers.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7339224301837501201, guid: 2645e53e76c8ec846b09ee78b13275be, type: 3}
+      propertyPath: 'photoBoundsRenderers.Array.data[0]'
+      value: 
+      objectReference: {fileID: 1034148600}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

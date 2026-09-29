@@ -138,7 +138,7 @@ namespace AnimalGame.RobotMap
             root.Q<Label>("animal-name").text = result.EnglishName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             root.Q<Label>("region").text = result.RegionName;
-            root.Q<Label>("altitude").text = result.HasHeight ? $"{result.HeightMeters:0}m" : "— m";
+            root.Q<Label>("altitude").text = result.HasHeight ? $"{result.HeightMeters:0}m" : "- m";
             root.Q<Label>("coordinates").text = $"Coordinates ({result.MapPositionMeters.x:0.0}, {result.MapPositionMeters.y:0.0})";
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
             root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
