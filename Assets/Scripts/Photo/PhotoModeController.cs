@@ -116,6 +116,7 @@ namespace AnimalGame.RobotMap
         public bool IsEntering => state == PhotoModeState.Entering;
         public bool IsExiting => state == PhotoModeState.Exiting;
         public bool IsFocusing => captureState == PhotoCaptureState.Focusing;
+        public bool IsFocused => captureState == PhotoCaptureState.Focused;
         public bool IsFocusComplete =>
             captureState == PhotoCaptureState.Focused
             || captureState == PhotoCaptureState.Capturing
