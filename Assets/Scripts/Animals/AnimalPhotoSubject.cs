@@ -96,6 +96,9 @@ namespace AnimalGame.Animals
         public int CognitionDegrees => Mathf.Max(0, cognitionDegrees);
         public int BaseReward => Mathf.Max(0, baseReward);
         public int CognitionReward => Mathf.Max(0, cognitionReward);
+        // Shared by scan markers so neither the uncertainty field nor the
+        // direction indicator can count as seeing the animal's actual body.
+        public IReadOnlyList<SpriteRenderer> BodyRenderers => photoBoundsRenderers;
 
         private void Awake()
         {

@@ -14,15 +14,10 @@ namespace AnimalGame.RobotMap
     [DefaultExecutionOrder(310)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RobotMarkerView))]
+    [RequireComponent(typeof(BioScanAnimalMarkerUI))]
     [AddComponentMenu("Animal Game/Robot/Biological Scan Controller")]
     public sealed class BioScanController : MonoBehaviour
     {
-        private static readonly int ClipCenterPixelsProperty =
-            Shader.PropertyToID("_ClipCenterPixels");
-        private static readonly int ClipRadiusPixelsProperty =
-            Shader.PropertyToID("_ClipRadiusPixels");
-        private static readonly int ClipSoftnessPixelsProperty =
-            Shader.PropertyToID("_ClipSoftnessPixels");
         private static readonly int PointCoreRatioProperty =
             Shader.PropertyToID("_PointCoreRatio");
 
@@ -43,7 +38,7 @@ namespace AnimalGame.RobotMap
         [SerializeField] private Sprite mechanicalArmSprite;
         [Tooltip("Arts/robot_bioradar, displayed at the end of the mechanical arm.")]
         [SerializeField] private Sprite biologicalRadarSprite;
-        [Tooltip("Procedural point shader that clips biological signals to the fixed circular player UI.")]
+        [Tooltip("Procedural point shader for biological signals across the full game view.")]
         [SerializeField] private Shader biologicalSignalClipShader;
         [SerializeField] private Color scannerArtworkColor = Color.white;
         [SerializeField, Min(0.05f)] private float mechanicalArmArtworkScale = 0.9f;
@@ -79,6 +74,8 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(0.01f)] private float formedRingRadius = 0.2f;
         [SerializeField, Min(0.1f)] private float signalSpeed = 10f;
         [SerializeField, Min(0.1f)] private float maximumSignalDistance = 12f;
+        [Tooltip("Seconds at the end of the outgoing wave used to fade its points to transparent. Detection still reaches the full scan range.")]
+        [SerializeField, Min(0f)] private float signalFadeOutDuration = 0.35f;
         [Tooltip("Diameter of the solid leading point at the front of each biological signal.")]
         [InspectorName("Signal Head Diameter")]
         [SerializeField, Min(0.01f)] private float signalPointDiameter = 0.09f;
@@ -92,8 +89,6 @@ namespace AnimalGame.RobotMap
         [Tooltip("Half-thickness of the invisible expanding detection wave. Points never collide or stop.")]
         [FormerlySerializedAs("signalCollisionRadius")]
         [SerializeField, Min(0.01f)] private float scanWaveHalfThickness = 0.14f;
-        [Tooltip("Softness of the circular player-UI clipping edge, in screen pixels.")]
-        [SerializeField, Min(0f)] private float signalClipSoftnessPixels = 1.5f;
         [Tooltip("Temporary reveal duration retained for non-animal biological targets. Scanned animals are discovered permanently.")]
         [SerializeField, Min(0.1f)] private float temporaryRevealDuration = 5f;
 
@@ -104,6 +99,7 @@ namespace AnimalGame.RobotMap
         private readonly HashSet<int> revealedEntityIds = new HashSet<int>();
 
         private RobotMarkerView markerView;
+        private BioScanAnimalMarkerUI animalMarkers;
         private ScanChargeUI scanInput;
         private Transform scannerRoot;
         private Transform armRevealRoot;
@@ -132,6 +128,7 @@ namespace AnimalGame.RobotMap
         private void Awake()
         {
             markerView = GetComponent<RobotMarkerView>();
+            animalMarkers = GetComponent<BioScanAnimalMarkerUI>();
             CreateSignalResources();
         }
 
@@ -145,8 +142,11 @@ namespace AnimalGame.RobotMap
             SubscribeToInput();
         }
 
-        public void Initialize(ScanChargeUI input)
+        public void Initialize(ScanChargeUI input, Camera worldCamera = null)
         {
+            if (animalMarkers == null)
+                animalMarkers = GetComponent<BioScanAnimalMarkerUI>();
+            animalMarkers.Initialize(input, worldCamera);
             if (scanInput == input)
             {
                 SubscribeToInput();
@@ -161,7 +161,7 @@ namespace AnimalGame.RobotMap
         private void Update()
         {
             float visualDeltaTime = Mathf.Max(0f, Time.unscaledDeltaTime);
-            UpdateSignalClipMaterials();
+            UpdateSignalMaterial();
             TickScanWave(Mathf.Max(0f, Time.deltaTime));
 
             if (phase == ScannerPhase.Hidden)
@@ -470,6 +470,7 @@ namespace AnimalGame.RobotMap
             float initialRadius = Mathf.Max(0.01f, formedRingRadius);
             float speed = Mathf.Max(0.1f, signalSpeed);
             float lifetime = Mathf.Max(0.1f, maximumSignalDistance) / speed;
+            ConfigureSignalFade(lifetime);
             int pointCount = signalFormationActive && formingPointCount > 0
                 ? formingPointCount
                 : CalculateEffectivePointCount();
@@ -502,6 +503,30 @@ namespace AnimalGame.RobotMap
             revealedEntityIds.Clear();
             RevealTargetsCrossedByWave(0f, initialRadius);
             DeactivateFormingSignals();
+        }
+
+        private void ConfigureSignalFade(float lifetime)
+        {
+            ParticleSystem.ColorOverLifetimeModule fade = emittedPointSystem.colorOverLifetime;
+            fade.enabled = signalFadeOutDuration > 0f;
+            if (!fade.enabled)
+                return;
+
+            float fadeStart = 1f - Mathf.Clamp01(signalFadeOutDuration / lifetime);
+            // Each particle fades by its own age, so a new scan cannot brighten
+            // an older wave. White preserves the authored signal-point color.
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[]
+                {
+                    new GradientAlphaKey(1f, fadeStart),
+                    new GradientAlphaKey(0.84375f, Mathf.Lerp(fadeStart, 1f, 0.25f)),
+                    new GradientAlphaKey(0.5f, Mathf.Lerp(fadeStart, 1f, 0.5f)),
+                    new GradientAlphaKey(0.15625f, Mathf.Lerp(fadeStart, 1f, 0.75f)),
+                    new GradientAlphaKey(0f, 1f)
+                });
+            fade.color = new ParticleSystem.MinMaxGradient(gradient);
         }
 
         private void DeactivateFormingSignals()
@@ -572,7 +597,10 @@ namespace AnimalGame.RobotMap
                     continue;
                 revealedEntityIds.Add(entityId);
                 if (entity.Kind == DiscoverableKind.Animal)
+                {
                     entity.SetDiscovered(true);
+                    animalMarkers?.ShowScannedAnimal(entity);
+                }
                 else
                     entity.RevealTemporarily(temporaryRevealDuration);
             }
@@ -595,7 +623,7 @@ namespace AnimalGame.RobotMap
             if (signalShader == null)
             {
                 Debug.LogError(
-                    "Biological Scan Controller could not find its signal clipping shader.",
+                    "Biological Scan Controller could not find its signal point shader.",
                     this);
                 signalShader = Shader.Find("Sprites/Default");
             }
@@ -618,7 +646,7 @@ namespace AnimalGame.RobotMap
             emittedPointSystem = CreatePointParticleSystem(
                 "Biological Signal Emitted Points",
                 Mathf.Max(2048, Mathf.Clamp(maximumPointCount, 24, 720) * 8));
-            UpdateSignalClipMaterials();
+            UpdateSignalMaterial();
         }
 
         private ParticleSystem CreatePointParticleSystem(
@@ -654,43 +682,14 @@ namespace AnimalGame.RobotMap
             return system;
         }
 
-        private void UpdateSignalClipMaterials()
+        private void UpdateSignalMaterial()
         {
-            Vector2 centerPixels = scanInput != null
-                ? scanInput.GetUiCenterScreenPoint()
-                : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-            float radiusPixels = scanInput != null
-                ? scanInput.GetUiRingScreenRadiusPixels()
-                : Mathf.Min(Screen.width, Screen.height) * 0.5f;
-            ApplySignalClip(
-                signalPointMaterial,
-                centerPixels,
-                radiusPixels);
             if (signalPointMaterial != null)
             {
                 signalPointMaterial.SetFloat(
                     PointCoreRatioProperty,
                     Mathf.Clamp(signalHeadCoreRatio, 0.2f, 0.9f));
             }
-        }
-
-        private void ApplySignalClip(
-            Material material,
-            Vector2 centerPixels,
-            float radiusPixels)
-        {
-            if (material == null)
-                return;
-
-            material.SetVector(
-                ClipCenterPixelsProperty,
-                new Vector4(centerPixels.x, centerPixels.y, 0f, 0f));
-            material.SetFloat(
-                ClipRadiusPixelsProperty,
-                Mathf.Max(0f, radiusPixels));
-            material.SetFloat(
-                ClipSoftnessPixelsProperty,
-                Mathf.Max(0f, signalClipSoftnessPixels));
         }
 
         private void SubscribeToInput()
@@ -778,6 +777,7 @@ namespace AnimalGame.RobotMap
             formedRingRadius = Mathf.Max(0.01f, formedRingRadius);
             signalSpeed = Mathf.Max(0.1f, signalSpeed);
             maximumSignalDistance = Mathf.Max(0.1f, maximumSignalDistance);
+            signalFadeOutDuration = Mathf.Max(0f, signalFadeOutDuration);
             signalPointDiameter = Mathf.Max(0.01f, signalPointDiameter);
             signalHeadCoreRatio = Mathf.Clamp(
                 signalHeadCoreRatio,
@@ -791,9 +791,6 @@ namespace AnimalGame.RobotMap
                 0.1f,
                 signalHeadPulseFrequency);
             scanWaveHalfThickness = Mathf.Max(0.01f, scanWaveHalfThickness);
-            signalClipSoftnessPixels = Mathf.Max(
-                0f,
-                signalClipSoftnessPixels);
             temporaryRevealDuration = Mathf.Max(0.1f, temporaryRevealDuration);
         }
     }

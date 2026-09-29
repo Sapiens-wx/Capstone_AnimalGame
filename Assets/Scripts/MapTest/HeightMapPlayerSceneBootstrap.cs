@@ -180,7 +180,7 @@ namespace AnimalGame.MapTest
             cameraShake.Initialize(robot, balance, heightMotion);
             photoMode.InitializeCamera(cameraFollow, cameraShake);
             scanChargeUi.SetPhotoModeController(photoMode);
-            bioScan.Initialize(scanChargeUi);
+            bioScan.Initialize(scanChargeUi, mapCamera);
             photoModeUi.Initialize(photoMode, mapCamera);
             if (photoLibrary != null) photoResultUi.Library = photoLibrary;
             photoResultUi.Initialize(photoMode, photoModeUi, mapCamera, map);

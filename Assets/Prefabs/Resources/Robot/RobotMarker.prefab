@@ -19,6 +19,7 @@ GameObject:
   - component: {fileID: 3540108170491067500}
   - component: {fileID: 6128041736594210834}
   - component: {fileID: 775533119844220011}
+  - component: {fileID: 775533119844220012}
   m_Layer: 0
   m_Name: RobotMarker
   m_TagString: Untagged
@@ -450,18 +451,50 @@ MonoBehaviour:
   readyRingPulseFrequency: 2.5
   deployedHoldDuration: 0.12
   retractionDuration: 0.25
-  signalPointCount: 120
+  signalPointCount: 160
   automaticAngularCoverage: 1
-  maximumPointCount: 120
+  maximumPointCount: 299
   pointCoverageOverlap: 0.1
   formedRingRadius: 0.2
-  signalSpeed: 6.58
-  maximumSignalDistance: 20
+  signalSpeed: 8.7
+  maximumSignalDistance: 12
+  signalFadeOutDuration: 0.35
   signalPointDiameter: 0.1
   signalHeadCoreRatio: 0.377
   signalHeadPulseAmount: 0.06
   signalHeadPulseFrequency: 4.5
   scanWaveHalfThickness: 0.14
-  signalClipSoftnessPixels: 1.5
   temporaryRevealDuration: 1.17
   biologicalSignalColor: {r: 1, g: 0.78039217, b: 0.12156863, a: 1}
+--- !u!114 &775533119844220012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 597625a504ce44fd9e0f8c339cce2a5b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  markerShader: {fileID: 4800000, guid: 30509b03655442fb92ca24cf0df18c0c, type: 3}
+  markerColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
+  markerSizePixels: 36
+  markerBodySizeFraction: 0.75
+  markerDuration: 7
+  markerFadeOutDuration: 0.6
+  enableBreathing: 1
+  breathingPeriod: 1.2
+  breathingScaleAmplitude: 0.08
+  breathingMinimumOpacity: 0.2
+  enableScanHitBurst: 1
+  scanHitBurstDuration: 0.7
+  scanHitBurstRadiusPixels: 48
+  scanHitBurstRayCount: 12
+  enableMovementTrail: 1
+  trailPointLifetime: 1.8
+  trailPointSpacing: 0.25
+  trailSpawnInterval: 0.24
+  trailPointSizePixels: 3.2
+  trailOpacity: 0.5
