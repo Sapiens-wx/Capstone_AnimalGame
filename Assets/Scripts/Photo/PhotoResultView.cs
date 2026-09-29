@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using AnimalGame.Animals;
 using UnityEngine;
 using UnityEngine.UIElements;
+using AnimalGame.MapTest;
+
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -36,6 +38,22 @@ namespace AnimalGame.RobotMap
         public int SnapshotResolution => snapshotResolution;
         public bool IsReady => root != null;
         public bool IsClosing => animationSettings.IsClosing;
+        public bool IsWarmingUp { get; private set; }
+        public bool IsShowing => showing || HasPendingReview;
+        internal bool HasPendingReview { get; set; }
+        public bool IsWarmupReady => isActiveAndEnabled && document != null && document.isActiveAndEnabled
+            && root != null && root == document.rootVisualElement && root.panel != null
+            && stage != null && zoomContent != null && backdrop != null && vectors != null
+            && photo != null && textContent != null && snapshotCircle != null
+            && snapshotCloseBadge != null && snapshotImg != null && saveLabel != null
+            && photoImage != null && snapshotImage != null
+            && root.Q<Label>("animal-name") != null && root.Q<Label>("scientific-name") != null
+            && root.Q<Label>("region") != null && root.Q<Label>("altitude") != null
+            && root.Q<Label>("coordinates") != null && root.Q<Label>("metadata") != null;
+        public Vector2 WarmupLayoutSize => root == null ? Vector2.zero : root.layout.size;
+        public bool HasWarmupLayout => IsWarmupReady && PositiveSize(root.layout.size) && PositiveSize(stage.layout.size);
+        private static bool PositiveSize(Vector2 size) => size.x > 0 && size.y > 0
+            && !float.IsInfinity(size.x) && !float.IsInfinity(size.y);
         public event Action Closed;
 
         private VisualElement root, stage, zoomContent, backdrop, vectors, photo, textContent;
@@ -55,7 +73,8 @@ namespace AnimalGame.RobotMap
         private IDisposable animalPause;
         private void Awake()
         {
-            BuildDocumentTree();
+            if (document != null) BuildDocumentTree();
+            HeightMapPlayerSceneBootstrap.inst.photoResultView=this;
         }
 
         private void BuildDocumentTree()
@@ -124,6 +143,8 @@ namespace AnimalGame.RobotMap
 
         internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
         {
+            if (IsWarmingUp) return;
+            HasPendingReview = false;
             // pause animals
             animalPause ??= AnimalSimulation.AcquirePause();
             if (mainUIAnimation == null)
@@ -131,10 +152,47 @@ namespace AnimalGame.RobotMap
             // UIDocument may rebuild its root after its parent GameObject is re-enabled.
             if (document.rootVisualElement != root || document.rootVisualElement.Q("stage") == null)
                 BuildDocumentTree();
+            ShowCore(result, capture.Texture);
+        }
+
+        public bool TryBeginWarmup()
+        {
+            if (IsShowing || IsWarmingUp || !IsWarmupReady) return false;
+            IsWarmingUp = true;
+            try
+            {
+                var sample = new AnimalPhoto(Texture2D.whiteTexture,
+                    new Rect(0, 0, 1, 1), 1);
+                var result = new PhotoResultSnapshot("warmup", "Animal", "Animal", "Scientific name",
+                    "Region", Color.white, 1, 1, 1, sample, new Vector2(12, 34), 56, 1,
+                    new DateTime(2026, 1, 1, 12, 0, 0), AnimalSpecies.Muskrat, AnimalState.Daily, true, true);
+                ShowCore(result, Texture2D.blackTexture);
+                return true;
+            }
+            catch { EndWarmup(); throw; }
+        }
+
+        public void SetWarmupProgress(float progress)
+        {
+            if (!IsWarmingUp) return;
+            animationSettings.SetWarmupProgress(progress);
+            ApplyAnimation();
+        }
+
+        public void EndWarmup()
+        {
+            if (!IsWarmingUp) return;
+            HideImmediately();
+        }
+
+        private void ShowCore(PhotoResultSnapshot result, Texture contours)
+        {
+            if (compositeShader == null || !compositeShader.isSupported)
+                throw new InvalidOperationException("Photo result composite shader is missing or unsupported.");
             ReleaseTextures();
             processedPhoto = result.Photo.Render(photoResolution);
             photoSource = processedPhoto;
-            contourSource = capture.Texture;
+            contourSource = contours;
             root.Q<Label>("animal-name").text = result.EnglishName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             root.Q<Label>("region").text = result.RegionName;
@@ -164,15 +222,20 @@ namespace AnimalGame.RobotMap
         }
 
         public void SetSaved() => saveLabel.text = "Photo Saved";
-        public void Close() { if (showing) animationSettings.Close(); }
+        public void Close() { if (showing && !IsWarmingUp) animationSettings.Close(); }
 
         public void HideImmediately()
         {
             ReleaseAnimalPause();
             showing = false;
-            if (mainUIAnimation != null) mainUIAnimation.Restore();
+            HasPendingReview = false;
+            if (!IsWarmingUp && mainUIAnimation != null) mainUIAnimation.Restore();
             if (root != null) root.style.display = DisplayStyle.None;
             ReleaseTextures();
+            IsWarmingUp = false;
+            animationSettings.Open();
+            lastAnimationProgress = -1;
+            lastPanelSize = new Vector2(-1, -1);
         }
 
         private void ReleaseAnimalPause()
@@ -184,7 +247,7 @@ namespace AnimalGame.RobotMap
         // Run after RobotTumbleUiRotation's LateUpdate (350), which locks the HUD position.
         private void LateUpdate()
         {
-            if (!showing) return;
+            if (!showing || IsWarmingUp) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
             ApplyAnimation();
             // Keep the existing card texture throughout opening and closing.
@@ -227,7 +290,7 @@ namespace AnimalGame.RobotMap
             Vector2 screenCenter = new Vector2(designWidth, designHeight) * 0.5f;
             Vector2 contentOffset = Vector2.Lerp(screenCenter - snapshotCircleCenter,
                 Vector2.zero, positionProgress);
-            if (mainUIAnimation != null && mainUIAnimation.isActiveAndEnabled)
+            if (!IsWarmingUp && mainUIAnimation != null && mainUIAnimation.isActiveAndEnabled)
             {
                 mainUIAnimation.SetZoomPose(zoom / Mathf.Max(0.01f, animationSettings.zoomedScale),
                     new Vector2(designWidth, designHeight),
@@ -317,7 +380,11 @@ namespace AnimalGame.RobotMap
         {
             var texture = new RenderTexture(Mathf.Clamp(size, 128, 2048), Mathf.Clamp(size, 128, 2048), 0, RenderTextureFormat.ARGB32)
             { name = label, hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Bilinear };
-            texture.Create();
+            if (!texture.Create())
+            {
+                Destroy(texture);
+                throw new InvalidOperationException($"Could not allocate {label} texture.");
+            }
             return texture;
         }
 

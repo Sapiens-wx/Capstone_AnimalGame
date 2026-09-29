@@ -53,6 +53,7 @@ namespace AnimalGame.MapTest
         [HideInInspector] public ScanChargeUI scanChargeUi;
         [HideInInspector] public PhotoModeUI photoModeUi;
         [HideInInspector] public PhotoResultUI photoResultUi;
+        [HideInInspector] public PhotoResultView photoResultView;
         [HideInInspector] public RobotTumbleUiRotation uiRotation;
         [HideInInspector] public RobotBalanceView balanceView;
         [HideInInspector] public RobotArmController armController;

@@ -132,7 +132,7 @@ namespace AnimalGame.RobotMap
 
         private void HandlePhotoCaptured()
         {
-            if (!isActiveAndEnabled) return;
+            if (!isActiveAndEnabled || (resultView != null && resultView.IsWarmingUp)) return;
             contourCapture.Dispose();
             pendingResult = null;
             if (!TrySelectMainSubject(
@@ -157,8 +157,10 @@ namespace AnimalGame.RobotMap
                 subject,
                 selectedPhoto,
                 frameCoverage);
+            if (resultView != null) resultView.HasPendingReview = true;
             if (resultView == null || controller == null || !controller.RequestPhotoReview())
             {
+                if (resultView != null) resultView.HasPendingReview = false;
                 pendingResult = null;
                 return;
             }
@@ -512,11 +514,12 @@ namespace AnimalGame.RobotMap
 
         private void HideResult(bool returnToCamera)
         {
+            if (resultView != null) resultView.HasPendingReview = false;
             visible = false;
             pendingResult = null;
             displayedResult = null;
             saved = false;
-            if (resultView != null) resultView.HideImmediately();
+            if (resultView != null && !resultView.IsWarmingUp) resultView.HideImmediately();
             contourCapture.Dispose();
             if (returnToCamera) controller?.EndPhotoReview();
         }

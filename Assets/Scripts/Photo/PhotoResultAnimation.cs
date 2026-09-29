@@ -27,6 +27,7 @@ namespace AnimalGame.RobotMap
         public bool IsClosing { get; private set; }
         public bool IsClosed => IsClosing && Progress <= 0f;
         public void Open() { Progress = 0f; IsClosing = false; }
+        internal void SetWarmupProgress(float progress) { Progress = Mathf.Clamp01(progress); IsClosing = false; }
         public void Close() { IsClosing = true; }
         public void Tick(float deltaTime)
         {
