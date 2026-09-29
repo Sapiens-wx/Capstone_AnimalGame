@@ -92,7 +92,7 @@
                 <AnimalGame.RobotMap.PhotoResultArcElement name="diagonal-angle" center="0,36.4" radius="38.5" start-degrees="293" sweep-degrees="129.1" color="#8C96913B" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-altitude,exclude-scientific-name" min-segments="7" class="fill" style="top: 266px; bottom: 743px; right: 699px; left: 1180px;" />
             </ui:VisualElement>
             <ui:VisualElement name="photo">
-                <ui:Image name="photo-image" class="fill" />
+                <ui:Image name="photo-image" class="fill" style="top: 50px;" />
             </ui:VisualElement>
             <ui:VisualElement name="text-content" class="fill" style="top: 0; bottom: 2px; right: 1px; left: 0;">
                 <ui:Label name="animal-name" text="Muskrat" style="rotate: -0.0625rad; width: 240px; top: 306px; left: 1254px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLight&apos;); -unity-font-style: normal; font-size: 60px; -unity-text-align: upper-center;" />
