@@ -433,6 +433,27 @@ namespace AnimalGame.RobotMap
             }
         }
 
+        // Arm thresholds use raw magnitude, before Input System stick-deadzone processors.
+        public static Vector2 ReadRawLeftStick()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemGamepad(out Gamepad gamepad))
+                return Vector2.ClampMagnitude(gamepad.leftStick.ReadUnprocessedValue(), 1f);
+#endif
+            return Vector2.ClampMagnitude(ReadLeftStick(), 1f);
+        }
+
+        public static bool IsSouthFaceButtonHeld()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemGamepad(out Gamepad gamepad))
+                return gamepad.buttonSouth.isPressed;
+#endif
+            RefreshDeviceIfNeeded();
+            return Input.GetKey(ActiveFamily == LegacyGamepadFamily.Sony
+                ? KeyCode.JoystickButton1 : KeyCode.JoystickButton0);
+        }
+
 #if ENABLE_INPUT_SYSTEM
         private static bool TryGetInputSystemGamepad(out Gamepad gamepad)
         {

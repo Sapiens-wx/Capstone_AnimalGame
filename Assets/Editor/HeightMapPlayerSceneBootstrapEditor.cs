@@ -131,7 +131,7 @@ namespace AnimalGame.Editor
                 return null;
 
             MapTestSceneController[] maps =
-                Object.FindObjectsOfType<MapTestSceneController>();
+                Object.FindObjectsByType<MapTestSceneController>(FindObjectsSortMode.None);
             for (int index = 0; index < maps.Length; index++)
             {
                 MapTestSceneController candidate = maps[index];

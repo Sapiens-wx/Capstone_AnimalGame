@@ -98,7 +98,7 @@ namespace AnimalGame.Editor
             if (placedObject != null && placedObject.Map != null)
                 return placedObject.Map;
 
-            return Object.FindObjectOfType<MapTestSceneController>();
+            return Object.FindAnyObjectByType<MapTestSceneController>();
         }
 
         private static Vector3 GetHomeCentre(

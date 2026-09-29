@@ -248,7 +248,7 @@ namespace AnimalGame.Editor
                 return placedObject.Map;
             if (birthTree != null && birthTree.Map != null)
                 return birthTree.Map;
-            return Object.FindObjectOfType<MapTestSceneController>();
+            return Object.FindAnyObjectByType<MapTestSceneController>();
         }
 
         private static Vector3 MapOffsetToWorld(

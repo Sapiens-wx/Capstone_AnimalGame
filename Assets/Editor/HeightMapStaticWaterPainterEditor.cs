@@ -840,7 +840,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         }
 
         MapTestSceneController[] openMaps =
-            Object.FindObjectsOfType<MapTestSceneController>(true);
+            Object.FindObjectsByType<MapTestSceneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (openMaps.Length > 0)
             SetLevelAsset(openMaps[0].LevelAsset);
     }
@@ -879,7 +879,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         if (levelAsset != null)
         {
             MapTestSceneController[] openMaps =
-                Object.FindObjectsOfType<MapTestSceneController>(true);
+                FindObjectsByType<MapTestSceneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (MapTestSceneController candidate in openMaps)
             {
                 if (candidate != null

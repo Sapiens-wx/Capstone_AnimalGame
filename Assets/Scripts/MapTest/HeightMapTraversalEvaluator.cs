@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Serialization;
+using AnimalGame.World;
 
 namespace AnimalGame.MapTest
 {
@@ -776,58 +777,13 @@ namespace AnimalGame.MapTest
             Vector2 endMapPosition,
             float movingRadiusMeters)
         {
-            Vector2 displacement = endMapPosition - startMapPosition;
-            float displacementLengthSquared = displacement.sqrMagnitude;
-            if (displacementLengthSquared <= 0.0000001f)
+            if ((endMapPosition - startMapPosition).sqrMagnitude <= 0.0000001f)
                 return false;
-
-            foreach (HeightMapObstacleFootprint obstacle
-                     in HeightMapObstacleFootprint.ActiveFootprints)
-            {
-                if (obstacle == null
-                    || !obstacle.isActiveAndEnabled
-                    || !obstacle.BlocksTraversal
-                    || obstacle.RadiusMeters <= 0f
-                    || obstacle.gameObject.scene != map.gameObject.scene
-                    || !map.TrySampleWorldPosition(
-                        obstacle.transform.position,
-                        out Vector2 obstacleMapPosition,
-                        out _))
-                {
-                    continue;
-                }
-
-                float combinedRadius = Mathf.Max(0f, movingRadiusMeters)
-                                       + obstacle.RadiusMeters
-                                       + obstacleContactSkinMeters;
-                float combinedRadiusSquared = combinedRadius * combinedRadius;
-                Vector2 startFromObstacle =
-                    startMapPosition - obstacleMapPosition;
-
-                // A prop placed over an existing player must not trap it. Any
-                // tangent or outward motion is allowed until it leaves contact.
-                if (startFromObstacle.sqrMagnitude
-                    <= combinedRadiusSquared + 0.0001f
-                    && Vector2.Dot(displacement, startFromObstacle) >= 0f)
-                {
-                    continue;
-                }
-
-                float closestTime = Mathf.Clamp01(
-                    Vector2.Dot(
-                        obstacleMapPosition - startMapPosition,
-                        displacement)
-                    / displacementLengthSquared);
-                Vector2 closestPoint = startMapPosition
-                                       + displacement * closestTime;
-                if ((closestPoint - obstacleMapPosition).sqrMagnitude
-                    <= combinedRadiusSquared)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            float radius = Mathf.Max(0f, movingRadiusMeters) + obstacleContactSkinMeters;
+            return WorldInteractionQuery.Query(
+                InteractionShape.Capsule(startMapPosition, endMapPosition, radius),
+                WorldInteractionKind.Collision, map, map.gameObject.scene,
+                previous: InteractionShape.Capsule(startMapPosition, startMapPosition, radius));
         }
 
         public SlopeTraversalResult EvaluateMovement(

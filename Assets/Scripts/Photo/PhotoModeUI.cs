@@ -7,6 +7,7 @@ namespace AnimalGame.RobotMap
     [DisallowMultipleComponent]
     public sealed class PhotoModeUI : MonoBehaviour
     {
+        [SerializeField] private GameObject playerRangeCanvasPrefab;
         [Header("Authored Artwork")]
         [SerializeField] private Sprite cameraFrameSprite;
         [SerializeField] private Sprite cameraAimSmallSprite;
@@ -104,6 +105,7 @@ namespace AnimalGame.RobotMap
         private Canvas rootCanvas;
         private Canvas playerRangeCanvas;
         private RectTransform playerRangeCanvasRoot;
+        private RectTransform photoCorner;
         private Canvas shutterFlashCanvas;
         private RectTransform shutterFlashCanvasRoot;
         private RectTransform visualRoot;
@@ -328,7 +330,7 @@ namespace AnimalGame.RobotMap
             float focusPresentation = controller.FocusPresentation01;
             rangeDim?.UpdatePresentation(
                 guideReveal * (1f - focusPresentation));
-            focusDim?.UpdatePresentation(focusPresentation);
+            focusDim?.UpdatePresentation(focusPresentation, photoCorner);
             rangeGuide?.UpdatePlayerScreenAnchor();
             rangeGuide?.SetReveal(guideReveal);
         }
@@ -716,6 +718,8 @@ namespace AnimalGame.RobotMap
             }
 
             visualRoot.gameObject.SetActive(false);
+            if (photoCorner != null)
+                photoCorner.SetAsLastSibling();
             if (playerRangeCanvasRoot != null)
                 playerRangeCanvasRoot.gameObject.SetActive(false);
         }
@@ -725,14 +729,17 @@ namespace AnimalGame.RobotMap
             if (playerRangeCanvasRoot != null)
                 return;
 
-            var canvasObject = new GameObject(
-                "Photo Player Range UI",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler));
-            canvasObject.layer = LayerMask.NameToLayer("UI");
+            var canvasObject = Instantiate(playerRangeCanvasPrefab);
             playerRangeCanvasRoot =
                 canvasObject.GetComponent<RectTransform>();
+            photoCorner = playerRangeCanvasRoot.Find("Photo Corner")
+                as RectTransform;
+            if (photoCorner != null)
+            {
+                photoCorner.pivot = Vector2.one * 0.5f;
+                photoCorner.localScale = Vector3.one;
+                photoCorner.gameObject.SetActive(false);
+            }
             playerRangeCanvas = canvasObject.GetComponent<Canvas>();
             playerRangeCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             playerRangeCanvas.overrideSorting = true;
@@ -791,6 +798,15 @@ namespace AnimalGame.RobotMap
 
         private void SetVisible(bool visible)
         {
+            if (photoCorner != null)
+            {
+                bool showCorner = visible
+                                  && controller != null
+                                  && controller.IsFocused;
+                if (photoCorner.gameObject.activeSelf != showCorner)
+                    photoCorner.gameObject.SetActive(showCorner);
+            }
+
             if (visualRoot != null
                 && visualRoot.gameObject.activeSelf != visible)
             {
@@ -1002,7 +1018,9 @@ namespace AnimalGame.RobotMap
             SetAllDirty();
         }
 
-        public void UpdatePresentation(float reveal)
+        public void UpdatePresentation(
+            float reveal,
+            RectTransform photoCorner = null)
         {
             if (runtimeMaterial == null)
                 return;
@@ -1046,6 +1064,44 @@ namespace AnimalGame.RobotMap
                     frameWorldCorners[3]),
                 inverseWidth,
                 inverseHeight);
+
+            if (photoCorner != null && photoCorner.gameObject.activeSelf)
+            {
+                // Convert the shader's screen corners to the corner UI's
+                // parent space, preserving the frame's position and tilt.
+                RectTransform parent = photoCorner.parent as RectTransform;
+                Vector2 screenSize = new Vector2(Screen.width, Screen.height);
+                if (parent != null
+                    && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        parent, Vector2.Scale(bottomLeft, screenSize), null,
+                        out Vector2 localBottomLeft)
+                    && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        parent, Vector2.Scale(topLeft, screenSize), null,
+                        out Vector2 localTopLeft)
+                    && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        parent, Vector2.Scale(bottomRight, screenSize), null,
+                        out Vector2 localBottomRight)
+                    && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        parent,
+                        Vector2.Scale(
+                            (bottomLeft + topLeft + topRight + bottomRight) * 0.25f,
+                            screenSize),
+                        null,
+                        out Vector2 localCenter))
+                {
+                    Vector2 horizontalEdge = localBottomRight - localBottomLeft;
+                    photoCorner.SetSizeWithCurrentAnchors(
+                        RectTransform.Axis.Horizontal, horizontalEdge.magnitude);
+                    photoCorner.SetSizeWithCurrentAnchors(
+                        RectTransform.Axis.Vertical,
+                        (localTopLeft - localBottomLeft).magnitude);
+                    photoCorner.localPosition = new Vector3(
+                        localCenter.x, localCenter.y, 0f);
+                    photoCorner.localRotation = Quaternion.Euler(
+                        0f, 0f,
+                        Vector2.SignedAngle(Vector2.right, horizontalEdge));
+                }
+            }
 
             runtimeMaterial.SetVector(
                 CornerAId,

@@ -1,5 +1,6 @@
 using AnimalGame.Animals;
 using AnimalGame.RobotMap;
+using AnimalGame.RobotArm;
 using UnityEngine;
 
 namespace AnimalGame.MapTest
@@ -52,6 +53,7 @@ namespace AnimalGame.MapTest
         [HideInInspector] public ScanChargeUI scanChargeUi;
         [HideInInspector] public PhotoModeUI photoModeUi;
         [HideInInspector] public PhotoResultUI photoResultUi;
+        [HideInInspector] public PhotoResultView photoResultView;
         [HideInInspector] public RobotTumbleUiRotation uiRotation;
         [HideInInspector] public RobotBalanceView balanceView;
         [HideInInspector] public RobotArmController armController;
@@ -201,6 +203,9 @@ namespace AnimalGame.MapTest
             scanOverlayCanvasObject = scanOverlayCanvas != null ? scanOverlayCanvas.gameObject : null;
             if (showRobotTerrainData)
                 UpdatePlayerHeight();
+            #if !UNITY_EDITOR
+            Cursor.visible=false;
+            #endif
         }
 
         private void Update()
