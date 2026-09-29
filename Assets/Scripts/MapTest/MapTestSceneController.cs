@@ -735,13 +735,20 @@ namespace AnimalGame.MapTest
                 new Vector2(0.5f, 0.5f),
                 generatedPixelsPerUnit);
             generatedMapSprite.name = "Height Map Visualization";
+            if (!Application.isPlaying)
+            {
+                // Editor previews are temporary and must not enter player builds.
+                generatedMapSprite.hideFlags = HideFlags.DontSave;
+                if (!generatedPreviewTextureIsPrebaked)
+                    generatedPreviewTexture.hideFlags = HideFlags.DontSave;
+            }
             generatedMapObject = new GameObject("2D Height Map");
             generatedMapObject.transform.SetParent(transform, false);
             generatedMapObject.transform.localPosition = Vector3.zero;
             generatedMapObject.transform.localRotation = Quaternion.identity;
             generatedMapObject.transform.localScale = Vector3.one;
             if (!Application.isPlaying)
-                generatedMapObject.hideFlags = HideFlags.DontSaveInEditor;
+                generatedMapObject.hideFlags = HideFlags.DontSave;
             mapRenderer = generatedMapObject.AddComponent<SpriteRenderer>();
             mapRenderer.sprite = generatedMapSprite;
             // The map is the visual background. Keep it well behind every robot
@@ -773,7 +780,7 @@ namespace AnimalGame.MapTest
                     : "Editor Dynamic Contour Preview"
             };
             if (!Application.isPlaying)
-                contourMaterial.hideFlags = HideFlags.DontSaveInEditor;
+                contourMaterial.hideFlags = HideFlags.DontSave;
             contourMaterial.SetTexture("_HeightTex", heightField.SurfaceTexture);
             bool hasPlayableMask = heightField.PlayableMaskTexture != null;
             contourMaterial.SetTexture(
