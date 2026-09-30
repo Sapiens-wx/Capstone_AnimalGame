@@ -8,10 +8,14 @@ namespace Capstone.Audio
     {
         public static event Action<string> Started;
         public static int ActiveInstanceCount { get; private set; }
+        public static int StartedCount { get; private set; }
+        public static string LastStartedEvent { get; private set; }
 
         internal static void RecordStarted(string eventPath)
         {
             ActiveInstanceCount++;
+            StartedCount++;
+            LastStartedEvent = eventPath;
             Action<string> observers = Started;
             if (observers == null)
                 return;
@@ -33,6 +37,8 @@ namespace Capstone.Audio
         {
             Started = null;
             ActiveInstanceCount = 0;
+            StartedCount = 0;
+            LastStartedEvent = null;
         }
     }
 }
