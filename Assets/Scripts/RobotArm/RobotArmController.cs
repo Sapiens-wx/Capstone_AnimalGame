@@ -410,7 +410,7 @@ namespace AnimalGame.RobotArm
             if (heldObject == null || State == RobotArmState.Recycling) return;
             Vector3 position = (Vector3)HeldAnchor() + marker.MarkerVisualRoot.TransformVector(heldOffset);
             position.z = heldObject.transform.position.z;
-            heldObject.transform.SetPositionAndRotation(position, transform.rotation * heldRotation);
+            heldObject.SetWorldPositionAndRotation(position, transform.rotation * heldRotation);
         }
         private void UpdateReady()
         {
@@ -432,7 +432,7 @@ namespace AnimalGame.RobotArm
             recycleTime += stepDelta;
             float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(recycleTime / recycleDuration));
             Vector3 inlet = new Vector3(0f, diameter * .35f, recycleStart.z);
-            heldObject.transform.position = marker.MarkerVisualRoot.TransformPoint(Vector3.Lerp(recycleStart, inlet, t));
+            heldObject.WorldPosition = marker.MarkerVisualRoot.TransformPoint(Vector3.Lerp(recycleStart, inlet, t));
             if (recycleTime < recycleDuration) return;
             WorldInteraction item = heldObject;
             ClearHeld();

@@ -17,6 +17,8 @@ namespace AnimalGame.MapTest
         private static readonly HashSet<HeightMapObstacleFootprint>
             activeFootprints = new HashSet<HeightMapObstacleFootprint>();
 
+        // SPATIAL INDEX: use BlocksTraversal/RadiusMeters setters. Direct writes
+        // or future GetShape/Kind-dependent fields must call MarkSpatialDirty().
         [Tooltip("When enabled, normal traversal and tumble sweeps treat this footprint as a hard obstacle.")]
         [SerializeField] private bool blocksTraversal = true;
 
@@ -25,7 +27,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private Color gizmoColor =
             new Color(1f, 0.48f, 0.16f, 0.9f);
 
-        public bool BlocksTraversal => blocksTraversal;
+        public bool BlocksTraversal { get => blocksTraversal; set { blocksTraversal = value; MarkSpatialDirty(); } }
         public override WorldInteractionKind Kind => WorldInteractionKind.Collision;
         public override bool Available => base.Available && blocksTraversal && radiusMeters > 0f;
         public override InteractionShape GetShape(MapTestSceneController map)
@@ -34,7 +36,11 @@ namespace AnimalGame.MapTest
                 InteractionShape.ToQuery(transform.position, map),
                 InteractionShape.ToQuery(transform.position, map), radiusMeters);
         }
-        public float RadiusMeters => radiusMeters;
+        public float RadiusMeters
+        {
+            get => radiusMeters;
+            set { radiusMeters = Mathf.Max(0f, value); MarkSpatialDirty(); }
+        }
         public static IEnumerable<HeightMapObstacleFootprint>
             ActiveFootprints => activeFootprints;
 
@@ -59,9 +65,10 @@ namespace AnimalGame.MapTest
             activeFootprints.Remove(this);
         }
 
-        private void OnValidate()
+        protected override void OnValidate()
         {
             radiusMeters = Mathf.Max(0f, radiusMeters);
+            base.OnValidate();
         }
 
         private void OnDrawGizmosSelected()
