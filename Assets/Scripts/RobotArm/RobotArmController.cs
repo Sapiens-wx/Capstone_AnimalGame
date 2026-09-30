@@ -30,6 +30,7 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.05f)] private float armLength = 1f;
         [SerializeField, Min(.05f)] private float upperArmLengthPercent = .45f;
         [SerializeField, Min(.05f)] private float lowerArmLengthPercent = .65f;
+        [SerializeField, Range(.05f, 1f)] private float staticArmLengthPercent = .4f;
         [Tooltip("Total distance between hands, measured along robot-local X in body diameters.")]
         [SerializeField, Min(0f)] private float handSpacingOfBodyDiameter = .28f;
         [SerializeField, Min(.01f)] private float collisionWidthOfBodyDiameter = .08f;
@@ -200,8 +201,8 @@ namespace AnimalGame.RobotArm
 
         private Vector2 ReadLocalInput()
         {
-            Vector2 keyboard = new Vector2((Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f),
-                (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f));
+            Vector2 keyboard = new Vector2((Input.GetKey(KeyCode.L) ? 1f : 0f) - (Input.GetKey(KeyCode.J) ? 1f : 0f),
+                (Input.GetKey(KeyCode.I) ? 1f : 0f) - (Input.GetKey(KeyCode.K) ? 1f : 0f));
             keyboard = Vector2.ClampMagnitude(keyboard, 1f);
             Vector2 stick = AdaptiveLegacyGamepadInput.ReadRawLeftStick();
             return keyboard.sqrMagnitude >= stick.sqrMagnitude ? keyboard : stick;
@@ -231,7 +232,7 @@ namespace AnimalGame.RobotArm
             Quaternion requested = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + step);
             ConstrainBodyPose(transform.position, transform.rotation, transform.position, requested);
         }
-        private Vector2 DockLocal => diameter * (heldObject != null && heldObject.Size == RecyclableSize.Medium
+        private Vector2 DockLocal => armLength * (heldObject != null && heldObject.Size == RecyclableSize.Medium
             ? mediumDockPosition : smallDockPosition);
         private void UpdateTarget()
         {
@@ -242,7 +243,7 @@ namespace AnimalGame.RobotArm
                 float angle = Mathf.Clamp(Vector2.SignedAngle(Vector2.up, local), -followAngle, followAngle);
                 direction = Direction(angle);
             }
-            float radius = Mathf.Lerp(armLength * .65f, MaximumCommonReach(),
+            float radius = Mathf.Lerp(armLength * staticArmLengthPercent, MaximumCommonReach(),
                 Mathf.InverseLerp(dockEnterMagnitude, maximumMagnitude, CurrentInputMagnitude));
             Vector2 desired = direction * radius;
             if (docked && heldObject != null)
