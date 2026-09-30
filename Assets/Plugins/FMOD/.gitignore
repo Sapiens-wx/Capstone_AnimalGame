@@ -1,0 +1,3 @@
+# FMOD regenerates these editor caches from the shared source banks.
+/Cache/
+/Cache.meta

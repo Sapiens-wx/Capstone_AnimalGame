@@ -1,0 +1,80 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c663ceedc785d94e83ca64c8cbf3594, type: 3}
+  m_Name: Milestone1AudioSettings
+  m_EditorClassIdentifier: 
+  scanCharge:
+    eventReference:
+      Guid:
+        Data1: 1227666986
+        Data2: 1091633469
+        Data3: 1620161177
+        Data4: -856313512
+      Path: event:/Robot/Scan/Charge
+    gainDb: 0
+  scanPulse:
+    eventReference:
+      Guid:
+        Data1: 1731406516
+        Data2: 1234519415
+        Data3: -1127775850
+        Data4: 1724700800
+      Path: event:/Robot/Scan/Pulse
+    gainDb: 0
+  cameraOpen:
+    eventReference:
+      Guid:
+        Data1: 112651509
+        Data2: 1122012845
+        Data3: 696759439
+        Data4: 1780028266
+      Path: event:/Robot/Camera/Open
+    gainDb: 0
+  cameraClose:
+    eventReference:
+      Guid:
+        Data1: 488888788
+        Data2: 1335892265
+        Data3: -1335509849
+        Data4: -1016355429
+      Path: event:/Robot/Camera/Close
+    gainDb: 0
+  cameraMove:
+    eventReference:
+      Guid:
+        Data1: -1212704469
+        Data2: 1080212268
+        Data3: -2075347829
+        Data4: 760045012
+      Path: event:/Robot/Camera/Move
+    gainDb: 0
+  cameraFocus:
+    eventReference:
+      Guid:
+        Data1: 651917052
+        Data2: 1226173749
+        Data3: 1619268488
+        Data4: -78081035
+      Path: event:/Robot/Camera/Focus
+    gainDb: 0
+  cameraShutter:
+    eventReference:
+      Guid:
+        Data1: 348792165
+        Data2: 1183170174
+        Data3: 363141276
+        Data4: -1109905559
+      Path: event:/Robot/Camera/Shutter
+    gainDb: 0
+  fadeOutSeconds: 0.05
+  cameraMoveThreshold: 0.01
+  cameraMoveStopDelay: 0.05
