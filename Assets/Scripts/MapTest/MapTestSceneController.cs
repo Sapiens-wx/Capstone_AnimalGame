@@ -1,4 +1,5 @@
 using AnimalGame.RobotMap;
+using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -21,6 +22,9 @@ namespace AnimalGame.MapTest
         [Tooltip("Original readable 8-bit grayscale image used only as the source for the runtime physical-height bake. It is no longer sampled directly by movement or contours.")]
         [SerializeField] private Texture2D heightMap;
 
+        // SPATIAL INDEX: map dimensions and mapRenderer.bounds define query coordinates.
+        // RebuildGeneratedMap/ReleaseGeneratedMap invalidate automatically. External
+        // map transform or renderer edits must call WorldInteractionQuery.InvalidateSpatialIndex().
         [Tooltip("Physical width represented by the complete height source, in logical map meters.")]
         [SerializeField, Min(1f)] private float mapWidthMeters = 1000f;
 
@@ -575,6 +579,7 @@ namespace AnimalGame.MapTest
             finally
             {
                 rebuildingMap = false;
+                WorldInteractionQuery.InvalidateSpatialIndex();
             }
         }
 
@@ -1371,6 +1376,7 @@ namespace AnimalGame.MapTest
 
         private void ReleaseGeneratedMap()
         {
+            WorldInteractionQuery.InvalidateSpatialIndex();
             heightField?.Dispose();
             heightField = null;
 

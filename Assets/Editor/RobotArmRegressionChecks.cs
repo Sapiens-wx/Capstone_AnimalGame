@@ -23,6 +23,8 @@ namespace AnimalGame.Editor
             Check("IK reachable, mirrored, near and far limits", CheckIK);
             Check("Box/circle geometry and swept body collision", CheckGeometry);
             Check("Unified types, multiple components, legacy obstacles and overlap escape", CheckRegistry);
+            Check("QuadTree matches exhaustive queries after movement, resizing, kind and scene changes", CheckQuadTree);
+            Check("Dirty queue skips unchanged shapes and coalesces geometry edits", CheckSpatialDirty);
             Check("Held input retries, one/two-hand grabbing and early release", CheckGrabbing);
             Check("Raw thresholds, dock delay, hysteresis and recycle completion", CheckDocking);
             Check("Release L3 drops before retracting", CheckRetracting);
@@ -90,6 +92,167 @@ namespace AnimalGame.Editor
                 Require(!WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Disabled legacy obstacle remains");
             }
         }
+        private static void CheckQuadTree()
+        {
+            using (var f = new Fixture())
+            using (var other = new Fixture())
+            {
+                var random = new System.Random(741);
+                var items = new List<WorldInteraction>();
+                var actual = new List<WorldInteraction>();
+                var expected = new HashSet<WorldInteraction>();
+                float Range(float min, float max) => min + (float)random.NextDouble() * (max - min);
+                for (int i = 0; i < 100; i++)
+                {
+                    var item = f.Item(new Vector2(Range(-20, 20), Range(-20, 20)),
+                        new Vector2(Range(.1f, 4), Range(.1f, 4)), 1);
+                    item.SetKind((WorldInteractionKind)(1 + i % 3));
+                    item.WorldRotation = Quaternion.Euler(0, 0, Range(-180, 180));
+                    items.Add(item);
+                }
+                items.Add(f.Solid(Vector2.zero, new Vector2(80, .5f))); // Parent-resident object.
+                var edge = f.Solid(new Vector2(100, 100), Vector2.one * 2);
+                Compare(InteractionShape.Capsule(new Vector2(101, 100), new Vector2(101, 100), 0),
+                    WorldInteractionKind.Collision, f.Scene);
+                for (int step = 0; step < 240; step++)
+                {
+                    WorldInteraction changed = items[step % items.Count];
+                    changed.WorldPosition = new Vector2(Range(-40, 40), Range(-40, 40));
+                    changed.WorldRotation = Quaternion.Euler(0, 0, Range(-180, 180));
+                    changed.LocalSize = new Vector2(Range(.1f, 6), Range(.1f, 6));
+                    changed.SetKind((WorldInteractionKind)(step % 4));
+                    changed.enabled = step % 7 != 0;
+                    Vector2 a = new Vector2(Range(-40, 40), Range(-40, 40));
+                    InteractionShape shape = step % 2 == 0
+                        ? InteractionShape.Capsule(a, a + new Vector2(Range(-15, 15), Range(-15, 15)), Range(0, 2))
+                        : InteractionShape.WorldBox(a, new Vector2(Range(0, 12), Range(0, 12)), null);
+                    Compare(shape, (WorldInteractionKind)(step % 4), f.Scene,
+                        step % 3 == 0 ? InteractionShape.Capsule(a, a, 1) : (InteractionShape?)null,
+                        step % 5 == 0 ? changed.transform : null);
+                }
+                edge.MoveToScene(other.Scene);
+                var edgePoint = InteractionShape.Capsule(new Vector2(100, 100), new Vector2(100, 100), 0);
+                Compare(edgePoint, WorldInteractionKind.Collision, f.Scene);
+                Compare(edgePoint, WorldInteractionKind.Collision, other.Scene);
+                edge.gameObject.SetActive(false);
+                Compare(edgePoint, WorldInteractionKind.Collision, other.Scene);
+                edge.gameObject.SetActive(true);
+                Compare(edgePoint, WorldInteractionKind.Collision, other.Scene);
+                Object.DestroyImmediate(edge.gameObject);
+                Compare(edgePoint, WorldInteractionKind.Collision, other.Scene);
+
+                void Compare(InteractionShape shape, WorldInteractionKind mask, Scene scene,
+                    InteractionShape? previous = null, Transform ignore = null)
+                {
+                    expected.Clear();
+                    foreach (WorldInteraction item in WorldInteraction.Active)
+                    {
+                        if (item == null || !item.Available || (item.Kind & mask) == 0 || item.gameObject.scene != scene ||
+                            (ignore != null && (item.transform == ignore || item.transform.IsChildOf(ignore)))) continue;
+                        InteractionShape obstacle = item.GetShape(null);
+                        float depth = WorldInteractionQuery.Penetration(shape, obstacle);
+                        if (depth < 0 || (previous.HasValue &&
+                            WorldInteractionQuery.Penetration(previous.Value, obstacle) >= depth - .000001f)) continue;
+                        expected.Add(item);
+                    }
+                    bool found = WorldInteractionQuery.Query(shape, mask, null, scene, actual, ignore, previous);
+                    Require(found == (expected.Count > 0) && expected.SetEquals(actual) && actual.Count == expected.Count,
+                        "QuadTree result differs from exhaustive query");
+                    Require(WorldInteractionQuery.Query(shape, mask, null, scene, ignore: ignore, previous: previous) == found,
+                        "QuadTree early exit differs from collected results");
+                    Require(WorldInteractionQuery.Query(shape, mask, null, scene, ignoreHeld: ignore, previous: previous) == found,
+                        "QuadTree held hierarchy filtering differs from ignore filtering");
+                }
+            }
+        }
+
+        private static void CheckSpatialDirty()
+        {
+            using (var f = new Fixture())
+            {
+                var probes = new List<WorldInteractionQueryProbe>();
+                var hits = new List<WorldInteraction>();
+                for (int i = 0; i < 32; i++)
+                {
+                    var go = new GameObject("Spatial dirty probe");
+                    SceneManager.MoveGameObjectToScene(go, f.Scene);
+                    var probe = go.AddComponent<WorldInteractionQueryProbe>();
+                    probe.WorldPosition = new Vector3(i * 4, 0, 0);
+                    probes.Add(probe);
+                }
+                bool Query(Vector2 point, WorldInteractionKind mask = WorldInteractionKind.Collision) =>
+                    WorldInteractionQuery.Query(InteractionShape.Capsule(point, point, 0), mask, null, f.Scene, hits);
+                Query(Vector2.zero);
+                foreach (var probe in probes) probe.ShapeReads = 0;
+                for (int i = 0; i < 10; i++) Query(Vector2.zero);
+                Require(probes.TrueForAll(p => p.ShapeReads == 0), "Unchanged queries still read registered shapes");
+
+                var moved = probes[0];
+                moved.WorldPosition = new Vector3(0, 10, 0);
+                moved.LocalSize = Vector2.one * 2;
+                moved.MarkSpatialDirty();
+                moved.MarkSpatialDirty();
+                Require(Query(new Vector2(0, 10)) && hits.Contains(moved), "Dirty movement missing from next query");
+                Require(moved.ShapeReads == 1 && probes.GetRange(1, 31).TrueForAll(p => p.ShapeReads == 0),
+                    "Dirty queue failed to coalesce or refreshed unchanged entries");
+                Require(!Query(Vector2.zero), "Old cached position still hits");
+
+                moved.SetKind(WorldInteractionKind.Grabbable);
+                Require(!Query(new Vector2(0, 10)) && Query(new Vector2(0, 10), WorldInteractionKind.Grabbable),
+                    "KindMask did not follow notified kind changes");
+                moved.SetKind(WorldInteractionKind.Collision);
+                moved.transform.position = new Vector3(0, 20, 0);
+                moved.MarkSpatialDirty();
+                Require(Query(new Vector2(0, 20)) && hits.Contains(moved), "Manual notification failed");
+
+                var sibling = moved.gameObject.AddComponent<WorldInteraction>();
+                var child = probes[1];
+                child.SetParent(moved.transform);
+                child.LocalPosition = Vector3.right * 3;
+                Query(new Vector2(0, 20));
+                moved.WorldPosition = new Vector3(0, 30, 0);
+                Require(Query(new Vector2(0, 30)) && hits.Contains(moved) && hits.Contains(sibling),
+                    "Transform wrapper did not update sibling interaction");
+                Require(Query(new Vector2(3, 30)) && hits.Contains(child), "Transform wrapper did not update descendant");
+
+                moved.UseCustomShape = true;
+                moved.CustomShape = InteractionShape.Capsule(new Vector2(-1, -1), new Vector2(1, 1), .1f);
+                moved.MarkSpatialDirty();
+                Require(Query(new Vector2(.8f, .8f)) && hits.Contains(moved), "Custom shape missing");
+                moved.CustomShape = InteractionShape.Capsule(new Vector2(-1, 1), new Vector2(1, -1), .1f);
+                moved.MarkSpatialDirty();
+                Require(!Query(new Vector2(.8f, .8f)), "Shape cache not refreshed when AABB stayed identical");
+
+                moved.UseCustomShape = false;
+                moved.WorldPosition = Vector3.up * 1000;
+                Require(Query(Vector2.up * 1000) && hits.Contains(moved), "Root expansion lost dirty object");
+                moved.MarkSpatialDirty();
+                moved.enabled = false;
+                Query(Vector2.up * 1000);
+                Require(!hits.Contains(moved), "Disabled dirty entry reinserted");
+                moved.enabled = true;
+                Query(Vector2.up * 1000);
+                Require(hits.Contains(moved), "Reenabled entry missing");
+
+                var source = moved.gameObject.AddComponent<BoxCollider2D>();
+                moved.BoxSource = source;
+                moved.WorldPosition = Vector3.zero;
+                Query(Vector2.zero);
+                source.offset = Vector2.up * 10;
+                source.size = Vector2.one * 2;
+                moved.MarkSpatialDirty();
+                Require(Query(Vector2.up * 10) && hits.Contains(moved), "External collider edit notification failed");
+
+                foreach (var probe in probes) probe.ShapeReads = 0;
+                WorldInteractionQuery.InvalidateSpatialIndex();
+                Query(Vector2.zero);
+                Require(probes.TrueForAll(p => p.ShapeReads == 1), "Global invalidation did not refresh every shape once");
+                foreach (var probe in probes) probe.ShapeReads = 0;
+                Query(Vector2.zero);
+                Require(probes.TrueForAll(p => p.ShapeReads == 0), "Global invalidation stayed active after flush");
+            }
+        }
+
         private static void CheckGrabbing()
         {
             using (var f = new Fixture())
@@ -99,8 +262,8 @@ namespace AnimalGame.Editor
                 WorldInteraction item = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f, 2);
                 f.Tick(2, Vector2.up, true);
                 Require(f.Arms.HeldObject == null && item.Owner == null, "One hand moved a two-hand object");
-                Set(item, "localSize", new Vector2(.5f, .1f));
-                item.transform.position = (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f;
+                item.LocalSize = new Vector2(.5f, .1f);
+                item.WorldPosition = (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f;
                 f.Tick(2, Vector2.up, true);
                 Require(f.Arms.HeldObject == item, "Sustained A did not retry a now-valid two-hand grab");
                 f.Tick(1, Vector2.up, false);
@@ -214,7 +377,7 @@ namespace AnimalGame.Editor
                 f.Tick(1, Vector2.zero, false);
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f, "Centred stick kept turning");
                 float upper = (float)Get(f.Arms, "upperLength");
-                Set(f.Arms, "connectorLengthOfBodyDiameter", 8f);
+                Set(f.Arms, "armLength", 8f);
                 f.Tick(1, Vector2.right, false);
                 Require((float)Get(f.Arms, "upperLength") == upper, "Runtime inspector edit changed fixed length");
                 var tumble = f.Root.AddComponent<RobotTumbleController>();
@@ -263,11 +426,11 @@ namespace AnimalGame.Editor
                 var go = new GameObject("Regression item"); SceneManager.MoveGameObjectToScene(go, Scene);
                 go.transform.position = position;
                 var item = go.AddComponent<WorldInteraction>();
-                Set(item, "kind", WorldInteractionKind.Grabbable); Set(item, "localSize", size); Set(item, "requiredHands", hands);
+                item.SetKind(WorldInteractionKind.Grabbable); item.LocalSize = size; Set(item, "requiredHands", hands);
                 return item;
             }
             public WorldInteraction Solid(Vector2 position, Vector2 size)
-            { WorldInteraction item = Item(position, size, 1); Set(item, "kind", WorldInteractionKind.Collision); return item; }
+            { WorldInteraction item = Item(position, size, 1); item.SetKind(WorldInteractionKind.Collision); return item; }
             public void Dispose()
             {
                 // Destroy children before the component's runtime cleanup (Destroy is deferred in play mode).

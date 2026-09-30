@@ -1,12 +1,35 @@
 using AnimalGame.MapTest;
 using AnimalGame.World;
 using UnityEditor;
+using UnityEngine;
 
 namespace AnimalGame.Editor
 {
-    [CustomEditor(typeof(WorldInteraction), true), CanEditMultipleObjects]
+    [InitializeOnLoad, CustomEditor(typeof(WorldInteraction), true), CanEditMultipleObjects]
     public sealed class WorldInteractionEditor : UnityEditor.Editor
     {
+        static WorldInteractionEditor()
+        {
+            // Editor events, not Update polling. Unity-owned geometry sources may
+            // be referenced from outside their hierarchy, so invalidate on these edits.
+            Undo.postprocessModifications += OnModified;
+            Undo.undoRedoPerformed += WorldInteractionQuery.InvalidateSpatialIndex;
+        }
+
+        private static UndoPropertyModification[] OnModified(UndoPropertyModification[] changes)
+        {
+            foreach (var change in changes)
+            {
+                Object changed = change.currentValue.target;
+                if (changed is Transform || changed is BoxCollider2D || changed is SpriteRenderer || changed is MapTestSceneController)
+                {
+                    WorldInteractionQuery.InvalidateSpatialIndex();
+                    break;
+                }
+            }
+            return changes;
+        }
+
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
@@ -24,7 +47,7 @@ namespace AnimalGame.Editor
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("localCenter"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("localSize"));
                 var kind = serializedObject.FindProperty("kind");
-                if (kind.hasMultipleDifferentValues || kind.enumValueIndex == (int)WorldInteractionKind.Grabbable)
+                if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Grabbable) != 0)
                 {
                     foreach (string name in new[] { "requiredHands", "recyclable", "size", "onGrabbed", "onReleased", "onRecycled" })
                         EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
