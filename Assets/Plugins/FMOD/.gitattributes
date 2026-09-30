@@ -1,0 +1,3 @@
+# Preserve LF in signed macOS bundle resources, including on Windows checkout.
+**/Info.plist text eol=lf
+**/CodeResources text eol=lf

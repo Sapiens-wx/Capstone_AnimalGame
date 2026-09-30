@@ -20,6 +20,11 @@ namespace Capstone.Audio
         private bool initialized;
         private bool shuttingDown;
 
+        // Audio-only diagnostics; inspecting these never changes gameplay state.
+        public bool IsInitialized => initialized;
+        public ScanChargeUI BoundScanSource => scanAudio?.Source;
+        public PhotoModeController BoundCameraSource => cameraAudio?.Source;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
