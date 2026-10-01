@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using AnimalGame.MapTest;
 using AnimalGame.RobotArm;
 using AnimalGame.World;
+using AnimalGame.Garbage;
 using UnityEngine;
 
 namespace AnimalGame.RobotMap
@@ -201,6 +202,9 @@ namespace AnimalGame.RobotMap
             MovementMode == RobotMovementMode.ExternalTumble;
         public bool IsPermanentlyFallen => MovementMode == RobotMovementMode.Fallen;
         public bool IsArmInputCaptured { get; private set; }
+        public float GrabMovementMultiplier { get; private set; } = 1f;
+        public float CurrentThrottleIntent { get; private set; }
+        public Vector2 UnresistedMovementIntentWorld { get; private set; }
         public bool IsPhotoModeInputLocked { get; private set; }
         public LevelThreeClimbFailurePhase CurrentLevelThreeClimbPhase
         {
@@ -297,7 +301,16 @@ namespace AnimalGame.RobotMap
 
             float throttle = SelectStrongerInput(keyboardThrottle, gamepadThrottle);
             float steering = SelectStrongerInput(keyboardSteering, gamepadSteering);
-            if (IsArmInputCaptured || IsPhotoModeInputLocked)
+            // L3 reserves the left stick for the arm. Triggers drive and the
+            // right stick steers; keyboard WASD remains independent of IJKL.
+            if (IsArmInputCaptured)
+            {
+                gamepadThrottle = ApplyAxisDeadZone(ReadTriggerThrottleSafely(), triggerDeadZone);
+                gamepadSteering = ApplyAxisDeadZone(AdaptiveLegacyGamepadInput.ReadRightStick().x, stickDeadZone);
+                throttle = SelectStrongerInput(keyboardThrottle, gamepadThrottle);
+                steering = SelectStrongerInput(keyboardSteering, gamepadSteering);
+            }
+            if (IsPhotoModeInputLocked)
             {
                 throttle = 0f;
                 steering = 0f;
@@ -312,6 +325,18 @@ namespace AnimalGame.RobotMap
                 throttle *= balanceController.DriveAuthority;
                 steering *= balanceController.SteeringAuthority;
             }
+            CurrentThrottleIntent = throttle;
+            UnresistedMovementIntentWorld = (Vector2)transform.up * (throttle >= 0f
+                ? throttle * ScaleMotion(forwardSpeed) : throttle * ScaleMotion(reverseSpeed));
+            if (GrabMovementMultiplier <= 0f)
+            {
+                CurrentSpeed = 0f;
+                CurrentTurnSpeed = 0f;
+                CurrentTerrainVelocity = Vector2.zero;
+                CurrentTerrainTurnSpeed = 0f;
+                return;
+            }
+            steering *= GrabMovementMultiplier;
 
             ExpireDownhillHeadingRecoveryIfNeeded();
 
@@ -366,6 +391,8 @@ namespace AnimalGame.RobotMap
                 ref accelerationBonus,
                 ref terrainVelocityAcceleration,
                 out targetTerrainTurnSpeed);
+            targetTerrainVelocity *= GrabMovementMultiplier;
+            targetTerrainTurnSpeed *= GrabMovementMultiplier;
             bool shouldStartDownhillRecovery = useLevelThreeClimbFailureSequence
                 ? pendingDownhillRecoveryFromLevelThreeSlip
                 : wasLevelThreeUnstable;
@@ -403,7 +430,8 @@ namespace AnimalGame.RobotMap
                 CalculateStaticWaterSpeedMultiplier();
             float targetSpeed = baseTargetSpeed
                                 * topSpeedMultiplier
-                                * CurrentWaterSpeedMultiplier;
+                                * CurrentWaterSpeedMultiplier
+                                * GrabMovementMultiplier;
             Transform heldTransform = armController != null && armController.HeldObject != null
                 ? armController.HeldObject.transform : null;
             if (traversalEvaluator != null)
@@ -453,7 +481,11 @@ namespace AnimalGame.RobotMap
             }
 
             foreach (WorldInteraction item in pushedObjects)
-                item.WorldPosition += (Vector3)desiredDisplacement;
+            {
+                if (item.TryGetComponent(out GarbageMotion garbageMotion))
+                    garbageMotion.ApplyExternalPush(desiredDisplacement);
+                else item.WorldPosition += (Vector3)desiredDisplacement;
+            }
             transform.position += (Vector3)desiredDisplacement;
             transform.Rotate(
                 0f,
@@ -478,6 +510,25 @@ namespace AnimalGame.RobotMap
         {
             IsArmInputCaptured = captured
                                  && MovementMode == RobotMovementMode.Driven;
+        }
+
+        public void SetGrabResistance(float resistance)
+        {
+            float previous = GrabMovementMultiplier;
+            GrabMovementMultiplier = 1f - Mathf.Clamp01(resistance);
+            if (GrabMovementMultiplier < previous && previous > 0f)
+            {
+                float ratio = GrabMovementMultiplier / previous;
+                CurrentSpeed *= ratio;
+                CurrentTurnSpeed *= ratio;
+                CurrentTerrainVelocity *= ratio;
+                CurrentTerrainTurnSpeed *= ratio;
+            }
+            if (GrabMovementMultiplier > 0f) return;
+            CurrentSpeed = 0f;
+            CurrentTurnSpeed = 0f;
+            CurrentTerrainVelocity = Vector2.zero;
+            CurrentTerrainTurnSpeed = 0f;
         }
 
         public void SetPhotoModeInputLocked(bool locked)
@@ -508,6 +559,8 @@ namespace AnimalGame.RobotMap
 
         private void ClearMotionForExternalControl()
         {
+            CurrentThrottleIntent = 0f;
+            UnresistedMovementIntentWorld = Vector2.zero;
             CurrentSpeed = 0f;
             CurrentTurnSpeed = 0f;
             CurrentTerrainTurnSpeed = 0f;

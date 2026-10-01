@@ -5,6 +5,7 @@ using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using AnimalGame.RobotArm;
 using AnimalGame.World;
+using AnimalGame.Garbage;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,6 +33,9 @@ namespace AnimalGame.Editor
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
             Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
             Check("Player-local input, threshold turning and fallen control restrictions", CheckTurning);
+            Check("Grab resistance scales movement and freezes held movement at one", CheckGrabResistance);
+            Check("Held replacement updates owner, hand count and resistance", CheckHeldReplacement);
+            Check("Heavy pull needs reverse movement intent away from garbage", CheckHeavyPullIntent);
             Debug.Log("Mechanical arm checks PASS: " + passed.Count + " groups\n" + string.Join("\n", passed));
         }
         public static void RunBatch()
@@ -410,6 +414,104 @@ namespace AnimalGame.Editor
                     "Fallen robot grabbed or rotated");
                 Vector2 target = (Vector2)Get(f.Arms, "targetLocal");
                 Require(Mathf.Abs(Vector2.SignedAngle(Vector2.up, target)) <= 70.01f, "Fallen arm exceeded angle limit");
+            }
+        }
+        private static void CheckGrabResistance()
+        {
+            using (var f = new Fixture())
+            {
+                RobotMover mover = f.Root.GetComponent<RobotMover>();
+                mover.SetGrabResistance(0f);
+                Require(Mathf.Approximately(mover.GrabMovementMultiplier, 1f), "Zero resistance slowed movement");
+                mover.SetGrabResistance(.5f);
+                Require(Mathf.Approximately(mover.GrabMovementMultiplier, .5f), "Half resistance used wrong multiplier");
+                typeof(RobotMover).GetProperty("CurrentSpeed").SetValue(mover, 2f);
+                typeof(RobotMover).GetProperty("CurrentTerrainVelocity").SetValue(mover, Vector2.right);
+                mover.SetGrabResistance(1f);
+                Require(mover.CurrentSpeed == 0f && mover.CurrentTerrainVelocity == Vector2.zero,
+                    "Full resistance retained forward or terrain velocity");
+                f.Tick(90, Vector2.up, true);
+                WorldInteraction item = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f, 1);
+                Set(item, "grabResistance", 1f);
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == item && mover.GrabMovementMultiplier == 0f,
+                    "Grabbing did not apply full resistance immediately");
+                Vector3 itemPosition = item.transform.position;
+                Quaternion heading = f.Root.transform.rotation;
+                f.Tick(30, Vector2.right, true);
+                Require(item.transform.position == itemPosition && f.Root.transform.rotation == heading,
+                    "Full resistance moved the held object or rotated the player");
+                f.Tick(1, Vector2.zero, false);
+                Require(mover.GrabMovementMultiplier == 1f, "Release left grab resistance active");
+            }
+        }
+
+        private static void CheckHeldReplacement()
+        {
+            using (var f = new Fixture())
+            {
+                f.Tick(90, Vector2.up, true);
+                WorldInteraction oldItem = f.Item(
+                    (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f,
+                    new Vector2(.5f, .1f), 2);
+                Set(oldItem, "grabResistance", 1f);
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == oldItem && (int)Get(f.Arms, "heldHands") == 3,
+                    "Fixture did not grab the two-hand source");
+                WorldInteraction replacement = f.Item(oldItem.transform.position, Vector2.one * .05f, 1);
+                Set(replacement, "grabResistance", .5f);
+                Require(f.Arms.TryReplaceHeldObject(oldItem, replacement), "Direct handoff failed");
+                Require(f.Arms.HeldObject == replacement && replacement.Owner == f.Arms && oldItem.Owner == null,
+                    "Handoff left ownership on the old object");
+                Require((int)Get(f.Arms, "heldHands") != 3
+                    && Mathf.Approximately(f.Root.GetComponent<RobotMover>().GrabMovementMultiplier, .5f),
+                    "Handoff kept the old hand count or resistance");
+                f.Tick(1, Vector2.zero, false);
+                Require(f.Arms.HeldObject == null && replacement.Owner == null && oldItem.Owner == null,
+                    "Release after handoff retained an owner");
+            }
+        }
+
+        private static void CheckHeavyPullIntent()
+        {
+            using (var f = new Fixture())
+            {
+                f.Tick(90, Vector2.up, true);
+                WorldInteraction item = f.Item(
+                    (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f,
+                    new Vector2(.5f, .1f), 2);
+                Set(item, "grabResistance", 1f);
+                HeavyGarbagePull pull = item.gameObject.AddComponent<HeavyGarbagePull>();
+                Call(pull, "Awake");
+                Set(pull, "requiredPullDuration", 2f);
+                Set(pull, "requiredPullIntentDistance", 10f);
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == item, "Fixture did not grab heavy garbage");
+                RobotMover mover = f.Root.GetComponent<RobotMover>();
+                Vector2 away = ((Vector2)f.Root.transform.position - (Vector2)item.transform.position).normalized;
+                var throttle = typeof(RobotMover).GetProperty("CurrentThrottleIntent");
+                var velocity = typeof(RobotMover).GetProperty("UnresistedMovementIntentWorld");
+                throttle.SetValue(mover, -1f);
+                velocity.SetValue(mover, -away * 3f);
+                Call(pull, "Step", .05f);
+                Require((float)Get(pull, "pullTime") == 0f, "Moving toward garbage counted as pulling");
+                throttle.SetValue(mover, 1f);
+                velocity.SetValue(mover, away * 3f);
+                Call(pull, "Step", .05f);
+                Require((float)Get(pull, "pullTime") == 0f, "Forward throttle counted as pulling");
+                throttle.SetValue(mover, -1f);
+                for (int i = 0; i < 8; i++) Call(pull, "Step", .05f);
+                Require(Mathf.Abs((float)Get(pull, "pullTime") - .4f) < .0001f
+                    && Mathf.Abs((float)Get(pull, "pullDistance") - 1.2f) < .0001f,
+                    "Valid pull did not integrate time and unresisted intended distance");
+                Call(pull, "Step", .2f);
+                Require(Mathf.Abs((float)Get(pull, "pullTime") - .6f) < .0001f
+                    && Mathf.Abs((float)Get(pull, "pullDistance") - 1.8f) < .0001f,
+                    "Pull accumulation depends on frame rate");
+                velocity.SetValue(mover, Vector2.zero);
+                Call(pull, "Step", .05f);
+                Require((float)Get(pull, "pullTime") == 0f && (float)Get(pull, "pullDistance") == 0f,
+                    "Interrupted pull retained progress");
             }
         }
         private static Vector2 Direction(float angle) => (Vector2)(Quaternion.Euler(0f, 0f, angle) * Vector3.up);

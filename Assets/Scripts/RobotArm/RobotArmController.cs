@@ -15,7 +15,7 @@ namespace AnimalGame.RobotArm
     {
         [Header("Input")]
         [SerializeField] private KeyCode keyboardArmKey = KeyCode.CapsLock;
-        [SerializeField] private KeyCode keyboardGrabKey = KeyCode.J;
+        [SerializeField] private KeyCode keyboardGrabKey = KeyCode.Space;
         [SerializeField, Range(0f, .17f)] private float leftStickDeadZone = .08f;
         [Header("Artwork")]
         [SerializeField] private Sprite robotArmOneSprite;
@@ -155,6 +155,7 @@ namespace AnimalGame.RobotArm
             CurrentInputMagnitude = inputLocal.magnitude;
             CurrentTargetLocal = inputLocal;
             if (heldObject != null && (!heldObject.Available || heldObject.Owner != this)) ClearHeld();
+            mover.SetGrabResistance(heldObject != null ? heldObject.GrabResistance : 0f);
 
             // Releasing L3, falling or photo mode always drops first, never recycles.
             if (!armHeld || !Upright) Drop();
@@ -228,7 +229,7 @@ namespace AnimalGame.RobotArm
             if (Mathf.Abs(angle) <= followAngle) return;
             // Input stays body-local: turning does not consume the stick's angle.
             // Continue while held outside the limit, stop as soon as input returns inside it.
-            float step = Mathf.Sign(angle) * bodyFollowSpeed * stepDelta;
+            float step = Mathf.Sign(angle) * bodyFollowSpeed * stepDelta * mover.GrabMovementMultiplier;
             Quaternion requested = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + step);
             ConstrainBodyPose(transform.position, transform.rotation, transform.position, requested);
         }
@@ -252,7 +253,7 @@ namespace AnimalGame.RobotArm
                 float angle = Vector2.SignedAngle(Vector2.up, direction);
                 desired = Rotate(DockLocal, angle) - heldOffset - AnchorOffset();
             }
-            float blend = 1f - Mathf.Exp(-stepDelta / Mathf.Max(.01f, aimSmoothingTime));
+            float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
             targetLocal = Vector2.Lerp(targetLocal, desired, blend);
         }
         private float MaximumCommonReach()
@@ -285,7 +286,7 @@ namespace AnimalGame.RobotArm
         {
             Vector2 desired = targetLocal + Vector2.right * arm.Side * handSpacing * .5f;
             SolveIK(desired - arm.Socket, upperLength, lowerLength, arm.Side, out float upper, out float lower);
-            float delta = maximumAimSpeedDegreesPerSecond * stepDelta;
+            float delta = maximumAimSpeedDegreesPerSecond * stepDelta * mover.GrabMovementMultiplier;
             return new Pose {
                 UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, upper, delta),
                 LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle, lower, delta),
@@ -392,6 +393,7 @@ namespace AnimalGame.RobotArm
             }
             if (best == null || !best.TryGrab(this)) return;
             heldObject = best; heldHands = mask;
+            mover.SetGrabResistance(best.GrabResistance);
             heldOffset = marker.MarkerVisualRoot.InverseTransformVector(best.transform.position - (Vector3)HeldAnchor());
             heldRotation = Quaternion.Inverse(transform.rotation) * best.transform.rotation;
             SetHandGrip(true);
@@ -409,9 +411,40 @@ namespace AnimalGame.RobotArm
         private void FollowHeldObject()
         {
             if (heldObject == null || State == RobotArmState.Recycling) return;
+            if (mover.GrabMovementMultiplier <= 0f) return;
             Vector3 position = (Vector3)HeldAnchor() + marker.MarkerVisualRoot.TransformVector(heldOffset);
             position.z = heldObject.transform.position.z;
             heldObject.SetWorldPositionAndRotation(position, transform.rotation * heldRotation);
+        }
+
+        public bool TryReplaceHeldObject(WorldInteraction oldItem, WorldInteraction replacement)
+        {
+            if (oldItem == null || replacement == null || heldObject != oldItem
+                || oldItem.Owner != this || (replacement.RequiredHands == 2 && heldHands != 3)
+                || !replacement.TryGrab(this)) return false;
+            if (replacement.RequiredHands == 1 && heldHands == 3)
+            {
+                float leftDistance = ((Vector2)replacement.transform.position - HandWorld(left)).sqrMagnitude;
+                float rightDistance = ((Vector2)replacement.transform.position - HandWorld(right)).sqrMagnitude;
+                heldHands = leftDistance <= rightDistance ? 1 : 2;
+            }
+            heldObject = replacement;
+            heldOffset = marker.MarkerVisualRoot.InverseTransformVector(
+                replacement.transform.position - (Vector3)HeldAnchor());
+            heldRotation = Quaternion.Inverse(transform.rotation) * replacement.transform.rotation;
+            docked = false;
+            dockTimer = 0f;
+            IsRecycleReady = false;
+            mover.SetGrabResistance(replacement.GrabResistance);
+            oldItem.Release(this);
+            return true;
+        }
+
+        public bool ReleaseHeldObject(WorldInteraction expected)
+        {
+            if (expected == null || heldObject != expected) return false;
+            Drop();
+            return true;
         }
         private void UpdateReady()
         {
@@ -457,7 +490,7 @@ namespace AnimalGame.RobotArm
             if (closed) { left.Animation.PlayGrab(); right.Animation.PlayGrab(); }
             else { left.Animation.PlayRelease(); right.Animation.PlayRelease(); }
         }
-        private void ClearHeld() { heldObject = null; heldHands = 0; docked = false; dockTimer = 0f; IsRecycleReady = false; }
+        private void ClearHeld() { heldObject = null; heldHands = 0; docked = false; dockTimer = 0f; IsRecycleReady = false; mover?.SetGrabResistance(0f); }
         private Vector2 HandLocal(Arm arm) => arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength
             + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
         private Vector2 HandWorld(Arm arm) => arm == null ? (Vector2)transform.position

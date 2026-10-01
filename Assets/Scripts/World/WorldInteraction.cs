@@ -15,7 +15,7 @@ namespace AnimalGame.World
         BodyCollision = 1 << 2, // Blocks bodies but not the mechanical arm.
         Pushable = 1 << 3        // Add to Collision or BodyCollision on the same component.
     }
-    public enum RecyclableSize { Small, Medium }
+    public enum RecyclableSize { Small, Medium, Big }
 
     // Multiple components are intentional: a prop can have separate solid and grab bounds.
     [ExecuteAlways]
@@ -39,6 +39,8 @@ namespace AnimalGame.World
         [SerializeField] private RecyclableSize size;
         [Tooltip("Robot target-speed multiplier while pushing this object. 1 means no speed loss; 0 stops driven movement.")]
         [SerializeField, Range(0f, 1f)] private float pushSpeedMultiplier = .6f;
+        [Tooltip("Speed loss while this object is held; independent of body pushing.")]
+        [SerializeField, Range(0f, 1f)] private float grabResistance;
         [SerializeField] private UnityEvent onGrabbed = new();
         [SerializeField] private UnityEvent onReleased = new();
         [SerializeField] private UnityEvent onRecycled = new();
@@ -122,6 +124,7 @@ namespace AnimalGame.World
         public bool Recyclable => recyclable;
         public RecyclableSize Size => size;
         public float PushSpeedMultiplier => Mathf.Clamp01(pushSpeedMultiplier);
+        public float GrabResistance => Mathf.Clamp01(grabResistance);
         public Object Owner { get; private set; }
         public virtual bool Available => isActiveAndEnabled && gameObject.activeInHierarchy;
 

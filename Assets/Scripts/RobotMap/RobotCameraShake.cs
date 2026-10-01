@@ -414,6 +414,10 @@ namespace AnimalGame.RobotMap
         private float obstacleCollisionRumbleStartTime = float.NegativeInfinity;
         private float obstacleCollisionRumbleEndTime = float.NegativeInfinity;
         private float obstacleCollisionRumbleStrength;
+        private float garbagePullRumble;
+
+        // Mixed with all other motor sources at the single controller output.
+        public void SetGarbagePullRumble(float strength) => garbagePullRumble = Mathf.Clamp01(strength);
 
         private void Awake()
         {
@@ -1365,6 +1369,8 @@ namespace AnimalGame.RobotMap
                 * landingBoost);
             ApplyTumbleRumble(ref targetLow, ref targetHigh);
             ApplyObstacleCollisionRumble(ref targetLow, ref targetHigh);
+            targetLow = Mathf.Max(targetLow, garbagePullRumble);
+            targetHigh = Mathf.Max(targetHigh, garbagePullRumble * .65f);
             if (!IsTumbleFeedbackSuppressed
                 && enableSevereImbalanceRumble
                 && balanceMagnitude >= severeImbalanceRumbleThreshold)

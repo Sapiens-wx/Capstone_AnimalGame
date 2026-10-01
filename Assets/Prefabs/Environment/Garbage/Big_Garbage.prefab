@@ -12,12 +12,11 @@ GameObject:
   - component: {fileID: 8681653170865558031}
   - component: {fileID: 6575725878042071600}
   - component: {fileID: 1062432846021733241}
-  - component: {fileID: 6200000000000000001}
-  - component: {fileID: 6200000000000000002}
-  - component: {fileID: 6200000000000000003}
-  - component: {fileID: 6200000000000000004}
+  - component: {fileID: 6300000000000000001}
+  - component: {fileID: 6300000000000000002}
+  - component: {fileID: 6300000000000000003}
   m_Layer: 0
-  m_Name: Medium_Garbage
+  m_Name: Big_Garbage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -33,7 +32,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: 0.100709006, w: 0.9949159}
   m_LocalPosition: {x: 22.84, y: 17.98, z: 0}
-  m_LocalScale: {x: 0.38000003, y: 0.38000003, z: 0.38}
+  m_LocalScale: {x: 0.60800005, y: 0.60800005, z: 0.38}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
@@ -122,16 +121,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 295e520c95e7ba24382f447af748bb78, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  kind: 14
+  kind: 6
   box: {fileID: 0}
   sprite: {fileID: 6575725878042071600}
   localCenter: {x: 0, y: 0}
   localSize: {x: 1, y: 1}
   requiredHands: 2
-  recyclable: 1
-  size: 1
+  recyclable: 0
+  size: 2
   pushSpeedMultiplier: 0.7
-  grabResistance: 0
+  grabResistance: 1
   onGrabbed:
     m_PersistentCalls:
       m_Calls: []
@@ -141,7 +140,7 @@ MonoBehaviour:
   onRecycled:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &6200000000000000001
+--- !u!114 &6300000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -153,8 +152,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cac827775450435fac65d6483e53322c, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  size: 1
---- !u!114 &6200000000000000002
+  size: 2
+--- !u!114 &6300000000000000002
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -163,33 +162,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 7253239608327384681}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 961d6e1c803f4a16ae9e011d9c4daa03, type: 3}
+  m_Script: {fileID: 11500000, guid: f1c908a522fc4cb8971e88f7f0d9aa2d, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  stopSpeed: 0.04
-  maximumSweepStep: 0.3
---- !u!114 &6200000000000000003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7253239608327384681}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 568cd0caaf284daa92a1105c4de1bd68, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  slideStartAngle: 22
-  slideStopAngle: 15
-  slideAcceleration: 3
-  slideFriction: 0.6
-  maximumSlideSpeed: 4
-  breakDropMeters: 3
-  sampleRadiusMeters: 0.5
-  stopStableDuration: 0.2
-  stopSpeed: 0.12
---- !u!114 &6200000000000000004
+  minimumPullInput: 0.25
+  requiredPullIntentDistance: 2
+  requiredPullDuration: 1
+  maximumRumbleStrength: 0.65
+--- !u!114 &6300000000000000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -201,15 +181,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3f0c5b6c0a9439bae0f9b810e09240b, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  heldFragments: []
+  heldFragments:
+  - {fileID: 8098866755847926482, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
   scatteredFragments:
   - {fileID: 8098866755847926482, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
   fadeDuration: 0.45
   minimumFragments: 2
   maximumFragments: 4
-  scatterHalfAngle: 180
+  scatterHalfAngle: 105
   minimumLaunchSpeed: 1.5
   maximumLaunchSpeed: 3.5
   launchDeceleration: 4
   placementAttempts: 12
   spawnClearance: 0.08
+
