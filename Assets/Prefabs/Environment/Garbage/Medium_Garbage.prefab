@@ -118,7 +118,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 295e520c95e7ba24382f447af748bb78, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  kind: 2
+  kind: 14
   box: {fileID: 0}
   sprite: {fileID: 6575725878042071600}
   localCenter: {x: 0, y: 0}
@@ -126,6 +126,7 @@ MonoBehaviour:
   requiredHands: 2
   recyclable: 1
   size: 1
+  pushSpeedMultiplier: 0.7
   onGrabbed:
     m_PersistentCalls:
       m_Calls: []

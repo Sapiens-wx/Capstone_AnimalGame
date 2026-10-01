@@ -37,7 +37,7 @@ namespace AnimalGame.Editor
             {
                 EditorGUILayout.HelpBox("Legacy map footprint: Collision. Add a separate WorldInteraction component for grabbing.", MessageType.Info);
                 DrawPropertiesExcluding(serializedObject, "m_Script", "kind", "box", "sprite", "localCenter", "localSize",
-                    "requiredHands", "recyclable", "size", "onGrabbed", "onReleased", "onRecycled");
+                    "requiredHands", "recyclable", "size", "pushSpeedMultiplier", "onGrabbed", "onReleased", "onRecycled");
             }
             else
             {
@@ -47,6 +47,13 @@ namespace AnimalGame.Editor
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("localCenter"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("localSize"));
                 var kind = serializedObject.FindProperty("kind");
+                if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Pushable) != 0)
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("pushSpeedMultiplier"));
+                    if (!kind.hasMultipleDifferentValues
+                        && (kind.intValue & (int)(WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision)) == 0)
+                        EditorGUILayout.HelpBox("Pushable also needs Collision or BodyCollision on this component.", MessageType.Warning);
+                }
                 if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Grabbable) != 0)
                 {
                     foreach (string name in new[] { "requiredHands", "recyclable", "size", "onGrabbed", "onReleased", "onRecycled" })

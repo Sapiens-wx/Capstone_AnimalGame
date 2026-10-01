@@ -23,6 +23,7 @@ namespace AnimalGame.Editor
             Check("IK reachable, mirrored, near and far limits", CheckIK);
             Check("Box/circle geometry and swept body collision", CheckGeometry);
             Check("Unified types, multiple components, legacy obstacles and overlap escape", CheckRegistry);
+            Check("Body-only collision, grabbing and per-object push resistance", CheckInteractionKinds);
             Check("QuadTree matches exhaustive queries after movement, resizing, kind and scene changes", CheckQuadTree);
             Check("Dirty queue skips unchanged shapes and coalesces geometry edits", CheckSpatialDirty);
             Check("Held input retries, one/two-hand grabbing and early release", CheckGrabbing);
@@ -90,6 +91,25 @@ namespace AnimalGame.Editor
                     WorldInteractionKind.Collision, null, f.Scene, previous: start), "Inward movement escaped collision check");
                 legacy.enabled = false;
                 Require(!WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Disabled legacy obstacle remains");
+            }
+        }
+        private static void CheckInteractionKinds()
+        {
+            using (var f = new Fixture())
+            {
+                WorldInteraction item = f.Item(Vector2.zero, Vector2.one, 1);
+                item.SetKind(WorldInteractionKind.BodyCollision | WorldInteractionKind.Grabbable | WorldInteractionKind.Pushable);
+                Set(item, "pushSpeedMultiplier", .35f);
+                InteractionShape point = InteractionShape.Capsule(Vector2.zero, Vector2.zero, 0f);
+                Require(!WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene),
+                    "Body-only object blocked the mechanical arm");
+                Require(WorldInteractionQuery.Query(point,
+                    WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, null, f.Scene),
+                    "Body-only object did not block the body mask");
+                Require(WorldInteractionQuery.Query(point, WorldInteractionKind.Grabbable, null, f.Scene)
+                    && item.TryGrab(f.Arms), "Body-only object could not be grabbed");
+                Require(Mathf.Approximately(item.PushSpeedMultiplier, .35f), "Per-object push resistance was lost");
+                item.Release(f.Arms);
             }
         }
         private static void CheckQuadTree()

@@ -13,6 +13,13 @@ namespace AnimalGame.World
         public float Radius;
         public bool IsBox;
         public Vector2 Center => IsBox ? (A + B + C + D) * .25f : (A + B) * .5f;
+        public InteractionShape Translated(Vector2 offset)
+        {
+            InteractionShape moved = this;
+            moved.A += offset; moved.B += offset;
+            if (IsBox) { moved.C += offset; moved.D += offset; }
+            return moved;
+        }
         public Vector2 Vertex(int i) => i == 0 ? A : i == 1 ? B : i == 2 ? C : D;
         public static Vector2 ToQuery(Vector2 world, MapTestSceneController map)
         {
@@ -59,24 +66,24 @@ namespace AnimalGame.World
         /// </summary>
         public static void InvalidateSpatialIndex() => tree.Invalidate();
 
-        // All kinds share one index. Combined masks match any requested kind.
-        public static bool Query(InteractionShape shape, WorldInteractionKind kind,
+        // Combine kinds with | to match any requested kind.
+        public static bool Query(InteractionShape shape, WorldInteractionKind kindMask,
             MapTestSceneController map, Scene scene, List<WorldInteraction> results = null,
             Transform ignore = null, InteractionShape? previous = null, Transform ignoreHeld = null)
         {
             results?.Clear();
-            if (kind == WorldInteractionKind.None) return false;
+            if (kindMask == WorldInteractionKind.None) return false;
             tree.FlushPending(map, scene);
-            var visitor = new QueryVisitor { Shape = shape, Kind = kind, Scene = scene,
+            var visitor = new QueryVisitor { Shape = shape, KindMask = kindMask, Scene = scene,
                 Results = results, Ignore = ignore, Previous = previous, IgnoreHeld = ignoreHeld };
-            tree.Query(WorldInteractionQuadTree.BoundsOf(shape), kind, ref visitor);
+            tree.Query(WorldInteractionQuadTree.BoundsOf(shape), kindMask, ref visitor);
             return visitor.Found;
         }
 
         private struct QueryVisitor : WorldInteractionQuadTree.IVisitor
         {
             public InteractionShape Shape;
-            public WorldInteractionKind Kind;
+            public WorldInteractionKind KindMask;
             public Scene Scene;
             public List<WorldInteraction> Results;
             public Transform Ignore, IgnoreHeld;
@@ -85,7 +92,7 @@ namespace AnimalGame.World
 
             public bool Visit(WorldInteraction item, InteractionShape obstacle)
             {
-                if (item == null || !item.Available || (item.Kind & Kind) == 0 || item.gameObject.scene != Scene
+                if (item == null || !item.Available || (item.Kind & KindMask) == 0 || item.gameObject.scene != Scene
                     || (Ignore != null && (item.transform == Ignore || item.transform.IsChildOf(Ignore)))
                     || (IgnoreHeld != null && (item.transform == IgnoreHeld || item.transform.IsChildOf(IgnoreHeld)))) return false;
                 float depth = Penetration(Shape, obstacle);

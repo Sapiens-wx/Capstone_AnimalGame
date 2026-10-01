@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 using AnimalGame.World;
@@ -265,6 +266,8 @@ namespace AnimalGame.MapTest
         [SerializeField, Min(0f)] private float obstacleContactSkinMeters = 0.02f;
 
         private MapTestSceneController map;
+        private readonly List<WorldInteraction> pushContacts = new();
+        private readonly List<WorldInteraction> pushObstacles = new();
         private readonly float[] stepPreviousHeightScratch = new float[9];
         private readonly float[] stepResidualScratch = new float[9];
         private readonly float[] stepRawPreviousHeightScratch = new float[9];
@@ -772,6 +775,78 @@ namespace AnimalGame.MapTest
                 : SlopeTraversalResult.NoData;
         }
 
+        // This is a read-only plan. The mover commits all object positions only after
+        // the robot's terrain and object paths have passed their checks.
+        public bool TryPlanPush(Vector2 startWorld, Vector2 endWorld,
+            Transform ignoreHeld, List<WorldInteraction> pushed)
+        {
+            pushed.Clear();
+            if (!IsInitialized || !map.TrySampleWorldPosition(startWorld, out Vector2 start, out _)
+                || !map.TrySampleWorldPosition(endWorld, out Vector2 end, out _)) return false;
+            Vector2 delta = end - start;
+            if (delta.sqrMagnitude <= 0.0000001f) return true;
+            float radius = robotObstacleCollisionRadiusMeters + obstacleContactSkinMeters;
+            InteractionShape before = InteractionShape.Capsule(start, start, radius);
+            pushContacts.Clear();
+            WorldInteractionQuery.Query(InteractionShape.Capsule(start, end, radius),
+                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
+                map, map.gameObject.scene, pushContacts, previous: before, ignoreHeld: ignoreHeld);
+            foreach (WorldInteraction item in pushContacts)
+            {
+                if ((item.Kind & WorldInteractionKind.Pushable) == 0 || item.Owner != null)
+                { pushed.Clear(); return false; }
+                if (!ContainsTransform(pushed, item.transform)) pushed.Add(item);
+            }
+
+            int steps = Mathf.Max(1, Mathf.CeilToInt(delta.magnitude / .1f));
+            foreach (WorldInteraction item in pushed)
+            {
+                InteractionShape original = item.GetShape(map);
+                for (int i = 1; i <= steps; i++)
+                {
+                    InteractionShape candidate = original.Translated(delta * (i / (float)steps));
+                    int count = candidate.IsBox ? 4 : 2;
+                    for (int corner = 0; corner < count; corner++)
+                        if (!map.TrySampleMapPosition(candidate.Vertex(corner), out _))
+                        { pushed.Clear(); return false; }
+                    pushObstacles.Clear();
+                    WorldInteractionQuery.Query(candidate,
+                        WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
+                        map, map.gameObject.scene, pushObstacles, ignore: item.transform,
+                        previous: original, ignoreHeld: ignoreHeld);
+                    foreach (WorldInteraction obstacle in pushObstacles)
+                        if (!ContainsTransform(pushed, obstacle.transform))
+                        { pushed.Clear(); return false; }
+                }
+            }
+            return true;
+        }
+
+        private static bool ContainsTransform(List<WorldInteraction> items, Transform target)
+        {
+            foreach (WorldInteraction item in items)
+                if (item.transform == target) return true;
+            return false;
+        }
+
+        public float GetPushSpeedMultiplier(Vector2 startWorld, Vector2 endWorld, Transform ignoreHeld)
+        {
+            if (!IsInitialized || !map.TrySampleWorldPosition(startWorld, out Vector2 start, out _)
+                || !map.TrySampleWorldPosition(endWorld, out Vector2 end, out _)) return 1f;
+            if ((end - start).sqrMagnitude <= 0.0000001f) return 1f;
+            float radius = robotObstacleCollisionRadiusMeters + obstacleContactSkinMeters;
+            pushContacts.Clear();
+            WorldInteractionQuery.Query(InteractionShape.Capsule(start, end, radius),
+                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
+                map, map.gameObject.scene, pushContacts,
+                previous: InteractionShape.Capsule(start, start, radius), ignoreHeld: ignoreHeld);
+            float multiplier = 1f;
+            foreach (WorldInteraction item in pushContacts)
+                if ((item.Kind & WorldInteractionKind.Pushable) != 0 && item.Owner == null)
+                    multiplier = Mathf.Min(multiplier, item.PushSpeedMultiplier);
+            return multiplier;
+        }
+
         private bool IsObstacleSweepBlocked(
             Vector2 startMapPosition,
             Vector2 endMapPosition,
@@ -782,7 +857,7 @@ namespace AnimalGame.MapTest
             float radius = Mathf.Max(0f, movingRadiusMeters) + obstacleContactSkinMeters;
             return WorldInteractionQuery.Query(
                 InteractionShape.Capsule(startMapPosition, endMapPosition, radius),
-                WorldInteractionKind.Collision, map, map.gameObject.scene,
+                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, map.gameObject.scene,
                 previous: InteractionShape.Capsule(startMapPosition, startMapPosition, radius));
         }
 

@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using AnimalGame.MapTest;
+using AnimalGame.RobotArm;
+using AnimalGame.World;
 using UnityEngine;
 
 namespace AnimalGame.RobotMap
@@ -207,6 +210,8 @@ namespace AnimalGame.RobotMap
         public SlopeTraversalResult CurrentTraversalResult { get; private set; }
 
         private HeightMapTraversalEvaluator traversalEvaluator;
+        private RobotArmController armController;
+        private readonly List<WorldInteraction> pushedObjects = new();
         private RobotBalanceController balanceController;
         private float unstableLateralTarget;
         private float unstableLateralBlend;
@@ -219,6 +224,7 @@ namespace AnimalGame.RobotMap
 
         private void Awake()
         {
+            armController = GetComponent<RobotArmController>();
             balanceController = GetComponent<RobotBalanceController>();
         }
 
@@ -398,6 +404,16 @@ namespace AnimalGame.RobotMap
             float targetSpeed = baseTargetSpeed
                                 * topSpeedMultiplier
                                 * CurrentWaterSpeedMultiplier;
+            Transform heldTransform = armController != null && armController.HeldObject != null
+                ? armController.HeldObject.transform : null;
+            if (traversalEvaluator != null)
+            {
+                float probeSpeed = Mathf.Abs(targetSpeed) >= Mathf.Abs(CurrentSpeed)
+                    ? targetSpeed : CurrentSpeed;
+                Vector2 pushProbe = (Vector2)transform.up * probeSpeed * Time.deltaTime;
+                targetSpeed *= traversalEvaluator.GetPushSpeedMultiplier(
+                    transform.position, (Vector2)transform.position + pushProbe, heldTransform);
+            }
             float speedChangeRate = GetSpeedChangeRate(
                                         movementThrottle,
                                         targetSpeed)
@@ -410,6 +426,7 @@ namespace AnimalGame.RobotMap
             Vector2 desiredVelocity = (Vector2)transform.up * CurrentSpeed
                                       + CurrentTerrainVelocity;
             Vector2 desiredDisplacement = desiredVelocity * Time.deltaTime;
+            pushedObjects.Clear();
             if (desiredVelocity.sqrMagnitude > 0.000001f && traversalEvaluator != null)
             {
                 SlopeTraversalResult actualPathResult =
@@ -426,18 +443,17 @@ namespace AnimalGame.RobotMap
                     return;
                 }
 
-                SlopeTraversalResult mapObstacleResult =
-                    traversalEvaluator.EvaluateObstacleSweep(
-                        transform.position,
-                        (Vector2)transform.position + desiredDisplacement);
-                if (mapObstacleResult.HasData
-                    && mapObstacleResult.RequiresHardStop)
+                if (!traversalEvaluator.TryPlanPush(
+                    transform.position, (Vector2)transform.position + desiredDisplacement,
+                    heldTransform, pushedObjects))
                 {
-                    HardStop(mapObstacleResult);
+                    HardStop(SlopeTraversalResult.BlockedObstacle);
                     return;
                 }
             }
 
+            foreach (WorldInteraction item in pushedObjects)
+                item.WorldPosition += (Vector3)desiredDisplacement;
             transform.position += (Vector3)desiredDisplacement;
             transform.Rotate(
                 0f,

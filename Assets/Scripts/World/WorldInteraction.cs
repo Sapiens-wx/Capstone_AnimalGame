@@ -7,7 +7,14 @@ using UnityEngine.SceneManagement;
 namespace AnimalGame.World
 {
     [System.Flags]
-    public enum WorldInteractionKind { None = 0, Collision = 1 << 0, Grabbable = 1 << 1 }
+    public enum WorldInteractionKind
+    {
+        None = 0,
+        Collision = 1 << 0,
+        Grabbable = 1 << 1,
+        BodyCollision = 1 << 2, // Blocks bodies but not the mechanical arm.
+        Pushable = 1 << 3        // Add to Collision or BodyCollision on the same component.
+    }
     public enum RecyclableSize { Small, Medium }
 
     // Multiple components are intentional: a prop can have separate solid and grab bounds.
@@ -30,6 +37,8 @@ namespace AnimalGame.World
         [SerializeField, Range(1, 2)] private int requiredHands = 1;
         [SerializeField] private bool recyclable = true;
         [SerializeField] private RecyclableSize size;
+        [Tooltip("Robot target-speed multiplier while pushing this object. 1 means no speed loss; 0 stops driven movement.")]
+        [SerializeField, Range(0f, 1f)] private float pushSpeedMultiplier = .6f;
         [SerializeField] private UnityEvent onGrabbed = new();
         [SerializeField] private UnityEvent onReleased = new();
         [SerializeField] private UnityEvent onRecycled = new();
@@ -112,6 +121,7 @@ namespace AnimalGame.World
         public int RequiredHands => Mathf.Clamp(requiredHands, 1, 2);
         public bool Recyclable => recyclable;
         public RecyclableSize Size => size;
+        public float PushSpeedMultiplier => Mathf.Clamp01(pushSpeedMultiplier);
         public Object Owner { get; private set; }
         public virtual bool Available => isActiveAndEnabled && gameObject.activeInHierarchy;
 
