@@ -1,4 +1,5 @@
 using UnityEngine;
+using AnimalGame.World;
 
 namespace AnimalGame.MapTest
 {
@@ -50,6 +51,8 @@ namespace AnimalGame.MapTest
 
         public bool CaptureCurrentTransform()
         {
+            // Capturing an externally edited Transform must update its interaction tree entries.
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
             ResolveMap();
             if (map == null || !map.HasGeneratedMap)
                 return false;
@@ -86,6 +89,7 @@ namespace AnimalGame.MapTest
             Vector3 snapped = map.MapPositionToWorld(mapPositionMeters);
             snapped.z = current.z;
             transform.position = snapped;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
             lastWorldPosition = snapped;
             map.TrySampleMapPosition(
                 mapPositionMeters,

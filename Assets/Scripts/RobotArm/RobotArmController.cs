@@ -15,7 +15,7 @@ namespace AnimalGame.RobotArm
     {
         [Header("Input")]
         [SerializeField] private KeyCode keyboardArmKey = KeyCode.CapsLock;
-        [SerializeField] private KeyCode keyboardGrabKey = KeyCode.J;
+        [SerializeField] private KeyCode keyboardGrabKey = KeyCode.Space;
         [SerializeField, Range(0f, .17f)] private float leftStickDeadZone = .08f;
         [Header("Artwork")]
         [SerializeField] private Sprite robotArmOneSprite;
@@ -30,6 +30,7 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.05f)] private float armLength = 1f;
         [SerializeField, Min(.05f)] private float upperArmLengthPercent = .45f;
         [SerializeField, Min(.05f)] private float lowerArmLengthPercent = .65f;
+        [SerializeField, Range(.05f, 1f)] private float staticArmLengthPercent = .4f;
         [Tooltip("Total distance between hands, measured along robot-local X in body diameters.")]
         [SerializeField, Min(0f)] private float handSpacingOfBodyDiameter = .28f;
         [SerializeField, Min(.01f)] private float collisionWidthOfBodyDiameter = .08f;
@@ -52,6 +53,12 @@ namespace AnimalGame.RobotArm
         [SerializeField] private Vector2 mediumDockPosition = new Vector2(0f, .8f);
         [SerializeField, Min(.001f)] private float dockToleranceOfBodyDiameter = .045f;
         [SerializeField, Min(.01f)] private float recycleDuration = .35f;
+        [Header("Recycling")]
+        [Tooltip("Minimum forward hand position during recycling, as a fraction of arm length.")]
+        [SerializeField, Min(0f)] private float recycleHandMinimumForward = .4f;
+        [SerializeField, Min(.01f)] private float mediumRecycleMoveDuration = .22f;
+        [SerializeField, Min(0f)] private float mediumRecyclePauseDuration = .12f;
+        [SerializeField, Range(.01f, 1f)] private float mediumRecycleEndScale = .15f;
 
         public RobotArmState State { get; private set; }
         public bool IsArmModeActive { get; private set; }
@@ -82,6 +89,8 @@ namespace AnimalGame.RobotArm
         private Vector2 heldOffset;
         private Quaternion heldRotation;
         private Vector3 recycleStart;
+        private Vector3 recycleStartScale, recyclePosition;
+        private Vector2 recycleHandStart;
         private readonly List<WorldInteraction> leftHits = new();
         private readonly List<WorldInteraction> rightHits = new();
         private float TotalDeploymentTime => connectorExtendDuration + extendDuration + handExtendDuration;
@@ -154,6 +163,7 @@ namespace AnimalGame.RobotArm
             CurrentInputMagnitude = inputLocal.magnitude;
             CurrentTargetLocal = inputLocal;
             if (heldObject != null && (!heldObject.Available || heldObject.Owner != this)) ClearHeld();
+            mover.SetGrabResistance(heldObject != null ? heldObject.GrabResistance : 0f);
 
             // Releasing L3, falling or photo mode always drops first, never recycles.
             if (!armHeld || !Upright) Drop();
@@ -169,8 +179,11 @@ namespace AnimalGame.RobotArm
             }
 
             if (armHeld && State != RobotArmState.Recycling) TurnBodyForLocalInput();
-            UpdateTarget();
-            AdvanceArms(armHeld);
+            if (State != RobotArmState.Recycling)
+            {
+                UpdateTarget();
+                AdvanceArms(armHeld);
+            }
             FollowHeldObject();
             UpdateReady();
             if (State == RobotArmState.Recycling) UpdateRecycle();
@@ -194,14 +207,16 @@ namespace AnimalGame.RobotArm
             // RobotMover runs after this controller. Check its translation AND rotation before rendering.
             if (Upright && deploymentTime > 0f)
                 ConstrainBodyPose(framePosition, frameRotation, transform.position, transform.rotation);
+            if (State == RobotArmState.Recycling && heldObject != null)
+                heldObject.WorldPosition = marker.MarkerVisualRoot.TransformPoint(recyclePosition);
             FollowHeldObject();
             UpdateReady();
         }
 
         private Vector2 ReadLocalInput()
         {
-            Vector2 keyboard = new Vector2((Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f),
-                (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f));
+            Vector2 keyboard = new Vector2((Input.GetKey(KeyCode.L) ? 1f : 0f) - (Input.GetKey(KeyCode.J) ? 1f : 0f),
+                (Input.GetKey(KeyCode.I) ? 1f : 0f) - (Input.GetKey(KeyCode.K) ? 1f : 0f));
             keyboard = Vector2.ClampMagnitude(keyboard, 1f);
             Vector2 stick = AdaptiveLegacyGamepadInput.ReadRawLeftStick();
             return keyboard.sqrMagnitude >= stick.sqrMagnitude ? keyboard : stick;
@@ -227,11 +242,11 @@ namespace AnimalGame.RobotArm
             if (Mathf.Abs(angle) <= followAngle) return;
             // Input stays body-local: turning does not consume the stick's angle.
             // Continue while held outside the limit, stop as soon as input returns inside it.
-            float step = Mathf.Sign(angle) * bodyFollowSpeed * stepDelta;
+            float step = Mathf.Sign(angle) * bodyFollowSpeed * stepDelta * mover.GrabMovementMultiplier;
             Quaternion requested = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + step);
             ConstrainBodyPose(transform.position, transform.rotation, transform.position, requested);
         }
-        private Vector2 DockLocal => diameter * (heldObject != null && heldObject.Size == RecyclableSize.Medium
+        private Vector2 DockLocal => armLength * (heldObject != null && heldObject.Size == RecyclableSize.Medium
             ? mediumDockPosition : smallDockPosition);
         private void UpdateTarget()
         {
@@ -242,7 +257,7 @@ namespace AnimalGame.RobotArm
                 float angle = Mathf.Clamp(Vector2.SignedAngle(Vector2.up, local), -followAngle, followAngle);
                 direction = Direction(angle);
             }
-            float radius = Mathf.Lerp(armLength * .65f, MaximumCommonReach(),
+            float radius = Mathf.Lerp(armLength * staticArmLengthPercent, MaximumCommonReach(),
                 Mathf.InverseLerp(dockEnterMagnitude, maximumMagnitude, CurrentInputMagnitude));
             Vector2 desired = direction * radius;
             if (docked && heldObject != null)
@@ -251,7 +266,7 @@ namespace AnimalGame.RobotArm
                 float angle = Vector2.SignedAngle(Vector2.up, direction);
                 desired = Rotate(DockLocal, angle) - heldOffset - AnchorOffset();
             }
-            float blend = 1f - Mathf.Exp(-stepDelta / Mathf.Max(.01f, aimSmoothingTime));
+            float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
             targetLocal = Vector2.Lerp(targetLocal, desired, blend);
         }
         private float MaximumCommonReach()
@@ -284,7 +299,9 @@ namespace AnimalGame.RobotArm
         {
             Vector2 desired = targetLocal + Vector2.right * arm.Side * handSpacing * .5f;
             SolveIK(desired - arm.Socket, upperLength, lowerLength, arm.Side, out float upper, out float lower);
-            float delta = maximumAimSpeedDegreesPerSecond * stepDelta;
+            // Recycling supplies an animated target already; extra aim smoothing would lag behind it.
+            float delta = State == RobotArmState.Recycling ? 360f
+                : maximumAimSpeedDegreesPerSecond * stepDelta * mover.GrabMovementMultiplier;
             return new Pose {
                 UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, upper, delta),
                 LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle, lower, delta),
@@ -391,6 +408,7 @@ namespace AnimalGame.RobotArm
             }
             if (best == null || !best.TryGrab(this)) return;
             heldObject = best; heldHands = mask;
+            mover.SetGrabResistance(best.GrabResistance);
             heldOffset = marker.MarkerVisualRoot.InverseTransformVector(best.transform.position - (Vector3)HeldAnchor());
             heldRotation = Quaternion.Inverse(transform.rotation) * best.transform.rotation;
             SetHandGrip(true);
@@ -408,9 +426,40 @@ namespace AnimalGame.RobotArm
         private void FollowHeldObject()
         {
             if (heldObject == null || State == RobotArmState.Recycling) return;
+            if (mover.GrabMovementMultiplier <= 0f) return;
             Vector3 position = (Vector3)HeldAnchor() + marker.MarkerVisualRoot.TransformVector(heldOffset);
             position.z = heldObject.transform.position.z;
-            heldObject.transform.SetPositionAndRotation(position, transform.rotation * heldRotation);
+            heldObject.SetWorldPositionAndRotation(position, transform.rotation * heldRotation);
+        }
+
+        public bool TryReplaceHeldObject(WorldInteraction oldItem, WorldInteraction replacement)
+        {
+            if (oldItem == null || replacement == null || heldObject != oldItem
+                || oldItem.Owner != this || (replacement.RequiredHands == 2 && heldHands != 3)
+                || !replacement.TryGrab(this)) return false;
+            if (replacement.RequiredHands == 1 && heldHands == 3)
+            {
+                float leftDistance = ((Vector2)replacement.transform.position - HandWorld(left)).sqrMagnitude;
+                float rightDistance = ((Vector2)replacement.transform.position - HandWorld(right)).sqrMagnitude;
+                heldHands = leftDistance <= rightDistance ? 1 : 2;
+            }
+            heldObject = replacement;
+            heldOffset = marker.MarkerVisualRoot.InverseTransformVector(
+                replacement.transform.position - (Vector3)HeldAnchor());
+            heldRotation = Quaternion.Inverse(transform.rotation) * replacement.transform.rotation;
+            docked = false;
+            dockTimer = 0f;
+            IsRecycleReady = false;
+            mover.SetGrabResistance(replacement.GrabResistance);
+            oldItem.Release(this);
+            return true;
+        }
+
+        public bool ReleaseHeldObject(WorldInteraction expected)
+        {
+            if (expected == null || heldObject != expected) return false;
+            Drop();
+            return true;
         }
         private void UpdateReady()
         {
@@ -422,6 +471,9 @@ namespace AnimalGame.RobotArm
         {
             State = RobotArmState.Recycling; recycleTime = 0f;
             recycleStart = marker.MarkerVisualRoot.InverseTransformPoint(heldObject.transform.position);
+            recyclePosition = recycleStart;
+            recycleStartScale = heldObject.LocalScale;
+            recycleHandStart = (HandLocal(left) + HandLocal(right)) * .5f;
             SetHandGrip(false);
             left.Animation.PlayRecycle(); right.Animation.PlayRecycle();
             IsRecycleReady = false;
@@ -430,10 +482,29 @@ namespace AnimalGame.RobotArm
         {
             if (heldObject == null) { State = RobotArmState.OuterOperating; return; }
             recycleTime += stepDelta;
-            float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(recycleTime / recycleDuration));
-            Vector3 inlet = new Vector3(0f, diameter * .35f, recycleStart.z);
-            heldObject.transform.position = marker.MarkerVisualRoot.TransformPoint(Vector3.Lerp(recycleStart, inlet, t));
-            if (recycleTime < recycleDuration) return;
+            bool medium = heldObject.Size == RecyclableSize.Medium;
+            float duration = medium ? 3f * mediumRecycleMoveDuration + 2f * mediumRecyclePauseDuration : recycleDuration;
+            float t;
+            if (medium)
+            {
+                float cycle = mediumRecycleMoveDuration + mediumRecyclePauseDuration;
+                int stage = Mathf.Min(2, Mathf.FloorToInt(recycleTime / cycle));
+                float move = Mathf.Clamp01((recycleTime - stage * cycle) / mediumRecycleMoveDuration);
+                t = (stage + Mathf.SmoothStep(0f, 1f, move)) / 3f;
+                heldObject.LocalScale = recycleStartScale * Mathf.Lerp(1f, mediumRecycleEndScale, t);
+            }
+            else t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(recycleTime / recycleDuration));
+            Vector3 inlet = new Vector3(0f, 0f, recycleStart.z);
+            recyclePosition = Vector3.Lerp(recycleStart, inlet, t);
+            heldObject.WorldPosition = marker.MarkerVisualRoot.TransformPoint(recyclePosition);
+
+            // Preserve the original grip offset, then stop both hands at the inward limit.
+            Vector2 travel = (Vector2)(inlet - recycleStart);
+            float followLimit = travel.y < 0f
+                ? Mathf.Clamp01((recycleHandStart.y - armLength * recycleHandMinimumForward) / -travel.y) : 1f;
+            targetLocal = recycleHandStart + travel * Mathf.Min(t, followLimit);
+            AdvanceArms(true);
+            if (recycleTime < duration) return;
             WorldInteraction item = heldObject;
             ClearHeld();
             State = RobotArmState.OuterOperating;
@@ -456,7 +527,14 @@ namespace AnimalGame.RobotArm
             if (closed) { left.Animation.PlayGrab(); right.Animation.PlayGrab(); }
             else { left.Animation.PlayRelease(); right.Animation.PlayRelease(); }
         }
-        private void ClearHeld() { heldObject = null; heldHands = 0; docked = false; dockTimer = 0f; IsRecycleReady = false; }
+        private void ClearHeld()
+        {
+            // Restore for interrupted recycling and for objects reused by a pool after completion.
+            if (State == RobotArmState.Recycling && heldObject != null)
+                heldObject.LocalScale = recycleStartScale;
+            heldObject = null; heldHands = 0; docked = false; dockTimer = 0f;
+            IsRecycleReady = false; mover?.SetGrabResistance(0f);
+        }
         private Vector2 HandLocal(Arm arm) => arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength
             + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
         private Vector2 HandWorld(Arm arm) => arm == null ? (Vector2)transform.position
@@ -563,6 +641,10 @@ namespace AnimalGame.RobotArm
             connectorExtendDuration = Mathf.Max(.01f, connectorExtendDuration); extendDuration = Mathf.Max(.01f, extendDuration);
             handExtendDuration = Mathf.Max(.01f, handExtendDuration); retractDuration = Mathf.Max(.01f, retractDuration);
             recycleDuration = Mathf.Max(.01f, recycleDuration);
+            recycleHandMinimumForward = Mathf.Max(0f, recycleHandMinimumForward);
+            mediumRecycleMoveDuration = Mathf.Max(.01f, mediumRecycleMoveDuration);
+            mediumRecyclePauseDuration = Mathf.Max(0f, mediumRecyclePauseDuration);
+            mediumRecycleEndScale = Mathf.Clamp(mediumRecycleEndScale, .01f, 1f);
             dockEnterMagnitude = Mathf.Clamp(dockEnterMagnitude, 0f, .9f);
             dockExitMagnitude = Mathf.Clamp(dockExitMagnitude, dockEnterMagnitude + .001f, .99f);
             maximumMagnitude = Mathf.Clamp(maximumMagnitude, dockExitMagnitude + .001f, 1f);

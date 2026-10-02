@@ -200,7 +200,7 @@ namespace AnimalGame.Animals
 
             return !WorldInteractionQuery.Query(
                 InteractionShape.Capsule(mapPositionMeters, mapPositionMeters, config.BodyRadiusMeters),
-                WorldInteractionKind.Collision, map, gameObject.scene);
+                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, gameObject.scene);
         }
 
         private bool TryChooseMovementDirection(
@@ -265,7 +265,7 @@ namespace AnimalGame.Animals
         {
             return WorldInteractionQuery.Query(
                 InteractionShape.Capsule(startMapPosition, endMapPosition, config.BodyRadiusMeters),
-                WorldInteractionKind.Collision, map, gameObject.scene,
+                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, gameObject.scene,
                 previous: InteractionShape.Capsule(startMapPosition, startMapPosition, config.BodyRadiusMeters));
         }
 

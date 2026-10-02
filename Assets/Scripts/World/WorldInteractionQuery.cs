@@ -13,6 +13,13 @@ namespace AnimalGame.World
         public float Radius;
         public bool IsBox;
         public Vector2 Center => IsBox ? (A + B + C + D) * .25f : (A + B) * .5f;
+        public InteractionShape Translated(Vector2 offset)
+        {
+            InteractionShape moved = this;
+            moved.A += offset; moved.B += offset;
+            if (IsBox) { moved.C += offset; moved.D += offset; }
+            return moved;
+        }
         public Vector2 Vertex(int i) => i == 0 ? A : i == 1 ? B : i == 2 ? C : D;
         public static Vector2 ToQuery(Vector2 world, MapTestSceneController map)
         {
@@ -45,28 +52,58 @@ namespace AnimalGame.World
 
     public static class WorldInteractionQuery
     {
-        // All body, arm and grab queries share this registry and type filter.
-        public static bool Query(InteractionShape shape, WorldInteractionKind kind,
+        private static readonly WorldInteractionQuadTree tree = new();
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetIndex() => tree.Clear();
+
+        internal static void Remove(WorldInteraction item) => tree.Remove(item);
+        internal static void MarkDirty(WorldInteraction item) => tree.MarkDirty(item);
+
+        /// <summary>
+        /// Rebuild on the next query after global changes (map coordinates, bulk
+        /// scene edits, or Undo). Normal object changes should call MarkSpatialDirty.
+        /// </summary>
+        public static void InvalidateSpatialIndex() => tree.Invalidate();
+
+        // Combine kinds with | to match any requested kind.
+        public static bool Query(InteractionShape shape, WorldInteractionKind kindMask,
             MapTestSceneController map, Scene scene, List<WorldInteraction> results = null,
             Transform ignore = null, InteractionShape? previous = null, Transform ignoreHeld = null)
         {
-            bool found = false;
             results?.Clear();
-            foreach (WorldInteraction item in WorldInteraction.Active)
+            if (kindMask == WorldInteractionKind.None) return false;
+            tree.FlushPending(map, scene);
+            var visitor = new QueryVisitor { Shape = shape, KindMask = kindMask, Scene = scene,
+                Results = results, Ignore = ignore, Previous = previous, IgnoreHeld = ignoreHeld };
+            tree.Query(WorldInteractionQuadTree.BoundsOf(shape), kindMask, ref visitor);
+            return visitor.Found;
+        }
+
+        private struct QueryVisitor : WorldInteractionQuadTree.IVisitor
+        {
+            public InteractionShape Shape;
+            public WorldInteractionKind KindMask;
+            public Scene Scene;
+            public List<WorldInteraction> Results;
+            public Transform Ignore, IgnoreHeld;
+            public InteractionShape? Previous;
+            public bool Found;
+
+            public bool Visit(WorldInteraction item, InteractionShape obstacle)
             {
-                if (item == null || !item.Available || item.Kind != kind || item.gameObject.scene != scene
-                    || (ignore != null && (item.transform == ignore || item.transform.IsChildOf(ignore)))
-                    || (ignoreHeld != null && (item.transform == ignoreHeld || item.transform.IsChildOf(ignoreHeld)))) continue;
-                InteractionShape obstacle = item.GetShape(map);
-                float depth = Penetration(shape, obstacle);
-                if (depth < 0f) continue;
+                if (item == null || !item.Available || (item.Kind & KindMask) == 0 || item.gameObject.scene != Scene
+                    || (Ignore != null && (item.transform == Ignore || item.transform.IsChildOf(Ignore)))
+                    || (IgnoreHeld != null && (item.transform == IgnoreHeld || item.transform.IsChildOf(IgnoreHeld)))) return false;
+                float depth = Penetration(Shape, obstacle);
+                if (depth < 0f) return false;
                 // Permit escape/sliding from an existing overlap, but never deeper penetration.
-                if (previous.HasValue && Penetration(previous.Value, obstacle) >= depth - .000001f) continue;
-                found = true;
-                if (results == null) return true;
-                results.Add(item);
+                if (Previous.HasValue && Penetration(Previous.Value, obstacle) >= depth - .000001f) return false;
+                Found = true;
+                if (Results == null) return true;
+                Results.Add(item);
+                return false;
             }
-            return found;
         }
 
         public static float Penetration(InteractionShape a, InteractionShape b)
