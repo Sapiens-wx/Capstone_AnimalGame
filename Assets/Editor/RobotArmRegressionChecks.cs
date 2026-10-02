@@ -35,6 +35,7 @@ namespace AnimalGame.Editor
             Check("Player-local input, threshold turning and fallen control restrictions", CheckTurning);
             Check("Grab resistance scales movement and freezes held movement at one", CheckGrabResistance);
             Check("Held replacement updates owner, hand count and resistance", CheckHeldReplacement);
+            Check("Held fragments spawn at the hand midpoint despite overlaps", CheckHeldFragmentSpawn);
             Check("Heavy pull needs reverse movement intent away from garbage", CheckHeavyPullIntent);
             Debug.Log("Mechanical arm checks PASS: " + passed.Count + " groups\n" + string.Join("\n", passed));
         }
@@ -469,6 +470,51 @@ namespace AnimalGame.Editor
                 f.Tick(1, Vector2.zero, false);
                 Require(f.Arms.HeldObject == null && replacement.Owner == null && oldItem.Owner == null,
                     "Release after handoff retained an owner");
+            }
+        }
+
+        private static void CheckHeldFragmentSpawn()
+        {
+            using (var f = new Fixture())
+            {
+                f.Root.transform.SetPositionAndRotation(new Vector3(3f, -2f), Quaternion.Euler(0f, 0f, 35f));
+                f.Tick(90, Vector2.up, true);
+                Vector2 midpoint = (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f;
+                WorldInteraction source = f.Item(midpoint, new Vector2(.5f, .5f), 2);
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == source, "Fixture did not grab the source");
+                midpoint = (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f;
+                source.WorldPosition += new Vector3(.12f, -.08f, .3f);
+                GarbageFragmentSpawner spawner = source.gameObject.AddComponent<GarbageFragmentSpawner>();
+                Call(spawner, "Awake");
+                Set(spawner, "arm", f.Arms);
+                Set(spawner, "player", f.Root.GetComponent<RobotMover>());
+                Set(spawner, "placementAttempts", 0);
+                WorldInteraction template = f.Item(new Vector2(20f, 20f), Vector2.one * .05f, 1);
+                Set(spawner, "heldFragments", new GameObject[] { null, template.gameObject });
+                f.Solid(midpoint, Vector2.one * 2f);
+                Require(WorldInteractionQuery.Query(InteractionShape.Capsule(midpoint, midpoint, 0f),
+                    WorldInteractionKind.Collision, null, f.Scene), "Fixture has no overlapping obstacle");
+                object[] args = { null };
+                bool spawned = (bool)typeof(GarbageFragmentSpawner).GetMethod("TrySpawnHeldFragment",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(spawner, args);
+                WorldInteraction fragment = args[0] as WorldInteraction;
+                try
+                {
+                    Require(spawned && fragment != null, "Overlap or placement attempts prevented held spawning");
+                    Vector3 expected = new Vector3(midpoint.x, midpoint.y, source.WorldPosition.z);
+                    Require(Vector3.Distance(fragment.WorldPosition, expected) < .0001f,
+                        "Held fragment did not spawn at the hand midpoint");
+                    Require(fragment.TryGetComponent(out GarbageMotion motion) && motion.Velocity == Vector2.zero,
+                        "Held fragment has missing motion or was launched");
+                    Require(f.Arms.TryReplaceHeldObject(source, fragment)
+                        && fragment.Owner == f.Arms && source.Owner == null, "Spawned fragment handoff failed");
+                    Call(f.Arms, "FollowHeldObject");
+                    Require(Vector3.Distance(fragment.WorldPosition, expected) < .0001f,
+                        "Handoff moved the fragment away from the hand midpoint");
+                    f.Arms.ReleaseHeldObject(fragment);
+                }
+                finally { if (fragment != null) Object.DestroyImmediate(fragment.gameObject); }
             }
         }
 

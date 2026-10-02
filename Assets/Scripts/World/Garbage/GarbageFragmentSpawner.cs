@@ -98,7 +98,7 @@ namespace AnimalGame.Garbage
             if (outward.sqrMagnitude < .000001f) outward = Vector2.up;
             outward.Normalize();
             placed.Clear(); placedRadii.Clear();
-            if (transferToHand && TrySpawn(heldFragments, center, outward, 0f, out WorldInteraction carried))
+            if (transferToHand && TrySpawnHeldFragment(out WorldInteraction carried))
             {
                 if (arm == null || !arm.TryReplaceHeldObject(source, carried))
                     carried.Release(arm);
@@ -109,40 +109,49 @@ namespace AnimalGame.Garbage
             {
                 Vector2 direction = Quaternion.Euler(0f, 0f, Random.Range(-scatterHalfAngle, scatterHalfAngle)) * outward;
                 float speed = Random.Range(minimumLaunchSpeed, Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed));
-                TrySpawn(scatteredFragments, center, direction, speed, out _);
+                TrySpawnScatteredFragment(center, direction, speed, out _);
             }
             if (arm != null) arm.ReleaseHeldObject(source);
             Destroy(gameObject);
         }
 
-        private bool TrySpawn(GameObject[] prefabs, Vector3 center, Vector2 direction, float speed,
+        private bool TrySpawnHeldFragment(out WorldInteraction result)
+        {
+            result = null;
+            if (arm == null || heldFragments == null || heldFragments.Length == 0) return false;
+
+            // Pick a valid prefab without depending on placement attempts or free space.
+            GameObject prefab = null;
+            int validCount = 0;
+            foreach (GameObject candidate in heldFragments)
+            {
+                if (candidate == null || candidate.GetComponent<WorldInteraction>() == null) continue;
+                if (Random.Range(0, ++validCount) == 0) prefab = candidate;
+            }
+            if (prefab == null) return false;
+
+            Vector2 midpoint = (arm.LeftHandWorld + arm.RightHandWorld) * .5f;
+            Vector3 position = new Vector3(midpoint.x, midpoint.y, transform.position.z);
+            GameObject clone = Instantiate(prefab, position, prefab.transform.rotation);
+            result = clone.GetComponent<WorldInteraction>();
+            if (!clone.TryGetComponent(out GarbageMotion motion)) motion = clone.AddComponent<GarbageMotion>();
+            motion.Initialize(map, player);
+            // Scattered fragments still avoid this fragment, but its own placement is unconditional.
+            placed.Add(position); placedRadii.Add(FragmentRadius(prefab));
+            return true;
+        }
+
+        private bool TrySpawnScatteredFragment(Vector3 center, Vector2 direction, float speed,
             out WorldInteraction result)
         {
             result = null;
+            GameObject[] prefabs = scatteredFragments;
             if (prefabs == null || prefabs.Length == 0) return false;
             for (int attempt = 0; attempt < placementAttempts; attempt++)
             {
                 GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
                 if (prefab == null || prefab.GetComponent<WorldInteraction>() == null) continue;
-                SpriteRenderer sprite = prefab.GetComponentInChildren<SpriteRenderer>();
-                float radius = .35f;
-                if (sprite != null && sprite.sprite != null)
-                {
-                    Vector3 scale = sprite.transform.lossyScale;
-                    Vector3 extent = sprite.sprite.bounds.extents;
-                    float visualRadius = new Vector2(extent.x * Mathf.Abs(scale.x),
-                        extent.y * Mathf.Abs(scale.y)).magnitude;
-                    Vector3 visualCenter = sprite.transform.TransformPoint(sprite.sprite.bounds.center);
-                    radius = Mathf.Max(.15f, visualRadius
-                        + Vector2.Distance(visualCenter, prefab.transform.position));
-                }
-                else if (prefab.TryGetComponent(out BoxCollider2D box))
-                {
-                    Vector3 scale = box.transform.lossyScale;
-                    radius = new Vector2(box.size.x * Mathf.Abs(scale.x),
-                        box.size.y * Mathf.Abs(scale.y)).magnitude * .5f
-                        + Vector2.Distance(box.transform.TransformPoint(box.offset), prefab.transform.position);
-                }
+                float radius = FragmentRadius(prefab);
                 float distance = radius + spawnClearance + .15f + attempt * .12f;
                 Vector2 bearing = attempt == 0 ? direction :
                     (Vector2)(Quaternion.Euler(0f, 0f, Random.Range(-35f, 35f)) * direction);
@@ -158,6 +167,30 @@ namespace AnimalGame.Garbage
                 return true;
             }
             return false;
+        }
+
+        private static float FragmentRadius(GameObject prefab)
+        {
+            SpriteRenderer sprite = prefab.GetComponentInChildren<SpriteRenderer>();
+            float radius = .35f;
+            if (sprite != null && sprite.sprite != null)
+            {
+                Vector3 scale = sprite.transform.lossyScale;
+                Vector3 extent = sprite.sprite.bounds.extents;
+                float visualRadius = new Vector2(extent.x * Mathf.Abs(scale.x),
+                    extent.y * Mathf.Abs(scale.y)).magnitude;
+                Vector3 visualCenter = sprite.transform.TransformPoint(sprite.sprite.bounds.center);
+                radius = Mathf.Max(.15f, visualRadius
+                    + Vector2.Distance(visualCenter, prefab.transform.position));
+            }
+            else if (prefab.TryGetComponent(out BoxCollider2D box))
+            {
+                Vector3 scale = box.transform.lossyScale;
+                radius = new Vector2(box.size.x * Mathf.Abs(scale.x),
+                    box.size.y * Mathf.Abs(scale.y)).magnitude * .5f
+                    + Vector2.Distance(box.transform.TransformPoint(box.offset), prefab.transform.position);
+            }
+            return radius;
         }
 
         private bool SafePath(Vector3 origin, Vector2 direction, float speed, float radius)
