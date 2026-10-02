@@ -131,16 +131,7 @@ MonoBehaviour:
   recyclable: 1
   size: 1
   pushSpeedMultiplier: 0.7
-  grabResistance: 0
-  onGrabbed:
-    m_PersistentCalls:
-      m_Calls: []
-  onReleased:
-    m_PersistentCalls:
-      m_Calls: []
-  onRecycled:
-    m_PersistentCalls:
-      m_Calls: []
+  grabResistance: 0.3
 --- !u!114 &6200000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -151,8 +142,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cac827775450435fac65d6483e53322c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   size: 1
 --- !u!114 &6200000000000000002
 MonoBehaviour:
@@ -164,8 +155,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 961d6e1c803f4a16ae9e011d9c4daa03, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   stopSpeed: 0.04
   maximumSweepStep: 0.3
 --- !u!114 &6200000000000000003
@@ -178,8 +169,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 568cd0caaf284daa92a1105c4de1bd68, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   slideStartAngle: 22
   slideStopAngle: 15
   slideAcceleration: 3
@@ -199,8 +190,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b3f0c5b6c0a9439bae0f9b810e09240b, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   heldFragments: []
   scatteredFragments:
   - {fileID: 8098866755847926482, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}

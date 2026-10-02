@@ -41,9 +41,9 @@ namespace AnimalGame.World
         [SerializeField, Range(0f, 1f)] private float pushSpeedMultiplier = .6f;
         [Tooltip("Speed loss while this object is held; independent of body pushing.")]
         [SerializeField, Range(0f, 1f)] private float grabResistance;
-        [SerializeField] private UnityEvent onGrabbed = new();
-        [SerializeField] private UnityEvent onReleased = new();
-        [SerializeField] private UnityEvent onRecycled = new();
+        private System.Action onGrabbed;
+        private System.Action onReleased;
+        private System.Action onRecycled;
         public virtual WorldInteractionKind Kind => kind;
         public void SetKind(WorldInteractionKind value) { kind = value; MarkSpatialDirty(); }
         public BoxCollider2D BoxSource { get => box; set { box = value; MarkSpatialDirty(); } }
@@ -155,20 +155,20 @@ namespace AnimalGame.World
         {
             if (!Available || (Kind & WorldInteractionKind.Grabbable) == 0 || Owner != null) return false;
             Owner = owner;
-            onGrabbed.Invoke();
+            onGrabbed?.Invoke();
             return Owner == owner && Available;
         }
         public virtual void Release(Object owner)
         {
             if (Owner != owner) return;
             Owner = null;
-            onReleased.Invoke();
+            onReleased?.Invoke();
         }
         public virtual void Recycle(Object owner)
         {
             if (Owner != owner || !recyclable) return;
             Owner = null;
-            onRecycled.Invoke();
+            onRecycled?.Invoke();
             // Default completion for the animation placeholder. Override for inventory/pooling.
             gameObject.SetActive(false);
         }
