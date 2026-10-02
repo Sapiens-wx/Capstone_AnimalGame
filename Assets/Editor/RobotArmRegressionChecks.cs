@@ -29,6 +29,7 @@ namespace AnimalGame.Editor
             Check("Dirty queue skips unchanged shapes and coalesces geometry edits", CheckSpatialDirty);
             Check("Held input retries, one/two-hand grabbing and early release", CheckGrabbing);
             Check("Raw thresholds, dock delay, hysteresis and recycle completion", CheckDocking);
+            Check("Recycle hand tracking, inward limit, medium pauses, shrinking and cancellation", CheckRecycleAnimation);
             Check("Release L3 drops before retracting", CheckRetracting);
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
             Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
@@ -321,6 +322,68 @@ namespace AnimalGame.Editor
                 Require(f.Arms.State == RobotArmState.Recycling && item.gameObject.activeSelf, "Ready release skipped recycle animation");
                 f.Tick(40, Vector2.zero, false);
                 Require(!item.gameObject.activeSelf && f.Arms.HeldObject == null, "Recycle failed to finish/clear ownership");
+            }
+        }
+        private static void CheckRecycleAnimation()
+        {
+            foreach (bool medium in new[] { false, true })
+            using (var f = new Fixture())
+            {
+                f.Tick(90, Vector2.up, true);
+                WorldInteraction item = f.Item(medium ? (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f
+                    : f.Arms.LeftHandWorld, medium ? new Vector2(.5f, .1f) : Vector2.one * .05f, medium ? 2 : 1);
+                Set(item, "size", medium ? RecyclableSize.Medium : RecyclableSize.Small);
+                Vector3 originalScale = new Vector3(1.2f, .8f, 1f);
+                item.LocalScale = originalScale;
+                f.Tick(1, Vector2.up, true);
+                f.Tick(150, Vector2.zero, true);
+                Require(f.Arms.IsRecycleReady, "Recycle fixture failed to dock");
+                f.Tick(1, Vector2.zero, false);
+                Vector3 start = item.WorldPosition;
+                Vector2 handStart = f.Arms.LeftHandWorld;
+                Call(f.Arms, "Step", .05f, Vector2.right, true, false);
+                Require(Vector2.Distance(f.Arms.LeftHandWorld - handStart, (Vector2)(item.WorldPosition - start)) < .0002f,
+                    "Recycle hand did not track garbage displacement or was steered by input");
+                Require(medium ? item.LocalScale.x < originalScale.x : item.LocalScale == originalScale,
+                    "Wrong size changed scale during recycling");
+                if (medium)
+                {
+                    // Land inside each pause, then verify both object and hands remain still.
+                    foreach (float pauseTime in new[] { .24f, .58f })
+                    {
+                        Call(f.Arms, "Step", pauseTime - (float)Get(f.Arms, "recycleTime"), Vector2.zero, true, false);
+                        Vector3 pausedPosition = item.WorldPosition, pausedScale = item.LocalScale;
+                        Vector2 pausedHand = f.Arms.LeftHandWorld;
+                        Call(f.Arms, "Step", .05f, Vector2.zero, true, false);
+                        Require(Vector3.Distance(item.WorldPosition, pausedPosition) < .00001f
+                            && item.LocalScale == pausedScale && Vector2.Distance(f.Arms.LeftHandWorld, pausedHand) < .0002f,
+                            "Medium recycle failed to pause position, scale and hands");
+                    }
+                    Call(f.Arms, "Step", .2f, Vector2.zero, true, false);
+                    Require(item.LocalScale.x < originalScale.x * .5f, "Medium third movement did not shrink");
+                }
+                else Call(f.Arms, "Step", .24f, Vector2.zero, true, false);
+                Vector2 stoppedHand = f.Arms.LeftHandWorld;
+                Vector3 before = item.WorldPosition;
+                Call(f.Arms, "Step", .01f, Vector2.zero, true, false);
+                Require(Vector2.Distance(stoppedHand, f.Arms.LeftHandWorld) < .0002f
+                    && Vector3.Distance(before, item.WorldPosition) > .00001f, "Hand did not stop while garbage continued inward");
+                if (medium)
+                {
+                    f.Tick(1, Vector2.zero, false, false);
+                    Require(item.LocalScale == originalScale && item.Owner == null && item.gameObject.activeSelf,
+                        "Cancelled recycle did not restore size and release garbage");
+                    // Also verify completion with a delta that crosses all five phases.
+                    Require(item.TryGrab(f.Arms), "Could not regrab cancelled garbage");
+                    Set(f.Arms, "heldObject", item);
+                    Set(f.Arms, "heldHands", 3);
+                    Call(f.Arms, "BeginRecycle");
+                }
+                Call(f.Arms, "Step", 2f, Vector2.zero, true, false);
+                Require(!item.gameObject.activeSelf && item.Owner == null && f.Arms.HeldObject == null
+                    && item.LocalScale == originalScale, "Recycle completion failed to clear ownership or restore reusable scale");
+                Require(((Vector2)item.WorldPosition - (Vector2)f.Root.transform.position).magnitude < .0001f,
+                    "Recycled garbage did not reach player center");
             }
         }
         private static void CheckRetracting()

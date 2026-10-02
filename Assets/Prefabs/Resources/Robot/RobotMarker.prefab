@@ -407,8 +407,9 @@ MonoBehaviour:
   artworkThicknessScale: 2.57
   socketRadiusOfBody: 0.88
   armLength: 1.45
-  upperArmLengthPercent: 0.45
-  lowerArmLengthPercent: 0.65
+  upperArmLengthPercent: 0.6
+  lowerArmLengthPercent: 0.55
+  staticArmLengthPercent: 0.4
   handSpacingOfBodyDiameter: 1
   collisionWidthOfBodyDiameter: 0.08
   connectorExtendDuration: 0.24
@@ -427,6 +428,10 @@ MonoBehaviour:
   mediumDockPosition: {x: 0, y: 0.8}
   dockToleranceOfBodyDiameter: 0.045
   recycleDuration: 0.35
+  recycleHandMinimumForward: 0.2
+  mediumRecycleMoveDuration: 0.22
+  mediumRecyclePauseDuration: 0.12
+  mediumRecycleEndScale: 0.15
 --- !u!114 &775533119844220011
 MonoBehaviour:
   m_ObjectHideFlags: 0
