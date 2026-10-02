@@ -185,7 +185,17 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(0f, 1f)]
         private float deepWaterSpeedReduction = 0.3f;
 
-        public float CurrentSpeed { get; private set; }
+        public float CurrentSpeed
+        {
+            get => currentSpeed;
+            private set
+            {
+                currentSpeed = value;
+                // Remember direction at every speed change, including before an external stop.
+                if (!Mathf.Approximately(value, 0f))
+                    lastMovingSpeedSign = Mathf.Sign(value);
+            }
+        }
         public float CurrentTurnSpeed { get; private set; }
         public float CurrentTerrainTurnSpeed { get; private set; }
         public Vector2 CurrentTerrainVelocity { get; private set; }
@@ -213,6 +223,9 @@ namespace AnimalGame.RobotMap
         }
         public SlopeTraversalResult CurrentTraversalResult { get; private set; }
 
+        private float currentSpeed;
+        private float lastMovingSpeedSign = 1f;
+        private bool wasSteering;
         private HeightMapTraversalEvaluator traversalEvaluator;
         private RobotArmController armController;
         private readonly List<WorldInteraction> pushedObjects = new();
@@ -364,7 +377,7 @@ namespace AnimalGame.RobotMap
                                       && IsTryingToClimbLevelThree(
                                           groundResult,
                                           throttle));
-            UpdateTurning(throttle, steering, steeringLocked);
+            UpdateTurning(steering, steeringLocked);
 
             if (pathResult.HasData && pathResult.RequiresHardStop)
             {
@@ -559,6 +572,7 @@ namespace AnimalGame.RobotMap
 
         private void ClearMotionForExternalControl()
         {
+            wasSteering = false;
             CurrentThrottleIntent = 0f;
             UnresistedMovementIntentWorld = Vector2.zero;
             CurrentSpeed = 0f;
@@ -582,10 +596,15 @@ namespace AnimalGame.RobotMap
         }
 
         private void UpdateTurning(
-            float throttle,
             float steering,
             bool steeringLocked)
         {
+            bool isSteering = !steeringLocked && !Mathf.Approximately(steering, 0f);
+            // Only uninterrupted steering carries the reverse direction through a stop.
+            if (Mathf.Approximately(CurrentSpeed, 0f) && (!wasSteering || !isSteering))
+                lastMovingSpeedSign = 1f;
+            wasSteering = isSteering;
+
             float targetTurnSpeed = steeringLocked
                 ? 0f
                 : steering * ScaleMotion(turnSpeed);
@@ -598,11 +617,7 @@ namespace AnimalGame.RobotMap
                 targetTurnSpeed,
                 turnChangeRate * Time.deltaTime);
 
-            float reverseDirection = Mathf.Abs(CurrentSpeed) > 0.05f
-                ? Mathf.Sign(CurrentSpeed)
-                : Mathf.Abs(throttle) > 0.01f
-                    ? Mathf.Sign(throttle)
-                    : 1f;
+            float reverseDirection = lastMovingSpeedSign;
             transform.Rotate(
                 0f,
                 0f,

@@ -33,6 +33,7 @@ namespace AnimalGame.Editor
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
             Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
             Check("Player-local input, threshold turning and fallen control restrictions", CheckTurning);
+            Check("Stopped steering retains reverse only while steering continuously", CheckStoppedSteering);
             Check("Grab resistance scales movement and freezes held movement at one", CheckGrabResistance);
             Check("Held replacement updates owner, hand count and resistance", CheckHeldReplacement);
             Check("Held fragments spawn at the hand midpoint despite overlaps", CheckHeldFragmentSpawn);
@@ -444,6 +445,56 @@ namespace AnimalGame.Editor
                     "Full resistance moved the held object or rotated the player");
                 f.Tick(1, Vector2.zero, false);
                 Require(mover.GrabMovementMultiplier == 1f, "Release left grab resistance active");
+            }
+        }
+
+        private static void CheckStoppedSteering()
+        {
+            using (var f = new Fixture())
+            {
+                RobotMover mover = f.Root.GetComponent<RobotMover>();
+                var speed = typeof(RobotMover).GetProperty("CurrentSpeed");
+                var turn = typeof(RobotMover).GetProperty("CurrentTurnSpeed");
+                Require((float)Get(mover, "lastMovingSpeedSign") == 1f,
+                    "Initial stationary steering should use the forward direction");
+                foreach (float sign in new[] { -1f, 1f })
+                {
+                    // A slow movement still determines direction, even below the old .05 threshold.
+                    speed.SetValue(mover, sign * .01f);
+                    Require((float)Get(mover, "lastMovingSpeedSign") == sign,
+                        "Nonzero speed did not update steering direction");
+                    Call(mover, "UpdateTurning", 1f, false);
+                    mover.SetPhotoModeInputLocked(true);
+                    mover.SetPhotoModeInputLocked(false);
+                    Require(mover.CurrentSpeed == 0f && (float)Get(mover, "lastMovingSpeedSign") == sign,
+                        "An external stop erased the previous movement direction");
+                    speed.SetValue(mover, -sign * Mathf.Epsilon);
+                    Require((float)Get(mover, "lastMovingSpeedSign") == sign,
+                        "Approximately zero speed changed the remembered direction");
+                    speed.SetValue(mover, 0f);
+                    f.Root.transform.rotation = Quaternion.identity;
+                    turn.SetValue(mover, 100f);
+                    Call(mover, "UpdateTurning", 1f, false);
+                    Quaternion expected = Quaternion.Euler(0f, 0f, -100f * sign * Time.deltaTime);
+                    Require(Quaternion.Angle(f.Root.transform.rotation, expected) < .001f,
+                        "Stationary steering did not use the last movement direction");
+                    Require((float)Get(mover, "lastMovingSpeedSign") == sign,
+                        "Continuous steering lost direction at rest");
+                    Call(mover, "UpdateTurning", 0f, false);
+                    Require((float)Get(mover, "lastMovingSpeedSign") == 1f,
+                        "Releasing steering at rest did not reset direction");
+                    Call(mover, "UpdateTurning", 1f, false);
+                    Require((float)Get(mover, "lastMovingSpeedSign") == 1f,
+                        "Resuming stationary steering restored the old reverse direction");
+                }
+                speed.SetValue(mover, -1f);
+                Call(mover, "UpdateTurning", 0f, false);
+                Require((float)Get(mover, "lastMovingSpeedSign") == -1f,
+                    "Releasing steering while moving changed the movement direction");
+                speed.SetValue(mover, 0f);
+                Call(mover, "UpdateTurning", 1f, false);
+                Require((float)Get(mover, "lastMovingSpeedSign") == 1f,
+                    "Starting a new turn at rest incorrectly retained reverse direction");
             }
         }
 
