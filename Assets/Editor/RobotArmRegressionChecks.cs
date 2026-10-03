@@ -441,6 +441,9 @@ namespace AnimalGame.Editor
         {
             using (var f = new Fixture())
             {
+                RobotMover mover = f.Root.GetComponent<RobotMover>();
+                Set(mover, "turnSpeed", 60f);
+                Set(mover, "overallMotionScale", .88f);
                 f.Root.transform.rotation = Quaternion.Euler(0f, 0f, 125f);
                 Quaternion heading = f.Root.transform.rotation;
                 f.Tick(120, Vector2.up, false);
@@ -449,22 +452,35 @@ namespace AnimalGame.Editor
                 Require(Vector2.Angle((Vector2)Get(f.Arms, "targetLocal"), Vector2.up) < .1f
                     && f.Arms.CurrentTargetLocal == Vector2.up, "Forward input is not body-local");
                 f.Tick(60, Vector2.right, false);
-                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 100f) < .1f,
-                    "Right local input did not rotate clockwise at configured speed");
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 52.8f) < .1f,
+                    "Right local input did not use the scaled base turning speed");
                 heading = f.Root.transform.rotation;
                 f.Tick(60, Vector2.right, false);
-                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 100f) < .1f,
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 52.8f) < .1f,
                     "Sustained local input stopped turning after reaching a world heading");
                 heading = f.Root.transform.rotation;
                 f.Tick(60, Direction(-69f), false);
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
                     "Body kept turning after local input returned below 70 degrees");
                 f.Tick(60, Vector2.left, false);
-                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) - 100f) < .1f,
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) - 52.8f) < .1f,
                     "Left local input did not rotate counterclockwise");
                 heading = f.Root.transform.rotation;
                 f.Tick(1, Vector2.zero, false);
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f, "Centred stick kept turning");
+                Set(mover, "turnSpeed", 90f);
+                Set(mover, "overallMotionScale", .5f);
+                heading = f.Root.transform.rotation;
+                f.Tick(60, Vector2.right, false);
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 45f) < .1f,
+                    "Arm turning did not follow updated base movement settings");
+                Set(mover, "overallMotionScale", 0f);
+                heading = f.Root.transform.rotation;
+                f.Tick(60, Vector2.right, false);
+                Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Arm turning ignored zero overall motion scale");
+                Set(mover, "turnSpeed", 60f);
+                Set(mover, "overallMotionScale", .88f);
                 float upper = (float)Get(f.Arms, "upperLength");
                 Set(f.Arms, "armLength", 8f);
                 f.Tick(1, Vector2.right, false);

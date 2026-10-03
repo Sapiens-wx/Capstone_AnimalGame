@@ -197,6 +197,7 @@ namespace AnimalGame.RobotMap
             }
         }
         public float CurrentTurnSpeed { get; private set; }
+        public float BaseTurnSpeed => ScaleMotion(turnSpeed);
         public float CurrentTerrainTurnSpeed { get; private set; }
         public Vector2 CurrentTerrainVelocity { get; private set; }
         public Vector2 MapPosition => transform.position;
@@ -607,7 +608,7 @@ namespace AnimalGame.RobotMap
 
             float targetTurnSpeed = steeringLocked
                 ? 0f
-                : steering * ScaleMotion(turnSpeed);
+                : steering * BaseTurnSpeed;
             float turnChangeRate = steeringLocked
                                    || Mathf.Approximately(steering, 0f)
                 ? ScaleMotion(turnDeceleration)

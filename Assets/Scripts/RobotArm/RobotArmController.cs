@@ -45,7 +45,6 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(0f)] private float dockEnterDelay = .1f;
         [SerializeField, Range(.3f, 1f)] private float maximumMagnitude = .95f;
         [SerializeField, Range(1f, 179f)] private float followAngle = 70f;
-        [SerializeField, Min(1f)] private float bodyFollowSpeed = 100f;
         [SerializeField, Min(1f)] private float maximumAimSpeedDegreesPerSecond = 240f;
         [SerializeField, Min(.01f)] private float aimSmoothingTime = .2f;
         [Header("Docking (robot-local, body diameters)")]
@@ -242,7 +241,7 @@ namespace AnimalGame.RobotArm
             if (Mathf.Abs(angle) <= followAngle) return;
             // Input stays body-local: turning does not consume the stick's angle.
             // Continue while held outside the limit, stop as soon as input returns inside it.
-            float step = Mathf.Sign(angle) * bodyFollowSpeed * stepDelta * mover.GrabMovementMultiplier;
+            float step = Mathf.Sign(angle) * mover.BaseTurnSpeed * stepDelta * mover.GrabMovementMultiplier;
             Quaternion requested = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + step);
             ConstrainBodyPose(transform.position, transform.rotation, transform.position, requested);
         }
