@@ -1,5 +1,6 @@
 using System;
 using AnimalGame.MapTest;
+using AnimalGame.World;
 using UnityEngine;
 
 namespace AnimalGame.RobotMap
@@ -182,6 +183,7 @@ namespace AnimalGame.RobotMap
         private float selfRightingInertiaElapsed;
         private float selfRightingInertiaDuration;
         private bool balanceGamepadInputArmed = true;
+        private bool wasOnClimbable;
         private void Awake()
         {
             mover = GetComponent<RobotMover>();
@@ -214,15 +216,34 @@ namespace AnimalGame.RobotMap
             UpdatePlayerCounterbalance(deltaTime);
             UpdateSelfRightingInertia(deltaTime);
 
-            Vector2 targetBalanceLocal = CalculateSlopeBalanceLocal()
-                                         + CalculateInertiaBalanceLocal()
-                                         + currentCounterbalanceLocal
+            SimulateBalance(deltaTime);
+        }
+
+        private void SimulateBalance(float deltaTime)
+        {
+
+            Vector2 automaticBalance = CalculateSlopeBalanceLocal() + CalculateInertiaBalanceLocal();
+            bool climbable = mover.CurrentClimbableSurface.IsActive;
+            if (wasOnClimbable && !climbable && currentCounterbalanceLocal.sqrMagnitude < 0.000001f)
+                balanceVelocityLocal = Vector2.zero; // Do not carry automatic slope spring momentum off the prop.
+            wasOnClimbable = climbable;
+            if (climbable)
+                automaticBalance = Vector2.ClampMagnitude(automaticBalance, 0.8f);
+            Vector2 targetBalanceLocal = automaticBalance + currentCounterbalanceLocal
                                          + selfRightingInertiaDirectionLocal
                                            * selfRightingInertiaMagnitude;
             targetBalanceLocal = ApplyEdgeResistance(
                 Vector2.ClampMagnitude(targetBalanceLocal, 4f));
 
             IntegrateBalanceSpring(targetBalanceLocal, deltaTime);
+            if (climbable)
+            {
+                // Only automatic driving gets a safety reserve. Deliberate player
+                // counterweight and self-righting impulses retain room to cross the ring.
+                float safeRadius = 0.9f + currentCounterbalanceLocal.magnitude
+                    + selfRightingInertiaMagnitude;
+                LimitBalanceRadius(safeRadius);
+            }
             UpdateCameraFollowTarget();
             PublishState();
             TryTipOver();
@@ -375,6 +396,13 @@ namespace AnimalGame.RobotMap
 
         private Vector2 CalculateSlopeBalanceLocal()
         {
+            ClimbableSurface climbable = mover.CurrentClimbableSurface;
+            if (climbable.IsActive)
+            {
+                Vector2 world = climbable.DownhillWorldDirection * climbable.Strength
+                    * ClimbableSurface.MaximumSafeBalanceOffset;
+                return new Vector2(Vector2.Dot(world, transform.right), Vector2.Dot(world, transform.up));
+            }
             SlopeTraversalResult surface = mover.CurrentTraversalResult;
             if (!surface.HasData
                 || surface.DownhillWorldDirection.sqrMagnitude < 0.000001f
@@ -522,10 +550,15 @@ namespace AnimalGame.RobotMap
                 currentBalanceLocal += balanceVelocityLocal * step;
             }
 
-            if (currentBalanceLocal.magnitude > maximumNormalizedOffset)
+            LimitBalanceRadius(maximumNormalizedOffset);
+        }
+
+        private void LimitBalanceRadius(float radius)
+        {
+            if (currentBalanceLocal.magnitude > radius)
             {
                 currentBalanceLocal = currentBalanceLocal.normalized
-                                      * maximumNormalizedOffset;
+                                      * radius;
                 float outwardVelocity = Vector2.Dot(
                     balanceVelocityLocal,
                     currentBalanceLocal.normalized);

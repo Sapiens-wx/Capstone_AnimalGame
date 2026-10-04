@@ -222,6 +222,13 @@ namespace AnimalGame.RobotMap
             private set;
         }
         public SlopeTraversalResult CurrentTraversalResult { get; private set; }
+        public ClimbableSurface CurrentClimbableSurface { get; private set; }
+        public bool ClimbableLandedThisFrame { get; private set; }
+        public Vector2 ClimbableLandingDirection { get; private set; }
+        private readonly List<WorldInteraction> climbableScratch = new();
+        private readonly ClimbableContactTracker climbableContacts = new();
+        private Vector2 lastCommittedPosition;
+        private bool hasCommittedPosition;
 
         private float currentSpeed;
         private float lastMovingSpeedSign = 1f;
@@ -247,6 +254,7 @@ namespace AnimalGame.RobotMap
 
         public void SetTraversalEvaluator(HeightMapTraversalEvaluator evaluator)
         {
+            ResetClimbableContact();
             traversalEvaluator = evaluator;
             if (balanceController == null)
                 balanceController = GetComponent<RobotBalanceController>();
@@ -270,10 +278,28 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
+            ClimbableLandedThisFrame = false;
+            if (Time.deltaTime <= 0f) return;
             if (MovementMode != RobotMovementMode.Driven)
             {
                 ClearMotionForExternalControl();
                 return;
+            }
+
+            if (hasCommittedPosition && ((Vector2)transform.position - lastCommittedPosition).sqrMagnitude > 0.000001f)
+                ResetClimbableContact(); // External relocation is not a driven landing.
+            RefreshClimbableSurface();
+            lastCommittedPosition = transform.position;
+            hasCommittedPosition = true;
+            if (CurrentClimbableSurface.IsActive)
+            {
+                ResetLevelThreeClimbFailureSequence();
+                IsAutoAligningDownhill = false;
+                IsLevelThreeUnstable = false;
+                downhillHeadingRecoveryEndTime = 0f;
+                pendingDownhillRecoveryFromLevelThreeSlip = false;
+                CurrentTerrainVelocity = Vector2.zero;
+                CurrentTerrainTurnSpeed = 0f;
             }
 
             float keyboardThrottle = ReadKeyboardAxis(
@@ -362,12 +388,14 @@ namespace AnimalGame.RobotMap
             SlopeTraversalResult pathResult = traversalEvaluator != null
                 ? traversalEvaluator.EvaluateImmediateSafety(
                     transform.position,
-                    probeDirection)
+                    probeDirection, true)
                 : SlopeTraversalResult.NoData;
             SlopeTraversalResult groundResult = traversalEvaluator != null
                 ? traversalEvaluator.EvaluateCurrentSurface(transform.position, probeDirection)
                 : SlopeTraversalResult.NoData;
 
+            if (CurrentClimbableSurface.IsActive)
+                groundResult = SlopeTraversalResult.NoData;
             UpdateLevelThreeClimbFailureSequence(groundResult, throttle);
 
             bool steeringLocked = IsAutoAligningDownhill
@@ -387,6 +415,8 @@ namespace AnimalGame.RobotMap
 
             IsSlopeBlocked = false;
             CurrentTraversalResult = groundResult.HasData ? groundResult : pathResult;
+            if (CurrentClimbableSurface.IsActive)
+                CurrentTraversalResult = CurrentClimbableSurface.Traversal(probeDirection);
 
             float topSpeedMultiplier = 1f;
             float accelerationBonus = 0f;
@@ -404,6 +434,11 @@ namespace AnimalGame.RobotMap
                 ref accelerationBonus,
                 ref terrainVelocityAcceleration,
                 out targetTerrainTurnSpeed);
+            if (CurrentClimbableSurface.IsActive)
+            {
+                topSpeedMultiplier = CurrentClimbableSurface.SpeedMultiplier((Vector2)transform.up * probeSign);
+                IsDownhillBoosted = topSpeedMultiplier > 1f;
+            }
             targetTerrainVelocity *= GrabMovementMultiplier;
             targetTerrainTurnSpeed *= GrabMovementMultiplier;
             bool shouldStartDownhillRecovery = useLevelThreeClimbFailureSequence
@@ -473,7 +508,7 @@ namespace AnimalGame.RobotMap
                 SlopeTraversalResult actualPathResult =
                     traversalEvaluator.EvaluateImmediateSafety(
                         transform.position,
-                        desiredVelocity.normalized);
+                        desiredVelocity.normalized, true);
                 bool hardObstacle = actualPathResult.HasData
                                     && actualPathResult.RequiresHardStop
                                     && actualPathResult.BlockReason
@@ -499,13 +534,43 @@ namespace AnimalGame.RobotMap
                     garbageMotion.ApplyExternalPush(desiredDisplacement);
                 else item.WorldPosition += (Vector3)desiredDisplacement;
             }
+            Vector2 movementStart = transform.position;
             transform.position += (Vector3)desiredDisplacement;
+            ClimbableLandedThisFrame = climbableContacts.Move(movementStart, transform.position,
+                traversalEvaluator != null ? traversalEvaluator.Map : null, gameObject.scene, Time.time);
+            if (ClimbableLandedThisFrame) ClimbableLandingDirection = desiredDisplacement.normalized;
+            lastCommittedPosition = transform.position;
+            bool wasClimbable = CurrentClimbableSurface.IsActive;
+            RefreshClimbableSurface();
+            if (CurrentClimbableSurface.IsActive)
+                CurrentTraversalResult = CurrentClimbableSurface.Traversal(desiredVelocity);
+            else if (wasClimbable)
+                CurrentTraversalResult = traversalEvaluator != null
+                    ? traversalEvaluator.EvaluateCurrentSurface(transform.position, probeDirection)
+                    : SlopeTraversalResult.NoData;
             transform.Rotate(
                 0f,
                 0f,
                 -CurrentTerrainTurnSpeed * Time.deltaTime);
             ApplyDownhillHeadingRecovery();
         }
+
+        private void RefreshClimbableSurface()
+        {
+            CurrentClimbableSurface = ClimbableSurface.Sample(transform.position,
+                traversalEvaluator != null ? traversalEvaluator.Map : null, gameObject.scene,
+                climbableScratch, CurrentClimbableSurface.Source);
+        }
+
+        private void ResetClimbableContact()
+        {
+            climbableContacts.Reset();
+            CurrentClimbableSurface = default;
+            ClimbableLandedThisFrame = false;
+            hasCommittedPosition = false;
+        }
+
+        private void OnDisable() => ResetClimbableContact();
 
         internal Vector2 BeginExternalTumble()
         {
@@ -572,6 +637,7 @@ namespace AnimalGame.RobotMap
 
         private void ClearMotionForExternalControl()
         {
+            ResetClimbableContact();
             wasSteering = false;
             CurrentThrottleIntent = 0f;
             UnresistedMovementIntentWorld = Vector2.zero;

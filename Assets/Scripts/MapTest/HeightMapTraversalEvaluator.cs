@@ -292,6 +292,8 @@ namespace AnimalGame.MapTest
             robotObstacleCollisionRadiusMeters;
         public float PathSampleSpacingMeters => pathEvaluationSpacingMeters;
         public bool IsInitialized => map != null && map.HasGeneratedMap;
+        public MapTestSceneController Map => map;
+        private readonly List<WorldInteraction> climbableScratch = new();
 
         public void Initialize(MapTestSceneController mapController)
         {
@@ -874,20 +876,22 @@ namespace AnimalGame.MapTest
 
         public SlopeTraversalResult EvaluateImmediateSafety(
             Vector2 startWorld,
-            Vector2 worldDirection)
+            Vector2 worldDirection,
+            bool useClimbableSurfaces = false)
         {
             return EvaluateMovement(
                 startWorld,
                 worldDirection,
                 hardStopProbeDistanceMeters,
-                false);
+                false, useClimbableSurfaces);
         }
 
         private SlopeTraversalResult EvaluateMovement(
             Vector2 startWorld,
             Vector2 worldDirection,
             float probeDistanceMeters,
-            bool includeMapObstacles)
+            bool includeMapObstacles,
+            bool useClimbableSurfaces = false)
         {
             if (!IsInitialized || worldDirection.sqrMagnitude < 0.000001f)
                 return SlopeTraversalResult.NoData;
@@ -906,7 +910,7 @@ namespace AnimalGame.MapTest
             return EvaluateMapPathInternal(
                 startMapPosition,
                 endMapPosition,
-                includeMapObstacles);
+                includeMapObstacles, useClimbableSurfaces);
         }
 
         public SlopeTraversalResult EvaluateMapPath(
@@ -922,7 +926,8 @@ namespace AnimalGame.MapTest
         private SlopeTraversalResult EvaluateMapPathInternal(
             Vector2 startMapPosition,
             Vector2 endMapPosition,
-            bool includeMapObstacles)
+            bool includeMapObstacles,
+            bool useClimbableSurfaces = false)
         {
             if (!IsInitialized
                 || !map.TrySampleMapPosition(startMapPosition, out _))
@@ -988,6 +993,16 @@ namespace AnimalGame.MapTest
 
                 if (!TryAnalyzeSurface(center, direction, out SurfaceAnalysis analysis))
                     return SlopeTraversalResult.BlockedBoundary;
+
+                // Replace only the covered terrain. Boundary and deep-water checks above
+                // remain authoritative; ordinary callers keep their existing behaviour.
+                if (useClimbableSurfaces && ClimbableSurface.Sample(
+                        map.MapPositionToWorld(center), map, gameObject.scene,
+                        climbableScratch).IsActive)
+                {
+                    consecutiveUnsafeDownhillLength = 0f;
+                    continue;
+                }
 
                 float absoluteDirectionalSlope = Mathf.Abs(
                     analysis.SignedDirectionalSlopeAngle);

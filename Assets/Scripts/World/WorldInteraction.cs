@@ -13,7 +13,8 @@ namespace AnimalGame.World
         Collision = 1 << 0,
         Grabbable = 1 << 1,
         BodyCollision = 1 << 2, // Blocks bodies but not the mechanical arm.
-        Pushable = 1 << 3        // Add to Collision or BodyCollision on the same component.
+        Pushable = 1 << 3,       // Add to Collision or BodyCollision on the same component.
+        Climbable = 1 << 4
     }
     public enum RecyclableSize { Small, Medium, Big }
 
@@ -34,6 +35,15 @@ namespace AnimalGame.World
         [SerializeField] private SpriteRenderer sprite;
         [SerializeField] private Vector2 localCenter;
         [SerializeField] private Vector2 localSize = Vector2.one;
+        [Tooltip("Circular climbable radius in local units. Uses the largest XY scale in map coordinates; remains circular.")]
+        [SerializeField, Min(0.001f)] private float climbableRadius = 1f;
+        [Tooltip("Virtual slope strength. 1 is the code-defined maximum safe climbing experience.")]
+        [SerializeField, Range(0f, 1f)] private float slopeStrength01 = 0.5f;
+        [Tooltip("Flat top radius divided by the outer radius. Endpoints are excluded.")]
+        [SerializeField, Range(0.001f, 0.999f)] private float topRadiusRatio01 = 0.5f;
+        public float ClimbableRadius { get => Mathf.Max(0.001f, climbableRadius); set { climbableRadius = Mathf.Max(0.001f, value); MarkSpatialDirty(); } }
+        public float SlopeStrength01 { get => Mathf.Clamp01(slopeStrength01); set => slopeStrength01 = Mathf.Clamp01(value); }
+        public float TopRadiusRatio01 { get => Mathf.Clamp(topRadiusRatio01, 0.001f, 0.999f); set => topRadiusRatio01 = Mathf.Clamp(value, 0.001f, 0.999f); }
         [SerializeField, Range(1, 2)] private int requiredHands = 1;
         [SerializeField] private bool recyclable = true;
         [SerializeField] private RecyclableSize size;
@@ -140,6 +150,14 @@ namespace AnimalGame.World
 
         public virtual InteractionShape GetShape(MapTestSceneController map)
         {
+            if ((Kind & WorldInteractionKind.Climbable) != 0)
+            {
+                Vector2 center = InteractionShape.ToQuery(transform.TransformPoint(localCenter), map);
+                Vector2 right = InteractionShape.ToQuery(transform.TransformPoint(localCenter + Vector2.right), map) - center;
+                Vector2 up = InteractionShape.ToQuery(transform.TransformPoint(localCenter + Vector2.up), map) - center;
+                return InteractionShape.Capsule(center, center,
+                    ClimbableRadius * Mathf.Max(right.magnitude, up.magnitude));
+            }
             if (box != null)
                 return InteractionShape.Box(box.transform, box.offset, box.size, map);
             if (sprite == null) sprite = GetComponent<SpriteRenderer>();

@@ -306,6 +306,11 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(0f, 1f)] private float sonyTumbleMaximumHighFrequencyStrength = 1f;
 
         [Header("Landing Impact")]
+        [SerializeField, Range(0f, 1f)] private float climbableLandingCameraStrength = 0.5f;
+        [SerializeField, Range(0f, 1f)] private float climbableLandingLowFrequency = 0.45f;
+        [SerializeField, Range(0f, 1f)] private float climbableLandingHighFrequency = 0.30f;
+        [SerializeField, Min(0.01f)] private float climbableLandingDuration = 0.20f;
+        private float climbableLandingTime = float.NegativeInfinity;
         [SerializeField, Min(0f)] private float landingPositionImpact = 0.36f;
         [SerializeField, Min(0f)] private float landingRotationImpactDegrees = 5.2f;
         [SerializeField, Range(0f, 0.1f)] private float landingZoomImpactFraction = 0.042f;
@@ -834,15 +839,19 @@ namespace AnimalGame.RobotMap
                 triggeredMajorImpact = true;
             }
 
-            if (heightMotion != null && heightMotion.LandedThisFrame)
+            bool realLanding = heightMotion != null && heightMotion.LandedThisFrame;
+            bool climbableLanding = mover.ClimbableLandedThisFrame;
+            if (realLanding || climbableLanding)
             {
-                RobotLandingImpact landing = heightMotion.LastLandingImpact;
+                RobotLandingImpact landing = realLanding ? heightMotion.LastLandingImpact : default;
+                float strength = Mathf.Max(landing.Strength01,
+                    climbableLanding ? climbableLandingCameraStrength : 0f);
                 Vector2 direction = GetReliableTravelDirection(
-                    landing.TravelWorldDirection,
+                    realLanding ? landing.TravelWorldDirection : mover.ClimbableLandingDirection,
                     traversal.DownhillWorldDirection);
                 AddDirectionalImpact(
                     direction,
-                    landing.Strength01,
+                    strength,
                     landingPositionImpact,
                     landingRotationImpactDegrees,
                     landingZoomImpactFraction);
@@ -851,7 +860,8 @@ namespace AnimalGame.RobotMap
                     lastLandingRumbleTime = Time.time;
                     lastLandingRumbleStrength = landing.Strength01;
                 }
-                triggeredMajorImpact = landing.Strength01 > 0f
+                if (climbableLanding) climbableLandingTime = Time.time;
+                triggeredMajorImpact = strength > 0f
                                        || triggeredMajorImpact;
             }
 
@@ -1369,6 +1379,10 @@ namespace AnimalGame.RobotMap
                 * landingBoost);
             ApplyTumbleRumble(ref targetLow, ref targetHigh);
             ApplyObstacleCollisionRumble(ref targetLow, ref targetHigh);
+            float climbEnvelope = 1f - Mathf.Clamp01((Time.time - climbableLandingTime)
+                / Mathf.Max(0.01f, climbableLandingDuration));
+            targetLow = Mathf.Max(targetLow, climbableLandingLowFrequency * climbEnvelope);
+            targetHigh = Mathf.Max(targetHigh, climbableLandingHighFrequency * climbEnvelope);
             targetLow = Mathf.Max(targetLow, garbagePullRumble);
             targetHigh = Mathf.Max(targetHigh, garbagePullRumble * .65f);
             if (!IsTumbleFeedbackSuppressed
@@ -1469,6 +1483,7 @@ namespace AnimalGame.RobotMap
             rumbleWasSent = false;
             lastLandingRumbleTime = float.NegativeInfinity;
             lastLandingRumbleStrength = 0f;
+            climbableLandingTime = float.NegativeInfinity;
             obstacleCollisionRumbleStartTime = float.NegativeInfinity;
             obstacleCollisionRumbleEndTime = float.NegativeInfinity;
             obstacleCollisionRumbleStrength = 0f;

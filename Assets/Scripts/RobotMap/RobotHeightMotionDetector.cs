@@ -103,6 +103,7 @@ namespace AnimalGame.RobotMap
         private RobotMover mover;
         private MapTestSceneController map;
         private bool initialized;
+        private bool wasOnClimbable;
         private float previousGroundHeight;
         private float filteredGroundVerticalSpeed;
         private float airborneStartGroundHeight;
@@ -125,6 +126,16 @@ namespace AnimalGame.RobotMap
             LandedThisFrame = false;
             if (!enableHeightMotionDetection || map == null || mover == null)
                 return;
+
+            bool onClimbable = mover.CurrentClimbableSurface.IsActive;
+            if (onClimbable || wasOnClimbable)
+            {
+                // The circular surface replaces terrain slope without adding height.
+                // Underlying terrain must not fabricate takeoff/landing during contact.
+                wasOnClimbable = onClimbable;
+                SynchronizeToCurrentGround();
+                return;
+            }
 
             if (mover.IsMovementLocked)
             {

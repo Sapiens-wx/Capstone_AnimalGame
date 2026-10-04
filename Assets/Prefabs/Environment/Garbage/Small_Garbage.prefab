@@ -120,25 +120,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 295e520c95e7ba24382f447af748bb78, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  kind: 2
+  kind: 18
   box: {fileID: 0}
   sprite: {fileID: 8875290478793147246}
   localCenter: {x: 0, y: 0}
   localSize: {x: 1, y: 1}
+  climbableRadius: 0.87
+  slopeStrength01: 0.5
+  topRadiusRatio01: 0.5
   requiredHands: 1
   recyclable: 1
   size: 0
   pushSpeedMultiplier: 0.6
   grabResistance: 0
-  onGrabbed:
-    m_PersistentCalls:
-      m_Calls: []
-  onReleased:
-    m_PersistentCalls:
-      m_Calls: []
-  onRecycled:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!114 &6100000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0

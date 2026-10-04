@@ -1255,6 +1255,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
   m_PrefabInstance: {fileID: 258364251}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &265363366 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+  m_PrefabInstance: {fileID: 2004199521}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &275720296
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7569,6 +7574,79 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
   m_PrefabInstance: {fileID: 2001315687}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &2004199521
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 9100000000000000022}
+    m_Modifications:
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 21.07
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 16.17
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.9949159
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.100709006
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6411004824892339983, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 11.56
+      objectReference: {fileID: 0}
+    - target: {fileID: 7253239608327384681, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: m_Name
+      value: Medium_Garbage (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: map
+      value: 
+      objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 203.03703
+      objectReference: {fileID: 0}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 184.88889
+      objectReference: {fileID: 0}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 14.4243965
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
 --- !u!1001 &2020687176
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8201,6 +8279,7 @@ Transform:
   - {fileID: 1610131957}
   - {fileID: 1037826580}
   - {fileID: 5383248061186771991}
+  - {fileID: 265363366}
   - {fileID: 429108222}
   - {fileID: 300954095}
   - {fileID: 2020687177}
