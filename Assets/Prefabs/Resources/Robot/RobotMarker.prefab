@@ -410,7 +410,7 @@ MonoBehaviour:
   upperArmLengthPercent: 0.6
   lowerArmLengthPercent: 0.55
   staticArmLengthPercent: 0.4
-  handSpacingOfBodyDiameter: 1
+  handSpacingOfBodyDiameter: 0.7
   collisionWidthOfBodyDiameter: 0.08
   connectorExtendDuration: 0.24
   extendDuration: 0.3

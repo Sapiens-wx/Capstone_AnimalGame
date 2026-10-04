@@ -32,8 +32,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: 0.100709006, w: 0.9949159}
   m_LocalPosition: {x: 22.84, y: 17.98, z: 0}
-  m_LocalScale: {x: 0.38, y: 0.38, z: 0.38}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.32, y: 0.32, z: 0.32}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 11.56}
@@ -131,15 +131,6 @@ MonoBehaviour:
   size: 2
   pushSpeedMultiplier: 0.7
   grabResistance: 1
-  onGrabbed:
-    m_PersistentCalls:
-      m_Calls: []
-  onReleased:
-    m_PersistentCalls:
-      m_Calls: []
-  onRecycled:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!114 &6300000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -182,9 +173,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   heldFragments:
-  - {fileID: 8098866755847926482, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+  - {fileID: 7253239608327384681, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
   scatteredFragments:
-  - {fileID: 8098866755847926482, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+  - {fileID: 7253239608327384681, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
   fadeDuration: 0.45
   minimumFragments: 2
   maximumFragments: 4
