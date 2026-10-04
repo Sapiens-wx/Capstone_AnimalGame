@@ -43,7 +43,6 @@ namespace AnimalGame.RobotArm
         [Header("Control")]
         [SerializeField, Range(0f, 1f)] private float dockEnterMagnitude = .4f;
         [SerializeField, Range(0f, 1f)] private float dockExitMagnitude = .5f;
-        [SerializeField, Min(0f)] private float dockEnterDelay = .1f;
         [SerializeField, Range(.3f, 1f)] private float maximumMagnitude = .95f;
         [SerializeField, Range(1f, 179f)] private float followAngle = 70f;
         [SerializeField, Min(1f)] private float maximumAimSpeedDegreesPerSecond = 240f;
@@ -51,10 +50,10 @@ namespace AnimalGame.RobotArm
         [Header("Docking (robot-local, arm length fractions)")]
         [SerializeField] private Vector2 smallDockPosition = new Vector2(0f, .65f);
         [SerializeField] private Vector2 mediumDockPosition = new Vector2(0f, .8f);
-        [SerializeField, Min(.001f)] private float dockToleranceOfBodyDiameter = .045f;
-        [SerializeField] private bool showDockIndicator = true;
-        [SerializeField] private Color dockWaitingColor = new Color(1f, .7f, .15f, .65f);
-        [SerializeField] private Color dockReadyColor = new Color(.25f, 1f, .5f, 1f);
+        [Tooltip("Half-width of the chest recycling area, measured in body diameters. Releasing A inside starts recycling immediately.")]
+        [SerializeField, Min(.01f)] private float recycleZoneHalfWidthOfBodyDiameter = .35f;
+        [Tooltip("Half-depth of the chest recycling area, measured in body diameters.")]
+        [SerializeField, Min(.01f)] private float recycleZoneHalfDepthOfBodyDiameter = .3f;
         [SerializeField, Min(.01f)] private float recycleDuration = .35f;
         [Header("Recycling")]
         [Tooltip("Minimum forward hand position during recycling, as a fraction of arm length.")]
@@ -81,10 +80,8 @@ namespace AnimalGame.RobotArm
         private PhotoModeController photoMode;
         private MapTestSceneController map;
         private Arm left, right;
-        private LineRenderer dockIndicator;
-        private Material dockIndicatorMaterial;
         private float diameter, upperLength, lowerLength, handSpacing, armWidth, deploymentTime;
-        private float dockTimer, recycleTime, stepDelta;
+        private float recycleTime, stepDelta;
         private bool docked, previousGrab, initialized;
         private Vector2 inputLocal, targetLocal;
         private Vector3 framePosition;
@@ -100,7 +97,10 @@ namespace AnimalGame.RobotArm
         private readonly List<WorldInteraction> rightHits = new();
         private float TotalDeploymentTime => connectorExtendDuration + extendDuration + handExtendDuration;
         private bool Upright => tumble == null || tumble.State == RobotTumbleState.Upright;
-        private bool HandsReady => deploymentTime >= TotalDeploymentTime - .00001f && IsArmModeActive;
+        private bool CanOperate => (photoMode == null || !photoMode.IsActive)
+            && (mover.MovementMode == RobotMovementMode.Driven || !Upright);
+        private bool HandsDeployed => deploymentTime >= TotalDeploymentTime - .00001f;
+        private bool HandsReady => HandsDeployed && IsArmModeActive;
 
         private struct Pose
         {
@@ -141,7 +141,6 @@ namespace AnimalGame.RobotArm
             armWidth = diameter * collisionWidthOfBodyDiameter;
             left = CreateArm("Left Mechanical Arm", -1f);
             right = CreateArm("Right Mechanical Arm", 1f);
-            CreateDockIndicator();
             targetLocal = Vector2.up * armLength * .8f;
             initialized = true;
             framePosition = transform.position; frameRotation = transform.rotation;
@@ -151,9 +150,7 @@ namespace AnimalGame.RobotArm
         {
             EnsureVisuals();
             if (!initialized) return;
-            bool canOperate = (photoMode == null || !photoMode.IsActive)
-                && (mover.MovementMode == RobotMovementMode.Driven || !Upright);
-            bool armHeld = canOperate && (Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld());
+            bool armHeld = CanOperate && (Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld());
             bool grab = Input.GetKey(keyboardGrabKey) || AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld();
             Step(Time.deltaTime, ReadLocalInput(), armHeld, grab);
         }
@@ -163,24 +160,42 @@ namespace AnimalGame.RobotArm
         {
             stepDelta = Mathf.Max(0f, deltaTime);
             IsBlocked = false;
-            IsArmModeActive = armHeld;
-            mover.SetArmInputCaptured(armHeld);
-            inputLocal = armHeld ? Vector2.ClampMagnitude(localInput, 1f) : Vector2.zero;
-            CurrentInputMagnitude = inputLocal.magnitude;
-            CurrentTargetLocal = inputLocal;
-            if (heldObject != null && (!heldObject.Available || heldObject.Owner != this)) ClearHeld();
+            if (!this || !isActiveAndEnabled) return;
+            bool canOperate = CanOperate;
+            armHeld &= canOperate;
+            if ((heldObject != null && (!heldObject.Available || heldObject.Owner != this))
+                || (State == RobotArmState.Recycling && heldObject == null))
+            {
+                bool wasRecycling = State == RobotArmState.Recycling;
+                ClearHeld();
+                if (wasRecycling) FinishArmAction(armHeld);
+            }
             mover.SetGrabResistance(heldObject != null ? heldObject.GrabResistance : 0f);
 
-            // Releasing L3, falling or photo mode always drops first, never recycles.
-            if (!armHeld || !Upright) Drop();
-            if (!armHeld)
-            {
-                docked = false; dockTimer = 0f;
-                State = deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;
-            }
+            if (!canOperate || !Upright) Drop();
             else if (State != RobotArmState.Recycling)
             {
-                if (deploymentTime < TotalDeploymentTime - .00001f) State = RobotArmState.Extending;
+                // Accept A release at the visible chest position before L3 release, aim or body motion.
+                // Deployed hands, rather than the current button state, permit releasing A and L3 together.
+                if (!grab && HandsDeployed && IsHeldInRecycleZone()) BeginRecycle();
+                else if (!armHeld) Drop();
+            }
+            if (!this || !isActiveAndEnabled) return;
+
+            bool recycling = State == RobotArmState.Recycling;
+            IsArmModeActive = armHeld || recycling;
+            mover.SetArmInputCaptured(IsArmModeActive);
+            inputLocal = armHeld && !recycling ? Vector2.ClampMagnitude(localInput, 1f) : Vector2.zero;
+            CurrentInputMagnitude = inputLocal.magnitude;
+            CurrentTargetLocal = inputLocal;
+            if (!recycling)
+            {
+                if (!armHeld)
+                {
+                    docked = false;
+                    State = deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;
+                }
+                else if (!HandsDeployed) State = RobotArmState.Extending;
                 else UpdateDockState();
             }
 
@@ -192,7 +207,7 @@ namespace AnimalGame.RobotArm
             }
             FollowHeldObject();
             UpdateReady();
-            if (State == RobotArmState.Recycling) UpdateRecycle();
+            if (State == RobotArmState.Recycling) UpdateRecycle(armHeld);
             else if (armHeld && Upright && HandsReady)
             {
                 if (!grab && heldObject != null)
@@ -201,10 +216,11 @@ namespace AnimalGame.RobotArm
                 }
                 else if (grab && heldObject == null) TryGrab();
             }
+            // A recycle callback may disable this component; do not restore its controls or visuals afterwards.
+            if (!this || !isActiveAndEnabled) return;
             // Do not overwrite PlayRecycle with a release clip on the same A-release frame.
             if (State != RobotArmState.Recycling) SetHandGrip(HandsReady && Upright && grab);
             ApplyVisuals(left); ApplyVisuals(right);
-            UpdateDockIndicator();
             framePosition = transform.position; frameRotation = transform.rotation;
         }
 
@@ -218,7 +234,6 @@ namespace AnimalGame.RobotArm
                 heldObject.WorldPosition = marker.MarkerVisualRoot.TransformPoint(recyclePosition);
             FollowHeldObject();
             UpdateReady();
-            UpdateDockIndicator();
         }
 
         private Vector2 ReadLocalInput()
@@ -233,19 +248,18 @@ namespace AnimalGame.RobotArm
         {
             if (heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _))
             {
-                docked = false; dockTimer = 0f;
+                docked = false;
                 State = RobotArmState.OuterOperating;
                 return;
             }
-            if (heldObject == null) { docked = false; dockTimer = 0f; }
+            if (heldObject == null) docked = false;
             else if (docked)
             {
-                if (CurrentInputMagnitude > dockExitMagnitude) { docked = false; dockTimer = 0f; }
+                if (CurrentInputMagnitude > dockExitMagnitude) docked = false;
             }
             else
             {
-                dockTimer = CurrentInputMagnitude <= dockEnterMagnitude ? dockTimer + stepDelta : 0f;
-                if (dockTimer >= dockEnterDelay) docked = true;
+                docked = CurrentInputMagnitude <= dockEnterMagnitude;
             }
             State = docked ? RobotArmState.Docking : RobotArmState.OuterOperating;
         }
@@ -498,11 +512,9 @@ namespace AnimalGame.RobotArm
                 replacement.transform.position - (Vector3)HeldAnchor());
             heldRotation = Quaternion.Inverse(transform.rotation) * replacement.transform.rotation;
             docked = false;
-            dockTimer = 0f;
             IsRecycleReady = false;
             mover.SetGrabResistance(replacement.GrabResistance);
             oldItem.Release(this);
-            UpdateDockIndicator();
             return true;
         }
 
@@ -512,11 +524,25 @@ namespace AnimalGame.RobotArm
             Drop();
             return true;
         }
+        private bool RecyclableHeld => heldObject != null && heldObject.Available && heldObject.Owner == this
+            && heldObject.Recyclable && heldObject.Size != RecyclableSize.Big
+            && !heldObject.TryGetComponent<HeavyGarbagePull>(out _);
+        private Vector2 RecycleZoneHalfExtents => diameter * new Vector2(
+            Mathf.Max(.01f, recycleZoneHalfWidthOfBodyDiameter), Mathf.Max(.01f, recycleZoneHalfDepthOfBodyDiameter));
         private void UpdateReady()
         {
-            IsRecycleReady = State == RobotArmState.Docking && heldObject != null && heldObject.Recyclable
-                && ((Vector2)marker.MarkerVisualRoot.InverseTransformPoint(heldObject.transform.position) - DockLocal).magnitude
-                <= diameter * dockToleranceOfBodyDiameter;
+            IsRecycleReady = State != RobotArmState.Recycling && CanOperate && Upright && HandsReady
+                && IsHeldInRecycleZone();
+        }
+        private bool IsHeldInRecycleZone()
+        {
+            if (!RecyclableHeld) return false;
+            Vector2 position = marker.MarkerVisualRoot.InverseTransformPoint(heldObject.transform.position);
+            if (position.y <= 0f) return false;
+            Vector2 offset = position - DockLocal;
+            Vector2 halfExtents = RecycleZoneHalfExtents;
+            Vector2 normalized = new Vector2(offset.x / halfExtents.x, offset.y / halfExtents.y);
+            return normalized.sqrMagnitude <= 1.00001f;
         }
         private void BeginRecycle()
         {
@@ -528,11 +554,13 @@ namespace AnimalGame.RobotArm
             SetHandGrip(false);
             left.Animation.PlayRecycle(); right.Animation.PlayRecycle();
             IsRecycleReady = false;
-            UpdateDockIndicator();
+            IsArmModeActive = true;
+            mover.SetArmInputCaptured(true);
+            inputLocal = Vector2.zero; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
         }
-        private void UpdateRecycle()
+        private void UpdateRecycle(bool armHeld)
         {
-            if (heldObject == null) { State = RobotArmState.OuterOperating; return; }
+            if (heldObject == null) { ClearHeld(); FinishArmAction(armHeld); return; }
             recycleTime += stepDelta;
             bool medium = heldObject.Size == RecyclableSize.Medium;
             float duration = medium ? 3f * mediumRecycleMoveDuration + 2f * mediumRecyclePauseDuration : recycleDuration;
@@ -559,8 +587,15 @@ namespace AnimalGame.RobotArm
             if (recycleTime < duration) return;
             WorldInteraction item = heldObject;
             ClearHeld();
-            State = RobotArmState.OuterOperating;
+            FinishArmAction(armHeld);
             item.Recycle(this);
+        }
+        private void FinishArmAction(bool armHeld)
+        {
+            State = armHeld ? RobotArmState.OuterOperating
+                : deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;
+            IsArmModeActive = armHeld;
+            mover.SetArmInputCaptured(armHeld);
         }
         private void Drop()
         {
@@ -584,9 +619,8 @@ namespace AnimalGame.RobotArm
             // Restore for interrupted recycling and for objects reused by a pool after completion.
             if (State == RobotArmState.Recycling && heldObject != null)
                 heldObject.LocalScale = recycleStartScale;
-            heldObject = null; heldHands = 0; docked = false; dockTimer = 0f;
+            heldObject = null; heldHands = 0; docked = false;
             IsRecycleReady = false; mover?.SetGrabResistance(0f);
-            UpdateDockIndicator();
         }
         private Vector2 HandLocal(Arm arm) => arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength
             + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
@@ -614,48 +648,6 @@ namespace AnimalGame.RobotArm
             renderer.color = armColor; renderer.sortingOrder = order;
             if (marker.ForegroundSpriteMaterial != null) renderer.sharedMaterial = marker.ForegroundSpriteMaterial;
             return renderer;
-        }
-        private void CreateDockIndicator()
-        {
-            var go = new GameObject("Garbage Dock Indicator");
-            go.transform.SetParent(marker.MarkerVisualRoot, false);
-            dockIndicator = go.AddComponent<LineRenderer>();
-            dockIndicator.useWorldSpace = false;
-            dockIndicator.loop = true;
-            dockIndicator.positionCount = 48;
-            dockIndicator.numCornerVertices = 2;
-            dockIndicator.alignment = LineAlignment.TransformZ;
-            dockIndicator.sortingOrder = 1001;
-            if (marker.ForegroundSpriteMaterial != null)
-                dockIndicator.sharedMaterial = marker.ForegroundSpriteMaterial;
-            else
-            {
-                Shader shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default") ?? Shader.Find("Sprites/Default");
-                if (shader != null)
-                {
-                    dockIndicatorMaterial = new Material(shader) { name = "Runtime Garbage Dock Indicator", hideFlags = HideFlags.DontSave, renderQueue = 3500 };
-                    dockIndicator.sharedMaterial = dockIndicatorMaterial;
-                }
-            }
-            for (int i = 0; i < dockIndicator.positionCount; i++)
-                dockIndicator.SetPosition(i, Direction(i * 360f / dockIndicator.positionCount));
-            dockIndicator.enabled = false;
-        }
-        private void UpdateDockIndicator()
-        {
-            if (dockIndicator == null) return;
-            bool visible = showDockIndicator && IsArmModeActive && HandsReady && Upright
-                && State == RobotArmState.Docking && heldObject != null && heldObject.Recyclable;
-            dockIndicator.enabled = visible;
-            if (!visible) return;
-            dockIndicator.transform.localPosition = new Vector3(DockLocal.x, DockLocal.y, -.01f);
-            // The ring is a cue, not the physical acceptance radius. Readiness keeps the original tolerance.
-            float radius = diameter * (IsRecycleReady ? .15f : .12f);
-            dockIndicator.transform.localScale = Vector3.one * radius;
-            // LineRenderer scales width with its transform as well; keep a readable body-relative stroke.
-            dockIndicator.widthMultiplier = diameter * .018f / Mathf.Max(.0001f, radius);
-            Color color = IsRecycleReady ? dockReadyColor : dockWaitingColor;
-            dockIndicator.startColor = color; dockIndicator.endColor = color;
         }
         private void ApplyVisuals(Arm arm)
         {
@@ -699,7 +691,6 @@ namespace AnimalGame.RobotArm
             Drop(); IsArmModeActive = false; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
             mover?.SetArmInputCaptured(false);
             deploymentTime = 0f; State = RobotArmState.Retracted; previousGrab = false;
-            UpdateDockIndicator();
             if (left != null) { left.Pose = default; left.Root.gameObject.SetActive(false); }
             if (right != null) { right.Pose = default; right.Root.gameObject.SetActive(false); }
         }
@@ -707,11 +698,6 @@ namespace AnimalGame.RobotArm
         {
             if (left != null && left.Root != null) Destroy(left.Root.gameObject);
             if (right != null && right.Root != null) Destroy(right.Root.gameObject);
-            if (dockIndicator != null) Destroy(dockIndicator.gameObject);
-            if (dockIndicatorMaterial != null)
-            {
-                if (Application.isPlaying) Destroy(dockIndicatorMaterial); else DestroyImmediate(dockIndicatorMaterial);
-            }
         }
         private void OnDrawGizmosSelected()
         {
@@ -721,8 +707,6 @@ namespace AnimalGame.RobotArm
             Gizmos.matrix = marker.MarkerVisualRoot.localToWorldMatrix;
             Gizmos.color = IsBlocked ? Color.red : Color.cyan;
             DrawArmBoxes(left); DrawArmBoxes(right);
-            Gizmos.color = IsRecycleReady ? Color.green : Color.yellow;
-            Gizmos.DrawWireSphere(DockLocal, diameter * dockToleranceOfBodyDiameter);
             Gizmos.matrix = previous; Gizmos.color = previousColor;
         }
         private void DrawArmBoxes(Arm arm)
@@ -746,6 +730,8 @@ namespace AnimalGame.RobotArm
             mediumRecycleMoveDuration = Mathf.Max(.01f, mediumRecycleMoveDuration);
             mediumRecyclePauseDuration = Mathf.Max(0f, mediumRecyclePauseDuration);
             mediumRecycleEndScale = Mathf.Clamp(mediumRecycleEndScale, .01f, 1f);
+            recycleZoneHalfWidthOfBodyDiameter = Mathf.Max(.01f, recycleZoneHalfWidthOfBodyDiameter);
+            recycleZoneHalfDepthOfBodyDiameter = Mathf.Max(.01f, recycleZoneHalfDepthOfBodyDiameter);
             dockEnterMagnitude = Mathf.Clamp(dockEnterMagnitude, 0f, .9f);
             dockExitMagnitude = Mathf.Clamp(dockExitMagnitude, dockEnterMagnitude + .001f, .99f);
             maximumMagnitude = Mathf.Clamp(maximumMagnitude, dockExitMagnitude + .001f, 1f);

@@ -418,17 +418,14 @@ MonoBehaviour:
   retractDuration: 0.4
   dockEnterMagnitude: 0.4
   dockExitMagnitude: 0.5
-  dockEnterDelay: 0.1
   maximumMagnitude: 0.95
   followAngle: 70
   maximumAimSpeedDegreesPerSecond: 240
   aimSmoothingTime: 0.37
   smallDockPosition: {x: 0, y: 0.65}
   mediumDockPosition: {x: 0, y: 0.8}
-  dockToleranceOfBodyDiameter: 0.045
-  showDockIndicator: 1
-  dockWaitingColor: {r: 1, g: 0.7, b: 0.15, a: 0.65}
-  dockReadyColor: {r: 0.25, g: 1, b: 0.5, a: 1}
+  recycleZoneHalfWidthOfBodyDiameter: 0.35
+  recycleZoneHalfDepthOfBodyDiameter: 0.3
   recycleDuration: 0.35
   recycleHandMinimumForward: 0.2
   mediumRecycleMoveDuration: 0.22
