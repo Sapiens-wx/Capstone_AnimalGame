@@ -29,6 +29,10 @@ namespace AnimalGame.Editor
             Check("Dirty queue skips unchanged shapes and coalesces geometry edits", CheckSpatialDirty);
             Check("Held input retries, one/two-hand grabbing and early release", CheckGrabbing);
             Check("Raw thresholds, dock delay, hysteresis and recycle completion", CheckDocking);
+            Check("Production dock settings, raw drift, fixed inlet and wide hysteresis", CheckControllerDocking);
+            Check("Medium edge grips dock after reachable adjustment without changing outer grip", CheckDockGripAdjustment);
+            Check("Empty and heavy arm control remain outside automatic docking", CheckDockExclusions);
+            Check("Dock readiness cue hides on early release, L3 release and disable", CheckDockIndicatorCleanup);
             Check("Recycle hand tracking, inward limit, medium pauses, shrinking and cancellation", CheckRecycleAnimation);
             Check("Release L3 drops before retracting", CheckRetracting);
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
@@ -305,6 +309,9 @@ namespace AnimalGame.Editor
         {
             using (var f = new Fixture())
             {
+                // Keep checking that designers can still configure narrower entry/exit bands.
+                Set(f.Arms, "dockEnterMagnitude", .18f);
+                Set(f.Arms, "dockExitMagnitude", .26f);
                 f.Tick(90, Vector2.up, true);
                 WorldInteraction item = f.Item((f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f, new Vector2(.5f, .1f), 2);
                 f.Tick(1, Vector2.up, true);
@@ -322,6 +329,219 @@ namespace AnimalGame.Editor
                 Require(f.Arms.State == RobotArmState.Recycling && item.gameObject.activeSelf, "Ready release skipped recycle animation");
                 f.Tick(40, Vector2.zero, false);
                 Require(!item.gameObject.activeSelf && f.Arms.HeldObject == null, "Recycle failed to finish/clear ownership");
+            }
+        }
+        private static void CheckControllerDocking()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+            RobotArmController settings = prefab != null ? prefab.GetComponent<RobotArmController>() : null;
+            Require(settings != null,
+                "Production robot prefab is missing its arm settings");
+            Require(Mathf.Approximately((float)Get(settings, "leftStickDeadZone"), .08f)
+                && Mathf.Approximately((float)Get(settings, "dockEnterMagnitude"), .4f)
+                && Mathf.Approximately((float)Get(settings, "dockExitMagnitude"), .5f)
+                && Mathf.Approximately((float)Get(settings, "aimSmoothingTime"), .37f),
+                "Production prefab did not retain smoothing and apply .08/.4/.5 docking settings");
+
+            foreach (bool medium in new[] { false, true })
+            foreach (float drift in new[] { .01f, .39f })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.rotation = Quaternion.Euler(0f, 0f, 37f);
+                f.Tick(90, Vector2.up, true);
+                string garbagePath = medium ? "Assets/Prefabs/Environment/Garbage/Medium_Garbage.prefab"
+                    : "Assets/Prefabs/Environment/Garbage/Small_Garbage.prefab";
+                WorldInteraction garbageSettings = AssetDatabase.LoadAssetAtPath<GameObject>(garbagePath)
+                    ?.GetComponent<WorldInteraction>();
+                Require(garbageSettings != null, "Production garbage prefab is missing its interaction");
+                Vector2 anchor = medium ? (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f
+                    : f.Arms.LeftHandWorld;
+                // A slightly off-center grip must place the object, rather than only the hands, at the inlet.
+                WorldInteraction item = f.Item(anchor + new Vector2(.012f, -.006f),
+                    medium ? new Vector2(.7f, .15f) : Vector2.one * .05f, medium ? 2 : 1);
+                // The medium fixture spans the hands along robot-local X, including the rotated heading.
+                item.WorldRotation = f.Root.transform.rotation;
+                Set(item, "size", garbageSettings.Size);
+                Set(item, "grabResistance", garbageSettings.GrabResistance);
+                int recycleCount = 0;
+                Set(item, "onRecycled", (Action)(() => recycleCount++));
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == item,
+                    "Production-settings fixture failed to grab garbage: medium=" + medium + ", drift=" + drift);
+                Vector2 stick = Vector2.right * drift;
+                f.Tick(10, stick, true);
+                Require(f.Arms.State == RobotArmState.Docking && !f.Arms.IsRecycleReady,
+                    "Inner-circle input did not enter docking or reported ready before reaching the inlet");
+                RequireDockIndicator(f.Arms, visible: true, ready: false);
+                Quaternion heading = f.Root.transform.rotation;
+                f.Tick(240, stick, true);
+                Vector2 inlet = (float)Get(f.Arms, "armLength")
+                    * (Vector2)Get(f.Arms, medium ? "mediumDockPosition" : "smallDockPosition");
+                Vector2 actual = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot
+                    .InverseTransformPoint(item.WorldPosition);
+                Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
+                    && Vector2.Distance(actual, inlet) < .003f,
+                    "Raw side drift prevented garbage from automatically reaching the fixed inlet");
+                Require(Mathf.Approximately(f.Arms.CurrentInputMagnitude, drift)
+                    && f.Arms.CurrentTargetLocal == stick,
+                    "Automatic docking rescaled or erased raw input used by other control states");
+                Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Inner-circle side input kept rotating the body while docking");
+                RequireDockIndicator(f.Arms, visible: true, ready: true);
+
+                foreach (Vector2 bandInput in new[] { Vector2.left * .45f, Vector2.down * .49f,
+                    Vector2.right * .5f })
+                {
+                    f.Tick(30, bandInput, true);
+                    Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
+                        && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                        "Hysteresis band changed the inlet target, rotated the body or exited docking");
+                }
+                f.Tick(1, Vector2.right * .501f, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) > .001f,
+                    "Input above .5 did not restore outer arm control and turning");
+                RequireDockIndicator(f.Arms, visible: false);
+                f.Tick(240, stick, true);
+                Require(f.Arms.IsRecycleReady, "Returning to the inner circle failed to dock again");
+                f.Tick(1, stick, false);
+                Require(f.Arms.State == RobotArmState.Recycling && !f.Arms.IsRecycleReady
+                    && item.gameObject.activeSelf && item.Owner == f.Arms && recycleCount == 0,
+                    "Ready A release skipped recycling or cleared ownership before the animation");
+                RequireDockIndicator(f.Arms, visible: false);
+                f.Tick(90, Vector2.right, false);
+                Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
+                    && recycleCount == 1, "Controller docking failed to finish one complete recycling operation");
+            }
+        }
+        private static void CheckDockExclusions()
+        {
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Tick(90, Vector2.up, false);
+                Quaternion heading = f.Root.transform.rotation;
+                f.Tick(60, Vector2.right * .01f, false);
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Empty-arm drift entered docking or bypassed the stick dead zone");
+                RequireDockIndicator(f.Arms, visible: false);
+                f.Tick(30, Vector2.right * .3f, false);
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.HeldObject == null
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) > 1f,
+                    "Inner-circle input incorrectly captured empty-arm aiming and body turning");
+            }
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Tick(90, Vector2.up, true);
+                WorldInteraction heavy = f.Item((f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f,
+                    new Vector2(.7f, .15f), 2);
+                Set(heavy, "size", RecyclableSize.Big);
+                Set(heavy, "grabResistance", 1f);
+                heavy.gameObject.AddComponent<HeavyGarbagePull>();
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == heavy, "Heavy docking-exclusion fixture failed to grab");
+                f.Tick(90, Vector2.right * .3f, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady
+                    && f.Arms.CurrentTargetLocal == Vector2.right * .3f,
+                    "Automatic docking captured heavy-garbage control");
+                RequireDockIndicator(f.Arms, visible: false);
+                f.Tick(1, Vector2.zero, false);
+                Require(f.Arms.HeldObject == null && heavy.Owner == null && heavy.gameObject.activeSelf,
+                    "Heavy A release entered recycling instead of releasing the grip");
+            }
+        }
+        private static void CheckDockIndicatorCleanup()
+        {
+            foreach (string exit in new[] { "early A release", "L3 release", "disable" })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Tick(90, Vector2.up, true);
+                WorldInteraction item = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f, 1);
+                f.Tick(1, Vector2.up, true);
+                f.Tick(10, Vector2.right * .39f, true);
+                Require(f.Arms.State == RobotArmState.Docking && !f.Arms.IsRecycleReady,
+                    "Dock cue cleanup fixture did not reach the waiting state");
+                RequireDockIndicator(f.Arms, visible: true, ready: false);
+                if (exit == "early A release") f.Tick(1, Vector2.right * .39f, false);
+                else if (exit == "L3 release") f.Tick(1, Vector2.right * .39f, true, false);
+                else Call(f.Arms, "OnDisable");
+                RequireDockIndicator(f.Arms, visible: false);
+                Require(f.Arms.HeldObject == null && item.Owner == null && item.gameObject.activeSelf,
+                    "Dock cue cleanup failed to drop the held object on " + exit);
+            }
+        }
+        private static void RequireDockIndicator(RobotArmController arms, bool visible, bool ready = false)
+        {
+            LineRenderer indicator = (LineRenderer)Get(arms, "dockIndicator");
+            Require(indicator != null && indicator.enabled == visible,
+                "Dock readiness indicator visibility does not match the current interaction state");
+            if (!visible) return;
+            Color expected = (Color)Get(arms, ready ? "dockReadyColor" : "dockWaitingColor");
+            float expectedRadius = (float)Get(arms, "diameter") * (ready ? .15f : .12f);
+            float expectedWidth = (float)Get(arms, "diameter") * .018f;
+            float actualWidth = indicator.widthMultiplier * indicator.transform.localScale.x;
+            // LineRenderer stores vertex colors as Color32, so reading them back quantizes each channel.
+            Require(IndicatorColorMatches(indicator.startColor, expected)
+                && IndicatorColorMatches(indicator.endColor, expected)
+                && Mathf.Approximately(indicator.transform.localScale.x, expectedRadius)
+                && Mathf.Approximately(actualWidth, expectedWidth),
+                "Dock indicator cue mismatch: start=" + indicator.startColor.ToString("F5")
+                + ", end=" + indicator.endColor.ToString("F5") + ", expected=" + expected.ToString("F5")
+                + ", radius=" + indicator.transform.localScale.x + ", expected radius=" + expectedRadius
+                + ", width=" + actualWidth + ", expected width=" + expectedWidth);
+        }
+        private static bool IndicatorColorMatches(Color actual, Color expected)
+        {
+            const float channelTolerance = 1f / 255f + .00001f;
+            return Mathf.Abs(actual.r - expected.r) <= channelTolerance
+                && Mathf.Abs(actual.g - expected.g) <= channelTolerance
+                && Mathf.Abs(actual.b - expected.b) <= channelTolerance
+                && Mathf.Abs(actual.a - expected.a) <= channelTolerance;
+        }
+        private static void CheckDockGripAdjustment()
+        {
+            foreach (float side in new[] { -1f, 1f })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.rotation = Quaternion.Euler(0f, 0f, -52f);
+                // Let production aim smoothing settle before measuring the intended edge grip.
+                f.Tick(240, Vector2.up, true);
+                Transform frame = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot;
+                Vector2 anchor = (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f;
+                Vector2 gripOffset = new Vector2(side * .12f, -.45f);
+                WorldInteraction item = f.Item(anchor + (Vector2)frame.TransformVector(gripOffset),
+                    new Vector2(.94f, .95f), 2);
+                item.WorldRotation = f.Root.transform.rotation;
+                WorldInteraction settings = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Prefabs/Environment/Garbage/Medium_Garbage.prefab").GetComponent<WorldInteraction>();
+                Set(item, "size", settings.Size);
+                Set(item, "grabResistance", settings.GrabResistance);
+                f.Tick(1, Vector2.up, true);
+                Vector2 initialOffset = (Vector2)Get(f.Arms, "heldOffset");
+                Require(f.Arms.HeldObject == item && Vector2.Distance(initialOffset, gripOffset) < .0001f,
+                    "Medium edge-grip fixture failed: initial=" + initialOffset.ToString("F6")
+                    + ", intended=" + gripOffset.ToString("F6"));
+                f.Tick(30, Vector2.up, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating
+                    && Vector2.Distance((Vector2)Get(f.Arms, "heldOffset"), initialOffset) < .0001f,
+                    "Reachable docking adjustment changed the object's outer-operation grip");
+                f.Tick(300, Vector2.right * .39f, true);
+                Vector2 inlet = (float)Get(f.Arms, "armLength") * (Vector2)Get(f.Arms, "mediumDockPosition");
+                Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
+                    && Vector2.Distance(frame.InverseTransformPoint(item.WorldPosition), inlet) < .003f,
+                    "Medium rear-edge grip remained outside the inlet because the hand target exceeded IK reach");
+                Require(Vector2.Distance((Vector2)Get(f.Arms, "heldOffset"), initialOffset) > .1f,
+                    "Impossible edge grip was reported ready without a reachable grip adjustment");
+                Quaternion heading = f.Root.transform.rotation;
+                f.Tick(30, Vector2.down * .49f, true);
+                Require(f.Arms.IsRecycleReady && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Lateral/rearward adjusted grip lost ready alignment inside the hysteresis band");
+                f.Tick(1, Vector2.down * .49f, false);
+                Require(f.Arms.State == RobotArmState.Recycling, "Adjusted medium grip dropped on ready release");
+                f.Tick(90, Vector2.zero, false);
+                Require(!item.gameObject.activeSelf && item.Owner == null && f.Arms.HeldObject == null,
+                    "Adjusted medium grip did not complete recycling");
             }
         }
         private static void CheckRecycleAnimation()
@@ -703,7 +923,7 @@ namespace AnimalGame.Editor
             public Scene Scene { get; }
             public GameObject Root { get; }
             public RobotArmController Arms { get; }
-            public Fixture()
+            public Fixture(bool useProductionSettings = false)
             {
                 Scene = EditorSceneManager.NewPreviewScene();
                 Root = new GameObject("Arm regression robot");
@@ -711,6 +931,15 @@ namespace AnimalGame.Editor
                 Arms = Root.AddComponent<RobotArmController>();
                 // Edit-mode fixtures only need the existing marker coordinate frame, not UI/art generation.
                 RobotMarkerView marker = Root.GetComponent<RobotMarkerView>();
+                if (useProductionSettings)
+                {
+                    GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                        "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+                    Require(prefab != null, "Production robot prefab is unavailable to regression fixtures");
+                    EditorUtility.CopySerialized(prefab.GetComponent<RobotArmController>(), Arms);
+                    EditorUtility.CopySerialized(prefab.GetComponent<RobotMarkerView>(), marker);
+                    EditorUtility.CopySerialized(prefab.GetComponent<RobotMover>(), Root.GetComponent<RobotMover>());
+                }
                 var visual = new GameObject("Marker Visual Root"); visual.transform.SetParent(Root.transform, false);
                 Set(marker, "markerVisualRoot", visual.transform);
                 Call(Arms, "Awake"); Call(Arms, "EnsureVisuals");

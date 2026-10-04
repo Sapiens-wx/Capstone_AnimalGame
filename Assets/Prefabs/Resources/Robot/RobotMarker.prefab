@@ -398,7 +398,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   keyboardArmKey: 301
   keyboardGrabKey: 32
-  leftStickDeadZone: 0
+  leftStickDeadZone: 0.08
   robotArmOneSprite: {fileID: 21300000, guid: 0e7ef59a589ff6a46be1369ef2c82689, type: 3}
   robotArmTwoSprite: {fileID: 21300000, guid: 904198a61bfc02c499c4214c64930010, type: 3}
   robotHandSprite: {fileID: 21300000, guid: 3bf259085e8413645b743733fc0e4963, type: 3}
@@ -417,7 +417,7 @@ MonoBehaviour:
   handExtendDuration: 0.12
   retractDuration: 0.4
   dockEnterMagnitude: 0.4
-  dockExitMagnitude: 0.401
+  dockExitMagnitude: 0.5
   dockEnterDelay: 0.1
   maximumMagnitude: 0.95
   followAngle: 70
@@ -426,6 +426,9 @@ MonoBehaviour:
   smallDockPosition: {x: 0, y: 0.65}
   mediumDockPosition: {x: 0, y: 0.8}
   dockToleranceOfBodyDiameter: 0.045
+  showDockIndicator: 1
+  dockWaitingColor: {r: 1, g: 0.7, b: 0.15, a: 0.65}
+  dockReadyColor: {r: 0.25, g: 1, b: 0.5, a: 1}
   recycleDuration: 0.35
   recycleHandMinimumForward: 0.2
   mediumRecycleMoveDuration: 0.22

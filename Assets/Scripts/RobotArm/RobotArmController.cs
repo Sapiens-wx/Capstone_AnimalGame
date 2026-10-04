@@ -3,6 +3,7 @@ using AnimalGame.MapTest;
 using UnityEngine;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
+using AnimalGame.Garbage;
 
 namespace AnimalGame.RobotArm
 {
@@ -40,17 +41,20 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.01f)] private float handExtendDuration = .12f;
         [SerializeField, Min(.01f)] private float retractDuration = .4f;
         [Header("Control")]
-        [SerializeField, Range(0f, 1f)] private float dockEnterMagnitude = .18f;
-        [SerializeField, Range(0f, 1f)] private float dockExitMagnitude = .26f;
+        [SerializeField, Range(0f, 1f)] private float dockEnterMagnitude = .4f;
+        [SerializeField, Range(0f, 1f)] private float dockExitMagnitude = .5f;
         [SerializeField, Min(0f)] private float dockEnterDelay = .1f;
         [SerializeField, Range(.3f, 1f)] private float maximumMagnitude = .95f;
         [SerializeField, Range(1f, 179f)] private float followAngle = 70f;
         [SerializeField, Min(1f)] private float maximumAimSpeedDegreesPerSecond = 240f;
         [SerializeField, Min(.01f)] private float aimSmoothingTime = .2f;
-        [Header("Docking (robot-local, body diameters)")]
+        [Header("Docking (robot-local, arm length fractions)")]
         [SerializeField] private Vector2 smallDockPosition = new Vector2(0f, .65f);
         [SerializeField] private Vector2 mediumDockPosition = new Vector2(0f, .8f);
         [SerializeField, Min(.001f)] private float dockToleranceOfBodyDiameter = .045f;
+        [SerializeField] private bool showDockIndicator = true;
+        [SerializeField] private Color dockWaitingColor = new Color(1f, .7f, .15f, .65f);
+        [SerializeField] private Color dockReadyColor = new Color(.25f, 1f, .5f, 1f);
         [SerializeField, Min(.01f)] private float recycleDuration = .35f;
         [Header("Recycling")]
         [Tooltip("Minimum forward hand position during recycling, as a fraction of arm length.")]
@@ -77,6 +81,8 @@ namespace AnimalGame.RobotArm
         private PhotoModeController photoMode;
         private MapTestSceneController map;
         private Arm left, right;
+        private LineRenderer dockIndicator;
+        private Material dockIndicatorMaterial;
         private float diameter, upperLength, lowerLength, handSpacing, armWidth, deploymentTime;
         private float dockTimer, recycleTime, stepDelta;
         private bool docked, previousGrab, initialized;
@@ -135,6 +141,7 @@ namespace AnimalGame.RobotArm
             armWidth = diameter * collisionWidthOfBodyDiameter;
             left = CreateArm("Left Mechanical Arm", -1f);
             right = CreateArm("Right Mechanical Arm", 1f);
+            CreateDockIndicator();
             targetLocal = Vector2.up * armLength * .8f;
             initialized = true;
             framePosition = transform.position; frameRotation = transform.rotation;
@@ -197,6 +204,7 @@ namespace AnimalGame.RobotArm
             // Do not overwrite PlayRecycle with a release clip on the same A-release frame.
             if (State != RobotArmState.Recycling) SetHandGrip(HandsReady && Upright && grab);
             ApplyVisuals(left); ApplyVisuals(right);
+            UpdateDockIndicator();
             framePosition = transform.position; frameRotation = transform.rotation;
         }
 
@@ -210,6 +218,7 @@ namespace AnimalGame.RobotArm
                 heldObject.WorldPosition = marker.MarkerVisualRoot.TransformPoint(recyclePosition);
             FollowHeldObject();
             UpdateReady();
+            UpdateDockIndicator();
         }
 
         private Vector2 ReadLocalInput()
@@ -222,6 +231,12 @@ namespace AnimalGame.RobotArm
         }
         private void UpdateDockState()
         {
+            if (heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _))
+            {
+                docked = false; dockTimer = 0f;
+                State = RobotArmState.OuterOperating;
+                return;
+            }
             if (heldObject == null) { docked = false; dockTimer = 0f; }
             else if (docked)
             {
@@ -236,7 +251,7 @@ namespace AnimalGame.RobotArm
         }
         private void TurnBodyForLocalInput()
         {
-            if (!Upright || CurrentInputMagnitude <= leftStickDeadZone) return;
+            if (!Upright || State == RobotArmState.Docking || CurrentInputMagnitude <= leftStickDeadZone) return;
             float angle = Vector2.SignedAngle(Vector2.up, inputLocal);
             if (Mathf.Abs(angle) <= followAngle) return;
             // Input stays body-local: turning does not consume the stick's angle.
@@ -249,6 +264,12 @@ namespace AnimalGame.RobotArm
             ? mediumDockPosition : smallDockPosition);
         private void UpdateTarget()
         {
+            if (heldObject != null && heldObject.TryGetComponent(out HeavyGarbagePull pull))
+            {
+                if (pull.HasGripAnchor || pull.IsReturningGrip)
+                    targetLocal = marker.MarkerVisualRoot.InverseTransformPoint(pull.GripAnchorWorld);
+                return;
+            }
             Vector2 direction = Vector2.up;
             if (CurrentInputMagnitude > leftStickDeadZone)
             {
@@ -261,12 +282,38 @@ namespace AnimalGame.RobotArm
             Vector2 desired = direction * radius;
             if (docked && heldObject != null)
             {
-                // Dock can still aim around the body. Zero input returns to the actual inlet.
-                float angle = Vector2.SignedAngle(Vector2.up, direction);
-                desired = Rotate(DockLocal, angle) - heldOffset - AnchorOffset();
+                // The whole inner circle means "bring it to the inlet", regardless of stick drift/direction.
+                AlignDockGrip();
+                desired = DockLocal - heldOffset - AnchorOffset();
             }
             float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
             targetLocal = Vector2.Lerp(targetLocal, desired, blend);
+        }
+        private void AlignDockGrip()
+        {
+            if (!heldObject.Recyclable) return;
+            Vector2 centred = DockLocal - AnchorOffset();
+            Vector2 desired = centred - heldOffset;
+            if (CommonTargetReachable(desired) || !CommonTargetReachable(centred)) return;
+            // An edge grip can require longer arms than exist. Slide the grip only as far as
+            // necessary while docking; outer operation still preserves the original grab offset.
+            float low = 0f, high = 1f;
+            for (int i = 0; i < 16; i++)
+            {
+                float t = (low + high) * .5f;
+                if (CommonTargetReachable(centred - heldOffset * t)) low = t; else high = t;
+            }
+            float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
+            heldOffset = Vector2.Lerp(heldOffset, heldOffset * low, blend);
+        }
+        private bool CommonTargetReachable(Vector2 target)
+        {
+            float minimum = Mathf.Abs(upperLength - lowerLength) + .00002f;
+            float maximum = upperLength + lowerLength - armLength * .005f;
+            Vector2 leftDelta = target - Vector2.right * handSpacing * .5f - left.Socket;
+            Vector2 rightDelta = target + Vector2.right * handSpacing * .5f - right.Socket;
+            return leftDelta.sqrMagnitude >= minimum * minimum && leftDelta.sqrMagnitude <= maximum * maximum
+                && rightDelta.sqrMagnitude >= minimum * minimum && rightDelta.sqrMagnitude <= maximum * maximum;
         }
         private float MaximumCommonReach()
         {
@@ -299,7 +346,9 @@ namespace AnimalGame.RobotArm
             Vector2 desired = targetLocal + Vector2.right * arm.Side * handSpacing * .5f;
             SolveIK(desired - arm.Socket, upperLength, lowerLength, arm.Side, out float upper, out float lower);
             // Recycling supplies an animated target already; extra aim smoothing would lag behind it.
+            bool heavyGrip = heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _);
             float delta = State == RobotArmState.Recycling ? 360f
+                : heavyGrip ? maximumAimSpeedDegreesPerSecond * stepDelta
                 : maximumAimSpeedDegreesPerSecond * stepDelta * mover.GrabMovementMultiplier;
             return new Pose {
                 UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, upper, delta),
@@ -425,6 +474,8 @@ namespace AnimalGame.RobotArm
         private void FollowHeldObject()
         {
             if (heldObject == null || State == RobotArmState.Recycling) return;
+            // Heavy garbage stays fixed. Only its visual grip region follows the hands.
+            if (heldObject.TryGetComponent<HeavyGarbagePull>(out _)) return;
             if (mover.GrabMovementMultiplier <= 0f) return;
             Vector3 position = (Vector3)HeldAnchor() + marker.MarkerVisualRoot.TransformVector(heldOffset);
             position.z = heldObject.transform.position.z;
@@ -451,6 +502,7 @@ namespace AnimalGame.RobotArm
             IsRecycleReady = false;
             mover.SetGrabResistance(replacement.GrabResistance);
             oldItem.Release(this);
+            UpdateDockIndicator();
             return true;
         }
 
@@ -476,6 +528,7 @@ namespace AnimalGame.RobotArm
             SetHandGrip(false);
             left.Animation.PlayRecycle(); right.Animation.PlayRecycle();
             IsRecycleReady = false;
+            UpdateDockIndicator();
         }
         private void UpdateRecycle()
         {
@@ -533,6 +586,7 @@ namespace AnimalGame.RobotArm
                 heldObject.LocalScale = recycleStartScale;
             heldObject = null; heldHands = 0; docked = false; dockTimer = 0f;
             IsRecycleReady = false; mover?.SetGrabResistance(0f);
+            UpdateDockIndicator();
         }
         private Vector2 HandLocal(Arm arm) => arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength
             + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
@@ -560,6 +614,48 @@ namespace AnimalGame.RobotArm
             renderer.color = armColor; renderer.sortingOrder = order;
             if (marker.ForegroundSpriteMaterial != null) renderer.sharedMaterial = marker.ForegroundSpriteMaterial;
             return renderer;
+        }
+        private void CreateDockIndicator()
+        {
+            var go = new GameObject("Garbage Dock Indicator");
+            go.transform.SetParent(marker.MarkerVisualRoot, false);
+            dockIndicator = go.AddComponent<LineRenderer>();
+            dockIndicator.useWorldSpace = false;
+            dockIndicator.loop = true;
+            dockIndicator.positionCount = 48;
+            dockIndicator.numCornerVertices = 2;
+            dockIndicator.alignment = LineAlignment.TransformZ;
+            dockIndicator.sortingOrder = 1001;
+            if (marker.ForegroundSpriteMaterial != null)
+                dockIndicator.sharedMaterial = marker.ForegroundSpriteMaterial;
+            else
+            {
+                Shader shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default") ?? Shader.Find("Sprites/Default");
+                if (shader != null)
+                {
+                    dockIndicatorMaterial = new Material(shader) { name = "Runtime Garbage Dock Indicator", hideFlags = HideFlags.DontSave, renderQueue = 3500 };
+                    dockIndicator.sharedMaterial = dockIndicatorMaterial;
+                }
+            }
+            for (int i = 0; i < dockIndicator.positionCount; i++)
+                dockIndicator.SetPosition(i, Direction(i * 360f / dockIndicator.positionCount));
+            dockIndicator.enabled = false;
+        }
+        private void UpdateDockIndicator()
+        {
+            if (dockIndicator == null) return;
+            bool visible = showDockIndicator && IsArmModeActive && HandsReady && Upright
+                && State == RobotArmState.Docking && heldObject != null && heldObject.Recyclable;
+            dockIndicator.enabled = visible;
+            if (!visible) return;
+            dockIndicator.transform.localPosition = new Vector3(DockLocal.x, DockLocal.y, -.01f);
+            // The ring is a cue, not the physical acceptance radius. Readiness keeps the original tolerance.
+            float radius = diameter * (IsRecycleReady ? .15f : .12f);
+            dockIndicator.transform.localScale = Vector3.one * radius;
+            // LineRenderer scales width with its transform as well; keep a readable body-relative stroke.
+            dockIndicator.widthMultiplier = diameter * .018f / Mathf.Max(.0001f, radius);
+            Color color = IsRecycleReady ? dockReadyColor : dockWaitingColor;
+            dockIndicator.startColor = color; dockIndicator.endColor = color;
         }
         private void ApplyVisuals(Arm arm)
         {
@@ -603,6 +699,7 @@ namespace AnimalGame.RobotArm
             Drop(); IsArmModeActive = false; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
             mover?.SetArmInputCaptured(false);
             deploymentTime = 0f; State = RobotArmState.Retracted; previousGrab = false;
+            UpdateDockIndicator();
             if (left != null) { left.Pose = default; left.Root.gameObject.SetActive(false); }
             if (right != null) { right.Pose = default; right.Root.gameObject.SetActive(false); }
         }
@@ -610,6 +707,11 @@ namespace AnimalGame.RobotArm
         {
             if (left != null && left.Root != null) Destroy(left.Root.gameObject);
             if (right != null && right.Root != null) Destroy(right.Root.gameObject);
+            if (dockIndicator != null) Destroy(dockIndicator.gameObject);
+            if (dockIndicatorMaterial != null)
+            {
+                if (Application.isPlaying) Destroy(dockIndicatorMaterial); else DestroyImmediate(dockIndicatorMaterial);
+            }
         }
         private void OnDrawGizmosSelected()
         {
