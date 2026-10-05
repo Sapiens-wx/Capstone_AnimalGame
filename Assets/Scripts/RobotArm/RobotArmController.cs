@@ -78,6 +78,7 @@ namespace AnimalGame.RobotArm
         private RobotMarkerView marker;
         private RobotTumbleController tumble;
         private PhotoModeController photoMode;
+        private RobotCameraShake grabFeedback;
         private MapTestSceneController map;
         private Arm left, right;
         private float diameter, upperLength, lowerLength, handSpacing, armWidth, deploymentTime;
@@ -469,11 +470,37 @@ namespace AnimalGame.RobotArm
                 }
             }
             if (best == null || !best.TryGrab(this)) return;
+            if (!this || !isActiveAndEnabled || best == null || !best.Available || best.Owner != this)
+            {
+                if (best != null) best.Release(this);
+                return;
+            }
             heldObject = best; heldHands = mask;
             mover.SetGrabResistance(best.GrabResistance);
             heldOffset = marker.MarkerVisualRoot.InverseTransformVector(best.transform.position - (Vector3)HeldAnchor());
             heldRotation = Quaternion.Inverse(transform.rotation) * best.transform.rotation;
             SetHandGrip(true);
+            PlayGarbageGrabFeedback(best);
+        }
+        private void PlayGarbageGrabFeedback(WorldInteraction item)
+        {
+            // The garbage marker also covers the fixed, non-recyclable large obstacle.
+            // Automatic fragment handoffs use TryReplaceHeldObject and do not play another grip.
+            if (!item.TryGetComponent<GarbageItem>(out _)) return;
+            if (grabFeedback == null || !grabFeedback.isActiveAndEnabled || !grabFeedback.FollowsRobot(mover))
+            {
+                grabFeedback = null;
+                Camera main = Camera.main;
+                RobotCameraShake candidate = main != null ? main.GetComponent<RobotCameraShake>() : null;
+                if (candidate != null && candidate.isActiveAndEnabled && candidate.FollowsRobot(mover))
+                    grabFeedback = candidate;
+                else
+                    foreach (RobotCameraShake shake in FindObjectsByType<RobotCameraShake>(FindObjectsSortMode.None))
+                        if (shake.isActiveAndEnabled && shake.FollowsRobot(mover))
+                        { grabFeedback = shake; break; }
+            }
+            if (grabFeedback != null)
+                grabFeedback.PlayGarbageGrabFeedback(item.Size, (Vector2)(item.transform.position - transform.position));
         }
         private void QueryHand(Arm arm, List<WorldInteraction> results)
         {

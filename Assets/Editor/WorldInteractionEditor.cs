@@ -35,7 +35,7 @@ namespace AnimalGame.Editor
             serializedObject.Update();
             if (target is HeightMapObstacleFootprint)
             {
-                EditorGUILayout.HelpBox("Legacy map footprint: Collision. Add a separate WorldInteraction component for grabbing.", MessageType.Info);
+                EditorGUILayout.HelpBox("Blocks Traversal controls hard collision. Sight Blocking independently controls animal cover; Match Traversal preserves the original behaviour. Add a separate WorldInteraction for grabbing or climbing.", MessageType.Info);
                 DrawPropertiesExcluding(serializedObject, "m_Script", "kind", "box", "sprite", "localCenter", "localSize",
                     "requiredHands", "recyclable", "size", "pushSpeedMultiplier");
             }

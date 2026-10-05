@@ -4,10 +4,11 @@ using AnimalGame.World;
 
 namespace AnimalGame.MapTest
 {
+    public enum ObstacleSightBlocking { MatchTraversal, AlwaysBlock, NeverBlock }
+
     /// <summary>
-    /// Circular solid footprint for a placed map prop. Active scene instances
-    /// register automatically so traversal and tumble sweeps can block against
-    /// the core without treating the visual canopy as solid.
+    /// Circular traversal or sight footprint for a placed map prop. Active scene
+    /// instances register automatically without treating the visual canopy as solid.
     /// </summary>
     [ExecuteAlways]
     [DisallowMultipleComponent]
@@ -22,12 +23,22 @@ namespace AnimalGame.MapTest
         [Tooltip("When enabled, normal traversal and tumble sweeps treat this footprint as a hard obstacle.")]
         [SerializeField] private bool blocksTraversal = true;
 
+        [Tooltip("Match Traversal preserves existing animal sight behaviour. Always Block keeps sight occluded even when the player can pass through this footprint.")]
+        [SerializeField] private ObstacleSightBlocking sightBlocking = ObstacleSightBlocking.MatchTraversal;
+
         [Tooltip("Circular solid-core radius in logical map meters, excluding leaves and canopy artwork.")]
         [SerializeField, Min(0f)] private float radiusMeters = 0.3f;
         [SerializeField] private Color gizmoColor =
             new Color(1f, 0.48f, 0.16f, 0.9f);
 
         public bool BlocksTraversal { get => blocksTraversal; set { blocksTraversal = value; MarkSpatialDirty(); } }
+        public ObstacleSightBlocking SightBlocking { get => sightBlocking; set => sightBlocking = value; }
+        public bool BlocksSight => sightBlocking switch
+        {
+            ObstacleSightBlocking.AlwaysBlock => true,
+            ObstacleSightBlocking.NeverBlock => false,
+            _ => blocksTraversal
+        };
         public override WorldInteractionKind Kind => WorldInteractionKind.Collision;
         public override bool Available => base.Available && blocksTraversal && radiusMeters > 0f;
         public override InteractionShape GetShape(MapTestSceneController map)

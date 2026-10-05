@@ -51,8 +51,30 @@ Small / Medium 的停靠位置是机器人局部坐标，以 `Arm Length` 为长
 
 机械手各自带有 `RobotHandAnimation`，公开的 `PlayGrab / PlayRelease / PlayRecycle` 为动画资源预留。回收暂用可调时长的物体移进入口动画，完成时调用物体的 `Recycle`，每次只完成一次。回收期间的 `IsArmModeActive` 和移动控制器输入占用保持为真；完成时按实际 L3 输入更新状态，并解除抓持减速。回收完成回调若禁用或销毁机器人，不会再次恢复输入占用或显示机械臂。
 
+## 灌木翻越与视线遮挡
+
+`Test_Bush.prefab` 的 `Solid Core` 保留原 `HeightMapObstacleFootprint` 范围，但关闭 `Blocks Traversal`；新增普通 `WorldInteraction`，仅勾选 `Climbable`，不提供身体或机械臂碰撞、抓取、推动及回收。翻越使用与小垃圾相同的虚拟坡面：外缘上坡减速并偏移重心，中心平坦，下坡略加速，离开最后一片翻越区域时产生已有落地反馈，不增加真实高度。
+
+翻越参数在 `Solid Core > WorldInteraction` 调整。默认 `Slope Strength 01 / Top Radius Ratio 01` 均为 0.5。`Climbable Radius` 是局部长度，默认 0.162；当前地图每逻辑米对应约 0.27 世界单位，因此未缩放灌木的翻越半径约为 0.6 米。地图显示比例或灌木 Transform 缩放改变时，以选中物体显示的翻越圆圈为准。接触淡化和生物扫描范围读取当前翻越几何的逻辑米半径，并保留原放置范围作为下限；地图未生成时使用原核心的逻辑米范围回退。
+
+`HeightMapObstacleFootprint > Sight Blocking` 与通行独立：`Match Traversal` 沿用旧规则，`Always Block` 持续遮挡动物直视，`Never Block` 不遮挡。旧预制体默认 `Match Traversal`，灌木配置为 `Always Block`，所以可穿行后仍保留原动物直视遮挡及检测加成规则。枝叶、中心图标、接触淡化、树冠遮挡和动物食物源继续保留；动物可直接靠近可通行灌木的中心吃食。
+
+专项检查菜单：`Animal Game > Validation > Run Bush Climbable Checks`。覆盖生产灌木配置、各方向翻越、实际移动穿越、连续区域的退出反馈、淡化范围及地图比例、动物视线和原有树木阻挡。
+
+## 垃圾抓取反馈
+
+成功抓取带 `GarbageItem` 的垃圾时播放一次反馈：小型只有轻手柄震动；中型被双手夹起、大型被双手夹住时，播放中等手柄震动和沿机械臂受力方向的屏幕回弹。大型夹住即触发，无需后退。持续按 A、不满足手数或接触条件、普通交互物体，以及分裂时自动替换手中垃圾都不会额外触发；主动放下再抓会重新触发。
+
+在 `Assets/Prefabs/Resources/Camera/RobotCamera.prefab` 的 `RobotCameraShake > Garbage Grab Feedback` 调整。`Small / Medium / Big Grab Low Frequency`、`High Frequency` 和 `Duration` 分别控制各尺寸的马达强度和整个脉冲时长。默认小型为 0.18 / 0.12、0.12 秒，中型及大型为 0.45 / 0.30、0.22 秒；以 0.02 秒快速上升、0.03 秒峰值停留后衰减。中、大型的 `Position Impact` 默认为 0.075，`Rotation Impact Degrees` 为 0.6，使用现有镜头弹簧回弹，不改变机器人位置。
+
+`Enable Garbage Grab Feedback` 是本功能总开关，`Enable Garbage Grab Camera Shake / Rumble` 分别控制屏幕和手柄。全局屏幕震动关闭后，独立的抓取手柄反馈仍可播放；全局手柄开关关闭、游戏暂停、失焦、震动组件禁用或销毁时停止并清除待播放的手柄脉冲，恢复后不补播。
+
+抓取脉冲和原有行走、撞击、大垃圾持续拉拽反馈独立保存，再按每个马达取较强值合成。`Sony Garbage Grab Rumble Calibration` 只校准抓取通道，不改变其它反馈的设备校准；默认倍率及响应指数为 1，低 / 高频上限为 0.55 / 0.40。实际手柄手感仍需在设备上调节。
+
 ## 回归检查
 
 Unity 菜单：`Animal Game > Validation > Run Mechanical Arm Checks`。
 
 检查在独立 Preview Scene 中创建临时对象并清理，不修改已打开场景。覆盖 IK 可达范围、统一查询、双手抓取、实际 prefab 参数下的原始摇杆漂移、固定入口、无计时停靠、滞回边界、偏心抓持调整、胸前范围内立即释放回收、A 与 L3 同时释放、动画中松开 L3 后完整回收、完成后恢复操作或收臂、强制中止、范围外放下、提示圈移除、部署阻挡、身体运动碰撞和翻倒限制。真实手柄手感和最终美术动画仍应在 Play Mode 中验收。
+
+`Animal Game > Validation > Run Garbage Grab Feedback Checks` 独立检查三种生产垃圾的抓取反馈、单次触发、手数限制、分裂交接、手柄脉冲包络和重叠合成、Sony 独立校准及停止清理；检查不向真实手柄发送震动。
