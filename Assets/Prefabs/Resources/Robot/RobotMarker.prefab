@@ -406,27 +406,26 @@ MonoBehaviour:
   artworkScale: 0.7
   artworkThicknessScale: 2.57
   socketRadiusOfBody: 0.88
-  armLength: 1.45
+  armLength: 1
   upperArmLengthPercent: 0.6
   lowerArmLengthPercent: 0.55
   staticArmLengthPercent: 0.4
-  handSpacingOfBodyDiameter: 1
+  handSpacingOfBodyDiameter: 0.7
   collisionWidthOfBodyDiameter: 0.08
   connectorExtendDuration: 0.24
   extendDuration: 0.3
   handExtendDuration: 0.12
   retractDuration: 0.4
-  dockEnterMagnitude: 0.18
-  dockExitMagnitude: 0.26
-  dockEnterDelay: 0.1
+  dockEnterMagnitude: 0.4
+  dockExitMagnitude: 0.5
   maximumMagnitude: 0.95
   followAngle: 70
-  bodyFollowSpeed: 100
   maximumAimSpeedDegreesPerSecond: 240
-  aimSmoothingTime: 0.2
+  aimSmoothingTime: 0.37
   smallDockPosition: {x: 0, y: 0.65}
   mediumDockPosition: {x: 0, y: 0.8}
-  dockToleranceOfBodyDiameter: 0.045
+  recycleZoneHalfWidthOfBodyDiameter: 0.35
+  recycleZoneHalfDepthOfBodyDiameter: 0.3
   recycleDuration: 0.35
   recycleHandMinimumForward: 0.2
   mediumRecycleMoveDuration: 0.22

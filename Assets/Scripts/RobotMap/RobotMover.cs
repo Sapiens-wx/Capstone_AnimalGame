@@ -197,6 +197,9 @@ namespace AnimalGame.RobotMap
             }
         }
         public float CurrentTurnSpeed { get; private set; }
+        public float BaseTurnSpeed => ScaleMotion(turnSpeed);
+        public float UnloadedReverseSpeed => ScaleMotion(reverseSpeed);
+        public bool HeavyPullMovementBlocked { get; private set; }
         public float CurrentTerrainTurnSpeed { get; private set; }
         public Vector2 CurrentTerrainVelocity { get; private set; }
         public Vector2 MapPosition => transform.position;
@@ -245,6 +248,13 @@ namespace AnimalGame.RobotMap
         private Vector2 downhillHeadingRecoveryDirection;
         private float levelThreeClimbPhaseStartTime;
         private bool pendingDownhillRecoveryFromLevelThreeSlip;
+        private Object heavyPullOwner;
+        private Vector2 heavyPullTargetPosition;
+        private Vector2 heavyPullDirection;
+        private float heavyPullSpeedLimit;
+        private int heavyPullConstraintFrame = -1;
+        private Vector2 heavyReleaseVelocity;
+        private float heavyReleaseDeceleration;
 
         private void Awake()
         {
@@ -255,6 +265,8 @@ namespace AnimalGame.RobotMap
         public void SetTraversalEvaluator(HeightMapTraversalEvaluator evaluator)
         {
             ResetClimbableContact();
+            ClearHeavyPullMotion();
+            HeavyPullMovementBlocked = false;
             traversalEvaluator = evaluator;
             if (balanceController == null)
                 balanceController = GetComponent<RobotBalanceController>();
@@ -279,6 +291,7 @@ namespace AnimalGame.RobotMap
         private void Update()
         {
             ClimbableLandedThisFrame = false;
+            HeavyPullMovementBlocked = false;
             if (Time.deltaTime <= 0f) return;
             if (MovementMode != RobotMovementMode.Driven)
             {
@@ -356,6 +369,7 @@ namespace AnimalGame.RobotMap
             }
             if (IsPhotoModeInputLocked)
             {
+                ClearHeavyPullMotion();
                 CurrentSpeed = 0f;
                 CurrentTurnSpeed = 0f;
             }
@@ -367,12 +381,24 @@ namespace AnimalGame.RobotMap
             CurrentThrottleIntent = throttle;
             UnresistedMovementIntentWorld = (Vector2)transform.up * (throttle >= 0f
                 ? throttle * ScaleMotion(forwardSpeed) : throttle * ScaleMotion(reverseSpeed));
+            WorldInteraction heldObject = armController != null ? armController.HeldObject : null;
+            if (heldObject != null && heldObject.TryGetComponent(out HeavyGarbagePull _))
+            {
+                // Heavy garbage stays anchored. Only its pull controller may allow a
+                // short retreat; grab resistance continues to stop ordinary drive.
+                FreezeDrivenMotion();
+                heavyReleaseVelocity = Vector2.zero;
+                heavyReleaseDeceleration = 0f;
+                StepHeavyPullMovement(Time.deltaTime);
+                return;
+            }
+            ClearHeavyPullConstraint(heavyPullOwner);
             if (GrabMovementMultiplier <= 0f)
             {
-                CurrentSpeed = 0f;
-                CurrentTurnSpeed = 0f;
-                CurrentTerrainVelocity = Vector2.zero;
-                CurrentTerrainTurnSpeed = 0f;
+                FreezeDrivenMotion();
+                Vector2 releaseDisplacement = StepHeavyReleaseVelocity(Time.deltaTime);
+                if (releaseDisplacement.sqrMagnitude > 0f)
+                    TryMoveSafely(releaseDisplacement, heldObject != null ? heldObject.transform : null, true);
                 return;
             }
             steering *= GrabMovementMultiplier;
@@ -385,6 +411,8 @@ namespace AnimalGame.RobotMap
                                          .sqrMagnitude > 0.000001f
                 ? downhillHeadingRecoveryDirection
                 : (Vector2)transform.up * probeSign;
+            if (heavyReleaseVelocity.sqrMagnitude > 0.000001f)
+                probeDirection = heavyReleaseVelocity.normalized;
             SlopeTraversalResult pathResult = traversalEvaluator != null
                 ? traversalEvaluator.EvaluateImmediateSafety(
                     transform.position,
@@ -476,47 +504,58 @@ namespace AnimalGame.RobotMap
                 : movementThrottle * ScaleMotion(reverseSpeed);
             CurrentWaterSpeedMultiplier =
                 CalculateStaticWaterSpeedMultiplier();
-            float targetSpeed = baseTargetSpeed
-                                * topSpeedMultiplier
-                                * CurrentWaterSpeedMultiplier
-                                * GrabMovementMultiplier;
+            float surfaceSpeedMultiplier = topSpeedMultiplier
+                                           * CurrentWaterSpeedMultiplier
+                                           * GrabMovementMultiplier;
+            float targetSpeed = baseTargetSpeed * surfaceSpeedMultiplier;
             Transform heldTransform = armController != null && armController.HeldObject != null
                 ? armController.HeldObject.transform : null;
+            float pushSpeedMultiplier = 1f;
             if (traversalEvaluator != null)
             {
                 float probeSpeed = Mathf.Abs(targetSpeed) >= Mathf.Abs(CurrentSpeed)
                     ? targetSpeed : CurrentSpeed;
                 Vector2 pushProbe = (Vector2)transform.up * probeSpeed * Time.deltaTime;
-                targetSpeed *= traversalEvaluator.GetPushSpeedMultiplier(
+                pushSpeedMultiplier = traversalEvaluator.GetPushSpeedMultiplier(
                     transform.position, (Vector2)transform.position + pushProbe, heldTransform);
             }
-            float speedChangeRate = GetSpeedChangeRate(
-                                        movementThrottle,
-                                        targetSpeed)
-                                    + accelerationBonus;
-            CurrentSpeed = Mathf.MoveTowards(
-                CurrentSpeed,
-                targetSpeed,
-                speedChangeRate * Time.deltaTime);
+            UpdateDriveSpeed(movementThrottle, targetSpeed, surfaceSpeedMultiplier,
+                pushSpeedMultiplier, accelerationBonus, Time.deltaTime);
 
             Vector2 desiredVelocity = (Vector2)transform.up * CurrentSpeed
                                       + CurrentTerrainVelocity;
-            Vector2 desiredDisplacement = desiredVelocity * Time.deltaTime;
+            Vector2 releaseStep = StepHeavyReleaseVelocity(Time.deltaTime);
+            Vector2 desiredDisplacement = desiredVelocity * Time.deltaTime + releaseStep;
+            if (!TryMoveSafely(desiredDisplacement, heldTransform,
+                    releaseStep.sqrMagnitude > 0f))
+                return;
+            transform.Rotate(
+                0f,
+                0f,
+                -CurrentTerrainTurnSpeed * Time.deltaTime);
+            ApplyDownhillHeadingRecovery();
+        }
+
+        private bool TryMoveSafely(Vector2 desiredDisplacement, Transform heldTransform,
+            bool stopUnsafeDownhill = false)
+        {
             pushedObjects.Clear();
-            if (desiredVelocity.sqrMagnitude > 0.000001f && traversalEvaluator != null)
+            if (desiredDisplacement.sqrMagnitude <= 0f)
+                return true;
+            if (traversalEvaluator != null)
             {
                 SlopeTraversalResult actualPathResult =
                     traversalEvaluator.EvaluateImmediateSafety(
                         transform.position,
-                        desiredVelocity.normalized, true);
+                        desiredDisplacement.normalized, true);
                 bool hardObstacle = actualPathResult.HasData
                                     && actualPathResult.RequiresHardStop
-                                    && actualPathResult.BlockReason
-                                    != TraversalBlockReason.UnsafeDownhill;
+                                    && (stopUnsafeDownhill || actualPathResult.BlockReason
+                                        != TraversalBlockReason.UnsafeDownhill);
                 if (hardObstacle)
                 {
                     HardStop(actualPathResult);
-                    return;
+                    return false;
                 }
 
                 if (!traversalEvaluator.TryPlanPush(
@@ -524,7 +563,25 @@ namespace AnimalGame.RobotMap
                     heldTransform, pushedObjects))
                 {
                     HardStop(SlopeTraversalResult.BlockedObstacle);
-                    return;
+                    return false;
+                }
+            }
+            else if (stopUnsafeDownhill)
+            {
+                // Preview/test scenes without a generated map still respect solid props.
+                RobotMarkerView marker = GetComponent<RobotMarkerView>();
+                float radius = marker != null
+                    ? marker.BodyDiameter * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.y)) * .5f
+                    : .75f;
+                Vector2 start = transform.position;
+                if (WorldInteractionQuery.Query(
+                    InteractionShape.Capsule(start, start + desiredDisplacement, radius + .02f),
+                    WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
+                    null, gameObject.scene, ignore: transform,
+                    previous: InteractionShape.Capsule(start, start, radius + .02f), ignoreHeld: heldTransform))
+                {
+                    HardStop(SlopeTraversalResult.BlockedObstacle);
+                    return false;
                 }
             }
 
@@ -536,6 +593,7 @@ namespace AnimalGame.RobotMap
             }
             Vector2 movementStart = transform.position;
             transform.position += (Vector3)desiredDisplacement;
+            // Track every committed move, including heavy pulling and release inertia.
             ClimbableLandedThisFrame = climbableContacts.Move(movementStart, transform.position,
                 traversalEvaluator != null ? traversalEvaluator.Map : null, gameObject.scene, Time.time);
             if (ClimbableLandedThisFrame) ClimbableLandingDirection = desiredDisplacement.normalized;
@@ -543,16 +601,142 @@ namespace AnimalGame.RobotMap
             bool wasClimbable = CurrentClimbableSurface.IsActive;
             RefreshClimbableSurface();
             if (CurrentClimbableSurface.IsActive)
-                CurrentTraversalResult = CurrentClimbableSurface.Traversal(desiredVelocity);
-            else if (wasClimbable)
+                CurrentTraversalResult = CurrentClimbableSurface.Traversal(desiredDisplacement);
+            else if (wasClimbable || stopUnsafeDownhill)
                 CurrentTraversalResult = traversalEvaluator != null
-                    ? traversalEvaluator.EvaluateCurrentSurface(transform.position, probeDirection)
+                    ? traversalEvaluator.EvaluateCurrentSurface(transform.position, desiredDisplacement.normalized)
                     : SlopeTraversalResult.NoData;
-            transform.Rotate(
-                0f,
-                0f,
-                -CurrentTerrainTurnSpeed * Time.deltaTime);
-            ApplyDownhillHeadingRecovery();
+            if (stopUnsafeDownhill)
+                IsSlopeBlocked = false;
+            return true;
+        }
+
+        public void SetHeavyPullConstraint(Object owner, Vector2 targetPosition,
+            Vector2 pullDirection, float speedLimit)
+        {
+            if (owner == null || MovementMode != RobotMovementMode.Driven
+                || IsPhotoModeInputLocked || overallMotionScale <= 0f
+                || !IsFinite(targetPosition) || !IsFinite(pullDirection)
+                || !IsFinite(speedLimit) || pullDirection.sqrMagnitude < 0.000001f)
+            {
+                ClearHeavyPullConstraint(owner);
+                return;
+            }
+            heavyPullOwner = owner;
+            heavyPullTargetPosition = targetPosition;
+            heavyPullDirection = pullDirection.normalized;
+            heavyPullSpeedLimit = Mathf.Clamp(speedLimit, 0f, UnloadedReverseSpeed);
+            heavyPullConstraintFrame = Time.frameCount;
+        }
+
+        public void ClearHeavyPullConstraint(Object owner)
+        {
+            if (heavyPullOwner != owner)
+                return;
+            heavyPullOwner = null;
+            heavyPullSpeedLimit = 0f;
+            heavyPullConstraintFrame = -1;
+        }
+
+        private void StepHeavyPullMovement(float deltaTime)
+        {
+            HeavyPullMovementBlocked = false;
+            if (heavyPullOwner == null || Time.frameCount - heavyPullConstraintFrame > 1
+                || IsPhotoModeInputLocked || MovementMode != RobotMovementMode.Driven
+                || overallMotionScale <= 0f || CurrentThrottleIntent >= -.01f
+                || Vector2.Dot(UnresistedMovementIntentWorld, heavyPullDirection) <= 0f)
+                return;
+            float remaining = Mathf.Max(0f, Vector2.Dot(
+                heavyPullTargetPosition - (Vector2)transform.position, heavyPullDirection));
+            float speed = Mathf.Min(heavyPullSpeedLimit, UnloadedReverseSpeed,
+                Mathf.Max(0f, Vector2.Dot(UnresistedMovementIntentWorld, heavyPullDirection)));
+            Vector2 step = heavyPullDirection * Mathf.Min(remaining, speed * Mathf.Max(0f, deltaTime));
+            Transform heldTransform = armController != null && armController.HeldObject != null
+                ? armController.HeldObject.transform : null;
+            if (!TryMoveSafely(step, heldTransform, true))
+                HeavyPullMovementBlocked = true;
+        }
+
+        public void ReleaseHeavyPullVelocity(Vector2 direction, float speed, float decayTime)
+        {
+            ClearHeavyPullConstraint(heavyPullOwner);
+            heavyReleaseVelocity = Vector2.zero;
+            heavyReleaseDeceleration = 0f;
+            if (MovementMode != RobotMovementMode.Driven || IsPhotoModeInputLocked
+                || overallMotionScale <= 0f || !IsFinite(direction) || !IsFinite(speed)
+                || !IsFinite(decayTime) || direction.sqrMagnitude < 0.000001f)
+                return;
+            float cappedSpeed = Mathf.Clamp(speed, 0f, UnloadedReverseSpeed);
+            heavyReleaseVelocity = direction.normalized * cappedSpeed;
+            heavyReleaseDeceleration = cappedSpeed / Mathf.Clamp(decayTime, .01f, 2f);
+        }
+
+        private Vector2 StepHeavyReleaseVelocity(float deltaTime)
+        {
+            if (heavyReleaseVelocity.sqrMagnitude < 0.000001f
+                || IsPhotoModeInputLocked || MovementMode != RobotMovementMode.Driven
+                || overallMotionScale <= 0f)
+            {
+                heavyReleaseVelocity = Vector2.zero;
+                heavyReleaseDeceleration = 0f;
+                return Vector2.zero;
+            }
+            float dt = Mathf.Clamp(deltaTime, 0f,
+                heavyReleaseVelocity.magnitude / Mathf.Max(.000001f, heavyReleaseDeceleration));
+            Vector2 previous = heavyReleaseVelocity;
+            heavyReleaseVelocity = Vector2.MoveTowards(previous, Vector2.zero,
+                heavyReleaseDeceleration * dt);
+            return (previous + heavyReleaseVelocity) * (.5f * dt);
+        }
+
+        private void FreezeDrivenMotion()
+        {
+            CurrentSpeed = 0f;
+            CurrentTurnSpeed = 0f;
+            CurrentTerrainVelocity = Vector2.zero;
+            CurrentTerrainTurnSpeed = 0f;
+        }
+
+        private void ClearHeavyPullMotion()
+        {
+            ClearHeavyPullConstraint(heavyPullOwner);
+            heavyReleaseVelocity = Vector2.zero;
+            heavyReleaseDeceleration = 0f;
+        }
+
+        private void LateUpdate()
+        {
+            // Arm collision constraints run first and may shorten this frame's move.
+            if (armController == null || !armController.IsBlocked)
+                return;
+            if (heavyPullOwner != null)
+                HeavyPullMovementBlocked = true;
+            heavyReleaseVelocity = Vector2.zero;
+            heavyReleaseDeceleration = 0f;
+        }
+
+        private static bool IsFinite(Vector2 value) => IsFinite(value.x) && IsFinite(value.y);
+        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private void UpdateDriveSpeed(float throttle, float targetSpeed,
+            float surfaceSpeedMultiplier, float pushSpeedMultiplier,
+            float accelerationBonus, float deltaTime)
+        {
+            targetSpeed *= pushSpeedMultiplier;
+            float speedChangeRate = GetSpeedChangeRate(throttle, targetSpeed)
+                                    + accelerationBonus;
+            float nextSpeed = Mathf.MoveTowards(CurrentSpeed, targetSpeed,
+                speedChangeRate * deltaTime);
+            if (pushSpeedMultiplier < 1f)
+            {
+                // Apply contact resistance before this frame moves the robot or garbage.
+                // A fixed speed cap avoids multiplying the remaining momentum every frame.
+                float pushScale = surfaceSpeedMultiplier * pushSpeedMultiplier;
+                nextSpeed = Mathf.Clamp(nextSpeed,
+                    -ScaleMotion(reverseSpeed) * pushScale,
+                    ScaleMotion(forwardSpeed) * pushScale);
+            }
+            CurrentSpeed = nextSpeed;
         }
 
         private void RefreshClimbableSurface()
@@ -570,12 +754,16 @@ namespace AnimalGame.RobotMap
             hasCommittedPosition = false;
         }
 
-        private void OnDisable() => ResetClimbableContact();
+        private void OnDisable()
+        {
+            ResetClimbableContact();
+            ClearHeavyPullMotion();
+        }
 
         internal Vector2 BeginExternalTumble()
         {
             Vector2 capturedWorldVelocity = (Vector2)transform.up * CurrentSpeed
-                                            + CurrentTerrainVelocity;
+                                            + CurrentTerrainVelocity + heavyReleaseVelocity;
             if (MovementMode != RobotMovementMode.Driven)
                 return Vector2.zero;
 
@@ -617,6 +805,7 @@ namespace AnimalGame.RobotMap
             if (!IsPhotoModeInputLocked)
                 return;
 
+            ClearHeavyPullMotion();
             CurrentSpeed = 0f;
             CurrentTurnSpeed = 0f;
         }
@@ -638,6 +827,8 @@ namespace AnimalGame.RobotMap
         private void ClearMotionForExternalControl()
         {
             ResetClimbableContact();
+            ClearHeavyPullMotion();
+            HeavyPullMovementBlocked = false;
             wasSteering = false;
             CurrentThrottleIntent = 0f;
             UnresistedMovementIntentWorld = Vector2.zero;
@@ -673,7 +864,7 @@ namespace AnimalGame.RobotMap
 
             float targetTurnSpeed = steeringLocked
                 ? 0f
-                : steering * ScaleMotion(turnSpeed);
+                : steering * BaseTurnSpeed;
             float turnChangeRate = steeringLocked
                                    || Mathf.Approximately(steering, 0f)
                 ? ScaleMotion(turnDeceleration)
@@ -1179,6 +1370,7 @@ namespace AnimalGame.RobotMap
 
         private void HardStop(SlopeTraversalResult result)
         {
+            ClearHeavyPullMotion();
             CurrentSpeed = 0f;
             CurrentTerrainTurnSpeed = 0f;
             CurrentTerrainVelocity = Vector2.zero;

@@ -28,8 +28,18 @@ namespace AnimalGame.Editor
             Check("QuadTree matches exhaustive queries after movement, resizing, kind and scene changes", CheckQuadTree);
             Check("Dirty queue skips unchanged shapes and coalesces geometry edits", CheckSpatialDirty);
             Check("Held input retries, one/two-hand grabbing and early release", CheckGrabbing);
-            Check("Raw thresholds, dock delay, hysteresis and recycle completion", CheckDocking);
-            Check("Recycle hand tracking, inward limit, medium pauses, shrinking and cancellation", CheckRecycleAnimation);
+            Check("Immediate docking, adjustable raw thresholds, hysteresis and recycle completion", CheckDocking);
+            Check("Production dock settings, raw drift, fixed inlet and wide hysteresis", CheckControllerDocking);
+            Check("Chest-zone A release starts recycling immediately without docking or alignment", CheckInstantRecycle);
+            Check("Chest-zone recycling excludes outside positions, big garbage and falling", CheckInstantRecycleExclusions);
+            Check("Medium edge grips dock after reachable adjustment without changing outer grip", CheckDockGripAdjustment);
+            Check("Empty and heavy arm control remain outside automatic docking", CheckDockExclusions);
+            Check("Garbage docking creates no runtime indicator", CheckNoDockIndicator);
+            Check("Recycle hand tracking, inward limit, medium pauses, shrinking and completion", CheckRecycleAnimation);
+            Check("Small and medium recycling survives L3 release and ignores arm/grab input", CheckRecycleInputLatch);
+            Check("Chest-zone A and L3 release starts recycling without a drop", CheckSimultaneousRecycleRelease);
+            Check("Recycle cancels cleanly on falling, photo mode, external control or disable", CheckRecycleCancellation);
+            Check("Recycle completion may disable the controller without restoring its input capture", CheckRecycleCompletionDisable);
             Check("Release L3 drops before retracting", CheckRetracting);
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
             Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
@@ -305,13 +315,15 @@ namespace AnimalGame.Editor
         {
             using (var f = new Fixture())
             {
+                // Keep checking that designers can still configure narrower entry/exit bands.
+                Set(f.Arms, "dockEnterMagnitude", .18f);
+                Set(f.Arms, "dockExitMagnitude", .26f);
                 f.Tick(90, Vector2.up, true);
                 WorldInteraction item = f.Item((f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f, new Vector2(.5f, .1f), 2);
                 f.Tick(1, Vector2.up, true);
-                f.Tick(4, Vector2.up * .17f, true);
-                Require(f.Arms.State == RobotArmState.OuterOperating, "Dock entered before .10 seconds");
-                f.Tick(3, Vector2.up * .17f, true);
-                Require(f.Arms.State == RobotArmState.Docking, "Raw .17 did not enter dock after delay");
+                Call(f.Arms, "Step", 0f, Vector2.up * .17f, true, true);
+                Require(f.Arms.State == RobotArmState.Docking,
+                    "Raw .17 failed to enter docking immediately with zero elapsed time");
                 f.Tick(5, Vector2.up * .22f, true);
                 Require(f.Arms.State == RobotArmState.Docking, "Hysteresis did not retain docking");
                 f.Tick(1, Vector2.up * .27f, true);
@@ -322,6 +334,331 @@ namespace AnimalGame.Editor
                 Require(f.Arms.State == RobotArmState.Recycling && item.gameObject.activeSelf, "Ready release skipped recycle animation");
                 f.Tick(40, Vector2.zero, false);
                 Require(!item.gameObject.activeSelf && f.Arms.HeldObject == null, "Recycle failed to finish/clear ownership");
+            }
+        }
+        private static void CheckControllerDocking()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+            RobotArmController settings = prefab != null ? prefab.GetComponent<RobotArmController>() : null;
+            Require(settings != null,
+                "Production robot prefab is missing its arm settings");
+            Require(typeof(RobotArmController).GetField("dockEnterDelay", BindingFlags.NonPublic | BindingFlags.Instance) == null
+                && typeof(RobotArmController).GetField("dockTimer", BindingFlags.NonPublic | BindingFlags.Instance) == null,
+                "Docking still exposes or accumulates a delay before chest-zone recycling");
+            Require(Mathf.Approximately((float)Get(settings, "leftStickDeadZone"), .08f)
+                && Mathf.Approximately((float)Get(settings, "dockEnterMagnitude"), .4f)
+                && Mathf.Approximately((float)Get(settings, "dockExitMagnitude"), .5f)
+                && Mathf.Approximately((float)Get(settings, "aimSmoothingTime"), .37f)
+                && Mathf.Approximately((float)Get(settings, "recycleZoneHalfWidthOfBodyDiameter"), .35f)
+                && Mathf.Approximately((float)Get(settings, "recycleZoneHalfDepthOfBodyDiameter"), .3f),
+                "Production prefab did not retain smoothing and apply .08/.4/.5 docking settings");
+
+            foreach (bool medium in new[] { false, true })
+            foreach (float drift in new[] { .01f, .39f })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.rotation = Quaternion.Euler(0f, 0f, 37f);
+                f.Tick(90, Vector2.up, true);
+                string garbagePath = medium ? "Assets/Prefabs/Environment/Garbage/Medium_Garbage.prefab"
+                    : "Assets/Prefabs/Environment/Garbage/Small_Garbage.prefab";
+                WorldInteraction garbageSettings = AssetDatabase.LoadAssetAtPath<GameObject>(garbagePath)
+                    ?.GetComponent<WorldInteraction>();
+                Require(garbageSettings != null, "Production garbage prefab is missing its interaction");
+                Vector2 anchor = medium ? (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f
+                    : f.Arms.LeftHandWorld;
+                // A slightly off-center grip must place the object, rather than only the hands, at the inlet.
+                WorldInteraction item = f.Item(anchor + new Vector2(.012f, -.006f),
+                    medium ? new Vector2(.7f, .15f) : Vector2.one * .05f, medium ? 2 : 1);
+                // The medium fixture spans the hands along robot-local X, including the rotated heading.
+                item.WorldRotation = f.Root.transform.rotation;
+                Set(item, "size", garbageSettings.Size);
+                Set(item, "grabResistance", garbageSettings.GrabResistance);
+                int recycleCount = 0;
+                Set(item, "onRecycled", (Action)(() => recycleCount++));
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == item,
+                    "Production-settings fixture failed to grab garbage: medium=" + medium + ", drift=" + drift);
+                Vector2 stick = Vector2.right * drift;
+                Call(f.Arms, "Step", 0f, Vector2.right * .4f, true, true);
+                Require(f.Arms.State == RobotArmState.Docking,
+                    "Production .4 input did not enter docking on the same zero-time frame");
+                Call(f.Arms, "Step", 0f, stick, true, true);
+                Require(f.Arms.State == RobotArmState.Docking && !f.Arms.IsRecycleReady,
+                    "Inner-circle input did not enter docking immediately or reported ready outside the chest zone");
+                Quaternion heading = f.Root.transform.rotation;
+                f.Tick(240, stick, true);
+                Vector2 inlet = (float)Get(f.Arms, "armLength")
+                    * (Vector2)Get(f.Arms, medium ? "mediumDockPosition" : "smallDockPosition");
+                Vector2 actual = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot
+                    .InverseTransformPoint(item.WorldPosition);
+                Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
+                    && Vector2.Distance(actual, inlet) < .003f,
+                    "Raw side drift prevented garbage from automatically reaching the fixed inlet");
+                Require(Mathf.Approximately(f.Arms.CurrentInputMagnitude, drift)
+                    && f.Arms.CurrentTargetLocal == stick,
+                    "Automatic docking rescaled or erased raw input used by other control states");
+                Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Inner-circle side input kept rotating the body while docking");
+
+                foreach (Vector2 bandInput in new[] { Vector2.left * .45f, Vector2.down * .49f,
+                    Vector2.right * .5f })
+                {
+                    f.Tick(30, bandInput, true);
+                    Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
+                        && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                        "Hysteresis band changed the inlet target, rotated the body or exited docking");
+                }
+                f.Tick(1, Vector2.right * .501f, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsRecycleReady
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) > .001f,
+                    "Input above .5 did not restore outer control while preserving spatial chest-zone readiness");
+                f.Tick(120, Vector2.right * .501f, true);
+                Require(!f.Arms.IsRecycleReady,
+                    "Garbage remained ready after outer arm control moved it outside the chest zone");
+                f.Tick(240, stick, true);
+                Require(f.Arms.IsRecycleReady, "Returning to the inner circle failed to dock again");
+                f.Tick(1, stick, false);
+                Require(f.Arms.State == RobotArmState.Recycling && !f.Arms.IsRecycleReady
+                    && item.gameObject.activeSelf && item.Owner == f.Arms && recycleCount == 0,
+                    "Ready A release skipped recycling or cleared ownership before the animation");
+                f.Tick(90, Vector2.right, false);
+                Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
+                    && recycleCount == 1, "Controller docking failed to finish one complete recycling operation");
+            }
+        }
+        private static void CheckInstantRecycle()
+        {
+            Vector2[] positions = {
+                Vector2.zero, Vector2.left * .9f, Vector2.right * .9f,
+                Vector2.up * .9f, Vector2.down * .9f,
+                new Vector2(.6f, .6f), new Vector2(-.6f, -.6f)
+            };
+            foreach (bool medium in new[] { false, true })
+            foreach (Vector2 normalized in positions)
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.SetPositionAndRotation(new Vector3(3f, -2f), Quaternion.Euler(0f, 0f, 37f));
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                int recycled = 0;
+                Set(item, "onRecycled", (Action)(() => recycled++));
+                Vector2 inlet = (float)Get(f.Arms, "armLength")
+                    * (Vector2)Get(f.Arms, medium ? "mediumDockPosition" : "smallDockPosition");
+                Vector2 zone = (float)Get(f.Arms, "diameter") * new Vector2(
+                    (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter"),
+                    (float)Get(f.Arms, "recycleZoneHalfDepthOfBodyDiameter"));
+                Require(zone.x > .2f && zone.y > .2f,
+                    "Production chest zone is still the old precise inlet tolerance");
+                Vector2 localPosition = inlet + Vector2.Scale(normalized, zone);
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady,
+                    "Immediate recycle fixture was already docked or ready at full arm extension");
+                PlaceHeldAtLocal(f, item, localPosition);
+                if (normalized == Vector2.zero)
+                {
+                    // Readiness describes position, even with the stick still outside.
+                    Call(f.Arms, "UpdateReady");
+                    Require(f.Arms.IsRecycleReady && f.Arms.State == RobotArmState.OuterOperating,
+                        "Chest-zone readiness still required the automatic Docking state");
+                }
+                // A large nonzero frame and sideways input would pull an edge position out of the
+                // zone if aim/body movement ran before sampling the player's release intention.
+                Call(f.Arms, "Step", .25f, Vector2.right, true, false);
+                Require(f.Arms.State == RobotArmState.Recycling && f.Arms.HeldObject == item
+                    && item.Owner == f.Arms && item.gameObject.activeSelf && recycled == 0,
+                    "Chest-zone A release did not start its animation immediately: medium=" + medium
+                    + ", normalized=" + normalized.ToString("F3"));
+                Require(Vector2.Distance((Vector2)(Vector3)Get(f.Arms, "recycleStart"), localPosition) < .0001f,
+                    "Release-frame arm motion moved garbage away before the recycling animation began");
+                f.Tick(90, Vector2.right, false);
+                Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
+                    && recycled == 1, "Immediate chest-zone recycling failed to finish exactly once");
+            }
+        }
+
+        private static void CheckInstantRecycleExclusions()
+        {
+            foreach (bool medium in new[] { false, true })
+            foreach (string exclusion in new[] { "side", "forward", "diagonal", "behind", "extended",
+                "big", "heavy", "not recyclable", "fallen" })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                Vector2 inlet = (float)Get(f.Arms, "armLength")
+                    * (Vector2)Get(f.Arms, medium ? "mediumDockPosition" : "smallDockPosition");
+                Vector2 zone = (float)Get(f.Arms, "diameter") * new Vector2(
+                    (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter"),
+                    (float)Get(f.Arms, "recycleZoneHalfDepthOfBodyDiameter"));
+                Vector2 position = inlet;
+                if (exclusion == "side") position += Vector2.right * zone.x * 1.02f;
+                else if (exclusion == "forward") position += Vector2.up * zone.y * 1.02f;
+                else if (exclusion == "diagonal") position += zone * .75f;
+                else if (exclusion == "behind") position = Vector2.down * .1f;
+                if (exclusion != "extended") PlaceHeldAtLocal(f, item, position);
+                if (exclusion == "big") Set(item, "size", RecyclableSize.Big);
+                else if (exclusion == "heavy") item.gameObject.AddComponent<HeavyGarbagePull>();
+                else if (exclusion == "not recyclable") Set(item, "recyclable", false);
+                else if (exclusion == "fallen")
+                {
+                    var tumble = f.Root.AddComponent<RobotTumbleController>();
+                    typeof(RobotTumbleController).GetProperty("State").SetValue(tumble, RobotTumbleState.Fallen);
+                    Set(f.Arms, "tumble", tumble);
+                }
+                int recycled = 0;
+                Set(item, "onRecycled", (Action)(() => recycled++));
+                Vector3 start = item.WorldPosition;
+                // Positional tests have no elapsed time, so moving out of the zone cannot hide a
+                // false positive. Falling still prevents recycling at the exact inlet.
+                Call(f.Arms, "Step", 0f, Vector2.up, true, false);
+                Require(f.Arms.State != RobotArmState.Recycling && f.Arms.HeldObject == null
+                    && item.Owner == null && item.gameObject.activeSelf && recycled == 0,
+                    "Chest-zone recycle incorrectly accepted " + exclusion + ": medium=" + medium);
+                Require(Vector3.Distance(item.WorldPosition, start) < .0001f,
+                    "Excluded zero-time release moved garbage before dropping it");
+            }
+        }
+
+        private static WorldInteraction GrabProductionGarbage(Fixture f, bool medium)
+        {
+            f.Tick(240, Vector2.up, true);
+            string path = medium ? "Assets/Prefabs/Environment/Garbage/Medium_Garbage.prefab"
+                : "Assets/Prefabs/Environment/Garbage/Small_Garbage.prefab";
+            WorldInteraction settings = AssetDatabase.LoadAssetAtPath<GameObject>(path)?.GetComponent<WorldInteraction>();
+            Require(settings != null, "Production garbage settings unavailable for immediate recycle check");
+            Vector2 anchor = medium ? (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f : f.Arms.LeftHandWorld;
+            WorldInteraction item = f.Item(anchor, medium ? new Vector2(.7f, .15f) : Vector2.one * .05f,
+                medium ? 2 : 1);
+            item.WorldRotation = f.Root.transform.rotation;
+            Set(item, "size", settings.Size);
+            Set(item, "grabResistance", settings.GrabResistance);
+            f.Tick(1, Vector2.up, true);
+            Require(f.Arms.HeldObject == item && item.Owner == f.Arms,
+                "Immediate recycle fixture failed to grab production-sized garbage");
+            return item;
+        }
+
+        private static void PlaceHeldAtLocal(Fixture f, WorldInteraction item, Vector2 localPosition)
+        {
+            Transform frame = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot;
+            int hands = (int)Get(f.Arms, "heldHands");
+            Vector2 anchor = hands == 3 ? (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f
+                : hands == 1 ? f.Arms.LeftHandWorld : f.Arms.RightHandWorld;
+            item.WorldPosition = frame.TransformPoint(localPosition);
+            // Keep a real, owned grip consistent with the requested garbage position.
+            Set(f.Arms, "heldOffset", (Vector2)frame.InverseTransformVector(item.WorldPosition - (Vector3)anchor));
+        }
+
+        private static void CheckDockExclusions()
+        {
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Tick(90, Vector2.up, false);
+                Quaternion heading = f.Root.transform.rotation;
+                f.Tick(60, Vector2.right * .01f, false);
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Empty-arm drift entered docking or bypassed the stick dead zone");
+                f.Tick(30, Vector2.right * .3f, false);
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.HeldObject == null
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) > 1f,
+                    "Inner-circle input incorrectly captured empty-arm aiming and body turning");
+            }
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Tick(90, Vector2.up, true);
+                WorldInteraction heavy = f.Item((f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f,
+                    new Vector2(.7f, .15f), 2);
+                Set(heavy, "size", RecyclableSize.Big);
+                Set(heavy, "grabResistance", 1f);
+                heavy.gameObject.AddComponent<HeavyGarbagePull>();
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.HeldObject == heavy, "Heavy docking-exclusion fixture failed to grab");
+                f.Tick(90, Vector2.right * .3f, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady
+                    && f.Arms.CurrentTargetLocal == Vector2.right * .3f,
+                    "Automatic docking captured heavy-garbage control");
+                f.Tick(1, Vector2.zero, false);
+                Require(f.Arms.HeldObject == null && heavy.Owner == null && heavy.gameObject.activeSelf,
+                    "Heavy A release entered recycling instead of releasing the grip");
+            }
+        }
+        private static void CheckNoDockIndicator()
+        {
+            Require(typeof(RobotArmController).GetField("showDockIndicator", BindingFlags.NonPublic | BindingFlags.Instance) == null
+                && typeof(RobotArmController).GetField("dockWaitingColor", BindingFlags.NonPublic | BindingFlags.Instance) == null
+                && typeof(RobotArmController).GetField("dockReadyColor", BindingFlags.NonPublic | BindingFlags.Instance) == null,
+                "Removed garbage indicators still expose display/color settings");
+            foreach (bool medium in new[] { false, true })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                Transform frame = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot;
+                RequireNoIndicator();
+                Call(f.Arms, "Step", 0f, Vector2.right * .39f, true, true);
+                Require(f.Arms.State == RobotArmState.Docking && !f.Arms.IsRecycleReady,
+                    "Indicator-removal fixture did not enter automatic docking");
+                RequireNoIndicator();
+                f.Tick(240, Vector2.right * .39f, true);
+                Require(f.Arms.IsRecycleReady, "Removing the indicator also removed chest-zone readiness");
+                RequireNoIndicator();
+                f.Tick(1, Vector2.zero, false);
+                Require(f.Arms.State == RobotArmState.Recycling, "Invisible chest zone failed to begin recycling");
+                RequireNoIndicator();
+                f.Tick(90, Vector2.zero, false, false);
+                RequireNoIndicator();
+                Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf,
+                    "Removing the indicator prevented recycling from completing");
+
+                void RequireNoIndicator()
+                {
+                    Require(frame.Find("Garbage Dock Indicator") == null
+                        && frame.GetComponentsInChildren<LineRenderer>(true).Length == 0,
+                        "Garbage docking still creates a runtime yellow/green indicator");
+                }
+            }
+        }
+        private static void CheckDockGripAdjustment()
+        {
+            foreach (float side in new[] { -1f, 1f })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.rotation = Quaternion.Euler(0f, 0f, -52f);
+                // Let production aim smoothing settle before measuring the intended edge grip.
+                f.Tick(240, Vector2.up, true);
+                Transform frame = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot;
+                Vector2 anchor = (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f;
+                Vector2 gripOffset = new Vector2(side * .12f, -.45f);
+                WorldInteraction item = f.Item(anchor + (Vector2)frame.TransformVector(gripOffset),
+                    new Vector2(.94f, .95f), 2);
+                item.WorldRotation = f.Root.transform.rotation;
+                WorldInteraction settings = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Prefabs/Environment/Garbage/Medium_Garbage.prefab").GetComponent<WorldInteraction>();
+                Set(item, "size", settings.Size);
+                Set(item, "grabResistance", settings.GrabResistance);
+                f.Tick(1, Vector2.up, true);
+                Vector2 initialOffset = (Vector2)Get(f.Arms, "heldOffset");
+                Require(f.Arms.HeldObject == item && Vector2.Distance(initialOffset, gripOffset) < .0001f,
+                    "Medium edge-grip fixture failed: initial=" + initialOffset.ToString("F6")
+                    + ", intended=" + gripOffset.ToString("F6"));
+                f.Tick(30, Vector2.up, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating
+                    && Vector2.Distance((Vector2)Get(f.Arms, "heldOffset"), initialOffset) < .0001f,
+                    "Reachable docking adjustment changed the object's outer-operation grip");
+                f.Tick(300, Vector2.right * .39f, true);
+                Vector2 inlet = (float)Get(f.Arms, "armLength") * (Vector2)Get(f.Arms, "mediumDockPosition");
+                Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
+                    && Vector2.Distance(frame.InverseTransformPoint(item.WorldPosition), inlet) < .003f,
+                    "Medium rear-edge grip remained outside the inlet because the hand target exceeded IK reach");
+                Require(Vector2.Distance((Vector2)Get(f.Arms, "heldOffset"), initialOffset) > .1f,
+                    "Impossible edge grip was reported ready without a reachable grip adjustment");
+                Quaternion heading = f.Root.transform.rotation;
+                f.Tick(30, Vector2.down * .49f, true);
+                Require(f.Arms.IsRecycleReady && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Lateral/rearward adjusted grip lost ready alignment inside the hysteresis band");
+                f.Tick(1, Vector2.down * .49f, false);
+                Require(f.Arms.State == RobotArmState.Recycling, "Adjusted medium grip dropped on ready release");
+                f.Tick(90, Vector2.zero, false);
+                Require(!item.gameObject.activeSelf && item.Owner == null && f.Arms.HeldObject == null,
+                    "Adjusted medium grip did not complete recycling");
             }
         }
         private static void CheckRecycleAnimation()
@@ -368,17 +705,7 @@ namespace AnimalGame.Editor
                 Call(f.Arms, "Step", .01f, Vector2.zero, true, false);
                 Require(Vector2.Distance(stoppedHand, f.Arms.LeftHandWorld) < .0002f
                     && Vector3.Distance(before, item.WorldPosition) > .00001f, "Hand did not stop while garbage continued inward");
-                if (medium)
-                {
-                    f.Tick(1, Vector2.zero, false, false);
-                    Require(item.LocalScale == originalScale && item.Owner == null && item.gameObject.activeSelf,
-                        "Cancelled recycle did not restore size and release garbage");
-                    // Also verify completion with a delta that crosses all five phases.
-                    Require(item.TryGrab(f.Arms), "Could not regrab cancelled garbage");
-                    Set(f.Arms, "heldObject", item);
-                    Set(f.Arms, "heldHands", 3);
-                    Call(f.Arms, "BeginRecycle");
-                }
+                // A delta crossing the remaining animation phases must still finish once.
                 Call(f.Arms, "Step", 2f, Vector2.zero, true, false);
                 Require(!item.gameObject.activeSelf && item.Owner == null && f.Arms.HeldObject == null
                     && item.LocalScale == originalScale, "Recycle completion failed to clear ownership or restore reusable scale");
@@ -386,6 +713,197 @@ namespace AnimalGame.Editor
                     "Recycled garbage did not reach player center");
             }
         }
+        private static void CheckRecycleInputLatch()
+        {
+            foreach (bool medium in new[] { false, true })
+            foreach (bool finalArmHeld in new[] { false, true })
+            foreach (float releaseFraction in new[] { .1f, .65f })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.SetPositionAndRotation(new Vector3(3f, -2f), Quaternion.Euler(0f, 0f, 37f));
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                Vector3 originalScale = new Vector3(1.2f, .8f, 1f);
+                item.LocalScale = originalScale;
+                int recycled = 0;
+                Set(item, "onRecycled", (Action)(() => recycled++));
+                PlaceHeldAtLocal(f, item, ChestInlet(f.Arms, medium));
+                Call(f.Arms, "Step", 0f, Vector2.right, true, false);
+                Require(f.Arms.State == RobotArmState.Recycling,
+                    "Latch fixture failed to start recycling immediately");
+                float duration = medium
+                    ? 3f * (float)Get(f.Arms, "mediumRecycleMoveDuration")
+                        + 2f * (float)Get(f.Arms, "mediumRecyclePauseDuration")
+                    : (float)Get(f.Arms, "recycleDuration");
+                Call(f.Arms, "Step", duration * releaseFraction, Vector2.left, true, false);
+                float beforeTime = (float)Get(f.Arms, "recycleTime");
+                Quaternion heading = f.Root.transform.rotation;
+                Vector3 beforePosition = item.WorldPosition;
+
+                // Releasing L3 and pressing A again must not drop, re-grab, or steer the animation.
+                Call(f.Arms, "Step", .04f, Vector2.right, false, true);
+                Require(f.Arms.State == RobotArmState.Recycling && f.Arms.IsArmModeActive
+                    && f.Root.GetComponent<RobotMover>().IsArmInputCaptured
+                    && f.Arms.HeldObject == item && item.Owner == f.Arms
+                    && item.gameObject.activeSelf && recycled == 0,
+                    "L3 release interrupted or released an in-progress recycle: medium=" + medium
+                    + ", release fraction=" + releaseFraction);
+                Require(Mathf.Abs((float)Get(f.Arms, "recycleTime") - beforeTime - .04f) < .0001f
+                    && f.Arms.CurrentInputMagnitude == 0f && f.Arms.CurrentTargetLocal == Vector2.zero
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Latched recycling stopped advancing or allowed arm input to turn the body");
+                if (!medium)
+                    Require(Vector3.Distance(item.WorldPosition, beforePosition) > .00001f,
+                        "Small recycle froze when L3 was released");
+                else Require(item.LocalScale.x < originalScale.x,
+                    "Medium recycle lost its staged crushing while L3 was released");
+
+                // Re-pressing L3 during the operation also keeps control with the animation.
+                Call(f.Arms, "Step", .02f, Vector2.left, true, true);
+                Require(f.Arms.State == RobotArmState.Recycling && item.Owner == f.Arms
+                    && recycled == 0 && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Re-pressing L3/A regained aiming or recycled garbage before completion");
+                Call(f.Arms, "Step", 2f, Vector2.right, finalArmHeld, true);
+                RobotMover mover = f.Root.GetComponent<RobotMover>();
+                Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
+                    && item.LocalScale == originalScale && recycled == 1,
+                    "Latched recycle did not finish exactly once and restore reusable garbage scale");
+                Require(f.Arms.State == (finalArmHeld ? RobotArmState.OuterOperating : RobotArmState.Retracting)
+                    && f.Arms.IsArmModeActive == finalArmHeld && mover.IsArmInputCaptured == finalArmHeld,
+                    "Recycle completion did not choose the state/capture matching current L3 input");
+                Require(Vector2.Distance(item.WorldPosition, f.Root.transform.position) < .0001f,
+                    "Latched garbage did not finish at the player inlet");
+                f.Tick(90, Vector2.zero, false, finalArmHeld);
+                Require(recycled == 1 && f.Arms.HeldObject == null
+                    && f.Arms.State == (finalArmHeld ? RobotArmState.OuterOperating : RobotArmState.Retracted),
+                    "Post-recycle input repeated completion or failed to finish retraction");
+            }
+        }
+
+        private static void CheckSimultaneousRecycleRelease()
+        {
+            foreach (bool medium in new[] { false, true })
+            foreach (string release in new[] { "A and L3 inside", "A and L3 outside", "L3 only inside" })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                Vector2 position = ChestInlet(f.Arms, medium);
+                bool accepts = release == "A and L3 inside";
+                if (release == "A and L3 outside")
+                    position.x += (float)Get(f.Arms, "diameter")
+                        * (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter") * 1.02f;
+                PlaceHeldAtLocal(f, item, position);
+                int recycled = 0;
+                Set(item, "onRecycled", (Action)(() => recycled++));
+                Call(f.Arms, "Step", 0f, Vector2.right, false, release == "L3 only inside");
+                if (accepts)
+                {
+                    Require(f.Arms.State == RobotArmState.Recycling && f.Arms.IsArmModeActive
+                        && f.Root.GetComponent<RobotMover>().IsArmInputCaptured
+                        && f.Arms.HeldObject == item && item.Owner == f.Arms && recycled == 0,
+                        "Simultaneous A/L3 release dropped garbage inside the chest zone");
+                    Require(Vector2.Distance((Vector2)(Vector3)Get(f.Arms, "recycleStart"), position) < .0001f,
+                        "Simultaneous release moved garbage before starting recycling");
+                    f.Tick(90, Vector2.right, false, false);
+                    Require(recycled == 1 && !item.gameObject.activeSelf && item.Owner == null
+                        && f.Arms.State == RobotArmState.Retracted
+                        && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                        "Simultaneous release failed to complete and retract automatically");
+                }
+                else
+                {
+                    Require(f.Arms.State == RobotArmState.Retracting && f.Arms.HeldObject == null
+                        && item.Owner == null && item.gameObject.activeSelf && recycled == 0,
+                        "Release accepted garbage without chest-zone A release: " + release);
+                    Require(Vector2.Distance(item.WorldPosition,
+                        f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot.TransformPoint(position)) < .0001f,
+                        "Zero-time L3 drop changed garbage position");
+                }
+            }
+        }
+
+        private static void CheckRecycleCancellation()
+        {
+            foreach (bool medium in new[] { false, true })
+            foreach (string cancellation in new[] { "fallen", "photo mode", "external control", "disable",
+                "disabled item", "lost owner", "destroyed item" })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                Vector3 originalScale = new Vector3(1.2f, .8f, 1f);
+                item.LocalScale = originalScale;
+                int recycled = 0;
+                Set(item, "onRecycled", (Action)(() => recycled++));
+                PlaceHeldAtLocal(f, item, ChestInlet(f.Arms, medium));
+                Call(f.Arms, "Step", .1f, Vector2.zero, true, false);
+                Require(f.Arms.State == RobotArmState.Recycling && item.Owner == f.Arms,
+                    "Cancellation fixture failed to start the animation");
+                if (medium) Require(item.LocalScale.x < originalScale.x,
+                    "Cancellation fixture did not shrink medium garbage before interruption");
+
+                if (cancellation == "fallen")
+                {
+                    var tumble = f.Root.AddComponent<RobotTumbleController>();
+                    typeof(RobotTumbleController).GetProperty("State").SetValue(tumble, RobotTumbleState.Fallen);
+                    Set(f.Arms, "tumble", tumble);
+                    typeof(RobotMover).GetProperty("MovementMode")
+                        .SetValue(f.Root.GetComponent<RobotMover>(), RobotMovementMode.Fallen);
+                }
+                else if (cancellation == "photo mode")
+                {
+                    var photo = f.Root.AddComponent<PhotoModeController>();
+                    FieldInfo state = typeof(PhotoModeController).GetField("state", BindingFlags.NonPublic | BindingFlags.Instance);
+                    state.SetValue(photo, Enum.Parse(state.FieldType, "Active"));
+                    Set(f.Arms, "photoMode", photo);
+                }
+                else if (cancellation == "external control")
+                    typeof(RobotMover).GetProperty("MovementMode")
+                        .SetValue(f.Root.GetComponent<RobotMover>(), RobotMovementMode.ExternalTumble);
+                else if (cancellation == "disabled item") item.enabled = false;
+                else if (cancellation == "lost owner") item.Release(f.Arms);
+                else if (cancellation == "destroyed item") Object.DestroyImmediate(item.gameObject);
+
+                if (cancellation == "disable") Call(f.Arms, "OnDisable");
+                else Call(f.Arms, "Step", .05f, Vector2.right, false, false);
+                bool itemClean = item == null || (item.Owner == null && item.LocalScale == originalScale
+                    && item.gameObject.activeSelf);
+                Require(f.Arms.State != RobotArmState.Recycling && f.Arms.HeldObject == null
+                    && itemClean
+                    && recycled == 0 && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                    "Strong recycle cancellation failed to release/restore without completing: " + cancellation
+                    + ", medium=" + medium);
+                f.Tick(120, Vector2.zero, false, false);
+                Require(recycled == 0 && f.Arms.State != RobotArmState.Recycling
+                    && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                    "Cancelled operation resumed or left arm input captured: " + cancellation);
+            }
+        }
+
+        private static void CheckRecycleCompletionDisable()
+        {
+            foreach (bool medium in new[] { false, true })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                int recycled = 0;
+                Set(item, "onRecycled", (Action)(() => {
+                    recycled++;
+                    f.Arms.enabled = false;
+                    // Edit-mode fixtures drive runtime lifecycle callbacks explicitly.
+                    Call(f.Arms, "OnDisable");
+                }));
+                PlaceHeldAtLocal(f, item, ChestInlet(f.Arms, medium));
+                Call(f.Arms, "Step", 0f, Vector2.zero, true, false);
+                Call(f.Arms, "Step", 2f, Vector2.right, true, true);
+                Require(recycled == 1 && !item.gameObject.activeSelf && item.Owner == null
+                    && f.Arms.HeldObject == null && f.Arms.State == RobotArmState.Retracted
+                    && !f.Arms.IsArmModeActive && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                    "Recycle completion restored arm state or input after its callback disabled the controller");
+            }
+        }
+
+        private static Vector2 ChestInlet(RobotArmController arms, bool medium) =>
+            (float)Get(arms, "armLength") * (Vector2)Get(arms, medium ? "mediumDockPosition" : "smallDockPosition");
+
         private static void CheckRetracting()
         {
             using (var f = new Fixture())
@@ -441,6 +959,9 @@ namespace AnimalGame.Editor
         {
             using (var f = new Fixture())
             {
+                RobotMover mover = f.Root.GetComponent<RobotMover>();
+                Set(mover, "turnSpeed", 60f);
+                Set(mover, "overallMotionScale", .88f);
                 f.Root.transform.rotation = Quaternion.Euler(0f, 0f, 125f);
                 Quaternion heading = f.Root.transform.rotation;
                 f.Tick(120, Vector2.up, false);
@@ -449,22 +970,35 @@ namespace AnimalGame.Editor
                 Require(Vector2.Angle((Vector2)Get(f.Arms, "targetLocal"), Vector2.up) < .1f
                     && f.Arms.CurrentTargetLocal == Vector2.up, "Forward input is not body-local");
                 f.Tick(60, Vector2.right, false);
-                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 100f) < .1f,
-                    "Right local input did not rotate clockwise at configured speed");
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 52.8f) < .1f,
+                    "Right local input did not use the scaled base turning speed");
                 heading = f.Root.transform.rotation;
                 f.Tick(60, Vector2.right, false);
-                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 100f) < .1f,
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 52.8f) < .1f,
                     "Sustained local input stopped turning after reaching a world heading");
                 heading = f.Root.transform.rotation;
                 f.Tick(60, Direction(-69f), false);
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
                     "Body kept turning after local input returned below 70 degrees");
                 f.Tick(60, Vector2.left, false);
-                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) - 100f) < .1f,
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) - 52.8f) < .1f,
                     "Left local input did not rotate counterclockwise");
                 heading = f.Root.transform.rotation;
                 f.Tick(1, Vector2.zero, false);
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f, "Centred stick kept turning");
+                Set(mover, "turnSpeed", 90f);
+                Set(mover, "overallMotionScale", .5f);
+                heading = f.Root.transform.rotation;
+                f.Tick(60, Vector2.right, false);
+                Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 45f) < .1f,
+                    "Arm turning did not follow updated base movement settings");
+                Set(mover, "overallMotionScale", 0f);
+                heading = f.Root.transform.rotation;
+                f.Tick(60, Vector2.right, false);
+                Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Arm turning ignored zero overall motion scale");
+                Set(mover, "turnSpeed", 60f);
+                Set(mover, "overallMotionScale", .88f);
                 float upper = (float)Get(f.Arms, "upperLength");
                 Set(f.Arms, "armLength", 8f);
                 f.Tick(1, Vector2.right, false);
@@ -687,7 +1221,7 @@ namespace AnimalGame.Editor
             public Scene Scene { get; }
             public GameObject Root { get; }
             public RobotArmController Arms { get; }
-            public Fixture()
+            public Fixture(bool useProductionSettings = false)
             {
                 Scene = EditorSceneManager.NewPreviewScene();
                 Root = new GameObject("Arm regression robot");
@@ -695,6 +1229,15 @@ namespace AnimalGame.Editor
                 Arms = Root.AddComponent<RobotArmController>();
                 // Edit-mode fixtures only need the existing marker coordinate frame, not UI/art generation.
                 RobotMarkerView marker = Root.GetComponent<RobotMarkerView>();
+                if (useProductionSettings)
+                {
+                    GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                        "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+                    Require(prefab != null, "Production robot prefab is unavailable to regression fixtures");
+                    EditorUtility.CopySerialized(prefab.GetComponent<RobotArmController>(), Arms);
+                    EditorUtility.CopySerialized(prefab.GetComponent<RobotMarkerView>(), marker);
+                    EditorUtility.CopySerialized(prefab.GetComponent<RobotMover>(), Root.GetComponent<RobotMover>());
+                }
                 var visual = new GameObject("Marker Visual Root"); visual.transform.SetParent(Root.transform, false);
                 Set(marker, "markerVisualRoot", visual.transform);
                 Call(Arms, "Awake"); Call(Arms, "EnsureVisuals");
