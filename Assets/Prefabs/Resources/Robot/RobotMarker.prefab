@@ -1112,7 +1112,8 @@ MonoBehaviour:
   keyboardArmKey: 301
   keyboardGrabKey: 32
   leftStickDeadZone: 0.08
-  robotHandSprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
+  robotHandOpenSprite: {fileID: 21300000, guid: 2be79543e21a3a64ca8d16059771bfb1, type: 3}
+  robotHandClosedSprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
   armColor: {r: 1, g: 1, b: 1, a: 1}
   armScale: 2
   handScale: 2

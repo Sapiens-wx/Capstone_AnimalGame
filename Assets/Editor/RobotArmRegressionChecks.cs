@@ -23,7 +23,7 @@ namespace AnimalGame.Editor
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
             foreach (float size in new[] { .5f, 2f })
-                foreach (float loopSize in new[] { 0f, 8f })
+                foreach (float loopSize in new[] { 0f, 1f, 8f })
                 {
                     Scene scene = EditorSceneManager.NewPreviewScene();
                     try
@@ -52,11 +52,17 @@ namespace AnimalGame.Editor
                             var lower = (SpriteRenderer)arm.GetType().GetField("LowerSprite").GetValue(arm);
                             var hand = (SpriteRenderer)arm.GetType().GetField("HandSprite").GetValue(arm);
                             Transform loop = lower.transform.Find("Loopable");
-                            Vector3 loopPosition = loop.localPosition;
+                            Bounds loopBounds = loop.GetComponent<SpriteRenderer>().sprite.bounds;
+                            Vector3 anchorPoint = new Vector3(0f, loopBounds.min.y, 0f);
+                            Vector3 anchorBefore = loop.localPosition + loop.localRotation * Vector3.Scale(loop.localScale, anchorPoint);
                             Vector3 upperTarget = upper.transform.localScale, lowerTarget = lower.transform.localScale;
                             Transform source = prefab.transform.Find("Marker Visual Root").Find(upper.transform.parent.name);
-                            Require(upperTarget == source.Find("Upper Arm").localScale * size
-                                && lowerTarget == source.Find("Lower Arm").localScale * size,
+                            Vector3 expectedUpper = source.Find("Upper Arm").localScale * size;
+                            Vector3 expectedLower = source.Find("Lower Arm").localScale * size;
+                            float sign = side == "left" ? 1f : -1f;
+                            expectedUpper.x = sign * Mathf.Abs(expectedUpper.x);
+                            expectedLower.x = sign * Mathf.Abs(expectedLower.x);
+                            Require(upperTarget == expectedUpper && lowerTarget == expectedLower,
                                 "Arm Scale did not multiply both authored scales");
                             // Traverse the same phases forward and backward, including repeated deployment.
                             foreach (float time in new[] { 0f, connector * .5f, connector,
@@ -68,7 +74,9 @@ namespace AnimalGame.Editor
                                 arm.GetType().GetField("Pose").SetValue(arm, pose);
                                 Set(arms, "deploymentTime", time);
                                 Call(arms, "ApplyVisuals", arm);
-                                Require(loop.localPosition == loopPosition, "Loopable origin moved during scaling");
+                                Vector3 anchorAfter = loop.localPosition + loop.localRotation * Vector3.Scale(loop.localScale, anchorPoint);
+                                Require(Vector3.Distance(anchorBefore, anchorAfter) < .00001f,
+                                    "Loopable body-side endpoint moved during scaling");
                                 Require(upper.color.a == 1f && lower.color.a == 1f,
                                     "Deployment faded the arm instead of scaling it");
                                 if (time == 0f)
@@ -82,7 +90,7 @@ namespace AnimalGame.Editor
                                         && lower.transform.localScale == lowerTarget, "Hand-side growth phase failed");
                                 if (time == total)
                                     Require(upper.transform.localScale == upperTarget && lower.transform.localScale == lowerTarget
-                                        && hand.transform.localScale == Vector3.one * .37f,
+                                        && hand.transform.localScale == new Vector3(sign, 1f, 1f) * .37f,
                                         "Final arm/hand scales changed or accumulated across deployment");
                                 Vector3 upperTip = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.max.y, 0f));
                                 Vector3 handBase = hand.transform.TransformPoint(new Vector3(0f, hand.sprite.bounds.min.y, 0f));
@@ -91,11 +99,29 @@ namespace AnimalGame.Editor
                                 Require(Vector2.Distance(endpoint, upperTip) < .0001f,
                                     "Interaction endpoint differs from the visible arm tip");
                             }
+                            Sprite opened = (Sprite)Get(arms, "robotHandOpenSprite");
+                            Sprite closed = (Sprite)Get(arms, "robotHandClosedSprite");
+                            Require(opened != null && closed != null && opened != closed, "Open/closed sprites are not configured");
+                            Vector3 handPosition = hand.transform.localPosition;
+                            Quaternion handRotation = hand.transform.localRotation;
+                            Vector3 handScale = hand.transform.localScale;
+                            foreach (bool grip in new[] { true, true, false, false, true, false })
+                            {
+                                Call(arms, "SetHandGrip", grip);
+                                Require(hand.transform.localPosition == handPosition
+                                    && hand.transform.localRotation == handRotation && hand.transform.localScale == handScale,
+                                    "SetHandGrip changed the hand transform");
+                                Call(arms, "ApplyVisuals", arm);
+                                Require(hand.sprite == (grip ? closed : opened), "Grab/release did not select the correct sprite");
+                                Require(hand.transform.localPosition == handPosition
+                                    && hand.transform.localRotation == handRotation && hand.transform.localScale == handScale,
+                                    "Sprite bounds changed the hand transform on the next visual update");
+                            }
                         }
                     }
                     finally { EditorSceneManager.ClosePreviewScene(scene); }
                 }
-            Debug.Log("Arm scale checks PASS: independent arm/hand scales, Loopable origin, growth/retraction, attachment and interaction endpoints.");
+            Debug.Log("Arm scale checks PASS: mirrored scales, anchored Loopable, growth/retraction, hand states and attachment endpoints.");
         }
 
         [MenuItem("Animal Game/Validation/Run Mechanical Arm Checks")]

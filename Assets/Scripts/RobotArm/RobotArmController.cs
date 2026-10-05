@@ -5,6 +5,7 @@ using UnityEngine.Serialization;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
 using AnimalGame.Garbage;
+using System.Runtime.CompilerServices;
 
 namespace AnimalGame.RobotArm
 {
@@ -20,7 +21,9 @@ namespace AnimalGame.RobotArm
         [SerializeField] private KeyCode keyboardGrabKey = KeyCode.Space;
         [SerializeField, Range(0f, .17f)] private float leftStickDeadZone = .08f;
         [Header("Artwork")]
-        [SerializeField] private Sprite robotHandSprite;
+        [FormerlySerializedAs("robotHandSprite")]
+        [SerializeField] private Sprite robotHandOpenSprite;
+        [SerializeField] private Sprite robotHandClosedSprite;
         [SerializeField] private Color armColor = Color.white;
         [Tooltip("Uniform multiplier of the authored Upper Arm and Lower Arm scales. Also determines their IK lengths.")]
         [SerializeField, Min(.01f)] private float armScale = 1f;
@@ -28,7 +31,7 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.01f)] private float handScale = .7f;
         [Header("Fixed geometry (cached when created)")]
         [SerializeField, Range(0f, 1.2f)] private float socketRadiusOfBody = .88f;
-        [Tooltip("Deployed Y scale multiplier of Lower Arm/Loopable, relative to its authored scale. Its local position and rotation are preserved.")]
+        [Tooltip("Deployed Y scale multiplier of Lower Arm/Loopable. The body-side end stays at its authored attachment while the other end extends forward.")]
         [SerializeField, Min(0f)] private float lowerArmScale = 1f;
         [SerializeField, Range(.05f, 1f)] private float staticArmLengthPercent = .4f;
         [Tooltip("Total distance between hands, measured along robot-local X in body diameters.")]
@@ -122,6 +125,10 @@ namespace AnimalGame.RobotArm
             public SpriteRenderer UpperSprite, LowerSprite, HandSprite;
             public SpriteRenderer LoopSprite;
             public Vector3 UpperScale, LowerScale, LoopScale;
+            public Vector3 LoopPosition, LoopAnchor;
+            public Quaternion LoopRotation;
+            public Sprite OpenHandSprite;
+            public float HandBottom;
             public float UpperLength, LowerLength, LowerBaseLength, UpperBottom, LowerBottom, DeployedLoopScale;
             public RobotHandAnimation Animation;
         }
@@ -596,7 +603,7 @@ namespace AnimalGame.RobotArm
             recycleStartScale = heldObject.LocalScale;
             recycleHandStart = (HandLocal(left) + HandLocal(right)) * .5f;
             SetHandGrip(false);
-            left.Animation.PlayRecycle(); right.Animation.PlayRecycle();
+            left.Animation?.PlayRecycle(); right.Animation?.PlayRecycle();
             IsRecycleReady = false;
             IsArmModeActive = true;
             mover.SetArmInputCaptured(true);
@@ -655,8 +662,8 @@ namespace AnimalGame.RobotArm
         {
             if (closed == previousGrab || left == null || right == null) return;
             previousGrab = closed;
-            if (closed) { left.Animation.PlayGrab(); right.Animation.PlayGrab(); }
-            else { left.Animation.PlayRelease(); right.Animation.PlayRelease(); }
+            left.HandSprite.sprite = closed && robotHandClosedSprite != null ? robotHandClosedSprite : left.OpenHandSprite;
+            right.HandSprite.sprite = closed && robotHandClosedSprite != null ? robotHandClosedSprite : right.OpenHandSprite;
         }
         private void ClearHeld()
         {
@@ -679,13 +686,23 @@ namespace AnimalGame.RobotArm
             arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", null, 997);
             arm.LoopSprite = BindSprite(arm.LowerSprite.transform, "Loopable", null, 997);
             arm.LoopScale = arm.LoopSprite.transform.localScale;
+            arm.LoopPosition = arm.LoopSprite.transform.localPosition;
+            arm.LoopRotation = arm.LoopSprite.transform.localRotation;
             // Older prefabs may still contain the retired cuff.
             Transform legacyCuff = arm.Root.Find("Wrist Cuff");
             if (legacyCuff != null) legacyCuff.gameObject.SetActive(false);
-            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandSprite, 999);
+            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandOpenSprite, 999);
+            arm.OpenHandSprite = arm.HandSprite.sprite;
+            arm.HandBottom = arm.OpenHandSprite != null ? arm.OpenHandSprite.bounds.min.y : 0f;
             arm.Upper = arm.UpperSprite.transform; arm.Lower = arm.LowerSprite.transform; arm.Hand = arm.HandSprite.transform;
             arm.UpperScale = arm.Upper.localScale * armScale;
             arm.LowerScale = arm.Lower.localScale * armScale;
+            // Mirror once at the arm segments; Loopable inherits Lower Arm's reflection.
+            arm.UpperScale.x = -side * Mathf.Abs(arm.UpperScale.x);
+            arm.LowerScale.x = -side * Mathf.Abs(arm.LowerScale.x);
+            float loopDirection = (arm.LoopRotation * Vector3.up).y * arm.LoopScale.y * arm.LowerScale.y;
+            arm.LoopAnchor = new Vector3(0f, loopDirection >= 0f
+                ? arm.LoopSprite.sprite.bounds.min.y : arm.LoopSprite.sprite.bounds.max.y, 0f);
             arm.Upper.localScale = arm.UpperScale;
             arm.Lower.localScale = arm.LowerScale;
             arm.UpperBottom = SpriteBottom(arm.UpperSprite);
@@ -718,12 +735,14 @@ namespace AnimalGame.RobotArm
             Vector3 scale = arm.LoopScale;
             scale.y *= arm.DeployedLoopScale;
             arm.LoopSprite.transform.localScale = scale;
+            arm.LoopSprite.transform.localPosition = LoopPositionAtScale(arm, scale);
             arm.LoopSprite.enabled = arm.DeployedLoopScale > 0f && arm.Pose.LowerLength > 0f;
             arm.HandSprite.enabled = arm.Pose.Hand > 0f;
             arm.Hand.localRotation = Quaternion.Euler(0f, 0f, arm.Pose.UpperAngle);
-            arm.Hand.localScale = Vector3.one * handScale * arm.Pose.Hand;
-            // Attach the hand's bottom edge directly to the Upper Arm tip.
-            arm.Hand.localPosition = HandLocal(arm) - Direction(arm.Pose.UpperAngle) * SpriteBottom(arm.HandSprite);
+            arm.Hand.localScale = new Vector3(-arm.Side, 1f, 1f) * handScale * arm.Pose.Hand;
+            // Keep the open hand's attachment offset when swapping sprites of different sizes/pivots.
+            arm.Hand.localPosition = HandLocal(arm);// - Direction(arm.Pose.UpperAngle)*SpriteBottom(arm.HandSprite);
+                //- Direction(arm.Pose.UpperAngle) * (arm.HandBottom * handScale * arm.Pose.Hand);
         }
         private static float SpriteBottom(SpriteRenderer renderer) => Mathf.Min(
             renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
@@ -731,13 +750,14 @@ namespace AnimalGame.RobotArm
         private static float SpriteTop(SpriteRenderer renderer) => Mathf.Max(
             renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
             renderer.sprite.bounds.max.y * renderer.transform.localScale.y);
+        private static Vector3 LoopPositionAtScale(Arm arm, Vector3 scale) =>
+            arm.LoopPosition + arm.LoopRotation * Vector3.Scale(arm.LoopScale - scale, arm.LoopAnchor);
         private static float LoopTip(Arm arm, float multiplier)
         {
             Bounds bounds = arm.LoopSprite.sprite.bounds;
-            Transform loop = arm.LoopSprite.transform;
             Vector3 scale = arm.LoopScale;
             scale.y *= multiplier;
-            Matrix4x4 matrix = Matrix4x4.TRS(loop.localPosition, loop.localRotation, scale);
+            Matrix4x4 matrix = Matrix4x4.TRS(LoopPositionAtScale(arm, scale), arm.LoopRotation, scale);
             float tip = float.NegativeInfinity;
             for (int x = 0; x < 2; x++)
                 for (int y = 0; y < 2; y++)
