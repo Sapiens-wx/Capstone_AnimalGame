@@ -1112,13 +1112,12 @@ MonoBehaviour:
   keyboardArmKey: 301
   keyboardGrabKey: 32
   leftStickDeadZone: 0.08
-  robotArmOneSprite: {fileID: -4580908267343999247, guid: 399b16dd7fa06a64e85ff7c88b7605bd, type: 3}
   robotHandSprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
   armColor: {r: 1, g: 1, b: 1, a: 1}
-  artworkScale: 0.7
-  artworkThicknessScale: 2.57
+  armScale: 2
+  handScale: 2
   socketRadiusOfBody: 0.88
-  lowerArmScale: 1
+  lowerArmScale: 6
   staticArmLengthPercent: 0.4
   handSpacingOfBodyDiameter: 0.7
   collisionWidthOfBodyDiameter: 0.08
