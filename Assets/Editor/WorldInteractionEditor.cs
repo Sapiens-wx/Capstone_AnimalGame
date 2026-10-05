@@ -37,7 +37,10 @@ namespace AnimalGame.Editor
             {
                 EditorGUILayout.HelpBox("Blocks Traversal controls hard collision. Sight Blocking independently controls animal cover; Match Traversal preserves the original behaviour. Add a separate WorldInteraction for grabbing or climbing.", MessageType.Info);
                 DrawPropertiesExcluding(serializedObject, "m_Script", "kind", "box", "sprite", "localCenter", "localSize",
-                    "requiredHands", "recyclable", "size", "pushSpeedMultiplier");
+                    "requiredHands", "recyclable", "size", "pushSpeedMultiplier",
+                    "climbableEntrySpeedMultiplier", "climbableEntryBlendDuration", "climbableCameraMultiplier",
+                    "climbableRumbleMultiplier", "climbableLandingDurationMultiplier",
+                    "climbableAffectsWholeArea", "climbableUseBodyOverlap");
             }
             else
             {
@@ -46,8 +49,13 @@ namespace AnimalGame.Editor
                 bool climbable = (climbKind.intValue & (int)WorldInteractionKind.Climbable) != 0;
                 if (climbable || climbKind.hasMultipleDifferentValues)
                 {
-                    foreach (string name in new[] { "climbableRadius", "slopeStrength01", "topRadiusRatio01" })
-                        EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
+                    foreach (string name in new[] { "climbableRadius", "slopeStrength01", "topRadiusRatio01",
+                        "climbableEntrySpeedMultiplier", "climbableEntryBlendDuration", "climbableCameraMultiplier",
+                        "climbableRumbleMultiplier", "climbableLandingDurationMultiplier",
+                        "climbableAffectsWholeArea", "climbableUseBodyOverlap" })
+                        if (name == "climbableEntrySpeedMultiplier")
+                            EditorGUILayout.PropertyField(serializedObject.FindProperty(name), new GUIContent("Climbable Speed Multiplier"));
+                        else EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
                 }
                 if (!climbable || climbKind.hasMultipleDifferentValues)
                 {

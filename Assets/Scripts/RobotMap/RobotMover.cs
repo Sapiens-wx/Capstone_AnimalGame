@@ -226,10 +226,17 @@ namespace AnimalGame.RobotMap
         }
         public SlopeTraversalResult CurrentTraversalResult { get; private set; }
         public ClimbableSurface CurrentClimbableSurface { get; private set; }
+        public float CurrentClimbableAreaSpeedMultiplier { get; private set; } = 1f;
         public bool ClimbableLandedThisFrame { get; private set; }
         public Vector2 ClimbableLandingDirection { get; private set; }
+        public float ClimbableLandingCameraMultiplier { get; private set; } = 1f;
+        public float ClimbableLandingRumbleMultiplier { get; private set; } = 1f;
+        public float ClimbableLandingDurationMultiplier { get; private set; } = 1f;
+        public Vector2 ClimbableResistanceVelocityLossThisFrame { get; private set; }
         private readonly List<WorldInteraction> climbableScratch = new();
         private readonly ClimbableContactTracker climbableContacts = new();
+        private readonly ClimbableEntryResistance climbableResistance = new();
+        private float climbableNormalSpeedLimit = float.PositiveInfinity;
         private Vector2 lastCommittedPosition;
         private bool hasCommittedPosition;
 
@@ -291,6 +298,8 @@ namespace AnimalGame.RobotMap
         private void Update()
         {
             ClimbableLandedThisFrame = false;
+            ClimbableResistanceVelocityLossThisFrame = Vector2.zero;
+            climbableNormalSpeedLimit = float.PositiveInfinity;
             HeavyPullMovementBlocked = false;
             if (Time.deltaTime <= 0f) return;
             if (MovementMode != RobotMovementMode.Driven)
@@ -504,9 +513,14 @@ namespace AnimalGame.RobotMap
                 : movementThrottle * ScaleMotion(reverseSpeed);
             CurrentWaterSpeedMultiplier =
                 CalculateStaticWaterSpeedMultiplier();
-            float surfaceSpeedMultiplier = topSpeedMultiplier
-                                           * CurrentWaterSpeedMultiplier
-                                           * GrabMovementMultiplier;
+            float normalSurfaceSpeedMultiplier = topSpeedMultiplier
+                                                 * CurrentWaterSpeedMultiplier
+                                                 * GrabMovementMultiplier;
+            float climbableTopSpeedMultiplier = CurrentClimbableAreaSpeedMultiplier < 1f
+                ? Mathf.Min(topSpeedMultiplier, CurrentClimbableAreaSpeedMultiplier) : topSpeedMultiplier;
+            float surfaceSpeedMultiplier = climbableTopSpeedMultiplier
+                                           * CurrentWaterSpeedMultiplier * GrabMovementMultiplier;
+            if (CurrentClimbableAreaSpeedMultiplier < 1f) IsDownhillBoosted = false;
             float targetSpeed = baseTargetSpeed * surfaceSpeedMultiplier;
             Transform heldTransform = armController != null && armController.HeldObject != null
                 ? armController.HeldObject.transform : null;
@@ -519,13 +533,23 @@ namespace AnimalGame.RobotMap
                 pushSpeedMultiplier = traversalEvaluator.GetPushSpeedMultiplier(
                     transform.position, (Vector2)transform.position + pushProbe, heldTransform);
             }
+            float speedWithoutAreaResistance = CurrentClimbableAreaSpeedMultiplier < 1f
+                ? CalculateDriveSpeed(movementThrottle, baseTargetSpeed * normalSurfaceSpeedMultiplier,
+                    normalSurfaceSpeedMultiplier, pushSpeedMultiplier, accelerationBonus, Time.deltaTime)
+                : CurrentSpeed;
             UpdateDriveSpeed(movementThrottle, targetSpeed, surfaceSpeedMultiplier,
                 pushSpeedMultiplier, accelerationBonus, Time.deltaTime);
+            if (CurrentClimbableAreaSpeedMultiplier < 1f)
+                ClimbableResistanceVelocityLossThisFrame += (Vector2)transform.up
+                    * (speedWithoutAreaResistance - CurrentSpeed);
 
             Vector2 desiredVelocity = (Vector2)transform.up * CurrentSpeed
                                       + CurrentTerrainVelocity;
             Vector2 releaseStep = StepHeavyReleaseVelocity(Time.deltaTime);
             Vector2 desiredDisplacement = desiredVelocity * Time.deltaTime + releaseStep;
+            bool reversing = Vector2.Dot(desiredDisplacement, transform.up) < 0f;
+            climbableNormalSpeedLimit = ScaleMotion(reversing ? reverseSpeed : forwardSpeed)
+                * CurrentWaterSpeedMultiplier * GrabMovementMultiplier * pushSpeedMultiplier;
             if (!TryMoveSafely(desiredDisplacement, heldTransform,
                     releaseStep.sqrMagnitude > 0f))
                 return;
@@ -542,6 +566,25 @@ namespace AnimalGame.RobotMap
             pushedObjects.Clear();
             if (desiredDisplacement.sqrMagnitude <= 0f)
                 return true;
+            MapTestSceneController climbableMap = traversalEvaluator != null ? traversalEvaluator.Map : null;
+            float bodyRadius = GetClimbableBodyRadius(climbableMap);
+            Vector2 movementStart = transform.position;
+            float normalSpeedLimit = climbableNormalSpeedLimit;
+            if (float.IsPositiveInfinity(normalSpeedLimit))
+            {
+                // Special pull/release paths bypass the ordinary drive target.
+                bool reversing = Vector2.Dot(desiredDisplacement, transform.up) < 0f;
+                normalSpeedLimit = heavyPullOwner != null
+                    ? Mathf.Min(heavyPullSpeedLimit, UnloadedReverseSpeed)
+                    : GrabMovementMultiplier <= 0f
+                        ? UnloadedReverseSpeed
+                        : ScaleMotion(reversing ? reverseSpeed : forwardSpeed)
+                            * CurrentWaterSpeedMultiplier * GrabMovementMultiplier;
+            }
+            Vector2 resistedEnd = climbableResistance.Plan(movementStart,
+                movementStart + desiredDisplacement, climbableMap, gameObject.scene,
+                Time.deltaTime > 0f ? Time.deltaTime : 1f / 60f, bodyRadius, normalSpeedLimit);
+            desiredDisplacement = resistedEnd - movementStart;
             if (traversalEvaluator != null)
             {
                 SlopeTraversalResult actualPathResult =
@@ -591,12 +634,26 @@ namespace AnimalGame.RobotMap
                     garbageMotion.ApplyExternalPush(desiredDisplacement);
                 else item.WorldPosition += (Vector3)desiredDisplacement;
             }
-            Vector2 movementStart = transform.position;
             transform.position += (Vector3)desiredDisplacement;
+            climbableResistance.Commit();
+            // Camera motion observes drive and terrain velocity, excluding the
+            // separate heavy-release step. Reconstruct only the observed loss.
+            ClimbableResistanceVelocityLossThisFrame +=
+                ((Vector2)transform.up * CurrentSpeed + CurrentTerrainVelocity)
+                * (1f - climbableResistance.VelocityScale);
+            CurrentSpeed *= climbableResistance.VelocityScale;
+            CurrentTerrainVelocity *= climbableResistance.VelocityScale;
+            heavyReleaseVelocity *= climbableResistance.VelocityScale;
             // Track every committed move, including heavy pulling and release inertia.
             ClimbableLandedThisFrame = climbableContacts.Move(movementStart, transform.position,
-                traversalEvaluator != null ? traversalEvaluator.Map : null, gameObject.scene, Time.time);
-            if (ClimbableLandedThisFrame) ClimbableLandingDirection = desiredDisplacement.normalized;
+                climbableMap, gameObject.scene, Time.time, bodyRadius);
+            if (ClimbableLandedThisFrame)
+            {
+                ClimbableLandingDirection = desiredDisplacement.normalized;
+                ClimbableLandingCameraMultiplier = climbableContacts.LandingCameraMultiplier;
+                ClimbableLandingRumbleMultiplier = climbableContacts.LandingRumbleMultiplier;
+                ClimbableLandingDurationMultiplier = climbableContacts.LandingDurationMultiplier;
+            }
             lastCommittedPosition = transform.position;
             bool wasClimbable = CurrentClimbableSurface.IsActive;
             RefreshClimbableSurface();
@@ -722,6 +779,14 @@ namespace AnimalGame.RobotMap
             float surfaceSpeedMultiplier, float pushSpeedMultiplier,
             float accelerationBonus, float deltaTime)
         {
+            CurrentSpeed = CalculateDriveSpeed(throttle, targetSpeed, surfaceSpeedMultiplier,
+                pushSpeedMultiplier, accelerationBonus, deltaTime);
+        }
+
+        private float CalculateDriveSpeed(float throttle, float targetSpeed,
+            float surfaceSpeedMultiplier, float pushSpeedMultiplier,
+            float accelerationBonus, float deltaTime)
+        {
             targetSpeed *= pushSpeedMultiplier;
             float speedChangeRate = GetSpeedChangeRate(throttle, targetSpeed)
                                     + accelerationBonus;
@@ -736,20 +801,44 @@ namespace AnimalGame.RobotMap
                     -ScaleMotion(reverseSpeed) * pushScale,
                     ScaleMotion(forwardSpeed) * pushScale);
             }
-            CurrentSpeed = nextSpeed;
+            return nextSpeed;
         }
 
         private void RefreshClimbableSurface()
         {
+            MapTestSceneController map = traversalEvaluator != null ? traversalEvaluator.Map : null;
+            float bodyRadius = GetClimbableBodyRadius(map);
             CurrentClimbableSurface = ClimbableSurface.Sample(transform.position,
-                traversalEvaluator != null ? traversalEvaluator.Map : null, gameObject.scene,
-                climbableScratch, CurrentClimbableSurface.Source);
+                map, gameObject.scene, climbableScratch, CurrentClimbableSurface.Source, bodyRadius);
+            CurrentClimbableAreaSpeedMultiplier = ClimbableSurface.AreaSpeedMultiplier(
+                transform.position, map, gameObject.scene, climbableScratch, bodyRadius);
+        }
+
+        private float GetClimbableBodyRadius(MapTestSceneController map)
+        {
+            // Match the existing physical body circle, not the terrain footprint
+            // or padded artwork. Query coordinates are metres only on generated maps.
+            if (map != null && map.HasGeneratedMap && traversalEvaluator != null)
+                return traversalEvaluator.RobotObstacleCollisionRadiusMeters;
+            RobotMarkerView marker = GetComponent<RobotMarkerView>();
+            float worldRadius = marker != null
+                ? marker.BodyDiameter * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.y)) * .5f
+                : .75f;
+            if (map == null || !map.HasGeneratedMap) return worldRadius;
+            float metresToWorld = Mathf.Min(Mathf.Abs(map.MapMetersToWorldDistance(Vector2.right, 1f)),
+                Mathf.Abs(map.MapMetersToWorldDistance(Vector2.up, 1f)));
+            return worldRadius / Mathf.Max(.000001f, metresToWorld);
         }
 
         private void ResetClimbableContact()
         {
             climbableContacts.Reset();
+            climbableResistance.Reset();
+            ClimbableResistanceVelocityLossThisFrame = Vector2.zero;
+            ClimbableLandingCameraMultiplier = ClimbableLandingRumbleMultiplier = ClimbableLandingDurationMultiplier = 1f;
             CurrentClimbableSurface = default;
+            CurrentClimbableAreaSpeedMultiplier = 1f;
+            climbableNormalSpeedLimit = float.PositiveInfinity;
             ClimbableLandedThisFrame = false;
             hasCommittedPosition = false;
         }

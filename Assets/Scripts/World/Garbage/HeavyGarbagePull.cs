@@ -146,6 +146,7 @@ namespace AnimalGame.Garbage
             if (pullTime < requiredPullDuration || pullDistance < requiredPullIntentDistance) return;
             if (!previewReady) return;
             RobotMover releaseMover = mover;
+            RobotCameraShake releaseFeedback = cameraShake;
             Vector2 releaseDirection = pullDirection;
             float releaseSpeed = storedPullSpeed;
             completed = true;
@@ -157,6 +158,10 @@ namespace AnimalGame.Garbage
             }
             releaseMover.ClearHeavyPullConstraint(this);
             releaseMover.ReleaseHeavyPullVelocity(releaseDirection, releaseSpeed, releaseDecayDuration);
+            // Successful splitting disables this object synchronously. The camera owns
+            // the recoil pulse so it can finish after the source and its pull rumble disappear.
+            if (releaseFeedback != null && releaseFeedback.FollowsRobot(releaseMover))
+                releaseFeedback.PlayHeavyGarbageBreakFeedback(releaseDirection);
         }
 
         private void UpdateVisual(float value)

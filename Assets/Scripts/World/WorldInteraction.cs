@@ -41,9 +41,30 @@ namespace AnimalGame.World
         [SerializeField, Range(0f, 1f)] private float slopeStrength01 = 0.5f;
         [Tooltip("Flat top radius divided by the outer radius. Endpoints are excluded.")]
         [SerializeField, Range(0.001f, 0.999f)] private float topRadiusRatio01 = 0.5f;
+        [Tooltip("Retained movement speed. Whole Area applies this throughout contact; otherwise only entry is resisted. 1 disables resistance.")]
+        [SerializeField, Range(0.05f, 1f)] private float climbableEntrySpeedMultiplier = 1f;
+        [Tooltip("Keep resistance active on the flat top and until completely outside this prop.")]
+        [SerializeField] private bool climbableAffectsWholeArea;
+        [Tooltip("Use the robot's body circle for contact, rather than only its centre.")]
+        [SerializeField] private bool climbableUseBodyOverlap;
+        [Tooltip("Maximum seconds to establish the entry speed cap. Short inbound bands finish the blend sooner.")]
+        [SerializeField, Min(0.001f)] private float climbableEntryBlendDuration = 0.08f;
+        [Tooltip("Scales this prop's virtual landing and automatic climbing camera feedback.")]
+        [SerializeField, Range(0f, 1f)] private float climbableCameraMultiplier = 1f;
+        [Tooltip("Scales this prop's virtual landing controller pulse.")]
+        [SerializeField, Range(0f, 1f)] private float climbableRumbleMultiplier = 1f;
+        [Tooltip("Duration relative to the normal virtual landing pulse.")]
+        [SerializeField, Range(0.05f, 1f)] private float climbableLandingDurationMultiplier = 1f;
         public float ClimbableRadius { get => Mathf.Max(0.001f, climbableRadius); set { climbableRadius = Mathf.Max(0.001f, value); MarkSpatialDirty(); } }
         public float SlopeStrength01 { get => Mathf.Clamp01(slopeStrength01); set => slopeStrength01 = Mathf.Clamp01(value); }
         public float TopRadiusRatio01 { get => Mathf.Clamp(topRadiusRatio01, 0.001f, 0.999f); set => topRadiusRatio01 = Mathf.Clamp(value, 0.001f, 0.999f); }
+        public float ClimbableEntrySpeedMultiplier { get => Mathf.Clamp(climbableEntrySpeedMultiplier, 0.05f, 1f); set => climbableEntrySpeedMultiplier = Mathf.Clamp(value, 0.05f, 1f); }
+        public bool ClimbableAffectsWholeArea { get => climbableAffectsWholeArea; set => climbableAffectsWholeArea = value; }
+        public bool ClimbableUseBodyOverlap { get => climbableUseBodyOverlap; set => climbableUseBodyOverlap = value; }
+        public float ClimbableEntryBlendDuration { get => Mathf.Max(0.001f, climbableEntryBlendDuration); set => climbableEntryBlendDuration = Mathf.Max(0.001f, value); }
+        public float ClimbableCameraMultiplier { get => Mathf.Clamp01(climbableCameraMultiplier); set => climbableCameraMultiplier = Mathf.Clamp01(value); }
+        public float ClimbableRumbleMultiplier { get => Mathf.Clamp01(climbableRumbleMultiplier); set => climbableRumbleMultiplier = Mathf.Clamp01(value); }
+        public float ClimbableLandingDurationMultiplier { get => Mathf.Clamp(climbableLandingDurationMultiplier, 0.05f, 1f); set => climbableLandingDurationMultiplier = Mathf.Clamp(value, 0.05f, 1f); }
         [SerializeField, Range(1, 2)] private int requiredHands = 1;
         [SerializeField] private bool recyclable = true;
         [SerializeField] private RecyclableSize size;
