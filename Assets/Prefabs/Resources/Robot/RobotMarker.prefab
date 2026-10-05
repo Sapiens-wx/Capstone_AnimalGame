@@ -1113,15 +1113,12 @@ MonoBehaviour:
   keyboardGrabKey: 32
   leftStickDeadZone: 0.08
   robotArmOneSprite: {fileID: -4580908267343999247, guid: 399b16dd7fa06a64e85ff7c88b7605bd, type: 3}
-  robotArmTwoSprite: {fileID: 4351088966948985790, guid: 1a33d045d43a2184ca68eb3460644555, type: 3}
   robotHandSprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
   armColor: {r: 1, g: 1, b: 1, a: 1}
   artworkScale: 0.7
   artworkThicknessScale: 2.57
   socketRadiusOfBody: 0.88
-  armLength: 1
-  upperArmLengthPercent: 0.6
-  lowerArmLengthPercent: 0.55
+  lowerArmScale: 1
   staticArmLengthPercent: 0.4
   handSpacingOfBodyDiameter: 0.7
   collisionWidthOfBodyDiameter: 0.08
@@ -1156,7 +1153,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b71342c4956646a5a854940323903bf0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mechanicalArmSprite: {fileID: 21300000, guid: 904198a61bfc02c499c4214c64930010, type: 3}
+  mechanicalArmSprite: {fileID: -2308951128171750954, guid: 904198a61bfc02c499c4214c64930010, type: 3}
   biologicalRadarSprite: {fileID: 21300000, guid: cb154e293d3de3649b4ef2ad5f50dca3, type: 3}
   biologicalSignalClipShader: {fileID: 4800000, guid: aa45bb6104a64fe6a10bda70603de7ef, type: 3}
   scannerArtworkColor: {r: 1, g: 1, b: 1, a: 1}
