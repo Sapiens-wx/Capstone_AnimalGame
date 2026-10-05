@@ -140,8 +140,8 @@ namespace AnimalGame.RobotArm
             lowerLength = armLength * lowerArmLengthPercent;
             handSpacing = diameter * handSpacingOfBodyDiameter;
             armWidth = diameter * collisionWidthOfBodyDiameter;
-            left = CreateArm("Left Mechanical Arm", -1f);
-            right = CreateArm("Right Mechanical Arm", 1f);
+            left = BindArm("Left Mechanical Arm", -1f);
+            right = BindArm("Right Mechanical Arm", 1f);
             targetLocal = Vector2.up * armLength * .8f;
             initialized = true;
             framePosition = transform.position; frameRotation = transform.rotation;
@@ -654,24 +654,22 @@ namespace AnimalGame.RobotArm
         private Vector2 HandWorld(Arm arm) => arm == null ? (Vector2)transform.position
             : (Vector2)marker.MarkerVisualRoot.TransformPoint(HandLocal(arm));
 
-        private Arm CreateArm(string name, float side)
+        private Arm BindArm(string name, float side)
         {
             var arm = new Arm { Side = side, Socket = Vector2.right * side * diameter * .5f * socketRadiusOfBody };
-            arm.Root = new GameObject(name).transform;
-            arm.Root.SetParent(marker.MarkerVisualRoot, false);
-            arm.UpperSprite = CreateSprite(arm.Root, "Upper Arm", robotArmTwoSprite != null ? robotArmTwoSprite : robotArmOneSprite, 996);
-            arm.LowerSprite = CreateSprite(arm.Root, "Lower Arm", robotArmTwoSprite != null ? robotArmTwoSprite : robotArmOneSprite, 997);
-            arm.CuffSprite = CreateSprite(arm.Root, "Wrist Cuff", robotArmOneSprite, 998);
-            arm.HandSprite = CreateSprite(arm.Root, "Mechanical Hand", robotHandSprite, 999);
+            arm.Root = marker.MarkerVisualRoot.Find(name);
+            arm.UpperSprite = BindSprite(arm.Root, "Upper Arm", robotArmTwoSprite != null ? robotArmTwoSprite : robotArmOneSprite, 996);
+            arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", robotArmTwoSprite != null ? robotArmTwoSprite : robotArmOneSprite, 997);
+            arm.CuffSprite = BindSprite(arm.Root, "Wrist Cuff", robotArmOneSprite, 998);
+            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandSprite, 999);
             arm.Upper = arm.UpperSprite.transform; arm.Lower = arm.LowerSprite.transform; arm.Hand = arm.HandSprite.transform;
-            arm.Animation = arm.Hand.gameObject.AddComponent<RobotHandAnimation>();
+            arm.Animation = arm.Hand.GetComponent<RobotHandAnimation>();
             arm.Root.gameObject.SetActive(false);
             return arm;
         }
-        private SpriteRenderer CreateSprite(Transform parent, string name, Sprite sprite, int order)
+        private SpriteRenderer BindSprite(Transform parent, string name, Sprite sprite, int order)
         {
-            var go = new GameObject(name); go.transform.SetParent(parent, false);
-            var renderer = go.AddComponent<SpriteRenderer>(); renderer.sprite = sprite;
+            var renderer = parent.Find(name).GetComponent<SpriteRenderer>(); renderer.sprite = sprite;
             renderer.color = armColor; renderer.sortingOrder = order;
             if (marker.ForegroundSpriteMaterial != null) renderer.sharedMaterial = marker.ForegroundSpriteMaterial;
             return renderer;
@@ -720,11 +718,6 @@ namespace AnimalGame.RobotArm
             deploymentTime = 0f; State = RobotArmState.Retracted; previousGrab = false;
             if (left != null) { left.Pose = default; left.Root.gameObject.SetActive(false); }
             if (right != null) { right.Pose = default; right.Root.gameObject.SetActive(false); }
-        }
-        private void OnDestroy()
-        {
-            if (left != null && left.Root != null) Destroy(left.Root.gameObject);
-            if (right != null && right.Root != null) Destroy(right.Root.gameObject);
         }
         private void OnDrawGizmosSelected()
         {

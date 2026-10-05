@@ -623,16 +623,7 @@ namespace AnimalGame.RobotMap
             if (cameraFollowTarget != null)
                 return;
 
-            Transform existing = transform.Find("Balance Camera Target");
-            if (existing != null)
-            {
-                cameraFollowTarget = existing;
-                return;
-            }
-
-            var targetObject = new GameObject("Balance Camera Target");
-            cameraFollowTarget = targetObject.transform;
-            cameraFollowTarget.SetParent(transform, false);
+            cameraFollowTarget = transform.Find("Balance Camera Target");
         }
 
         private static Vector2 ReadRightStickSafely()

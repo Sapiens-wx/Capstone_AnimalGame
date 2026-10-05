@@ -193,17 +193,14 @@ namespace AnimalGame.RobotMap
                 unchecked(GetInstanceID() * 397 ^ System.Environment.TickCount));
             driveBobNoiseSeed = NextDriveBobRandom(0f, 1000f);
             RandomizeDriveBobCycle();
-            CreateMarkerVisualRoot();
+            BindMarkerVisualRoot();
             CreateForegroundSpriteMaterial();
-            CreateBodySpriteRenderer();
-            CreateDirectionIndicatorRenderer();
-            CreatePhotoCameraRenderers();
-            CreateRolloverSignRenderer();
+            BindBodySpriteRenderers();
+            BindDirectionIndicatorRenderer();
+            BindPhotoCameraRenderers();
+            BindRolloverSignRenderer();
 
-            tail = RobotMapDemo.CreateLine(transform, "Motion Tail", new[]
-            {
-                new Vector3(0f, -0.38f), new Vector3(0f, -0.38f)
-            }, 0.05f, new Color(0.35f, 0.82f, 0.9f, 0.7f), 18);
+            tail = transform.Find("Motion Tail").GetComponent<LineRenderer>();
             ApplyMotionTailVisibility();
         }
 
@@ -439,17 +436,15 @@ namespace AnimalGame.RobotMap
             }
         }
 
-        private void CreateMarkerVisualRoot()
+        private void BindMarkerVisualRoot()
         {
-            var visualRootObject = new GameObject("Marker Visual Root");
-            visualRootObject.transform.SetParent(transform, false);
-            markerVisualRoot = visualRootObject.transform;
+            markerVisualRoot = transform.Find("Marker Visual Root");
             markerVisualRoot.localPosition = new Vector3(0f, 0f, visualDepthOffset);
 
             // SpriteRenderer sorting order is global unless a SortingGroup owns
             // the hierarchy. Grouping makes the body layers deterministic when
             // URP batches their shared transparent material.
-            var sortingGroup = visualRootObject.AddComponent<SortingGroup>();
+            var sortingGroup = markerVisualRoot.GetComponent<SortingGroup>();
             sortingGroup.sortingOrder = MarkerSortingOrder;
         }
 
@@ -478,11 +473,9 @@ namespace AnimalGame.RobotMap
             };
         }
 
-        private void CreateBodySpriteRenderer()
+        private void BindBodySpriteRenderers()
         {
-            var bodyVisualObject = new GameObject("Body Visual");
-            bodyVisualObject.transform.SetParent(markerVisualRoot, false);
-            bodyVisualRoot = bodyVisualObject.transform;
+            bodyVisualRoot = markerVisualRoot.Find("Body Visual");
 
             Sprite fillSprite = robotBodyFillSprite;
             if (fillSprite == null)
@@ -506,9 +499,7 @@ namespace AnimalGame.RobotMap
                 bodyFillArtworkVisibleDiameterPixels,
                 targetFillDiameter);
 
-            var fillObject = new GameObject("Body Fill (robot_body_fill)");
-            fillObject.transform.SetParent(bodyVisualRoot, false);
-            bodyFill = fillObject.AddComponent<SpriteRenderer>();
+            bodyFill = bodyVisualRoot.Find("Body Fill (robot_body_fill)").GetComponent<SpriteRenderer>();
             bodyFill.sprite = fillSprite;
             bodyFill.color = bodyFillColor;
             bodyFill.sortingOrder = 0;
@@ -519,9 +510,7 @@ namespace AnimalGame.RobotMap
                 : Vector3.one * targetFillDiameter;
             bodyFill.transform.localPosition = Vector3.forward * FillDepth;
 
-            var artworkObject = new GameObject("Body Artwork");
-            artworkObject.transform.SetParent(bodyVisualRoot, false);
-            bodyArtwork = artworkObject.AddComponent<SpriteRenderer>();
+            bodyArtwork = bodyVisualRoot.Find("Body Artwork").GetComponent<SpriteRenderer>();
             bodyArtwork.sprite = robotBodySprite;
             bodyArtwork.color = bodyOutlineColor;
             bodyArtwork.sortingOrder = 1;
@@ -577,17 +566,16 @@ namespace AnimalGame.RobotMap
             bodyFill.color = targetColor;
         }
 
-        private void CreateDirectionIndicatorRenderer()
+        private void BindDirectionIndicatorRenderer()
         {
-            var indicatorObject = new GameObject("Direction Indicator");
-            indicatorObject.transform.SetParent(markerVisualRoot, false);
+            var indicatorObject = markerVisualRoot.Find("Direction Indicator").gameObject;
             indicatorObject.transform.localRotation = Quaternion.Euler(
                 0f,
                 0f,
                 indicatorRotationOffsetDegrees);
             indicatorObject.transform.localScale = Vector3.one * indicatorScale;
 
-            directionIndicator = indicatorObject.AddComponent<SpriteRenderer>();
+            directionIndicator = indicatorObject.GetComponent<SpriteRenderer>();
             directionIndicator.sprite = indicatorSprite;
             directionIndicator.color = indicatorColor;
             directionIndicator.sortingOrder = 2;
@@ -605,17 +593,15 @@ namespace AnimalGame.RobotMap
                 Vector3.forward * IndicatorDepth;
         }
 
-        private void CreatePhotoCameraRenderers()
+        private void BindPhotoCameraRenderers()
         {
-            var cameraRootObject = new GameObject("Photo Camera Form");
-            cameraRootObject.transform.SetParent(bodyVisualRoot, false);
-            photoCameraRoot = cameraRootObject.transform;
+            photoCameraRoot = bodyVisualRoot.Find("Photo Camera Form");
 
-            cameraFirstPart = CreatePhotoCameraPart(
+            cameraFirstPart = BindPhotoCameraPart(
                 "Camera First Part",
                 cameraFirstPartSprite,
                 3);
-            cameraSecondPart = CreatePhotoCameraPart(
+            cameraSecondPart = BindPhotoCameraPart(
                 "Camera Second Part",
                 cameraSecondPartSprite,
                 4);
@@ -632,15 +618,12 @@ namespace AnimalGame.RobotMap
             UpdatePhotoCameraForm();
         }
 
-        private SpriteRenderer CreatePhotoCameraPart(
+        private SpriteRenderer BindPhotoCameraPart(
             string objectName,
             Sprite sprite,
             int sortingOrder)
         {
-            var partObject = new GameObject(objectName);
-            partObject.transform.SetParent(photoCameraRoot, false);
-
-            SpriteRenderer renderer = partObject.AddComponent<SpriteRenderer>();
+            SpriteRenderer renderer = photoCameraRoot.Find(objectName).GetComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.color = WithAlpha(photoCameraColor, 0f);
             renderer.sortingOrder = sortingOrder;
@@ -1009,12 +992,10 @@ namespace AnimalGame.RobotMap
                 : 0f;
         }
 
-        private void CreateRolloverSignRenderer()
+        private void BindRolloverSignRenderer()
         {
-            var rolloverObject = new GameObject("Fallen Rollover Sign");
-            rolloverObject.transform.SetParent(markerVisualRoot, false);
-
-            rolloverSign = rolloverObject.AddComponent<SpriteRenderer>();
+            var rolloverObject = markerVisualRoot.Find("Fallen Rollover Sign").gameObject;
+            rolloverSign = rolloverObject.GetComponent<SpriteRenderer>();
             rolloverSign.sprite = rolloverSignSprite;
             rolloverSign.color = rolloverSignColor;
             rolloverSign.sortingOrder = 5;
