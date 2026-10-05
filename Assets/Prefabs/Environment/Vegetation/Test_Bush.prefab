@@ -95,6 +95,7 @@ GameObject:
   m_Component:
   - component: {fileID: 400001}
   - component: {fileID: 11400001}
+  - component: {fileID: 11400003}
   m_Layer: 0
   m_Name: Solid Core
   m_TagString: Untagged
@@ -131,9 +132,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e6f28fc7af394af8a20ef2d9fcce6b3b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  blocksTraversal: 1
+  blocksTraversal: 0
+  sightBlocking: 1
   radiusMeters: 0.6
   gizmoColor: {r: 1, g: 0.48, b: 0.16, a: 0.9}
+--- !u!114 &11400003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 295e520c95e7ba24382f447af748bb78, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  kind: 16
+  box: {fileID: 0}
+  sprite: {fileID: 0}
+  localCenter: {x: 0, y: 0}
+  localSize: {x: 1, y: 1}
+  climbableRadius: 0.4
+  slopeStrength01: 0.5
+  topRadiusRatio01: 0.5
+  climbableEntrySpeedMultiplier: 0.6
+  climbableAffectsWholeArea: 1
+  climbableUseBodyOverlap: 1
+  climbableEntryBlendDuration: 0.08
+  climbableCameraMultiplier: 0.4
+  climbableRumbleMultiplier: 0.4
+  climbableLandingDurationMultiplier: 0.6
+  requiredHands: 1
+  recyclable: 0
+  size: 0
+  pushSpeedMultiplier: 1
+  grabResistance: 0
 --- !u!1 &100002
 GameObject:
   m_ObjectHideFlags: 0

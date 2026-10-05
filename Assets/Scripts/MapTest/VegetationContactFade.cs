@@ -1,6 +1,7 @@
 using AnimalGame.Animals;
 using AnimalGame.Rendering;
 using AnimalGame.RobotMap;
+using AnimalGame.World;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -40,6 +41,7 @@ namespace AnimalGame.MapTest
 
         private HeightMapPlacedObject placedObject;
         private HeightMapObstacleFootprint solidFootprint;
+        private WorldInteraction[] plantInteractions;
         private MapTestSceneController map;
         private SpriteRenderer[] spriteRenderers;
         private Color[] authoredColours;
@@ -125,6 +127,7 @@ namespace AnimalGame.MapTest
             placedObject = GetComponent<HeightMapPlacedObject>();
             solidFootprint = GetComponentInChildren<HeightMapObstacleFootprint>(
                 true);
+            plantInteractions = GetComponentsInChildren<WorldInteraction>(true);
             ResolveMap();
 
             spriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
@@ -233,6 +236,26 @@ namespace AnimalGame.MapTest
             {
                 radius = Mathf.Max(radius, solidFootprint.RadiusMeters);
             }
+
+            // Traversable bushes keep fading around their actual virtual surface,
+            // rather than falling back to the smaller placement-only footprint.
+            if (plantInteractions != null)
+                foreach (WorldInteraction interaction in plantInteractions)
+                {
+                    if (!ClimbableSurface.IsUsable(interaction)) continue;
+                    if (map != null && map.HasGeneratedMap)
+                    {
+                        InteractionShape shape = interaction.GetShape(map);
+                        if (!shape.IsBox)
+                            radius = Mathf.Max(radius, shape.Radius
+                                + Vector2.Distance(shape.Center, InteractionShape.ToQuery(transform.position, map)));
+                    }
+                    else if (solidFootprint != null && solidFootprint.isActiveAndEnabled)
+                    {
+                        // With no generated map, shape radii are world units; keep the authored map-metre fallback.
+                        radius = Mathf.Max(radius, solidFootprint.RadiusMeters);
+                    }
+                }
 
             return Mathf.Max(0f, radius);
         }

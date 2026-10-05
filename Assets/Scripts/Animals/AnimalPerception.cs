@@ -123,7 +123,8 @@ namespace AnimalGame.Animals
                      in HeightMapObstacleFootprint.ActiveFootprints)
             {
                 if (obstacle == null
-                    || !obstacle.BlocksTraversal
+                    || obstacle.gameObject.scene != gameObject.scene
+                    || !obstacle.BlocksSight
                     || obstacle.RadiusMeters <= 0f
                     || !map.TrySampleWorldPosition(
                         obstacle.transform.position,

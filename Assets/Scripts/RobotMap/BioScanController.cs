@@ -134,7 +134,7 @@ namespace AnimalGame.RobotMap
 
         private void Start()
         {
-            TryCreateScannerVisuals();
+            TryBindScannerVisuals();
         }
 
         private void OnEnable()
@@ -167,7 +167,7 @@ namespace AnimalGame.RobotMap
             if (phase == ScannerPhase.Hidden)
                 return;
 
-            if (scannerRoot == null && !TryCreateScannerVisuals())
+            if (scannerRoot == null && !TryBindScannerVisuals())
             {
                 phase = ScannerPhase.Hidden;
                 return;
@@ -227,7 +227,7 @@ namespace AnimalGame.RobotMap
             if (!isActiveAndEnabled)
                 return;
 
-            if (!TryCreateScannerVisuals())
+            if (!TryBindScannerVisuals())
                 return;
 
             DeactivateFormingSignals();
@@ -249,7 +249,7 @@ namespace AnimalGame.RobotMap
 
         private void ReleaseFullyChargedBiologicalScan()
         {
-            if (!isActiveAndEnabled || !TryCreateScannerVisuals())
+            if (!isActiveAndEnabled || !TryBindScannerVisuals())
                 return;
 
             scannerRoot.gameObject.SetActive(true);
@@ -269,7 +269,7 @@ namespace AnimalGame.RobotMap
             phaseElapsed = 0f;
         }
 
-        private bool TryCreateScannerVisuals()
+        private bool TryBindScannerVisuals()
         {
             if (scannerRoot != null)
                 return true;
@@ -286,19 +286,13 @@ namespace AnimalGame.RobotMap
                 return false;
             }
 
-            var rootObject = new GameObject("Biological Scanner Rig");
-            scannerRoot = rootObject.transform;
-            scannerRoot.SetParent(markerView.MarkerVisualRoot, false);
+            scannerRoot = markerView.MarkerVisualRoot.Find("Biological Scanner Rig");
             scannerRoot.localPosition = Vector3.up
                                         * (markerView.VisualBodyDiameter * 0.48f);
 
-            var armRevealObject = new GameObject("Mechanical Arm Reveal");
-            armRevealRoot = armRevealObject.transform;
-            armRevealRoot.SetParent(scannerRoot, false);
+            armRevealRoot = scannerRoot.Find("Mechanical Arm Reveal");
 
-            var armObject = new GameObject("Mechanical Arm");
-            Transform armTransform = armObject.transform;
-            armTransform.SetParent(armRevealRoot, false);
+            Transform armTransform = armRevealRoot.Find("Mechanical Arm");
             float armPixelsPerUnit = Mathf.Max(
                 1f,
                 mechanicalArmSprite.pixelsPerUnit);
@@ -312,19 +306,15 @@ namespace AnimalGame.RobotMap
                 mechanicalArmArtworkScale
                 * Mathf.Clamp(mechanicalArmLengthMultiplier, 0.2f, 1.5f),
                 mechanicalArmArtworkScale);
-            SpriteRenderer armRenderer = armObject.AddComponent<SpriteRenderer>();
+            SpriteRenderer armRenderer = armTransform.GetComponent<SpriteRenderer>();
             ConfigureScannerRenderer(armRenderer, mechanicalArmSprite, 1240);
 
-            var radarObject = new GameObject("Biological Radar Detector");
-            radarTransform = radarObject.transform;
-            radarTransform.SetParent(scannerRoot, false);
+            radarTransform = scannerRoot.Find("Biological Radar Detector");
             SpriteRenderer radarRenderer =
-                radarObject.AddComponent<SpriteRenderer>();
+                radarTransform.GetComponent<SpriteRenderer>();
             ConfigureScannerRenderer(radarRenderer, biologicalRadarSprite, 1241);
 
-            var signalOriginObject = new GameObject("Biological Signal Origin");
-            signalOrigin = signalOriginObject.transform;
-            signalOrigin.SetParent(scannerRoot, false);
+            signalOrigin = scannerRoot.Find("Biological Signal Origin");
 
             scannerRoot.gameObject.SetActive(false);
             return true;

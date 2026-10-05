@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using AnimalGame.MapTest;
+using AnimalGame.World;
 using UnityEngine;
 using Random = UnityEngine.Random;
 #if ENABLE_INPUT_SYSTEM
@@ -113,6 +115,62 @@ namespace AnimalGame.RobotMap
 
         [Tooltip("Final Sony motor values below this threshold are sent as zero to prevent residual buzzing after calibration.")]
         [SerializeField, Range(0f, 0.2f)] private float sonyMinimumRumbleOutput = 0.01f;
+
+        [Header("Garbage Grab Feedback")]
+        [SerializeField] private bool enableGarbageGrabFeedback = true;
+        [SerializeField] private bool enableGarbageGrabCameraShake = true;
+        [SerializeField] private bool enableGarbageGrabRumble = true;
+        [SerializeField, Range(0f, 1f)] private float smallGrabLowFrequency = 0.18f;
+        [SerializeField, Range(0f, 1f)] private float smallGrabHighFrequency = 0.12f;
+        [SerializeField, Min(0.01f)] private float smallGrabDuration = 0.12f;
+        [SerializeField, Range(0f, 1f)] private float mediumGrabLowFrequency = 0.45f;
+        [SerializeField, Range(0f, 1f)] private float mediumGrabHighFrequency = 0.30f;
+        [SerializeField, Min(0.01f)] private float mediumGrabDuration = 0.22f;
+        [SerializeField, Range(0f, 1f)] private float bigGrabLowFrequency = 0.45f;
+        [SerializeField, Range(0f, 1f)] private float bigGrabHighFrequency = 0.30f;
+        [SerializeField, Min(0.01f)] private float bigGrabDuration = 0.22f;
+        [Tooltip("Time for a successful grip pulse to reach its peak; independent of chassis vibration smoothing.")]
+        [SerializeField, Min(0f)] private float grabRumbleAttackDuration = 0.02f;
+        [SerializeField, Min(0f)] private float grabRumblePeakHoldDuration = 0.03f;
+        [SerializeField, Range(0.5f, 4f)] private float grabRumbleFalloffExponent = 1.15f;
+        [SerializeField, Min(0f)] private float mediumGrabPositionImpact = 0.075f;
+        [SerializeField, Min(0f)] private float mediumGrabRotationImpactDegrees = 0.6f;
+        [SerializeField, Min(0f)] private float bigGrabPositionImpact = 0.075f;
+        [SerializeField, Min(0f)] private float bigGrabRotationImpactDegrees = 0.6f;
+
+        [Header("Sony Garbage Grab Rumble Calibration")]
+        [Tooltip("Calibrates only successful garbage grips; existing movement, collision and pull rumble keep their own calibration.")]
+        [SerializeField, Range(0f, 1f)] private float sonyGrabLowFrequencyMultiplier = 1f;
+        [SerializeField, Range(0f, 1f)] private float sonyGrabHighFrequencyMultiplier = 1f;
+        [SerializeField, Range(0.5f, 3f)] private float sonyGrabResponseExponent = 1f;
+        [SerializeField, Range(0f, 1f)] private float sonyGrabMaximumLowFrequencyStrength = 0.55f;
+        [SerializeField, Range(0f, 1f)] private float sonyGrabMaximumHighFrequencyStrength = 0.4f;
+        [SerializeField, Range(0f, 0.2f)] private float sonyGrabMinimumRumbleOutput = 0.01f;
+
+        [Header("Heavy Garbage Break Feedback")]
+        [SerializeField] private bool enableHeavyGarbageBreakFeedback = true;
+        [SerializeField] private bool enableHeavyGarbageBreakCameraShake = true;
+        [SerializeField] private bool enableHeavyGarbageBreakRumble = true;
+        [SerializeField, Range(0f, 1f)] private float heavyBreakLowFrequency = 0.8f;
+        [SerializeField, Range(0f, 1f)] private float heavyBreakHighFrequency = 0.55f;
+        [SerializeField, Min(0.01f)] private float heavyBreakDuration = 0.35f;
+        [Tooltip("The sharp fracture motor settles before the heavier recoil motor.")]
+        [SerializeField, Min(0.01f)] private float heavyBreakHighFrequencyDuration = 0.14f;
+        [SerializeField, Min(0f)] private float heavyBreakAttackDuration = 0.02f;
+        [Tooltip("Initial fracture impulse on the break frame, before the short attack reaches its peak.")]
+        [SerializeField, Range(0f, 1f)] private float heavyBreakImmediateRumbleFraction = 0.35f;
+        [SerializeField, Min(0f)] private float heavyBreakPeakHoldDuration = 0.05f;
+        [SerializeField, Range(0.5f, 4f)] private float heavyBreakFalloffExponent = 1.4f;
+        [SerializeField, Min(0f)] private float heavyBreakPositionImpact = 0.12f;
+        [SerializeField, Min(0f)] private float heavyBreakRotationImpactDegrees = 0.9f;
+
+        [Header("Sony Heavy Garbage Break Rumble Calibration")]
+        [SerializeField, Range(0f, 1f)] private float sonyHeavyBreakLowFrequencyMultiplier = 1f;
+        [SerializeField, Range(0f, 1f)] private float sonyHeavyBreakHighFrequencyMultiplier = 1f;
+        [SerializeField, Range(0.5f, 3f)] private float sonyHeavyBreakResponseExponent = 1f;
+        [SerializeField, Range(0f, 1f)] private float sonyHeavyBreakMaximumLowFrequencyStrength = 0.8f;
+        [SerializeField, Range(0f, 1f)] private float sonyHeavyBreakMaximumHighFrequencyStrength = 0.55f;
+        [SerializeField, Range(0f, 0.2f)] private float sonyHeavyBreakMinimumRumbleOutput = 0.01f;
 
         [Header("Continuous Chassis Vibration")]
         [Tooltip("Planar speed at which ordinary drive vibration reaches full strength.")]
@@ -306,6 +364,13 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(0f, 1f)] private float sonyTumbleMaximumHighFrequencyStrength = 1f;
 
         [Header("Landing Impact")]
+        [SerializeField, Range(0f, 1f)] private float climbableLandingCameraStrength = 0.5f;
+        [SerializeField, Range(0f, 1f)] private float climbableLandingLowFrequency = 0.45f;
+        [SerializeField, Range(0f, 1f)] private float climbableLandingHighFrequency = 0.30f;
+        [SerializeField, Min(0.01f)] private float climbableLandingDuration = 0.20f;
+        private float climbableLandingTime = float.NegativeInfinity;
+        private Vector2 climbableLandingMotorSpeeds;
+        private float climbableLandingPulseDuration;
         [SerializeField, Min(0f)] private float landingPositionImpact = 0.36f;
         [SerializeField, Min(0f)] private float landingRotationImpactDegrees = 5.2f;
         [SerializeField, Range(0f, 0.1f)] private float landingZoomImpactFraction = 0.042f;
@@ -382,6 +447,12 @@ namespace AnimalGame.RobotMap
         private float springRotationVelocity;
         private float springZoom;
         private float springZoomVelocity;
+        private Vector2 garbageGrabCameraPosition, garbageGrabCameraPositionVelocity;
+        private float garbageGrabCameraRotation, garbageGrabCameraRotationVelocity;
+        private Vector2 heavyGarbageBreakCameraPosition, heavyGarbageBreakCameraPositionVelocity;
+        private float heavyGarbageBreakCameraRotation, heavyGarbageBreakCameraRotationVelocity;
+        private Vector2 regularRumblePositionOffset;
+        private float regularRumbleRotationOffsetDegrees;
         private Vector2 continuousPosition;
         private float continuousRotation;
         private Vector2 previousWorldVelocity;
@@ -400,6 +471,8 @@ namespace AnimalGame.RobotMap
         private float currentHighFrequencyRumble;
         private float lastSentLowFrequencyRumble;
         private float lastSentHighFrequencyRumble;
+        private Vector2 lastSentGarbageGrabRumble;
+        private Vector2 lastSentHeavyGarbageBreakRumble;
         private float nextRumbleRefreshTime;
         private bool rumbleWasSent;
         private float lastLandingRumbleTime = float.NegativeInfinity;
@@ -414,6 +487,161 @@ namespace AnimalGame.RobotMap
         private float obstacleCollisionRumbleStartTime = float.NegativeInfinity;
         private float obstacleCollisionRumbleEndTime = float.NegativeInfinity;
         private float obstacleCollisionRumbleStrength;
+        private float garbagePullRumble;
+        private readonly List<GarbageGrabPulse> garbageGrabPulses = new();
+        private readonly List<GarbageGrabPulse> heavyGarbageBreakPulses = new();
+        private bool heavyBreakFeedbackFocused = true;
+        private bool heavyBreakFeedbackPaused;
+
+        private readonly struct GarbageGrabPulse
+        {
+            public readonly float StartTime, Duration;
+            public readonly Vector2 Strength;
+            public GarbageGrabPulse(float startTime, float duration, Vector2 strength)
+            { StartTime = startTime; Duration = duration; Strength = strength; }
+        }
+
+        // Mixed with all other motor sources at the single controller output.
+        public void SetGarbagePullRumble(float strength) => garbagePullRumble = Mathf.Clamp01(strength);
+
+        public bool FollowsRobot(RobotMover robot) => robot != null && mover == robot;
+
+        public void PlayGarbageGrabFeedback(RecyclableSize size, Vector2 worldDirection)
+        {
+            if (!isActiveAndEnabled || !enableGarbageGrabFeedback || Time.timeScale <= 0.0001f)
+                return;
+
+            float low, high, duration;
+            switch (size)
+            {
+                case RecyclableSize.Small:
+                    low = smallGrabLowFrequency; high = smallGrabHighFrequency; duration = smallGrabDuration;
+                    break;
+                case RecyclableSize.Medium:
+                    low = mediumGrabLowFrequency; high = mediumGrabHighFrequency; duration = mediumGrabDuration;
+                    break;
+                case RecyclableSize.Big:
+                    low = bigGrabLowFrequency; high = bigGrabHighFrequency; duration = bigGrabDuration;
+                    break;
+                default: return;
+            }
+
+            if (enableGamepadRumble && enableGarbageGrabRumble)
+            {
+                GetGarbageGrabMotorSpeeds(Time.time); // Remove expired pulses before adding a new grip.
+                garbageGrabPulses.Add(new GarbageGrabPulse(Time.time, Mathf.Max(0.01f, duration),
+                    new Vector2(Mathf.Clamp01(low), Mathf.Clamp01(high))));
+            }
+            if (size != RecyclableSize.Small && enableCameraShake && enableGarbageGrabCameraShake)
+                AddDirectionalImpact(worldDirection, 1f,
+                    size == RecyclableSize.Medium ? mediumGrabPositionImpact : bigGrabPositionImpact,
+                    size == RecyclableSize.Medium ? mediumGrabRotationImpactDegrees : bigGrabRotationImpactDegrees,
+                    0f, true);
+        }
+
+        public void PlayHeavyGarbageBreakFeedback(Vector2 worldDirection)
+        {
+            if (!isActiveAndEnabled || !enableHeavyGarbageBreakFeedback || Time.timeScale <= 0.0001f
+                || !heavyBreakFeedbackFocused || heavyBreakFeedbackPaused)
+                return;
+
+            if (enableGamepadRumble && enableHeavyGarbageBreakRumble)
+            {
+                GetHeavyGarbageBreakMotorSpeeds(Time.time);
+                heavyGarbageBreakPulses.Add(new GarbageGrabPulse(Time.time, Mathf.Max(0.01f, heavyBreakDuration),
+                    new Vector2(Mathf.Clamp01(heavyBreakLowFrequency), Mathf.Clamp01(heavyBreakHighFrequency))));
+            }
+            if (!enableCameraShake || !enableHeavyGarbageBreakCameraShake) return;
+            Vector2 direction = WorldToCameraLocalDirection(worldDirection);
+            if (direction.sqrMagnitude < 0.000001f) direction = Vector2.up;
+            heavyGarbageBreakCameraPositionVelocity += direction * heavyBreakPositionImpact
+                * (Mathf.PI * 2f * Mathf.Max(0.1f, positionSpringFrequency)) * impactVelocityMultiplier;
+            // Even a straight backward pull has a small mechanical side recoil.
+            float roll = Mathf.Abs(direction.x) >= 0.25f ? -direction.x : -0.25f * Mathf.Sign(direction.y);
+            heavyGarbageBreakCameraRotationVelocity += roll * heavyBreakRotationImpactDegrees
+                * (Mathf.PI * 2f * Mathf.Max(0.1f, rotationSpringFrequency)) * impactVelocityMultiplier;
+        }
+
+        private Vector2 GetHeavyGarbageBreakMotorSpeeds(float now)
+        {
+            if (!enableGamepadRumble || !enableHeavyGarbageBreakFeedback || !enableHeavyGarbageBreakRumble
+                || !heavyBreakFeedbackFocused || heavyBreakFeedbackPaused || Time.timeScale <= 0.0001f)
+            {
+                ClearHeavyGarbageBreakFeedback();
+                return Vector2.zero;
+            }
+            Vector2 result = Vector2.zero;
+            for (int i = heavyGarbageBreakPulses.Count - 1; i >= 0; i--)
+            {
+                GarbageGrabPulse pulse = heavyGarbageBreakPulses[i];
+                float elapsed = now - pulse.StartTime;
+                if (elapsed >= pulse.Duration)
+                {
+                    heavyGarbageBreakPulses.RemoveAt(i);
+                    continue;
+                }
+                float low = EvaluateHeavyBreakEnvelope(elapsed, pulse.Duration);
+                float high = EvaluateHeavyBreakEnvelope(elapsed,
+                    Mathf.Min(pulse.Duration, Mathf.Max(0.01f, heavyBreakHighFrequencyDuration)));
+                result = Vector2.Max(result, new Vector2(pulse.Strength.x * low, pulse.Strength.y * high));
+            }
+            return new Vector2(Mathf.Clamp01(result.x * globalIntensity), Mathf.Clamp01(result.y * globalIntensity));
+        }
+
+        private void ClearHeavyGarbageBreakFeedback() => heavyGarbageBreakPulses.Clear();
+
+        private float EvaluateHeavyBreakEnvelope(float elapsed, float duration)
+        {
+            float attack = Mathf.Clamp(heavyBreakAttackDuration, 0f, duration * 0.4f);
+            if (elapsed >= 0f && elapsed < attack)
+                return Mathf.Lerp(Mathf.Clamp01(heavyBreakImmediateRumbleFraction), 1f, elapsed / attack);
+            return EvaluateGarbageGrabEnvelope(elapsed, duration, attack,
+                heavyBreakPeakHoldDuration, heavyBreakFalloffExponent);
+        }
+
+        private void ClearHeavyGarbageBreakCamera()
+        {
+            heavyGarbageBreakCameraPosition = heavyGarbageBreakCameraPositionVelocity = Vector2.zero;
+            heavyGarbageBreakCameraRotation = heavyGarbageBreakCameraRotationVelocity = 0f;
+        }
+
+        private Vector2 GetGarbageGrabMotorSpeeds(float now)
+        {
+            if (!enableGarbageGrabFeedback || !enableGarbageGrabRumble)
+            {
+                ClearGarbageGrabFeedback();
+                return Vector2.zero;
+            }
+            Vector2 result = Vector2.zero;
+            for (int i = garbageGrabPulses.Count - 1; i >= 0; i--)
+            {
+                GarbageGrabPulse pulse = garbageGrabPulses[i];
+                float elapsed = now - pulse.StartTime;
+                if (elapsed >= pulse.Duration)
+                {
+                    garbageGrabPulses.RemoveAt(i);
+                    continue;
+                }
+                float envelope = EvaluateGarbageGrabEnvelope(elapsed, pulse.Duration,
+                    grabRumbleAttackDuration, grabRumblePeakHoldDuration, grabRumbleFalloffExponent);
+                result = Vector2.Max(result, pulse.Strength * envelope);
+            }
+            return new Vector2(Mathf.Clamp01(result.x * globalIntensity), Mathf.Clamp01(result.y * globalIntensity));
+        }
+
+        private static float EvaluateGarbageGrabEnvelope(float elapsed, float duration, float attack, float hold, float falloff)
+        {
+            if (elapsed < 0f || elapsed >= duration) return 0f;
+            // Leave a decay segment even when the inspector durations exceed the whole pulse.
+            attack = Mathf.Clamp(attack, 0f, duration * 0.4f);
+            hold = Mathf.Clamp(hold, 0f, duration - attack - duration * 0.1f);
+            if (attack > 0f && elapsed < attack) return elapsed / attack;
+            if (elapsed <= attack + hold) return 1f;
+            return Mathf.Pow(1f - Mathf.Clamp01((elapsed - attack - hold) / (duration - attack - hold)),
+                Mathf.Clamp(falloff, 0.5f, 4f));
+        }
+
+        private void ClearGarbageGrabFeedback() => garbageGrabPulses.Clear();
 
         private void Awake()
         {
@@ -701,6 +929,18 @@ namespace AnimalGame.RobotMap
 
         private void LateUpdate()
         {
+            // A paused frame has zero delta time, but must still stop the physical motors.
+            if (!enableGamepadRumble)
+                StopGamepadRumble();
+            if (!Application.isFocused || Time.timeScale <= 0.0001f)
+            {
+                StopGamepadRumble();
+                ClearHeavyGarbageBreakCamera();
+            }
+            if (!enableHeavyGarbageBreakFeedback || !enableHeavyGarbageBreakCameraShake)
+                ClearHeavyGarbageBreakCamera();
+            if (!enableHeavyGarbageBreakFeedback || !enableHeavyGarbageBreakRumble)
+                ClearHeavyGarbageBreakFeedback();
             float deltaTime = Mathf.Min(Time.deltaTime, 0.05f);
             if (deltaTime <= 0.000001f || attachedCamera == null)
                 return;
@@ -708,8 +948,8 @@ namespace AnimalGame.RobotMap
             if (!enableCameraShake)
             {
                 ResetShakeState();
-                StopGamepadRumble();
                 attachedCamera.orthographicSize = GetComposedBaseOrthographicSize();
+                UpdateGamepadRumble(deltaTime);
                 StorePreviousMotionState();
                 return;
             }
@@ -830,15 +1070,20 @@ namespace AnimalGame.RobotMap
                 triggeredMajorImpact = true;
             }
 
-            if (heightMotion != null && heightMotion.LandedThisFrame)
+            bool realLanding = heightMotion != null && heightMotion.LandedThisFrame;
+            bool climbableLanding = mover.ClimbableLandedThisFrame;
+            if (realLanding || climbableLanding)
             {
-                RobotLandingImpact landing = heightMotion.LastLandingImpact;
+                RobotLandingImpact landing = realLanding ? heightMotion.LastLandingImpact : default;
+                float strength = Mathf.Max(landing.Strength01,
+                    climbableLanding ? climbableLandingCameraStrength
+                        * mover.ClimbableLandingCameraMultiplier : 0f);
                 Vector2 direction = GetReliableTravelDirection(
-                    landing.TravelWorldDirection,
+                    realLanding ? landing.TravelWorldDirection : mover.ClimbableLandingDirection,
                     traversal.DownhillWorldDirection);
                 AddDirectionalImpact(
                     direction,
-                    landing.Strength01,
+                    strength,
                     landingPositionImpact,
                     landingRotationImpactDegrees,
                     landingZoomImpactFraction);
@@ -847,7 +1092,17 @@ namespace AnimalGame.RobotMap
                     lastLandingRumbleTime = Time.time;
                     lastLandingRumbleStrength = landing.Strength01;
                 }
-                triggeredMajorImpact = landing.Strength01 > 0f
+                if (climbableLanding)
+                {
+                    // Capture the episode's profile before its surface is lost on exit.
+                    climbableLandingTime = Time.time;
+                    climbableLandingMotorSpeeds = new Vector2(
+                        climbableLandingLowFrequency, climbableLandingHighFrequency)
+                        * mover.ClimbableLandingRumbleMultiplier;
+                    climbableLandingPulseDuration = Mathf.Max(0.01f,
+                        climbableLandingDuration * mover.ClimbableLandingDurationMultiplier);
+                }
+                triggeredMajorImpact = strength > 0f
                                        || triggeredMajorImpact;
             }
 
@@ -879,10 +1134,14 @@ namespace AnimalGame.RobotMap
                 && previousMotionInitialized
                 && Time.time >= nextDiscreteImpactTime)
             {
-                Vector2 velocityChange = currentVelocity - previousWorldVelocity;
+                // Do not turn authored entry resistance into a generic braking
+                // impact. Remove only its velocity loss, retaining real impacts.
+                Vector2 velocityWithoutClimbableResistance = currentVelocity
+                    + mover.ClimbableResistanceVelocityLossThisFrame;
+                Vector2 velocityChange = velocityWithoutClimbableResistance - previousWorldVelocity;
                 float deceleration = Mathf.Max(
                     0f,
-                    previousWorldVelocity.magnitude - currentVelocity.magnitude)
+                    previousWorldVelocity.magnitude - velocityWithoutClimbableResistance.magnitude)
                                      / deltaTime;
                 if (deceleration >= minimumImpactDeceleration
                     && velocityChange.sqrMagnitude > 0.000001f)
@@ -951,7 +1210,7 @@ namespace AnimalGame.RobotMap
 
             float balanceMagnitude = balance != null
                                      && !IsTumbleFeedbackSuppressed
-                ? Mathf.Clamp01(balance.CurrentState.Magnitude)
+                ? GetContinuousBalanceMagnitude()
                 : 0f;
             float baseStrength = Mathf.Max(
                 speedProgress,
@@ -1015,6 +1274,31 @@ namespace AnimalGame.RobotMap
                                  * driveRotationAmplitude
                                  * amplitude;
             AddScanChargeVibration();
+        }
+
+        private float GetContinuousBalanceMagnitude()
+        {
+            float magnitude = Mathf.Clamp01(balance.CurrentState.Magnitude);
+            ClimbableSurface surface = mover.CurrentClimbableSurface;
+            if (!surface.IsActive || surface.Source.ClimbableCameraMultiplier >= 1f
+                || surface.Strength <= 0f)
+                return magnitude;
+
+            RobotBalanceState state = balance.CurrentState;
+            Vector2 manualWorld = (Vector2)balance.transform.right * state.PlayerCounterbalanceLocal.x
+                + (Vector2)balance.transform.up * state.PlayerCounterbalanceLocal.y;
+            // Balance integrates a shared spring. Bound the automatic slope
+            // contribution by both its target and the actual aligned offset,
+            // excluding the player's counterweight from the estimate.
+            float automaticSlope = Mathf.Min(surface.Strength * ClimbableSurface.MaximumSafeBalanceOffset,
+                Mathf.Max(0f, Vector2.Dot(state.NormalizedWorldOffset - manualWorld,
+                    surface.DownhillWorldDirection)));
+            Vector2 presentedOffset = state.NormalizedWorldOffset - surface.DownhillWorldDirection
+                * automaticSlope * (1f - Mathf.Clamp01(surface.Source.ClimbableCameraMultiplier));
+            // Counterweight cancellation must never create vibration that was
+            // absent physically; deliberate player input retains its own floor.
+            float manualFloor = Mathf.Min(magnitude, state.PlayerCounterbalanceLocal.magnitude);
+            return Mathf.Clamp(presentedOffset.magnitude, manualFloor, magnitude);
         }
 
         private void AddTumbleContinuousVibration()
@@ -1173,7 +1457,8 @@ namespace AnimalGame.RobotMap
             float strength01,
             float positionAmplitude,
             float rotationAmplitudeDegrees,
-            float zoomAmplitudeFraction)
+            float zoomAmplitudeFraction,
+            bool garbageGrab = false)
         {
             float strength = Mathf.Clamp01(strength01);
             if (strength <= 0f)
@@ -1214,16 +1499,18 @@ namespace AnimalGame.RobotMap
                                          * Mathf.Max(
                                              0.1f,
                                              zoomSpringFrequency);
-            springPositionVelocity += localDirection
-                                      * positionAmplitude
-                                      * strength
-                                      * positionAngularFrequency
-                                      * impactVelocityMultiplier;
-            springRotationVelocity += (-localDirection.x + balanceRoll)
-                                      * rotationAmplitudeDegrees
-                                      * strength
-                                      * rotationAngularFrequency
-                                      * impactVelocityMultiplier;
+            Vector2 positionImpulse = localDirection * positionAmplitude * strength
+                                      * positionAngularFrequency * impactVelocityMultiplier;
+            float rotationImpulse = (-localDirection.x + balanceRoll) * rotationAmplitudeDegrees * strength
+                                    * rotationAngularFrequency * impactVelocityMultiplier;
+            if (garbageGrab)
+            {
+                garbageGrabCameraPositionVelocity += positionImpulse;
+                garbageGrabCameraRotationVelocity += rotationImpulse;
+                return;
+            }
+            springPositionVelocity += positionImpulse;
+            springRotationVelocity += rotationImpulse;
             springZoomVelocity += zoomAmplitudeFraction
                                   * strength
                                   * zoomAngularFrequency
@@ -1254,6 +1541,14 @@ namespace AnimalGame.RobotMap
                     zoomSpringFrequency,
                     zoomSpringDamping,
                     step);
+                IntegrateSpring(ref garbageGrabCameraPosition, ref garbageGrabCameraPositionVelocity,
+                    positionSpringFrequency, positionSpringDamping, step);
+                IntegrateSpring(ref garbageGrabCameraRotation, ref garbageGrabCameraRotationVelocity,
+                    rotationSpringFrequency, rotationSpringDamping, step);
+                IntegrateSpring(ref heavyGarbageBreakCameraPosition, ref heavyGarbageBreakCameraPositionVelocity,
+                    positionSpringFrequency, positionSpringDamping, step);
+                IntegrateSpring(ref heavyGarbageBreakCameraRotation, ref heavyGarbageBreakCameraRotationVelocity,
+                    rotationSpringFrequency, rotationSpringDamping, step);
             }
 
             springPosition = Vector2.ClampMagnitude(
@@ -1267,15 +1562,28 @@ namespace AnimalGame.RobotMap
                 springZoom,
                 -GetMaximumZoomFraction(),
                 GetMaximumZoomFraction());
+            garbageGrabCameraPosition = Vector2.ClampMagnitude(garbageGrabCameraPosition, GetMaximumPositionOffset());
+            garbageGrabCameraRotation = Mathf.Clamp(garbageGrabCameraRotation,
+                -GetMaximumRotationDegrees(), GetMaximumRotationDegrees());
+            heavyGarbageBreakCameraPosition = Vector2.ClampMagnitude(heavyGarbageBreakCameraPosition, GetMaximumPositionOffset());
+            heavyGarbageBreakCameraRotation = Mathf.Clamp(heavyGarbageBreakCameraRotation,
+                -GetMaximumRotationDegrees(), GetMaximumRotationDegrees());
         }
 
         private void ApplyShakeToCamera()
         {
+            // Grip and break camera motion have explicit motor pulses; neither may
+            // generate an additional rumble tail through the chassis camera amplitudes.
+            regularRumblePositionOffset = Vector2.ClampMagnitude(
+                (springPosition + continuousPosition) * globalIntensity, GetMaximumPositionOffset());
+            regularRumbleRotationOffsetDegrees = Mathf.Clamp(
+                (springRotation + continuousRotation) * globalIntensity,
+                -GetMaximumRotationDegrees(), GetMaximumRotationDegrees());
             Vector2 localOffset = Vector2.ClampMagnitude(
-                (springPosition + continuousPosition) * globalIntensity,
+                (springPosition + continuousPosition + garbageGrabCameraPosition + heavyGarbageBreakCameraPosition) * globalIntensity,
                 GetMaximumPositionOffset());
             float rotationOffset = Mathf.Clamp(
-                (springRotation + continuousRotation) * globalIntensity,
+                (springRotation + continuousRotation + garbageGrabCameraRotation + heavyGarbageBreakCameraRotation) * globalIntensity,
                 -GetMaximumRotationDegrees(),
                 GetMaximumRotationDegrees());
             float zoomOffset = Mathf.Clamp(
@@ -1316,75 +1624,90 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            float positionStrength = Mathf.Clamp01(
-                CurrentLocalPositionOffset.magnitude
-                / Mathf.Max(0.001f, positionOffsetAtFullRumble));
-            float rotationStrength = Mathf.Clamp01(
-                Mathf.Abs(CurrentRotationOffsetDegrees)
-                / Mathf.Max(0.01f, rotationDegreesAtFullRumble));
-            float zoomStrength = Mathf.Clamp01(
-                Mathf.Abs(CurrentZoomOffsetFraction)
-                / Mathf.Max(0.0001f, zoomFractionAtFullRumble));
-            positionStrength = Mathf.Pow(
-                positionStrength,
-                rumbleResponseExponent);
-            rotationStrength = Mathf.Pow(
-                rotationStrength,
-                rumbleResponseExponent);
-            zoomStrength = Mathf.Pow(
-                zoomStrength,
-                rumbleResponseExponent);
-
-            float balanceMagnitude = balance != null
-                                     && !IsTumbleFeedbackSuppressed
-                ? Mathf.Clamp01(balance.CurrentState.Magnitude)
-                : 0f;
-            float imbalanceBoost = Mathf.Lerp(
-                1f,
-                fullImbalanceRumbleMultiplier,
-                Mathf.Pow(balanceMagnitude, imbalanceRumbleExponent));
-            float landingEnvelope = 1f - Mathf.Clamp01(
-                (Time.time - lastLandingRumbleTime)
-                / Mathf.Max(0.01f, landingRumbleBoostDuration));
-            float landingBoost = Mathf.Lerp(
-                1f,
-                landingRumbleMultiplier,
-                landingEnvelope * lastLandingRumbleStrength);
-
-            float targetLow = Mathf.Clamp01(
-                Mathf.Max(positionStrength, zoomStrength)
-                * lowFrequencyMotorMultiplier
-                * imbalanceBoost
-                * landingBoost);
-            float targetHigh = Mathf.Clamp01(
-                Mathf.Max(
-                    rotationStrength,
-                    positionStrength * positionToHighFrequencyMotor)
-                * highFrequencyMotorMultiplier
-                * imbalanceBoost
-                * landingBoost);
-            ApplyTumbleRumble(ref targetLow, ref targetHigh);
-            ApplyObstacleCollisionRumble(ref targetLow, ref targetHigh);
-            if (!IsTumbleFeedbackSuppressed
-                && enableSevereImbalanceRumble
-                && balanceMagnitude >= severeImbalanceRumbleThreshold)
+            float targetLow = 0f, targetHigh = 0f;
+            if (enableCameraShake)
             {
-                float severeProgress = Mathf.InverseLerp(
-                    severeImbalanceRumbleThreshold,
+                float positionStrength = Mathf.Clamp01(
+                    regularRumblePositionOffset.magnitude
+                    / Mathf.Max(0.001f, positionOffsetAtFullRumble));
+                float rotationStrength = Mathf.Clamp01(
+                    Mathf.Abs(regularRumbleRotationOffsetDegrees)
+                    / Mathf.Max(0.01f, rotationDegreesAtFullRumble));
+                float zoomStrength = Mathf.Clamp01(
+                    Mathf.Abs(CurrentZoomOffsetFraction)
+                    / Mathf.Max(0.0001f, zoomFractionAtFullRumble));
+                positionStrength = Mathf.Pow(
+                    positionStrength,
+                    rumbleResponseExponent);
+                rotationStrength = Mathf.Pow(
+                    rotationStrength,
+                    rumbleResponseExponent);
+                zoomStrength = Mathf.Pow(
+                    zoomStrength,
+                    rumbleResponseExponent);
+
+                float balanceMagnitude = balance != null
+                                         && !IsTumbleFeedbackSuppressed
+                    ? Mathf.Clamp01(balance.CurrentState.Magnitude)
+                    : 0f;
+                float imbalanceBoost = Mathf.Lerp(
                     1f,
-                    balanceMagnitude);
-                // Start with a clearly perceptible warning at the threshold,
-                // then increase toward the configured full-displacement level.
-                float warningStrength = Mathf.Lerp(
-                    0.65f,
+                    fullImbalanceRumbleMultiplier,
+                    Mathf.Pow(balanceMagnitude, imbalanceRumbleExponent));
+                float landingEnvelope = 1f - Mathf.Clamp01(
+                    (Time.time - lastLandingRumbleTime)
+                    / Mathf.Max(0.01f, landingRumbleBoostDuration));
+                float landingBoost = Mathf.Lerp(
                     1f,
-                    severeProgress);
-                targetLow = Mathf.Max(
-                    targetLow,
-                    severeImbalanceLowFrequencyStrength * warningStrength);
-                targetHigh = Mathf.Max(
-                    targetHigh,
-                    severeImbalanceHighFrequencyStrength * warningStrength);
+                    landingRumbleMultiplier,
+                    landingEnvelope * lastLandingRumbleStrength);
+
+                targetLow = Mathf.Clamp01(
+                    Mathf.Max(positionStrength, zoomStrength)
+                    * lowFrequencyMotorMultiplier
+                    * imbalanceBoost
+                    * landingBoost);
+                targetHigh = Mathf.Clamp01(
+                    Mathf.Max(
+                        rotationStrength,
+                        positionStrength * positionToHighFrequencyMotor)
+                    * highFrequencyMotorMultiplier
+                    * imbalanceBoost
+                    * landingBoost);
+                ApplyTumbleRumble(ref targetLow, ref targetHigh);
+                ApplyObstacleCollisionRumble(ref targetLow, ref targetHigh);
+                Vector2 climbableMotors = GetClimbableLandingMotorSpeeds(Time.time);
+                targetLow = Mathf.Max(targetLow, climbableMotors.x);
+                targetHigh = Mathf.Max(targetHigh, climbableMotors.y);
+                targetLow = Mathf.Max(targetLow, garbagePullRumble);
+                targetHigh = Mathf.Max(targetHigh, garbagePullRumble * .65f);
+                if (!IsTumbleFeedbackSuppressed
+                    && enableSevereImbalanceRumble
+                    && balanceMagnitude >= severeImbalanceRumbleThreshold)
+                {
+                    float severeProgress = Mathf.InverseLerp(
+                        severeImbalanceRumbleThreshold,
+                        1f,
+                        balanceMagnitude);
+                    // Start with a clearly perceptible warning at the threshold,
+                    // then increase toward the configured full-displacement level.
+                    float warningStrength = Mathf.Lerp(
+                        0.65f,
+                        1f,
+                        severeProgress);
+                    targetLow = Mathf.Max(
+                        targetLow,
+                        severeImbalanceLowFrequencyStrength * warningStrength);
+                    targetHigh = Mathf.Max(
+                        targetHigh,
+                        severeImbalanceHighFrequencyStrength * warningStrength);
+                }
+            }
+            else
+            {
+                // Preserve the old screen-shake-off behaviour for all existing sources.
+                currentLowFrequencyRumble = 0f;
+                currentHighFrequencyRumble = 0f;
             }
 
             currentLowFrequencyRumble = MoveRumbleTowards(
@@ -1404,12 +1727,22 @@ namespace AnimalGame.RobotMap
                                >= minimumRumbleOutput
                 ? currentHighFrequencyRumble
                 : 0f;
+            Vector2 grabOutput = GetGarbageGrabMotorSpeeds(Time.time);
+            Vector2 breakOutput = GetHeavyGarbageBreakMotorSpeeds(Time.time);
             bool changed = Mathf.Abs(
                                outputLow - lastSentLowFrequencyRumble)
                            >= 0.005f
                            || Mathf.Abs(
                                outputHigh - lastSentHighFrequencyRumble)
-                           >= 0.005f;
+                           >= 0.005f
+                           || Mathf.Abs(grabOutput.x - lastSentGarbageGrabRumble.x) >= 0.005f
+                           || Mathf.Abs(grabOutput.y - lastSentGarbageGrabRumble.y) >= 0.005f
+                           || (grabOutput.x <= 0f && lastSentGarbageGrabRumble.x > 0f)
+                           || (grabOutput.y <= 0f && lastSentGarbageGrabRumble.y > 0f);
+            changed |= Mathf.Abs(breakOutput.x - lastSentHeavyGarbageBreakRumble.x) >= 0.005f
+                || Mathf.Abs(breakOutput.y - lastSentHeavyGarbageBreakRumble.y) >= 0.005f
+                || (breakOutput.x <= 0f && lastSentHeavyGarbageBreakRumble.x > 0f)
+                || (breakOutput.y <= 0f && lastSentHeavyGarbageBreakRumble.y > 0f);
             if (!changed
                 && rumbleWasSent
                 && Time.unscaledTime < nextRumbleRefreshTime)
@@ -1423,9 +1756,15 @@ namespace AnimalGame.RobotMap
                 outputHigh,
                 CreateSonyRumbleCalibration(
                     IsActivelyTumbling || HasTumbleLandingRumble,
-                    HasObstacleCollisionRumble));
+                    HasObstacleCollisionRumble),
+                grabOutput,
+                CreateSonyGrabRumbleCalibration(),
+                breakOutput,
+                CreateSonyHeavyBreakRumbleCalibration());
             lastSentLowFrequencyRumble = outputLow;
             lastSentHighFrequencyRumble = outputHigh;
+            lastSentGarbageGrabRumble = grabOutput;
+            lastSentHeavyGarbageBreakRumble = breakOutput;
             nextRumbleRefreshTime = Time.unscaledTime + 0.25f;
         }
 
@@ -1447,7 +1786,9 @@ namespace AnimalGame.RobotMap
         {
             if (rumbleWasSent
                 || currentLowFrequencyRumble > 0f
-                || currentHighFrequencyRumble > 0f)
+                || currentHighFrequencyRumble > 0f
+                || lastSentGarbageGrabRumble.sqrMagnitude > 0f
+                || lastSentHeavyGarbageBreakRumble.sqrMagnitude > 0f)
             {
                 AdaptiveGamepadRumble.SetMotorSpeeds(
                     gamepadIndex,
@@ -1460,12 +1801,26 @@ namespace AnimalGame.RobotMap
             currentHighFrequencyRumble = 0f;
             lastSentLowFrequencyRumble = 0f;
             lastSentHighFrequencyRumble = 0f;
+            lastSentGarbageGrabRumble = Vector2.zero;
+            lastSentHeavyGarbageBreakRumble = Vector2.zero;
+            ClearGarbageGrabFeedback();
+            ClearHeavyGarbageBreakFeedback();
             rumbleWasSent = false;
             lastLandingRumbleTime = float.NegativeInfinity;
             lastLandingRumbleStrength = 0f;
+            climbableLandingTime = float.NegativeInfinity;
+            climbableLandingMotorSpeeds = Vector2.zero;
+            climbableLandingPulseDuration = 0f;
             obstacleCollisionRumbleStartTime = float.NegativeInfinity;
             obstacleCollisionRumbleEndTime = float.NegativeInfinity;
             obstacleCollisionRumbleStrength = 0f;
+        }
+
+        private Vector2 GetClimbableLandingMotorSpeeds(float time)
+        {
+            float envelope = 1f - Mathf.Clamp01((time - climbableLandingTime)
+                / Mathf.Max(0.01f, climbableLandingPulseDuration));
+            return climbableLandingMotorSpeeds * envelope;
         }
 
         private void ApplyTumbleRumble(ref float targetLow, ref float targetHigh)
@@ -1625,6 +1980,25 @@ namespace AnimalGame.RobotMap
                 sonyMinimumRumbleOutput);
         }
 
+        private SonyRumbleCalibration CreateSonyGrabRumbleCalibration() => new SonyRumbleCalibration(
+            enableSonyRumbleCalibration,
+            sonyGrabLowFrequencyMultiplier,
+            sonyGrabHighFrequencyMultiplier,
+            sonyGrabResponseExponent,
+            sonyGrabMaximumLowFrequencyStrength,
+            sonyGrabMaximumHighFrequencyStrength,
+            sonyGrabMinimumRumbleOutput);
+
+        // This channel's limits preserve the short fracture peak on Sony devices.
+        private SonyRumbleCalibration CreateSonyHeavyBreakRumbleCalibration() => new SonyRumbleCalibration(
+            enableSonyRumbleCalibration,
+            sonyHeavyBreakLowFrequencyMultiplier,
+            sonyHeavyBreakHighFrequencyMultiplier,
+            sonyHeavyBreakResponseExponent,
+            sonyHeavyBreakMaximumLowFrequencyStrength,
+            sonyHeavyBreakMaximumHighFrequencyStrength,
+            sonyHeavyBreakMinimumRumbleOutput);
+
         private Vector2 GetCurrentWorldVelocity()
         {
             return mover == null
@@ -1705,6 +2079,13 @@ namespace AnimalGame.RobotMap
 
         private void ResetShakeState()
         {
+            ClearHeavyGarbageBreakCamera();
+            garbageGrabCameraPosition = Vector2.zero;
+            garbageGrabCameraPositionVelocity = Vector2.zero;
+            garbageGrabCameraRotation = 0f;
+            garbageGrabCameraRotationVelocity = 0f;
+            regularRumblePositionOffset = Vector2.zero;
+            regularRumbleRotationOffsetDegrees = 0f;
             springPosition = Vector2.zero;
             springPositionVelocity = Vector2.zero;
             springRotation = 0f;
@@ -1768,14 +2149,22 @@ namespace AnimalGame.RobotMap
 
         private void OnApplicationFocus(bool hasFocus)
         {
+            heavyBreakFeedbackFocused = hasFocus;
             if (!hasFocus)
+            {
                 StopGamepadRumble();
+                ClearHeavyGarbageBreakCamera();
+            }
         }
 
         private void OnApplicationPause(bool pauseStatus)
         {
+            heavyBreakFeedbackPaused = pauseStatus;
             if (pauseStatus)
+            {
                 StopGamepadRumble();
+                ClearHeavyGarbageBreakCamera();
+            }
         }
 
         private void OnDestroy()
@@ -1787,6 +2176,23 @@ namespace AnimalGame.RobotMap
 
         private void OnValidate()
         {
+            heavyBreakDuration = Mathf.Max(0.01f, heavyBreakDuration);
+            heavyBreakHighFrequencyDuration = Mathf.Clamp(heavyBreakHighFrequencyDuration, 0.01f, heavyBreakDuration);
+            heavyBreakAttackDuration = Mathf.Max(0f, heavyBreakAttackDuration);
+            heavyBreakPeakHoldDuration = Mathf.Max(0f, heavyBreakPeakHoldDuration);
+            heavyBreakFalloffExponent = Mathf.Clamp(heavyBreakFalloffExponent, 0.5f, 4f);
+            heavyBreakPositionImpact = Mathf.Max(0f, heavyBreakPositionImpact);
+            heavyBreakRotationImpactDegrees = Mathf.Max(0f, heavyBreakRotationImpactDegrees);
+            smallGrabDuration = Mathf.Max(0.01f, smallGrabDuration);
+            mediumGrabDuration = Mathf.Max(0.01f, mediumGrabDuration);
+            bigGrabDuration = Mathf.Max(0.01f, bigGrabDuration);
+            grabRumbleAttackDuration = Mathf.Max(0f, grabRumbleAttackDuration);
+            grabRumblePeakHoldDuration = Mathf.Max(0f, grabRumblePeakHoldDuration);
+            grabRumbleFalloffExponent = Mathf.Clamp(grabRumbleFalloffExponent, 0.5f, 4f);
+            mediumGrabPositionImpact = Mathf.Max(0f, mediumGrabPositionImpact);
+            mediumGrabRotationImpactDegrees = Mathf.Max(0f, mediumGrabRotationImpactDegrees);
+            bigGrabPositionImpact = Mathf.Max(0f, bigGrabPositionImpact);
+            bigGrabRotationImpactDegrees = Mathf.Max(0f, bigGrabRotationImpactDegrees);
             globalIntensity = Mathf.Clamp(globalIntensity, 0f, 3f);
             maximumPositionOffset = Mathf.Max(0f, maximumPositionOffset);
             maximumRotationDegrees = Mathf.Clamp(maximumRotationDegrees, 0f, 12f);
@@ -2084,9 +2490,15 @@ namespace AnimalGame.RobotMap
             int gamepadIndex,
             float lowFrequency,
             float highFrequency,
-            SonyRumbleCalibration sonyCalibration)
+            SonyRumbleCalibration sonyCalibration,
+            Vector2 grabSpeeds = default,
+            SonyRumbleCalibration grabCalibration = default,
+            Vector2 heavyBreakSpeeds = default,
+            SonyRumbleCalibration heavyBreakCalibration = default)
         {
-            bool stopping = lowFrequency <= 0f && highFrequency <= 0f;
+            bool stopping = lowFrequency <= 0f && highFrequency <= 0f
+                && grabSpeeds.x <= 0f && grabSpeeds.y <= 0f
+                && heavyBreakSpeeds.x <= 0f && heavyBreakSpeeds.y <= 0f;
             if (stopping)
             {
                 StopActiveBackend(gamepadIndex);
@@ -2110,7 +2522,11 @@ namespace AnimalGame.RobotMap
                 if (SonyInputSystemRumble.SetMotorSpeeds(
                         lowFrequency,
                         highFrequency,
-                        sonyCalibration))
+                        sonyCalibration,
+                        grabSpeeds,
+                        grabCalibration,
+                        heavyBreakSpeeds,
+                        heavyBreakCalibration))
                 {
                     activeBackend = RumbleBackend.SonyInputSystem;
                     return true;
@@ -2127,13 +2543,35 @@ namespace AnimalGame.RobotMap
                 activeBackend = RumbleBackend.None;
             }
 
+            Vector2 xInputSpeeds = ComposeFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
+                grabSpeeds, heavyBreakSpeeds, false, sonyCalibration, grabCalibration, heavyBreakCalibration);
             bool xInputSucceeded = WindowsXInputRumble.SetMotorSpeeds(
                 gamepadIndex,
-                lowFrequency,
-                highFrequency);
+                xInputSpeeds.x,
+                xInputSpeeds.y);
             if (xInputSucceeded)
                 activeBackend = RumbleBackend.XInput;
             return xInputSucceeded;
+        }
+
+        // Calibrate each source before mixing, preserving existing chassis and grip settings.
+        internal static Vector2 ComposeMotorSpeeds(Vector2 regular, Vector2 grab, bool sony,
+            SonyRumbleCalibration regularCalibration, SonyRumbleCalibration grabCalibration)
+            => ComposeFeedbackMotorSpeeds(regular, grab, Vector2.zero, sony,
+                regularCalibration, grabCalibration, default);
+
+        internal static Vector2 ComposeFeedbackMotorSpeeds(Vector2 regular, Vector2 grab, Vector2 heavyBreak, bool sony,
+            SonyRumbleCalibration regularCalibration, SonyRumbleCalibration grabCalibration,
+            SonyRumbleCalibration heavyBreakCalibration)
+        {
+            if (sony)
+            {
+                regularCalibration.Apply(ref regular.x, ref regular.y);
+                grabCalibration.Apply(ref grab.x, ref grab.y);
+                heavyBreakCalibration.Apply(ref heavyBreak.x, ref heavyBreak.y);
+            }
+            Vector2 mixed = Vector2.Max(Vector2.Max(regular, grab), heavyBreak);
+            return new Vector2(Mathf.Clamp01(mixed.x), Mathf.Clamp01(mixed.y));
         }
 
         private static void StopActiveBackend(int gamepadIndex)
@@ -2164,14 +2602,19 @@ namespace AnimalGame.RobotMap
         public static bool SetMotorSpeeds(
             float lowFrequency,
             float highFrequency,
-            SonyRumbleCalibration calibration)
+            SonyRumbleCalibration calibration,
+            Vector2 grabSpeeds,
+            SonyRumbleCalibration grabCalibration,
+            Vector2 heavyBreakSpeeds,
+            SonyRumbleCalibration heavyBreakCalibration)
         {
             Gamepad gamepad = ResolveSonyGamepad();
             if (gamepad == null)
                 return false;
 
-            calibration.Apply(ref lowFrequency, ref highFrequency);
-            gamepad.SetMotorSpeeds(lowFrequency, highFrequency);
+            Vector2 mixed = AdaptiveGamepadRumble.ComposeFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
+                grabSpeeds, heavyBreakSpeeds, true, calibration, grabCalibration, heavyBreakCalibration);
+            gamepad.SetMotorSpeeds(mixed.x, mixed.y);
             return true;
         }
 

@@ -154,6 +154,50 @@ MonoBehaviour:
   sonyMaximumLowFrequencyStrength: 0.42
   sonyMaximumHighFrequencyStrength: 0.28
   sonyMinimumRumbleOutput: 0.01
+  enableGarbageGrabFeedback: 1
+  enableGarbageGrabCameraShake: 1
+  enableGarbageGrabRumble: 1
+  smallGrabLowFrequency: 0.18
+  smallGrabHighFrequency: 0.12
+  smallGrabDuration: 0.12
+  mediumGrabLowFrequency: 0.45
+  mediumGrabHighFrequency: 0.3
+  mediumGrabDuration: 0.22
+  bigGrabLowFrequency: 0.45
+  bigGrabHighFrequency: 0.3
+  bigGrabDuration: 0.22
+  grabRumbleAttackDuration: 0.02
+  grabRumblePeakHoldDuration: 0.03
+  grabRumbleFalloffExponent: 1.15
+  mediumGrabPositionImpact: 0.075
+  mediumGrabRotationImpactDegrees: 0.6
+  bigGrabPositionImpact: 0.075
+  bigGrabRotationImpactDegrees: 0.6
+  sonyGrabLowFrequencyMultiplier: 1
+  sonyGrabHighFrequencyMultiplier: 1
+  sonyGrabResponseExponent: 1
+  sonyGrabMaximumLowFrequencyStrength: 0.55
+  sonyGrabMaximumHighFrequencyStrength: 0.4
+  sonyGrabMinimumRumbleOutput: 0.01
+  enableHeavyGarbageBreakFeedback: 1
+  enableHeavyGarbageBreakCameraShake: 1
+  enableHeavyGarbageBreakRumble: 1
+  heavyBreakLowFrequency: 0.8
+  heavyBreakHighFrequency: 0.55
+  heavyBreakDuration: 0.35
+  heavyBreakHighFrequencyDuration: 0.14
+  heavyBreakAttackDuration: 0.02
+  heavyBreakImmediateRumbleFraction: 0.35
+  heavyBreakPeakHoldDuration: 0.05
+  heavyBreakFalloffExponent: 1.4
+  heavyBreakPositionImpact: 0.12
+  heavyBreakRotationImpactDegrees: 0.9
+  sonyHeavyBreakLowFrequencyMultiplier: 1
+  sonyHeavyBreakHighFrequencyMultiplier: 1
+  sonyHeavyBreakResponseExponent: 1
+  sonyHeavyBreakMaximumLowFrequencyStrength: 0.8
+  sonyHeavyBreakMaximumHighFrequencyStrength: 0.55
+  sonyHeavyBreakMinimumRumbleOutput: 0.01
   fullVibrationSpeed: 4
   minimumMovingVibrationStrength: 0.35
   stationaryBalanceVibrationStrength: 0.28

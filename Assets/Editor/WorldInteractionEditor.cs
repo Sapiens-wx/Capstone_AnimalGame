@@ -35,25 +35,78 @@ namespace AnimalGame.Editor
             serializedObject.Update();
             if (target is HeightMapObstacleFootprint)
             {
-                EditorGUILayout.HelpBox("Legacy map footprint: Collision. Add a separate WorldInteraction component for grabbing.", MessageType.Info);
+                EditorGUILayout.HelpBox("Blocks Traversal controls hard collision. Sight Blocking independently controls animal cover; Match Traversal preserves the original behaviour. Add a separate WorldInteraction for grabbing or climbing.", MessageType.Info);
                 DrawPropertiesExcluding(serializedObject, "m_Script", "kind", "box", "sprite", "localCenter", "localSize",
-                    "requiredHands", "recyclable", "size", "onGrabbed", "onReleased", "onRecycled");
+                    "requiredHands", "recyclable", "size", "pushSpeedMultiplier",
+                    "climbableEntrySpeedMultiplier", "climbableEntryBlendDuration", "climbableCameraMultiplier",
+                    "climbableRumbleMultiplier", "climbableLandingDurationMultiplier",
+                    "climbableAffectsWholeArea", "climbableUseBodyOverlap");
             }
             else
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("kind"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("box"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("sprite"));
+                var climbKind = serializedObject.FindProperty("kind");
+                bool climbable = (climbKind.intValue & (int)WorldInteractionKind.Climbable) != 0;
+                if (climbable || climbKind.hasMultipleDifferentValues)
+                {
+                    foreach (string name in new[] { "climbableRadius", "slopeStrength01", "topRadiusRatio01",
+                        "climbableEntrySpeedMultiplier", "climbableEntryBlendDuration", "climbableCameraMultiplier",
+                        "climbableRumbleMultiplier", "climbableLandingDurationMultiplier",
+                        "climbableAffectsWholeArea", "climbableUseBodyOverlap" })
+                        if (name == "climbableEntrySpeedMultiplier")
+                            EditorGUILayout.PropertyField(serializedObject.FindProperty(name), new GUIContent("Climbable Speed Multiplier"));
+                        else EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
+                }
+                if (!climbable || climbKind.hasMultipleDifferentValues)
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("box"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("sprite"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("localSize"));
+                }
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("localCenter"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("localSize"));
                 var kind = serializedObject.FindProperty("kind");
+                if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Pushable) != 0)
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("pushSpeedMultiplier"));
+                    if (!kind.hasMultipleDifferentValues
+                        && (kind.intValue & (int)(WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision)) == 0)
+                        EditorGUILayout.HelpBox("Pushable also needs Collision or BodyCollision on this component.", MessageType.Warning);
+                }
                 if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Grabbable) != 0)
                 {
-                    foreach (string name in new[] { "requiredHands", "recyclable", "size", "onGrabbed", "onReleased", "onRecycled" })
+                    foreach (string name in new[] { "grabResistance", "requiredHands", "recyclable", "size" })
                         EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
                 }
             }
             serializedObject.ApplyModifiedProperties();
+        }
+
+        [DrawGizmo(GizmoType.Selected | GizmoType.Active)]
+        private static void DrawClimbable(WorldInteraction item, GizmoType gizmoType)
+        {
+            if ((item.Kind & WorldInteractionKind.Climbable) == 0) return;
+            MapTestSceneController map = Object.FindFirstObjectByType<MapTestSceneController>();
+            if (map != null && map.gameObject.scene != item.gameObject.scene) map = null;
+            InteractionShape shape = item.GetShape(map);
+            if (shape.IsBox) return;
+            Vector3 center = map != null && map.HasGeneratedMap
+                ? map.MapPositionToWorld(shape.Center) : (Vector3)shape.Center;
+            float sx = map != null && map.HasGeneratedMap ? map.MapMetersToWorldDistance(Vector2.right, 1f) : 1f;
+            float sy = map != null && map.HasGeneratedMap ? map.MapMetersToWorldDistance(Vector2.up, 1f) : 1f;
+            Color previous = Handles.color;
+            foreach (float ratio in new[] { 1f, item.TopRadiusRatio01 })
+            {
+                Handles.color = ratio == 1f ? Color.cyan : Color.green;
+                Vector3 last = center + new Vector3(shape.Radius * ratio * sx, 0f);
+                for (int i = 1; i <= 64; i++)
+                {
+                    float angle = i * Mathf.PI * 2f / 64f;
+                    Vector3 next = center + new Vector3(Mathf.Cos(angle) * sx, Mathf.Sin(angle) * sy) * shape.Radius * ratio;
+                    Handles.DrawLine(last, next);
+                    last = next;
+                }
+            }
+            Handles.color = previous;
         }
     }
 }
