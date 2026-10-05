@@ -11,16 +11,6 @@ namespace AnimalGame.Garbage
         public RecyclableSize Size => size;
         public WorldInteraction Interaction { get; private set; }
 
-        private SpriteRenderer[] visibilityRenderers;
-
         private void Awake() => Interaction = GetComponent<WorldInteraction>();
-        private void OnEnable() => CachePlayerUiVisibilityRenderers();
-        private void CachePlayerUiVisibilityRenderers()
-        {
-            visibilityRenderers =
-                GetComponentsInChildren<SpriteRenderer>(true);
-            AnimalGame.Rendering.PlayerUiOrganicVisibility.RegisterRenderers(
-                visibilityRenderers);
-        }
     }
 }

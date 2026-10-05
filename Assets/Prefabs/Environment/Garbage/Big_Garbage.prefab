@@ -136,8 +136,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 96ee1c46ec8141fd970e39063a8ba4cb, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   map: {fileID: 0}
   mapPositionMeters: {x: 209.59259, y: 191.59259}
   sampledSurfaceHeightMeters: 14.602138
@@ -166,7 +166,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: e279a4a7c60c05f449451bd54324062b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -208,13 +208,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 295e520c95e7ba24382f447af748bb78, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   kind: 6
   box: {fileID: 0}
   sprite: {fileID: 6575725878042071600}
   localCenter: {x: 0, y: 0}
   localSize: {x: 1, y: 1}
+  climbableRadius: 1
+  slopeStrength01: 0.5
+  topRadiusRatio01: 0.5
+  climbableEntrySpeedMultiplier: 1
+  climbableAffectsWholeArea: 0
+  climbableUseBodyOverlap: 0
+  climbableEntryBlendDuration: 0.08
+  climbableCameraMultiplier: 1
+  climbableRumbleMultiplier: 1
+  climbableLandingDurationMultiplier: 1
   requiredHands: 2
   recyclable: 0
   size: 2
@@ -230,8 +240,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cac827775450435fac65d6483e53322c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   size: 2
 --- !u!114 &6300000000000000002
 MonoBehaviour:
@@ -243,8 +253,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f1c908a522fc4cb8971e88f7f0d9aa2d, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   minimumPullInput: 0.25
   requiredPullIntentDistance: 2
   requiredPullDuration: 2.5
@@ -265,8 +275,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b3f0c5b6c0a9439bae0f9b810e09240b, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   heldFragments:
   - {fileID: 7253239608327384681, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
   scatteredFragments:
@@ -288,14 +298,14 @@ MonoBehaviour:
   - {x: -0.44532, y: -0.15514}
   - {x: -0.37066, y: -0.34486}
   - {x: -0.24869, y: -0.43711}
-  - {x: -0.08149, y: -0.49790}
+  - {x: -0.08149, y: -0.4979}
   - {x: 0.05205, y: -0.49895}
   - {x: 0.30442, y: -0.39099}
   - {x: 0.41167, y: -0.30294}
-  - {x: 0.49790, y: -0.11321}
+  - {x: 0.4979, y: -0.11321}
   - {x: 0.47371, y: 0.12998}
-  - {x: 0.39590, y: 0.40566}
-  - {x: 0.22029, y: 0.49790}
+  - {x: 0.3959, y: 0.40566}
+  - {x: 0.22029, y: 0.4979}
   - {x: -0.12881, y: 0.46017}
   - {x: -0.24238, y: 0.43816}
   - {x: -0.40116, y: 0.30294}
@@ -311,8 +321,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 80a2bcc3a5b442169c3d11f10c7820b1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   subdivisions: 15
   affectedWidthRatio: 0.72
   neckPinch: 0.08

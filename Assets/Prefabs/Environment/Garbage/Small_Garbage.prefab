@@ -76,7 +76,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: e279a4a7c60c05f449451bd54324062b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -128,6 +128,13 @@ MonoBehaviour:
   climbableRadius: 0.87
   slopeStrength01: 0.5
   topRadiusRatio01: 0.5
+  climbableEntrySpeedMultiplier: 1
+  climbableAffectsWholeArea: 0
+  climbableUseBodyOverlap: 0
+  climbableEntryBlendDuration: 0.08
+  climbableCameraMultiplier: 1
+  climbableRumbleMultiplier: 1
+  climbableLandingDurationMultiplier: 1
   requiredHands: 1
   recyclable: 1
   size: 0
