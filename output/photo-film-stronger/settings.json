@@ -1,0 +1,23 @@
+{
+    "strength": 1.0,
+    "toneEnabled": true,
+    "exposureEV": 0.05000000074505806,
+    "toneStrength": 1.0,
+    "contrast": 1.2799999713897706,
+    "midtoneLift": 0.02500000037252903,
+    "blackLift": 0.02199999988079071,
+    "highlightCompression": 0.550000011920929,
+    "colorEnabled": true,
+    "saturation": 1.059999942779541,
+    "highlightWarmth": 0.12999999523162843,
+    "shadowCoolness": 0.07500000298023224,
+    "colorProtection": 0.8999999761581421,
+    "grainEnabled": true,
+    "grainAmount": 0.02199999988079071,
+    "grainSize": 1.600000023841858,
+    "grainChroma": 0.05999999865889549,
+    "vignetteEnabled": true,
+    "vignetteEV": 0.6499999761581421,
+    "softnessEnabled": true,
+    "softness": 0.18000000715255738
+}

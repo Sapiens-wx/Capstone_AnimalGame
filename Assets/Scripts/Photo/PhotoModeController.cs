@@ -1,4 +1,5 @@
 using System;
+using AnimalGame.Animals;
 using UnityEngine;
 
 namespace AnimalGame.RobotMap
@@ -8,6 +9,16 @@ namespace AnimalGame.RobotMap
     [RequireComponent(typeof(RobotMover))]
     public sealed class PhotoModeController : MonoBehaviour
     {
+        [Header("Camera Model")]
+        [Tooltip("The equipped photographic camera. Empty uses Basic processing. Changing this affects the next shutter press.")]
+        [SerializeField] private PhotoCameraDefinition currentCamera;
+
+        public PhotoCameraDefinition CurrentCamera => currentCamera;
+        public PhotoCaptureSettings LastCaptureSettings { get; private set; }
+
+        /// <summary>Equipment systems may switch models even while an existing photo is being reviewed.</summary>
+        public void SetCamera(PhotoCameraDefinition camera) => currentCamera = camera;
+
         [Header("Input")]
         [Tooltip("Keyboard fallback used to enter or leave photo mode while testing without a gamepad.")]
         [SerializeField] private KeyCode keyboardToggleKey = KeyCode.P;
@@ -545,6 +556,11 @@ namespace AnimalGame.RobotMap
 
         private void BeginCapture()
         {
+            // Independent from Unity's gameplay random stream. The delayed flash event must
+            // use these copied settings even if the player switches models in the meantime.
+            int seed = Guid.NewGuid().GetHashCode();
+            LastCaptureSettings = currentCamera != null
+                ? currentCamera.Capture(seed) : PhotoCaptureSettings.Basic(seed);
             captureState = PhotoCaptureState.Capturing;
             shutterElapsed = 0f;
             captureMomentFired = false;
@@ -623,6 +639,7 @@ namespace AnimalGame.RobotMap
 
         private void ResetCaptureState(bool resetPresentation)
         {
+            LastCaptureSettings = null;
             captureState = PhotoCaptureState.Framing;
             focusElapsed = 0f;
             shutterArmed = false;

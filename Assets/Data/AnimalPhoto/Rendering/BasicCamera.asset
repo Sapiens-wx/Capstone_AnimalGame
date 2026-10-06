@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d556b856fd1644a7a6bfe3288b5a3cc1, type: 3}
+  m_Name: BasicCamera
+  m_EditorClassIdentifier: 
+  cameraId: camera-basic
+  displayName: Basic Camera
+  renderSet: {fileID: 11400000, guid: 33b7c8f152824b6d912aedf5bc28c131, type: 2}
