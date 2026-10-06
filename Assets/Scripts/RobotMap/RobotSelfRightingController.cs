@@ -670,21 +670,10 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            guideOutline = RobotMapDemo.CreateLine(
-                markerView.MarkerVisualRoot,
-                "Self Righting Support Plane Outline",
-                guideOutlinePoints,
-                0.03f,
-                Color.clear,
-                994,
-                true);
-            guideCentreLine = RobotMapDemo.CreateLine(
-                markerView.MarkerVisualRoot,
-                "Self Righting Support Plane Contact",
-                guideCentrePoints,
-                0.04f,
-                Color.clear,
-                995);
+            guideOutline = markerView.MarkerVisualRoot.Find(
+                "Self Righting Support Plane Outline").GetComponent<LineRenderer>();
+            guideCentreLine = markerView.MarkerVisualRoot.Find(
+                "Self Righting Support Plane Contact").GetComponent<LineRenderer>();
             guideOutline.transform.localPosition = Vector3.zero;
             guideOutline.transform.localRotation = Quaternion.identity;
             guideOutline.transform.localScale = Vector3.one;
@@ -802,13 +791,6 @@ namespace AnimalGame.RobotMap
                 guideCentreLine.enabled = false;
         }
 
-        private void OnDestroy()
-        {
-            if (guideOutline != null && guideOutline.sharedMaterial != null)
-                Destroy(guideOutline.sharedMaterial);
-            if (guideCentreLine != null && guideCentreLine.sharedMaterial != null)
-                Destroy(guideCentreLine.sharedMaterial);
-        }
 
         private void OnValidate()
         {

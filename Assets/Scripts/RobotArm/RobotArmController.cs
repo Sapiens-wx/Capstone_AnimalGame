@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using AnimalGame.MapTest;
 using UnityEngine;
+using UnityEngine.Serialization;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
 using AnimalGame.Garbage;
+using System.Runtime.CompilerServices;
 
 namespace AnimalGame.RobotArm
 {
@@ -19,18 +21,18 @@ namespace AnimalGame.RobotArm
         [SerializeField] private KeyCode keyboardGrabKey = KeyCode.Space;
         [SerializeField, Range(0f, .17f)] private float leftStickDeadZone = .08f;
         [Header("Artwork")]
-        [SerializeField] private Sprite robotArmOneSprite;
-        [SerializeField] private Sprite robotArmTwoSprite;
-        [SerializeField] private Sprite robotHandSprite;
+        [FormerlySerializedAs("robotHandSprite")]
+        [SerializeField] private Sprite robotHandOpenSprite;
+        [SerializeField] private Sprite robotHandClosedSprite;
         [SerializeField] private Color armColor = Color.white;
-        [SerializeField, Min(.01f)] private float artworkScale = .7f;
-        [SerializeField, Min(.1f)] private float artworkThicknessScale = 2.57f;
+        [Tooltip("Uniform multiplier of the authored Upper Arm and Lower Arm scales. Also determines their IK lengths.")]
+        [SerializeField, Min(.01f)] private float armScale = 1f;
+        [FormerlySerializedAs("artworkScale")]
+        [SerializeField, Min(.01f)] private float handScale = .7f;
         [Header("Fixed geometry (cached when created)")]
         [SerializeField, Range(0f, 1.2f)] private float socketRadiusOfBody = .88f;
-        [Tooltip("Arm length reference in marker-local units; upper and lower segments use their respective percentages.")]
-        [SerializeField, Min(.05f)] private float armLength = 1f;
-        [SerializeField, Min(.05f)] private float upperArmLengthPercent = .45f;
-        [SerializeField, Min(.05f)] private float lowerArmLengthPercent = .65f;
+        [Tooltip("Deployed Y scale multiplier of Lower Arm/Loopable. The body-side end stays at its authored attachment while the other end extends forward.")]
+        [SerializeField, Min(0f)] private float lowerArmScale = 1f;
         [SerializeField, Range(.05f, 1f)] private float staticArmLengthPercent = .4f;
         [Tooltip("Total distance between hands, measured along robot-local X in body diameters.")]
         [SerializeField, Min(0f)] private float handSpacingOfBodyDiameter = .28f;
@@ -82,6 +84,7 @@ namespace AnimalGame.RobotArm
         private MapTestSceneController map;
         private Arm left, right;
         private float diameter, upperLength, lowerLength, handSpacing, armWidth, deploymentTime;
+        private float armLength;
         private float recycleTime, stepDelta;
         private bool docked, previousGrab, initialized;
         private Vector2 inputLocal, targetLocal;
@@ -110,7 +113,8 @@ namespace AnimalGame.RobotArm
                 UpperAngle = Mathf.LerpAngle(a.UpperAngle, b.UpperAngle, t),
                 LowerAngle = Mathf.LerpAngle(a.LowerAngle, b.LowerAngle, t),
                 UpperLength = Mathf.Lerp(a.UpperLength, b.UpperLength, t),
-                LowerLength = Mathf.Lerp(a.LowerLength, b.LowerLength, t), Hand = Mathf.Lerp(a.Hand, b.Hand, t) };
+                LowerLength = Mathf.Lerp(a.LowerLength, b.LowerLength, t),
+                Hand = Mathf.Lerp(a.Hand, b.Hand, t) };
         }
         private sealed class Arm
         {
@@ -118,7 +122,14 @@ namespace AnimalGame.RobotArm
             public Vector2 Socket;
             public Pose Pose;
             public Transform Root, Upper, Lower, Hand;
-            public SpriteRenderer UpperSprite, LowerSprite, CuffSprite, HandSprite;
+            public SpriteRenderer UpperSprite, LowerSprite, HandSprite;
+            public SpriteRenderer LoopSprite;
+            public Vector3 UpperScale, LowerScale, LoopScale;
+            public Vector3 LoopPosition, LoopAnchor;
+            public Quaternion LoopRotation;
+            public Sprite OpenHandSprite;
+            public float HandBottom;
+            public float UpperLength, LowerLength, LowerBaseLength, UpperBottom, LowerBottom, DeployedLoopScale;
             public RobotHandAnimation Animation;
         }
 
@@ -136,12 +147,13 @@ namespace AnimalGame.RobotArm
             foreach (MapTestSceneController candidate in FindObjectsOfType<MapTestSceneController>())
                 if (candidate.gameObject.scene == gameObject.scene) { map = candidate; break; }
             diameter = Mathf.Max(.01f, marker.BodyDiameter);
-            upperLength = armLength * upperArmLengthPercent;
-            lowerLength = armLength * lowerArmLengthPercent;
             handSpacing = diameter * handSpacingOfBodyDiameter;
             armWidth = diameter * collisionWidthOfBodyDiameter;
-            left = CreateArm("Left Mechanical Arm", -1f);
-            right = CreateArm("Right Mechanical Arm", 1f);
+            left = BindArm("Left Mechanical Arm", -1f);
+            right = BindArm("Right Mechanical Arm", 1f);
+            upperLength = Mathf.Max(left.UpperLength, right.UpperLength);
+            lowerLength = Mathf.Max(left.LowerLength, right.LowerLength);
+            armLength = Mathf.Max(left.UpperLength + left.LowerLength, right.UpperLength + right.LowerLength);
             targetLocal = Vector2.up * armLength * .8f;
             initialized = true;
             framePosition = transform.position; frameRotation = transform.rotation;
@@ -323,18 +335,25 @@ namespace AnimalGame.RobotArm
         }
         private bool CommonTargetReachable(Vector2 target)
         {
-            float minimum = Mathf.Abs(upperLength - lowerLength) + .00002f;
-            float maximum = upperLength + lowerLength - armLength * .005f;
             Vector2 leftDelta = target - Vector2.right * handSpacing * .5f - left.Socket;
             Vector2 rightDelta = target + Vector2.right * handSpacing * .5f - right.Socket;
-            return leftDelta.sqrMagnitude >= minimum * minimum && leftDelta.sqrMagnitude <= maximum * maximum
-                && rightDelta.sqrMagnitude >= minimum * minimum && rightDelta.sqrMagnitude <= maximum * maximum;
+            return TargetReachable(left, leftDelta) && TargetReachable(right, rightDelta);
+        }
+        private bool TargetReachable(Arm arm, Vector2 delta)
+        {
+            float minimum = Mathf.Abs(arm.UpperLength - arm.LowerLength) + .00002f;
+            float maximum = arm.UpperLength + arm.LowerLength - armLength * .005f;
+            return delta.sqrMagnitude >= minimum * minimum && delta.sqrMagnitude <= maximum * maximum;
         }
         private float MaximumCommonReach()
         {
-            float lateral = Mathf.Abs(left.Socket.x + handSpacing * .5f);
-            float reach = upperLength + lowerLength - armLength * .005f;
-            return Mathf.Sqrt(Mathf.Max(armLength * armLength * .25f, reach * reach - lateral * lateral));
+            return Mathf.Min(ForwardReach(left), ForwardReach(right));
+        }
+        private float ForwardReach(Arm arm)
+        {
+            float lateral = arm.Socket.x - arm.Side * handSpacing * .5f;
+            float reach = arm.UpperLength + arm.LowerLength - armLength * .005f;
+            return Mathf.Sqrt(Mathf.Max(0f, reach * reach - lateral * lateral));
         }
 
         private void AdvanceArms(bool extending)
@@ -359,7 +378,11 @@ namespace AnimalGame.RobotArm
         private Pose DesiredPose(Arm arm, float progress)
         {
             Vector2 desired = targetLocal + Vector2.right * arm.Side * handSpacing * .5f;
-            SolveIK(desired - arm.Socket, upperLength, lowerLength, arm.Side, out float upper, out float lower);
+            float lowerGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / connectorExtendDuration));
+            float upperGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - connectorExtendDuration) / extendDuration));
+            // Lower Arm is the body-side segment; Upper Arm carries the hand.
+            // Aim the full-size chain, then grow each segment from its attachment point.
+            SolveIK(desired - arm.Socket, arm.LowerLength, arm.UpperLength, arm.Side, out float lower, out float upper);
             // Recycling supplies an animated target already; extra aim smoothing would lag behind it.
             bool heavyGrip = heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _);
             float delta = State == RobotArmState.Recycling ? 360f
@@ -368,8 +391,8 @@ namespace AnimalGame.RobotArm
             return new Pose {
                 UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, upper, delta),
                 LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle, lower, delta),
-                UpperLength = upperLength * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / connectorExtendDuration)),
-                LowerLength = lowerLength * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - connectorExtendDuration) / extendDuration)),
+                UpperLength = arm.UpperLength * upperGrowth,
+                LowerLength = arm.LowerLength * lowerGrowth,
                 Hand = Mathf.Clamp01((progress - connectorExtendDuration - extendDuration) / handExtendDuration) };
         }
         public static void SolveIK(Vector2 target, float upper, float lower, float side, out float upperAngle, out float lowerAngle)
@@ -395,10 +418,10 @@ namespace AnimalGame.RobotArm
         {
             for (int segment = 0; segment < 2; segment++)
             {
-                float length = segment == 0 ? after.UpperLength : after.LowerLength;
+                float length = segment == 0 ? after.LowerLength : after.UpperLength;
                 if (length < .00001f) continue;
                 InteractionShape next = SegmentShape(arm, after, segment);
-                InteractionShape? previous = (segment == 0 ? before.UpperLength : before.LowerLength) > .00001f
+                InteractionShape? previous = (segment == 0 ? before.LowerLength : before.UpperLength) > .00001f
                     ? SegmentShape(arm, before, segment) : (InteractionShape?)null;
                 if (WorldInteractionQuery.Query(next, WorldInteractionKind.Collision, map, gameObject.scene,
                     ignore: transform, previous: previous, ignoreHeld: heldObject != null ? heldObject.transform : null)) return true;
@@ -407,10 +430,11 @@ namespace AnimalGame.RobotArm
         }
         private InteractionShape SegmentShape(Arm arm, Pose pose, int segment)
         {
-            Vector2 elbow = arm.Socket + Direction(pose.UpperAngle) * pose.UpperLength;
+            Vector2 elbow = arm.Socket + Direction(pose.LowerAngle) * pose.LowerLength;
             Vector2 a = segment == 0 ? arm.Socket : elbow;
-            Vector2 b = segment == 0 ? elbow : elbow + Direction(pose.LowerAngle) * pose.LowerLength;
-            Vector2 normal = new Vector2(-(b - a).y, (b - a).x).normalized * armWidth * .5f;
+            Vector2 b = segment == 0 ? elbow : elbow + Direction(pose.UpperAngle) * pose.UpperLength;
+            float growth = segment == 0 ? pose.LowerLength / arm.LowerLength : pose.UpperLength / arm.UpperLength;
+            Vector2 normal = new Vector2(-(b - a).y, (b - a).x).normalized * armWidth * growth * .5f;
             Transform frame = marker.MarkerVisualRoot;
             return new InteractionShape { IsBox = true,
                 A = InteractionShape.ToQuery(frame.TransformPoint(a - normal), map),
@@ -442,7 +466,7 @@ namespace AnimalGame.RobotArm
         }
         private bool BodySegmentBlocked(Arm arm, int segment, InteractionShape previous)
         {
-            if ((segment == 0 ? arm.Pose.UpperLength : arm.Pose.LowerLength) < .00001f) return false;
+            if ((segment == 0 ? arm.Pose.LowerLength : arm.Pose.UpperLength) < .00001f) return false;
             return WorldInteractionQuery.Query(SegmentShape(arm, arm.Pose, segment), WorldInteractionKind.Collision,
                 map, gameObject.scene, ignore: transform, previous: previous,
                 ignoreHeld: heldObject != null ? heldObject.transform : null);
@@ -579,7 +603,7 @@ namespace AnimalGame.RobotArm
             recycleStartScale = heldObject.LocalScale;
             recycleHandStart = (HandLocal(left) + HandLocal(right)) * .5f;
             SetHandGrip(false);
-            left.Animation.PlayRecycle(); right.Animation.PlayRecycle();
+            left.Animation?.PlayRecycle(); right.Animation?.PlayRecycle();
             IsRecycleReady = false;
             IsArmModeActive = true;
             mover.SetArmInputCaptured(true);
@@ -638,8 +662,8 @@ namespace AnimalGame.RobotArm
         {
             if (closed == previousGrab || left == null || right == null) return;
             previousGrab = closed;
-            if (closed) { left.Animation.PlayGrab(); right.Animation.PlayGrab(); }
-            else { left.Animation.PlayRelease(); right.Animation.PlayRelease(); }
+            left.HandSprite.sprite = closed && robotHandClosedSprite != null ? robotHandClosedSprite : left.OpenHandSprite;
+            right.HandSprite.sprite = closed && robotHandClosedSprite != null ? robotHandClosedSprite : right.OpenHandSprite;
         }
         private void ClearHeld()
         {
@@ -654,24 +678,48 @@ namespace AnimalGame.RobotArm
         private Vector2 HandWorld(Arm arm) => arm == null ? (Vector2)transform.position
             : (Vector2)marker.MarkerVisualRoot.TransformPoint(HandLocal(arm));
 
-        private Arm CreateArm(string name, float side)
+        private Arm BindArm(string name, float side)
         {
             var arm = new Arm { Side = side, Socket = Vector2.right * side * diameter * .5f * socketRadiusOfBody };
-            arm.Root = new GameObject(name).transform;
-            arm.Root.SetParent(marker.MarkerVisualRoot, false);
-            arm.UpperSprite = CreateSprite(arm.Root, "Upper Arm", robotArmTwoSprite != null ? robotArmTwoSprite : robotArmOneSprite, 996);
-            arm.LowerSprite = CreateSprite(arm.Root, "Lower Arm", robotArmTwoSprite != null ? robotArmTwoSprite : robotArmOneSprite, 997);
-            arm.CuffSprite = CreateSprite(arm.Root, "Wrist Cuff", robotArmOneSprite, 998);
-            arm.HandSprite = CreateSprite(arm.Root, "Mechanical Hand", robotHandSprite, 999);
+            arm.Root = marker.MarkerVisualRoot.Find(name);
+            arm.UpperSprite = BindSprite(arm.Root, "Upper Arm", null, 996);
+            arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", null, 997);
+            arm.LoopSprite = BindSprite(arm.LowerSprite.transform, "Loopable", null, 997);
+            arm.LoopScale = arm.LoopSprite.transform.localScale;
+            arm.LoopPosition = arm.LoopSprite.transform.localPosition;
+            arm.LoopRotation = arm.LoopSprite.transform.localRotation;
+            // Older prefabs may still contain the retired cuff.
+            Transform legacyCuff = arm.Root.Find("Wrist Cuff");
+            if (legacyCuff != null) legacyCuff.gameObject.SetActive(false);
+            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandOpenSprite, 999);
+            arm.OpenHandSprite = arm.HandSprite.sprite;
+            arm.HandBottom = arm.OpenHandSprite != null ? arm.OpenHandSprite.bounds.min.y : 0f;
             arm.Upper = arm.UpperSprite.transform; arm.Lower = arm.LowerSprite.transform; arm.Hand = arm.HandSprite.transform;
-            arm.Animation = arm.Hand.gameObject.AddComponent<RobotHandAnimation>();
+            arm.UpperScale = arm.Upper.localScale * armScale;
+            arm.LowerScale = arm.Lower.localScale * armScale;
+            // Mirror once at the arm segments; Loopable inherits Lower Arm's reflection.
+            arm.UpperScale.x = -side * Mathf.Abs(arm.UpperScale.x);
+            arm.LowerScale.x = -side * Mathf.Abs(arm.LowerScale.x);
+            float loopDirection = (arm.LoopRotation * Vector3.up).y * arm.LoopScale.y * arm.LowerScale.y;
+            arm.LoopAnchor = new Vector3(0f, loopDirection >= 0f
+                ? arm.LoopSprite.sprite.bounds.min.y : arm.LoopSprite.sprite.bounds.max.y, 0f);
+            arm.Upper.localScale = arm.UpperScale;
+            arm.Lower.localScale = arm.LowerScale;
+            arm.UpperBottom = SpriteBottom(arm.UpperSprite);
+            arm.LowerBottom = SpriteBottom(arm.LowerSprite);
+            arm.UpperLength = Mathf.Max(.0001f, SpriteTop(arm.UpperSprite) - arm.UpperBottom);
+            arm.LowerBaseLength = Mathf.Max(.0001f, SpriteTop(arm.LowerSprite) - arm.LowerBottom);
+            arm.DeployedLoopScale = lowerArmScale;
+            arm.LowerLength = LowerLengthAtScale(arm, arm.DeployedLoopScale);
+            arm.Pose = default;
+            arm.Animation = arm.Hand.GetComponent<RobotHandAnimation>();
             arm.Root.gameObject.SetActive(false);
             return arm;
         }
-        private SpriteRenderer CreateSprite(Transform parent, string name, Sprite sprite, int order)
+        private SpriteRenderer BindSprite(Transform parent, string name, Sprite sprite, int order)
         {
-            var go = new GameObject(name); go.transform.SetParent(parent, false);
-            var renderer = go.AddComponent<SpriteRenderer>(); renderer.sprite = sprite;
+            var renderer = parent.Find(name).GetComponent<SpriteRenderer>();
+            if (sprite != null) renderer.sprite = sprite;
             renderer.color = armColor; renderer.sortingOrder = order;
             if (marker.ForegroundSpriteMaterial != null) renderer.sharedMaterial = marker.ForegroundSpriteMaterial;
             return renderer;
@@ -679,34 +727,56 @@ namespace AnimalGame.RobotArm
         private void ApplyVisuals(Arm arm)
         {
             arm.Root.gameObject.SetActive(deploymentTime > 0f);
-            Vector2 elbow = arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength;
-            SetSegmentVisual(arm.UpperSprite, arm.Socket, arm.Pose.UpperAngle, arm.Pose.UpperLength);
-            SetSegmentVisual(arm.LowerSprite, elbow, arm.Pose.LowerAngle, arm.Pose.LowerLength);
+            Vector2 elbow = arm.Socket + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
+            SetSegmentVisual(arm.LowerSprite, arm.Socket, arm.Pose.LowerAngle, arm.LowerBottom,
+                arm.LowerScale, arm.Pose.LowerLength / arm.LowerLength);
+            SetSegmentVisual(arm.UpperSprite, elbow, arm.Pose.UpperAngle, arm.UpperBottom,
+                arm.UpperScale, arm.Pose.UpperLength / arm.UpperLength);
+            Vector3 scale = arm.LoopScale;
+            scale.y *= arm.DeployedLoopScale;
+            arm.LoopSprite.transform.localScale = scale;
+            arm.LoopSprite.transform.localPosition = LoopPositionAtScale(arm, scale);
+            arm.LoopSprite.enabled = arm.DeployedLoopScale > 0f && arm.Pose.LowerLength > 0f;
             arm.HandSprite.enabled = arm.Pose.Hand > 0f;
-            arm.Hand.localRotation = Quaternion.Euler(0f, 0f, arm.Pose.LowerAngle);
-            arm.Hand.localScale = Vector3.one * artworkScale * arm.Pose.Hand;
-            // Source hand art is centred at image Y=35 in the 128-pixel canvas.
-            Vector2 handArtOffset = new Vector2(0f, (63.5f - 35f) / PixelsPerUnit(arm.HandSprite));
-            arm.Hand.localPosition = HandLocal(arm) - Rotate(handArtOffset * artworkScale * arm.Pose.Hand, arm.Pose.LowerAngle);
-            arm.CuffSprite.enabled = arm.Pose.LowerLength > .00001f;
-            float cuffReveal = Mathf.Clamp01(arm.Pose.LowerLength / lowerLength);
-            arm.CuffSprite.transform.localRotation = arm.Hand.localRotation;
-            arm.CuffSprite.transform.localScale = new Vector3(artworkScale * artworkThicknessScale, artworkScale * cuffReveal, 1f);
-            arm.CuffSprite.transform.localPosition = HandLocal(arm)
-                - Direction(arm.Pose.LowerAngle) * (28.5f / PixelsPerUnit(arm.CuffSprite) * artworkScale * cuffReveal);
+            arm.Hand.localRotation = Quaternion.Euler(0f, 0f, arm.Pose.UpperAngle);
+            arm.Hand.localScale = new Vector3(-arm.Side, 1f, 1f) * handScale * arm.Pose.Hand;
+            // Keep the open hand's attachment offset when swapping sprites of different sizes/pivots.
+            arm.Hand.localPosition = HandLocal(arm);// - Direction(arm.Pose.UpperAngle)*SpriteBottom(arm.HandSprite);
+                //- Direction(arm.Pose.UpperAngle) * (arm.HandBottom * handScale * arm.Pose.Hand);
         }
-        private void SetSegmentVisual(SpriteRenderer renderer, Vector2 start, float angle, float length)
+        private static float SpriteBottom(SpriteRenderer renderer) => Mathf.Min(
+            renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
+            renderer.sprite.bounds.max.y * renderer.transform.localScale.y);
+        private static float SpriteTop(SpriteRenderer renderer) => Mathf.Max(
+            renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
+            renderer.sprite.bounds.max.y * renderer.transform.localScale.y);
+        private static Vector3 LoopPositionAtScale(Arm arm, Vector3 scale) =>
+            arm.LoopPosition + arm.LoopRotation * Vector3.Scale(arm.LoopScale - scale, arm.LoopAnchor);
+        private static float LoopTip(Arm arm, float multiplier)
         {
-            renderer.enabled = length > .00001f;
-            float ppu = PixelsPerUnit(renderer);
-            // Preserve the existing Robot_Arm_2 attachment coordinates (image Y 96 to 60).
-            float sourceLength = 36f / ppu;
-            float scaleY = length / sourceLength;
-            renderer.transform.localScale = new Vector3(artworkScale * artworkThicknessScale, scaleY, 1f);
-            renderer.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
-            renderer.transform.localPosition = start + Direction(angle) * (32.5f / ppu * scaleY);
+            Bounds bounds = arm.LoopSprite.sprite.bounds;
+            Vector3 scale = arm.LoopScale;
+            scale.y *= multiplier;
+            Matrix4x4 matrix = Matrix4x4.TRS(LoopPositionAtScale(arm, scale), arm.LoopRotation, scale);
+            float tip = float.NegativeInfinity;
+            for (int x = 0; x < 2; x++)
+                for (int y = 0; y < 2; y++)
+                    tip = Mathf.Max(tip, matrix.MultiplyPoint3x4(new Vector3(
+                        x == 0 ? bounds.min.x : bounds.max.x, y == 0 ? bounds.min.y : bounds.max.y, 0f)).y
+                        * arm.LowerScale.y);
+            return tip;
         }
-        private static float PixelsPerUnit(SpriteRenderer renderer) => renderer.sprite != null ? renderer.sprite.pixelsPerUnit : 100f;
+        private static float LowerLengthAtScale(Arm arm, float multiplier) =>
+            multiplier <= 0f ? arm.LowerBaseLength
+                : Mathf.Max(arm.LowerBaseLength, LoopTip(arm, multiplier) - arm.LowerBottom);
+        private void SetSegmentVisual(SpriteRenderer renderer, Vector2 start, float angle, float bottom,
+            Vector3 targetScale, float growth)
+        {
+            renderer.enabled = growth > 0f;
+            renderer.transform.localScale = targetScale * growth;
+            renderer.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
+            renderer.transform.localPosition = start - Direction(angle) * (bottom * growth);
+        }
         private static Vector2 Direction(float angle) => Rotate(Vector2.up, angle);
         private static Vector2 Rotate(Vector2 vector, float angle)
         {
@@ -721,11 +791,6 @@ namespace AnimalGame.RobotArm
             if (left != null) { left.Pose = default; left.Root.gameObject.SetActive(false); }
             if (right != null) { right.Pose = default; right.Root.gameObject.SetActive(false); }
         }
-        private void OnDestroy()
-        {
-            if (left != null && left.Root != null) Destroy(left.Root.gameObject);
-            if (right != null && right.Root != null) Destroy(right.Root.gameObject);
-        }
         private void OnDrawGizmosSelected()
         {
             if (!initialized || marker == null || marker.MarkerVisualRoot == null) return;
@@ -738,7 +803,7 @@ namespace AnimalGame.RobotArm
         }
         private void DrawArmBoxes(Arm arm)
         {
-            Vector2 elbow = arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength;
+            Vector2 elbow = arm.Socket + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
             DrawBox(arm.Socket, elbow);
             DrawBox(elbow, HandLocal(arm));
         }
@@ -750,6 +815,9 @@ namespace AnimalGame.RobotArm
         }
         private void OnValidate()
         {
+            armScale = Mathf.Max(.01f, armScale);
+            handScale = Mathf.Max(.01f, handScale);
+            lowerArmScale = Mathf.Max(0f, lowerArmScale);
             connectorExtendDuration = Mathf.Max(.01f, connectorExtendDuration); extendDuration = Mathf.Max(.01f, extendDuration);
             handExtendDuration = Mathf.Max(.01f, handExtendDuration); retractDuration = Mathf.Max(.01f, retractDuration);
             recycleDuration = Mathf.Max(.01f, recycleDuration);

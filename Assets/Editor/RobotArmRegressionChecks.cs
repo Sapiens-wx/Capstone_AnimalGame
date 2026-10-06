@@ -17,6 +17,113 @@ namespace AnimalGame.Editor
     public static class RobotArmRegressionChecks
     {
         private static readonly List<string> passed = new();
+        [MenuItem("Animal Game/Validation/Run Arm Scale Checks")]
+        public static void RunArmScaleChecks()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+            foreach (float size in new[] { .5f, 2f })
+                foreach (float loopSize in new[] { 0f, 1f, 8f })
+                {
+                    Scene scene = EditorSceneManager.NewPreviewScene();
+                    try
+                    {
+                        var root = new GameObject("Arm scale regression");
+                        root.SetActive(false);
+                        SceneManager.MoveGameObjectToScene(root, scene);
+                        var arms = root.AddComponent<RobotArmController>();
+                        EditorUtility.CopySerialized(prefab.GetComponent<RobotArmController>(), arms);
+                        Set(arms, "armColor", Color.white);
+                        Transform frame = Object.Instantiate(prefab.transform.Find("Marker Visual Root"), root.transform);
+                        Set(root.GetComponent<RobotMarkerView>(), "markerVisualRoot", frame);
+                        Set(arms, "armScale", size);
+                        Set(arms, "handScale", .37f);
+                        Set(arms, "lowerArmScale", loopSize);
+                        Set(arms, "stepDelta", 1f);
+                        Call(arms, "Awake");
+                        Call(arms, "EnsureVisuals");
+                        float connector = (float)Get(arms, "connectorExtendDuration");
+                        float extension = (float)Get(arms, "extendDuration");
+                        float total = connector + extension + (float)Get(arms, "handExtendDuration");
+                        foreach (string side in new[] { "left", "right" })
+                        {
+                            object arm = Get(arms, side);
+                            var upper = (SpriteRenderer)arm.GetType().GetField("UpperSprite").GetValue(arm);
+                            var lower = (SpriteRenderer)arm.GetType().GetField("LowerSprite").GetValue(arm);
+                            var hand = (SpriteRenderer)arm.GetType().GetField("HandSprite").GetValue(arm);
+                            Transform loop = lower.transform.Find("Loopable");
+                            Bounds loopBounds = loop.GetComponent<SpriteRenderer>().sprite.bounds;
+                            Vector3 anchorPoint = new Vector3(0f, loopBounds.min.y, 0f);
+                            Vector3 anchorBefore = loop.localPosition + loop.localRotation * Vector3.Scale(loop.localScale, anchorPoint);
+                            Vector3 upperTarget = upper.transform.localScale, lowerTarget = lower.transform.localScale;
+                            Transform source = prefab.transform.Find("Marker Visual Root").Find(upper.transform.parent.name);
+                            Vector3 expectedUpper = source.Find("Upper Arm").localScale * size;
+                            Vector3 expectedLower = source.Find("Lower Arm").localScale * size;
+                            float sign = side == "left" ? 1f : -1f;
+                            expectedUpper.x = sign * Mathf.Abs(expectedUpper.x);
+                            expectedLower.x = sign * Mathf.Abs(expectedLower.x);
+                            Require(upperTarget == expectedUpper && lowerTarget == expectedLower,
+                                "Arm Scale did not multiply both authored scales");
+                            // Traverse the same phases forward and backward, including repeated deployment.
+                            foreach (float time in new[] { 0f, connector * .5f, connector,
+                                connector + extension * .5f, total, connector + extension * .5f,
+                                connector, connector * .5f, 0f, total })
+                            {
+                                object pose = typeof(RobotArmController).GetMethod("DesiredPose",
+                                    BindingFlags.NonPublic | BindingFlags.Instance).Invoke(arms, new[] { arm, (object)time });
+                                arm.GetType().GetField("Pose").SetValue(arm, pose);
+                                Set(arms, "deploymentTime", time);
+                                Call(arms, "ApplyVisuals", arm);
+                                Vector3 anchorAfter = loop.localPosition + loop.localRotation * Vector3.Scale(loop.localScale, anchorPoint);
+                                Require(Vector3.Distance(anchorBefore, anchorAfter) < .00001f,
+                                    "Loopable body-side endpoint moved during scaling");
+                                Require(upper.color.a == 1f && lower.color.a == 1f,
+                                    "Deployment faded the arm instead of scaling it");
+                                if (time == 0f)
+                                    Require(upper.transform.localScale == Vector3.zero && lower.transform.localScale == Vector3.zero
+                                        && hand.transform.localScale == Vector3.zero, "Retracted artwork was not zero scale");
+                                if (time == connector * .5f)
+                                    Require(Vector3.Distance(lower.transform.localScale, lowerTarget * .5f) < .00001f
+                                        && upper.transform.localScale == Vector3.zero, "Body-side growth phase failed");
+                                if (time == connector + extension * .5f)
+                                    Require(Vector3.Distance(upper.transform.localScale, upperTarget * .5f) < .00001f
+                                        && lower.transform.localScale == lowerTarget, "Hand-side growth phase failed");
+                                if (time == total)
+                                    Require(upper.transform.localScale == upperTarget && lower.transform.localScale == lowerTarget
+                                        && hand.transform.localScale == new Vector3(sign, 1f, 1f) * .37f,
+                                        "Final arm/hand scales changed or accumulated across deployment");
+                                Vector3 upperTip = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.max.y, 0f));
+                                Vector3 handBase = hand.transform.TransformPoint(new Vector3(0f, hand.sprite.bounds.min.y, 0f));
+                                Require(Vector3.Distance(upperTip, handBase) < .0001f, "Hand detached from Upper Arm");
+                                Vector2 endpoint = side == "left" ? arms.LeftHandWorld : arms.RightHandWorld;
+                                Require(Vector2.Distance(endpoint, upperTip) < .0001f,
+                                    "Interaction endpoint differs from the visible arm tip");
+                            }
+                            Sprite opened = (Sprite)Get(arms, "robotHandOpenSprite");
+                            Sprite closed = (Sprite)Get(arms, "robotHandClosedSprite");
+                            Require(opened != null && closed != null && opened != closed, "Open/closed sprites are not configured");
+                            Vector3 handPosition = hand.transform.localPosition;
+                            Quaternion handRotation = hand.transform.localRotation;
+                            Vector3 handScale = hand.transform.localScale;
+                            foreach (bool grip in new[] { true, true, false, false, true, false })
+                            {
+                                Call(arms, "SetHandGrip", grip);
+                                Require(hand.transform.localPosition == handPosition
+                                    && hand.transform.localRotation == handRotation && hand.transform.localScale == handScale,
+                                    "SetHandGrip changed the hand transform");
+                                Call(arms, "ApplyVisuals", arm);
+                                Require(hand.sprite == (grip ? closed : opened), "Grab/release did not select the correct sprite");
+                                Require(hand.transform.localPosition == handPosition
+                                    && hand.transform.localRotation == handRotation && hand.transform.localScale == handScale,
+                                    "Sprite bounds changed the hand transform on the next visual update");
+                            }
+                        }
+                    }
+                    finally { EditorSceneManager.ClosePreviewScene(scene); }
+                }
+            Debug.Log("Arm scale checks PASS: mirrored scales, anchored Loopable, growth/retraction, hand states and attachment endpoints.");
+        }
+
         [MenuItem("Animal Game/Validation/Run Mechanical Arm Checks")]
         public static void Run()
         {

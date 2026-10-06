@@ -797,16 +797,7 @@ namespace AnimalGame.RobotMap
             if (aimFollowTarget != null)
                 return;
 
-            Transform existing = transform.Find("Photo Aim Camera Target");
-            if (existing != null)
-            {
-                aimFollowTarget = existing;
-                return;
-            }
-
-            var targetObject = new GameObject("Photo Aim Camera Target");
-            aimFollowTarget = targetObject.transform;
-            aimFollowTarget.SetParent(transform, false);
+            aimFollowTarget = transform.Find("Photo Aim Camera Target");
         }
 
         private void UpdateAimFollowTarget()
