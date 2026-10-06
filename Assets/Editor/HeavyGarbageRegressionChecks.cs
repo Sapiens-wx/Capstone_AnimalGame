@@ -830,6 +830,7 @@ namespace AnimalGame.Editor
                 Arms = Robot.AddComponent<RobotArmController>();
                 GameObject visualFrame = NewObject("Marker Visual Root", Vector2.zero);
                 visualFrame.transform.SetParent(Robot.transform, false);
+                RobotArmRegressionChecks.CreateFixtureArtwork(visualFrame.transform);
                 Set(Robot.GetComponent<RobotMarkerView>(), "markerVisualRoot", visualFrame.transform);
                 Call(Arms, "Awake");
                 Call(Arms, "EnsureVisuals");

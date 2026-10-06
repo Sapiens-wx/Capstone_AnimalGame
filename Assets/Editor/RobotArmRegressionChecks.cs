@@ -501,7 +501,8 @@ namespace AnimalGame.Editor
                     .InverseTransformPoint(item.WorldPosition);
                 Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
                     && Vector2.Distance(actual, inlet) < .003f,
-                    "Raw side drift prevented garbage from automatically reaching the fixed inlet");
+                    "Raw side drift prevented garbage from automatically reaching the fixed inlet: actual=" + actual
+                    + ", inlet=" + inlet + ", ready=" + f.Arms.IsRecycleReady + ", medium=" + medium);
                 Require(Mathf.Approximately(f.Arms.CurrentInputMagnitude, drift)
                     && f.Arms.CurrentTargetLocal == stick,
                     "Automatic docking rescaled or erased raw input used by other control states");
@@ -1323,6 +1324,44 @@ namespace AnimalGame.Editor
         private static void Call(object target, string name, params object[] args) =>
             target.GetType().GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance).Invoke(target, args);
 
+        private static Sprite fixtureArmSprite;
+        internal static void CreateFixtureArtwork(Transform frame, bool production = false)
+        {
+            // Runtime arm binding now requires the authored hierarchy. Keep the
+            // geometry fixture independent of production artwork/import settings.
+            if (production)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+                foreach (Transform child in prefab.GetComponentsInChildren<Transform>(true))
+                    if (child.name == "Left Mechanical Arm" || child.name == "Right Mechanical Arm")
+                    {
+                        Transform copy = Object.Instantiate(child, frame, false);
+                        copy.name = child.name;
+                    }
+                return;
+            }
+            if (fixtureArmSprite == null)
+            {
+                Texture2D texture = Texture2D.whiteTexture;
+                fixtureArmSprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
+                    new Vector2(.5f, 0f), texture.height);
+                fixtureArmSprite.hideFlags = HideFlags.HideAndDontSave;
+            }
+            foreach (string side in new[] { "Left Mechanical Arm", "Right Mechanical Arm" })
+            {
+                var root = new GameObject(side); root.transform.SetParent(frame, false);
+                foreach (string name in new[] { "Upper Arm", "Lower Arm", "Mechanical Hand" })
+                {
+                    var part = new GameObject(name); part.transform.SetParent(root.transform, false);
+                    part.AddComponent<SpriteRenderer>().sprite = fixtureArmSprite;
+                    part.transform.localScale = new Vector3(.1f, 1f, 1f);
+                    if (name != "Lower Arm") continue;
+                    var loop = new GameObject("Loopable"); loop.transform.SetParent(part.transform, false);
+                    loop.AddComponent<SpriteRenderer>().sprite = fixtureArmSprite;
+                }
+            }
+        }
+
         private sealed class Fixture : IDisposable
         {
             public Scene Scene { get; }
@@ -1346,6 +1385,7 @@ namespace AnimalGame.Editor
                     EditorUtility.CopySerialized(prefab.GetComponent<RobotMover>(), Root.GetComponent<RobotMover>());
                 }
                 var visual = new GameObject("Marker Visual Root"); visual.transform.SetParent(Root.transform, false);
+                CreateFixtureArtwork(visual.transform, useProductionSettings);
                 Set(marker, "markerVisualRoot", visual.transform);
                 Call(Arms, "Awake"); Call(Arms, "EnsureVisuals");
             }

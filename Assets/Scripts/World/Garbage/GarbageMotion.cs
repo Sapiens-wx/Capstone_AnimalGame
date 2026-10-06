@@ -20,6 +20,7 @@ namespace AnimalGame.Garbage
         private Vector2 velocity;
         private Vector2 slideAcceleration;
         private Vector2 pendingPush;
+        private int immediatePushFrame = -1;
         private float drag = 4f;
         private float maximumSpeed = 8f;
         private readonly List<GarbageMotion> separationSiblings = new();
@@ -29,7 +30,7 @@ namespace AnimalGame.Garbage
         public bool WasBlocked { get; private set; }
 
         private void Awake() => item = GetComponent<WorldInteraction>();
-        private void OnEnable() { ClearFragmentSeparation(); velocity = Vector2.zero; slideAcceleration = Vector2.zero; pendingPush = Vector2.zero; WasBlocked = false; }
+        private void OnEnable() { ClearFragmentSeparation(); velocity = Vector2.zero; slideAcceleration = Vector2.zero; pendingPush = Vector2.zero; immediatePushFrame = -1; WasBlocked = false; }
         private void OnDisable() { Stop(); pendingPush = Vector2.zero; }
 
         public void Initialize(MapTestSceneController sceneMap, RobotMover scenePlayer)
@@ -73,7 +74,7 @@ namespace AnimalGame.Garbage
         {
             ClearFragmentSeparation();
             if (item == null) item = GetComponent<WorldInteraction>();
-            if (siblings == null || item == null || item.Owner != null
+            if (siblings == null || item == null || item.MotionOwner != null
                 || !isActiveAndEnabled || float.IsNaN(maximumDuration)
                 || float.IsInfinity(maximumDuration) || maximumDuration <= 0f)
                 return;
@@ -92,8 +93,8 @@ namespace AnimalGame.Garbage
         {
             return sibling != null && sibling.isActiveAndEnabled && sibling.item != null
                    && sibling.gameObject.scene == gameObject.scene
-                   && sibling.item.Available && sibling.item.Owner == null && item != null
-                   && item.Available && item.Owner == null
+                   && sibling.item.Available && sibling.item.MotionOwner == null && item != null
+                   && item.Available && item.MotionOwner == null
                    && WorldInteractionQuery.Penetration(item.GetShape(map), sibling.item.GetShape(map)) >= 0f;
         }
 
@@ -133,21 +134,31 @@ namespace AnimalGame.Garbage
 
         public void ApplyExternalPush(Vector2 displacement)
         {
-            if (item == null || item.Owner != null) return;
+            if (item == null || item.MotionOwner != null) return;
             Stop();
             pendingPush += displacement;
+        }
+
+        // The shared collision transaction commits the root immediately. Suppress
+        // autonomous motion for this frame, and never replay this displacement later.
+        public void PrepareImmediatePush()
+        {
+            Stop();
+            pendingPush = Vector2.zero;
+            immediatePushFrame = Time.frameCount;
         }
 
         private void Update() => Step(Time.deltaTime);
 
         private void Step(float deltaTime)
         {
-            if (item == null || item.Owner != null)
+            if (item == null || item.MotionOwner != null)
             {
                 Stop();
                 pendingPush = Vector2.zero;
                 return;
             }
+            if (immediatePushFrame == Time.frameCount) return;
             if (pendingPush.sqrMagnitude > 0f)
             {
                 item.WorldPosition += (Vector3)pendingPush;

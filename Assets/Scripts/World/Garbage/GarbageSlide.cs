@@ -46,7 +46,7 @@ namespace AnimalGame.Garbage
         private void Update()
         {
             if (broken || map == null || !map.HasGeneratedMap) return;
-            if (item.Owner != null)
+            if (item.MotionOwner != null)
             {
                 ResetSlide();
                 return;

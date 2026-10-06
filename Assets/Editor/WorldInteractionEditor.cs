@@ -64,6 +64,7 @@ namespace AnimalGame.Editor
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("localSize"));
                 }
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("localCenter"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("motionRoot"));
                 var kind = serializedObject.FindProperty("kind");
                 if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Pushable) != 0)
                 {
