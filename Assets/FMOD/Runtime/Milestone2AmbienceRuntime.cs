@@ -12,7 +12,7 @@ namespace Capstone.Audio
         public const string SourceRelativePath = "FMOD/SourceAudio/Milestone2/NatureAmbience";
         public const string StreamingRelativePath = "Milestone2/NatureAmbience";
 
-        [SerializeField, Range(0f, 1f)] private float volume = 0.35f;
+        [SerializeField, Range(0f, 1f)] private float volume = 1f;
 
         private static Milestone2AmbienceRuntime instance;
         private FMOD.Sound sound;

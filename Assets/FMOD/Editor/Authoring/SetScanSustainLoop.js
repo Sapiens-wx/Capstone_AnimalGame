@@ -18,18 +18,24 @@
     if (loops.length !== 1) {
         throw new Error("Expected exactly one existing scan sustain loop.");
     }
-    loops[0].position = 0.79;
-    loops[0].length = 0.88 - 0.79;
+    var loopStart = 0.71;
+    var loopEnd = 0.85;
+    loops[0].position = loopStart;
+    loops[0].length = loopEnd - loopStart;
 
     // A transition overlaps the outgoing tail with the next loop's first 10 ms.
-    // The destination advances during the overlap, preserving the 90 ms period.
+    // The destination advances during the overlap, preserving the 140 ms period.
     var crossfadeSeconds = 0.01;
     var sounds = event.timeline.modules.filter(function (module) {
         return module.isOfExactType("SingleSound");
     });
-    if (sounds.length !== 1 || sounds[0].isAsync || sounds[0].length < 0.88 + crossfadeSeconds) {
+    if (sounds.length !== 1 || sounds[0].isAsync || !sounds[0].audioFile
+        || sounds[0].audioFile.length < loopEnd + crossfadeSeconds) {
         throw new Error("Expected the original synchronous charge instrument with its untrimmed tail.");
     }
+    // Replacing the source can change its duration. Keep the existing instrument
+    // and GUID, while matching its length to the newly imported complete file.
+    sounds[0].length = sounds[0].audioFile.length;
     var transition = loops[0].transitionTimeline;
     if (!transition) {
         transition = studio.project.create("TransitionTimeline");

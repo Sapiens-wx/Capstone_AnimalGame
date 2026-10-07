@@ -16,6 +16,9 @@ BANKS = PROJECT / "Build/Desktop"
 OUTPUT = REPO / "Library/FMODValidation/OfflineAudio"
 OUTPUT.mkdir(parents=True, exist_ok=True)
 SOURCE = REPO / "FMOD/SourceAudio/Milestone1"
+CHARGE_LOOP_START = .71
+CHARGE_LOOP_END = .85
+CHARGE_LOOP_PERIOD = CHARGE_LOOP_END - CHARGE_LOOP_START
 
 
 def digest(path):
@@ -152,7 +155,7 @@ def render(event_path, seconds, volume=1.0, count=1, suffix="", interval=0):
     wraps = [i for i in range(1, len(positions)) if positions[i - 1] - positions[i] > 50]
     # Ignore the first traversal, which includes the non-looping charge attack.
     wrap_periods = np.diff(wraps[-10:]) * 256 / 48000
-    period_samples = round(.09 * rate)
+    period_samples = round(CHARGE_LOOP_PERIOD * rate)
     repeated = signal[rate + period_samples:3 * rate + period_samples]
     period_error = float(np.sqrt(np.mean((steady - repeated) ** 2)))
     expected_period_is_best = all(
@@ -168,8 +171,9 @@ def render(event_path, seconds, volume=1.0, count=1, suffix="", interval=0):
                 last_second_real_channels_min=min(real_channels[-188:]),
                 last_second_real_channels_max=max(real_channels[-188:]),
                 wrap_periods_seconds=wrap_periods.tolist(),
-                repeat_90ms_rms_error=period_error,
-                repeat_90ms_is_best_local_match=expected_period_is_best,
+                steady_rms=float(np.sqrt(np.mean(steady * steady))),
+                repeat_loop_rms_error=period_error,
+                repeat_loop_is_best_local_match=expected_period_is_best,
                 largest_derivative_times=sorted([(int(i) + rate) / rate for i in top]),
                 output=str(output_file), **levels(signal, rate))
 
@@ -188,7 +192,7 @@ for path in SOURCE.rglob("*.wav"):
     signal, rate = samples(path)
     info = levels(signal, rate)
     if path.name == "Scan_Charge.wav":
-        a, b = round(.79 * rate), round(.88 * rate)
+        a, b = round(CHARGE_LOOP_START * rate), round(CHARGE_LOOP_END * rate)
         region = signal[a:b]
         info["loop_join_jump"] = float(np.max(np.abs(signal[a] - signal[b - 1])))
         info["loop_rms"] = float(np.sqrt(np.mean(region * region)))
@@ -204,14 +208,15 @@ report["source_sha256"] = before
 for result in report["renders"]:
     assert result["pcm16_limit_samples"] == 0, ("Clipped render", result["output"])
 charge = report["renders"][0]
-assert 790 <= charge["last_second_timeline_min"] <= charge["last_second_timeline_max"] <= 880
+assert round(CHARGE_LOOP_START * 1000) <= charge["last_second_timeline_min"] <= charge["last_second_timeline_max"] <= round(CHARGE_LOOP_END * 1000)
 # FMOD retains short internal ramp/tail channels around each transition;
 # these Core counts include those channels, not just the two audible proxies.
 assert 2 <= charge["last_second_real_channels_max"] <= 3, "Unexpected scan transition voice count"
 assert charge["last_second_real_channels_min"] >= 1, "Scan loop must not leave a gap"
 assert len(charge["wrap_periods_seconds"]) >= 8, "Too few scan loops to verify the period"
-assert all(abs(period - .09) < 256 / 48000 + 1e-6 for period in charge["wrap_periods_seconds"])
-assert charge["repeat_90ms_is_best_local_match"], "Scan sustain period changed"
-assert charge["repeat_90ms_rms_error"] < charge["rms"] * .1, "Scan sustain is unstable"
+assert all(abs(period - CHARGE_LOOP_PERIOD) < 256 / 48000 + 1e-6 for period in charge["wrap_periods_seconds"])
+assert charge["repeat_loop_is_best_local_match"], "Scan sustain period changed"
+# Compare like windows: the full render includes the attack and stopped tail.
+assert charge["repeat_loop_rms_error"] < charge["steady_rms"] * .1, "Scan sustain is unstable"
 assert not charge["one_shot"] and report["renders"][1]["one_shot"] and not report["renders"][2]["one_shot"]
 print(json.dumps(report, indent=2))

@@ -16,7 +16,7 @@
     var workspace = studio.project.workspace;
     var projectPath = String(studio.project.filePath).replace(/\\/g, "/");
     var definitions = [
-        { path: "event:/Robot/Scan/Charge", file: "Scan/Scan_Charge.wav", loopStart: 0.79, loopEnd: 0.88 },
+        { path: "event:/Robot/Scan/Charge", file: "Scan/Scan_Charge.wav", loopStart: 0.71, loopEnd: 0.85 },
         { path: "event:/Robot/Scan/Pulse", file: "Scan/Scan_Pulse.wav" },
         { path: "event:/Robot/Camera/Open", file: "Camera/Camera_Open.wav" },
         { path: "event:/Robot/Camera/Close", file: "Camera/Camera_Close.wav" },
