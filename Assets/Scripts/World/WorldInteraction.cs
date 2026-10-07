@@ -25,6 +25,8 @@ namespace AnimalGame.World
         private static readonly HashSet<WorldInteraction> active = new();
         public static IEnumerable<WorldInteraction> Active => active;
         private static readonly List<WorldInteraction> hierarchyItems = new();
+        private static readonly List<WorldInteraction> rootItems = new();
+        private static readonly List<WorldInteraction> ownerItems = new();
         // SPATIAL INDEX: kind, box, sprite, localCenter and localSize affect the cache. Use the
         // public setters at runtime; direct/serialized writes require MarkSpatialDirty().
         [SerializeField] private WorldInteractionKind kind = WorldInteractionKind.Collision;
@@ -72,6 +74,24 @@ namespace AnimalGame.World
         [SerializeField, Range(0f, 1f)] private float pushSpeedMultiplier = .6f;
         [Tooltip("Speed loss while this object is held; independent of body pushing.")]
         [SerializeField, Range(0f, 1f)] private float grabResistance;
+        [Tooltip("Optional movable ancestor for split grab/solid components. Otherwise the nearest grabbable ancestor, or this Transform, moves as one prop. Never assign a scene/container root.")]
+        [SerializeField] private Transform motionRoot;
+        public Transform MotionRoot
+        {
+            get
+            {
+                if (motionRoot != null && transform.IsChildOf(motionRoot)) return motionRoot;
+                for (Transform parent = transform.parent; parent != null; parent = parent.parent)
+                {
+                    parent.GetComponents(rootItems);
+                    foreach (WorldInteraction interaction in rootItems)
+                        if ((interaction.Kind & WorldInteractionKind.Grabbable) != 0)
+                            return interaction.motionRoot != null && parent.IsChildOf(interaction.motionRoot)
+                                ? interaction.motionRoot : parent;
+                }
+                return transform;
+            }
+        }
         private System.Action onGrabbed;
         private System.Action onReleased;
         private System.Action onRecycled;
@@ -157,6 +177,17 @@ namespace AnimalGame.World
         public float PushSpeedMultiplier => Mathf.Clamp01(pushSpeedMultiplier);
         public float GrabResistance => Mathf.Clamp01(grabResistance);
         public Object Owner { get; private set; }
+        public Object MotionOwner
+        {
+            get
+            {
+                Transform root = MotionRoot;
+                root.GetComponentsInChildren(false, ownerItems);
+                foreach (WorldInteraction item in ownerItems)
+                    if (item.Owner != null && item.MotionRoot == root) return item.Owner;
+                return null;
+            }
+        }
         public virtual bool Available => isActiveAndEnabled && gameObject.activeInHierarchy;
 
         protected virtual void OnEnable()
@@ -190,9 +221,44 @@ namespace AnimalGame.World
             return InteractionShape.Box(transform, localCenter, localSize, map);
         }
 
+        public virtual InteractionShape GetShapeAfterMotion(Matrix4x4 worldDelta, MapTestSceneController map)
+        {
+            InteractionShape current = GetShape(map);
+            if (box != null && !box.transform.IsChildOf(MotionRoot)) return current;
+            if (box == null && sprite != null && !sprite.transform.IsChildOf(MotionRoot)) return current;
+            if ((Kind & WorldInteractionKind.Climbable) != 0)
+            {
+                Vector3 centerWorld = worldDelta.MultiplyPoint3x4(transform.TransformPoint(localCenter));
+                Vector2 center = InteractionShape.ToQuery(centerWorld, map);
+                Vector2 right = InteractionShape.ToQuery(worldDelta.MultiplyPoint3x4(
+                    transform.TransformPoint(localCenter + Vector2.right)), map) - center;
+                Vector2 up = InteractionShape.ToQuery(worldDelta.MultiplyPoint3x4(
+                    transform.TransformPoint(localCenter + Vector2.up)), map) - center;
+                return InteractionShape.Capsule(center, center, ClimbableRadius * Mathf.Max(right.magnitude, up.magnitude));
+            }
+            // GetShape uses world-aligned renderer bounds. Predict those bounds from
+            // the renderer's local bounds, not by rotating its already expanded AABB.
+            if (box == null && sprite != null)
+            {
+                Bounds bounds = sprite.localBounds;
+                Matrix4x4 matrix = worldDelta * sprite.transform.localToWorldMatrix;
+                Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+                Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+                for (int i = 0; i < 4; i++)
+                {
+                    Vector3 corner = bounds.center + new Vector3((i & 1) == 0 ? -bounds.extents.x : bounds.extents.x,
+                        (i & 2) == 0 ? -bounds.extents.y : bounds.extents.y, 0f);
+                    Vector2 point = matrix.MultiplyPoint3x4(corner);
+                    min = Vector2.Min(min, point); max = Vector2.Max(max, point);
+                }
+                return InteractionShape.WorldBox((min + max) * .5f, max - min, map);
+            }
+            return InteractionPushPlan.TransformShape(current, worldDelta, map);
+        }
+
         public virtual bool TryGrab(Object owner)
         {
-            if (!Available || (Kind & WorldInteractionKind.Grabbable) == 0 || Owner != null) return false;
+            if (!Available || (Kind & WorldInteractionKind.Grabbable) == 0 || MotionOwner != null) return false;
             Owner = owner;
             onGrabbed?.Invoke();
             return Owner == owner && Available;

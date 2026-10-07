@@ -33,6 +33,8 @@ namespace AnimalGame.RobotArm
         [SerializeField, Range(0f, 1.2f)] private float socketRadiusOfBody = .88f;
         [Tooltip("Deployed Y scale multiplier of Lower Arm/Loopable. The body-side end stays at its authored attachment while the other end extends forward.")]
         [SerializeField, Min(0f)] private float lowerArmScale = 1f;
+        [Tooltip("Forearm pivot offset from the body-side arm's tip, in its unscaled artwork-local coordinates. X is mirrored between arms; the offset follows Arm Scale and is cached when created.")]
+        [SerializeField] private Vector2 forearmAnchorOffset = Vector2.zero;
         [SerializeField, Range(.05f, 1f)] private float staticArmLengthPercent = .4f;
         [Tooltip("Total distance between hands, measured along robot-local X in body diameters.")]
         [SerializeField, Min(0f)] private float handSpacingOfBodyDiameter = .28f;
@@ -95,10 +97,19 @@ namespace AnimalGame.RobotArm
         private Vector2 heldOffset;
         private Quaternion heldRotation;
         private Vector3 recycleStart;
+        private Vector3 recycleSafePosition;
+        private Quaternion recycleSafeRotation;
         private Vector3 recycleStartScale, recyclePosition;
         private Vector2 recycleHandStart;
         private readonly List<WorldInteraction> leftHits = new();
         private readonly List<WorldInteraction> rightHits = new();
+        private readonly List<WorldInteraction> heldSolids = new();
+        private readonly InteractionPushPlan contactPlan = new();
+        private Vector2? desiredGripOffset;
+        public Transform HeldMotionRoot => heldObject != null ? heldObject.MotionRoot : null;
+        private bool FollowsHands => heldObject != null && heldObject.Available && heldObject.Owner == this
+            && State != RobotArmState.Recycling && mover.GrabMovementMultiplier > 0f
+            && !heldObject.TryGetComponent<HeavyGarbagePull>(out _);
         private float TotalDeploymentTime => connectorExtendDuration + extendDuration + handExtendDuration;
         private bool Upright => tumble == null || tumble.State == RobotTumbleState.Upright;
         private bool CanOperate => (photoMode == null || !photoMode.IsActive)
@@ -130,6 +141,7 @@ namespace AnimalGame.RobotArm
             public Sprite OpenHandSprite;
             public float HandBottom;
             public float UpperLength, LowerLength, LowerBaseLength, UpperBottom, LowerBottom, DeployedLoopScale;
+            public float LowerAnchorAngle;
             public RobotHandAnimation Animation;
         }
 
@@ -215,6 +227,7 @@ namespace AnimalGame.RobotArm
             if (armHeld && State != RobotArmState.Recycling) TurnBodyForLocalInput();
             if (State != RobotArmState.Recycling)
             {
+                desiredGripOffset = null;
                 UpdateTarget();
                 AdvanceArms(armHeld);
             }
@@ -241,10 +254,11 @@ namespace AnimalGame.RobotArm
         {
             if (!initialized) return;
             // RobotMover runs after this controller. Check its translation AND rotation before rendering.
-            if (Upright && deploymentTime > 0f)
+            if (Upright && deploymentTime > 0f &&
+                (transform.position != framePosition || Quaternion.Angle(transform.rotation, frameRotation) > .00001f))
                 ConstrainBodyPose(framePosition, frameRotation, transform.position, transform.rotation);
             if (State == RobotArmState.Recycling && heldObject != null)
-                heldObject.WorldPosition = marker.MarkerVisualRoot.TransformPoint(recyclePosition);
+                SetHeldRootPosition(marker.MarkerVisualRoot.TransformPoint(recyclePosition));
             FollowHeldObject();
             UpdateReady();
         }
@@ -311,7 +325,7 @@ namespace AnimalGame.RobotArm
             {
                 // The whole inner circle means "bring it to the inlet", regardless of stick drift/direction.
                 AlignDockGrip();
-                desired = DockLocal - heldOffset - AnchorOffset();
+                desired = DockLocal - (desiredGripOffset ?? heldOffset) - AnchorOffset();
             }
             float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
             targetLocal = Vector2.Lerp(targetLocal, desired, blend);
@@ -331,7 +345,7 @@ namespace AnimalGame.RobotArm
                 if (CommonTargetReachable(centred - heldOffset * t)) low = t; else high = t;
             }
             float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
-            heldOffset = Vector2.Lerp(heldOffset, heldOffset * low, blend);
+            desiredGripOffset = Vector2.Lerp(heldOffset, heldOffset * low, blend);
         }
         private bool CommonTargetReachable(Vector2 target)
         {
@@ -362,14 +376,31 @@ namespace AnimalGame.RobotArm
                 : Mathf.Max(0f, deploymentTime - stepDelta * TotalDeploymentTime / retractDuration);
             Pose lp = DesiredPose(left, next), rp = DesiredPose(right, next);
             Pose oldL = left.Pose, oldR = right.Pose;
-            int steps = MotionSteps(oldL, lp, oldR, rp);
+            Vector2 oldOffset = heldOffset, nextOffset = desiredGripOffset ?? heldOffset;
+            int steps = Mathf.Max(MotionSteps(oldL, lp, oldR, rp),
+                Mathf.CeilToInt((PoseTravel(oldL, lp) + PoseTravel(oldR, rp) + (nextOffset - oldOffset).magnitude) / .005f));
+            steps = Mathf.Clamp(steps, 1, 4096);
             float accepted = 0f;
             for (int i = 1; i <= steps; i++)
             {
-                float t = i / (float)steps;
+                float t = accepted + 1f / steps;
                 Pose nextL = Pose.Lerp(oldL, lp, t), nextR = Pose.Lerp(oldR, rp, t);
-                if (PoseBlocked(left, left.Pose, nextL) || PoseBlocked(right, right.Pose, nextR)) { IsBlocked = true; break; }
+                Vector2 offset = Vector2.Lerp(oldOffset, nextOffset, t);
+                BuildArmPlan(nextL, nextR, offset);
+                bool legal = contactPlan.Evaluate();
+                float multiplier = contactPlan.SpeedMultiplier;
+                if (multiplier < 1f)
+                {
+                    t = accepted + multiplier / steps;
+                    nextL = Pose.Lerp(oldL, lp, t); nextR = Pose.Lerp(oldR, rp, t);
+                    offset = Vector2.Lerp(oldOffset, nextOffset, t);
+                    BuildArmPlan(nextL, nextR, offset);
+                    legal = contactPlan.Evaluate();
+                }
+                if (!legal || multiplier <= 0f || !contactPlan.Commit()) { IsBlocked = true; break; }
                 left.Pose = nextL; right.Pose = nextR; accepted = t;
+                heldOffset = offset;
+                FollowHeldObject();
             }
             deploymentTime = Mathf.Lerp(deploymentTime, next, accepted);
             if (extending && HandsReady && State == RobotArmState.Extending) UpdateDockState();
@@ -448,21 +479,133 @@ namespace AnimalGame.RobotArm
             float scale = Mathf.Max(.0001f, marker.MarkerVisualRoot.lossyScale.x);
             float distance = Vector3.Distance(start, end) / scale
                 + Quaternion.Angle(rotation, endRotation) * Mathf.Deg2Rad * (diameter + upperLength + lowerLength);
-            int steps = Mathf.Max(1, Mathf.CeilToInt(distance / Mathf.Max(.0001f, armWidth * .2f)));
-            transform.SetPositionAndRotation(start, rotation);
-            for (int i = 1; i <= steps; i++)
+            // A held prop can extend far beyond the hands. Its radius participates in
+            // the angular subdivision, independently of the arm's visual width.
+            float heldRadius = 0f;
+            if (FollowsHands)
             {
-                InteractionShape l0 = SegmentShape(left, left.Pose, 0), l1 = SegmentShape(left, left.Pose, 1);
-                InteractionShape r0 = SegmentShape(right, right.Pose, 0), r1 = SegmentShape(right, right.Pose, 1);
-                Vector3 safePosition = transform.position; Quaternion safeRotation = transform.rotation;
-                float t = i / (float)steps;
-                transform.SetPositionAndRotation(Vector3.Lerp(start, end, t), Quaternion.Slerp(rotation, endRotation, t));
-                if (BodySegmentBlocked(left, 0, l0) || BodySegmentBlocked(left, 1, l1)
-                    || BodySegmentBlocked(right, 0, r0) || BodySegmentBlocked(right, 1, r1))
+                HeldMotionRoot.GetComponentsInChildren(false, heldSolids);
+                foreach (WorldInteraction part in heldSolids)
                 {
-                    transform.SetPositionAndRotation(safePosition, safeRotation); IsBlocked = true; break;
+                    if (!part.Available || (part.Kind & InteractionPushPlan.Solids) == 0) continue;
+                    InteractionShape shape = part.GetShape(map);
+                    Vector2 pivot = InteractionShape.ToQuery(start, map);
+                    for (int j = 0; j < (shape.IsBox ? 4 : 2); j++)
+                        heldRadius = Mathf.Max(heldRadius, Vector2.Distance(shape.Vertex(j), pivot) + shape.Radius);
                 }
             }
+            int steps = Mathf.Clamp(Mathf.CeilToInt((distance + Quaternion.Angle(rotation, endRotation)
+                * Mathf.Deg2Rad * heldRadius) / .005f), 1, 8192);
+            transform.SetPositionAndRotation(start, rotation);
+            float accepted = 0f;
+            for (int i = 1; i <= steps; i++)
+            {
+                float t = accepted + 1f / steps;
+                Vector3 position = Vector3.Lerp(start, end, t);
+                Quaternion heading = Quaternion.Slerp(rotation, endRotation, t);
+                BuildBodyPlan(position, heading);
+                bool legal = contactPlan.Evaluate();
+                float multiplier = contactPlan.SpeedMultiplier;
+                if (multiplier < 1f)
+                {
+                    t = accepted + multiplier / steps;
+                    position = Vector3.Lerp(start, end, t); heading = Quaternion.Slerp(rotation, endRotation, t);
+                    BuildBodyPlan(position, heading); legal = contactPlan.Evaluate();
+                }
+                if (!legal || multiplier <= 0f || !contactPlan.Commit()) { IsBlocked = true; break; }
+                transform.SetPositionAndRotation(position, heading);
+                FollowHeldObject(); accepted = t;
+            }
+            ConfirmBodyMotion();
+        }
+
+        public void ConstrainBodyRotation(Quaternion rotation) =>
+            ConstrainBodyPose(transform.position, transform.rotation, transform.position, rotation);
+
+        public void ConfirmBodyMotion()
+        {
+            FollowHeldObject();
+            framePosition = transform.position; frameRotation = transform.rotation;
+        }
+
+        public void ReportBodyBlocked() => IsBlocked = true;
+
+        private Matrix4x4 FrameAt(Vector3 position, Quaternion rotation) =>
+            Matrix4x4.TRS(position, rotation, Vector3.one)
+            * Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one).inverse
+            * marker.MarkerVisualRoot.localToWorldMatrix;
+
+        private InteractionShape SegmentAt(Arm arm, Pose pose, int segment, Matrix4x4 frame)
+        {
+            Vector2 elbow = arm.Socket + Direction(pose.LowerAngle) * pose.LowerLength;
+            Vector2 a = segment == 0 ? arm.Socket : elbow;
+            Vector2 b = segment == 0 ? elbow : elbow + Direction(pose.UpperAngle) * pose.UpperLength;
+            float growth = segment == 0 ? pose.LowerLength / arm.LowerLength : pose.UpperLength / arm.UpperLength;
+            Vector2 normal = new Vector2(-(b - a).y, (b - a).x).normalized * armWidth * growth * .5f;
+            return new InteractionShape { IsBox = true,
+                A = InteractionShape.ToQuery(frame.MultiplyPoint3x4(a - normal), map),
+                B = InteractionShape.ToQuery(frame.MultiplyPoint3x4(b - normal), map),
+                C = InteractionShape.ToQuery(frame.MultiplyPoint3x4(b + normal), map),
+                D = InteractionShape.ToQuery(frame.MultiplyPoint3x4(a + normal), map) };
+        }
+
+        private void AddArmMotion(InteractionPushPlan plan, Arm arm, Pose after, Matrix4x4 frame)
+        {
+            for (int segment = 0; segment < 2; segment++)
+            {
+                if ((segment == 0 ? after.LowerLength : after.UpperLength) < .00001f) continue;
+                plan.Add(SegmentShape(arm, arm.Pose, segment), SegmentAt(arm, after, segment, frame),
+                    false, WorldInteractionKind.Collision);
+            }
+        }
+
+        private Vector3 HeldPosition(Pose lp, Pose rp, Matrix4x4 frame, Vector2 offset)
+        {
+            Vector2 l = HandPoint(left, lp), r = HandPoint(right, rp);
+            Vector2 anchor = heldHands == 3 ? (l + r) * .5f : heldHands == 1 ? l : r;
+            Vector3 position = frame.MultiplyPoint3x4(anchor + offset);
+            position.z = HeldMotionRoot.position.z;
+            return position;
+        }
+        private static Vector2 HandPoint(Arm arm, Pose pose) => arm.Socket
+            + Direction(pose.UpperAngle) * pose.UpperLength + Direction(pose.LowerAngle) * pose.LowerLength;
+
+        private void AddHeldMotion(InteractionPushPlan plan, Pose lp, Pose rp, Matrix4x4 frame,
+            Quaternion heading, Vector2 offset)
+        {
+            if (!FollowsHands) return;
+            Transform root = HeldMotionRoot;
+            Matrix4x4 delta = Matrix4x4.TRS(HeldPosition(lp, rp, frame, offset), heading * heldRotation, Vector3.one)
+                * Matrix4x4.TRS(root.position, root.rotation, Vector3.one).inverse;
+            root.GetComponentsInChildren(false, heldSolids);
+            foreach (WorldInteraction part in heldSolids)
+                if (part.Available && (part.Kind & InteractionPushPlan.Solids) != 0)
+                    plan.Add(part.GetShape(map), part.GetShapeAfterMotion(delta, map), true);
+        }
+
+        private void BuildArmPlan(Pose lp, Pose rp, Vector2 offset)
+        {
+            contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot);
+            mover.AppendBodyShape(contactPlan, transform.position, transform.position, map);
+            Matrix4x4 frame = marker.MarkerVisualRoot.localToWorldMatrix;
+            AddArmMotion(contactPlan, left, lp, frame); AddArmMotion(contactPlan, right, rp, frame);
+            AddHeldMotion(contactPlan, lp, rp, frame, transform.rotation, offset);
+        }
+
+        private void BuildBodyPlan(Vector3 position, Quaternion rotation)
+        {
+            contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot);
+            mover.AppendBodyShape(contactPlan, transform.position, position, map);
+            AppendBodyMotion(contactPlan, position, rotation);
+        }
+
+        // Called by RobotMover BEFORE its terrain/contact bookkeeping is committed.
+        public void AppendBodyMotion(InteractionPushPlan plan, Vector3 position, Quaternion rotation)
+        {
+            if (!initialized || deploymentTime <= 0f || !Upright) return;
+            Matrix4x4 frame = FrameAt(position, rotation);
+            AddArmMotion(plan, left, left.Pose, frame); AddArmMotion(plan, right, right.Pose, frame);
+            AddHeldMotion(plan, left.Pose, right.Pose, frame, rotation, heldOffset);
         }
         private bool BodySegmentBlocked(Arm arm, int segment, InteractionShape previous)
         {
@@ -501,8 +644,8 @@ namespace AnimalGame.RobotArm
             }
             heldObject = best; heldHands = mask;
             mover.SetGrabResistance(best.GrabResistance);
-            heldOffset = marker.MarkerVisualRoot.InverseTransformVector(best.transform.position - (Vector3)HeldAnchor());
-            heldRotation = Quaternion.Inverse(transform.rotation) * best.transform.rotation;
+            heldOffset = marker.MarkerVisualRoot.InverseTransformVector(HeldMotionRoot.position - (Vector3)HeldAnchor());
+            heldRotation = Quaternion.Inverse(transform.rotation) * HeldMotionRoot.rotation;
             SetHandGrip(true);
             PlayGarbageGrabFeedback(best);
         }
@@ -538,13 +681,11 @@ namespace AnimalGame.RobotArm
             : HandWorld(heldHands == 1 ? left : right);
         private void FollowHeldObject()
         {
-            if (heldObject == null || State == RobotArmState.Recycling) return;
-            // Heavy garbage stays fixed. Only its visual grip region follows the hands.
-            if (heldObject.TryGetComponent<HeavyGarbagePull>(out _)) return;
-            if (mover.GrabMovementMultiplier <= 0f) return;
+            if (!FollowsHands) return;
             Vector3 position = (Vector3)HeldAnchor() + marker.MarkerVisualRoot.TransformVector(heldOffset);
-            position.z = heldObject.transform.position.z;
-            heldObject.SetWorldPositionAndRotation(position, transform.rotation * heldRotation);
+            position.z = HeldMotionRoot.position.z;
+            HeldMotionRoot.SetPositionAndRotation(position, transform.rotation * heldRotation);
+            WorldInteraction.MarkHierarchySpatialDirty(HeldMotionRoot);
         }
 
         public bool TryReplaceHeldObject(WorldInteraction oldItem, WorldInteraction replacement)
@@ -560,8 +701,8 @@ namespace AnimalGame.RobotArm
             }
             heldObject = replacement;
             heldOffset = marker.MarkerVisualRoot.InverseTransformVector(
-                replacement.transform.position - (Vector3)HeldAnchor());
-            heldRotation = Quaternion.Inverse(transform.rotation) * replacement.transform.rotation;
+                HeldMotionRoot.position - (Vector3)HeldAnchor());
+            heldRotation = Quaternion.Inverse(transform.rotation) * HeldMotionRoot.rotation;
             docked = false;
             IsRecycleReady = false;
             mover.SetGrabResistance(replacement.GrabResistance);
@@ -598,9 +739,10 @@ namespace AnimalGame.RobotArm
         private void BeginRecycle()
         {
             State = RobotArmState.Recycling; recycleTime = 0f;
-            recycleStart = marker.MarkerVisualRoot.InverseTransformPoint(heldObject.transform.position);
+            recycleSafePosition = HeldMotionRoot.position; recycleSafeRotation = HeldMotionRoot.rotation;
+            recycleStart = marker.MarkerVisualRoot.InverseTransformPoint(HeldMotionRoot.position);
             recyclePosition = recycleStart;
-            recycleStartScale = heldObject.LocalScale;
+            recycleStartScale = HeldMotionRoot.localScale;
             recycleHandStart = (HandLocal(left) + HandLocal(right)) * .5f;
             SetHandGrip(false);
             left.Animation?.PlayRecycle(); right.Animation?.PlayRecycle();
@@ -622,12 +764,12 @@ namespace AnimalGame.RobotArm
                 int stage = Mathf.Min(2, Mathf.FloorToInt(recycleTime / cycle));
                 float move = Mathf.Clamp01((recycleTime - stage * cycle) / mediumRecycleMoveDuration);
                 t = (stage + Mathf.SmoothStep(0f, 1f, move)) / 3f;
-                heldObject.LocalScale = recycleStartScale * Mathf.Lerp(1f, mediumRecycleEndScale, t);
+                HeldMotionRoot.localScale = recycleStartScale * Mathf.Lerp(1f, mediumRecycleEndScale, t);
             }
             else t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(recycleTime / recycleDuration));
             Vector3 inlet = new Vector3(0f, 0f, recycleStart.z);
             recyclePosition = Vector3.Lerp(recycleStart, inlet, t);
-            heldObject.WorldPosition = marker.MarkerVisualRoot.TransformPoint(recyclePosition);
+            SetHeldRootPosition(marker.MarkerVisualRoot.TransformPoint(recyclePosition));
 
             // Preserve the original grip offset, then stop both hands at the inward limit.
             Vector2 travel = (Vector2)(inlet - recycleStart);
@@ -653,6 +795,13 @@ namespace AnimalGame.RobotArm
             if (heldObject != null)
             {
                 WorldInteraction item = heldObject;
+                // Absorption is an animation, not a pushing motion. Cancellation
+                // restores the last physical pose before expanding the full shape.
+                if (State == RobotArmState.Recycling && item.Owner == this)
+                {
+                    HeldMotionRoot.SetPositionAndRotation(recycleSafePosition, recycleSafeRotation);
+                    WorldInteraction.MarkHierarchySpatialDirty(HeldMotionRoot);
+                }
                 ClearHeld(); item.Release(this);
             }
             SetHandGrip(false);
@@ -669,9 +818,18 @@ namespace AnimalGame.RobotArm
         {
             // Restore for interrupted recycling and for objects reused by a pool after completion.
             if (State == RobotArmState.Recycling && heldObject != null)
-                heldObject.LocalScale = recycleStartScale;
+            {
+                HeldMotionRoot.localScale = recycleStartScale;
+                WorldInteraction.MarkHierarchySpatialDirty(HeldMotionRoot);
+            }
             heldObject = null; heldHands = 0; docked = false;
             IsRecycleReady = false; mover?.SetGrabResistance(0f);
+            desiredGripOffset = null;
+        }
+        private void SetHeldRootPosition(Vector3 position)
+        {
+            HeldMotionRoot.position = position;
+            WorldInteraction.MarkHierarchySpatialDirty(HeldMotionRoot);
         }
         private Vector2 HandLocal(Arm arm) => arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength
             + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
@@ -682,16 +840,16 @@ namespace AnimalGame.RobotArm
         {
             var arm = new Arm { Side = side, Socket = Vector2.right * side * diameter * .5f * socketRadiusOfBody };
             arm.Root = marker.MarkerVisualRoot.Find(name);
-            arm.UpperSprite = BindSprite(arm.Root, "Upper Arm", null, 996);
-            arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", null, 997);
-            arm.LoopSprite = BindSprite(arm.LowerSprite.transform, "Loopable", null, 997);
+            arm.UpperSprite = BindSprite(arm.Root, "Upper Arm", null);
+            arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", null);
+            arm.LoopSprite = BindSprite(arm.LowerSprite.transform, "Loopable", null);
             arm.LoopScale = arm.LoopSprite.transform.localScale;
             arm.LoopPosition = arm.LoopSprite.transform.localPosition;
             arm.LoopRotation = arm.LoopSprite.transform.localRotation;
             // Older prefabs may still contain the retired cuff.
             Transform legacyCuff = arm.Root.Find("Wrist Cuff");
             if (legacyCuff != null) legacyCuff.gameObject.SetActive(false);
-            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandOpenSprite, 999);
+            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandOpenSprite);
             arm.OpenHandSprite = arm.HandSprite.sprite;
             arm.HandBottom = arm.OpenHandSprite != null ? arm.OpenHandSprite.bounds.min.y : 0f;
             arm.Upper = arm.UpperSprite.transform; arm.Lower = arm.LowerSprite.transform; arm.Hand = arm.HandSprite.transform;
@@ -710,17 +868,21 @@ namespace AnimalGame.RobotArm
             arm.UpperLength = Mathf.Max(.0001f, SpriteTop(arm.UpperSprite) - arm.UpperBottom);
             arm.LowerBaseLength = Mathf.Max(.0001f, SpriteTop(arm.LowerSprite) - arm.LowerBottom);
             arm.DeployedLoopScale = lowerArmScale;
-            arm.LowerLength = LowerLengthAtScale(arm, arm.DeployedLoopScale);
+            // IK uses the socket-to-pivot vector; the artwork retains its own longitudinal axis.
+            Vector2 lowerAnchor = new Vector2(forearmAnchorOffset.x * arm.LowerScale.x,
+                LowerLengthAtScale(arm, arm.DeployedLoopScale) + forearmAnchorOffset.y * arm.LowerScale.y);
+            arm.LowerLength = Mathf.Max(.0001f, lowerAnchor.magnitude);
+            arm.LowerAnchorAngle = Vector2.SignedAngle(Vector2.up, lowerAnchor);
             arm.Pose = default;
             arm.Animation = arm.Hand.GetComponent<RobotHandAnimation>();
             arm.Root.gameObject.SetActive(false);
             return arm;
         }
-        private SpriteRenderer BindSprite(Transform parent, string name, Sprite sprite, int order)
+        private SpriteRenderer BindSprite(Transform parent, string name, Sprite sprite)
         {
             var renderer = parent.Find(name).GetComponent<SpriteRenderer>();
             if (sprite != null) renderer.sprite = sprite;
-            renderer.color = armColor; renderer.sortingOrder = order;
+            renderer.color = armColor;
             if (marker.ForegroundSpriteMaterial != null) renderer.sharedMaterial = marker.ForegroundSpriteMaterial;
             return renderer;
         }
@@ -728,7 +890,7 @@ namespace AnimalGame.RobotArm
         {
             arm.Root.gameObject.SetActive(deploymentTime > 0f);
             Vector2 elbow = arm.Socket + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
-            SetSegmentVisual(arm.LowerSprite, arm.Socket, arm.Pose.LowerAngle, arm.LowerBottom,
+            SetSegmentVisual(arm.LowerSprite, arm.Socket, arm.Pose.LowerAngle - arm.LowerAnchorAngle, arm.LowerBottom,
                 arm.LowerScale, arm.Pose.LowerLength / arm.LowerLength);
             SetSegmentVisual(arm.UpperSprite, elbow, arm.Pose.UpperAngle, arm.UpperBottom,
                 arm.UpperScale, arm.Pose.UpperLength / arm.UpperLength);
@@ -741,8 +903,7 @@ namespace AnimalGame.RobotArm
             arm.Hand.localRotation = Quaternion.Euler(0f, 0f, arm.Pose.UpperAngle);
             arm.Hand.localScale = new Vector3(-arm.Side, 1f, 1f) * handScale * arm.Pose.Hand;
             // Keep the open hand's attachment offset when swapping sprites of different sizes/pivots.
-            arm.Hand.localPosition = HandLocal(arm);// - Direction(arm.Pose.UpperAngle)*SpriteBottom(arm.HandSprite);
-                //- Direction(arm.Pose.UpperAngle) * (arm.HandBottom * handScale * arm.Pose.Hand);
+            arm.Hand.localPosition = HandLocal(arm);
         }
         private static float SpriteBottom(SpriteRenderer renderer) => Mathf.Min(
             renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
@@ -773,7 +934,8 @@ namespace AnimalGame.RobotArm
             Vector3 targetScale, float growth)
         {
             renderer.enabled = growth > 0f;
-            renderer.transform.localScale = targetScale * growth;
+            targetScale.y *= growth;
+            renderer.transform.localScale = targetScale;
             renderer.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
             renderer.transform.localPosition = start - Direction(angle) * (bottom * growth);
         }

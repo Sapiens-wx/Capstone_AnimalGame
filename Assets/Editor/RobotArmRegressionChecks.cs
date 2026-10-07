@@ -24,6 +24,7 @@ namespace AnimalGame.Editor
                 "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
             foreach (float size in new[] { .5f, 2f })
                 foreach (float loopSize in new[] { 0f, 1f, 8f })
+                foreach (Vector2 anchorOffset in new[] { Vector2.zero, new Vector2(.04f, -.06f) })
                 {
                     Scene scene = EditorSceneManager.NewPreviewScene();
                     try
@@ -39,6 +40,7 @@ namespace AnimalGame.Editor
                         Set(arms, "armScale", size);
                         Set(arms, "handScale", .37f);
                         Set(arms, "lowerArmScale", loopSize);
+                        Set(arms, "forearmAnchorOffset", anchorOffset);
                         Set(arms, "stepDelta", 1f);
                         Call(arms, "Awake");
                         Call(arms, "EnsureVisuals");
@@ -80,21 +82,38 @@ namespace AnimalGame.Editor
                                 Require(upper.color.a == 1f && lower.color.a == 1f,
                                     "Deployment faded the arm instead of scaling it");
                                 if (time == 0f)
-                                    Require(upper.transform.localScale == Vector3.zero && lower.transform.localScale == Vector3.zero
-                                        && hand.transform.localScale == Vector3.zero, "Retracted artwork was not zero scale");
+                                    Require(upper.transform.localScale == new Vector3(upperTarget.x, 0f, upperTarget.z)
+                                        && lower.transform.localScale == new Vector3(lowerTarget.x, 0f, lowerTarget.z)
+                                        && hand.transform.localScale == Vector3.zero, "Retracted arm Y scale was not zero");
                                 if (time == connector * .5f)
-                                    Require(Vector3.Distance(lower.transform.localScale, lowerTarget * .5f) < .00001f
-                                        && upper.transform.localScale == Vector3.zero, "Body-side growth phase failed");
+                                    Require(Vector3.Distance(lower.transform.localScale,
+                                        new Vector3(lowerTarget.x, lowerTarget.y * .5f, lowerTarget.z)) < .00001f
+                                        && upper.transform.localScale.y == 0f, "Body-side growth phase failed");
                                 if (time == connector + extension * .5f)
-                                    Require(Vector3.Distance(upper.transform.localScale, upperTarget * .5f) < .00001f
+                                    Require(Vector3.Distance(upper.transform.localScale,
+                                        new Vector3(upperTarget.x, upperTarget.y * .5f, upperTarget.z)) < .00001f
                                         && lower.transform.localScale == lowerTarget, "Hand-side growth phase failed");
+                                Require(upper.transform.localScale.x == upperTarget.x && lower.transform.localScale.x == lowerTarget.x
+                                    && upper.transform.localScale.z == upperTarget.z && lower.transform.localScale.z == lowerTarget.z,
+                                    "Deployment changed arm width or Z scale");
                                 if (time == total)
                                     Require(upper.transform.localScale == upperTarget && lower.transform.localScale == lowerTarget
                                         && hand.transform.localScale == new Vector3(sign, 1f, 1f) * .37f,
                                         "Final arm/hand scales changed or accumulated across deployment");
                                 Vector3 upperTip = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.max.y, 0f));
-                                Vector3 handBase = hand.transform.TransformPoint(new Vector3(0f, hand.sprite.bounds.min.y, 0f));
-                                Require(Vector3.Distance(upperTip, handBase) < .0001f, "Hand detached from Upper Arm");
+                                if (time == total)
+                                {
+                                    float bodyLength = (float)typeof(RobotArmController).GetMethod("LowerLengthAtScale",
+                                        BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new[] { arm, (object)loopSize });
+                                    Vector3 socket = (Vector2)arm.GetType().GetField("Socket").GetValue(arm);
+                                    Vector3 expectedAnchor = socket + lower.transform.localRotation * new Vector3(
+                                        anchorOffset.x * lowerTarget.x, bodyLength + anchorOffset.y * lowerTarget.y, 0f);
+                                    Vector3 upperBase = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.min.y, 0f));
+                                    Require(Vector3.Distance(upperBase, frame.TransformPoint(expectedAnchor)) < .0001f,
+                                        "Forearm pivot did not follow the mirrored body-side anchor offset");
+                                }
+                                Require(Vector3.Distance(upperTip, hand.transform.position) < .0001f,
+                                    "Hand pivot detached from Upper Arm");
                                 Vector2 endpoint = side == "left" ? arms.LeftHandWorld : arms.RightHandWorld;
                                 Require(Vector2.Distance(endpoint, upperTip) < .0001f,
                                     "Interaction endpoint differs from the visible arm tip");
@@ -501,7 +520,8 @@ namespace AnimalGame.Editor
                     .InverseTransformPoint(item.WorldPosition);
                 Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
                     && Vector2.Distance(actual, inlet) < .003f,
-                    "Raw side drift prevented garbage from automatically reaching the fixed inlet");
+                    "Raw side drift prevented garbage from automatically reaching the fixed inlet: actual=" + actual
+                    + ", inlet=" + inlet + ", ready=" + f.Arms.IsRecycleReady + ", medium=" + medium);
                 Require(Mathf.Approximately(f.Arms.CurrentInputMagnitude, drift)
                     && f.Arms.CurrentTargetLocal == stick,
                     "Automatic docking rescaled or erased raw input used by other control states");
@@ -1323,6 +1343,44 @@ namespace AnimalGame.Editor
         private static void Call(object target, string name, params object[] args) =>
             target.GetType().GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance).Invoke(target, args);
 
+        private static Sprite fixtureArmSprite;
+        internal static void CreateFixtureArtwork(Transform frame, bool production = false)
+        {
+            // Runtime arm binding now requires the authored hierarchy. Keep the
+            // geometry fixture independent of production artwork/import settings.
+            if (production)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+                foreach (Transform child in prefab.GetComponentsInChildren<Transform>(true))
+                    if (child.name == "Left Mechanical Arm" || child.name == "Right Mechanical Arm")
+                    {
+                        Transform copy = Object.Instantiate(child, frame, false);
+                        copy.name = child.name;
+                    }
+                return;
+            }
+            if (fixtureArmSprite == null)
+            {
+                Texture2D texture = Texture2D.whiteTexture;
+                fixtureArmSprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
+                    new Vector2(.5f, 0f), texture.height);
+                fixtureArmSprite.hideFlags = HideFlags.HideAndDontSave;
+            }
+            foreach (string side in new[] { "Left Mechanical Arm", "Right Mechanical Arm" })
+            {
+                var root = new GameObject(side); root.transform.SetParent(frame, false);
+                foreach (string name in new[] { "Upper Arm", "Lower Arm", "Mechanical Hand" })
+                {
+                    var part = new GameObject(name); part.transform.SetParent(root.transform, false);
+                    part.AddComponent<SpriteRenderer>().sprite = fixtureArmSprite;
+                    part.transform.localScale = new Vector3(.1f, 1f, 1f);
+                    if (name != "Lower Arm") continue;
+                    var loop = new GameObject("Loopable"); loop.transform.SetParent(part.transform, false);
+                    loop.AddComponent<SpriteRenderer>().sprite = fixtureArmSprite;
+                }
+            }
+        }
+
         private sealed class Fixture : IDisposable
         {
             public Scene Scene { get; }
@@ -1346,6 +1404,7 @@ namespace AnimalGame.Editor
                     EditorUtility.CopySerialized(prefab.GetComponent<RobotMover>(), Root.GetComponent<RobotMover>());
                 }
                 var visual = new GameObject("Marker Visual Root"); visual.transform.SetParent(Root.transform, false);
+                CreateFixtureArtwork(visual.transform, useProductionSettings);
                 Set(marker, "markerVisualRoot", visual.transform);
                 Call(Arms, "Awake"); Call(Arms, "EnsureVisuals");
             }

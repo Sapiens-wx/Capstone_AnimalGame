@@ -245,7 +245,7 @@ namespace AnimalGame.RobotMap
         private bool wasSteering;
         private HeightMapTraversalEvaluator traversalEvaluator;
         private RobotArmController armController;
-        private readonly List<WorldInteraction> pushedObjects = new();
+        private readonly InteractionPushPlan movementPlan = new();
         private RobotBalanceController balanceController;
         private float unstableLateralTarget;
         private float unstableLateralBlend;
@@ -407,7 +407,7 @@ namespace AnimalGame.RobotMap
                 FreezeDrivenMotion();
                 Vector2 releaseDisplacement = StepHeavyReleaseVelocity(Time.deltaTime);
                 if (releaseDisplacement.sqrMagnitude > 0f)
-                    TryMoveSafely(releaseDisplacement, heldObject != null ? heldObject.transform : null, true);
+                    TryMoveSafely(releaseDisplacement, heldObject != null ? heldObject.MotionRoot : null, true);
                 return;
             }
             steering *= GrabMovementMultiplier;
@@ -523,16 +523,13 @@ namespace AnimalGame.RobotMap
             if (CurrentClimbableAreaSpeedMultiplier < 1f) IsDownhillBoosted = false;
             float targetSpeed = baseTargetSpeed * surfaceSpeedMultiplier;
             Transform heldTransform = armController != null && armController.HeldObject != null
-                ? armController.HeldObject.transform : null;
+                ? armController.HeldMotionRoot : null;
             float pushSpeedMultiplier = 1f;
-            if (traversalEvaluator != null)
-            {
-                float probeSpeed = Mathf.Abs(targetSpeed) >= Mathf.Abs(CurrentSpeed)
-                    ? targetSpeed : CurrentSpeed;
-                Vector2 pushProbe = (Vector2)transform.up * probeSpeed * Time.deltaTime;
-                pushSpeedMultiplier = traversalEvaluator.GetPushSpeedMultiplier(
-                    transform.position, (Vector2)transform.position + pushProbe, heldTransform);
-            }
+            float probeSpeed = Mathf.Abs(targetSpeed) >= Mathf.Abs(CurrentSpeed) ? targetSpeed : CurrentSpeed;
+            Vector2 pushProbe = (Vector2)transform.up * probeSpeed * Time.deltaTime;
+            PrepareMovementPlan(pushProbe, heldTransform);
+            movementPlan.Evaluate();
+            pushSpeedMultiplier = movementPlan.SpeedMultiplier;
             float speedWithoutAreaResistance = CurrentClimbableAreaSpeedMultiplier < 1f
                 ? CalculateDriveSpeed(movementThrottle, baseTargetSpeed * normalSurfaceSpeedMultiplier,
                     normalSurfaceSpeedMultiplier, pushSpeedMultiplier, accelerationBonus, Time.deltaTime)
@@ -553,17 +550,13 @@ namespace AnimalGame.RobotMap
             if (!TryMoveSafely(desiredDisplacement, heldTransform,
                     releaseStep.sqrMagnitude > 0f))
                 return;
-            transform.Rotate(
-                0f,
-                0f,
-                -CurrentTerrainTurnSpeed * Time.deltaTime);
+            RotateSafely(-CurrentTerrainTurnSpeed * Time.deltaTime);
             ApplyDownhillHeadingRecovery();
         }
 
         private bool TryMoveSafely(Vector2 desiredDisplacement, Transform heldTransform,
             bool stopUnsafeDownhill = false)
         {
-            pushedObjects.Clear();
             if (desiredDisplacement.sqrMagnitude <= 0f)
                 return true;
             MapTestSceneController climbableMap = traversalEvaluator != null ? traversalEvaluator.Map : null;
@@ -601,40 +594,17 @@ namespace AnimalGame.RobotMap
                     return false;
                 }
 
-                if (!traversalEvaluator.TryPlanPush(
-                    transform.position, (Vector2)transform.position + desiredDisplacement,
-                    heldTransform, pushedObjects))
-                {
-                    HardStop(SlopeTraversalResult.BlockedObstacle);
-                    return false;
-                }
             }
-            else if (stopUnsafeDownhill)
+            PrepareMovementPlan(desiredDisplacement, heldTransform);
+            if (!movementPlan.Evaluate() || !movementPlan.Commit())
             {
-                // Preview/test scenes without a generated map still respect solid props.
-                RobotMarkerView marker = GetComponent<RobotMarkerView>();
-                float radius = marker != null
-                    ? marker.BodyDiameter * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.y)) * .5f
-                    : .75f;
-                Vector2 start = transform.position;
-                if (WorldInteractionQuery.Query(
-                    InteractionShape.Capsule(start, start + desiredDisplacement, radius + .02f),
-                    WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
-                    null, gameObject.scene, ignore: transform,
-                    previous: InteractionShape.Capsule(start, start, radius + .02f), ignoreHeld: heldTransform))
-                {
-                    HardStop(SlopeTraversalResult.BlockedObstacle);
-                    return false;
-                }
+                armController?.ReportBodyBlocked();
+                HardStop(SlopeTraversalResult.BlockedObstacle);
+                return false;
             }
 
-            foreach (WorldInteraction item in pushedObjects)
-            {
-                if (item.TryGetComponent(out GarbageMotion garbageMotion))
-                    garbageMotion.ApplyExternalPush(desiredDisplacement);
-                else item.WorldPosition += (Vector3)desiredDisplacement;
-            }
             transform.position += (Vector3)desiredDisplacement;
+            armController?.ConfirmBodyMotion();
             climbableResistance.Commit();
             // Camera motion observes drive and terrain velocity, excluding the
             // separate heavy-release step. Reconstruct only the observed loss.
@@ -666,6 +636,29 @@ namespace AnimalGame.RobotMap
             if (stopUnsafeDownhill)
                 IsSlopeBlocked = false;
             return true;
+        }
+
+        private void PrepareMovementPlan(Vector2 displacement, Transform heldRoot)
+        {
+            MapTestSceneController sceneMap = traversalEvaluator != null ? traversalEvaluator.Map : null;
+            movementPlan.Begin(sceneMap, gameObject.scene, transform, heldRoot);
+            AppendBodyShape(movementPlan, transform.position, (Vector2)transform.position + displacement, sceneMap);
+            armController?.AppendBodyMotion(movementPlan, transform.position + (Vector3)displacement, transform.rotation);
+        }
+
+        public void AppendBodyShape(InteractionPushPlan plan, Vector2 start, Vector2 end, MapTestSceneController sceneMap)
+        {
+            float radius = GetClimbableBodyRadius(sceneMap) + .02f;
+            Vector2 a = InteractionShape.ToQuery(start, sceneMap), b = InteractionShape.ToQuery(end, sceneMap);
+            plan.Add(InteractionShape.Capsule(a, a, radius), InteractionShape.Capsule(b, b, radius), true);
+        }
+
+        private void RotateSafely(float angle)
+        {
+            Quaternion desired = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + angle);
+            if (armController != null && armController.isActiveAndEnabled)
+                armController.ConstrainBodyRotation(desired);
+            else transform.rotation = desired;
         }
 
         public void SetHeavyPullConstraint(Object owner, Vector2 targetPosition,
@@ -709,7 +702,7 @@ namespace AnimalGame.RobotMap
                 Mathf.Max(0f, Vector2.Dot(UnresistedMovementIntentWorld, heavyPullDirection)));
             Vector2 step = heavyPullDirection * Mathf.Min(remaining, speed * Mathf.Max(0f, deltaTime));
             Transform heldTransform = armController != null && armController.HeldObject != null
-                ? armController.HeldObject.transform : null;
+                ? armController.HeldMotionRoot : null;
             if (!TryMoveSafely(step, heldTransform, true))
                 HeavyPullMovementBlocked = true;
         }
@@ -964,10 +957,7 @@ namespace AnimalGame.RobotMap
                 turnChangeRate * Time.deltaTime);
 
             float reverseDirection = lastMovingSpeedSign;
-            transform.Rotate(
-                0f,
-                0f,
-                -CurrentTurnSpeed * reverseDirection * Time.deltaTime);
+            RotateSafely(-CurrentTurnSpeed * reverseDirection * Time.deltaTime);
         }
 
         private Vector2 CalculateTerrainTargetVelocity(
@@ -1416,7 +1406,7 @@ namespace AnimalGame.RobotMap
                 currentAngle,
                 targetAngle,
                 ScaleMotion(downhillHeadingAlignmentSpeed) * Time.deltaTime);
-            transform.rotation = Quaternion.Euler(0f, 0f, alignedAngle);
+            RotateSafely(Mathf.DeltaAngle(currentAngle, alignedAngle));
         }
 
         private void UpdateUnstableDriftTarget()
