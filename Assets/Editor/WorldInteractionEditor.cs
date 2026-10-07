@@ -36,7 +36,7 @@ namespace AnimalGame.Editor
             if (target is HeightMapObstacleFootprint)
             {
                 EditorGUILayout.HelpBox("Blocks Traversal controls hard collision. Sight Blocking independently controls animal cover; Match Traversal preserves the original behaviour. Add a separate WorldInteraction for grabbing or climbing.", MessageType.Info);
-                DrawPropertiesExcluding(serializedObject, "m_Script", "kind", "box", "sprite", "localCenter", "localSize",
+                DrawPropertiesExcluding(serializedObject, "m_Script", "kind", "box", "sprite", "colliderType", "colliderShape", "colliderCenter", "colliderRadius", "localSize",
                     "requiredHands", "recyclable", "size", "pushSpeedMultiplier",
                     "climbableEntrySpeedMultiplier", "climbableEntryBlendDuration", "climbableCameraMultiplier",
                     "climbableRumbleMultiplier", "climbableLandingDurationMultiplier",
@@ -58,12 +58,9 @@ namespace AnimalGame.Editor
                         else EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
                 }
                 if (!climbable || climbKind.hasMultipleDifferentValues)
-                {
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("box"));
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("sprite"));
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("localSize"));
-                }
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("localCenter"));
+                    DrawColliderSettings();
+                if (climbable || climbKind.hasMultipleDifferentValues)
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("colliderCenter"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("motionRoot"));
                 var kind = serializedObject.FindProperty("kind");
                 if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Pushable) != 0)
@@ -80,6 +77,73 @@ namespace AnimalGame.Editor
                 }
             }
             serializedObject.ApplyModifiedProperties();
+        }
+
+        private void DrawColliderSettings()
+        {
+            var type = serializedObject.FindProperty("colliderType");
+            EditorGUILayout.PropertyField(type);
+            bool mixed = type.hasMultipleDifferentValues;
+            bool custom = mixed || type.enumValueIndex == (int)ColliderType.Custom;
+            foreach (var sourceType in new[] { ColliderType.Sprite, ColliderType.Collider2D })
+            {
+                if (!mixed && type.enumValueIndex != (int)sourceType) continue;
+                var source = serializedObject.FindProperty(sourceType == ColliderType.Sprite ? "sprite" : "box");
+                EditorGUILayout.PropertyField(source);
+                custom |= source.objectReferenceValue == null || source.hasMultipleDifferentValues;
+            }
+            if (custom || mixed || type.enumValueIndex == (int)ColliderType.Sprite)
+            {
+                var shape = serializedObject.FindProperty("colliderShape");
+                EditorGUILayout.PropertyField(shape);
+                if (custom)
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("colliderCenter"));
+                    if (shape.hasMultipleDifferentValues || shape.enumValueIndex == (int)WorldInteractionColliderShape.Box)
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty("localSize"));
+                    if (shape.hasMultipleDifferentValues || shape.enumValueIndex == (int)WorldInteractionColliderShape.Circle)
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty("colliderRadius"));
+                }
+            }
+        }
+
+        [DrawGizmo(GizmoType.Selected | GizmoType.Active)]
+        private static void DrawCollider(WorldInteraction item, GizmoType gizmoType)
+        {
+            if (item is HeightMapObstacleFootprint || (item.Kind & WorldInteractionKind.Climbable) != 0) return;
+            if (item.ColliderType == ColliderType.Sprite && item.SpriteSource == null) return;
+            if (item.ColliderType == ColliderType.Collider2D && item.BoxSource == null) return;
+            MapTestSceneController map = null;
+            foreach (var candidate in Object.FindObjectsByType<MapTestSceneController>(FindObjectsSortMode.None))
+                if (candidate.gameObject.scene == item.gameObject.scene) { map = candidate; break; }
+            InteractionShape shape = item.GetShape(map);
+            float z = item.ColliderType == ColliderType.Sprite ? item.SpriteSource.transform.position.z
+                : item.ColliderType == ColliderType.Collider2D ? item.BoxSource.transform.position.z : item.transform.position.z;
+            Vector3 ToWorld(Vector2 point)
+            {
+                Vector3 world = map != null && map.HasGeneratedMap ? map.MapPositionToWorld(point) : (Vector3)point;
+                world.z = z;
+                return world;
+            }
+            Color previous = Handles.color;
+            Handles.color = Color.green;
+            if (shape.IsBox)
+            {
+                for (int i = 0; i < 4; i++)
+                    Handles.DrawLine(ToWorld(shape.Vertex(i)), ToWorld(shape.Vertex((i + 1) % 4)));
+            }
+            else
+            {
+                Vector3 last = ToWorld(shape.Center + Vector2.right * shape.Radius);
+                for (int i = 1; i <= 64; i++)
+                {
+                    float angle = i * Mathf.PI * 2f / 64f;
+                    Vector3 next = ToWorld(shape.Center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * shape.Radius);
+                    Handles.DrawLine(last, next);
+                    last = next;
+                }
+            }
+            Handles.color = previous;
         }
 
         [DrawGizmo(GizmoType.Selected | GizmoType.Active)]

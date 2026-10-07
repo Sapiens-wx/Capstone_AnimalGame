@@ -374,7 +374,7 @@ namespace AnimalGame.Editor
                 Vector2 position = twoHands && !oneHandOnly ? (Arms.LeftHandWorld + Arms.RightHandWorld) * .5f : Arms.LeftHandWorld;
                 WorldInteraction item = Item(position, twoHands && !oneHandOnly ? new Vector2(.5f, .1f) : Vector2.one * .05f, twoHands ? 2 : 1);
                 EditorUtility.CopySerialized(settings.GetComponent<WorldInteraction>(), item);
-                item.BoxSource = null; item.SpriteSource = null; item.LocalCenter = Vector2.zero;
+                item.BoxSource = null; item.SpriteSource = null; item.ColliderCenter = Vector2.zero;
                 item.LocalSize = twoHands && !oneHandOnly ? new Vector2(.5f, .1f) : Vector2.one * .05f;
                 item.SetKind(WorldInteractionKind.Grabbable);
                 GarbageItem garbage = item.gameObject.AddComponent<GarbageItem>();

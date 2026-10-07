@@ -63,7 +63,7 @@ namespace AnimalGame.Editor
             var sweep = InteractionShape.Capsule(Vector2.left * 2f, Vector2.right * 2f, 0.1f);
             Require(!WorldInteractionQuery.Query(sweep, WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision
                 | WorldInteractionKind.Grabbable, null, f.Scene), "Climbable leaked into arm/body/grab masks");
-            item.LocalCenter = new Vector2(0.25f, 0f);
+            item.ColliderCenter = new Vector2(0.25f, 0f);
             item.LocalScale = new Vector3(-2f, 3f, 1f);
             item.LocalRotation = Quaternion.Euler(0f, 0f, 42f);
             item.WorldPosition = new Vector3(4f, 3f);

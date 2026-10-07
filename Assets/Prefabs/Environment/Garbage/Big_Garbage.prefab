@@ -213,7 +213,10 @@ MonoBehaviour:
   kind: 6
   box: {fileID: 0}
   sprite: {fileID: 6575725878042071600}
-  localCenter: {x: 0, y: 0}
+  colliderType: 2
+  colliderShape: 1
+  colliderCenter: {x: 0, y: 0}
+  colliderRadius: 4.6
   localSize: {x: 1, y: 1}
   climbableRadius: 1
   slopeStrength01: 0.5
@@ -230,6 +233,7 @@ MonoBehaviour:
   size: 2
   pushSpeedMultiplier: 0.7
   grabResistance: 1
+  motionRoot: {fileID: 0}
 --- !u!114 &6300000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0

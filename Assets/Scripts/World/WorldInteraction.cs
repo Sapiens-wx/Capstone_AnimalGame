@@ -3,6 +3,7 @@ using AnimalGame.MapTest;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 
 namespace AnimalGame.World
 {
@@ -17,6 +18,8 @@ namespace AnimalGame.World
         Climbable = 1 << 4
     }
     public enum RecyclableSize { Small, Medium, Big }
+    public enum WorldInteractionColliderShape { Box, Circle }
+    public enum ColliderType { Sprite, Collider2D, Custom }
 
     // Multiple components are intentional: a prop can have separate solid and grab bounds.
     [ExecuteAlways]
@@ -27,7 +30,7 @@ namespace AnimalGame.World
         private static readonly List<WorldInteraction> hierarchyItems = new();
         private static readonly List<WorldInteraction> rootItems = new();
         private static readonly List<WorldInteraction> ownerItems = new();
-        // SPATIAL INDEX: kind, box, sprite, localCenter and localSize affect the cache. Use the
+        // SPATIAL INDEX: kind, colliderType, shape, box, sprite, colliderCenter, colliderRadius and localSize affect the cache. Use the
         // public setters at runtime; direct/serialized writes require MarkSpatialDirty().
         [SerializeField] private WorldInteractionKind kind = WorldInteractionKind.Collision;
         // Changes to the referenced collider/renderer (including their transforms,
@@ -35,7 +38,12 @@ namespace AnimalGame.World
         // WorldInteraction, even when the source lives outside this object's hierarchy.
         [SerializeField] private BoxCollider2D box;
         [SerializeField] private SpriteRenderer sprite;
-        [SerializeField] private Vector2 localCenter;
+        [SerializeField] private ColliderType colliderType = ColliderType.Sprite;
+        [SerializeField] private WorldInteractionColliderShape colliderShape = WorldInteractionColliderShape.Box;
+        [FormerlySerializedAs("localCenter")]
+        [SerializeField] private Vector2 colliderCenter;
+        [Tooltip("Custom circle radius in this Transform's local units. Uses the largest XY scale in query coordinates.")]
+        [SerializeField, Min(0f)] private float colliderRadius = .5f;
         [SerializeField] private Vector2 localSize = Vector2.one;
         [Tooltip("Circular climbable radius in local units. Uses the largest XY scale in map coordinates; remains circular.")]
         [SerializeField, Min(0.001f)] private float climbableRadius = 1f;
@@ -99,7 +107,10 @@ namespace AnimalGame.World
         public void SetKind(WorldInteractionKind value) { kind = value; MarkSpatialDirty(); }
         public BoxCollider2D BoxSource { get => box; set { box = value; MarkSpatialDirty(); } }
         public SpriteRenderer SpriteSource { get => sprite; set { sprite = value; MarkSpatialDirty(); } }
-        public Vector2 LocalCenter { get => localCenter; set { localCenter = value; MarkSpatialDirty(); } }
+        public ColliderType ColliderType { get => colliderType; set { colliderType = value; MarkSpatialDirty(); } }
+        public WorldInteractionColliderShape ColliderShape { get => colliderShape; set { colliderShape = value; MarkSpatialDirty(); } }
+        public Vector2 ColliderCenter { get => colliderCenter; set { colliderCenter = value; MarkSpatialDirty(); } }
+        public float ColliderRadius { get => Mathf.Max(0f, colliderRadius); set { colliderRadius = Mathf.Max(0f, value); MarkSpatialDirty(); } }
         public Vector2 LocalSize { get => localSize; set { localSize = value; MarkSpatialDirty(); } }
 
         // SPATIAL INDEX: transform position/rotation/scale, ancestors, and scene
@@ -146,7 +157,7 @@ namespace AnimalGame.World
         }
         public void SetLocalBounds(Vector2 center, Vector2 size)
         {
-            localCenter = center;
+            colliderCenter = center;
             localSize = size;
             MarkSpatialDirty();
         }
@@ -204,44 +215,51 @@ namespace AnimalGame.World
         {
             if ((Kind & WorldInteractionKind.Climbable) != 0)
             {
-                Vector2 center = InteractionShape.ToQuery(transform.TransformPoint(localCenter), map);
-                Vector2 right = InteractionShape.ToQuery(transform.TransformPoint(localCenter + Vector2.right), map) - center;
-                Vector2 up = InteractionShape.ToQuery(transform.TransformPoint(localCenter + Vector2.up), map) - center;
-                return InteractionShape.Capsule(center, center,
+                Vector2 center = InteractionShape.ToQuery(transform.TransformPoint(colliderCenter), map);
+                Vector2 right = InteractionShape.ToQuery(transform.TransformPoint(colliderCenter + Vector2.right), map) - center;
+                Vector2 up = InteractionShape.ToQuery(transform.TransformPoint(colliderCenter + Vector2.up), map) - center;
+                return InteractionShape.Circle(center,
                     ClimbableRadius * Mathf.Max(right.magnitude, up.magnitude));
             }
-            if (box != null)
+            if (colliderType == ColliderType.Collider2D && box != null)
                 return InteractionShape.Box(box.transform, box.offset, box.size, map);
-            if (sprite == null) sprite = GetComponent<SpriteRenderer>();
-            if (sprite != null)
+            if (colliderType == ColliderType.Sprite && sprite != null)
             {
+                if (colliderShape == WorldInteractionColliderShape.Circle)
+                    return SpriteCircleShape(sprite.transform.localToWorldMatrix, map);
                 Bounds b = sprite.bounds;
                 return InteractionShape.WorldBox(b.center, b.size, map);
             }
-            return InteractionShape.Box(transform, localCenter, localSize, map);
+            if (colliderShape == WorldInteractionColliderShape.Circle)
+                return CircleShape(transform.localToWorldMatrix, ColliderRadius, map);
+            return InteractionShape.Box(transform, colliderCenter, localSize, map);
         }
 
         public virtual InteractionShape GetShapeAfterMotion(Matrix4x4 worldDelta, MapTestSceneController map)
         {
             InteractionShape current = GetShape(map);
-            if (box != null && !box.transform.IsChildOf(MotionRoot)) return current;
-            if (box == null && sprite != null && !sprite.transform.IsChildOf(MotionRoot)) return current;
             if ((Kind & WorldInteractionKind.Climbable) != 0)
             {
-                Vector3 centerWorld = worldDelta.MultiplyPoint3x4(transform.TransformPoint(localCenter));
+                Vector3 centerWorld = worldDelta.MultiplyPoint3x4(transform.TransformPoint(colliderCenter));
                 Vector2 center = InteractionShape.ToQuery(centerWorld, map);
                 Vector2 right = InteractionShape.ToQuery(worldDelta.MultiplyPoint3x4(
-                    transform.TransformPoint(localCenter + Vector2.right)), map) - center;
+                    transform.TransformPoint(colliderCenter + Vector2.right)), map) - center;
                 Vector2 up = InteractionShape.ToQuery(worldDelta.MultiplyPoint3x4(
-                    transform.TransformPoint(localCenter + Vector2.up)), map) - center;
+                    transform.TransformPoint(colliderCenter + Vector2.up)), map) - center;
                 return InteractionShape.Capsule(center, center, ClimbableRadius * Mathf.Max(right.magnitude, up.magnitude));
             }
+            if (colliderType == ColliderType.Collider2D && box != null)
+                return box.transform.IsChildOf(MotionRoot)
+                    ? InteractionPushPlan.TransformShape(current, worldDelta, map) : current;
             // GetShape uses world-aligned renderer bounds. Predict those bounds from
             // the renderer's local bounds, not by rotating its already expanded AABB.
-            if (box == null && sprite != null)
+            if (colliderType == ColliderType.Sprite && sprite != null)
             {
+                if (!sprite.transform.IsChildOf(MotionRoot)) return current;
                 Bounds bounds = sprite.localBounds;
                 Matrix4x4 matrix = worldDelta * sprite.transform.localToWorldMatrix;
+                if (colliderShape == WorldInteractionColliderShape.Circle)
+                    return SpriteCircleShape(matrix, map);
                 Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
                 Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
                 for (int i = 0; i < 4; i++)
@@ -253,7 +271,26 @@ namespace AnimalGame.World
                 }
                 return InteractionShape.WorldBox((min + max) * .5f, max - min, map);
             }
+            if (colliderShape == WorldInteractionColliderShape.Circle)
+                return CircleShape(worldDelta * transform.localToWorldMatrix, ColliderRadius, map);
             return InteractionPushPlan.TransformShape(current, worldDelta, map);
+        }
+
+        private InteractionShape CircleShape(Matrix4x4 matrix, float radius, MapTestSceneController map)
+        {
+            Vector2 center = InteractionShape.ToQuery(matrix.MultiplyPoint3x4(colliderCenter), map);
+            Vector2 right = InteractionShape.ToQuery(matrix.MultiplyPoint3x4(colliderCenter + Vector2.right), map) - center;
+            Vector2 up = InteractionShape.ToQuery(matrix.MultiplyPoint3x4(colliderCenter + Vector2.up), map) - center;
+            return InteractionShape.Circle(center, radius * Mathf.Max(right.magnitude, up.magnitude));
+        }
+
+        private InteractionShape SpriteCircleShape(Matrix4x4 matrix, MapTestSceneController map)
+        {
+            Bounds bounds = sprite.localBounds;
+            Vector2 center = InteractionShape.ToQuery(matrix.MultiplyPoint3x4(bounds.center), map);
+            Vector2 right = InteractionShape.ToQuery(matrix.MultiplyPoint3x4(bounds.center + Vector3.right * bounds.extents.x), map) - center;
+            Vector2 up = InteractionShape.ToQuery(matrix.MultiplyPoint3x4(bounds.center + Vector3.up * bounds.extents.y), map) - center;
+            return InteractionShape.Circle(center, Mathf.Max(right.magnitude, up.magnitude));
         }
 
         public virtual bool TryGrab(Object owner)

@@ -17,6 +17,14 @@ namespace AnimalGame.Editor
     public static class RobotArmRegressionChecks
     {
         private static readonly List<string> passed = new();
+        [MenuItem("Animal Game/Validation/Run Collider Shape Checks")]
+        public static void RunColliderShapeChecks()
+        {
+            CheckGeometry();
+            CheckColliderShapes();
+            Debug.Log("Collider shape checks PASS: source priority, circle geometry/motion, index updates and box/circle queries.");
+        }
+
         [MenuItem("Animal Game/Validation/Run Arm Scale Checks")]
         public static void RunArmScaleChecks()
         {
@@ -149,6 +157,7 @@ namespace AnimalGame.Editor
             passed.Clear();
             Check("IK reachable, mirrored, near and far limits", CheckIK);
             Check("Box/circle geometry and swept body collision", CheckGeometry);
+            Check("Collider shape selection, sources, circle motion and index updates", CheckColliderShapes);
             Check("Unified types, multiple components, legacy obstacles and overlap escape", CheckRegistry);
             Check("Body-only collision, grabbing and per-object push resistance", CheckInteractionKinds);
             Check("QuadTree matches exhaustive queries after movement, resizing, kind and scene changes", CheckQuadTree);
@@ -199,6 +208,103 @@ namespace AnimalGame.Editor
                     if (target.sqrMagnitude > 0f) Require(Vector2.Angle(end, target) < .1f, "IK missed requested direction");
                 }
         }
+        private static void CheckColliderShapes()
+        {
+            Scene scene = EditorSceneManager.NewPreviewScene();
+            var texture = new Texture2D(8, 4);
+            Sprite artwork = Sprite.Create(texture, new Rect(0f, 0f, 8f, 4f), Vector2.one * .5f, 4f);
+            try
+            {
+                var root = new GameObject("Collider shape checks");
+                SceneManager.MoveGameObjectToScene(root, scene);
+                var item = root.AddComponent<WorldInteraction>();
+                item.ColliderCenter = new Vector2(.25f, -.1f);
+                Require(item.ColliderShape == WorldInteractionColliderShape.Box && item.GetShape(null).IsBox,
+                    "Default collider shape changed");
+                item.ColliderType = ColliderType.Custom;
+                item.ColliderShape = WorldInteractionColliderShape.Circle;
+                item.ColliderRadius = .4f;
+                item.LocalScale = new Vector3(-2f, 3f, 1f);
+                item.LocalRotation = Quaternion.Euler(0f, 0f, 25f);
+                InteractionShape circle = item.GetShape(null);
+                Require(!circle.IsBox && circle.A == circle.B && Mathf.Abs(circle.Radius - 1.2f) < .00001f
+                    && Vector2.Distance(circle.Center, root.transform.TransformPoint(item.ColliderCenter)) < .00001f,
+                    "Fallback circle ignored center, mirrored scale or radius");
+                bool Hit(Vector2 point) => WorldInteractionQuery.Query(InteractionShape.Circle(point, 0f),
+                    WorldInteractionKind.Collision, null, scene);
+                Vector2 probe = circle.Center + Vector2.right * 1.5f;
+                Require(!Hit(probe), "Circle index overestimated radius");
+                item.ColliderRadius = .6f;
+                Require(Hit(probe), "Circle radius edit did not refresh the index");
+                item.ColliderCenter += Vector2.right * 10f;
+                Require(!Hit(probe), "Circle center edit did not refresh the index");
+                item.ColliderCenter = Vector2.zero;
+                item.LocalScale = Vector3.one;
+                item.LocalRotation = Quaternion.identity;
+                item.LocalSize = Vector2.one * .1f;
+                Require(Hit(Vector2.right * .5f), "Circle was missing before shape edit");
+                item.ColliderShape = WorldInteractionColliderShape.Box;
+                Require(!Hit(Vector2.right * .5f), "Collider shape edit did not refresh the index");
+
+                var source = new GameObject("Sprite source");
+                source.transform.SetParent(root.transform, false);
+                source.transform.localPosition = new Vector3(2f, 1f);
+                source.transform.localScale = new Vector3(-2f, 3f, 1f);
+                var renderer = source.AddComponent<SpriteRenderer>();
+                renderer.sprite = artwork;
+                item.SpriteSource = renderer;
+                Require(Vector2.Distance(item.GetShape(null).Center, item.ColliderCenter) < .00001f,
+                    "Custom source used an assigned renderer");
+                item.ColliderType = ColliderType.Sprite;
+                Require(item.GetShape(null).IsBox && Vector2.Distance(item.GetShape(null).Center, renderer.bounds.center) < .00001f,
+                    "Sprite box no longer used renderer bounds");
+                item.ColliderShape = WorldInteractionColliderShape.Circle;
+                item.ColliderCenter = new Vector2(.2f, -.3f);
+                item.ColliderRadius = .4f;
+                circle = item.GetShape(null);
+                Require(Vector2.Distance(circle.Center, source.transform.TransformPoint(renderer.localBounds.center)) < .00001f
+                    && Mathf.Abs(circle.Radius - 2f) < .00001f, "Sprite circle did not use artwork bounds");
+                Matrix4x4 delta = Matrix4x4.TRS(new Vector3(3f, -1f), Quaternion.Euler(0f, 0f, 40f), new Vector3(2f, .5f, 1f));
+                InteractionShape predicted = item.GetShapeAfterMotion(delta, null);
+                Require(!predicted.IsBox && Vector2.Distance(predicted.Center, delta.MultiplyPoint3x4(circle.Center)) < .00001f
+                    && Mathf.Abs(predicted.Radius - 4f) < .00001f, "Circle motion prediction ignored scale or source");
+                source.transform.SetParent(null, true);
+                Require(item.GetShapeAfterMotion(delta, null).Center == circle.Center,
+                    "External sprite source moved with the interaction");
+                item.SpriteSource = null;
+                circle = item.GetShape(null);
+                Require(Vector2.Distance(circle.Center, item.ColliderCenter) < .00001f
+                    && Mathf.Abs(circle.Radius - item.ColliderRadius) < .00001f, "Missing sprite did not fall back to Custom");
+                var boxSource = root.AddComponent<BoxCollider2D>();
+                boxSource.offset = new Vector2(-1f, 2f);
+                item.BoxSource = boxSource;
+                Require(!item.GetShape(null).IsBox, "Sprite source used an unselected BoxCollider2D");
+                item.ColliderType = ColliderType.Collider2D;
+                Require(item.GetShape(null).IsBox, "Circle selection overrode BoxCollider2D");
+                Require(Vector2.Distance(item.GetShape(null).Center, boxSource.offset) < .00001f,
+                    "Collider2D source ignored its offset");
+                item.BoxSource = null;
+                Require(!item.GetShape(null).IsBox, "Missing BoxCollider2D did not fall back to Custom");
+                predicted = item.GetShapeAfterMotion(delta, null);
+                Require(Vector2.Distance(predicted.Center, delta.MultiplyPoint3x4(item.ColliderCenter)) < .00001f
+                    && Mathf.Abs(predicted.Radius - .8f) < .00001f, "Custom fallback motion ignored radius scaling");
+                item.SpriteSource = renderer;
+                item.ColliderType = ColliderType.Custom;
+                Require(Vector2.Distance(item.GetShapeAfterMotion(delta, null).Center, predicted.Center) < .00001f,
+                    "Unselected external source froze Custom movement");
+                item.SetKind(WorldInteractionKind.Climbable);
+                item.ClimbableRadius = 2f;
+                Require(!item.GetShape(null).IsBox && Mathf.Abs(item.GetShape(null).Radius - 2f) < .00001f,
+                    "Collider shape/radius overrode Climbable");
+            }
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+                Object.DestroyImmediate(artwork);
+                Object.DestroyImmediate(texture);
+            }
+        }
+
         private static void CheckGeometry()
         {
             InteractionShape box = InteractionShape.WorldBox(Vector2.zero, new Vector2(2f, 1f), null);

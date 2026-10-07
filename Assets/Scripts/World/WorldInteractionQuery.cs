@@ -30,6 +30,8 @@ namespace AnimalGame.World
         }
         public static InteractionShape Capsule(Vector2 a, Vector2 b, float radius) =>
             new InteractionShape { A = a, B = b, Radius = Mathf.Max(0f, radius) };
+        public static InteractionShape Circle(Vector2 center, float radius) =>
+            Capsule(center, center, radius);
         public static InteractionShape Box(Transform frame, Vector2 center, Vector2 size, MapTestSceneController map)
         {
             Vector2 h = size * .5f;
