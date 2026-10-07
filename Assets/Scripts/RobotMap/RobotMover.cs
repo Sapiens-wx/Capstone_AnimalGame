@@ -945,6 +945,11 @@ namespace AnimalGame.RobotMap
             float steering,
             bool steeringLocked)
         {
+            StepTurning(steering, steeringLocked, Time.deltaTime);
+        }
+
+        private void StepTurning(float steering, bool steeringLocked, float deltaTime)
+        {
             bool isSteering = !steeringLocked && !Mathf.Approximately(steering, 0f);
             // Only uninterrupted steering carries the reverse direction through a stop.
             if (Mathf.Approximately(CurrentSpeed, 0f) && (!wasSteering || !isSteering))
@@ -961,13 +966,13 @@ namespace AnimalGame.RobotMap
             CurrentTurnSpeed = Mathf.MoveTowards(
                 CurrentTurnSpeed,
                 targetTurnSpeed,
-                turnChangeRate * Time.deltaTime);
+                turnChangeRate * deltaTime);
 
             float reverseDirection = lastMovingSpeedSign;
             transform.Rotate(
                 0f,
                 0f,
-                -CurrentTurnSpeed * reverseDirection * Time.deltaTime);
+                -CurrentTurnSpeed * reverseDirection * deltaTime);
         }
 
         private Vector2 CalculateTerrainTargetVelocity(

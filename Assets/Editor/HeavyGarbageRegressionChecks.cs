@@ -828,9 +828,21 @@ namespace AnimalGame.Editor
                 sprite = Sprite.Create(texture, new Rect(0f, 0f, 32f, 32f), Vector2.one * .5f, 32f);
                 Robot = NewObject("Heavy regression robot", Vector2.zero);
                 Arms = Robot.AddComponent<RobotArmController>();
-                GameObject visualFrame = NewObject("Marker Visual Root", Vector2.zero);
-                visualFrame.transform.SetParent(Robot.transform, false);
-                Set(Robot.GetComponent<RobotMarkerView>(), "markerVisualRoot", visualFrame.transform);
+                GameObject visualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
+                Require(visualPrefab != null, "Production robot visual hierarchy is unavailable to heavy-garbage fixtures");
+                RobotArmController artworkSettings = visualPrefab.GetComponent<RobotArmController>();
+                foreach (string field in new[] { "robotHandOpenSprite", "robotHandClosedSprite", "armScale", "handScale", "lowerArmScale" })
+                    Set(Arms, field, Get(artworkSettings, field));
+                Transform visualFrame = Object.Instantiate(visualPrefab.transform.Find("Marker Visual Root"), Robot.transform);
+                visualFrame.name = "Marker Visual Root";
+                RobotMarkerView marker = Robot.GetComponent<RobotMarkerView>();
+                Set(marker, "markerVisualRoot", visualFrame);
+                Transform bodyVisual = visualFrame.Find("Body Visual");
+                Require(bodyVisual != null, "Production robot visual hierarchy has no chassis root");
+                Set(marker, "bodyVisualRoot", bodyVisual);
+                Set(marker, "mediumRecycleBodyBasePosition", bodyVisual.localPosition);
+                Set(marker, "mediumRecycleBodyBaseRotation", bodyVisual.localRotation);
                 Call(Arms, "Awake");
                 Call(Arms, "EnsureVisuals");
                 Call(Mover, "Awake");

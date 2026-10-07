@@ -172,6 +172,48 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(0f, 1f)] private float sonyHeavyBreakMaximumHighFrequencyStrength = 0.55f;
         [SerializeField, Range(0f, 0.2f)] private float sonyHeavyBreakMinimumRumbleOutput = 0.01f;
 
+        [Header("Medium Garbage Recycle Feedback")]
+        [SerializeField] private bool mediumRecycleFeedbackEnabled = true;
+        [SerializeField] private bool mediumRecycleCameraShakeEnabled = true;
+        [SerializeField] private bool mediumRecycleRumbleEnabled = true;
+        [Tooltip("Low-frequency motor peaks for first, second, third press and final latch (X, Y, Z, W).")]
+        [SerializeField] private Vector4 mediumRecycleLowFrequencyByStage = new Vector4(0.35f, 0.45f, 0.55f, 0.25f);
+        [Tooltip("High-frequency motor peaks for first, second, third press and final latch (X, Y, Z, W).")]
+        [SerializeField] private Vector4 mediumRecycleHighFrequencyByStage = new Vector4(0.20f, 0.25f, 0.30f, 0.15f);
+        [Tooltip("Pulse durations for first, second, third press and final latch (X, Y, Z, W), in seconds.")]
+        [SerializeField] private Vector4 mediumRecycleDurationByStage = new Vector4(0.12f, 0.14f, 0.18f, 0.10f);
+        [Tooltip("Directional camera impulses for first, second, third press and final latch (X, Y, Z, W).")]
+        [SerializeField] private Vector4 mediumRecyclePositionByStage = new Vector4(0.010f, 0.014f, 0.018f, 0.006f);
+        [Tooltip("Small roll impulses for first, second, third press and final latch (X, Y, Z, W), in degrees.")]
+        [SerializeField] private Vector4 mediumRecycleRotationByStage = new Vector4(0.05f, 0.07f, 0.10f, 0.03f);
+        [Tooltip("Continuous press vibration amplitudes for first, second and third strokes (X, Y, Z).")]
+        [SerializeField] private Vector3 mediumRecycleContinuousPositionByStage = new Vector3(0.010f, 0.013f, 0.016f);
+        [Tooltip("Continuous press roll amplitudes for first, second and third strokes (X, Y, Z), in degrees.")]
+        [SerializeField] private Vector3 mediumRecycleContinuousRotationByStage = new Vector3(0.035f, 0.05f, 0.065f);
+        [SerializeField, Min(0.1f)] private float mediumRecycleContinuousFrequency = 10.5f;
+        [Tooltip("Light machine-running vibration retained between pressing strokes, including the locked hold.")]
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleContinuousMinimumStrength = 0.4f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleContinuousSideRatio = 0.22f;
+        [SerializeField, Min(0f)] private float mediumRecycleProcessingPositionAmplitude = 0.012f;
+        [SerializeField, Min(0f)] private float mediumRecycleProcessingRotationDegrees = 0.05f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleProcessingLowFrequency = 0.25f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleProcessingHighFrequency = 0.12f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleEffortLowFrequency = 0.08f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleEffortHighFrequency = 0.02f;
+        [SerializeField, Min(0f)] private float mediumRecyclePeakHoldDuration = 0.025f;
+        [SerializeField, Range(0.5f, 4f)] private float mediumRecycleFalloffExponent = 1.4f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleCameraImmediateImpactFraction = 0.10f;
+        [SerializeField, Range(0.1f, 20f)] private float mediumRecycleSpringFrequency = 5f;
+        [SerializeField, Range(0.05f, 2f)] private float mediumRecycleSpringDamping = 0.95f;
+
+        [Header("Sony Medium Recycle Rumble Calibration")]
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleSonyLowFrequencyMultiplier = 1f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleSonyHighFrequencyMultiplier = 1f;
+        [SerializeField, Range(0.5f, 3f)] private float mediumRecycleSonyResponseExponent = 1f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleSonyMaximumLowFrequencyStrength = 0.60f;
+        [SerializeField, Range(0f, 1f)] private float mediumRecycleSonyMaximumHighFrequencyStrength = 0.35f;
+        [SerializeField, Range(0f, 0.2f)] private float mediumRecycleSonyMinimumRumbleOutput = 0.01f;
+
         [Header("Continuous Chassis Vibration")]
         [Tooltip("Planar speed at which ordinary drive vibration reaches full strength.")]
         [SerializeField, Min(0.1f)] private float fullVibrationSpeed = 4f;
@@ -451,6 +493,10 @@ namespace AnimalGame.RobotMap
         private float garbageGrabCameraRotation, garbageGrabCameraRotationVelocity;
         private Vector2 heavyGarbageBreakCameraPosition, heavyGarbageBreakCameraPositionVelocity;
         private float heavyGarbageBreakCameraRotation, heavyGarbageBreakCameraRotationVelocity;
+        private Vector2 mediumRecycleCameraPosition, mediumRecycleCameraPositionVelocity;
+        private float mediumRecycleCameraRotation, mediumRecycleCameraRotationVelocity;
+        private Vector2 mediumRecycleContinuousPosition;
+        private float mediumRecycleContinuousRotation;
         private Vector2 regularRumblePositionOffset;
         private float regularRumbleRotationOffsetDegrees;
         private Vector2 continuousPosition;
@@ -473,6 +519,7 @@ namespace AnimalGame.RobotMap
         private float lastSentHighFrequencyRumble;
         private Vector2 lastSentGarbageGrabRumble;
         private Vector2 lastSentHeavyGarbageBreakRumble;
+        private Vector2 lastSentMediumRecycleRumble;
         private float nextRumbleRefreshTime;
         private bool rumbleWasSent;
         private float lastLandingRumbleTime = float.NegativeInfinity;
@@ -490,6 +537,19 @@ namespace AnimalGame.RobotMap
         private float garbagePullRumble;
         private readonly List<GarbageGrabPulse> garbageGrabPulses = new();
         private readonly List<GarbageGrabPulse> heavyGarbageBreakPulses = new();
+        private readonly List<MediumRecyclePulse> mediumRecyclePulses = new();
+        private UnityEngine.Object mediumRecycleOwner;
+        private UnityEngine.Object mediumRecycleSuppressedOwner;
+        private float mediumRecycleEffort;
+        private int mediumRecycleContinuousStage = -1;
+        private float mediumRecycleContinuousEffort, mediumRecyclePhaseTime;
+        private Vector2 mediumRecycleWorldDirection = Vector2.down;
+        private bool mediumRecycleProcessingActive;
+        private float mediumRecycleProcessingEnvelope;
+        private bool mediumRecycleFinished;
+        private int mediumRecyclePlayedStageMask;
+        private bool mediumRecycleFeedbackFocused = true;
+        private bool mediumRecycleFeedbackPaused;
         private bool heavyBreakFeedbackFocused = true;
         private bool heavyBreakFeedbackPaused;
 
@@ -499,6 +559,15 @@ namespace AnimalGame.RobotMap
             public readonly Vector2 Strength;
             public GarbageGrabPulse(float startTime, float duration, Vector2 strength)
             { StartTime = startTime; Duration = duration; Strength = strength; }
+        }
+
+        private readonly struct MediumRecyclePulse
+        {
+            public readonly int Stage;
+            public readonly float StartTime, Duration;
+            public readonly Vector2 Strength;
+            public MediumRecyclePulse(int stage, float startTime, float duration, Vector2 strength)
+            { Stage = stage; StartTime = startTime; Duration = duration; Strength = strength; }
         }
 
         // Mixed with all other motor sources at the single controller output.
@@ -603,6 +672,233 @@ namespace AnimalGame.RobotMap
         {
             heavyGarbageBreakCameraPosition = heavyGarbageBreakCameraPositionVelocity = Vector2.zero;
             heavyGarbageBreakCameraRotation = heavyGarbageBreakCameraRotationVelocity = 0f;
+        }
+
+        // The controller owns one recycle session. Focus/pause cancellation suppresses
+        // that owner until Finish/Cancel closes the session, so resuming cannot replay it.
+        public void SetMediumRecycleEffort(UnityEngine.Object owner, float effort01)
+        {
+            if (!TryClaimMediumRecycleOwner(owner)) return;
+            mediumRecycleEffort = Mathf.Clamp01(effort01);
+        }
+
+        public void SetMediumRecycleContinuous(UnityEngine.Object owner, int stage, float effort01,
+            float phaseTime, Vector2 worldDirection)
+        {
+            if (!TryClaimMediumRecycleOwner(owner)) return;
+            mediumRecycleProcessingActive = false;
+            mediumRecycleProcessingEnvelope = 0f;
+            mediumRecycleContinuousStage = stage >= 0 && stage < 3 ? stage : -1;
+            mediumRecycleContinuousEffort = Mathf.Clamp01(effort01);
+            mediumRecyclePhaseTime = Mathf.Max(0f, phaseTime);
+            mediumRecycleWorldDirection = worldDirection;
+            UpdateMediumRecycleContinuousCamera();
+        }
+
+        public void SetMediumRecycleProcessing(UnityEngine.Object owner, float envelope,
+            float phaseTime, Vector2 worldDirection)
+        {
+            if (!TryClaimMediumRecycleOwner(owner)) return;
+            mediumRecycleProcessingActive = true;
+            mediumRecycleProcessingEnvelope = Mathf.Clamp01(envelope);
+            mediumRecycleEffort = 0f;
+            mediumRecycleContinuousStage = -1;
+            mediumRecycleContinuousEffort = 0f;
+            mediumRecyclePhaseTime = Mathf.Max(0f, phaseTime);
+            mediumRecycleWorldDirection = worldDirection;
+            if (mediumRecycleProcessingEnvelope <= 0f)
+            {
+                mediumRecyclePulses.Clear();
+                ClearMediumRecycleCamera();
+            }
+            UpdateMediumRecycleContinuousCamera();
+        }
+
+        private void UpdateMediumRecycleContinuousCamera()
+        {
+            mediumRecycleContinuousPosition = Vector2.zero;
+            mediumRecycleContinuousRotation = 0f;
+            if (!enableCameraShake || !mediumRecycleCameraShakeEnabled || !CanUseMediumRecycleFeedback)
+                return;
+            if (!mediumRecycleProcessingActive && mediumRecycleContinuousStage < 0) return;
+            float strength = mediumRecycleProcessingActive
+                ? mediumRecycleProcessingEnvelope
+                : Mathf.Lerp(Mathf.Clamp01(mediumRecycleContinuousMinimumStrength), 1f, mediumRecycleContinuousEffort);
+            float position = mediumRecycleProcessingActive ? mediumRecycleProcessingPositionAmplitude
+                : mediumRecycleContinuousPositionByStage[mediumRecycleContinuousStage];
+            float rotation = mediumRecycleProcessingActive ? mediumRecycleProcessingRotationDegrees
+                : mediumRecycleContinuousRotationByStage[mediumRecycleContinuousStage];
+            float phase = mediumRecyclePhaseTime * Mathf.PI * 2f * Mathf.Max(0.1f, mediumRecycleContinuousFrequency);
+            Vector2 direction = WorldToCameraLocalDirection(mediumRecycleWorldDirection);
+            if (direction.sqrMagnitude < 0.000001f) direction = Vector2.down;
+            Vector2 side = new Vector2(-direction.y, direction.x);
+            mediumRecycleContinuousPosition = position * strength * (direction * Mathf.Sin(phase)
+                + side * (Mathf.Clamp01(mediumRecycleContinuousSideRatio) * Mathf.Sin(phase * 1.17f + 0.6f)));
+            mediumRecycleContinuousRotation = rotation * strength * Mathf.Sin(phase * 0.93f + 0.45f);
+        }
+
+        // Pure output inspection for regression checks; no gamepad transport is invoked.
+        private Vector3 GetMediumRecycleCameraSample()
+        {
+            if (!enableCameraShake || !mediumRecycleCameraShakeEnabled || !CanUseMediumRecycleFeedback)
+                return Vector3.zero;
+            float envelope = mediumRecycleProcessingActive ? mediumRecycleProcessingEnvelope : 1f;
+            Vector2 position = mediumRecycleCameraPosition * envelope + mediumRecycleContinuousPosition;
+            return new Vector3(position.x, position.y,
+                mediumRecycleCameraRotation * envelope + mediumRecycleContinuousRotation) * globalIntensity;
+        }
+
+        public void PlayMediumRecycleImpact(UnityEngine.Object owner, int stage, Vector2 worldDirection)
+        {
+            if (stage < 0 || stage > 3 || !TryClaimMediumRecycleOwner(owner)) return;
+            int stageMask = 1 << stage;
+            if ((mediumRecyclePlayedStageMask & stageMask) != 0) return;
+            mediumRecyclePlayedStageMask |= stageMask;
+            if (enableGamepadRumble && mediumRecycleRumbleEnabled)
+            {
+                GetMediumRecycleMotorSpeeds(Time.time);
+                mediumRecyclePulses.Add(new MediumRecyclePulse(stage, Time.time,
+                    Mathf.Max(0.01f, mediumRecycleDurationByStage[stage]),
+                    new Vector2(Mathf.Clamp01(mediumRecycleLowFrequencyByStage[stage]),
+                        Mathf.Clamp01(mediumRecycleHighFrequencyByStage[stage]))));
+            }
+            if (!enableCameraShake || !mediumRecycleCameraShakeEnabled) return;
+            Vector2 direction = WorldToCameraLocalDirection(worldDirection);
+            if (direction.sqrMagnitude < 0.000001f) direction = Vector2.down;
+            float positionImpact = Mathf.Max(0f, mediumRecyclePositionByStage[stage]);
+            float rotationImpact = Mathf.Max(0f, mediumRecycleRotationByStage[stage]);
+            float immediate = Mathf.Clamp01(mediumRecycleCameraImmediateImpactFraction);
+            float angularFrequency = Mathf.PI * 2f * Mathf.Max(0.1f, mediumRecycleSpringFrequency);
+            float roll = Mathf.Abs(direction.x) >= 0.25f ? -direction.x : -0.25f * Mathf.Sign(direction.y);
+            mediumRecycleCameraPosition += direction * positionImpact * immediate;
+            mediumRecycleCameraRotation += roll * rotationImpact * immediate;
+            mediumRecycleCameraPositionVelocity += direction * positionImpact * (1f - immediate) * angularFrequency;
+            mediumRecycleCameraRotationVelocity += roll * rotationImpact * (1f - immediate) * angularFrequency;
+        }
+
+        public void FinishMediumRecycleFeedback(UnityEngine.Object owner)
+        {
+            if (owner == null) return;
+            if (mediumRecycleSuppressedOwner == owner) mediumRecycleSuppressedOwner = null;
+            if (mediumRecycleOwner != owner) return;
+            mediumRecycleEffort = 0f;
+            mediumRecycleProcessingActive = false;
+            mediumRecycleProcessingEnvelope = 0f;
+            mediumRecycleContinuousStage = -1;
+            mediumRecycleContinuousEffort = 0f;
+            mediumRecycleContinuousPosition = Vector2.zero;
+            mediumRecycleContinuousRotation = 0f;
+            mediumRecycleFinished = true;
+            // The final latch pulse and camera recoil finish independently of the controller.
+        }
+
+        public void CancelMediumRecycleFeedback(UnityEngine.Object owner)
+        {
+            if (owner == null) return;
+            if (mediumRecycleSuppressedOwner == owner) mediumRecycleSuppressedOwner = null;
+            if (mediumRecycleOwner == owner) ClearMediumRecycleFeedback();
+        }
+
+        public void CompleteMediumRecycleFeedback(UnityEngine.Object owner)
+        {
+            if (owner == null) return;
+            if (mediumRecycleSuppressedOwner == owner) mediumRecycleSuppressedOwner = null;
+            if (mediumRecycleOwner == owner) ClearMediumRecycleFeedback();
+        }
+
+        private bool CanUseMediumRecycleFeedback => isActiveAndEnabled && mediumRecycleFeedbackEnabled
+            && mediumRecycleFeedbackFocused && !mediumRecycleFeedbackPaused && Time.timeScale > 0.0001f;
+
+        private bool TryClaimMediumRecycleOwner(UnityEngine.Object owner)
+        {
+            if (owner == null) return false;
+            if (!CanUseMediumRecycleFeedback)
+            {
+                // A session beginning during pause/focus loss is also cancelled,
+                // rather than joining its old timeline midway after focus returns.
+                if (mediumRecycleOwner == null || mediumRecycleOwner == owner)
+                    mediumRecycleSuppressedOwner = owner;
+                return false;
+            }
+            if (mediumRecycleSuppressedOwner == owner) return false;
+            if (!ReferenceEquals(mediumRecycleOwner, null) && mediumRecycleOwner == null)
+                ClearMediumRecycleFeedback(); // A destroyed owner cannot leave a motor or camera tail behind.
+            if (mediumRecycleOwner != null && mediumRecycleOwner != owner)
+            {
+                if (!mediumRecycleFinished) return false;
+                ClearMediumRecycleFeedback();
+            }
+            if (mediumRecycleOwner != owner || mediumRecycleFinished)
+                mediumRecyclePlayedStageMask = 0;
+            mediumRecycleOwner = owner;
+            mediumRecycleFinished = false;
+            return true;
+        }
+
+        private Vector2 GetMediumRecycleMotorSpeeds(float now)
+        {
+            if (!CanUseMediumRecycleFeedback)
+            {
+                InvalidateMediumRecycleSession();
+                return Vector2.zero;
+            }
+            if (!ReferenceEquals(mediumRecycleOwner, null) && mediumRecycleOwner == null)
+                ClearMediumRecycleFeedback();
+            if (!enableGamepadRumble || !mediumRecycleRumbleEnabled)
+            {
+                mediumRecyclePulses.Clear();
+                return Vector2.zero;
+            }
+            Vector2 result = mediumRecycleProcessingActive
+                ? new Vector2(mediumRecycleProcessingLowFrequency, mediumRecycleProcessingHighFrequency)
+                    * mediumRecycleProcessingEnvelope
+                : new Vector2(mediumRecycleEffortLowFrequency, mediumRecycleEffortHighFrequency) * mediumRecycleEffort;
+            for (int i = mediumRecyclePulses.Count - 1; i >= 0; i--)
+            {
+                MediumRecyclePulse pulse = mediumRecyclePulses[i];
+                float elapsed = now - pulse.StartTime;
+                if (elapsed >= pulse.Duration)
+                {
+                    mediumRecyclePulses.RemoveAt(i);
+                    continue;
+                }
+                float envelope = EvaluateGarbageGrabEnvelope(elapsed, pulse.Duration, 0f,
+                    mediumRecyclePeakHoldDuration, mediumRecycleFalloffExponent);
+                float processingEnvelope = mediumRecycleProcessingActive ? mediumRecycleProcessingEnvelope : 1f;
+                result = Vector2.Max(result, pulse.Strength * envelope * processingEnvelope);
+            }
+            // This dedicated channel bypasses drive-rumble attack/release smoothing.
+            return new Vector2(Mathf.Clamp01(result.x * globalIntensity), Mathf.Clamp01(result.y * globalIntensity));
+        }
+
+        private void ClearMediumRecycleCamera()
+        {
+            mediumRecycleCameraPosition = mediumRecycleCameraPositionVelocity = Vector2.zero;
+            mediumRecycleCameraRotation = mediumRecycleCameraRotationVelocity = 0f;
+            mediumRecycleContinuousPosition = Vector2.zero;
+            mediumRecycleContinuousRotation = 0f;
+        }
+
+        private void ClearMediumRecycleFeedback()
+        {
+            mediumRecycleOwner = null;
+            mediumRecycleEffort = 0f;
+            mediumRecycleContinuousStage = -1;
+            mediumRecycleContinuousEffort = mediumRecyclePhaseTime = 0f;
+            mediumRecycleWorldDirection = Vector2.down;
+            mediumRecycleProcessingActive = false;
+            mediumRecycleProcessingEnvelope = 0f;
+            mediumRecycleFinished = false;
+            mediumRecyclePlayedStageMask = 0;
+            mediumRecyclePulses.Clear();
+            ClearMediumRecycleCamera();
+        }
+
+        private void InvalidateMediumRecycleSession()
+        {
+            if (mediumRecycleOwner != null && !mediumRecycleFinished)
+                mediumRecycleSuppressedOwner = mediumRecycleOwner;
+            ClearMediumRecycleFeedback();
         }
 
         private Vector2 GetGarbageGrabMotorSpeeds(float now)
@@ -936,7 +1232,16 @@ namespace AnimalGame.RobotMap
             {
                 StopGamepadRumble();
                 ClearHeavyGarbageBreakCamera();
+                InvalidateMediumRecycleSession();
             }
+            if (!mediumRecycleFeedbackEnabled)
+                InvalidateMediumRecycleSession();
+            if (!mediumRecycleCameraShakeEnabled)
+                ClearMediumRecycleCamera();
+            if (!mediumRecycleRumbleEnabled)
+                mediumRecyclePulses.Clear();
+            if (!ReferenceEquals(mediumRecycleOwner, null) && mediumRecycleOwner == null)
+                ClearMediumRecycleFeedback();
             if (!enableHeavyGarbageBreakFeedback || !enableHeavyGarbageBreakCameraShake)
                 ClearHeavyGarbageBreakCamera();
             if (!enableHeavyGarbageBreakFeedback || !enableHeavyGarbageBreakRumble)
@@ -957,6 +1262,7 @@ namespace AnimalGame.RobotMap
             DetectDiscreteImpacts(deltaTime);
             UpdateContinuousVibration();
             IntegrateSprings(deltaTime);
+            UpdateMediumRecycleContinuousCamera();
             ApplyShakeToCamera();
             UpdateGamepadRumble(deltaTime);
             StorePreviousMotionState();
@@ -1549,6 +1855,10 @@ namespace AnimalGame.RobotMap
                     positionSpringFrequency, positionSpringDamping, step);
                 IntegrateSpring(ref heavyGarbageBreakCameraRotation, ref heavyGarbageBreakCameraRotationVelocity,
                     rotationSpringFrequency, rotationSpringDamping, step);
+                IntegrateSpring(ref mediumRecycleCameraPosition, ref mediumRecycleCameraPositionVelocity,
+                    mediumRecycleSpringFrequency, mediumRecycleSpringDamping, step);
+                IntegrateSpring(ref mediumRecycleCameraRotation, ref mediumRecycleCameraRotationVelocity,
+                    mediumRecycleSpringFrequency, mediumRecycleSpringDamping, step);
             }
 
             springPosition = Vector2.ClampMagnitude(
@@ -1568,22 +1878,28 @@ namespace AnimalGame.RobotMap
             heavyGarbageBreakCameraPosition = Vector2.ClampMagnitude(heavyGarbageBreakCameraPosition, GetMaximumPositionOffset());
             heavyGarbageBreakCameraRotation = Mathf.Clamp(heavyGarbageBreakCameraRotation,
                 -GetMaximumRotationDegrees(), GetMaximumRotationDegrees());
+            mediumRecycleCameraPosition = Vector2.ClampMagnitude(mediumRecycleCameraPosition, GetMaximumPositionOffset());
+            mediumRecycleCameraRotation = Mathf.Clamp(mediumRecycleCameraRotation,
+                -GetMaximumRotationDegrees(), GetMaximumRotationDegrees());
         }
 
         private void ApplyShakeToCamera()
         {
-            // Grip and break camera motion have explicit motor pulses; neither may
+            // Grip, break and recycle camera motion have explicit motor pulses; none may
             // generate an additional rumble tail through the chassis camera amplitudes.
             regularRumblePositionOffset = Vector2.ClampMagnitude(
                 (springPosition + continuousPosition) * globalIntensity, GetMaximumPositionOffset());
             regularRumbleRotationOffsetDegrees = Mathf.Clamp(
                 (springRotation + continuousRotation) * globalIntensity,
                 -GetMaximumRotationDegrees(), GetMaximumRotationDegrees());
+            Vector3 recycleSample = GetMediumRecycleCameraSample();
             Vector2 localOffset = Vector2.ClampMagnitude(
-                (springPosition + continuousPosition + garbageGrabCameraPosition + heavyGarbageBreakCameraPosition) * globalIntensity,
+                (springPosition + continuousPosition + garbageGrabCameraPosition + heavyGarbageBreakCameraPosition) * globalIntensity
+                    + new Vector2(recycleSample.x, recycleSample.y),
                 GetMaximumPositionOffset());
             float rotationOffset = Mathf.Clamp(
-                (springRotation + continuousRotation + garbageGrabCameraRotation + heavyGarbageBreakCameraRotation) * globalIntensity,
+                (springRotation + continuousRotation + garbageGrabCameraRotation + heavyGarbageBreakCameraRotation) * globalIntensity
+                    + recycleSample.z,
                 -GetMaximumRotationDegrees(),
                 GetMaximumRotationDegrees());
             float zoomOffset = Mathf.Clamp(
@@ -1729,6 +2045,7 @@ namespace AnimalGame.RobotMap
                 : 0f;
             Vector2 grabOutput = GetGarbageGrabMotorSpeeds(Time.time);
             Vector2 breakOutput = GetHeavyGarbageBreakMotorSpeeds(Time.time);
+            Vector2 recycleOutput = GetMediumRecycleMotorSpeeds(Time.time);
             bool changed = Mathf.Abs(
                                outputLow - lastSentLowFrequencyRumble)
                            >= 0.005f
@@ -1743,6 +2060,10 @@ namespace AnimalGame.RobotMap
                 || Mathf.Abs(breakOutput.y - lastSentHeavyGarbageBreakRumble.y) >= 0.005f
                 || (breakOutput.x <= 0f && lastSentHeavyGarbageBreakRumble.x > 0f)
                 || (breakOutput.y <= 0f && lastSentHeavyGarbageBreakRumble.y > 0f);
+            changed |= Mathf.Abs(recycleOutput.x - lastSentMediumRecycleRumble.x) >= 0.005f
+                || Mathf.Abs(recycleOutput.y - lastSentMediumRecycleRumble.y) >= 0.005f
+                || (recycleOutput.x <= 0f && lastSentMediumRecycleRumble.x > 0f)
+                || (recycleOutput.y <= 0f && lastSentMediumRecycleRumble.y > 0f);
             if (!changed
                 && rumbleWasSent
                 && Time.unscaledTime < nextRumbleRefreshTime)
@@ -1760,11 +2081,14 @@ namespace AnimalGame.RobotMap
                 grabOutput,
                 CreateSonyGrabRumbleCalibration(),
                 breakOutput,
-                CreateSonyHeavyBreakRumbleCalibration());
+                CreateSonyHeavyBreakRumbleCalibration(),
+                recycleOutput,
+                CreateSonyMediumRecycleRumbleCalibration());
             lastSentLowFrequencyRumble = outputLow;
             lastSentHighFrequencyRumble = outputHigh;
             lastSentGarbageGrabRumble = grabOutput;
             lastSentHeavyGarbageBreakRumble = breakOutput;
+            lastSentMediumRecycleRumble = recycleOutput;
             nextRumbleRefreshTime = Time.unscaledTime + 0.25f;
         }
 
@@ -1788,7 +2112,8 @@ namespace AnimalGame.RobotMap
                 || currentLowFrequencyRumble > 0f
                 || currentHighFrequencyRumble > 0f
                 || lastSentGarbageGrabRumble.sqrMagnitude > 0f
-                || lastSentHeavyGarbageBreakRumble.sqrMagnitude > 0f)
+                || lastSentHeavyGarbageBreakRumble.sqrMagnitude > 0f
+                || lastSentMediumRecycleRumble.sqrMagnitude > 0f)
             {
                 AdaptiveGamepadRumble.SetMotorSpeeds(
                     gamepadIndex,
@@ -1803,8 +2128,10 @@ namespace AnimalGame.RobotMap
             lastSentHighFrequencyRumble = 0f;
             lastSentGarbageGrabRumble = Vector2.zero;
             lastSentHeavyGarbageBreakRumble = Vector2.zero;
+            lastSentMediumRecycleRumble = Vector2.zero;
             ClearGarbageGrabFeedback();
             ClearHeavyGarbageBreakFeedback();
+            mediumRecyclePulses.Clear();
             rumbleWasSent = false;
             lastLandingRumbleTime = float.NegativeInfinity;
             lastLandingRumbleStrength = 0f;
@@ -1999,6 +2326,15 @@ namespace AnimalGame.RobotMap
             sonyHeavyBreakMaximumHighFrequencyStrength,
             sonyHeavyBreakMinimumRumbleOutput);
 
+        private SonyRumbleCalibration CreateSonyMediumRecycleRumbleCalibration() => new SonyRumbleCalibration(
+            enableSonyRumbleCalibration,
+            mediumRecycleSonyLowFrequencyMultiplier,
+            mediumRecycleSonyHighFrequencyMultiplier,
+            mediumRecycleSonyResponseExponent,
+            mediumRecycleSonyMaximumLowFrequencyStrength,
+            mediumRecycleSonyMaximumHighFrequencyStrength,
+            mediumRecycleSonyMinimumRumbleOutput);
+
         private Vector2 GetCurrentWorldVelocity()
         {
             return mover == null
@@ -2080,6 +2416,7 @@ namespace AnimalGame.RobotMap
         private void ResetShakeState()
         {
             ClearHeavyGarbageBreakCamera();
+            ClearMediumRecycleCamera();
             garbageGrabCameraPosition = Vector2.zero;
             garbageGrabCameraPositionVelocity = Vector2.zero;
             garbageGrabCameraRotation = 0f;
@@ -2101,6 +2438,7 @@ namespace AnimalGame.RobotMap
 
         private void OnDisable()
         {
+            InvalidateMediumRecycleSession();
             UnsubscribeFromTumbleEvents();
             UnsubscribeFromSelfRightingEvents();
             ResetShakeState();
@@ -2150,8 +2488,10 @@ namespace AnimalGame.RobotMap
         private void OnApplicationFocus(bool hasFocus)
         {
             heavyBreakFeedbackFocused = hasFocus;
+            mediumRecycleFeedbackFocused = hasFocus;
             if (!hasFocus)
             {
+                InvalidateMediumRecycleSession();
                 StopGamepadRumble();
                 ClearHeavyGarbageBreakCamera();
             }
@@ -2160,8 +2500,10 @@ namespace AnimalGame.RobotMap
         private void OnApplicationPause(bool pauseStatus)
         {
             heavyBreakFeedbackPaused = pauseStatus;
+            mediumRecycleFeedbackPaused = pauseStatus;
             if (pauseStatus)
             {
+                InvalidateMediumRecycleSession();
                 StopGamepadRumble();
                 ClearHeavyGarbageBreakCamera();
             }
@@ -2169,6 +2511,8 @@ namespace AnimalGame.RobotMap
 
         private void OnDestroy()
         {
+            ClearMediumRecycleFeedback();
+            mediumRecycleSuppressedOwner = null;
             UnsubscribeFromTumbleEvents();
             UnsubscribeFromSelfRightingEvents();
             StopGamepadRumble();
@@ -2176,6 +2520,39 @@ namespace AnimalGame.RobotMap
 
         private void OnValidate()
         {
+            for (int stage = 0; stage < 4; stage++)
+            {
+                mediumRecycleLowFrequencyByStage[stage] = Mathf.Clamp01(mediumRecycleLowFrequencyByStage[stage]);
+                mediumRecycleHighFrequencyByStage[stage] = Mathf.Clamp01(mediumRecycleHighFrequencyByStage[stage]);
+                mediumRecycleDurationByStage[stage] = Mathf.Max(0.01f, mediumRecycleDurationByStage[stage]);
+                mediumRecyclePositionByStage[stage] = Mathf.Max(0f, mediumRecyclePositionByStage[stage]);
+                mediumRecycleRotationByStage[stage] = Mathf.Max(0f, mediumRecycleRotationByStage[stage]);
+            }
+            for (int stage = 0; stage < 3; stage++)
+            {
+                mediumRecycleContinuousPositionByStage[stage] = Mathf.Max(0f, mediumRecycleContinuousPositionByStage[stage]);
+                mediumRecycleContinuousRotationByStage[stage] = Mathf.Max(0f, mediumRecycleContinuousRotationByStage[stage]);
+            }
+            mediumRecycleContinuousFrequency = Mathf.Max(0.1f, mediumRecycleContinuousFrequency);
+            mediumRecycleContinuousMinimumStrength = Mathf.Clamp01(mediumRecycleContinuousMinimumStrength);
+            mediumRecycleContinuousSideRatio = Mathf.Clamp01(mediumRecycleContinuousSideRatio);
+            mediumRecycleProcessingPositionAmplitude = Mathf.Max(0f, mediumRecycleProcessingPositionAmplitude);
+            mediumRecycleProcessingRotationDegrees = Mathf.Max(0f, mediumRecycleProcessingRotationDegrees);
+            mediumRecycleProcessingLowFrequency = Mathf.Clamp01(mediumRecycleProcessingLowFrequency);
+            mediumRecycleProcessingHighFrequency = Mathf.Clamp01(mediumRecycleProcessingHighFrequency);
+            mediumRecycleEffortLowFrequency = Mathf.Clamp01(mediumRecycleEffortLowFrequency);
+            mediumRecycleEffortHighFrequency = Mathf.Clamp01(mediumRecycleEffortHighFrequency);
+            mediumRecyclePeakHoldDuration = Mathf.Max(0f, mediumRecyclePeakHoldDuration);
+            mediumRecycleFalloffExponent = Mathf.Clamp(mediumRecycleFalloffExponent, 0.5f, 4f);
+            mediumRecycleCameraImmediateImpactFraction = Mathf.Clamp01(mediumRecycleCameraImmediateImpactFraction);
+            mediumRecycleSpringFrequency = Mathf.Clamp(mediumRecycleSpringFrequency, 0.1f, 20f);
+            mediumRecycleSpringDamping = Mathf.Clamp(mediumRecycleSpringDamping, 0.05f, 2f);
+            mediumRecycleSonyLowFrequencyMultiplier = Mathf.Clamp01(mediumRecycleSonyLowFrequencyMultiplier);
+            mediumRecycleSonyHighFrequencyMultiplier = Mathf.Clamp01(mediumRecycleSonyHighFrequencyMultiplier);
+            mediumRecycleSonyResponseExponent = Mathf.Clamp(mediumRecycleSonyResponseExponent, 0.5f, 3f);
+            mediumRecycleSonyMaximumLowFrequencyStrength = Mathf.Clamp01(mediumRecycleSonyMaximumLowFrequencyStrength);
+            mediumRecycleSonyMaximumHighFrequencyStrength = Mathf.Clamp01(mediumRecycleSonyMaximumHighFrequencyStrength);
+            mediumRecycleSonyMinimumRumbleOutput = Mathf.Clamp(mediumRecycleSonyMinimumRumbleOutput, 0f, 0.2f);
             heavyBreakDuration = Mathf.Max(0.01f, heavyBreakDuration);
             heavyBreakHighFrequencyDuration = Mathf.Clamp(heavyBreakHighFrequencyDuration, 0.01f, heavyBreakDuration);
             heavyBreakAttackDuration = Mathf.Max(0f, heavyBreakAttackDuration);
@@ -2494,11 +2871,14 @@ namespace AnimalGame.RobotMap
             Vector2 grabSpeeds = default,
             SonyRumbleCalibration grabCalibration = default,
             Vector2 heavyBreakSpeeds = default,
-            SonyRumbleCalibration heavyBreakCalibration = default)
+            SonyRumbleCalibration heavyBreakCalibration = default,
+            Vector2 mediumRecycleSpeeds = default,
+            SonyRumbleCalibration mediumRecycleCalibration = default)
         {
             bool stopping = lowFrequency <= 0f && highFrequency <= 0f
                 && grabSpeeds.x <= 0f && grabSpeeds.y <= 0f
-                && heavyBreakSpeeds.x <= 0f && heavyBreakSpeeds.y <= 0f;
+                && heavyBreakSpeeds.x <= 0f && heavyBreakSpeeds.y <= 0f
+                && mediumRecycleSpeeds.x <= 0f && mediumRecycleSpeeds.y <= 0f;
             if (stopping)
             {
                 StopActiveBackend(gamepadIndex);
@@ -2526,7 +2906,9 @@ namespace AnimalGame.RobotMap
                         grabSpeeds,
                         grabCalibration,
                         heavyBreakSpeeds,
-                        heavyBreakCalibration))
+                        heavyBreakCalibration,
+                        mediumRecycleSpeeds,
+                        mediumRecycleCalibration))
                 {
                     activeBackend = RumbleBackend.SonyInputSystem;
                     return true;
@@ -2543,8 +2925,9 @@ namespace AnimalGame.RobotMap
                 activeBackend = RumbleBackend.None;
             }
 
-            Vector2 xInputSpeeds = ComposeFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
-                grabSpeeds, heavyBreakSpeeds, false, sonyCalibration, grabCalibration, heavyBreakCalibration);
+            Vector2 xInputSpeeds = ComposeAllFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
+                grabSpeeds, heavyBreakSpeeds, mediumRecycleSpeeds, false, sonyCalibration, grabCalibration,
+                heavyBreakCalibration, mediumRecycleCalibration);
             bool xInputSucceeded = WindowsXInputRumble.SetMotorSpeeds(
                 gamepadIndex,
                 xInputSpeeds.x,
@@ -2563,14 +2946,22 @@ namespace AnimalGame.RobotMap
         internal static Vector2 ComposeFeedbackMotorSpeeds(Vector2 regular, Vector2 grab, Vector2 heavyBreak, bool sony,
             SonyRumbleCalibration regularCalibration, SonyRumbleCalibration grabCalibration,
             SonyRumbleCalibration heavyBreakCalibration)
+            => ComposeAllFeedbackMotorSpeeds(regular, grab, heavyBreak, Vector2.zero, sony,
+                regularCalibration, grabCalibration, heavyBreakCalibration, default);
+
+        internal static Vector2 ComposeAllFeedbackMotorSpeeds(Vector2 regular, Vector2 grab, Vector2 heavyBreak,
+            Vector2 mediumRecycle, bool sony, SonyRumbleCalibration regularCalibration,
+            SonyRumbleCalibration grabCalibration, SonyRumbleCalibration heavyBreakCalibration,
+            SonyRumbleCalibration mediumRecycleCalibration)
         {
             if (sony)
             {
                 regularCalibration.Apply(ref regular.x, ref regular.y);
                 grabCalibration.Apply(ref grab.x, ref grab.y);
                 heavyBreakCalibration.Apply(ref heavyBreak.x, ref heavyBreak.y);
+                mediumRecycleCalibration.Apply(ref mediumRecycle.x, ref mediumRecycle.y);
             }
-            Vector2 mixed = Vector2.Max(Vector2.Max(regular, grab), heavyBreak);
+            Vector2 mixed = Vector2.Max(Vector2.Max(Vector2.Max(regular, grab), heavyBreak), mediumRecycle);
             return new Vector2(Mathf.Clamp01(mixed.x), Mathf.Clamp01(mixed.y));
         }
 
@@ -2606,14 +2997,17 @@ namespace AnimalGame.RobotMap
             Vector2 grabSpeeds,
             SonyRumbleCalibration grabCalibration,
             Vector2 heavyBreakSpeeds,
-            SonyRumbleCalibration heavyBreakCalibration)
+            SonyRumbleCalibration heavyBreakCalibration,
+            Vector2 mediumRecycleSpeeds,
+            SonyRumbleCalibration mediumRecycleCalibration)
         {
             Gamepad gamepad = ResolveSonyGamepad();
             if (gamepad == null)
                 return false;
 
-            Vector2 mixed = AdaptiveGamepadRumble.ComposeFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
-                grabSpeeds, heavyBreakSpeeds, true, calibration, grabCalibration, heavyBreakCalibration);
+            Vector2 mixed = AdaptiveGamepadRumble.ComposeAllFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
+                grabSpeeds, heavyBreakSpeeds, mediumRecycleSpeeds, true, calibration, grabCalibration,
+                heavyBreakCalibration, mediumRecycleCalibration);
             gamepad.SetMotorSpeeds(mixed.x, mixed.y);
             return true;
         }
