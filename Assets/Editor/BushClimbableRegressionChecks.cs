@@ -18,6 +18,7 @@ namespace AnimalGame.Editor
     public static class BushClimbableRegressionChecks
     {
         private const string PrefabFolder = "Assets/Prefabs/Environment/Vegetation/";
+        private const float BushSpeedMultiplier = .36f;
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private static int passed;
 
@@ -75,7 +76,7 @@ namespace AnimalGame.Editor
             Near(climb.ClimbableRadius, .4f, "Bush local radius covers its outer leaves");
             Near(climb.SlopeStrength01, .5f, "Bush slope strength");
             Near(climb.TopRadiusRatio01, .5f, "Bush flat-top ratio");
-            Near(climb.ClimbableEntrySpeedMultiplier, .6f, "Bush whole-area speed multiplier");
+            Near(climb.ClimbableEntrySpeedMultiplier, BushSpeedMultiplier, "Bush whole-area speed multiplier");
             Require(climb.ClimbableAffectsWholeArea && climb.ClimbableUseBodyOverlap,
                 "Production bush lost whole-area resistance or body-overlap activation");
             Near(climb.ClimbableEntryBlendDuration, .08f, "Bush entry blend duration");
@@ -317,22 +318,22 @@ namespace AnimalGame.Editor
                             "Bush entry lost the forward/reverse velocity difference");
                         testedFirstEntry = true;
                     }
-                    Require(resistance.VelocityScale >= .599f && resistance.VelocityScale <= 1.0001f,
+                    Require(resistance.VelocityScale >= BushSpeedMultiplier - .001f && resistance.VelocityScale <= 1.0001f,
                         "Bush entry resistance accumulated below the configured cap");
                     if (frame >= 12)
                     {
-                        Near(resistance.VelocityScale, .6f, "Bush ramp did not settle after 0.08 seconds");
-                        Near(Vector2.Distance(position, actual) / dt, speed * .6f,
+                        Near(resistance.VelocityScale, BushSpeedMultiplier, "Bush ramp did not settle after 0.08 seconds");
+                        Near(Vector2.Distance(position, actual) / dt, speed * BushSpeedMultiplier,
                             "Continuous bush contact repeatedly multiplied speed");
-                        Near(Vector2.Dot(resistance.VelocityLoss, inward), speed * .4f,
+                        Near(Vector2.Dot(resistance.VelocityLoss, inward), speed * (1f - BushSpeedMultiplier),
                             "Bush velocity-loss telemetry does not match the settled speed cap");
                     }
                     resistance.Commit(); position = actual;
                 }
                 Require(testedFirstEntry, "Resistance fixture never entered the bush");
                 // Cover a full diameter even if the entire crossing stayed at
-                // its 60-percent cap, plus one second for recovery/exit.
-                int exitFrames = Mathf.CeilToInt((2.2f * radius / (speed * .6f) + 1f) / dt);
+                // its configured speed cap, plus one second for recovery/exit.
+                int exitFrames = Mathf.CeilToInt((2.2f * radius / (speed * BushSpeedMultiplier) + 1f) / dt);
                 for (int frame = 0; frame < exitFrames; frame++)
                 {
                     Vector2 actual = resistance.Plan(position, position + inward * speed * dt, null, f.Scene, dt, 0f, speed);
@@ -364,7 +365,7 @@ namespace AnimalGame.Editor
                 var resistance = new ClimbableEntryResistance();
                 Vector2 position = Vector2.left * radius * 2f;
                 float dt = 1f / rate;
-                int seconds = Mathf.CeilToInt(3.2f * radius / (.2f * .6f) + 1f);
+                int seconds = Mathf.CeilToInt(3.2f * radius / (.2f * BushSpeedMultiplier) + 1f);
                 for (int frame = 0; frame < rate * seconds; frame++)
                 {
                     Vector2 next = resistance.Plan(position, position + Vector2.right * .2f * dt, null, f.Scene, dt, 0f, .2f);
@@ -389,20 +390,20 @@ namespace AnimalGame.Editor
             const float speed = 3.7f;
             bool slowedBeforeTop = false;
             bool reachedConfiguredCap = false;
-            int crossingFrames = Mathf.CeilToInt((2.2f * radius / (speed * .6f) + .25f) / dt);
+            int crossingFrames = Mathf.CeilToInt((2.2f * radius / (speed * BushSpeedMultiplier) + .25f) / dt);
             for (int frame = 0; frame < crossingFrames; frame++)
             {
                 Vector2 next = resistance.Plan(position, position + Vector2.right * speed * dt,
                     null, f.Scene, dt, 0f, speed);
-                Require(resistance.VelocityScale >= .599f && resistance.VelocityScale <= 1.0001f,
+                Require(resistance.VelocityScale >= BushSpeedMultiplier - .001f && resistance.VelocityScale <= 1.0001f,
                     "Normal-speed bush crossing multiplied the configured entry cap");
                 if (next.x < -.5f * radius && resistance.VelocityScale <= .70f)
                     slowedBeforeTop = true;
-                if (resistance.VelocityScale <= .601f) reachedConfiguredCap = true;
+                if (resistance.VelocityScale <= BushSpeedMultiplier + .001f) reachedConfiguredCap = true;
                 resistance.Commit(); position = next;
             }
             Require(slowedBeforeTop && reachedConfiguredCap,
-                "Production-sized bush did not reach a perceptible slowdown or its new 60-percent speed cap");
+                "Production-sized bush did not reach a perceptible slowdown or its 36-percent speed cap");
             Require(position.x > radius, "Normal-speed entry resistance prevented the robot from crossing the bush");
             Near(resistance.VelocityScale, 1f, "Normal-speed bush entry did not restore ordinary drive after exit");
         }
@@ -459,17 +460,17 @@ namespace AnimalGame.Editor
             bool fullResistance = false;
             bool recovered = false;
             bool coveredCenter = false;
-            int crossingFrames = Mathf.CeilToInt((2.6f * radius / (.2f * .6f) + 1f) / dt);
+            int crossingFrames = Mathf.CeilToInt((2.6f * radius / (.2f * BushSpeedMultiplier) + 1f) / dt);
             for (int frame = 0; frame < crossingFrames; frame++)
             {
                 Vector2 next = resistance.Plan(position, position + Vector2.right * .2f * dt, null, f.Scene, dt, 0f, .2f);
-                if (resistance.VelocityScale < .601f) fullResistance = true;
+                if (resistance.VelocityScale < BushSpeedMultiplier + .001f) fullResistance = true;
                 if (fullResistance && position.x > radius * 1.3f) recovered |= resistance.VelocityScale > .999f;
-                Require(resistance.VelocityScale >= .599f,
+                Require(resistance.VelocityScale >= BushSpeedMultiplier - .001f,
                     "Overlapping bushes multiplied their entry resistance");
                 if (fullResistance && position.x >= 0f && next.x < radius * 1.3f)
                 {
-                    Near(resistance.VelocityScale, .6f, "Center/overlap source changes released whole-area resistance");
+                    Near(resistance.VelocityScale, BushSpeedMultiplier, "Center/overlap source changes released whole-area resistance");
                     coveredCenter = true;
                 }
                 resistance.Commit(); position = next;
@@ -523,7 +524,7 @@ namespace AnimalGame.Editor
             Near(ClimbableSurface.GetContactShape(bush, null, body).Radius, radius + body,
                 "Bush contact radius does not include the robot body");
             foreach (float x in new[] { 0f, .325f, radius + body * .8f })
-                Near(ClimbableSurface.AreaSpeedMultiplier(Vector2.right * x, null, f.Scene, scratch, body), .6f,
+                Near(ClimbableSurface.AreaSpeedMultiplier(Vector2.right * x, null, f.Scene, scratch, body), BushSpeedMultiplier,
                     "Whole-area bush speed cap missing at center, leaves or body edge");
             Near(ClimbableSurface.AreaSpeedMultiplier(Vector2.right * (radius + body + .02f),
                 null, f.Scene, scratch, body), 1f, "Whole-area speed cap persists after the body clears the bush");
@@ -540,7 +541,7 @@ namespace AnimalGame.Editor
                 resistance.Commit(); position = next;
             }
             Require(position.x < -radius, "Body-contact fixture accidentally moved its center into the bush");
-            Near(resistance.VelocityScale, .6f, "Body-only contact did not sustain the 60-percent cap");
+            Near(resistance.VelocityScale, BushSpeedMultiplier, "Body-only contact did not sustain the 36-percent cap");
             var tracker = new ClimbableContactTracker();
             Require(!tracker.Move(Vector2.zero, Vector2.right * (radius + .01f), null, f.Scene, 0f, body),
                 "Bush landing triggered when the robot center left but its body remained inside");
@@ -565,7 +566,7 @@ namespace AnimalGame.Editor
                 scratch, null, .5f).Source == bush, "Map-space body radius failed to reach the bush leaves");
             RobotMover robot = f.New("Whole-area robot").AddComponent<RobotMover>();
             Call(robot, "RefreshClimbableSurface");
-            Near(robot.CurrentClimbableAreaSpeedMultiplier, .6f, "Actual mover lost the bush center-area multiplier");
+            Near(robot.CurrentClimbableAreaSpeedMultiplier, BushSpeedMultiplier, "Actual mover lost the bush center-area multiplier");
             robot.transform.position = Vector3.right * 1.17f;
             Call(robot, "RefreshClimbableSurface");
             Near(robot.CurrentClimbableAreaSpeedMultiplier, 1f,
@@ -590,9 +591,9 @@ namespace AnimalGame.Editor
             for (int frame = 0; frame < 8; frame++)
                 Near(Move(.1f).x, .1f, "Low-speed bush entry was capped from its initial tiny speed");
             foreach (float speed in new[] { .2f, .4f, .7f, 1f })
-                Near(Move(speed).x, Mathf.Min(speed, .6f), "Whole-area cap prevented normal acceleration toward 60 percent");
+                Near(Move(speed).x, Mathf.Min(speed, BushSpeedMultiplier), "Whole-area cap prevented normal acceleration toward 36 percent");
             for (int frame = 0; frame < 20; frame++)
-                Near(Move(1f).x, .6f, "Continuous center contact compounded the 60-percent cap");
+                Near(Move(1f).x, BushSpeedMultiplier, "Continuous center contact compounded the 36-percent cap");
             Require(position.x < radius, "Low-speed acceleration trial left the bush before its final checks");
             RobotMover robot = f.New("Slow entering robot").AddComponent<RobotMover>();
             Set(robot, "forwardSpeed", 1f); Set(robot, "currentSpeed", .1f);
@@ -604,9 +605,9 @@ namespace AnimalGame.Editor
                 Require((bool)Call(robot, "TryMoveSafely", Vector2.up * robot.CurrentSpeed * dt, null, false),
                     "Slowly entering actual robot could not continue through the bush");
             }
-            Near(robot.CurrentSpeed, .6f, "Actual robot remained capped at its initial low entry speed");
-            Call(robot, "UpdateDriveSpeed", 0f, 0f, .6f, 1f, 0f, dt);
-            Require(robot.CurrentSpeed > 0f && robot.CurrentSpeed < .6f,
+            Near(robot.CurrentSpeed, BushSpeedMultiplier, "Actual robot remained capped at its initial low entry speed");
+            Call(robot, "UpdateDriveSpeed", 0f, 0f, BushSpeedMultiplier, 1f, 0f, dt);
+            Require(robot.CurrentSpeed > 0f && robot.CurrentSpeed < BushSpeedMultiplier,
                 "Releasing movement input stopped the robot immediately instead of coasting");
         }
 

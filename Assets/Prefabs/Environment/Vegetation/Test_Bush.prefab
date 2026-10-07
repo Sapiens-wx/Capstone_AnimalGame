@@ -156,7 +156,7 @@ MonoBehaviour:
   climbableRadius: 0.4
   slopeStrength01: 0.5
   topRadiusRatio01: 0.5
-  climbableEntrySpeedMultiplier: 0.6
+  climbableEntrySpeedMultiplier: 0.36
   climbableAffectsWholeArea: 1
   climbableUseBodyOverlap: 1
   climbableEntryBlendDuration: 0.08
