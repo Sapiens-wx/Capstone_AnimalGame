@@ -1031,6 +1031,7 @@ MonoBehaviour:
   handScale: 2
   socketRadiusOfBody: 0.88
   lowerArmScale: 6
+  forearmAnchorOffset: {x: -0.02, y: -0.01}
   staticArmLengthPercent: 0.4
   handSpacingOfBodyDiameter: 0.7
   collisionWidthOfBodyDiameter: 0.08

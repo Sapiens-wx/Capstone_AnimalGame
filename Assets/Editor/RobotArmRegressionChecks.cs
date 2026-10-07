@@ -24,6 +24,7 @@ namespace AnimalGame.Editor
                 "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
             foreach (float size in new[] { .5f, 2f })
                 foreach (float loopSize in new[] { 0f, 1f, 8f })
+                foreach (Vector2 anchorOffset in new[] { Vector2.zero, new Vector2(.04f, -.06f) })
                 {
                     Scene scene = EditorSceneManager.NewPreviewScene();
                     try
@@ -39,6 +40,7 @@ namespace AnimalGame.Editor
                         Set(arms, "armScale", size);
                         Set(arms, "handScale", .37f);
                         Set(arms, "lowerArmScale", loopSize);
+                        Set(arms, "forearmAnchorOffset", anchorOffset);
                         Set(arms, "stepDelta", 1f);
                         Call(arms, "Awake");
                         Call(arms, "EnsureVisuals");
@@ -80,21 +82,38 @@ namespace AnimalGame.Editor
                                 Require(upper.color.a == 1f && lower.color.a == 1f,
                                     "Deployment faded the arm instead of scaling it");
                                 if (time == 0f)
-                                    Require(upper.transform.localScale == Vector3.zero && lower.transform.localScale == Vector3.zero
-                                        && hand.transform.localScale == Vector3.zero, "Retracted artwork was not zero scale");
+                                    Require(upper.transform.localScale == new Vector3(upperTarget.x, 0f, upperTarget.z)
+                                        && lower.transform.localScale == new Vector3(lowerTarget.x, 0f, lowerTarget.z)
+                                        && hand.transform.localScale == Vector3.zero, "Retracted arm Y scale was not zero");
                                 if (time == connector * .5f)
-                                    Require(Vector3.Distance(lower.transform.localScale, lowerTarget * .5f) < .00001f
-                                        && upper.transform.localScale == Vector3.zero, "Body-side growth phase failed");
+                                    Require(Vector3.Distance(lower.transform.localScale,
+                                        new Vector3(lowerTarget.x, lowerTarget.y * .5f, lowerTarget.z)) < .00001f
+                                        && upper.transform.localScale.y == 0f, "Body-side growth phase failed");
                                 if (time == connector + extension * .5f)
-                                    Require(Vector3.Distance(upper.transform.localScale, upperTarget * .5f) < .00001f
+                                    Require(Vector3.Distance(upper.transform.localScale,
+                                        new Vector3(upperTarget.x, upperTarget.y * .5f, upperTarget.z)) < .00001f
                                         && lower.transform.localScale == lowerTarget, "Hand-side growth phase failed");
+                                Require(upper.transform.localScale.x == upperTarget.x && lower.transform.localScale.x == lowerTarget.x
+                                    && upper.transform.localScale.z == upperTarget.z && lower.transform.localScale.z == lowerTarget.z,
+                                    "Deployment changed arm width or Z scale");
                                 if (time == total)
                                     Require(upper.transform.localScale == upperTarget && lower.transform.localScale == lowerTarget
                                         && hand.transform.localScale == new Vector3(sign, 1f, 1f) * .37f,
                                         "Final arm/hand scales changed or accumulated across deployment");
                                 Vector3 upperTip = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.max.y, 0f));
-                                Vector3 handBase = hand.transform.TransformPoint(new Vector3(0f, hand.sprite.bounds.min.y, 0f));
-                                Require(Vector3.Distance(upperTip, handBase) < .0001f, "Hand detached from Upper Arm");
+                                if (time == total)
+                                {
+                                    float bodyLength = (float)typeof(RobotArmController).GetMethod("LowerLengthAtScale",
+                                        BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new[] { arm, (object)loopSize });
+                                    Vector3 socket = (Vector2)arm.GetType().GetField("Socket").GetValue(arm);
+                                    Vector3 expectedAnchor = socket + lower.transform.localRotation * new Vector3(
+                                        anchorOffset.x * lowerTarget.x, bodyLength + anchorOffset.y * lowerTarget.y, 0f);
+                                    Vector3 upperBase = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.min.y, 0f));
+                                    Require(Vector3.Distance(upperBase, frame.TransformPoint(expectedAnchor)) < .0001f,
+                                        "Forearm pivot did not follow the mirrored body-side anchor offset");
+                                }
+                                Require(Vector3.Distance(upperTip, hand.transform.position) < .0001f,
+                                    "Hand pivot detached from Upper Arm");
                                 Vector2 endpoint = side == "left" ? arms.LeftHandWorld : arms.RightHandWorld;
                                 Require(Vector2.Distance(endpoint, upperTip) < .0001f,
                                     "Interaction endpoint differs from the visible arm tip");

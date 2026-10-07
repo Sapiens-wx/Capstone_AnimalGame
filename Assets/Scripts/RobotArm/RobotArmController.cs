@@ -33,6 +33,8 @@ namespace AnimalGame.RobotArm
         [SerializeField, Range(0f, 1.2f)] private float socketRadiusOfBody = .88f;
         [Tooltip("Deployed Y scale multiplier of Lower Arm/Loopable. The body-side end stays at its authored attachment while the other end extends forward.")]
         [SerializeField, Min(0f)] private float lowerArmScale = 1f;
+        [Tooltip("Forearm pivot offset from the body-side arm's tip, in its unscaled artwork-local coordinates. X is mirrored between arms; the offset follows Arm Scale and is cached when created.")]
+        [SerializeField] private Vector2 forearmAnchorOffset = Vector2.zero;
         [SerializeField, Range(.05f, 1f)] private float staticArmLengthPercent = .4f;
         [Tooltip("Total distance between hands, measured along robot-local X in body diameters.")]
         [SerializeField, Min(0f)] private float handSpacingOfBodyDiameter = .28f;
@@ -139,6 +141,7 @@ namespace AnimalGame.RobotArm
             public Sprite OpenHandSprite;
             public float HandBottom;
             public float UpperLength, LowerLength, LowerBaseLength, UpperBottom, LowerBottom, DeployedLoopScale;
+            public float LowerAnchorAngle;
             public RobotHandAnimation Animation;
         }
 
@@ -865,7 +868,11 @@ namespace AnimalGame.RobotArm
             arm.UpperLength = Mathf.Max(.0001f, SpriteTop(arm.UpperSprite) - arm.UpperBottom);
             arm.LowerBaseLength = Mathf.Max(.0001f, SpriteTop(arm.LowerSprite) - arm.LowerBottom);
             arm.DeployedLoopScale = lowerArmScale;
-            arm.LowerLength = LowerLengthAtScale(arm, arm.DeployedLoopScale);
+            // IK uses the socket-to-pivot vector; the artwork retains its own longitudinal axis.
+            Vector2 lowerAnchor = new Vector2(forearmAnchorOffset.x * arm.LowerScale.x,
+                LowerLengthAtScale(arm, arm.DeployedLoopScale) + forearmAnchorOffset.y * arm.LowerScale.y);
+            arm.LowerLength = Mathf.Max(.0001f, lowerAnchor.magnitude);
+            arm.LowerAnchorAngle = Vector2.SignedAngle(Vector2.up, lowerAnchor);
             arm.Pose = default;
             arm.Animation = arm.Hand.GetComponent<RobotHandAnimation>();
             arm.Root.gameObject.SetActive(false);
@@ -883,7 +890,7 @@ namespace AnimalGame.RobotArm
         {
             arm.Root.gameObject.SetActive(deploymentTime > 0f);
             Vector2 elbow = arm.Socket + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
-            SetSegmentVisual(arm.LowerSprite, arm.Socket, arm.Pose.LowerAngle, arm.LowerBottom,
+            SetSegmentVisual(arm.LowerSprite, arm.Socket, arm.Pose.LowerAngle - arm.LowerAnchorAngle, arm.LowerBottom,
                 arm.LowerScale, arm.Pose.LowerLength / arm.LowerLength);
             SetSegmentVisual(arm.UpperSprite, elbow, arm.Pose.UpperAngle, arm.UpperBottom,
                 arm.UpperScale, arm.Pose.UpperLength / arm.UpperLength);
@@ -927,7 +934,8 @@ namespace AnimalGame.RobotArm
             Vector3 targetScale, float growth)
         {
             renderer.enabled = growth > 0f;
-            renderer.transform.localScale = targetScale * growth;
+            targetScale.y *= growth;
+            renderer.transform.localScale = targetScale;
             renderer.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
             renderer.transform.localPosition = start - Direction(angle) * (bottom * growth);
         }
