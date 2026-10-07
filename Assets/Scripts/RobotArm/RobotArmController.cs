@@ -837,16 +837,16 @@ namespace AnimalGame.RobotArm
         {
             var arm = new Arm { Side = side, Socket = Vector2.right * side * diameter * .5f * socketRadiusOfBody };
             arm.Root = marker.MarkerVisualRoot.Find(name);
-            arm.UpperSprite = BindSprite(arm.Root, "Upper Arm", null, 996);
-            arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", null, 997);
-            arm.LoopSprite = BindSprite(arm.LowerSprite.transform, "Loopable", null, 997);
+            arm.UpperSprite = BindSprite(arm.Root, "Upper Arm", null);
+            arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", null);
+            arm.LoopSprite = BindSprite(arm.LowerSprite.transform, "Loopable", null);
             arm.LoopScale = arm.LoopSprite.transform.localScale;
             arm.LoopPosition = arm.LoopSprite.transform.localPosition;
             arm.LoopRotation = arm.LoopSprite.transform.localRotation;
             // Older prefabs may still contain the retired cuff.
             Transform legacyCuff = arm.Root.Find("Wrist Cuff");
             if (legacyCuff != null) legacyCuff.gameObject.SetActive(false);
-            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandOpenSprite, 999);
+            arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandOpenSprite);
             arm.OpenHandSprite = arm.HandSprite.sprite;
             arm.HandBottom = arm.OpenHandSprite != null ? arm.OpenHandSprite.bounds.min.y : 0f;
             arm.Upper = arm.UpperSprite.transform; arm.Lower = arm.LowerSprite.transform; arm.Hand = arm.HandSprite.transform;
@@ -871,11 +871,11 @@ namespace AnimalGame.RobotArm
             arm.Root.gameObject.SetActive(false);
             return arm;
         }
-        private SpriteRenderer BindSprite(Transform parent, string name, Sprite sprite, int order)
+        private SpriteRenderer BindSprite(Transform parent, string name, Sprite sprite)
         {
             var renderer = parent.Find(name).GetComponent<SpriteRenderer>();
             if (sprite != null) renderer.sprite = sprite;
-            renderer.color = armColor; renderer.sortingOrder = order;
+            renderer.color = armColor;
             if (marker.ForegroundSpriteMaterial != null) renderer.sharedMaterial = marker.ForegroundSpriteMaterial;
             return renderer;
         }
@@ -896,8 +896,7 @@ namespace AnimalGame.RobotArm
             arm.Hand.localRotation = Quaternion.Euler(0f, 0f, arm.Pose.UpperAngle);
             arm.Hand.localScale = new Vector3(-arm.Side, 1f, 1f) * handScale * arm.Pose.Hand;
             // Keep the open hand's attachment offset when swapping sprites of different sizes/pivots.
-            arm.Hand.localPosition = HandLocal(arm);// - Direction(arm.Pose.UpperAngle)*SpriteBottom(arm.HandSprite);
-                //- Direction(arm.Pose.UpperAngle) * (arm.HandBottom * handScale * arm.Pose.Hand);
+            arm.Hand.localPosition = HandLocal(arm);
         }
         private static float SpriteBottom(SpriteRenderer renderer) => Mathf.Min(
             renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
