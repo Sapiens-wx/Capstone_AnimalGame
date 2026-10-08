@@ -181,6 +181,10 @@ namespace AnimalGame.RobotMap
         private float driveBobCycleFrequencyMultiplier = 1f;
         private float driveBobNoiseSeed;
         private System.Random driveBobRandom;
+        private Vector2 mediumRecycleVisualOffset;
+        private float mediumRecycleVisualRotation;
+        private Vector3 mediumRecycleBodyBasePosition;
+        private Quaternion mediumRecycleBodyBaseRotation = Quaternion.identity;
 
         private void Awake()
         {
@@ -256,6 +260,30 @@ namespace AnimalGame.RobotMap
             showDriveBob = shouldShow;
         }
 
+        // Recycle reaction belongs only to the chassis artwork. The player root,
+        // arm anchors and world-space hand positions remain authoritative and stable.
+        public void SetMediumRecycleVisualRecoil(Vector2 localOffset, float rotationDegrees)
+        {
+            mediumRecycleVisualOffset = localOffset;
+            mediumRecycleVisualRotation = rotationDegrees;
+            ApplyMediumRecycleVisualRecoil();
+        }
+
+        public void ClearMediumRecycleVisualRecoil()
+        {
+            mediumRecycleVisualOffset = Vector2.zero;
+            mediumRecycleVisualRotation = 0f;
+            ApplyMediumRecycleVisualRecoil();
+        }
+
+        private void ApplyMediumRecycleVisualRecoil()
+        {
+            if (bodyVisualRoot == null) return;
+            bodyVisualRoot.localPosition = mediumRecycleBodyBasePosition + (Vector3)mediumRecycleVisualOffset;
+            bodyVisualRoot.localRotation = mediumRecycleBodyBaseRotation
+                * Quaternion.Euler(0f, 0f, mediumRecycleVisualRotation);
+        }
+
         private void Update()
         {
             SynchronizeBodyFillColor();
@@ -273,6 +301,7 @@ namespace AnimalGame.RobotMap
             }
 
             UpdateDriveBob();
+            ApplyMediumRecycleVisualRecoil();
             if (tail != null)
                 tail.enabled = showMotionTail && !movementLocked;
 
@@ -476,6 +505,8 @@ namespace AnimalGame.RobotMap
         private void BindBodySpriteRenderers()
         {
             bodyVisualRoot = markerVisualRoot.Find("Body Visual");
+            mediumRecycleBodyBasePosition = bodyVisualRoot.localPosition;
+            mediumRecycleBodyBaseRotation = bodyVisualRoot.localRotation;
 
             Sprite fillSprite = robotBodyFillSprite;
             if (fillSprite == null)
@@ -1037,6 +1068,11 @@ namespace AnimalGame.RobotMap
             rolloverSign.enabled = rolloverSign.sprite != null
                                    && tumble != null
                                    && tumble.State == RobotTumbleState.Fallen;
+        }
+
+        private void OnDisable()
+        {
+            ClearMediumRecycleVisualRecoil();
         }
 
         private void OnDestroy()

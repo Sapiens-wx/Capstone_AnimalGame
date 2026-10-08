@@ -161,8 +161,11 @@ namespace AnimalGame.RobotMap
             IsWarmingUp = true;
             try
             {
+                PhotoModeController controller = FindFirstObjectByType<PhotoModeController>();
+                PhotoCaptureSettings settings = controller != null && controller.CurrentCamera != null
+                    ? controller.CurrentCamera.Capture(0) : PhotoCaptureSettings.Basic();
                 var sample = new AnimalPhoto(Texture2D.whiteTexture,
-                    new Rect(0, 0, 1, 1), 1);
+                    new Rect(0, 0, 1, 1), 1, settings);
                 var result = new PhotoResultSnapshot("warmup", "Animal", "Animal", "Scientific name",
                     "Region", Color.white, 1, 1, 1, sample, new Vector2(12, 34), 56, 1,
                     new DateTime(2026, 1, 1, 12, 0, 0), AnimalSpecies.Muskrat, AnimalState.Daily, true, true);
@@ -372,8 +375,17 @@ namespace AnimalGame.RobotMap
         private static void Blit(Texture source, RenderTexture target, Material material)
         {
             RenderTexture previous = RenderTexture.active;
-            try { Graphics.Blit(source, target, material); }
-            finally { RenderTexture.active = previous; }
+            bool previousSRGBWrite = GL.sRGBWrite;
+            try
+            {
+                GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear && target.sRGB;
+                Graphics.Blit(source, target, material);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                GL.sRGBWrite = previousSRGBWrite;
+            }
         }
 
         private static RenderTexture CreateOutput(string label, int size)

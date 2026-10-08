@@ -53,16 +53,19 @@ namespace AnimalGame.Animals
             float height = source.height * crop.height;
             float scale = Mathf.Min(1, Mathf.Clamp(maximumSize, 16, 4096) / Mathf.Max(width, height));
             var output = new RenderTexture(Mathf.Max(1, Mathf.RoundToInt(width * scale)),
-                Mathf.Max(1, Mathf.RoundToInt(height * scale)), 0, RenderTextureFormat.ARGB32)
-            { name = "Processed Animal Photo", hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Bilinear };
+                Mathf.Max(1, Mathf.RoundToInt(height * scale)), 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB)
+            { name = "Processed Animal Photo", hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp };
             var material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             RenderTexture previous = RenderTexture.active;
+            bool previousSRGBWrite = GL.sRGBWrite;
             try
             {
                 material.SetVector("_Crop", new Vector4(crop.x, crop.y, crop.width, crop.height));
                 material.SetFloat("_Saturation", Mathf.Clamp(saturation, 0, 2));
                 if (!output.Create()) throw new InvalidOperationException("Could not allocate animal photo texture.");
-                Graphics.Blit(source, output, material);
+                GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
+                Graphics.Blit(source, output, material, 0);
                 return output;
             }
             catch
@@ -73,6 +76,7 @@ namespace AnimalGame.Animals
             finally
             {
                 RenderTexture.active = previous;
+                GL.sRGBWrite = previousSRGBWrite;
                 if (Application.isPlaying) UnityEngine.Object.Destroy(material);
                 else UnityEngine.Object.DestroyImmediate(material);
             }

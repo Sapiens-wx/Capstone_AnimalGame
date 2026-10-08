@@ -155,7 +155,8 @@ namespace AnimalGame.RobotMap
 
             pendingResult = CreateSnapshot(
                 subject,
-                selectedPhoto,
+                selectedPhoto.WithCaptureSettings(controller != null
+                    ? controller.LastCaptureSettings : null),
                 frameCoverage);
             if (resultView != null) resultView.HasPendingReview = true;
             if (resultView == null || controller == null || !controller.RequestPhotoReview())

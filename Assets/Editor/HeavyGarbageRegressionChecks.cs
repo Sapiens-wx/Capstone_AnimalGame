@@ -832,6 +832,7 @@ namespace AnimalGame.Editor
                 visualFrame.transform.SetParent(Robot.transform, false);
                 RobotArmRegressionChecks.CreateFixtureArtwork(visualFrame.transform);
                 Set(Robot.GetComponent<RobotMarkerView>(), "markerVisualRoot", visualFrame.transform);
+                Set(Robot.GetComponent<RobotMarkerView>(), "bodyVisualRoot", visualFrame.transform.Find("Body Visual"));
                 Call(Arms, "Awake");
                 Call(Arms, "EnsureVisuals");
                 Call(Mover, "Awake");

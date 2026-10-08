@@ -198,6 +198,36 @@ MonoBehaviour:
   sonyHeavyBreakMaximumLowFrequencyStrength: 0.8
   sonyHeavyBreakMaximumHighFrequencyStrength: 0.55
   sonyHeavyBreakMinimumRumbleOutput: 0.01
+  mediumRecycleFeedbackEnabled: 1
+  mediumRecycleCameraShakeEnabled: 1
+  mediumRecycleRumbleEnabled: 1
+  mediumRecycleLowFrequencyByStage: {x: 0.35, y: 0.45, z: 0.55, w: 0.25}
+  mediumRecycleHighFrequencyByStage: {x: 0.2, y: 0.25, z: 0.3, w: 0.15}
+  mediumRecycleDurationByStage: {x: 0.12, y: 0.14, z: 0.18, w: 0.1}
+  mediumRecyclePositionByStage: {x: 0.01, y: 0.014, z: 0.018, w: 0.006}
+  mediumRecycleRotationByStage: {x: 0.05, y: 0.07, z: 0.1, w: 0.03}
+  mediumRecycleContinuousPositionByStage: {x: 0.01, y: 0.013, z: 0.016}
+  mediumRecycleContinuousRotationByStage: {x: 0.035, y: 0.05, z: 0.065}
+  mediumRecycleContinuousFrequency: 10.5
+  mediumRecycleContinuousMinimumStrength: 0.4
+  mediumRecycleContinuousSideRatio: 0.22
+  mediumRecycleProcessingPositionAmplitude: 0.012
+  mediumRecycleProcessingRotationDegrees: 0.05
+  mediumRecycleProcessingLowFrequency: 0.25
+  mediumRecycleProcessingHighFrequency: 0.12
+  mediumRecycleEffortLowFrequency: 0.08
+  mediumRecycleEffortHighFrequency: 0.02
+  mediumRecyclePeakHoldDuration: 0.025
+  mediumRecycleFalloffExponent: 1.4
+  mediumRecycleCameraImmediateImpactFraction: 0.1
+  mediumRecycleSpringFrequency: 5
+  mediumRecycleSpringDamping: 0.95
+  mediumRecycleSonyLowFrequencyMultiplier: 1
+  mediumRecycleSonyHighFrequencyMultiplier: 1
+  mediumRecycleSonyResponseExponent: 1
+  mediumRecycleSonyMaximumLowFrequencyStrength: 0.6
+  mediumRecycleSonyMaximumHighFrequencyStrength: 0.35
+  mediumRecycleSonyMinimumRumbleOutput: 0.01
   fullVibrationSpeed: 4
   minimumMovingVibrationStrength: 0.35
   stationaryBalanceVibrationStrength: 0.28

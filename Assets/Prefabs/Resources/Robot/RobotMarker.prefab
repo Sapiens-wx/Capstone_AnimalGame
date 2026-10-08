@@ -774,6 +774,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d30202cbe3874c039669cdcbf63acf51, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  currentCamera: {fileID: 11400000, guid: 4197a39da5c1459da8ae34670d152477, type: 2}
   keyboardToggleKey: 112
   keyboardFocusAndShutterKey: 32
   rightStickDeadZone: 0.2
@@ -1051,9 +1052,24 @@ MonoBehaviour:
   recycleZoneHalfDepthOfBodyDiameter: 0.3
   recycleDuration: 0.35
   recycleHandMinimumForward: 0.2
-  mediumRecycleMoveDuration: 0.22
-  mediumRecyclePauseDuration: 0.12
-  mediumRecycleEndScale: 0.15
+  smallRecycleProcessingDuration: 0.45
+  smallRecycleProcessingFeedbackMultiplier: 0.6
+  mediumRecycleInletShader: {fileID: 4800000, guid: c3d5a79e02f64c83bf178d098ca44172, type: 3}
+  mediumRecycleClampDuration: 0.2
+  mediumRecycleInitialFeedFraction: 0.12
+  mediumRecycleStrokeDurations: {x: 0.75, y: 0.85, z: 0.95}
+  mediumRecycleFinishDuration: 0.25
+  mediumRecycleProcessingDuration: 0.95
+  mediumRecycleProcessingFadeDuration: 0.1
+  mediumRecycleProcessingBodyShakeOfBodyDiameter: 0.01
+  mediumRecycleLockRecoilFraction: 0.012
+  mediumRecycleHandShakeOfBodyDiameter: 0.012
+  mediumRecycleHandShakeFrequency: 24
+  mediumRecycleHandShakeDegrees: 2.5
+  mediumRecycleGarbageShakeOfBodyDiameter: 0.03
+  mediumRecycleGarbageShakeFrequency: 19
+  mediumRecycleBodyRecoilOfBodyDiameter: 0.03
+  mediumRecycleBodyRollDegrees: 0.6
 --- !u!114 &775533119844220011
 MonoBehaviour:
   m_ObjectHideFlags: 0
