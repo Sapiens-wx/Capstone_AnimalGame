@@ -1050,6 +1050,7 @@ MonoBehaviour:
   mediumDockPosition: {x: 0, y: 0.8}
   recycleZoneHalfWidthOfBodyDiameter: 0.35
   recycleZoneHalfDepthOfBodyDiameter: 0.3
+  mediumRecycleInnerToleranceOfBodyDiameter: 0.05
   recycleDuration: 0.35
   recycleHandMinimumForward: 0.2
   smallRecycleProcessingDuration: 0.45

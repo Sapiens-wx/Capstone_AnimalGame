@@ -58,6 +58,8 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.01f)] private float recycleZoneHalfWidthOfBodyDiameter = .35f;
         [Tooltip("Half-depth of the chest recycling area, measured in body diameters.")]
         [SerializeField, Min(.01f)] private float recycleZoneHalfDepthOfBodyDiameter = .3f;
+        [Tooltip("Medium garbage can enter the chest recycling channel this far behind the body centre, measured in body diameters.")]
+        [SerializeField, Min(0f)] private float mediumRecycleInnerToleranceOfBodyDiameter = .05f;
         [SerializeField, Min(.01f)] private float recycleDuration = .35f;
         [Header("Recycling")]
         [Tooltip("Minimum forward hand position during recycling, as a fraction of arm length.")]
@@ -777,8 +779,16 @@ namespace AnimalGame.RobotArm
         {
             if (!RecyclableHeld) return false;
             Vector2 position = marker.MarkerVisualRoot.InverseTransformPoint(heldObject.transform.position);
-            if (position.y <= 0f) return false;
             Vector2 offset = position - DockLocal;
+            if (heldObject.Size == RecyclableSize.Medium)
+            {
+                float innerLimit = -diameter * Mathf.Max(0f, mediumRecycleInnerToleranceOfBodyDiameter);
+                if (position.y < innerLimit - diameter * .00001f) return false;
+                // Retain the forward ellipse while filling its inward side with a constant-width channel.
+                // Moving waste closer to the body must not remove its recycling eligibility.
+                offset.y = Mathf.Max(0f, offset.y);
+            }
+            else if (position.y <= 0f) return false;
             Vector2 halfExtents = RecycleZoneHalfExtents;
             Vector2 normalized = new Vector2(offset.x / halfExtents.x, offset.y / halfExtents.y);
             return normalized.sqrMagnitude <= 1.00001f;
@@ -1228,6 +1238,7 @@ namespace AnimalGame.RobotArm
             mediumRecycleGarbageShakeFrequency = Mathf.Max(1f, mediumRecycleGarbageShakeFrequency);
             recycleZoneHalfWidthOfBodyDiameter = Mathf.Max(.01f, recycleZoneHalfWidthOfBodyDiameter);
             recycleZoneHalfDepthOfBodyDiameter = Mathf.Max(.01f, recycleZoneHalfDepthOfBodyDiameter);
+            mediumRecycleInnerToleranceOfBodyDiameter = Mathf.Max(0f, mediumRecycleInnerToleranceOfBodyDiameter);
             dockEnterMagnitude = Mathf.Clamp(dockEnterMagnitude, 0f, .9f);
             dockExitMagnitude = Mathf.Clamp(dockExitMagnitude, dockEnterMagnitude + .001f, .99f);
             maximumMagnitude = Mathf.Clamp(maximumMagnitude, dockExitMagnitude + .001f, 1f);
