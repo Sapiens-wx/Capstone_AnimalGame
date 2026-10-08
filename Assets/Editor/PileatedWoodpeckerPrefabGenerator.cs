@@ -34,6 +34,8 @@ namespace AnimalGame.Editor
             "Assets/Materials/Animals/UnknownAnimalStatic.mat";
         private const string UnknownMaskPath =
             "Assets/Materials/Animals/UnknownAnimalStaticMask.asset";
+        private const string SoundWaveShaderPath =
+            "Assets/Shaders/AnimalSoundWave.shader";
 
         private const float VisibleBodyDiameter = 0.24f;
         private const float BodyArtworkVisibleDiameterPixels = 72.5f;
@@ -52,7 +54,13 @@ namespace AnimalGame.Editor
             "waterMovementSound",
             "fleeingSound",
             "submergingSound",
-            "surfacingSound"
+            "surfacingSound",
+            "flyingSound",
+            "peckingSound",
+            "takeoffSound",
+            "landingSound",
+            "enteringTreeSound",
+            "emergingFromTreeSound"
         };
 
         static PileatedWoodpeckerPrefabGenerator()
@@ -72,7 +80,8 @@ namespace AnimalGame.Editor
             Debug.Log(
                 "Rebuilt the pileated woodpecker placeholder and species "
                 + "configuration. Tree selection uses 40% healthy and "
-                + "60% dead trees; animal sound-wave output is disabled.");
+                + "60% dead trees. Sound waves follow perching, flight, "
+                + "pecking, curiosity, fleeing, and tree-entry/exit actions.");
         }
 
         private static void EnsurePrototypeAssets()
@@ -338,7 +347,7 @@ namespace AnimalGame.Editor
                     visualRootObject.transform);
                 agent.ConfigureEditorDefaults(config, behaviour, view);
                 ConfigureAgentSoundReference(agent, soundEmitter);
-                DisableAllAnimalSounds(soundEmitter);
+                ConfigureAnimalSounds(soundEmitter);
 
                 // The placeholder is an actor rather than a map obstacle.
                 // Its flight must not add an obstacle footprint or collider.
@@ -390,7 +399,7 @@ namespace AnimalGame.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void DisableAllAnimalSounds(
+        private static void ConfigureAnimalSounds(
             AnimalSoundEmitter soundEmitter)
         {
             if (soundEmitter == null)
@@ -410,11 +419,73 @@ namespace AnimalGame.Editor
                     enabled.boolValue = false;
             }
 
+            serialized.FindProperty("soundWaveShader")
+                .objectReferenceValue = AssetDatabase.LoadAssetAtPath<Shader>(
+                    SoundWaveShaderPath);
+            serialized.FindProperty("overallRadiusMultiplier")
+                .floatValue = 0.5f;
+            serialized.FindProperty("overallRingCountMultiplier")
+                .floatValue = 0.5f;
+            // The profile intervals are the intended visible cadence.
+            serialized.FindProperty("overallEmissionFrequencyMultiplier")
+                .floatValue = 1f;
+
+            ConfigureSoundProfile(
+                serialized, "idleSound", 0.28f, 0.5f, 3, 4f, 6f, 0.55f);
+            ConfigureSoundProfile(
+                serialized, "curiousSound", 0.58f, 0.6f, 5,
+                2.5f, 4f, 0.72f);
+            ConfigureSoundProfile(
+                serialized, "fleeingSound", 1f, 0.55f, 5,
+                0.5f, 0.8f, 0.84f);
+            ConfigureSoundProfile(
+                serialized, "flyingSound", 0.65f, 0.45f, 4,
+                1.2f, 1.8f, 0.68f);
+            ConfigureSoundProfile(
+                serialized, "peckingSound", 0.52f, 0.35f, 3,
+                0.55f, 0.55f, 0.76f);
+            ConfigureSoundProfile(
+                serialized, "takeoffSound", 0.75f, 0.4f, 4,
+                1f, 1f, 0.76f);
+            ConfigureSoundProfile(
+                serialized, "landingSound", 0.6f, 0.4f, 4,
+                1f, 1f, 0.7f);
+            ConfigureSoundProfile(
+                serialized, "enteringTreeSound", 0.5f, 0.4f, 3,
+                1f, 1f, 0.7f);
+            ConfigureSoundProfile(
+                serialized, "emergingFromTreeSound", 0.45f, 0.45f, 3,
+                1f, 1f, 0.65f);
+
             SerializedProperty gizmos = serialized.FindProperty(
                 "showSoundRangeGizmos");
             if (gizmos != null)
                 gizmos.boolValue = false;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void ConfigureSoundProfile(
+            SerializedObject serialized,
+            string propertyName,
+            float radius,
+            float duration,
+            int ringCount,
+            float minimumInterval,
+            float maximumInterval,
+            float opacity)
+        {
+            SerializedProperty settings = serialized.FindProperty(
+                propertyName);
+            settings.FindPropertyRelative("enabled").boolValue = true;
+            settings.FindPropertyRelative("maximumRadiusMeters")
+                .floatValue = radius;
+            settings.FindPropertyRelative("durationSeconds")
+                .floatValue = duration;
+            settings.FindPropertyRelative("ringCount")
+                .intValue = ringCount;
+            settings.FindPropertyRelative("repeatIntervalSeconds")
+                .vector2Value = new Vector2(minimumInterval, maximumInterval);
+            settings.FindPropertyRelative("opacity").floatValue = opacity;
         }
 
         private static SpriteRenderer CreateRenderer(

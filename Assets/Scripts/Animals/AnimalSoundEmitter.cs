@@ -24,7 +24,7 @@ namespace AnimalGame.Animals
         [Tooltip("Applied after each behaviour's configured ring count. Results are rounded to the nearest whole ring and never drop below one.")]
         [SerializeField, Range(0.1f, 2f)]
         private float overallRingCountMultiplier = 0.5f;
-        [Tooltip("Multiplier for sounds per second. 0.5 halves emission frequency by doubling repeat intervals.")]
+        [Tooltip("Multiplier for repeating sounds per second. 0.5 doubles repeat intervals. Contact-driven pecking and one-shot transitions keep their action timing.")]
         [SerializeField, Range(0.1f, 2f)]
         private float overallEmissionFrequencyMultiplier = 0.5f;
 
@@ -46,6 +46,21 @@ namespace AnimalGame.Animals
         [SerializeField] private AnimalSoundWaveSettings fleeingSound =
             new AnimalSoundWaveSettings(1.35f, 0.78f, 5, 0.22f, 0.34f, 0.84f);
 
+        [Header("Flight And Tree Sounds")]
+        [SerializeField] private AnimalSoundWaveSettings flyingSound =
+            new AnimalSoundWaveSettings(0.65f, 0.45f, 4, 1.2f, 1.8f, 0.68f, false);
+        [Tooltip("Pecking cadence is controlled by Pecks Per Sound Wave on Pileated Woodpecker Behaviour; this profile controls the wave appearance.")]
+        [SerializeField] private AnimalSoundWaveSettings peckingSound =
+            new AnimalSoundWaveSettings(0.52f, 0.35f, 3, 0.55f, 0.55f, 0.76f, false);
+        [SerializeField] private AnimalSoundWaveSettings takeoffSound =
+            new AnimalSoundWaveSettings(0.75f, 0.4f, 4, 1f, 1f, 0.76f, false);
+        [SerializeField] private AnimalSoundWaveSettings landingSound =
+            new AnimalSoundWaveSettings(0.6f, 0.4f, 4, 1f, 1f, 0.7f, false);
+        [SerializeField] private AnimalSoundWaveSettings enteringTreeSound =
+            new AnimalSoundWaveSettings(0.5f, 0.4f, 3, 1f, 1f, 0.7f, false);
+        [SerializeField] private AnimalSoundWaveSettings emergingFromTreeSound =
+            new AnimalSoundWaveSettings(0.45f, 0.45f, 3, 1f, 1f, 0.65f, false);
+
         [Header("Water Transition Sounds")]
         [SerializeField] private AnimalSoundWaveSettings submergingSound =
             new AnimalSoundWaveSettings(1.8f, 1f, 5, 1f, 1f, 0.9f);
@@ -57,11 +72,14 @@ namespace AnimalGame.Animals
 
         private AnimalAgent agent;
         private float movementSoundCountdown;
+        private AnimalSoundKind currentMovementSoundKind;
+        private bool hasMovementSoundKind;
 
         public void Initialize(AnimalAgent owner)
         {
             agent = owner;
             movementSoundCountdown = 0f;
+            hasMovementSoundKind = false;
         }
 
         public void Tick(float deltaTime)
@@ -72,28 +90,45 @@ namespace AnimalGame.Animals
             if (agent.Motor.CurrentSpeedMetersPerSecond <= 0.03f)
             {
                 movementSoundCountdown = 0f;
+                hasMovementSoundKind = false;
                 return;
             }
+
+            AnimalSoundKind movementKind = ChooseMovementSoundKind();
+            if (hasMovementSoundKind
+                && movementKind != currentMovementSoundKind
+                && (movementKind == AnimalSoundKind.Flying
+                    || currentMovementSoundKind == AnimalSoundKind.Flying))
+            {
+                movementSoundCountdown = 0f;
+            }
+            currentMovementSoundKind = movementKind;
+            hasMovementSoundKind = true;
 
             movementSoundCountdown -= Mathf.Max(0f, deltaTime);
             if (movementSoundCountdown > 0f)
                 return;
 
-            AnimalSoundKind movementKind = ChooseMovementSoundKind();
             Emit(movementKind);
             movementSoundCountdown = ChooseRepeatInterval(movementKind);
         }
 
         public void Emit(AnimalSoundKind soundKind)
         {
+            Vector3 position = transform.TransformPoint(
+                new Vector3(soundOriginOffset.x, soundOriginOffset.y, 0f));
+            EmitAt(soundKind, position);
+        }
+
+        /// <summary>Emits a wave anchored at the contact point, rather than following the animal.</summary>
+        public void EmitAt(AnimalSoundKind soundKind, Vector3 worldPosition)
+        {
             AnimalSoundWaveSettings settings = GetSettings(soundKind);
             if (settings == null || !settings.Enabled)
                 return;
 
-            Vector3 position = transform.TransformPoint(
-                new Vector3(soundOriginOffset.x, soundOriginOffset.y, 0f));
             AnimalSoundWaveManager.Emit(
-                position,
+                worldPosition,
                 settings,
                 soundWaveShader,
                 soundWaveColor,
@@ -102,6 +137,14 @@ namespace AnimalGame.Animals
                 sortingOrder,
                 overallRadiusMultiplier,
                 overallRingCountMultiplier);
+        }
+
+        /// <summary>Schedules the next movement pulse after a separate takeoff or alarm pulse.</summary>
+        public void BeginMovementSound(AnimalSoundKind soundKind)
+        {
+            currentMovementSoundKind = soundKind;
+            hasMovementSoundKind = true;
+            movementSoundCountdown = ChooseRepeatInterval(soundKind);
         }
 
         public void TickRepeated(
@@ -131,6 +174,10 @@ namespace AnimalGame.Animals
         {
             if (agent.CurrentState == AnimalState.Fleeing)
                 return AnimalSoundKind.Fleeing;
+
+            // Flight over a river is still wing movement, not swimming.
+            if (agent.Motor.IsAerialMovement)
+                return AnimalSoundKind.Flying;
 
             if (agent.Map != null
                 && agent.Map.TrySampleStaticWaterMapPosition(
@@ -166,6 +213,18 @@ namespace AnimalGame.Animals
                     return submergingSound;
                 case AnimalSoundKind.Surfacing:
                     return surfacingSound;
+                case AnimalSoundKind.Flying:
+                    return flyingSound;
+                case AnimalSoundKind.Pecking:
+                    return peckingSound;
+                case AnimalSoundKind.Takeoff:
+                    return takeoffSound;
+                case AnimalSoundKind.Landing:
+                    return landingSound;
+                case AnimalSoundKind.EnteringTree:
+                    return enteringTreeSound;
+                case AnimalSoundKind.EmergingFromTree:
+                    return emergingFromTreeSound;
                 default:
                     return null;
             }
@@ -180,6 +239,8 @@ namespace AnimalGame.Animals
             DrawSoundRange(eatingSound, new Color(0.75f, 1f, 0.65f, 0.55f));
             DrawSoundRange(fleeingSound, new Color(1f, 0.7f, 0.35f, 0.65f));
             DrawSoundRange(surfacingSound, new Color(0.3f, 0.75f, 1f, 0.65f));
+            DrawSoundRange(flyingSound, new Color(0.7f, 0.85f, 1f, 0.6f));
+            DrawSoundRange(peckingSound, new Color(0.75f, 1f, 0.65f, 0.55f));
         }
 
         private void DrawSoundRange(
@@ -235,6 +296,12 @@ namespace AnimalGame.Animals
             fleeingSound?.ClampValues();
             submergingSound?.ClampValues();
             surfacingSound?.ClampValues();
+            flyingSound?.ClampValues();
+            peckingSound?.ClampValues();
+            takeoffSound?.ClampValues();
+            landingSound?.ClampValues();
+            enteringTreeSound?.ClampValues();
+            emergingFromTreeSound?.ClampValues();
         }
     }
 }

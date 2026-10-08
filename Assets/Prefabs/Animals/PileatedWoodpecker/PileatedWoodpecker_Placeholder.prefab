@@ -306,7 +306,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7d6e4f31c2b4a5f8e9d0c1b2a3f4e56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  soundWaveShader: {fileID: 0}
+  soundWaveShader: {fileID: 4800000, guid: e6f2a8c1d4b7457e90a3c5b8f1d6e2a9, type: 3}
   soundWaveColor: {r: 0.88, g: 0.88, b: 0.88, a: 0.9}
   ringBreakup: 0.38
   ringIrregularity: 0.28
@@ -314,16 +314,16 @@ MonoBehaviour:
   sortingOrder: 995
   overallRadiusMultiplier: 0.5
   overallRingCountMultiplier: 0.5
-  overallEmissionFrequencyMultiplier: 0.5
+  overallEmissionFrequencyMultiplier: 1
   idleSound:
-    enabled: 0
+    enabled: 1
     maximumRadiusMeters: 0.28
     durationSeconds: 0.5
     ringCount: 3
     innerRadiusRatio: 0.23
     lineWidthNormalized: 0.014
     opacity: 0.55
-    repeatIntervalSeconds: {x: 1.6, y: 2.4}
+    repeatIntervalSeconds: {x: 4, y: 6}
     radiusVariation: 0.08
   lookingSound:
     enabled: 0
@@ -336,14 +336,14 @@ MonoBehaviour:
     repeatIntervalSeconds: {x: 0.8, y: 1.25}
     radiusVariation: 0.08
   curiousSound:
-    enabled: 0
+    enabled: 1
     maximumRadiusMeters: 0.58
-    durationSeconds: 0.68
+    durationSeconds: 0.6
     ringCount: 5
     innerRadiusRatio: 0.23
     lineWidthNormalized: 0.014
     opacity: 0.72
-    repeatIntervalSeconds: {x: 1.1, y: 1.65}
+    repeatIntervalSeconds: {x: 2.5, y: 4}
     radiusVariation: 0.08
   eatingSound:
     enabled: 0
@@ -376,14 +376,14 @@ MonoBehaviour:
     repeatIntervalSeconds: {x: 0.58, y: 0.82}
     radiusVariation: 0.08
   fleeingSound:
-    enabled: 0
-    maximumRadiusMeters: 1.35
-    durationSeconds: 0.78
+    enabled: 1
+    maximumRadiusMeters: 1
+    durationSeconds: 0.55
     ringCount: 5
     innerRadiusRatio: 0.23
     lineWidthNormalized: 0.014
     opacity: 0.84
-    repeatIntervalSeconds: {x: 0.22, y: 0.34}
+    repeatIntervalSeconds: {x: 0.5, y: 0.8}
     radiusVariation: 0.08
   submergingSound:
     enabled: 0
@@ -403,6 +403,66 @@ MonoBehaviour:
     innerRadiusRatio: 0.23
     lineWidthNormalized: 0.014
     opacity: 0.94
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  flyingSound:
+    enabled: 1
+    maximumRadiusMeters: 0.65
+    durationSeconds: 0.45
+    ringCount: 4
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.68
+    repeatIntervalSeconds: {x: 1.2, y: 1.8}
+    radiusVariation: 0.08
+  peckingSound:
+    enabled: 1
+    maximumRadiusMeters: 0.52
+    durationSeconds: 0.35
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.76
+    repeatIntervalSeconds: {x: 0.55, y: 0.55}
+    radiusVariation: 0.08
+  takeoffSound:
+    enabled: 1
+    maximumRadiusMeters: 0.75
+    durationSeconds: 0.4
+    ringCount: 4
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.76
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  landingSound:
+    enabled: 1
+    maximumRadiusMeters: 0.6
+    durationSeconds: 0.4
+    ringCount: 4
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.7
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  enteringTreeSound:
+    enabled: 1
+    maximumRadiusMeters: 0.5
+    durationSeconds: 0.4
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.7
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  emergingFromTreeSound:
+    enabled: 1
+    maximumRadiusMeters: 0.45
+    durationSeconds: 0.45
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.65
     repeatIntervalSeconds: {x: 1, y: 1}
     radiusVariation: 0.08
   showSoundRangeGizmos: 0

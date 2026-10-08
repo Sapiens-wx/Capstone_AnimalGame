@@ -53,9 +53,13 @@ namespace AnimalGame.Animals
         [SerializeField] private Transform visualRoot;
         [SerializeField, Min(0f)] private float peckAmplitudeMeters = 0.08f;
         [SerializeField, Min(0.1f)] private float peckFrequencyHz = 5.5f;
+        [Tooltip("Emit a compact sound wave after this many beak strikes. Independent of frame rate.")]
+        [SerializeField, Min(1)] private int pecksPerSoundWave = 3;
 
         [Header("Escape Into Home Tree")]
         [SerializeField, Min(0.05f)] private float enterTreeDurationSeconds = 0.45f;
+        [Tooltip("Minimum gap between emergence sounds if a player repeatedly interrupts leaving the tree.")]
+        [SerializeField, Min(0.5f)] private float emergenceSoundRetryDelaySeconds = 2f;
 
         private readonly List<AnimalDailyBehaviourSettings>
             availableBehaviours = new List<AnimalDailyBehaviourSettings>();
@@ -77,6 +81,11 @@ namespace AnimalGame.Animals
         private float travelTimer;
         private float peckElapsed;
         private float enterTreeElapsed;
+        private float passiveSoundCountdown;
+        private float curiousSoundCountdown;
+        private int nextPeckSoundStrike;
+        private float emergenceSoundRetryCountdown;
+        private bool flightSoundStarted;
         private Vector2 enterTreeStartMapPosition;
         private Vector2 enterTreeTargetMapPosition;
         private Vector2 hidingTreeCentreMapPosition;
@@ -95,6 +104,9 @@ namespace AnimalGame.Animals
         public override void Initialize(AnimalAgent agent)
         {
             base.Initialize(agent);
+            passiveSoundCountdown = Agent.SoundEmitter != null
+                ? Agent.SoundEmitter.ChooseRepeatInterval(AnimalSoundKind.Idle)
+                : 4f;
             CacheVisualPosition();
             ResolveBirthTree();
             if (birthTree != null && TrySnapToTree(birthTree))
@@ -150,6 +162,7 @@ namespace AnimalGame.Animals
                     TickPecking(deltaTime);
                     break;
                 case DailyPhase.FallbackIdle:
+                    TickPassiveSound(deltaTime);
                     actionTimer -= deltaTime;
                     if (actionTimer <= 0f)
                         BeginNextDailyBehaviour();
@@ -180,12 +193,20 @@ namespace AnimalGame.Animals
             Motor.Stop();
             ResetVisualOffset();
             FacePlayer();
+            Agent.SoundEmitter?.Emit(AnimalSoundKind.Curious);
+            curiousSoundCountdown = Agent.SoundEmitter != null
+                ? Agent.SoundEmitter.ChooseRepeatInterval(AnimalSoundKind.Curious)
+                : 3f;
         }
 
         public override void TickCurious(float deltaTime)
         {
             Motor.Stop();
             FacePlayer();
+            Agent.SoundEmitter?.TickRepeated(
+                AnimalSoundKind.Curious,
+                ref curiousSoundCountdown,
+                deltaTime);
         }
 
         public override void ExitCurious()
@@ -201,6 +222,9 @@ namespace AnimalGame.Animals
             ResetVisualOffset();
             Agent.PlaceholderView?.RestoreVisibleAppearance();
             ResolveBirthTree();
+
+            Agent.SoundEmitter?.Emit(AnimalSoundKind.Fleeing);
+            Agent.SoundEmitter?.BeginMovementSound(AnimalSoundKind.Fleeing);
 
             if (IsUsableTree(birthTree)
                 && TryGetPerchPosition(
@@ -260,6 +284,7 @@ namespace AnimalGame.Animals
             targetTree = null;
             hidingPhase = HidingPhase.Hidden;
             enterTreeElapsed = 0f;
+            emergenceSoundRetryCountdown = 0f;
             Motor.Stop();
             ResetVisualOffset();
             Agent.PlaceholderView?.SetSubmergeProgress(1f);
@@ -269,6 +294,9 @@ namespace AnimalGame.Animals
         public override void TickHiding(float deltaTime)
         {
             Motor.Stop();
+            emergenceSoundRetryCountdown = Mathf.Max(
+                0f,
+                emergenceSoundRetryCountdown - Mathf.Max(0f, deltaTime));
             switch (hidingPhase)
             {
                 case HidingPhase.Hidden:
@@ -282,6 +310,14 @@ namespace AnimalGame.Animals
 
                     enterTreeElapsed = 0f;
                     hidingPhase = HidingPhase.Emerging;
+                    if (emergenceSoundRetryCountdown <= 0f)
+                    {
+                        EmitAtMapPosition(
+                            AnimalSoundKind.EmergingFromTree,
+                            hidingPerchMapPosition);
+                        emergenceSoundRetryCountdown =
+                            Mathf.Max(0.5f, emergenceSoundRetryDelaySeconds);
+                    }
                     break;
 
                 case HidingPhase.Emerging:
@@ -496,7 +532,22 @@ namespace AnimalGame.Animals
             arrivalAction = actionAfterArrival;
             dailyPhase = DailyPhase.Flying;
             travelTimer = 0f;
+            flightSoundStarted = (perchPosition - Motor.CurrentMapPosition).sqrMagnitude
+                > Config.ArrivalDistanceMeters * Config.ArrivalDistanceMeters;
+            if (flightSoundStarted)
+            {
+                Agent.SoundEmitter?.Emit(AnimalSoundKind.Takeoff);
+                Agent.SoundEmitter?.BeginMovementSound(AnimalSoundKind.Flying);
+            }
             return true;
+        }
+
+        private void TickPassiveSound(float deltaTime)
+        {
+            Agent.SoundEmitter?.TickRepeated(
+                AnimalSoundKind.Idle,
+                ref passiveSoundCountdown,
+                deltaTime);
         }
 
         private void TickPerched(float deltaTime)
@@ -505,6 +556,7 @@ namespace AnimalGame.Animals
             if (IsUsableTree(currentTree))
                 FaceTree(currentTree);
 
+            TickPassiveSound(deltaTime);
             actionTimer -= deltaTime;
             if (actionTimer <= 0f)
                 BeginNextDailyBehaviour();
@@ -537,6 +589,9 @@ namespace AnimalGame.Animals
             targetTree = null;
             Motor.Stop();
             FaceTree(currentTree);
+            if (flightSoundStarted)
+                Agent.SoundEmitter?.Emit(AnimalSoundKind.Landing);
+            flightSoundStarted = false;
             switch (arrivalAction)
             {
                 case ArrivalAction.Perch:
@@ -555,6 +610,7 @@ namespace AnimalGame.Animals
         {
             dailyPhase = DailyPhase.Pecking;
             peckElapsed = 0f;
+            nextPeckSoundStrike = Mathf.Max(1, pecksPerSoundWave);
             Motor.Stop();
             FaceTree(currentTree);
         }
@@ -572,8 +628,55 @@ namespace AnimalGame.Animals
             peckElapsed += deltaTime;
             actionTimer -= deltaTime;
             ApplyPeckOffset();
+            EmitPeckSoundIfDue();
             if (actionTimer <= 0f)
                 BeginNextDailyBehaviour();
+        }
+
+        private void EmitPeckSoundIfDue()
+        {
+            // The forward contact is the positive peak of ApplyPeckOffset's sine.
+            int strikes = Mathf.Max(
+                0,
+                Mathf.FloorToInt(peckElapsed * peckFrequencyHz - 0.25f) + 1);
+            if (strikes < nextPeckSoundStrike)
+                return;
+
+            int stride = Mathf.Max(1, pecksPerSoundWave);
+            nextPeckSoundStrike = (strikes / stride + 1) * stride;
+            // Skip missed pulses after a long frame instead of emitting a burst.
+            Agent.SoundEmitter?.EmitAt(
+                AnimalSoundKind.Pecking,
+                GetPeckSoundPosition());
+        }
+
+        private Vector3 GetPeckSoundPosition()
+        {
+            if (currentTree != null
+                && currentTree.TryGetMapPosition(Agent.Map, out Vector2 treeCentre))
+            {
+                Vector2 toBird = Motor.CurrentMapPosition - treeCentre;
+                if (toBird.sqrMagnitude > 0.000001f)
+                {
+                    Vector2 contactPoint = treeCentre + toBird.normalized
+                        * Mathf.Min(currentTree.PerchRadiusMeters, toBird.magnitude);
+                    Vector3 position = Agent.Map.MapPositionToWorld(contactPoint);
+                    position.z = transform.position.z;
+                    return position;
+                }
+            }
+
+            return visualRoot != null ? visualRoot.position : transform.position;
+        }
+
+        private void EmitAtMapPosition(AnimalSoundKind soundKind, Vector2 mapPosition)
+        {
+            if (Agent.Map == null)
+                return;
+
+            Vector3 position = Agent.Map.MapPositionToWorld(mapPosition);
+            position.z = transform.position.z;
+            Agent.SoundEmitter?.EmitAt(soundKind, position);
         }
 
         private void ApplyPeckOffset()
@@ -631,6 +734,7 @@ namespace AnimalGame.Animals
             }
 
             fleePhase = FleePhase.EnteringHome;
+            EmitAtMapPosition(AnimalSoundKind.EnteringTree, enterTreeStartMapPosition);
         }
 
         private void TickEnteringHome(float deltaTime)
@@ -956,6 +1060,10 @@ namespace AnimalGame.Animals
             perchClearanceMeters = Mathf.Max(0f, perchClearanceMeters);
             peckAmplitudeMeters = Mathf.Max(0f, peckAmplitudeMeters);
             peckFrequencyHz = Mathf.Max(0.1f, peckFrequencyHz);
+            pecksPerSoundWave = Mathf.Max(1, pecksPerSoundWave);
+            emergenceSoundRetryDelaySeconds = Mathf.Max(
+                0.5f,
+                emergenceSoundRetryDelaySeconds);
             enterTreeDurationSeconds = Mathf.Max(
                 0.05f,
                 enterTreeDurationSeconds);
