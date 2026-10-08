@@ -396,6 +396,7 @@ MonoBehaviour:
   releaseDuration: 0.25
   releaseRingExpansionDuration: 0.65
   enableScanCameraZoom: 1
+  scanZoomReferenceOrthographicSize: 9
   holdTargetOrthographicSize: 8.5
   releasePeakOrthographicSize: 9.5
   releaseZoomOutDuration: 0.45

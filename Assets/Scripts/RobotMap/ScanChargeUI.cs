@@ -95,10 +95,13 @@ namespace AnimalGame.RobotMap
         [Tooltip("Enables the camera-size animation during Scan_Hold and Scan_Release.")]
         [SerializeField] private bool enableScanCameraZoom = true;
 
-        [Tooltip("Orthographic Size reached at full charge. This should be smaller than the camera base size (currently 9) to zoom in.")]
+        [Tooltip("Calibration size for the authored scan targets. The gameplay camera's actual base Size automatically scales both targets, preserving zoom strength when its Size changes.")]
+        [SerializeField, Min(0.01f)] private float scanZoomReferenceOrthographicSize = 9f;
+
+        [Tooltip("Full-charge Size at the reference camera size. Smaller than the reference means a closer view; the actual target scales with the gameplay camera's base Size.")]
         [SerializeField, Min(0.01f)] private float holdTargetOrthographicSize = 7.5f;
 
-        [Tooltip("Largest Orthographic Size reached during the first part of Scan_Release. This should be larger than the camera base size to zoom out.")]
+        [Tooltip("Release peak Size at the reference camera size. Larger than the reference means a wider view; the actual target scales with the gameplay camera's base Size.")]
         [SerializeField, Min(0.01f)] private float releasePeakOrthographicSize = 11f;
 
         [Tooltip("Independent seconds used to move from the charged close view to the large release view. Increase this for a softer Hold-to-Release transition.")]
@@ -574,12 +577,12 @@ namespace AnimalGame.RobotMap
                 case ScanCameraZoomPhase.Charging:
                     currentScanOrthographicSize = Mathf.Lerp(
                         chargeZoomStartSize,
-                        holdTargetOrthographicSize,
+                        GetHoldTargetOrthographicSize(),
                         Mathf.SmoothStep(0f, 1f, Charge01));
                     break;
 
                 case ScanCameraZoomPhase.Charged:
-                    currentScanOrthographicSize = holdTargetOrthographicSize;
+                    currentScanOrthographicSize = GetHoldTargetOrthographicSize();
                     break;
 
                 case ScanCameraZoomPhase.Releasing:
@@ -596,7 +599,7 @@ namespace AnimalGame.RobotMap
                             releaseCameraZoomElapsed / outwardDuration);
                         currentScanOrthographicSize = Mathf.Lerp(
                             releaseZoomStartSize,
-                            releasePeakOrthographicSize,
+                            GetReleasePeakOrthographicSize(),
                             Mathf.SmoothStep(0f, 1f, outward01));
                     }
                     else
@@ -606,7 +609,7 @@ namespace AnimalGame.RobotMap
                         float return01 = Mathf.Clamp01(
                             returnElapsed / returnDuration);
                         currentScanOrthographicSize = Mathf.Lerp(
-                            releasePeakOrthographicSize,
+                            GetReleasePeakOrthographicSize(),
                             baseCameraOrthographicSize,
                             Mathf.SmoothStep(0f, 1f, return01));
                         if (return01 >= 1f)
@@ -633,6 +636,26 @@ namespace AnimalGame.RobotMap
                     currentScanOrthographicSize = baseCameraOrthographicSize;
                     break;
             }
+        }
+
+        private float GetHoldTargetOrthographicSize()
+        {
+            float multiplier = Mathf.Clamp(
+                holdTargetOrthographicSize
+                / Mathf.Max(0.01f, scanZoomReferenceOrthographicSize),
+                0.05f,
+                1f);
+            return Mathf.Max(0.01f, baseCameraOrthographicSize * multiplier);
+        }
+
+        private float GetReleasePeakOrthographicSize()
+        {
+            float multiplier = Mathf.Clamp(
+                releasePeakOrthographicSize
+                / Mathf.Max(0.01f, scanZoomReferenceOrthographicSize),
+                1f,
+                4f);
+            return Mathf.Max(0.01f, baseCameraOrthographicSize * multiplier);
         }
 
         private void ApplyScanCameraZoom()
@@ -957,6 +980,9 @@ namespace AnimalGame.RobotMap
             releaseRingExpansionDuration = Mathf.Max(
                 0.05f,
                 releaseRingExpansionDuration);
+            scanZoomReferenceOrthographicSize = Mathf.Max(
+                0.01f,
+                scanZoomReferenceOrthographicSize);
             holdTargetOrthographicSize = Mathf.Max(
                 0.01f,
                 holdTargetOrthographicSize);
