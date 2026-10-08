@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using AnimalGame.RobotMap;
 using UnityEngine;
@@ -46,8 +47,8 @@ namespace AnimalGame.MapTest
         [Tooltip("Maximum number of signs produced by one scan snapshot.")]
         [SerializeField, Range(32, 4096)] private int maximumScannedSigns = 700;
 
-        [Header("Closed-region Unpassable Expansion")]
-        [Tooltip("Inside the player's current closed contour region, each locally unpassable sample also exposes every sampled traversal state within this N-meter radius.")]
+        [Header("Local Danger Expansion")]
+        [Tooltip("Local danger seeds expose candidates within this radius if their scan-origin profile is clear.")]
         [SerializeField, Min(0f)] private float unpassableNeighborhoodRadiusMeters = 8f;
 
         [Header("Persistence and Refresh")]
@@ -98,11 +99,12 @@ namespace AnimalGame.MapTest
         [Tooltip("CPU time budget in milliseconds used by movement-triggered traversal rechecks each frame.")]
         [SerializeField, Min(0.1f)] private float realtimeCalculationBudgetMilliseconds = 1f;
 
-        [Tooltip("Hard safety cap for new terrain samples evaluated in one frame while the release wave expands.")]
-        [SerializeField, Range(1, 512)] private int scanCalculationsPerFrame = 128;
+        [Header("Scan Work Scheduling")]
+        [Tooltip("Height samples along a centre-to-edge profile at the captured UI view radius. Shorter profiles use proportionally fewer samples. Includes the target; the centre is checked separately. Lower values can miss narrow peaks, valleys, or mask holes.")]
+        [SerializeField, Min(1)] private int profileSamplesPerViewRadius = 32;
 
-        [Tooltip("CPU time budget in milliseconds used while revealing one scan wave each frame.")]
-        [SerializeField, Min(0.1f)] private float scanCalculationBudgetMilliseconds = 1.75f;
+        [Tooltip("Complete scan calculations within this many Update frames after the scan request. Remaining work is divided over remaining frames; 1 completes all calculations in one frame. The release wave remains a separate visual animation.")]
+        [SerializeField, Min(1)] private int scanCompletionFrames = 5;
 
         [Header("Presentation")]
         [SerializeField, Min(1f)] private float iconSizePixels = 8f;
@@ -110,15 +112,17 @@ namespace AnimalGame.MapTest
 
         private struct PendingScreenSample
         {
-            public Vector2 ScreenPosition;
-            public float Radius01;
+            public Vector2 MapPosition;
+            public int ProfileSampleCount;
         }
 
         private struct SampledCandidate
         {
             public Vector2 MapPosition;
             public Vector2 EvaluationDirection;
-            public bool IsInsideClosedRegion;
+            public bool NearContour, LocalDanger, NearAnyDanger, ProfileClear, ProfileChecked;
+            public int NextInBucket;
+            public int ProfileSampleCount;
             public bool IsPassable;
             public bool IsSelected;
         }
@@ -138,7 +142,28 @@ namespace AnimalGame.MapTest
             new List<PendingScreenSample>(512);
         private readonly List<SampledCandidate> sampledCandidates =
             new List<SampledCandidate>(512);
-        private readonly List<Vector2> unpassableSeeds = new List<Vector2>(128);
+        private readonly List<int> unpassableSeeds = new List<int>(128);
+        private readonly Dictionary<Vector2Int, int> candidateBuckets = new Dictionary<Vector2Int, int>();
+        private readonly List<int> selectedCandidates = new List<int>(512);
+        private enum ScanStage { GridGeneration, LocalEvaluation, DangerExpansion, Profiles, Markers, Finished }
+        private ScanStage scanStage;
+        private int nextSeed, nextNeighbor, nextBucketCandidate = -1, nextProfile, previousBucketCandidate = -1;
+        private Vector2Int activeBucket;
+        private bool bucketActive, profileActive;
+        private TerrainScanProfile profile;
+        private Vector2 scanOrigin;
+        private Vector2 gridCentre;
+        private float gridX, gridY, gridFirstX, gridMaximumX, gridMaximumY, gridSpacing;
+        private float gridRadiusSquared, gridExclusionSquared;
+        private Vector3 nearOrigin, nearAxisX, nearAxisY, farOrigin, farAxisX, farAxisY;
+        private BakedHeightField scanHeightField;
+        private float scanContourInterval;
+        private int capturedProfileSamples, capturedCompletionFrames, generatedGridCount, totalGridCount;
+        public int ScanFramesUsed { get; private set; }
+        public int ProfileCheckCount { get; private set; }
+        public int ProfileSampleVisitCount { get; private set; }
+        public int ScanCandidateCount => sampledCandidates.Count;
+        public float WorstScanFrameMilliseconds { get; private set; }
         private readonly List<PersistentMarker> markers =
             new List<PersistentMarker>(256);
         private readonly Stack<PersistentMarker> recycledMarkers =
@@ -154,8 +179,6 @@ namespace AnimalGame.MapTest
         private Camera mapCamera;
         private RobotMover robot;
         private ScanChargeUI scanChargeUi;
-        private ContourRegionIndex contourRegions;
-        private ContourRegionHandle scannedClosedRegion;
         private GameObject overlayRoot;
         private TraversalSignsGraphic passableSignsGraphic;
         private TraversalSignsGraphic unpassableSignsGraphic;
@@ -207,9 +230,6 @@ namespace AnimalGame.MapTest
                 return;
             }
 
-            contourRegions = new ContourRegionIndex(
-                map.HeightField,
-                map.ContourIntervalMeters);
             CreateOverlayIfNeeded();
             PrewarmMarkerPool();
             scanChargeUi.TerrainScanRequested += BeginScannedSnapshot;
@@ -227,6 +247,8 @@ namespace AnimalGame.MapTest
                 return;
             }
 
+            if (scanHeightField != null && (scanHeightField != map.HeightField
+                || scanContourInterval != map.ContourIntervalMeters)) ClearSnapshot();
             UpdatePersistentSnapshot();
 
             if (refreshInProgress)
@@ -252,9 +274,12 @@ namespace AnimalGame.MapTest
                 return;
             }
 
-            contourRegions.TryGetCurrentClosedRegion(
-                robotMapPosition,
-                out scannedClosedRegion);
+            scanOrigin = robotMapPosition;
+            scanHeightField = map.HeightField;
+            scanContourInterval = map.ContourIntervalMeters;
+            capturedProfileSamples = Mathf.Max(1, profileSamplesPerViewRadius);
+            capturedCompletionFrames = Mathf.Max(1, scanCompletionFrames);
+            scanStage = ScanStage.GridGeneration;
             scannedUiRadiusPixels = Mathf.Max(
                 1f,
                 scanChargeUi.GetUiRingScreenRadiusPixels());
@@ -269,171 +294,319 @@ namespace AnimalGame.MapTest
         private void BuildPendingScreenGrid(float radiusPixels)
         {
             pendingSamples.Clear();
-            Vector2 centre = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-            float canvasScale = radiusPixels
-                                / Mathf.Max(1f, scanChargeUi.UiRingRadiusPixels);
-            float spacing = Mathf.Max(4f, sampleGridSpacingPixels * canvasScale);
-            float minimumX = Mathf.Max(0f, centre.x - radiusPixels);
-            float maximumX = Mathf.Min(Screen.width, centre.x + radiusPixels);
-            float minimumY = Mathf.Max(0f, centre.y - radiusPixels);
-            float maximumY = Mathf.Min(Screen.height, centre.y + radiusPixels);
-            float firstX = Mathf.Ceil(minimumX / spacing) * spacing;
-            float firstY = Mathf.Ceil(minimumY / spacing) * spacing;
-            float radiusSquared = radiusPixels * radiusPixels;
-            float exclusion = (centerExclusionRadiusPixels
-                               + iconSizePixels * 0.70710678f) * canvasScale;
-            float exclusionSquared = exclusion * exclusion;
+            gridCentre = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            float canvasScale = radiusPixels / Mathf.Max(1f, scanChargeUi.UiRingRadiusPixels);
+            gridSpacing = Mathf.Max(4f, sampleGridSpacingPixels * canvasScale);
+            gridMaximumX = Mathf.Min(Screen.width, gridCentre.x + radiusPixels);
+            gridMaximumY = Mathf.Min(Screen.height, gridCentre.y + radiusPixels);
+            gridFirstX = Mathf.Ceil(Mathf.Max(0f, gridCentre.x - radiusPixels) / gridSpacing) * gridSpacing;
+            gridX = gridFirstX;
+            gridY = Mathf.Ceil(Mathf.Max(0f, gridCentre.y - radiusPixels) / gridSpacing) * gridSpacing;
+            int columns = Mathf.Max(0, Mathf.FloorToInt((gridMaximumX + 0.01f - gridFirstX) / gridSpacing) + 1);
+            int rows = Mathf.Max(0, Mathf.FloorToInt((gridMaximumY + 0.01f - gridY) / gridSpacing) + 1);
+            totalGridCount = columns * rows;
+            gridRadiusSquared = radiusPixels * radiusPixels;
+            float exclusion = (centerExclusionRadiusPixels + iconSizePixels * 0.70710678f) * canvasScale;
+            gridExclusionSquared = exclusion * exclusion;
+            // Both clipping planes are affine in screen coordinates, including for
+            // perspective cameras. Capture once so generation can yield while the
+            // player/camera moves, retaining the original screen candidate layout.
+            nearOrigin = mapCamera.ScreenToWorldPoint(new Vector3(0, 0, mapCamera.nearClipPlane));
+            nearAxisX = (mapCamera.ScreenToWorldPoint(new Vector3(Screen.width, 0, mapCamera.nearClipPlane)) - nearOrigin) / Mathf.Max(1, Screen.width);
+            nearAxisY = (mapCamera.ScreenToWorldPoint(new Vector3(0, Screen.height, mapCamera.nearClipPlane)) - nearOrigin) / Mathf.Max(1, Screen.height);
+            farOrigin = mapCamera.ScreenToWorldPoint(new Vector3(0, 0, mapCamera.farClipPlane));
+            farAxisX = (mapCamera.ScreenToWorldPoint(new Vector3(Screen.width, 0, mapCamera.farClipPlane)) - farOrigin) / Mathf.Max(1, Screen.width);
+            farAxisY = (mapCamera.ScreenToWorldPoint(new Vector3(0, Screen.height, mapCamera.farClipPlane)) - farOrigin) / Mathf.Max(1, Screen.height);
+        }
 
-            for (float y = firstY; y <= maximumY + 0.01f; y += spacing)
+        private void GenerateScreenCandidate()
+        {
+            if (gridY > gridMaximumY + 0.01f)
             {
-                for (float x = firstX; x <= maximumX + 0.01f; x += spacing)
-                {
-                    Vector2 screenPosition = new Vector2(x, y);
-                    float distanceSquared = (screenPosition - centre).sqrMagnitude;
-                    if (distanceSquared > radiusSquared
-                        || distanceSquared < exclusionSquared)
-                    {
-                        continue;
-                    }
-
-                    pendingSamples.Add(new PendingScreenSample
-                    {
-                        ScreenPosition = screenPosition,
-                        Radius01 = Mathf.Sqrt(distanceSquared) / radiusPixels
-                    });
-                }
+                scanStage = ScanStage.LocalEvaluation;
+                return;
             }
-
-            pendingSamples.Sort((left, right) =>
-                left.Radius01.CompareTo(right.Radius01));
+            generatedGridCount++;
+            Vector2 screen = new Vector2(gridX, gridY);
+            gridX += gridSpacing;
+            if (gridX > gridMaximumX + 0.01f) { gridX = gridFirstX; gridY += gridSpacing; }
+            float squared = (screen - gridCentre).sqrMagnitude;
+            if (squared > gridRadiusSquared || squared < gridExclusionSquared) return;
+            Vector3 start = nearOrigin + nearAxisX * screen.x + nearAxisY * screen.y;
+            Vector3 direction = farOrigin + farAxisX * screen.x + farAxisY * screen.y - start;
+            if (Mathf.Abs(direction.z) < 0.000001f) return;
+            float t = (map.WorldBounds.center.z - start.z) / direction.z;
+            if (t < 0f) return;
+            if (map.TrySampleWorldPosition(start + direction * t, out Vector2 position, out _))
+                pendingSamples.Add(new PendingScreenSample
+                {
+                    MapPosition = position,
+                    ProfileSampleCount = SamplesForRadius(Mathf.Sqrt(squared / gridRadiusSquared), capturedProfileSamples)
+                });
         }
 
         private void RevealScanWave()
         {
-            float progress = Mathf.Clamp01(
-                (Time.unscaledTime - scanStartedAt)
-                / Mathf.Max(0.05f, scanWaveDuration));
-            float visibleRadius01 = Mathf.SmoothStep(0f, 1f, progress);
-            int calculations = 0;
-            float calculationStartedAt = Time.realtimeSinceStartup;
-
-            while (nextPendingSample < pendingSamples.Count
-                   && calculations < scanCalculationsPerFrame
-                   && pendingSamples[nextPendingSample].Radius01
-                   <= visibleRadius01 + 0.0001f)
+            if (scanHeightField != map.HeightField || scanContourInterval != map.ContourIntervalMeters)
             {
-                if (calculations > 0
-                    && HasExceededCalculationBudget(
-                        calculationStartedAt,
-                        scanCalculationBudgetMilliseconds))
-                {
-                    break;
-                }
-
-                SampleScreenCandidate(pendingSamples[nextPendingSample]);
-                nextPendingSample++;
-                calculations++;
-            }
-
-            if (progress < 1f || nextPendingSample < pendingSamples.Count)
+                ClearSnapshot();
                 return;
-
+            }
+            if (scanStage != ScanStage.Finished) ProcessScanFrame();
+            if (scanStage != ScanStage.Finished || Time.unscaledTime < scanStartedAt + scanWaveDuration) return;
             scanIsRevealing = false;
-            snapshotExpiresAt = Time.unscaledTime
-                                + Mathf.Max(0.1f, markerLifetimeSeconds);
-            nextStateRefreshAt = Time.unscaledTime
-                                 + Mathf.Max(0.05f, stateRefreshIntervalSeconds);
-            // Selection already evaluated every marker against the current robot.
-            // Avoid immediately duplicating the most expensive full-path pass.
+            snapshotExpiresAt = Time.unscaledTime + Mathf.Max(0.1f, markerLifetimeSeconds);
+            nextStateRefreshAt = Time.unscaledTime + Mathf.Max(0.05f, stateRefreshIntervalSeconds);
             CaptureRealtimeRobotPosition();
+        }
+
+        internal static int SamplesForRadius(float radius01, int samplesAtRadius)
+        {
+            return Mathf.Max(1, Mathf.CeilToInt(Mathf.Clamp01(radius01) * Mathf.Max(1, samplesAtRadius)));
+        }
+
+        // Stage costs differ: surface evaluation and full-path checks get greater
+        // weights than grid/bucket bookkeeping and one profile height sample.
+        // Counts become exact as preceding stages discover seeds and eligibility.
+        private long EstimateRemainingScanWork()
+        {
+            const int localCost = 16, markerCost = 128;
+            long futureCandidates = sampledCandidates.Count;
+            long gridWork = 0, localWork = 0, dangerWork = 0, profileWork = 0;
+            if (scanStage == ScanStage.GridGeneration)
+            {
+                long remainingGrid = Mathf.Max(0, totalGridCount - generatedGridCount);
+                gridWork = remainingGrid + 1;
+                futureCandidates = pendingSamples.Count + remainingGrid;
+                localWork = futureCandidates * localCost + 1;
+            }
+            else if (scanStage == ScanStage.LocalEvaluation)
+            {
+                futureCandidates += pendingSamples.Count - nextPendingSample;
+                localWork = (pendingSamples.Count - nextPendingSample) * localCost + 1;
+            }
+            if (scanStage == ScanStage.GridGeneration || scanStage == ScanStage.LocalEvaluation)
+            {
+                // Seed membership is not known until local evaluation finishes.
+                dangerWork = futureCandidates * 10 + 1;
+                profileWork = futureCandidates * (capturedProfileSamples + 1L);
+            }
+            else if (scanStage == ScanStage.DangerExpansion)
+            {
+                dangerWork = Math.Max(0, unpassableSeeds.Count - nextSeed) * 9L
+                    + sampledCandidates.Count + 1;
+                foreach (SampledCandidate candidate in sampledCandidates)
+                    profileWork += !candidate.LocalDanger && !candidate.NearContour
+                        ? candidate.ProfileSampleCount + 1L : 1L;
+            }
+            else if (scanStage == ScanStage.Profiles)
+            {
+                for (int i = nextProfile; i < sampledCandidates.Count; i++)
+                {
+                    SampledCandidate candidate = sampledCandidates[i];
+                    long samples = !candidate.LocalDanger && !candidate.NearContour && candidate.NearAnyDanger
+                        ? candidate.ProfileSampleCount : 0;
+                    if (i == nextProfile && profileActive) samples = Math.Max(0, samples - profile.SamplesRead);
+                    profileWork += samples + 1;
+                }
+            }
+            long markerCount = scanStage == ScanStage.Markers
+                ? Math.Min(selectedCandidates.Count, Math.Max(0, maximumScannedSigns - markers.Count))
+                : Math.Min(futureCandidates, maximumScannedSigns);
+            return gridWork + localWork + dangerWork + profileWork + markerCount * markerCost + 1;
+        }
+
+        private void ProcessScanFrame()
+        {
+            float started = Time.realtimeSinceStartup;
+            int framesLeft = Mathf.Max(1, capturedCompletionFrames - ScanFramesUsed);
+            long remaining = EstimateRemainingScanWork();
+            long allowance = Math.Max(1, (remaining + framesLeft - 1) / framesLeft);
+            long work = 0;
+            while (scanStage != ScanStage.Finished && (framesLeft == 1 || work < allowance))
+            {
+                ScanStage previousStage = scanStage;
+                switch (scanStage)
+                {
+                    case ScanStage.GridGeneration: GenerateScreenCandidate(); work++; break;
+                    case ScanStage.LocalEvaluation:
+                        if (nextPendingSample < pendingSamples.Count)
+                            SampleScreenCandidate(pendingSamples[nextPendingSample++]);
+                        else scanStage = ScanStage.DangerExpansion;
+                        work += 16;
+                        break;
+                    case ScanStage.DangerExpansion: ExpandDangerStep(); work++; break;
+                    case ScanStage.Profiles: CheckProfileStep(); work++; break;
+                    case ScanStage.Markers:
+                        if (selectedCandidates.Count > 0 && markers.Count < maximumScannedSigns)
+                            SelectCandidate(PopSelectedCandidate());
+                        else scanStage = ScanStage.Finished;
+                        work += 128;
+                        break;
+                }
+                // Revise estimates at phase boundaries without scanning lists per
+                // sample. This prevents an obsolete upper bound front-loading work.
+                if (previousStage != scanStage && framesLeft > 1)
+                {
+                    remaining = EstimateRemainingScanWork();
+                    allowance = Math.Max(1, (work + remaining + framesLeft - 1) / framesLeft);
+                }
+            }
+            ScanFramesUsed++;
+            WorstScanFrameMilliseconds = Mathf.Max(WorstScanFrameMilliseconds,
+                (Time.realtimeSinceStartup - started) * 1000f);
+        }
+
+        private Vector2Int Bucket(Vector2 position) => new Vector2Int(
+            Mathf.FloorToInt(position.x / unpassableNeighborhoodRadiusMeters),
+            Mathf.FloorToInt(position.y / unpassableNeighborhoodRadiusMeters));
+
+        // One bucket member per work unit, so dense buckets obey the budget.
+        private void ExpandDangerStep()
+        {
+            if (unpassableNeighborhoodRadiusMeters <= 0f || nextSeed >= unpassableSeeds.Count)
+            {
+                scanStage = ScanStage.Profiles;
+                return;
+            }
+            Vector2 seed = sampledCandidates[unpassableSeeds[nextSeed]].MapPosition;
+            if (!bucketActive)
+            {
+                Vector2Int key = Bucket(seed) + new Vector2Int(nextNeighbor % 3 - 1, nextNeighbor / 3 - 1);
+                activeBucket = key;
+                previousBucketCandidate = -1;
+                nextBucketCandidate = candidateBuckets.TryGetValue(key, out int head) ? head : -1;
+                bucketActive = true;
+            }
+            if (nextBucketCandidate >= 0)
+            {
+                int index = nextBucketCandidate;
+                SampledCandidate candidate = sampledCandidates[index];
+                nextBucketCandidate = candidate.NextInBucket;
+                if (!candidate.NearAnyDanger && (candidate.MapPosition - seed).sqrMagnitude
+                    <= unpassableNeighborhoodRadiusMeters * unpassableNeighborhoodRadiusMeters)
+                {
+                    candidate.NearAnyDanger = true;
+                    sampledCandidates[index] = candidate;
+                    // Unlink marked candidates: subsequent seeds never visit them.
+                    if (previousBucketCandidate < 0) candidateBuckets[activeBucket] = nextBucketCandidate;
+                    else
+                    {
+                        SampledCandidate previous = sampledCandidates[previousBucketCandidate];
+                        previous.NextInBucket = nextBucketCandidate;
+                        sampledCandidates[previousBucketCandidate] = previous;
+                    }
+                }
+                else previousBucketCandidate = index;
+                return;
+            }
+            bucketActive = false;
+            if (++nextNeighbor == 9) { nextNeighbor = 0; nextSeed++; }
+        }
+
+        private void CheckProfileStep()
+        {
+            if (nextProfile >= sampledCandidates.Count)
+            {
+                scanStage = ScanStage.Markers;
+                return;
+            }
+            SampledCandidate candidate = sampledCandidates[nextProfile];
+            if (!candidate.LocalDanger && !candidate.NearContour && candidate.NearAnyDanger)
+            {
+                if (!profileActive)
+                {
+                    profile = new TerrainScanProfile(scanHeightField, scanOrigin,
+                        candidate.MapPosition, Mathf.Max(0.01f, scanContourInterval), candidate.ProfileSampleCount);
+                    profileActive = true;
+                    ProfileCheckCount++;
+                }
+                if (!profile.Complete) { profile.Step(); ProfileSampleVisitCount++; }
+                if (!profile.Complete) return;
+                candidate.ProfileChecked = true;
+                candidate.ProfileClear = profile.Clear;
+                profileActive = false;
+            }
+            candidate.IsSelected = candidate.LocalDanger || candidate.NearContour
+                || (candidate.NearAnyDanger && candidate.ProfileClear);
+            sampledCandidates[nextProfile] = candidate;
+            if (candidate.IsSelected) PushSelectedCandidate(nextProfile);
+            nextProfile++;
+        }
+
+        // A heap applies the explicit cap policy without one unbudgeted N log N
+        // sort: each insertion/removal costs O(log N) and allocates no delegate.
+        private int CompareSelected(int left, int right)
+        {
+            SampledCandidate a = sampledCandidates[left], b = sampledCandidates[right];
+            int order = (a.LocalDanger ? 0 : a.NearContour ? 1 : 2)
+                .CompareTo(b.LocalDanger ? 0 : b.NearContour ? 1 : 2);
+            if (order != 0) return order;
+            order = (a.MapPosition - scanOrigin).sqrMagnitude.CompareTo((b.MapPosition - scanOrigin).sqrMagnitude);
+            if (order != 0) return order;
+            order = a.MapPosition.x.CompareTo(b.MapPosition.x);
+            return order != 0 ? order : a.MapPosition.y.CompareTo(b.MapPosition.y);
+        }
+
+        private void PushSelectedCandidate(int index)
+        {
+            int child = selectedCandidates.Count;
+            selectedCandidates.Add(index);
+            while (child > 0)
+            {
+                int parent = (child - 1) / 2;
+                if (CompareSelected(selectedCandidates[parent], index) <= 0) break;
+                selectedCandidates[child] = selectedCandidates[parent];
+                child = parent;
+            }
+            selectedCandidates[child] = index;
+        }
+
+        private int PopSelectedCandidate()
+        {
+            int result = selectedCandidates[0];
+            int last = selectedCandidates[selectedCandidates.Count - 1];
+            selectedCandidates.RemoveAt(selectedCandidates.Count - 1);
+            if (selectedCandidates.Count == 0) return result;
+            int parent = 0;
+            while (parent * 2 + 1 < selectedCandidates.Count)
+            {
+                int child = parent * 2 + 1;
+                if (child + 1 < selectedCandidates.Count
+                    && CompareSelected(selectedCandidates[child + 1], selectedCandidates[child]) < 0) child++;
+                if (CompareSelected(last, selectedCandidates[child]) <= 0) break;
+                selectedCandidates[parent] = selectedCandidates[child];
+                parent = child;
+            }
+            selectedCandidates[parent] = last;
+            return result;
         }
 
         private void SampleScreenCandidate(PendingScreenSample pending)
         {
-            if (!TryProjectScreenPointToMap(pending.ScreenPosition, out Vector2 mapPosition)
-                || !TryAnalyzeLocalTerrain(
-                    mapPosition,
-                    out Vector2 gradientDirection,
-                    out bool isNearContour))
-            {
-                return;
-            }
-
-            SlopeTraversalResult result = EvaluateAt(
-                mapPosition,
-                gradientDirection);
-            if (!result.HasData)
-                return;
-
-            bool insideClosedRegion = scannedClosedRegion.IsValid
-                                      && contourRegions.Contains(
-                                          scannedClosedRegion,
-                                          mapPosition);
+            Vector2 mapPosition = pending.MapPosition;
+            if (!TryAnalyzeLocalTerrain(mapPosition, out Vector2 gradientDirection, out bool isNearContour)) return;
+            SlopeTraversalResult result = EvaluateAt(mapPosition, gradientDirection);
+            if (!result.HasData) return;
+            int index = sampledCandidates.Count;
             var candidate = new SampledCandidate
             {
                 MapPosition = mapPosition,
                 EvaluationDirection = gradientDirection,
-                IsInsideClosedRegion = insideClosedRegion,
-                IsPassable = result.IsPassable
+                IsPassable = result.IsPassable,
+                LocalDanger = !result.IsPassable,
+                NearContour = isNearContour,
+                ProfileSampleCount = pending.ProfileSampleCount,
+                NextInBucket = -1
             };
-            int candidateIndex = sampledCandidates.Count;
+            if (unpassableNeighborhoodRadiusMeters > 0f)
+            {
+                Vector2Int key = Bucket(mapPosition);
+                if (candidateBuckets.TryGetValue(key, out int head)) candidate.NextInBucket = head;
+                candidateBuckets[key] = index;
+            }
             sampledCandidates.Add(candidate);
-
-            bool isInteriorUnpassable = insideClosedRegion
-                                        && !result.IsPassable;
-            if (isInteriorUnpassable)
-            {
-                unpassableSeeds.Add(mapPosition);
-                SelectCandidate(candidateIndex);
-                ExpandAroundUnpassableSeed(mapPosition);
-            }
-
-            if (isNearContour
-                || (insideClosedRegion && IsNearAnyUnpassableSeed(mapPosition)))
-            {
-                SelectCandidate(candidateIndex);
-            }
-        }
-
-        private void ExpandAroundUnpassableSeed(Vector2 seedMapPosition)
-        {
-            float radiusSquared = unpassableNeighborhoodRadiusMeters
-                                  * unpassableNeighborhoodRadiusMeters;
-            if (radiusSquared <= 0f)
-                return;
-
-            for (int index = 0; index < sampledCandidates.Count; index++)
-            {
-                SampledCandidate candidate = sampledCandidates[index];
-                if (!candidate.IsInsideClosedRegion
-                    || candidate.IsSelected
-                    || (candidate.MapPosition - seedMapPosition).sqrMagnitude
-                    > radiusSquared)
-                {
-                    continue;
-                }
-
-                SelectCandidate(index);
-            }
-        }
-
-        private bool IsNearAnyUnpassableSeed(Vector2 mapPosition)
-        {
-            float radiusSquared = unpassableNeighborhoodRadiusMeters
-                                  * unpassableNeighborhoodRadiusMeters;
-            if (radiusSquared <= 0f)
-                return false;
-
-            for (int index = 0; index < unpassableSeeds.Count; index++)
-            {
-                if ((unpassableSeeds[index] - mapPosition).sqrMagnitude
-                    <= radiusSquared)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            if (candidate.LocalDanger) unpassableSeeds.Add(index);
         }
 
         private void SelectCandidate(int candidateIndex)
@@ -446,11 +619,6 @@ namespace AnimalGame.MapTest
             }
 
             SampledCandidate candidate = sampledCandidates[candidateIndex];
-            if (candidate.IsSelected)
-                return;
-
-            candidate.IsSelected = true;
-            sampledCandidates[candidateIndex] = candidate;
             SlopeTraversalResult robotRelativeResult =
                 EvaluateFromRobot(candidate.MapPosition);
             bool displayedPassability = robotRelativeResult.HasData
@@ -853,25 +1021,6 @@ namespace AnimalGame.MapTest
                    >= Mathf.Max(0.1f, budgetMilliseconds);
         }
 
-        private bool TryProjectScreenPointToMap(
-            Vector2 screenPosition,
-            out Vector2 mapPosition)
-        {
-            mapPosition = default;
-            Ray ray = mapCamera.ScreenPointToRay(
-                new Vector3(screenPosition.x, screenPosition.y, 0f));
-            float directionZ = ray.direction.z;
-            if (Mathf.Abs(directionZ) < 0.000001f)
-                return false;
-
-            float distance = (map.WorldBounds.center.z - ray.origin.z) / directionZ;
-            if (distance < 0f)
-                return false;
-
-            Vector3 worldPosition = ray.GetPoint(distance);
-            return map.TrySampleWorldPosition(worldPosition, out mapPosition, out _);
-        }
-
         private float GetPeriodicRefreshVisibility()
         {
             if (!enablePeriodicRefreshBreathing)
@@ -951,7 +1100,9 @@ namespace AnimalGame.MapTest
             float currentRadius = scanChargeUi != null
                 ? scanChargeUi.GetUiRingScreenRadiusPixels()
                 : scannedUiRadiusPixels;
-            float radiusSquared = currentRadius * currentRadius;
+            float wave = scanIsRevealing ? Mathf.SmoothStep(0f, 1f,
+                Mathf.Clamp01((Time.unscaledTime - scanStartedAt) / scanWaveDuration)) : 1f;
+            float radiusSquared = currentRadius * currentRadius * wave * wave;
             float exclusionScale = currentRadius
                                    / Mathf.Max(1f, scanChargeUi.UiRingRadiusPixels);
             float exclusion = (centerExclusionRadiusPixels
@@ -1083,7 +1234,19 @@ namespace AnimalGame.MapTest
                 passableSignsGraphic.ClearSigns();
             if (unpassableSignsGraphic != null)
                 unpassableSignsGraphic.ClearSigns();
-            scannedClosedRegion = default;
+            candidateBuckets.Clear();
+            selectedCandidates.Clear();
+            nextSeed = nextNeighbor = nextProfile = 0;
+            previousBucketCandidate = -1;
+            nextBucketCandidate = -1;
+            bucketActive = profileActive = false;
+            scanHeightField = null;
+            profile = default;
+            ProfileCheckCount = ProfileSampleVisitCount = 0;
+            WorstScanFrameMilliseconds = 0f;
+            ScanFramesUsed = generatedGridCount = totalGridCount = 0;
+            capturedCompletionFrames = 1;
+            capturedProfileSamples = Mathf.Max(1, profileSamplesPerViewRadius);
             nextPendingSample = 0;
             nextRefreshMarker = 0;
             scanIsRevealing = false;
@@ -1170,13 +1333,8 @@ namespace AnimalGame.MapTest
             realtimeCalculationBudgetMilliseconds = Mathf.Max(
                 0.1f,
                 realtimeCalculationBudgetMilliseconds);
-            scanCalculationsPerFrame = Mathf.Clamp(
-                scanCalculationsPerFrame,
-                1,
-                512);
-            scanCalculationBudgetMilliseconds = Mathf.Max(
-                0.1f,
-                scanCalculationBudgetMilliseconds);
+            profileSamplesPerViewRadius = Mathf.Max(1, profileSamplesPerViewRadius);
+            scanCompletionFrames = Mathf.Max(1, scanCompletionFrames);
             iconSizePixels = Mathf.Max(1f, iconSizePixels);
         }
     }

@@ -68,7 +68,7 @@ MonoBehaviour:
   realtimeRecheckMinimumInterval: 0.08
   realtimeRechecksPerFrame: 12
   realtimeCalculationBudgetMilliseconds: 1
-  scanCalculationsPerFrame: 32
-  scanCalculationBudgetMilliseconds: 1.75
+  profileSamplesPerViewRadius: 32
+  scanCompletionFrames: 25
   iconSizePixels: 16
   canvasSortingOrder: 21
