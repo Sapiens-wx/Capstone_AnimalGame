@@ -28,6 +28,7 @@ namespace AnimalGame.RobotMap
         [SerializeField] private PhotoResultAnimation animationSettings = new PhotoResultAnimation();
         [Header("Photo perspective")]
         [SerializeField] private Vector2 restingTiltDegrees = new Vector2(3, -8);
+        [Tooltip("Maximum absolute tilt on either axis; must cover both resting tilt angles.")]
         [SerializeField, Range(0, 20)] private float interactiveTiltDegrees = 9;
         [SerializeField, Min(0.01f)] private float tiltResponse = 9;
         [SerializeField, Range(0, 0.9f)] private float stickDeadZone = 0.16f;
@@ -71,6 +72,14 @@ namespace AnimalGame.RobotMap
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
         private IDisposable animalPause;
+        private float MaximumTiltDegrees => Mathf.Max(interactiveTiltDegrees,
+            Mathf.Max(Mathf.Abs(restingTiltDegrees.x), Mathf.Abs(restingTiltDegrees.y)));
+
+        private void OnValidate()
+        {
+            interactiveTiltDegrees = MaximumTiltDegrees;
+        }
+
         private void Awake()
         {
             if (document != null) BuildDocumentTree();
@@ -359,11 +368,21 @@ namespace AnimalGame.RobotMap
                 input = new Vector2(Mathf.Clamp((point.x - bounds.center.x) / (bounds.width * 0.5f), -1, 1),
                     Mathf.Clamp((bounds.center.y - point.y) / (bounds.height * 0.5f), -1, 1));
             }
-            Vector2 target = restingTiltDegrees + new Vector2(-input.y, input.x) * interactiveTiltDegrees;
+            float maximumTilt = MaximumTiltDegrees;
+            Vector2 target = new Vector2(
+                MapTilt(-input.y, restingTiltDegrees.x, maximumTilt),
+                MapTilt(input.x, restingTiltDegrees.y, maximumTilt));
             Vector2 next = Vector2.Lerp(tilt, target, 1 - Mathf.Exp(-tiltResponse * Time.unscaledDeltaTime));
             if ((next - tilt).sqrMagnitude < 0.000001f) return;
             tilt = next;
             RenderCard();
+        }
+
+        private static float MapTilt(float input, float restingTilt, float maximumTilt)
+        {
+            return input < 0
+                ? Mathf.Lerp(restingTilt, -maximumTilt, -input)
+                : Mathf.Lerp(restingTilt, maximumTilt, input);
         }
 
         private void RenderCard()
