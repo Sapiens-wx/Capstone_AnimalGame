@@ -41,7 +41,7 @@ namespace AnimalGame.MainUI
         public float Integrity { get => integrity; set => integrity = Mathf.Clamp01(value); }
         public InventoryItem[] Items { get; } = new InventoryItem[SlotCount];
 
-        private VisualElement root, stage, view, ring, status, inventory, grid, entry, compassHost, coordinates;
+        private VisualElement root, stage, view, ring, status, time, inventory, grid, entry, compassHost, coordinates;
         private ViewRingElement innerRing, outerRing;
         private CircularProgressElement powerRing, integrityRing;
         private CompassElement compass;
@@ -79,6 +79,7 @@ namespace AnimalGame.MainUI
             innerRing = root.Q<ViewRingElement>("InnerRing");
             outerRing = root.Q<ViewRingElement>("OuterRing");
             status = root.Q("Status");
+            time = root.Q("Time");
             inventory = root.Q("Inventory");
             grid = root.Q("InventoryGrid");
             entry = root.Q("InventoryEntry");
@@ -244,8 +245,14 @@ namespace AnimalGame.MainUI
             float authoredRingX = view.layout.x + ring.layout.x + innerRing.layout.x + innerRing.contentRect.center.x;
             ringDisplacement = new Vector2((openCircleX - authoredRingX) * horizontal, 0);
             ring.style.translate = new Translate(ringDisplacement.x, ringDisplacement.y);
-            status.style.translate = new Translate(ringDisplacement.x + statusInventoryDisplacement.x * horizontal,
-                statusInventoryDisplacement.y * vertical);
+            // Scale each element around its own screen corner, including its authored edge offsets.
+            Vector2 statusOffset = FitScreenElement(status, false, false);
+            FitScreenElement(time, true, false);
+            FitScreenElement(entry, false, true);
+            FitScreenElement(coordinates, true, true);
+            status.style.translate = new Translate(statusOffset.x
+                + (ringDisplacement.x + statusInventoryDisplacement.x * horizontal) * fit,
+                statusOffset.y + statusInventoryDisplacement.y * vertical * fit);
             Vector2 targetCenter = new Vector2((size.x * .25f - viewportOffset.x) / fit, DesignHeight * .5f);
             Vector2 inventoryDelta = targetCenter - view.layout.position - inventory.layout.center;
             inventory.style.translate = new Translate(inventoryDelta.x * horizontal, inventoryDelta.y * vertical);
@@ -256,12 +263,23 @@ namespace AnimalGame.MainUI
             entry.style.visibility = visible ? Visibility.Hidden : Visibility.Visible;
             coordinates.style.opacity = 1;
             frame.MarkDirtyRepaint();
-            Vector2 compassOffset = viewportOffset + compassHost.layout.position * (fit - 1);
-            compassHost.style.transformOrigin = new TransformOrigin(0, 0);
+            // Position and centering belong to UXML/USS; only size follows the screen fit.
             compassHost.style.scale = new Scale(new Vector3(fit, fit, 1));
-            compassHost.style.translate = new Translate(compassOffset.x, compassOffset.y);
             SelectItem(selectedIndex);
             ApplyPhotoTransform();
+        }
+
+        private Vector2 FitScreenElement(VisualElement element, bool right, bool bottom)
+        {
+            Rect layout = element.layout;
+            Vector2 parentSize = element.parent.layout.size;
+            // Layout is unaffected by transforms, so this also preserves edits made in UI Builder.
+            Vector2 edgeOffset = new Vector2(right ? layout.xMax - parentSize.x : layout.x,
+                bottom ? layout.yMax - parentSize.y : layout.y);
+            Vector2 correction = edgeOffset * (fit - 1);
+            element.style.scale = new Scale(new Vector3(fit, fit, 1));
+            element.style.translate = new Translate(correction.x, correction.y);
+            return correction;
         }
 
         private void UpdateStatus()

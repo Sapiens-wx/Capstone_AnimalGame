@@ -47,7 +47,9 @@ namespace AnimalGame.Editor
                 var root = document.rootVisualElement;
                 Assert(root.Q<ViewRingElement>("InnerRing") != null, "Custom UXML elements import");
                 Assert(!hud.TryGetRingScreenGeometry(out _, out _), "No scan geometry before first layout");
-                foreach (var size in new[] { new Vector2(1920, 1080), new Vector2(1280, 720), new Vector2(1440, 1080) })
+                var screenSizes = new[] { new Vector2(1920, 1080), new Vector2(1280, 720),
+                    new Vector2(1440, 1080), new Vector2(1920, 1200), new Vector2(2560, 1080) };
+                foreach (var size in screenSizes)
                 {
                     root.style.width = size.x; root.style.height = size.y;
                     ValidateLayout(root);
@@ -56,6 +58,20 @@ namespace AnimalGame.Editor
                     CompareGeometry(hud, root, "Geometry at " + size);
                     var inner = root.Q<ViewRingElement>("InnerRing");
                     Assert(Mathf.Abs(inner.worldBound.width - inner.worldBound.height) < .1f, "Circle remains round at " + size);
+                    CompareEdgeAnchors(root);
+                    hud.OpenInventory();
+                    Step(hud, .125f); ValidateLayout(root);
+                    CompareStatusMotion(root, hud.InventoryProgress);
+                    Step(hud, .2f); ValidateLayout(root);
+                    CompareStatusMotion(root, hud.InventoryProgress);
+                    hud.CloseInventory(); Step(hud, .1f); ValidateLayout(root);
+                    CompareStatusMotion(root, hud.InventoryProgress);
+                    hud.OpenInventory(); Step(hud, .1f); ValidateLayout(root);
+                    CompareStatusMotion(root, hud.InventoryProgress);
+                    hud.CloseInventory(); Step(hud, 1); ValidateLayout(root);
+                    CompareEdgeAnchors(root);
+                    Assert(root.Q("InventoryEntry").resolvedStyle.visibility == Visibility.Visible,
+                        "Reversed inventory animation restores the entry at " + size);
                 }
                 root.style.width = 1920; root.style.height = 1080;
                 ValidateLayout(root); Invoke(hud, "ApplyLayout"); ValidateLayout(root);
@@ -72,6 +88,13 @@ namespace AnimalGame.Editor
                 Assert(authoredRing.layout.position == ringPosition + new Vector2(23, 17), "Runtime preserves edited ring layout");
                 Assert(authoredStatus.layout.x == statusPosition.x + 11, "Runtime preserves edited status layout");
                 Assert(authoredCompass.layout == compassLayout, "Runtime preserves authored compass position and size");
+                authoredCompass.style.translate = new Translate(new Length(-40, LengthUnit.Percent), 3);
+                Invoke(hud, "ApplyLayout"); ValidateLayout(root);
+                Assert(Mathf.Abs(authoredCompass.worldBound.center.x - root.worldBound.center.x - compassLayout.width * .1f) < 1
+                    && Mathf.Abs(authoredCompass.worldBound.yMin - root.worldBound.yMin - compassLayout.y - 3) < 1,
+                    "Runtime preserves the compass translation edited in UI Builder");
+                authoredCompass.style.translate = StyleKeyword.Null;
+                Invoke(hud, "ApplyLayout"); ValidateLayout(root);
                 CompareGeometry(hud, root, "Edited UXML layout baseline");
                 authoredRing.style.left = ringPosition.x; authoredRing.style.top = ringPosition.y;
                 authoredStatus.style.left = statusPosition.x;
@@ -106,6 +129,21 @@ namespace AnimalGame.Editor
                     "Open ring center is at two-thirds");
                 Assert(Mathf.Abs(root.Q("Inventory").worldBound.center.x - root.worldBound.x - root.layout.width * .25f) < 1,
                     "Open inventory center is at one-quarter");
+                foreach (var size in screenSizes)
+                {
+                    // Resize while open to cover the two different parent coordinate systems.
+                    root.style.width = size.x; root.style.height = size.y;
+                    ValidateLayout(root); Step(hud, 0); ValidateLayout(root);
+                    CompareGeometry(hud, root, "Resized open pose at " + size);
+                    CompareEdgeAnchors(root, true);
+                    Assert(Mathf.Abs(root.Q("ViewRing").worldBound.center.x - root.worldBound.x - size.x * (2f / 3)) < 1,
+                        "Resized open ring stays at two-thirds at " + size);
+                    Vector2 inventoryCenter = root.Q("Inventory").worldBound.center - root.worldBound.position;
+                    Assert(Vector2.Distance(inventoryCenter, new Vector2(size.x * .25f, size.y * .5f)) < 1,
+                        "Resized open inventory stays at one-quarter and vertical center at " + size);
+                }
+                root.style.width = 1920; root.style.height = 1080;
+                ValidateLayout(root); Step(hud, 0); ValidateLayout(root);
                 using (var evt = PointerEnterEvent.GetPooled()) { evt.target = lastSlot; lastSlot.SendEvent(evt); }
                 Assert(hud.SelectedIndex == 7, "Hover moves shared selection");
                 hud.SetItem(7, new InventoryItem()); ValidateLayout(root);
@@ -155,8 +193,15 @@ namespace AnimalGame.Editor
                 Assert(root.Q("Inventory").resolvedStyle.visibility == Visibility.Hidden, "Closed panel hidden after return");
                 Assert(!allSlots[0].enabledInHierarchy, "Closed inventory buttons cannot interact");
                 CompareGeometry(hud, root, "Restored closed pose");
+                CompareEdgeAnchors(root);
                 hud.SetPhotoPose(1.2f, new Vector2(1920, 1080), new Vector2(60, -30), .5f);
                 ValidateLayout(root); CompareGeometry(hud, root, "Photo zoom and translation");
+                var photoEntry = root.Q("InventoryEntry").worldBound;
+                Vector2 photoEntryCenter = new Vector2(18 + 55, 1080 - 5 - 43);
+                photoEntryCenter = new Vector2(960, 540) + (photoEntryCenter - new Vector2(960, 540)) * 1.2f
+                    + new Vector2(60, -30) + root.worldBound.position;
+                Assert(Vector2.Distance(photoEntry.center, photoEntryCenter) < 1,
+                    "Corner HUD follows the Stage photo transform exactly once");
                 hud.TryGetRingScreenGeometry(out Vector2 savedCenter, out float savedRadius);
                 document.enabled = false;
                 Assert(hud.TryGetRingScreenGeometry(out Vector2 hiddenCenter, out float hiddenRadius)
@@ -209,6 +254,53 @@ namespace AnimalGame.Editor
             float expectedRadius = Vector2.Distance(center, edge) / units.x;
             Assert(Vector2.Distance(actualCenter, expectedCenter) < 1 && Mathf.Abs(actualRadius - expectedRadius) < 1,
                 label + " matches rendered element");
+        }
+        private static void CompareEdgeAnchors(VisualElement root, bool open = false)
+        {
+            Rect screen = root.worldBound;
+            float fit = Mathf.Min(root.layout.width / 1920f, root.layout.height / 1080f);
+            Rect entry = root.Q("InventoryEntry").worldBound;
+            Assert(Mathf.Abs(entry.xMin - screen.xMin - 18 * fit) < 1
+                && Mathf.Abs(screen.yMax - entry.yMax - 5 * fit) < 1,
+                "Inventory entry anchors to the screen bottom-left at " + screen.size);
+            Assert(Mathf.Abs(entry.width - 110 * fit) < 1 && Mathf.Abs(entry.height - 86 * fit) < 1,
+                "Inventory entry retains uniform design scaling at " + screen.size);
+            Rect time = root.Q("Time").worldBound;
+            Assert(Mathf.Abs(screen.xMax - time.xMax - 38 * fit) < 1
+                && Mathf.Abs(time.yMin - screen.yMin - 52 * fit) < 1,
+                "Time anchors to the screen top-right at " + screen.size);
+            Rect coordinates = root.Q("Coordinates").worldBound;
+            Assert(Mathf.Abs(screen.xMax - coordinates.xMax - 55 * fit) < 1
+                && Mathf.Abs(screen.yMax - coordinates.yMax - 40 * fit) < 1,
+                "Coordinates anchor to the screen bottom-right at " + screen.size);
+            Rect compass = root.Q("CompassHost").worldBound;
+            Assert(Mathf.Abs(compass.center.x - screen.center.x) < 1
+                && Mathf.Abs(compass.yMin - screen.yMin - root.Q("CompassHost").layout.y) < 1,
+                "Compass anchors to the screen top-center at " + screen.size);
+            Assert(Mathf.Abs(compass.width - 392 * fit) < 1,
+                "Compass retains uniform design scaling at " + screen.size);
+            Rect status = root.Q("Status").worldBound;
+            float displacementX = 0;
+            if (open)
+            {
+                float viewportX = (root.layout.width - 1920 * fit) * .5f;
+                displacementX = root.layout.width * (2f / 3) - viewportX - 960 * fit + 400 * fit;
+            }
+            Assert(Mathf.Abs(status.xMin - screen.xMin - 42 * fit - displacementX) < 1
+                && Mathf.Abs(status.yMin - screen.yMin - (44 + (open ? 51 : 0)) * fit) < 1,
+                "Status uses the screen anchor and panel-space animation at " + screen.size);
+        }
+        private static void CompareStatusMotion(VisualElement root, float progress)
+        {
+            float fit = Mathf.Min(root.layout.width / 1920f, root.layout.height / 1080f);
+            float horizontal = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress * 2 - 1));
+            float vertical = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress * 2));
+            float viewportX = (root.layout.width - 1920 * fit) * .5f;
+            Vector2 expected = root.worldBound.position + new Vector2(
+                42 * fit + (root.layout.width * (2f / 3) - viewportX - 960 * fit + 400 * fit) * horizontal,
+                (44 + 51 * vertical) * fit);
+            Assert(Vector2.Distance(root.Q("Status").worldBound.position, expected) < 1,
+                "Status follows the two-phase animation at progress " + progress + " and size " + root.layout.size);
         }
         private static void RenderAndCapture(VisualElement root, RenderTexture target, string filename)
         {
