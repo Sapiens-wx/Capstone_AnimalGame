@@ -23,6 +23,9 @@ namespace AnimalGame.MainUI
         [Header("Status (normalized)")]
         [SerializeField, Range(0, 1)] private float power = 1;
         [SerializeField, Range(0, 1)] private float integrity = 1;
+        [Header("Level indicator")]
+        [Tooltip("Optional player balance source. When unset, uses the scene bootstrap's player balance.")]
+        [SerializeField] private RobotBalanceController balanceSource;
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
         [SerializeField] private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -45,6 +48,7 @@ namespace AnimalGame.MainUI
         private ViewRingElement innerRing, outerRing;
         private CircularProgressElement powerRing, integrityRing;
         private CompassElement compass;
+        private LevelIndicatorElement levelIndicator;
         private HudFrameElement frame;
         private TimeOrbitElement timeOrbit;
         private InventorySelectionElement selection;
@@ -86,6 +90,7 @@ namespace AnimalGame.MainUI
             selection = root.Q<InventorySelectionElement>("InventorySelection");
             frame = root.Q<HudFrameElement>("Frame");
             compass = root.Q<CompassElement>("Compass");
+            levelIndicator = root.Q<LevelIndicatorElement>("LevelIndicator");
             compassHost = root.Q("CompassHost");
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
@@ -215,6 +220,19 @@ namespace AnimalGame.MainUI
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
         }
 
+        private void LateUpdate() => RefreshLatePresentation();
+
+        private void UpdateLevelIndicator()
+        {
+            if (levelIndicator == null) return;
+            RobotBalanceController balance = balanceSource;
+            if (balance == null && HeightMapPlayerSceneBootstrap.inst != null)
+                balance = HeightMapPlayerSceneBootstrap.inst.balance;
+            // Authored degree is only a preview; gameplay always follows the player's live balance.
+            levelIndicator.SetBalance(balance != null ? balance.CurrentState.Magnitude : 0,
+                balance != null && balance.IsTippedOver);
+        }
+
         private void AdvanceInventoryAnimation(float deltaTime)
         {
             progress = Mathf.MoveTowards(progress, inventoryOpen ? 1 : 0,
@@ -305,6 +323,7 @@ namespace AnimalGame.MainUI
 
         public void RefreshLatePresentation()
         {
+            UpdateLevelIndicator();
             if (outerRing == null) return;
             // Tumble rotates only the outer ring, leaving the inner boundary and the rest of the HUD upright.
             outerRing.style.rotate = new Rotate(-RobotTumbleUiRotation.ActiveRotationDegrees);

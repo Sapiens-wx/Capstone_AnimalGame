@@ -45,10 +45,11 @@
                 <AnimalGame.RobotMap.PhotoResultLineElement end-point="0,15" style="left: auto; right: 0; top: 32px; height: 42px; width: 0; position: absolute;" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <hud:HudFrameElement name="Frame" margin="20" corner-chamfer="46" top-notch-width="388.9" top-notch-height="37.7" bottom-notch-width="176" bottom-notch-height="32" notch-chamfer="7.2" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
+        <hud:HudFrameElement name="Frame" margin="20" corner-chamfer="46" top-notch-width="388.9" top-notch-height="37.7" bottom-notch-width="176" bottom-notch-height="38.4" notch-chamfer="10.15" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
         <ui:VisualElement name="CompassHost" picking-mode="Ignore" class="compass-host" style="position: absolute; left: 50%; width: 392px; height: 60px; top: -1px;">
             <hud:CompassElement name="Compass" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
             <hud:CompassPointerElement class="compass-pointer" style="position: absolute; left: 48.2%; bottom: 3px;" />
         </ui:VisualElement>
+        <hud:LevelIndicatorElement name="LevelIndicator" width="2" length="157.4" height="52.6" center-margin="39.6" line-margin="10" line-ratio="2.38" degree="29.1" class="level-indicator" style="position: absolute; left: 884px; top: 1039px; width: 164px; height: 48px;" />
     </ui:VisualElement>
 </ui:UXML>

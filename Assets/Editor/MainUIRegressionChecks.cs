@@ -46,6 +46,25 @@ namespace AnimalGame.Editor
                 hud.Init();
                 var root = document.rootVisualElement;
                 Assert(root.Q<ViewRingElement>("InnerRing") != null, "Custom UXML elements import");
+                var level = root.Q<LevelIndicatorElement>("LevelIndicator");
+                Assert(level != null && level.width == 2 && level.length == 360 && level.height == 180
+                    && level.centerMargin == 64 && level.lineMargin == 12 && level.lineRatio == 2,
+                    "Level indicator imports its authored UXML attributes");
+                level.SetBalance(.5f);
+                Assert(level.degree == 45 && level.Q<Label>("DegreeText").text == "45\u00b0",
+                    "Balance halfway to the support boundary displays 45 degrees");
+                level.SetBalance(0, true);
+                Assert(level.degree == 90, "A tipped robot displays 90 even with zero live balance");
+                level.SetBalance(1.2f);
+                Assert(level.degree == 90, "Balance overflow clamps to 90 degrees");
+                level.SetDegree(-10);
+                Assert(level.degree == 0, "Runtime degree clamps below zero");
+                level.degree = float.NaN;
+                Assert(level.degree == 0, "Invalid degree stays finite");
+                level.degree = 45;
+                hud.RefreshLatePresentation();
+                Assert(level.degree == 0, "Gameplay presentation replaces preview degree when no player is bound");
+                level.degree = 45;
                 Assert(!hud.TryGetRingScreenGeometry(out _, out _), "No scan geometry before first layout");
                 var screenSizes = new[] { new Vector2(1920, 1080), new Vector2(1280, 720),
                     new Vector2(1440, 1080), new Vector2(1920, 1200), new Vector2(2560, 1080) };
@@ -56,6 +75,9 @@ namespace AnimalGame.Editor
                     Invoke(hud, "ApplyLayout");
                     ValidateLayout(root);
                     CompareGeometry(hud, root, "Geometry at " + size);
+                    Assert(Vector2.Distance(level.worldBound.center,
+                        level.Q<Label>("DegreeText").worldBound.center) < .1f,
+                        "Level readout stays at the line rotation center at " + size);
                     var inner = root.Q<ViewRingElement>("InnerRing");
                     Assert(Mathf.Abs(inner.worldBound.width - inner.worldBound.height) < .1f, "Circle remains round at " + size);
                     CompareEdgeAnchors(root);
@@ -74,6 +96,7 @@ namespace AnimalGame.Editor
                         "Reversed inventory animation restores the entry at " + size);
                 }
                 root.style.width = 1920; root.style.height = 1080;
+                level.SetDegree(0);
                 ValidateLayout(root); Invoke(hud, "ApplyLayout"); ValidateLayout(root);
                 var authoredRing = root.Q("ViewRing");
                 var authoredStatus = root.Q("Status");
@@ -211,6 +234,12 @@ namespace AnimalGame.Editor
                 hud.SetPhotoPose(1, new Vector2(1920, 1080), Vector2.zero, 1);
                 Invoke(hud, "ApplyLayout"); ValidateLayout(document.rootVisualElement);
                 RenderAndCapture(document.rootVisualElement, texture, "mainui-closed.png");
+                var renderedLevel = document.rootVisualElement.Q<LevelIndicatorElement>("LevelIndicator");
+                renderedLevel.SetDegree(45);
+                RenderAndCapture(document.rootVisualElement, texture, "mainui-level-45.png");
+                renderedLevel.SetDegree(90);
+                RenderAndCapture(document.rootVisualElement, texture, "mainui-level-90.png");
+                renderedLevel.SetDegree(0);
                 document.rootVisualElement.style.width = 1280;
                 document.rootVisualElement.style.height = 720;
                 ValidateLayout(document.rootVisualElement);
