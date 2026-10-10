@@ -207,6 +207,7 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay) return;
             EnsureGuideVisual();
             float deltaTime = Mathf.Min(Mathf.Max(0f, Time.deltaTime), 0.05f);
 

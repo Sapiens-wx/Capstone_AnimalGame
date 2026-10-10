@@ -1,0 +1,55 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:hud="AnimalGame.MainUI" xmlns:inventory="AnimalGame.MainUI.Inventory" editor-extension-mode="False">
+    <Style src="project://database/Assets/Prefabs/Resources/UI/Main/MainUIStyle.uss?fileID=7433441132597879392&amp;guid=b617651db47b0724fa851c04f244ad70&amp;type=3#MainUIStyle" />
+    <ui:VisualElement name="Stage" picking-mode="Ignore" class="stage" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;">
+        <ui:VisualElement name="HudView" picking-mode="Ignore" class="hud-view" style="position: absolute;">
+            <ui:VisualElement name="ViewRing" picking-mode="Ignore" class="view-ring" style="position: absolute; left: 500px; top: 80px;">
+                <hud:ViewRingElement name="InnerRing" class="inner-ring" style="position: absolute; left: 29px; top: 29px;" />
+                <hud:ViewRingElement name="OuterRing" ticks="true" class="outer-ring" style="position: absolute; left: 0; top: 0;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -480px; top: 1015px;">
+                <inventory:InventoryOutlineElement class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
+                <ui:Label text="INVENTORY" class="inventory-title" style="position: absolute; left: 18px; top: 4px;" />
+                <ui:VisualElement name="InventoryGrid" picking-mode="Ignore" class="inventory-grid" style="position: absolute; left: 32px; top: 55px;" />
+                <inventory:InventorySelectionElement name="InventorySelection" class="inventory-selection" style="position: absolute; left: 32px; top: 55px;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="EdgeHud" picking-mode="Ignore" class="edge-hud">
+            <ui:VisualElement name="Status" picking-mode="Ignore" class="status" style="position: absolute; left: 42px; top: 44px;">
+                <hud:CircularProgressElement name="IntegrityRing" outside="true" class="integrity-ring" style="position: absolute; left: 0; top: 0;" />
+                <hud:CircularProgressElement name="PowerRing" class="power-ring" style="position: absolute; left: 22px; top: 22px;" />
+                <ui:Label name="PowerPercent" text="100%" class="power-percent" style="position: absolute; left: 34px; top: 49px;" />
+                <ui:Label text="POWER" class="power-name" style="position: absolute; left: 27px; top: 76px;" />
+                <ui:Label name="IntegrityPercent" text="100%" class="integrity-percent" style="position: absolute; left: 164px; top: 49px;" />
+                <ui:Label text="INTEGRITY" class="integrity-name" style="position: absolute; left: 164px; top: 76px;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="Time" picking-mode="Ignore" class="time" style="position: absolute; right: 38px; top: 52px;">
+                <hud:TimeOrbitElement name="TimeOrbit" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
+                <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 146px;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="InventoryEntry" picking-mode="Ignore" class="inventory-entry" style="position: absolute; bottom: 5px; left: 18px;">
+                <inventory:InventoryOutlineElement collapsed="true" class="fill" style="position: absolute; left: 0; bottom: 0; right: -6px; top: 2px;" />
+                <ui:Label text="I" class="inventory-entry-label" style="position: absolute; left: 23px; top: 12px;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="Coordinates" picking-mode="Ignore" class="coordinates" style="position: absolute; right: 55px; bottom: 40px; width: 258px;">
+                <ui:VisualElement name="VisualElement" class="coordinate-row" style="border-bottom-width: 0;">
+                    <ui:Label name="LatitudeHemisphere" text="N" class="coordinate-prefix" />
+                    <ui:Label name="Latitude" text="--.-----°" class="coordinate-value" />
+                    <ui:Label name="LongitudeHemisphere" text="W" class="coordinate-prefix" />
+                    <ui:Label name="Longitude" text="--.-----°" class="coordinate-value" />
+                </ui:VisualElement>
+                <AnimalGame.RobotMap.PhotoResultLineElement end-point="258.7,0" start-point="10.12,0" />
+                <ui:VisualElement class="altitude-row">
+                    <ui:Label text="Altitude" class="altitude-prefix" />
+                    <ui:Label name="Altitude" text="--m" class="coordinate-value" />
+                </ui:VisualElement>
+                <AnimalGame.RobotMap.PhotoResultLineElement end-point="0,15" style="left: auto; right: 0; top: 32px; height: 42px; width: 0; position: absolute;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <hud:HudFrameElement name="Frame" margin="20" corner-chamfer="46" top-notch-width="388.9" top-notch-height="37.7" bottom-notch-width="176" bottom-notch-height="38.4" notch-chamfer="10.15" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
+        <ui:VisualElement name="CompassHost" picking-mode="Ignore" class="compass-host" style="position: absolute; left: 50%; width: 392px; height: 60px; top: -1px;">
+            <hud:CompassElement name="Compass" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
+            <hud:CompassPointerElement class="compass-pointer" style="position: absolute; left: 48.2%; bottom: 3px;" />
+        </ui:VisualElement>
+        <hud:LevelIndicatorElement name="LevelIndicator" width="2" length="157.4" height="52.6" center-margin="39.6" line-margin="10" line-ratio="2.38" degree="0" class="level-indicator" style="position: absolute; left: 50%; top: auto; width: 164px; height: 48px; bottom: 0; right: auto; translate: -50% 0;" />
+    </ui:VisualElement>
+</ui:UXML>

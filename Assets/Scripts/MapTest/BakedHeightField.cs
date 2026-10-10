@@ -236,8 +236,8 @@ namespace AnimalGame.MapTest
 
         /// <summary>
         /// Reads one sample from the same smoothed physical height field used by
-        /// contour rendering and traversal. This is intended for one-time spatial
-        /// indexing; normal gameplay queries should continue to use bilinear samples.
+        /// contour rendering and traversal. Intended for editor baking and visualization;
+        /// runtime point and scan-profile queries use bilinear surface samples.
         /// </summary>
         public float GetSurfaceHeightSample(int x, int y)
         {

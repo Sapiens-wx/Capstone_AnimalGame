@@ -1,0 +1,3 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:inventory="AnimalGame.MainUI.Inventory" editor-extension-mode="False">
+    <inventory:EmptyInventoryElement name="EmptyItem" picking-mode="Ignore" style="flex-grow: 1; width: 100%; height: 100%;" />
+</ui:UXML>
