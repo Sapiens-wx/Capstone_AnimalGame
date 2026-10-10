@@ -209,6 +209,7 @@ namespace AnimalGame.RobotArm
 
         private void Update()
         {
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay) return;
             EnsureVisuals();
             if (!initialized) return;
             bool armHeld = CanOperate && (Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld());

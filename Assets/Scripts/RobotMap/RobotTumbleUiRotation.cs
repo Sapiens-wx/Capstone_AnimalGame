@@ -30,6 +30,7 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
     {
         currentRotationDegrees = CalculateTargetRotation();
         ActiveRotationDegrees = currentRotationDegrees;
+        AnimalGame.MainUI.MainUI.Active?.RefreshLatePresentation();
         ApplyRotationToCanvasPivots();
     }
 
@@ -95,6 +96,8 @@ public sealed class RobotTumbleUiRotation : MonoBehaviour
 
     private void RegisterCanvas(Canvas canvas)
     {
+        // The Toolkit HUD owns its outer-ring tumble rotation; do not move its document or photo view under a uGUI pivot.
+        if (canvas == mainUiCanvas && GetComponent<AnimalGame.MainUI.MainUI>() != null) return;
         if (canvas == null || canvasPivots.ContainsKey(canvas))
             return;
 

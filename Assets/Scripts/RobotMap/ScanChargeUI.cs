@@ -10,12 +10,10 @@ using UnityEngine.InputSystem;
 namespace AnimalGame.RobotMap
 {
     /// <summary>
-    /// Drives the authored Scan_Idle, Scan_Hold, and Scan_Release sprite clips,
-    /// plus an outward release ring centred on the fixed player UI.
+    /// Owns scan gestures, camera feedback and the release ring. The live HUD supplies its screen geometry.
     /// </summary>
     [DefaultExecutionOrder(300)]
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(Animator))]
     public sealed class ScanChargeUI : MonoBehaviour
     {
         private enum ScanVisualState
@@ -42,26 +40,11 @@ namespace AnimalGame.RobotMap
             Cancelling
         }
 
-        private const string IdleClipName = "Scan_Idle";
-        private const string HoldClipName = "Scan_Hold";
-        private const string ReleaseClipName = "Scan_Release";
-
-        private static readonly int IdleStateHash =
-            Animator.StringToHash("Base Layer.Scan_Idle");
-        private static readonly int HoldStateHash =
-            Animator.StringToHash("Base Layer.Scan_Hold");
-        private static readonly int ReleaseStateHash =
-            Animator.StringToHash("Base Layer.Scan_Release");
-
         [Header("References")]
-        [Tooltip("Animator containing the authored Scan_Idle, Scan_Hold, and Scan_Release sprite clips.")]
-        [SerializeField] private Animator animator;
+        [SerializeField] private AnimalGame.MainUI.MainUI mainUI;
 
         [Tooltip("Main UI artwork whose scale defines the visible circular UI boundary.")]
         [SerializeField] private RectTransform uiRingVisualReference;
-
-        [Tooltip("Keeps the authored scan-control sprites matched to the Main UI artwork scale.")]
-        [SerializeField] private bool synchronizeWithUiRingVisual = true;
 
         [Header("Charge Input")]
         [Tooltip("Keyboard key held to charge a scan.")]
@@ -85,7 +68,7 @@ namespace AnimalGame.RobotMap
         [Tooltip("Seconds required to fully charge the biological scan and deploy its radar after the minimum-hold threshold has been crossed.")]
         [SerializeField, Min(0.05f)] private float maximumChargeDuration = 1.5f;
 
-        [Tooltip("Seconds required to play the complete authored Scan_Release clip. Lower values make the activation-key animation finish faster.")]
+        [Tooltip("Seconds required to finish the scan release phase.")]
         [SerializeField, Min(0.05f)] private float releaseDuration = 0.3f;
 
         [Tooltip("Independent duration of the outward scan ring. This starts with Scan_Release but may finish before or after the activation-key animation.")]
@@ -223,6 +206,8 @@ namespace AnimalGame.RobotMap
 
         public float GetUiRingScreenRadiusPixels()
         {
+            if (mainUI != null)
+                return mainUI.TryGetRingScreenGeometry(out _, out float radius) ? radius : 0;
             Canvas canvas = GetComponentInParent<Canvas>();
             RectTransform reference = GetUiRingVisualReference();
             if (reference == null)
@@ -287,6 +272,11 @@ namespace AnimalGame.RobotMap
 
         public Vector2 GetUiCenterScreenPoint()
         {
+            if (mainUI != null)
+            {
+                mainUI.TryGetRingScreenGeometry(out Vector2 center, out _);
+                return center;
+            }
             Canvas canvas = GetComponentInParent<Canvas>();
             RectTransform rect = GetUiRingVisualReference();
             if (rect == null)
@@ -312,18 +302,17 @@ namespace AnimalGame.RobotMap
         {
             PlayerUiOrganicVisibility.ConfigureSpriteShader(
                 playerUiClippedSpriteShader);
-            if (animator == null)
-                animator = GetComponent<Animator>();
+            if (mainUI == null) mainUI = GetComponentInParent<AnimalGame.MainUI.MainUI>();
 
             ResolveUiRingVisualReference();
             ringCoordinateSpace = transform as RectTransform;
             CreateScanRing();
             ResolveTrackingReferences();
-            ValidateAuthoredClips();
         }
 
         private void OnEnable()
         {
+            Canvas.willRenderCanvases += UpdateOrganicVisibilityClip;
             PlayerUiOrganicVisibility.ConfigureSpriteShader(
                 playerUiClippedSpriteShader);
             UpdateOrganicVisibilityClip();
@@ -341,7 +330,9 @@ namespace AnimalGame.RobotMap
 
             UpdateReleaseRing(deltaTime);
 
-            bool inputAvailable = photoMode == null || !photoMode.IsInputLocked;
+            bool inputAvailable = !AnimalGame.MainUI.MainUI.BlocksGameplay
+                && (mainUI == null || mainUI.TryGetRingScreenGeometry(out _, out _))
+                && (photoMode == null || !photoMode.IsInputLocked);
             bool rawScanHeld = inputAvailable && IsScanInputHeld();
             bool scanHeld;
             if (inputAvailable)
@@ -374,7 +365,6 @@ namespace AnimalGame.RobotMap
                         maximumChargeDuration,
                         chargeElapsed + deltaTime);
                     float charge01 = Charge01;
-                    SampleAuthoredState(HoldStateHash, charge01);
                     if (charge01 >= 1f)
                     {
                         state = ScanVisualState.Charged;
@@ -383,7 +373,7 @@ namespace AnimalGame.RobotMap
                     break;
 
                 case ScanVisualState.Charged:
-                    // Keep the final Hold sprite visible until the completed charge is released.
+                    // Keep the completed charge until the scan button is released.
                     if (!scanHeld)
                         BeginRelease();
                     break;
@@ -394,11 +384,9 @@ namespace AnimalGame.RobotMap
                         releaseElapsed + deltaTime);
                     float release01 = Mathf.Clamp01(
                         releaseElapsed / releaseDuration);
-                    SampleAuthoredState(ReleaseStateHash, release01);
                     if (release01 >= 1f)
                     {
-                        // The biological camera release may continue after the
-                        // authored activation-key release clip ends.
+                        // The biological camera release may continue after this phase ends.
                         EnterIdle(true);
                     }
                     break;
@@ -490,6 +478,11 @@ namespace AnimalGame.RobotMap
 
         private void UpdateOrganicVisibilityClip()
         {
+            if (mainUI != null && !mainUI.TryGetRingScreenGeometry(out _, out _))
+            {
+                PlayerUiOrganicVisibility.DisableClip();
+                return;
+            }
             PlayerUiOrganicVisibility.SetClip(
                 GetUiCenterScreenPoint(),
                 GetUiRingScreenRadiusPixels(),
@@ -506,7 +499,6 @@ namespace AnimalGame.RobotMap
             chargeZoomStartSize = currentScanOrthographicSize;
             cameraZoomPhase = ScanCameraZoomPhase.Charging;
             HideScanRing();
-            SampleAuthoredState(HoldStateHash, 0f);
             BiologicalScanChargeStarted?.Invoke();
         }
 
@@ -528,7 +520,6 @@ namespace AnimalGame.RobotMap
             releaseCameraZoomElapsed = 0f;
             releaseZoomStartSize = currentScanOrthographicSize;
             cameraZoomPhase = ScanCameraZoomPhase.Releasing;
-            SampleAuthoredState(ReleaseStateHash, 0f);
             HideScanRing();
             FullyChargedBiologicalScanReleased?.Invoke();
         }
@@ -546,7 +537,6 @@ namespace AnimalGame.RobotMap
             state = ScanVisualState.Idle;
             chargeElapsed = 0f;
             releaseElapsed = 0f;
-            SampleAuthoredState(IdleStateHash, 0f);
 
             if (!preserveReleaseRing
                 || (ringPhase != ScanRingPhase.Expanding
@@ -746,6 +736,11 @@ namespace AnimalGame.RobotMap
             if (!ringGraphic.gameObject.activeSelf)
                 ringGraphic.gameObject.SetActive(true);
 
+            Canvas canvas = GetComponentInParent<Canvas>();
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(ringCoordinateSpace,
+                GetUiCenterScreenPoint(), GetCanvasEventCamera(canvas), out Vector2 localCenter))
+                ringGraphic.rectTransform.localPosition = new Vector3(localCenter.x, localCenter.y, 0);
+
             float localUnitsPerCanvasPixel = GetRingLocalUnitsPerCanvasPixel();
             ringGraphic.SetRing(
                 radius * localUnitsPerCanvasPixel,
@@ -868,46 +863,6 @@ namespace AnimalGame.RobotMap
 
         }
 
-        private void SampleAuthoredState(int stateHash, float normalizedTime)
-        {
-            if (animator == null)
-                return;
-
-            // Script-owned time maps the adjustable durations onto the authored
-            // Sprite frames without adding procedural animation to those frames.
-            animator.speed = 0f;
-            animator.Play(stateHash, 0, Mathf.Clamp01(normalizedTime));
-            animator.Update(0f);
-        }
-
-        private void ValidateAuthoredClips()
-        {
-            RuntimeAnimatorController controller =
-                animator != null ? animator.runtimeAnimatorController : null;
-            if (controller == null)
-                return;
-
-            Debug.Assert(HasClip(controller, IdleClipName),
-                "Scan UI controller is missing Scan_Idle.", this);
-            Debug.Assert(HasClip(controller, HoldClipName),
-                "Scan UI controller is missing Scan_Hold.", this);
-            Debug.Assert(HasClip(controller, ReleaseClipName),
-                "Scan UI controller is missing Scan_Release.", this);
-        }
-
-        private static bool HasClip(
-            RuntimeAnimatorController controller,
-            string clipName)
-        {
-            foreach (AnimationClip clip in controller.animationClips)
-            {
-                if (clip != null && clip.name == clipName)
-                    return true;
-            }
-
-            return false;
-        }
-
         private bool IsScanInputHeld()
         {
             if (Input.GetKey(keyboardScanKey)
@@ -933,12 +888,11 @@ namespace AnimalGame.RobotMap
 
         private void OnDisable()
         {
+            Canvas.willRenderCanvases -= UpdateOrganicVisibilityClip;
             PlayerUiOrganicVisibility.DisableClip();
             if (IsCharging)
                 BiologicalScanChargeCancelled?.Invoke();
             ResetScanGesture();
-            if (animator != null)
-                animator.speed = 0f;
             HideScanRing();
             ClearFullyChargedCameraShake();
             ResetScanCameraZoomImmediate();

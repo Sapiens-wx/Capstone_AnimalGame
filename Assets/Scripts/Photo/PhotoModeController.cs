@@ -290,6 +290,7 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay) return;
             bool shoulderHeld = Input.GetKey(keyboardFocusAndShutterKey)
                                 || AdaptiveLegacyGamepadInput
                                     .IsRightShoulderHeld();
