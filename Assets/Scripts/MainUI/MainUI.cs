@@ -255,8 +255,6 @@ namespace AnimalGame.MainUI
             foreach (Button slot in slots) if (slot != null) slot.pickingMode = inventoryOpen ? PickingMode.Position : PickingMode.Ignore;
             entry.style.visibility = visible ? Visibility.Hidden : Visibility.Visible;
             coordinates.style.opacity = 1;
-            Vector2 panelPerPixel = PanelUnitsPerScreenPixel();
-            frame.PanelUnitsPerPixel = Mathf.Min(panelPerPixel.x, panelPerPixel.y);
             frame.MarkDirtyRepaint();
             Vector2 compassOffset = viewportOffset + compassHost.layout.position * (fit - 1);
             compassHost.style.transformOrigin = new TransformOrigin(0, 0);

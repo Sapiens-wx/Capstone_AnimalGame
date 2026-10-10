@@ -41,8 +41,8 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
-        <hud:HudFrameElement name="Frame" margin-pixels="20" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
-        <ui:VisualElement name="CompassHost" picking-mode="Ignore" class="compass-host" style="position: absolute; width: 338px; left: 799px; height: 41px; top: 0;">
+        <hud:HudFrameElement name="Frame" margin="20" corner-chamfer="46" top-notch-width="388.9" top-notch-height="37.7" bottom-notch-width="176" bottom-notch-height="32" notch-chamfer="7.2" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
+        <ui:VisualElement name="CompassHost" picking-mode="Ignore" class="compass-host" style="position: absolute; width: 392px; left: 772px; height: 60px; top: 1px;">
             <hud:CompassElement name="Compass" class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
             <hud:CompassPointerElement class="compass-pointer" style="position: absolute; left: 48.2%; bottom: 3px;" />
         </ui:VisualElement>

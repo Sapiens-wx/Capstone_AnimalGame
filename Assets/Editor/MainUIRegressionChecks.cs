@@ -166,6 +166,11 @@ namespace AnimalGame.Editor
                 hud.SetPhotoPose(1, new Vector2(1920, 1080), Vector2.zero, 1);
                 Invoke(hud, "ApplyLayout"); ValidateLayout(document.rootVisualElement);
                 RenderAndCapture(document.rootVisualElement, texture, "mainui-closed.png");
+                document.rootVisualElement.style.width = 1280;
+                document.rootVisualElement.style.height = 720;
+                ValidateLayout(document.rootVisualElement);
+                Invoke(hud, "ApplyLayout"); ValidateLayout(document.rootVisualElement);
+                RenderAndCapture(document.rootVisualElement, texture, "mainui-1280.png");
                 Debug.Log("Main UI regression PASS: " + checks + " checks.");
             }
             finally
@@ -218,9 +223,16 @@ namespace AnimalGame.Editor
             RenderTexture.active = target;
             var image = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
             image.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); image.Apply();
-            Assert(image.GetPixel(5, 5).maxColorComponent < .02f, "Frame masks the scene outside its border");
-            Assert(image.GetPixel(target.width / 2, target.height / 2).maxColorComponent > .02f,
+            Assert(image.GetPixel(5, target.height - 5).maxColorComponent < .02f, "Frame masks the scene outside its border");
+            Assert(image.GetPixel((int)(root.layout.width / 2), target.height - (int)(root.layout.height / 2)).maxColorComponent > .02f,
                 "Frame keeps the scene visible inside its border");
+            if (Mathf.Abs(root.layout.width - 1280) < 1 && Mathf.Abs(root.layout.height - 720) < 1)
+            {
+                Assert(image.GetPixel(10, target.height - 360).maxColorComponent < .02f,
+                    "Scaled margin masks pixels outside the 1280x720 frame");
+                Assert(image.GetPixel(16, target.height - 360).maxColorComponent > .02f,
+                    "Design margin 20 scales to 13.33 at 1280x720 rather than staying at 20 pixels");
+            }
             var folder = Path.Combine(Path.GetTempPath(), "AnimalGameMainUIValidation");
             Directory.CreateDirectory(folder);
             File.WriteAllBytes(Path.Combine(folder, filename), image.EncodeToPNG());
