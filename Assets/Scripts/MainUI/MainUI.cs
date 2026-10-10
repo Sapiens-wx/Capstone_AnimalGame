@@ -229,8 +229,10 @@ namespace AnimalGame.MainUI
             if (balance == null && HeightMapPlayerSceneBootstrap.inst != null)
                 balance = HeightMapPlayerSceneBootstrap.inst.balance;
             // Authored degree is only a preview; gameplay always follows the player's live balance.
-            levelIndicator.SetBalance(balance != null ? balance.CurrentState.Magnitude : 0,
-                balance != null && balance.IsTippedOver);
+            bool tippedOver = balance != null && balance.IsTippedOver;
+            Vector2 localOffset = balance == null ? Vector2.zero
+                : tippedOver ? balance.CurrentTipOver.LocalDirection : balance.CurrentState.NormalizedLocalOffset;
+            levelIndicator.SetBalance(localOffset, tippedOver);
         }
 
         private void AdvanceInventoryAnimation(float deltaTime)

@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Globalization;
+using System.Xml.Linq;
 using AnimalGame.MainUI;
 using AnimalGame.MainUI.Inventory;
 using AnimalGame.RobotMap;
@@ -47,9 +49,16 @@ namespace AnimalGame.Editor
                 var root = document.rootVisualElement;
                 Assert(root.Q<ViewRingElement>("InnerRing") != null, "Custom UXML elements import");
                 var level = root.Q<LevelIndicatorElement>("LevelIndicator");
-                Assert(level != null && level.width == 2 && level.length == 360 && level.height == 180
-                    && level.centerMargin == 64 && level.lineMargin == 12 && level.lineRatio == 2,
-                    "Level indicator imports its authored UXML attributes");
+                Assert(level != null, "Level indicator imports from UXML");
+                var authoredLevel = XDocument.Load("Assets/Prefabs/Resources/UI/Main/MainUIDoc.uxml")
+                    .Descendants().Single(e => (string)e.Attribute("name") == "LevelIndicator");
+                foreach (var attribute in new[] { ("width", "width"), ("length", "length"), ("height", "height"),
+                    ("center-margin", "centerMargin"), ("line-margin", "lineMargin"), ("line-ratio", "lineRatio"), ("degree", "degree") })
+                {
+                    float expected = float.Parse((string)authoredLevel.Attribute(attribute.Item1), CultureInfo.InvariantCulture);
+                    float actual = (float)typeof(LevelIndicatorElement).GetProperty(attribute.Item2).GetValue(level);
+                    Assert(Mathf.Approximately(actual, expected), "Level imports authored " + attribute.Item1);
+                }
                 level.SetBalance(.5f);
                 Assert(level.degree == 45 && level.Q<Label>("DegreeText").text == "45\u00b0",
                     "Balance halfway to the support boundary displays 45 degrees");
@@ -58,7 +67,26 @@ namespace AnimalGame.Editor
                 level.SetBalance(1.2f);
                 Assert(level.degree == 90, "Balance overflow clamps to 90 degrees");
                 level.SetDegree(-10);
-                Assert(level.degree == 0, "Runtime degree clamps below zero");
+                Assert(level.degree == -10 && level.Q<Label>("DegreeText").text == "-10\u00b0",
+                    "Runtime degree preserves negative tilt and text");
+                level.SetDegree(-120);
+                Assert(level.degree == -90, "Runtime degree clamps at -90");
+                level.SetDegree(120);
+                Assert(level.degree == 90, "Runtime degree clamps at 90");
+                level.SetBalance(-.5f);
+                Assert(level.degree == -45, "Signed balance maps to negative degrees");
+                foreach (var sample in new[] { (Vector2.right, 90f), (Vector2.up, 90f),
+                    (Vector2.left, -90f), (Vector2.down, -90f), (new Vector2(.3f, -.4f), -90f),
+                    (new Vector2(-.4f, .3f), -90f), (new Vector2(.4f, -.3f), 90f), (new Vector2(-.3f, .4f), 90f) })
+                {
+                    Vector2 offset = sample.Item1;
+                    float expected = sample.Item2;
+                    level.SetBalance(offset * .5f);
+                    Assert(Mathf.Approximately(level.degree, expected * offset.magnitude * .5f),
+                        "Local balance direction maps correctly for " + offset);
+                    level.SetBalance(offset, true);
+                    Assert(level.degree == expected, "Tip-over preserves direction for " + offset);
+                }
                 level.degree = float.NaN;
                 Assert(level.degree == 0, "Invalid degree stays finite");
                 level.degree = 45;
@@ -239,6 +267,10 @@ namespace AnimalGame.Editor
                 RenderAndCapture(document.rootVisualElement, texture, "mainui-level-45.png");
                 renderedLevel.SetDegree(90);
                 RenderAndCapture(document.rootVisualElement, texture, "mainui-level-90.png");
+                renderedLevel.SetDegree(-45);
+                RenderAndCapture(document.rootVisualElement, texture, "mainui-level-negative-45.png");
+                renderedLevel.SetDegree(-90);
+                RenderAndCapture(document.rootVisualElement, texture, "mainui-level-negative-90.png");
                 renderedLevel.SetDegree(0);
                 document.rootVisualElement.style.width = 1280;
                 document.rootVisualElement.style.height = 720;

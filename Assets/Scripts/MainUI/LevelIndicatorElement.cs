@@ -40,20 +40,29 @@ namespace AnimalGame.MainUI
             generateVisualContent += Draw;
         }
 
-        /// <summary>Runtime API; clamps to 0–90 degrees and refreshes both the text and lines.</summary>
+        /// <summary>Runtime API; clamps to -90–90 degrees and refreshes both the text and lines.</summary>
         public void SetDegree(float value)
         {
-            value = Finite(value) ? Mathf.Clamp(value, 0, 90) : 0;
+            value = Finite(value) ? Mathf.Clamp(value, -90, 90) : 0;
             if (degreeValue == value) return;
             degreeValue = value;
             readout.text = Mathf.RoundToInt(value) + "\u00b0";
             MarkDirtyRepaint();
         }
 
-        /// <summary>Balance magnitude 1 is the support boundary; a tipped robot reads 90 degrees.</summary>
-        public void SetBalance(float magnitude, bool tippedOver = false)
+        /// <summary>Signed balance: positive is right/forward, negative is left/backward; absolute 1 is the support boundary.</summary>
+        public void SetBalance(float signedMagnitude, bool tippedOver = false)
         {
-            SetDegree(tippedOver ? 90 : (Finite(magnitude) ? Mathf.Clamp01(magnitude) * 90 : 0));
+            signedMagnitude = Finite(signedMagnitude) ? signedMagnitude : 0;
+            SetDegree(tippedOver ? (signedMagnitude < 0 ? -90 : 90) : Mathf.Clamp(signedMagnitude, -1, 1) * 90);
+        }
+
+        /// <summary>The dominant local axis determines the sign; ties prefer right/left (x).</summary>
+        public void SetBalance(Vector2 localOffset, bool tippedOver = false)
+        {
+            if (!Finite(localOffset.x) || !Finite(localOffset.y)) localOffset = Vector2.zero;
+            float axis = Mathf.Abs(localOffset.x) >= Mathf.Abs(localOffset.y) ? localOffset.x : localOffset.y;
+            SetBalance(localOffset.magnitude * (axis < 0 ? -1 : 1), tippedOver);
         }
 
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
@@ -77,7 +86,7 @@ namespace AnimalGame.MainUI
 
         private void Draw(MeshGenerationContext context)
         {
-            float degreeNormalized=degree/90;
+            float degreeNormalized = Mathf.Abs(degree) / 90;
             float span = Mathf.Lerp(length, height, 1 - Mathf.Pow(1 - degreeNormalized, 3));
             float half = span * .5f;
             float inner = Mathf.Min(centerMargin * .5f, half);
