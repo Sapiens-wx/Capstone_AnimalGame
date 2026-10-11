@@ -1,0 +1,12 @@
+PASS: four-tile V1 authoring grid
+4 independent TerrainData assets; each 250 x 250 m, height range 0..70 m, 2049 samples, upright unit scale.
+Shared-edge samples: 8196; maximum difference: 0.00000000 m. Four-way corner included.
+Grouping ID 100; four-way neighbors and matching TerrainColliders verified.
+
+
+PASS: 4 source tiles, every imported R16 sample equals RAW, all shared R16 edges exact, all baked edges continuous, V1 channels unsmoothed.
+Source: 2049 x 2049, unsigned 16-bit little-endian RAW; PNG: grayscale 16-bit.
+RAW row 0 is Terrain Z=0. PNG top row is Terrain Z=250; Unity imports it back to Y=Z.
+Each Map Data: 250 x 250 m, 0..70 m, bake 2048, preview 2048, PPU 30, contours 7 m.
+Normalization, smoothing and border masks are disabled. Existing per-tile water/surface authoring is preserved.
+This manifest describes authoring/export tiles; it does not implement runtime streaming or cross-tile queries.

@@ -44,8 +44,9 @@ namespace AnimalGame.Editor
             return controller != null ? controller.LevelAsset : null;
         }
 
-        private static void Bake(HeightMapLevelAsset level)
+        internal static void Bake(HeightMapLevelAsset level, bool preserveAssetGuid = false)
         {
+            preserveAssetGuid |= level.UsesLocalPrebakeCache;
             if (!level.IsValid)
             {
                 Debug.LogError("The selected height-map level is not valid.", level);
@@ -65,7 +66,7 @@ namespace AnimalGame.Editor
                     "Pre-Bake Height Map",
                     "Resampling and smoothing physical height data...",
                     0.15f);
-                BakedHeightField field = BakedHeightField.Bake(
+                using BakedHeightField field = BakedHeightField.Bake(
                     level.HeightMap,
                     level.BakedHeightResolution,
                     level.MapSizeMeters,
@@ -83,12 +84,20 @@ namespace AnimalGame.Editor
                     "Pre-Bake Height Map",
                     "Writing baked height textures...",
                     0.75f);
-                if (AssetDatabase.LoadAssetAtPath<Object>(outputPath) != null)
-                    AssetDatabase.DeleteAsset(outputPath);
-
-                var data = ScriptableObject.CreateInstance<HeightMapPrebakedData>();
-                data.name = Path.GetFileNameWithoutExtension(outputPath);
-                AssetDatabase.CreateAsset(data, outputPath);
+                HeightMapPrebakedData data = preserveAssetGuid
+                    ? AssetDatabase.LoadAssetAtPath<HeightMapPrebakedData>(outputPath) : null;
+                if (preserveAssetGuid && data == null && AssetDatabase.LoadAssetAtPath<Object>(outputPath) != null)
+                    throw new System.InvalidOperationException("Refusing to overwrite an unrelated asset at " + outputPath);
+                Object[] previousSubAssets = data != null
+                    ? AssetDatabase.LoadAllAssetsAtPath(outputPath) : System.Array.Empty<Object>();
+                if (data == null)
+                {
+                    if (AssetDatabase.LoadAssetAtPath<Object>(outputPath) != null)
+                        AssetDatabase.DeleteAsset(outputPath);
+                    data = ScriptableObject.CreateInstance<HeightMapPrebakedData>();
+                    data.name = Path.GetFileNameWithoutExtension(outputPath);
+                    AssetDatabase.CreateAsset(data, outputPath);
+                }
 
                 Texture2D raw = field.CreateRawDetailTexture();
                 Texture2D detail = field.CreateDetailTexture() ?? raw;
@@ -115,11 +124,13 @@ namespace AnimalGame.Editor
                     surface,
                     mask,
                     preview);
+                foreach (Object previous in previousSubAssets)
+                    if (previous != data && previous is Texture2D)
+                        Object.DestroyImmediate(previous, true);
                 level.SetPrebakedHeightField(data);
                 EditorUtility.SetDirty(data);
                 EditorUtility.SetDirty(level);
                 AssetDatabase.SaveAssets();
-                field.Dispose();
                 Debug.Log($"Pre-baked physical height field: {outputPath}", level);
             }
             finally

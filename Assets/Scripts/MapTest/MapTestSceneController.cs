@@ -39,7 +39,7 @@ namespace AnimalGame.MapTest
 
         [Header("Physical Height Field Bake")]
         [Tooltip("Square resolution of the shared runtime height field. Higher values retain smaller terrain details but increase bake time and memory.")]
-        [SerializeField, Range(128, 2048)] private int bakedHeightResolution = 1024;
+        [SerializeField, Range(128, 4096)] private int bakedHeightResolution = 1024;
 
         [Tooltip("Maps the darkest and brightest values actually present in the 8-bit source to the configured minimum and maximum elevations. Disable to preserve the full 0-to-1 grayscale scale.")]
         [SerializeField] private bool normalizeSourceRange = true;
@@ -1419,7 +1419,7 @@ namespace AnimalGame.MapTest
             mapWidthMeters = Mathf.Max(1f, mapWidthMeters);
             mapHeightMeters = Mathf.Max(1f, mapHeightMeters);
             maximumHeightMeters = Mathf.Max(minimumHeightMeters + 0.01f, maximumHeightMeters);
-            bakedHeightResolution = Mathf.Clamp(bakedHeightResolution, 128, 2048);
+            bakedHeightResolution = Mathf.Clamp(bakedHeightResolution, 128, 4096);
             surfaceSmoothingSigmaMeters = Mathf.Max(0f, surfaceSmoothingSigmaMeters);
             detailSmoothingSigmaMeters = Mathf.Max(0f, detailSmoothingSigmaMeters);
             previewResolution = Mathf.Clamp(previewResolution, 128, 8000);

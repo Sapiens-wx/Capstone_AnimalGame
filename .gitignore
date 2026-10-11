@@ -110,3 +110,7 @@ InitTestScene*.unity*
 # Desktop ambience copies generated from FMOD/SourceAudio during builds
 /Assets/StreamingAssets/Milestone2/NatureAmbience/
 /Assets/StreamingAssets/Milestone2/NatureAmbience.meta
+
+# Regenerable V1 terrain height caches remain local; keep TerrainData, PNG and MapData.
+/Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset
+/Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset.meta
