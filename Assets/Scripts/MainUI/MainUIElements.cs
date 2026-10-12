@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
 using UnityEngine.UIElements;
 
 namespace AnimalGame.MainUI
@@ -187,7 +188,28 @@ namespace AnimalGame.MainUI
     {
         private readonly Label[] labels = new Label[9];
         private float heading;
+        private float lineWidthValue = 2;
+        private float degreeFontSizeValue = 17;
+        private float directionFontSizeValue = 20;
+        private float baselineOffsetValue = 33;
+        private Font metricsFont;
+        private float fontDescentRatio;
         public float Heading => heading;
+
+        [UxmlAttribute] public float lineWidth { get => lineWidthValue; set => SetDimension(ref lineWidthValue, value); }
+        [UxmlAttribute] public float degreeFontSize { get => degreeFontSizeValue; set => SetDimension(ref degreeFontSizeValue, value, 1); }
+        [UxmlAttribute] public float directionFontSize { get => directionFontSizeValue; set => SetDimension(ref directionFontSizeValue, value, 1); }
+        /// <summary>Distance from the Compass content bottom to the shared text bottom, in local UI units.</summary>
+        [UxmlAttribute] public float baselineOffset { get => baselineOffsetValue; set => SetDimension(ref baselineOffsetValue, value); }
+
+        private void SetDimension(ref float field, float value, float minimum = 0)
+        {
+            value = float.IsNaN(value) || float.IsInfinity(value) ? minimum : Mathf.Max(minimum, value);
+            if (field == value) return;
+            field = value;
+            UpdateLabels();
+            MarkDirtyRepaint();
+        }
 
         public CompassElement()
         {
@@ -197,13 +219,17 @@ namespace AnimalGame.MainUI
             {
                 var label = new Label();
                 label.style.position = Position.Absolute;
+                label.style.unityFontStyleAndWeight = FontStyle.Bold;
+                label.style.unityTextAlign = TextAnchor.LowerCenter;
                 label.AddToClassList("compass-label");
                 label.pickingMode = PickingMode.Ignore;
+                label.RegisterCallback<GeometryChangedEvent>(_ => AlignLabelBaseline(label));
                 labels[i] = label;
                 Add(label);
             }
             RegisterCallback<GeometryChangedEvent>(_ => UpdateLabels());
             generateVisualContent += Draw;
+            UpdateLabels();
         }
 
         public void SetHeading(float degrees)
@@ -223,23 +249,57 @@ namespace AnimalGame.MainUI
             {
                 float degrees = start + i * 30;
                 int normalized = Mathf.RoundToInt(Mathf.Repeat(degrees, 360));
+                bool isDirection = normalized % 90 == 0;
                 labels[i].text = normalized switch { 0 => "N", 90 => "E", 180 => "S", 270 => "W", _ => normalized + "°" };
-                labels[i].style.left = X(degrees) - 32;
-                labels[i].style.top = 0;
+                labels[i].style.fontSize = isDirection ? directionFontSize : degreeFontSize;
+                labels[i].style.left = X(degrees);
+                AlignLabelBaseline(labels[i]);
+                labels[i].style.translate = new Translate(new Length(-50, LengthUnit.Percent), 0);
             }
+        }
+
+        private void AlignLabelBaseline(Label label)
+        {
+            var definition = label.resolvedStyle.unityFontDefinition;
+            float descentRatio = 0;
+            if (definition.fontAsset != null)
+            {
+                var face = definition.fontAsset.faceInfo;
+                if (face.pointSize > 0) descentRatio = face.descentLine * face.scale / face.pointSize;
+            }
+            else
+            {
+                Font font = definition.font != null ? definition.font : label.resolvedStyle.unityFont;
+                if (font != null && font != metricsFont)
+                {
+                    // Cache face metrics; heading changes must not reload the shared font engine.
+                    metricsFont = font;
+                    fontDescentRatio = 0;
+                    if (FontEngine.LoadFontFace(font, 64) == FontEngineError.Success)
+                    {
+                        var face = FontEngine.GetFaceInfo();
+                        if (face.pointSize > 0) fontDescentRatio = face.descentLine * face.scale / face.pointSize;
+                    }
+                }
+                if (font != null) descentRatio = fontDescentRatio;
+            }
+            // LowerCenter aligns the font's descent line. Shift by its signed distance
+            // from the baseline so different font sizes share the actual text baseline.
+            label.style.bottom = baselineOffset + descentRatio * label.style.fontSize.value.value;
         }
 
         private void Draw(MeshGenerationContext context)
         {
             Painter2D p = context.painter2D;
-            p.lineWidth = 2; p.strokeColor = Color.white;
+            if (lineWidth <= 0) return;
+            p.lineWidth = lineWidth; p.strokeColor = Color.white;
             float y = contentRect.height - 3;
             //HudDrawing.Line(p, new Vector2(0, y), new Vector2(contentRect.width, y));
             int start = Mathf.FloorToInt((heading - 90) / 10) * 10;
             for (int degree = start; degree <= heading + 90; degree += 10)
             {
                 float x = X(degree);
-                if (x < 1 || x > contentRect.width - 1) continue;
+                if (x < lineWidth * .5f || x > contentRect.width - lineWidth * .5f) continue;
                 HudDrawing.Line(p, new Vector2(x, y), new Vector2(x, y - (degree % 30 == 0 ? 20 : 10)));
             }
         }

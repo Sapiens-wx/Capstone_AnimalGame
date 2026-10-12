@@ -51,5 +51,5 @@ Label {
 .altitude-row { flex-direction: row; justify-content: flex-end; padding-top: 4px; }
 .altitude-prefix { margin-right: 6px; }
 .compass-host { width: 330px; height: 54px; flex-shrink: 0; transform-origin: 50% 0; translate: -50% 0; }
-.compass-label { width: 64px; height: 27px; font-size: 17px; -unity-text-align: middle-center; }
+.compass-label { min-width: 64px; white-space: nowrap; -unity-text-align: lower-center; -unity-font-style: bold; }
 .compass-pointer { width: 12px; height: 17px; }
