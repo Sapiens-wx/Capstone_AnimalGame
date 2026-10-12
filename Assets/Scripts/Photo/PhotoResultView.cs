@@ -71,6 +71,8 @@ namespace AnimalGame.RobotMap
         private float lastAnimationProgress = -1;
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
+        private RobotBalanceView hiddenBalanceView;
+        private bool previousBalanceDisplayVisible;
         private IDisposable animalPause;
         private float MaximumTiltDegrees => Mathf.Max(interactiveTiltDegrees,
             Mathf.Max(Mathf.Abs(restingTiltDegrees.x), Mathf.Abs(restingTiltDegrees.y)));
@@ -228,6 +230,18 @@ namespace AnimalGame.RobotMap
             lastAnimationProgress = -1;
             animationSettings.Open();
             showing = true;
+            if (!IsWarmingUp && hiddenBalanceView == null)
+            {
+                hiddenBalanceView = HeightMapPlayerSceneBootstrap.inst != null
+                    ? HeightMapPlayerSceneBootstrap.inst.balanceView : null;
+                if (hiddenBalanceView == null)
+                    hiddenBalanceView = FindFirstObjectByType<RobotBalanceView>();
+                if (hiddenBalanceView != null)
+                {
+                    previousBalanceDisplayVisible = hiddenBalanceView.IsBalanceDisplayVisible;
+                    hiddenBalanceView.SetBalanceDisplayVisible(false);
+                }
+            }
             root.style.display = DisplayStyle.Flex;
             RenderCard();
             ApplyAnimation();
@@ -239,6 +253,7 @@ namespace AnimalGame.RobotMap
         public void HideImmediately()
         {
             ReleaseAnimalPause();
+            RestoreBalanceDisplay();
             showing = false;
             HasPendingReview = false;
             if (!IsWarmingUp && mainUIAnimation != null) mainUIAnimation.Restore();
@@ -254,6 +269,13 @@ namespace AnimalGame.RobotMap
         {
             animalPause?.Dispose();
             animalPause = null;
+        }
+
+        private void RestoreBalanceDisplay()
+        {
+            if (hiddenBalanceView != null)
+                hiddenBalanceView.SetBalanceDisplayVisible(previousBalanceDisplayVisible);
+            hiddenBalanceView = null;
         }
 
         // Run after RobotTumbleUiRotation's LateUpdate (350), which locks the HUD position.
@@ -438,6 +460,7 @@ namespace AnimalGame.RobotMap
         private void OnDestroy()
         {
             ReleaseAnimalPause();
+            RestoreBalanceDisplay();
             ReleaseTextures();
         }
     }
