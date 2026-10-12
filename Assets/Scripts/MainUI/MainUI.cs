@@ -59,7 +59,6 @@ namespace AnimalGame.MainUI
         private float progress, savedTimeScale, downElapsed, fit = 1, photoScale = 1, photoAlpha = 1;
         private float lastPower = -1, lastIntegrity = -1;
         private int selectedIndex;
-        private IDisposable animalPause;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
         private DateTime displayedDate = new DateTime(2026, 1, 1);
@@ -193,7 +192,6 @@ namespace AnimalGame.MainUI
             pauseOwned = true;
             savedTimeScale = Time.timeScale;
             Time.timeScale = 0;
-            animalPause = AnimalSimulation.AcquirePause();
             originalCursor = Cursor.visible;
             originalCursorLock = Cursor.lockState;
             Cursor.lockState = CursorLockMode.None;
@@ -206,7 +204,6 @@ namespace AnimalGame.MainUI
             pauseOwned = false;
             // Do not overwrite a time scale explicitly changed by another owner while the panel was open.
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
-            animalPause?.Dispose(); animalPause = null;
             Cursor.visible = originalCursor;
             Cursor.lockState = originalCursorLock;
         }

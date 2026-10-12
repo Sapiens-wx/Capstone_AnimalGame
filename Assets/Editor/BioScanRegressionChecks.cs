@@ -76,13 +76,6 @@ namespace AnimalGame.Editor
                 f.Tick(0f);
                 Require(!f.Seen(f.State(second)), "A disabled body must not count as seen.");
                 secondBody.enabled = true;
-                using (AnimalSimulation.AcquirePause())
-                {
-                    float remaining = f.Remaining(state);
-                    Call(f.Markers, "LateUpdate");
-                    Require(!f.Seen(f.State(second)) && f.Remaining(state) == remaining,
-                        "Animal-simulation pause must freeze both observation and marker lifetime.");
-                }
                 f.Tick(0f);
                 Require(f.Seen(f.State(second)),
                     "First sight after marker expiry must be remembered for the next scan.");
@@ -118,7 +111,7 @@ namespace AnimalGame.Editor
                     "Biological scan points must no longer use the circular player-view clip.");
             }
             finally { Object.DestroyImmediate(material); }
-            Debug.Log("Biological scan checks PASS: off-view markers, independent expiry, rescan refresh, first sight, retained confirmation, body visibility, pause, tracking, off-screen/disabled cleanup, artwork, shader, breathing opacity, movement trails, independent trail expiry, camera projection.");
+            Debug.Log("Biological scan checks PASS: off-view markers, independent expiry, rescan refresh, first sight, retained confirmation, body visibility, tracking, off-screen/disabled cleanup, artwork, shader, breathing opacity, movement trails, independent trail expiry, camera projection.");
         }
 
         private static void RunTrailChecks()
@@ -156,13 +149,6 @@ namespace AnimalGame.Editor
                 Require(footprints.Count == 2,
                     "Crossing several distance thresholds must still produce only one dot per sampling interval.");
                 float remaining = (float)Get(footprints[0], "Remaining");
-                Color beforePause = icon.color;
-                using (AnimalSimulation.AcquirePause())
-                {
-                    Call(f.Markers, "LateUpdate");
-                    Require((float)Get(footprints[0], "Remaining") == remaining && icon.color == beforePause,
-                        "Pausing must freeze both trail expiry and marker breathing.");
-                }
 
                 Camera camera = (Camera)Get(f.Markers, "worldCamera");
                 using (var mesh = new VertexHelper())
@@ -270,12 +256,6 @@ namespace AnimalGame.Editor
                     Require(Vector3.Distance(initial.position, expanded.position) > 3f
                         && expanded.color.a < initial.color.a,
                         "The scan burst must expand outwards and fade as it ages.");
-                }
-                using (AnimalSimulation.AcquirePause())
-                {
-                    float age = (float)Get(bursts[0], "Age");
-                    Call(f.Markers, "LateUpdate");
-                    Require((float)Get(bursts[0], "Age") == age, "Pause must also freeze the hit burst.");
                 }
                 f.Markers.ShowScannedAnimal(animal);
                 f.Markers.ShowScannedAnimal(animal);

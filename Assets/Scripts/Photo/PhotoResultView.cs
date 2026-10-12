@@ -73,7 +73,6 @@ namespace AnimalGame.RobotMap
         private bool showing;
         private RobotBalanceView hiddenBalanceView;
         private bool previousBalanceDisplayVisible;
-        private IDisposable animalPause;
         private float MaximumTiltDegrees => Mathf.Max(interactiveTiltDegrees,
             Mathf.Max(Mathf.Abs(restingTiltDegrees.x), Mathf.Abs(restingTiltDegrees.y)));
 
@@ -156,8 +155,6 @@ namespace AnimalGame.RobotMap
         {
             if (IsWarmingUp) return;
             HasPendingReview = false;
-            // pause animals
-            animalPause ??= AnimalSimulation.AcquirePause();
             if (mainUIAnimation == null)
                 mainUIAnimation = FindFirstObjectByType<PhotoResultMainUIAnimation>();
             // UIDocument may rebuild its root after its parent GameObject is re-enabled.
@@ -252,7 +249,6 @@ namespace AnimalGame.RobotMap
 
         public void HideImmediately()
         {
-            ReleaseAnimalPause();
             RestoreBalanceDisplay();
             showing = false;
             HasPendingReview = false;
@@ -263,12 +259,6 @@ namespace AnimalGame.RobotMap
             animationSettings.Open();
             lastAnimationProgress = -1;
             lastPanelSize = new Vector2(-1, -1);
-        }
-
-        private void ReleaseAnimalPause()
-        {
-            animalPause?.Dispose();
-            animalPause = null;
         }
 
         private void RestoreBalanceDisplay()
@@ -459,7 +449,6 @@ namespace AnimalGame.RobotMap
         private void OnDisable() => HideImmediately();
         private void OnDestroy()
         {
-            ReleaseAnimalPause();
             RestoreBalanceDisplay();
             ReleaseTextures();
         }

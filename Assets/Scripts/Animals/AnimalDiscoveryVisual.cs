@@ -128,9 +128,6 @@ namespace AnimalGame.Animals
 
         private void Update()
         {
-            if (AnimalSimulation.IsPaused)
-                return;
-
             if (unknownRenderer != null
                 && (unknownRenderer.enabled || revealTarget < 1f))
             {
@@ -147,9 +144,6 @@ namespace AnimalGame.Animals
 
         private void LateUpdate()
         {
-            if (AnimalSimulation.IsPaused)
-                return;
-
             if (unknownRenderer == null)
                 return;
 

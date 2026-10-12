@@ -128,7 +128,7 @@ namespace AnimalGame.RobotMap
 
         private void LateUpdate()
         {
-            bool paused = AnimalSimulation.IsPaused || Time.timeScale <= 0f;
+            bool paused = Time.timeScale <= 0f;
             TickMarkers(paused ? 0f : Time.deltaTime, !paused);
         }
 
