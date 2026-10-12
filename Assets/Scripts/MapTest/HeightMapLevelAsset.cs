@@ -170,13 +170,9 @@ namespace AnimalGame.MapTest
 
         [Header("Map Presentation")]
         [SerializeField, Range(128, 8000)] private int previewResolution = 2160;
-        [SerializeField, Min(1f)] private float contourIntervalMeters = 8f;
         [SerializeField, Min(1f)] private float pixelsPerUnit = 32f;
-        [SerializeField] private Shader dynamicContourShader;
-        [SerializeField, Range(0.1f, 10f)] private float minimumContourWidth = 0.7f;
-        [SerializeField, Range(0.1f, 10f)] private float maximumContourWidth = 3.68f;
-        [SerializeField, Range(0.1f, 0.7f)] private float maximumContourCoverage = 0.3f;
-        [SerializeField, Range(0.1f, 1.5f)] private float contourEdgeSoftness = 0.4f;
+        [Tooltip("Material containing contour, water and elevation-filter presentation settings.")]
+        [SerializeField] private Material dynamicContourMaterial;
         [SerializeField, Range(4, 128)] private int viewportEdgeSamples = 32;
         [SerializeField, Range(2, 128)] private int viewportGridHeightSamples = 16;
 
@@ -197,42 +193,9 @@ namespace AnimalGame.MapTest
         private byte[] staticWaterDepthMap = Array.Empty<byte>();
 
         [Header("Static Water Visual")]
-        [Tooltip("Pattern animated by the runtime map shader inside the authored water range.")]
-        [SerializeField] private Texture2D staticWaterEditorTexture;
 
         [Tooltip("Editor-generated range/depth texture consumed directly by the runtime map shader.")]
         [SerializeField] private Texture2D bakedStaticWaterMask;
-
-        [Tooltip("Map-space size of one animated water-pattern tile.")]
-        [SerializeField, Min(0.1f)]
-        private float staticWaterEditorTileSizeMeters = 8f;
-
-        [Tooltip("Map-space movement velocity of the primary water-pattern layer, in meters per second.")]
-        [SerializeField] private Vector2 staticWaterLayerOneSpeedMetersPerSecond =
-            new Vector2(0.36f, 0.04f);
-
-        [Tooltip("Map-space movement velocity of the secondary water-pattern layer, in meters per second.")]
-        [SerializeField] private Vector2 staticWaterLayerTwoSpeedMetersPerSecond =
-            new Vector2(-0.14f, 0.22f);
-
-        [Tooltip("Tiling multiplier of the rotated secondary pattern layer.")]
-        [SerializeField, Min(0.1f)]
-        private float staticWaterLayerTwoScale = 1.35f;
-
-        [Tooltip("Small UV distortion that makes the water lines bend like waves instead of sliding rigidly.")]
-        [SerializeField, Range(0f, 0.2f)]
-        private float staticWaterWaveDistortion = 0.03f;
-
-        [Tooltip("Speed of the sinusoidal wave distortion.")]
-        [SerializeField, Min(0f)] private float staticWaterWaveSpeed = 0.8f;
-
-        [Tooltip("Map-space wavelength of the broad distortion.")]
-        [SerializeField, Min(0.1f)]
-        private float staticWaterWaveLengthMeters = 12f;
-
-        [Tooltip("Animation-speed multiplier at the maximum authored depth.")]
-        [SerializeField, Range(0f, 1f)]
-        private float staticWaterDeepSpeedMultiplier = 0.65f;
 
         [SerializeField, HideInInspector]
         private int staticWaterMaskBakeRevision;
@@ -349,9 +312,6 @@ namespace AnimalGame.MapTest
         [Tooltip("Permanent Editor-baked terrain visual. The runtime never composes or modifies this texture.")]
         [SerializeField] private Texture2D bakedSurfaceVisual;
 
-        [Tooltip("Softness of the screen-space UI reveal boundary in pixels. This affects only the circular display cutoff, not painted terrain boundaries.")]
-        [SerializeField, Min(0f)] private float surfaceRevealEdgePixels = 4f;
-
         [SerializeField, HideInInspector] private int surfaceBakeRevision;
 #if UNITY_EDITOR
         [SerializeField, HideInInspector]
@@ -364,8 +324,6 @@ namespace AnimalGame.MapTest
         [SerializeField] private Color lowHeightColor = Color.black;
         [SerializeField] private Color middleHeightColor = Color.black;
         [SerializeField] private Color highHeightColor = Color.black;
-        [SerializeField] private Color contourColor =
-            new Color(0.92f, 0.97f, 1f, 1f);
 
         public Texture2D HeightMap => heightMap;
         public Vector2 MapSizeMeters => new Vector2(mapWidthMeters, mapHeightMeters);
@@ -385,10 +343,60 @@ namespace AnimalGame.MapTest
             heightMapBorderMaskThreshold;
         public float HeightMapBorderInsetMeters => heightMapBorderInsetMeters;
         public HeightMapPrebakedData PrebakedHeightField => prebakedHeightField;
+        // Presentation settings have a single authoring source: the material.
+        private float contourIntervalMeters => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_ContourInterval")
+            : 8f;
+        private float minimumContourWidth => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_MinimumLineWidth")
+            : 0.7f;
+        private float maximumContourWidth => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_MaximumLineWidth")
+            : 3.68f;
+        private float maximumContourCoverage => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_MaximumCoverage")
+            : 0.3f;
+        private float contourEdgeSoftness => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_EdgeSoftness")
+            : 0.4f;
+        private Color contourColor => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetColor("_ContourColor")
+            : new Color(0.92f, 0.97f, 1f, 1f);
+        private float surfaceRevealEdgePixels => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_SurfaceRevealEdgePixels")
+            : 4f;
+        private Texture2D staticWaterEditorTexture => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetTexture("_WaterPatternTex") as Texture2D
+            : null;
+        private float staticWaterEditorTileSizeMeters => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_WaterTileSizeMeters")
+            : 8f;
+        private Vector2 staticWaterLayerOneSpeedMetersPerSecond => dynamicContourMaterial != null
+            ? (Vector2)dynamicContourMaterial.GetVector("_WaterLayerOneSpeed")
+            : new Vector2(0.36f, 0.04f);
+        private Vector2 staticWaterLayerTwoSpeedMetersPerSecond => dynamicContourMaterial != null
+            ? (Vector2)dynamicContourMaterial.GetVector("_WaterLayerTwoSpeed")
+            : new Vector2(-0.14f, 0.22f);
+        private float staticWaterLayerTwoScale => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_WaterLayerTwoScale")
+            : 1.35f;
+        private float staticWaterWaveDistortion => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_WaterWaveDistortion")
+            : 0.03f;
+        private float staticWaterWaveSpeed => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_WaterWaveSpeed")
+            : 0.8f;
+        private float staticWaterWaveLengthMeters => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_WaterWaveLengthMeters")
+            : 12f;
+        private float staticWaterDeepSpeedMultiplier => dynamicContourMaterial != null
+            ? dynamicContourMaterial.GetFloat("_WaterDeepSpeedMultiplier")
+            : 0.65f;
+
         public int PreviewResolution => previewResolution;
         public float ContourIntervalMeters => contourIntervalMeters;
         public float PixelsPerUnit => pixelsPerUnit;
-        public Shader DynamicContourShader => dynamicContourShader;
+        public Material DynamicContourMaterial => dynamicContourMaterial;
         public float MinimumContourWidth => minimumContourWidth;
         public float MaximumContourWidth => maximumContourWidth;
         public float MaximumContourCoverage => maximumContourCoverage;
@@ -552,8 +560,8 @@ namespace AnimalGame.MapTest
                     hash = hash * 397 ^ previewResolution;
                     hash = hash * 397 ^ contourIntervalMeters.GetHashCode();
                     hash = hash * 397 ^ pixelsPerUnit.GetHashCode();
-                    hash = hash * 397 ^ (dynamicContourShader != null
-                        ? dynamicContourShader.GetInstanceID()
+                    hash = hash * 397 ^ (dynamicContourMaterial != null
+                        ? dynamicContourMaterial.GetInstanceID()
                         : 0);
                     hash = hash * 397 ^ minimumContourWidth.GetHashCode();
                     hash = hash * 397 ^ maximumContourWidth.GetHashCode();
@@ -1263,12 +1271,7 @@ namespace AnimalGame.MapTest
                 0f,
                 heightMapBorderInsetMeters);
             previewResolution = Mathf.Clamp(previewResolution, 128, 8000);
-            contourIntervalMeters = Mathf.Max(1f, contourIntervalMeters);
             pixelsPerUnit = Mathf.Max(1f, pixelsPerUnit);
-            minimumContourWidth = Mathf.Clamp(minimumContourWidth, 0.1f, 10f);
-            maximumContourWidth = Mathf.Clamp(maximumContourWidth, 0.1f, 10f);
-            maximumContourCoverage = Mathf.Clamp(maximumContourCoverage, 0.1f, 0.7f);
-            contourEdgeSoftness = Mathf.Clamp(contourEdgeSoftness, 0.1f, 1.5f);
             viewportEdgeSamples = Mathf.Clamp(viewportEdgeSamples, 4, 128);
             viewportGridHeightSamples = Mathf.Clamp(
                 viewportGridHeightSamples,
@@ -1285,23 +1288,6 @@ namespace AnimalGame.MapTest
                 maximumPassableStaticWaterDepthMeters,
                 0f,
                 maximumStaticWaterDepthMeters);
-            staticWaterEditorTileSizeMeters = Mathf.Max(
-                0.1f,
-                staticWaterEditorTileSizeMeters);
-            staticWaterLayerTwoScale = Mathf.Max(
-                0.1f,
-                staticWaterLayerTwoScale);
-            staticWaterWaveDistortion = Mathf.Clamp(
-                staticWaterWaveDistortion,
-                0f,
-                0.2f);
-            staticWaterWaveSpeed = Mathf.Max(0f, staticWaterWaveSpeed);
-            staticWaterWaveLengthMeters = Mathf.Max(
-                0.1f,
-                staticWaterWaveLengthMeters);
-            staticWaterDeepSpeedMultiplier = Mathf.Clamp01(
-                staticWaterDeepSpeedMultiplier);
-            surfaceRevealEdgePixels = Mathf.Max(0f, surfaceRevealEdgePixels);
 #if UNITY_EDITOR
             surfaceOpacity = Mathf.Clamp01(surfaceOpacity);
             surfaceTileSizeMeters = Mathf.Max(0.1f, surfaceTileSizeMeters);

@@ -49,14 +49,13 @@ namespace AnimalGame.Editor
             settings.FindProperty("useHeightMapBorderMask").boolValue = false;
             settings.FindProperty("previewResolution").intValue = 1024;
             settings.FindProperty("pixelsPerUnit").floatValue = 16f;
-            settings.FindProperty("contourIntervalMeters").floatValue = 1f;
-            settings.FindProperty("dynamicContourShader").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<Shader>(AssetDatabase.GUIDToAssetPath("66c17e2481f6472cb3cd86fe63c9f57a"));
+            settings.FindProperty("dynamicContourMaterial").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/DynamicHeightContours_1m.mat");
             settings.FindProperty("lowHeightColor").colorValue = new Color(0.025f, 0.09f, 0.12f, 1f);
             settings.FindProperty("middleHeightColor").colorValue = new Color(0.08f, 0.42f, 0.42f, 1f);
             settings.FindProperty("highHeightColor").colorValue = new Color(0.72f, 0.82f, 0.67f, 1f);
             settings.ApplyModifiedPropertiesWithoutUndo();
-            Require(level.DynamicContourShader != null, "The existing contour shader is missing.");
+            Require(level.DynamicContourMaterial != null, "The existing contour material is missing.");
             AssetDatabase.CreateAsset(level, LevelPath);
             Selection.activeObject = level;
             Require(EditorApplication.ExecuteMenuItem("Animal Game/Pre-Bake Height Map"), "Height prebake menu could not run.");

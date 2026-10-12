@@ -13,6 +13,7 @@ Shader "AnimalGame/Dynamic Height Contours"
         _SurfaceRevealCenterPixels ("Surface UI Centre", Vector) = (0, 0, 0, 0)
         _SurfaceRevealRadiusPixels ("Surface UI Radius", Float) = 430
         _SurfaceRevealEdgePixels ("Surface UI Edge", Float) = 4
+        _OutsideRevealDarkening ("Outside Reveal Darkening", Range(0, 1)) = 0.3
         _WaterMaskTex ("Static Water Range And Depth", 2D) = "black" {}
         _WaterPatternTex ("Animated Water Pattern", 2D) = "black" {}
         _WaterEnabled ("Animated Water Enabled", Float) = 0
@@ -103,6 +104,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float4 _SurfaceRevealCenterPixels;
             float _SurfaceRevealRadiusPixels;
             float _SurfaceRevealEdgePixels;
+            float _OutsideRevealDarkening;
             float _PlayableMaskEnabled;
             float _WaterEnabled;
             float4 _MapSizeMeters;
@@ -211,33 +213,33 @@ Shader "AnimalGame/Dynamic Height Contours"
                     return baseColor;
                 }
 
+                float revealMask = 1.0;
+                if (_SurfaceRevealEnabled > 0.5)
+                {
+                    float2 screenUv = input.screenPosition.xy
+                                      / max(input.screenPosition.w, 0.00001);
+                    float2 pixelPosition = screenUv * _ScreenParams.xy;
+                    float distanceFromUiCentre = distance(
+                        pixelPosition,
+                        _SurfaceRevealCenterPixels.xy);
+                    float revealRadius = max(1.0, _SurfaceRevealRadiusPixels);
+                    float revealEdge = min(
+                        max(0.0, _SurfaceRevealEdgePixels),
+                        revealRadius);
+                    revealMask = revealEdge > 0.0001
+                        ? 1.0 - smoothstep(
+                            revealRadius - revealEdge,
+                            revealRadius,
+                            distanceFromUiCentre)
+                        : step(distanceFromUiCentre, revealRadius);
+                }
+
                 // Terrain remains one Editor-baked texture and is revealed only
                 // inside the player UI. Water is a persistent natural feature:
                 // it stays visible everywhere, while this same reveal mask only
                 // selects whether its pattern is static or animated.
                 if (_SurfaceEnabled > 0.5 || _WaterEnabled > 0.5)
                 {
-                    float revealMask = 1.0;
-                    if (_SurfaceRevealEnabled > 0.5)
-                    {
-                        float2 screenUv = input.screenPosition.xy
-                                          / max(input.screenPosition.w, 0.00001);
-                        float2 pixelPosition = screenUv * _ScreenParams.xy;
-                        float distanceFromUiCentre = distance(
-                            pixelPosition,
-                            _SurfaceRevealCenterPixels.xy);
-                        float revealRadius = max(1.0, _SurfaceRevealRadiusPixels);
-                        float revealEdge = min(
-                            max(0.0, _SurfaceRevealEdgePixels),
-                            revealRadius);
-                        revealMask = revealEdge > 0.0001
-                            ? 1.0 - smoothstep(
-                                revealRadius - revealEdge,
-                                revealRadius,
-                                distanceFromUiCentre)
-                            : step(distanceFromUiCentre, revealRadius);
-                    }
-
                     fixed4 waterData = _WaterEnabled > 0.5
                         ? tex2D(_WaterMaskTex, input.uv)
                         : fixed4(0.0, 0.0, 0.0, 0.0);
@@ -483,6 +485,10 @@ Shader "AnimalGame/Dynamic Height Contours"
                         _PlayerHeightReferenceColor.rgb,
                         referenceBlend);
                 }
+                // Dim the complete map, including water and contour lines,
+                // outside the reveal circle without changing transparency.
+                baseColor.rgb *= 1.0
+                    - saturate(_OutsideRevealDarkening) * (1.0 - revealMask);
                 return baseColor;
             }
             ENDCG
