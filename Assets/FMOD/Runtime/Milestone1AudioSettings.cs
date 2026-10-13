@@ -21,9 +21,46 @@ namespace Capstone.Audio
         [Tooltip("Brief grace period for intermittent movement samples.")]
         [SerializeField, Min(0f)] private float cameraMoveStopDelay = 0.05f;
 
+        [Header("Camera Movement Playback Rate")]
+        [Tooltip("Change only the Camera Move sound's playback rate from actual aim movement. Pitch changes with rate; the source WAV is untouched.")]
+        [SerializeField] private bool cameraMovePlaybackRateEnabled = true;
+        [SerializeField, Min(0.01f)] private float cameraMoveMinimumPlaybackRate = 0.8f;
+        [SerializeField, Min(0.01f)] private float cameraMoveMaximumPlaybackRate = 2f;
+
+        [Header("Optional Camera Dynamics")]
+        [Tooltip("Enable after authoring the camera parameters and their tempo/volume curves in FMOD Studio.")]
+        [SerializeField] private bool cameraDynamicsEnabled = false;
+        [Tooltip("Actual aim-point speed that maps to a MoveSpeed value of 1. Does not change gameplay movement.")]
+        [SerializeField, Min(0.001f)] private float cameraMoveReferenceSpeed = 5f;
+        [Tooltip("Local continuous 0..1 FMOD parameter on the Camera Move event. Configure before playback.")]
+        [SerializeField] private string cameraMoveParameterName = "MoveSpeed";
+        [Tooltip("Local continuous 0..1 FMOD parameter on the Camera Focus event. Configure before playback.")]
+        [SerializeField] private string cameraFocusParameterName = "FocusProgress";
+        [Tooltip("Smoothing time for normalized camera parameters. Zero follows the observed state directly.")]
+        [SerializeField, Min(0f)] private float cameraParameterSmoothingSeconds = 0.05f;
+        [Tooltip("Minimum normalized change before sending another FMOD parameter command.")]
+        [SerializeField, Range(0f, 0.1f)] private float cameraParameterEpsilon = 0.005f;
+
         internal float FadeOutSeconds => Mathf.Max(0f, fadeOutSeconds);
         internal float CameraMoveThreshold => Mathf.Max(0f, cameraMoveThreshold);
         internal float CameraMoveStopDelay => Mathf.Max(0f, cameraMoveStopDelay);
+        internal bool CameraMovePlaybackRateEnabled => cameraMovePlaybackRateEnabled;
+        internal float CameraMoveMinimumPlaybackRate => Mathf.Max(0.01f, cameraMoveMinimumPlaybackRate);
+        internal float CameraMoveMaximumPlaybackRate => Mathf.Max(CameraMoveMinimumPlaybackRate, cameraMoveMaximumPlaybackRate);
+        internal bool CameraDynamicsEnabled => cameraDynamicsEnabled;
+        internal float CameraMoveReferenceSpeed => Mathf.Max(0.001f, cameraMoveReferenceSpeed);
+        internal string CameraMoveParameterName => cameraMoveParameterName;
+        internal string CameraFocusParameterName => cameraFocusParameterName;
+        internal float CameraParameterSmoothingSeconds => Mathf.Max(0f, cameraParameterSmoothingSeconds);
+        internal float CameraParameterEpsilon => Mathf.Clamp(cameraParameterEpsilon, 0f, 0.1f);
+
+        internal float CameraMovePlaybackRate(float actualSpeed)
+        {
+            if (!CameraMovePlaybackRateEnabled) return 1f;
+            float fraction = Mathf.InverseLerp(CameraMoveThreshold,
+                Mathf.Max(CameraMoveThreshold + 0.001f, CameraMoveReferenceSpeed), actualSpeed);
+            return Mathf.Lerp(CameraMoveMinimumPlaybackRate, CameraMoveMaximumPlaybackRate, fraction);
+        }
 
         internal AudioCueSettings GetCue(Milestone1Cue cue)
         {

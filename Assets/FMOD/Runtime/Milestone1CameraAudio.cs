@@ -12,6 +12,9 @@ namespace Capstone.Audio
         private Milestone1AudioVoice focus;
         private Vector2 previousAim;
         private float stationaryElapsed;
+        private float movementParameterValue;
+        private float focusParameterValue;
+        private float movementPlaybackRate;
         private bool wasFocusing;
         private bool wasActive;
         private bool closeHandled;
@@ -68,10 +71,23 @@ namespace Capstone.Audio
                             && !source.IsExiting
                             && source.IsFocusing;
             if (focusing && !wasFocusing)
-                focus = voices.Play(Milestone1Cue.CameraFocus);
+            {
+                if (settings.CameraDynamicsEnabled)
+                {
+                    focusParameterValue = Mathf.Clamp01(source.FocusProgress01);
+                    focus = voices.Play(Milestone1Cue.CameraFocus, settings.CameraFocusParameterName, focusParameterValue);
+                }
+                else
+                    focus = voices.Play(Milestone1Cue.CameraFocus);
+            }
             else if (!focusing && wasFocusing)
                 StopFocus();
             wasFocusing = focusing;
+            if (settings.CameraDynamicsEnabled && focusing && focus != null && focus.IsPlaying)
+            {
+                focusParameterValue = SmoothParameter(focusParameterValue, source.FocusProgress01, deltaTime);
+                focus.SetNormalizedParameter(settings.CameraFocusParameterName, focusParameterValue, settings.CameraParameterEpsilon);
+            }
 
             bool canMove = source.IsActive
                            && !source.IsEntering
@@ -81,13 +97,38 @@ namespace Capstone.Audio
             {
                 stationaryElapsed = 0f;
                 if (movement == null || !movement.IsPlaying)
-                    movement = voices.Play(Milestone1Cue.CameraMove);
+                {
+                    movementPlaybackRate = settings.CameraMovePlaybackRate(actualAimSpeed);
+                    if (settings.CameraDynamicsEnabled)
+                    {
+                        movementParameterValue = Mathf.Clamp01(actualAimSpeed / settings.CameraMoveReferenceSpeed);
+                        movement = voices.Play(Milestone1Cue.CameraMove, settings.CameraMoveParameterName, movementParameterValue, movementPlaybackRate);
+                    }
+                    else
+                        movement = voices.Play(Milestone1Cue.CameraMove, null, 0f, movementPlaybackRate);
+                }
             }
             else
             {
                 stationaryElapsed += deltaTime;
                 if (!canMove || stationaryElapsed >= settings.CameraMoveStopDelay)
                     StopMovement();
+            }
+            if (canMove && movement != null && movement.IsPlaying)
+            {
+                float targetRate = settings.CameraMovePlaybackRate(actualAimSpeed);
+                float seconds = settings.CameraParameterSmoothingSeconds;
+                float amount = seconds > 0f ? 1f - Mathf.Exp(-Mathf.Max(0f, deltaTime) / seconds) : 1f;
+                movementPlaybackRate = Mathf.Lerp(movementPlaybackRate, targetRate, amount);
+                movement.SetPlaybackRate(movementPlaybackRate);
+            }
+            if (settings.CameraDynamicsEnabled && canMove && movement != null && movement.IsPlaying)
+            {
+                float target = actualAimSpeed > settings.CameraMoveThreshold
+                    ? Mathf.Clamp01(actualAimSpeed / settings.CameraMoveReferenceSpeed)
+                    : 0f;
+                movementParameterValue = SmoothParameter(movementParameterValue, target, deltaTime);
+                movement.SetNormalizedParameter(settings.CameraMoveParameterName, movementParameterValue, settings.CameraParameterEpsilon);
             }
 
             wasActive = source.IsActive;
@@ -103,6 +144,16 @@ namespace Capstone.Audio
             wasActive = false;
             closeHandled = false;
             stationaryElapsed = 0f;
+            movementParameterValue = 0f;
+            focusParameterValue = 0f;
+            movementPlaybackRate = 1f;
+        }
+
+        private float SmoothParameter(float current, float target, float deltaTime)
+        {
+            float seconds = settings.CameraParameterSmoothingSeconds;
+            float amount = seconds > 0f ? 1f - Mathf.Exp(-Mathf.Max(0f, deltaTime) / seconds) : 1f;
+            return Mathf.Lerp(current, Mathf.Clamp01(target), amount);
         }
 
         private void OnModeChanged(bool active)
