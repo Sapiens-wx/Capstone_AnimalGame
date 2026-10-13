@@ -362,15 +362,20 @@ namespace AnimalGame.MainUI
         private float topNotchHeightValue = 18;
         private float bottomNotchWidthValue = 176;
         private float bottomNotchHeightValue = 32;
-        private float notchChamferValue = 14;
+        private float topNotchChamferValue = 14;
+        private float bottomNotchChamferValue = 14;
 
         [UxmlAttribute] public float margin { get => marginValue; set => SetDimension(ref marginValue, value); }
         [UxmlAttribute] public float cornerChamfer { get => cornerChamferValue; set => SetDimension(ref cornerChamferValue, value); }
+        /// <summary>Width of the notch's inner horizontal edge, excluding both sloped sides.</summary>
         [UxmlAttribute] public float topNotchWidth { get => topNotchWidthValue; set => SetDimension(ref topNotchWidthValue, value); }
         [UxmlAttribute] public float topNotchHeight { get => topNotchHeightValue; set => SetDimension(ref topNotchHeightValue, value); }
+        /// <summary>Width of the notch's inner horizontal edge, excluding both sloped sides.</summary>
         [UxmlAttribute] public float bottomNotchWidth { get => bottomNotchWidthValue; set => SetDimension(ref bottomNotchWidthValue, value); }
         [UxmlAttribute] public float bottomNotchHeight { get => bottomNotchHeightValue; set => SetDimension(ref bottomNotchHeightValue, value); }
-        [UxmlAttribute] public float notchChamfer { get => notchChamferValue; set => SetDimension(ref notchChamferValue, value); }
+        /// <summary>Horizontal width of each sloped notch side, independent of notch height.</summary>
+        [UxmlAttribute] public float topNotchChamfer { get => topNotchChamferValue; set => SetDimension(ref topNotchChamferValue, value); }
+        [UxmlAttribute] public float bottomNotchChamfer { get => bottomNotchChamferValue; set => SetDimension(ref bottomNotchChamferValue, value); }
 
         private void SetDimension(ref float field, float value)
         {
@@ -395,13 +400,14 @@ namespace AnimalGame.MainUI
             float innerWidth = w - 2 * inset, innerHeight = h - 2 * inset;
             float cut = Mathf.Min(cornerChamfer * scale, Mathf.Min(innerWidth, innerHeight) * .5f);
             float maxNotchWidth = Mathf.Max(0, innerWidth - 2 * cut);
-            float topWidth = Mathf.Min(topNotchWidth * scale, maxNotchWidth);
-            float bottomWidth = Mathf.Min(bottomNotchWidth * scale, maxNotchWidth);
+            float topBevel = Mathf.Min(topNotchChamfer * scale, maxNotchWidth * .5f);
+            float bottomBevel = Mathf.Min(bottomNotchChamfer * scale, maxNotchWidth * .5f);
+            float topWidth = Mathf.Min(topNotchWidth * scale, Mathf.Max(0, maxNotchWidth - 2 * topBevel));
+            float bottomWidth = Mathf.Min(bottomNotchWidth * scale, Mathf.Max(0, maxNotchWidth - 2 * bottomBevel));
             float topHeight = Mathf.Min(topNotchHeight * scale, innerHeight * .4f);
             float bottomHeight = Mathf.Min(bottomNotchHeight * scale, innerHeight * .4f);
-            float bevel = notchChamfer * scale;
-            Vector2[] top = Notch(w * .5f, inset, topWidth, topHeight, bevel, 1);
-            Vector2[] bottom = Notch(w * .5f, h - inset, bottomWidth, bottomHeight, bevel, -1);
+            Vector2[] top = Notch(w * .5f, inset, topWidth, topHeight, topBevel, 1);
+            Vector2[] bottom = Notch(w * .5f, h - inset, bottomWidth, bottomHeight, bottomBevel, -1);
             Painter2D p = context.painter2D;
             p.fillColor = Color.black;
             HudDrawing.Rect(p, 0, 0, w, inset);
@@ -434,14 +440,11 @@ namespace AnimalGame.MainUI
         private static Vector2[] Notch(float x, float edge, float width, float height, float bevel, float direction)
         {
             float half = width * .5f;
-            bevel = Mathf.Min(bevel, Mathf.Min(half, height));
             return new[] {
-                new Vector2(x - half, edge),
-                new Vector2(x - half, edge + direction * (height - bevel)),
-                new Vector2(x - half + bevel, edge + direction * height),
-                new Vector2(x + half - bevel, edge + direction * height),
-                new Vector2(x + half, edge + direction * (height - bevel)),
-                new Vector2(x + half, edge)
+                new Vector2(x - half - bevel, edge),
+                new Vector2(x - half, edge + direction * height),
+                new Vector2(x + half, edge + direction * height),
+                new Vector2(x + half + bevel, edge)
             };
         }
     }
