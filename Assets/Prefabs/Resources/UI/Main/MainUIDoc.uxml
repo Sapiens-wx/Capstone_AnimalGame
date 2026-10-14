@@ -8,7 +8,8 @@
             </ui:VisualElement>
             <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -480px; top: 1015px;">
                 <inventory:InventoryOutlineElement class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
-                <ui:Label text="INVENTORY" class="inventory-title" style="position: absolute; left: 18px; top: 4px;" />
+                <ui:VisualElement class="cargo-mark" picking-mode="Ignore" />
+                <ui:Label text="CARGO" class="inventory-title" />
                 <ui:VisualElement name="InventoryGrid" picking-mode="Ignore" class="inventory-grid" style="position: absolute; left: 32px; top: 55px;" />
                 <inventory:InventorySelectionElement name="InventorySelection" class="inventory-selection" style="position: absolute; left: 32px; top: 55px;" />
             </ui:VisualElement>

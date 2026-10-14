@@ -127,8 +127,8 @@ namespace AnimalGame.MainUI
                 var button = new Button(() => SelectItem(index)) { name = "InventorySlot" + (i + 1), userData = Items[i] };
                 button.AddToClassList("inventory-slot");
                 button.style.position = Position.Absolute;
-                button.style.left = (i % 2) * 240;
-                button.style.top = (i / 2) * 170;
+                button.style.left = new Length((i % 2) * 50, LengthUnit.Percent);
+                button.style.top = new Length((i / 2) * 25, LengthUnit.Percent);
                 button.RegisterCallback<PointerEnterEvent>(_ => { if (inventoryOpen) SelectItem(index); });
                 button.RegisterCallback<FocusInEvent>(_ => { if (inventoryOpen) SelectItem(index); });
                 // Navigation is owned by MainUI so each input moves the shared selection exactly once.
@@ -171,6 +171,8 @@ namespace AnimalGame.MainUI
             if (slots[selectedIndex] == null || !Positive(grid.layout.width)) return;
             Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position - selection.layout.position;
             selection.style.translate = new Translate(offset.x, offset.y);
+            selection.style.width = slots[selectedIndex].layout.width;
+            selection.style.height = slots[selectedIndex].layout.height;
         }
 
         public void ToggleInventory() { if (inventoryOpen) CloseInventory(); else OpenInventory(); }
