@@ -21,6 +21,7 @@ Label {
 .integrity-percent { font-size: 21px; }
 .integrity-name { font-size: 18px; }
 .time { width: 230px; height: 230px; transform-origin: 100% 0; }
+.sound { width: 230px; height: 230px; transform-origin: 100% 0; }
 .time-orbit { width: 100%; height: 100%; }
 .date { color: #D4B854; font-size: 22px; -unity-font-style: bold; -unity-text-align: middle-center; }
 .inventory-entry { width: 110px; height: 86px; transform-origin: 0 100%; }

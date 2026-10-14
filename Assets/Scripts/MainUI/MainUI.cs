@@ -44,7 +44,7 @@ namespace AnimalGame.MainUI
         public float Integrity { get => integrity; set => integrity = Mathf.Clamp01(value); }
         public InventoryItem[] Items { get; } = new InventoryItem[SlotCount];
 
-        private VisualElement root, stage, view, ring, status, time, inventory, grid, entry, compassHost, coordinates;
+        private VisualElement root, stage, view, ring, status, time, sound, inventory, grid, entry, compassHost, coordinates;
         private ViewRingElement innerRing, outerRing;
         private CircularProgressElement powerRing, integrityRing;
         private CompassElement compass;
@@ -83,6 +83,7 @@ namespace AnimalGame.MainUI
             outerRing = root.Q<ViewRingElement>("OuterRing");
             status = root.Q("Status");
             time = root.Q("Time");
+            sound = root.Q("Sound");
             inventory = root.Q("Inventory");
             grid = root.Q("InventoryGrid");
             entry = root.Q("InventoryEntry");
@@ -267,6 +268,7 @@ namespace AnimalGame.MainUI
             // Scale each element around its own screen corner, including its authored edge offsets.
             Vector2 statusOffset = FitScreenElement(status, false, false);
             FitScreenElement(time, true, false);
+            if (sound != null) FitScreenElement(sound, true, false);
             FitScreenElement(entry, false, true);
             FitScreenElement(coordinates, true, true);
             status.style.translate = new Translate(statusOffset.x

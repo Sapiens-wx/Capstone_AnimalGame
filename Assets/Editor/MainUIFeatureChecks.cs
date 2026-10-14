@@ -38,6 +38,7 @@ namespace AnimalGame.Editor
                 Settle(root, hud);
                 CheckInventory(root, hud);
                 CheckTime(root, hud);
+                CheckSound(root, hud);
                 Capture(root, texture, "mainui-features.png");
                 CheckRingOcclusion(root, texture);
                 Debug.Log("MAIN UI FEATURE CHECKS PASSED");
@@ -82,6 +83,22 @@ namespace AnimalGame.Editor
             hud.SetDate(new DateTime(2026, 10, 12));
             Assert(date.text == "2026_10_12", "Date interface formats yyyy_mm_dd");
             hud.SetDate(new DateTime(2026, 1, 1));
+        }
+
+        private static void CheckSound(VisualElement root, Hud hud)
+        {
+            var sound = root.Q<SoundElement>("Sound");
+            Assert(sound != null && sound.chamfer == 36, "Sound imports its chamfer attribute");
+            var time = root.Q("Time");
+            foreach (Vector2 size in new[] { new Vector2(1280, 720), new Vector2(1440, 1080), new Vector2(2560, 1080), new Vector2(1920, 1080) })
+            {
+                root.style.width = size.x; root.style.height = size.y; Settle(root, hud);
+                float fit = Mathf.Min(size.x / 1920, size.y / 1080);
+                Assert(Vector2.Distance(sound.worldBound.size, time.worldBound.size) < .1f, "Sound and Time share a size at " + size);
+                Assert(Mathf.Abs(sound.worldBound.width - 230 * fit) < .1f, "Sound scales at " + size);
+                Assert(Mathf.Abs(time.worldBound.xMin - sound.worldBound.xMax - 24 * fit) < .1f
+                    && Mathf.Abs(sound.worldBound.yMin - time.worldBound.yMin) < .1f, "Sound stays left of Time at " + size);
+            }
         }
 
         internal static void Settle(VisualElement root, Hud hud)
