@@ -98,7 +98,7 @@ namespace AnimalGame.RobotMap
             0.14f;
 
         [Header("Transition Presentation")]
-        [Tooltip("Seconds during which the photo range is revealed and all player commands are locked.")]
+        [Tooltip("Seconds during which the photo range is revealed. Right-stick aiming remains available while other player commands are locked.")]
         [SerializeField, Min(0.05f)] private float entryDuration = 0.7f;
 
         [Tooltip("Seconds during which the photo range is hidden and all player commands are locked.")]
@@ -261,7 +261,6 @@ namespace AnimalGame.RobotMap
         private PhotoModeState state;
         private float entryElapsed;
         private float exitElapsed;
-        private bool photoStickArmed;
         private PhotoCaptureState captureState;
         private float focusElapsed;
         private float focusPresentation01;
@@ -310,6 +309,8 @@ namespace AnimalGame.RobotMap
 
             if (state == PhotoModeState.Entering)
             {
+                // Accept aim input from the entry press frame through the range reveal.
+                UpdateAimFromRightStick();
                 UpdateFocusPresentation();
                 UpdateEntryPresentation(shoulderHeld);
                 return;
@@ -397,7 +398,6 @@ namespace AnimalGame.RobotMap
                 state = PhotoModeState.Entering;
                 entryElapsed = 0f;
                 exitElapsed = 0f;
-                photoStickArmed = false;
                 ResetCaptureState(true);
                 mover?.SetPhotoModeInputLocked(true);
                 cameraFollow?.FollowTarget(
@@ -658,14 +658,6 @@ namespace AnimalGame.RobotMap
         private void UpdateAimFromRightStick()
         {
             Vector2 rawStick = AdaptiveLegacyGamepadInput.ReadRightStick();
-            if (!photoStickArmed)
-            {
-                if (rawStick.magnitude <= rightStickDeadZone)
-                    photoStickArmed = true;
-                else
-                    return;
-            }
-
             Vector2 input = ApplyRadialDeadZone(rawStick, rightStickDeadZone);
             if (input.sqrMagnitude > 0.000001f)
             {
@@ -710,8 +702,6 @@ namespace AnimalGame.RobotMap
             state = PhotoModeState.Active;
             mover?.SetPhotoModeInputLocked(false);
             cameraShake?.SetPhotoModeRevealShake(0f, 0f, 0f, 1f);
-            photoStickArmed = AdaptiveLegacyGamepadInput
-                .ReadRightStick().magnitude <= rightStickDeadZone;
 
             // The original press may predate this frame; carry a held input
             // into focus only at the entry boundary, not after cancelling focus.
@@ -724,7 +714,6 @@ namespace AnimalGame.RobotMap
             ResolveCameraReferences();
             state = PhotoModeState.Exiting;
             exitElapsed = 0f;
-            photoStickArmed = false;
             ResetCaptureState(false);
             mover?.SetPhotoModeInputLocked(true);
             cameraFollow?.FollowBalanceTargetSmooth(
@@ -766,7 +755,6 @@ namespace AnimalGame.RobotMap
             state = PhotoModeState.Inactive;
             entryElapsed = 0f;
             exitElapsed = 0f;
-            photoStickArmed = false;
             ResetCaptureState(true);
             mover?.SetPhotoModeInputLocked(false);
             cameraShake?.SetPhotoModeRevealShake(0f, 0f, 0f, 1f);
@@ -779,7 +767,6 @@ namespace AnimalGame.RobotMap
             state = PhotoModeState.Inactive;
             entryElapsed = 0f;
             exitElapsed = 0f;
-            photoStickArmed = false;
             ResetCaptureState(true);
             mover?.SetPhotoModeInputLocked(false);
             cameraShake?.SetPhotoModeRevealShake(0f, 0f, 0f, 1f);
