@@ -76,7 +76,7 @@ namespace AnimalGame.MainUI
                 MarkDirtyRepaint();
             }
         }
-        private float tickLengthValue = 12;
+        private float tickLengthValue = 28;
         [UxmlAttribute]
         public float tickLength
         {
@@ -88,8 +88,22 @@ namespace AnimalGame.MainUI
                 MarkDirtyRepaint();
             }
         }
+        private float radiusInsetValue;
+        /// <summary>Inset of the circle, independent of the inward triangle depth.</summary>
+        [UxmlAttribute]
+        public float radiusInset
+        {
+            get => radiusInsetValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (radiusInsetValue == value) return;
+                radiusInsetValue = value;
+                MarkDirtyRepaint();
+            }
+        }
         public float Radius => Mathf.Max(0, Mathf.Min(contentRect.width, contentRect.height) * .5f
-            - lineWidth * .5f - (ticks ? tickLength : 0));
+            - lineWidth * .5f - radiusInset);
 
         public ViewRingElement()
         {
@@ -106,11 +120,18 @@ namespace AnimalGame.MainUI
             if (radius <= 0) return;
             HudDrawing.Arc(p, center, radius, radius, 0, 360);
             if (!ticks) return;
-            p.lineWidth = lineWidth * 1.6f;
+            p.fillColor = Color.black;
+            float depth = Mathf.Min(Mathf.Max(0, tickLength), radius);
+            if (depth <= 0) return;
             for (int i = 0; i < 12; i++)
             {
                 Vector2 d = HudDrawing.Radial(i * 30);
-                HudDrawing.Line(p, center + d * radius, center + d * (radius + tickLength));
+                Vector2 tangent = new Vector2(-d.y, d.x);
+                Vector2 baseCenter = center + d * radius;
+                Vector2[] triangle = { baseCenter - tangent * (depth * .4f),
+                    baseCenter + tangent * (depth * .4f), center + d * (radius - depth) };
+                HudDrawing.Polygon(p, triangle, true);
+                HudDrawing.Polygon(p, triangle);
             }
         }
     }
@@ -186,12 +207,13 @@ namespace AnimalGame.MainUI
     [UxmlElement]
     public partial class CompassElement : VisualElement
     {
-        private readonly Label[] labels = new Label[9];
+        private readonly Label[] labels = new Label[15];
         private float heading;
         private float lineWidthValue = 2;
         private float degreeFontSizeValue = 17;
         private float directionFontSizeValue = 20;
         private float baselineOffsetValue = 33;
+        private float displayRangeValue = 180;
         private Font metricsFont;
         private float fontDescentRatio;
         public float Heading => heading;
@@ -201,6 +223,20 @@ namespace AnimalGame.MainUI
         [UxmlAttribute] public float directionFontSize { get => directionFontSizeValue; set => SetDimension(ref directionFontSizeValue, value, 1); }
         /// <summary>Distance from the Compass content bottom to the shared text bottom, in local UI units.</summary>
         [UxmlAttribute] public float baselineOffset { get => baselineOffsetValue; set => SetDimension(ref baselineOffsetValue, value); }
+        /// <summary>Total visible angular range in degrees, centered on the heading and clamped to 1–360.</summary>
+        [UxmlAttribute]
+        public float displayRange
+        {
+            get => displayRangeValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 180 : Mathf.Clamp(value, 1, 360);
+                if (displayRangeValue == value) return;
+                displayRangeValue = value;
+                UpdateLabels();
+                MarkDirtyRepaint();
+            }
+        }
 
         private void SetDimension(ref float field, float value, float minimum = 0)
         {
@@ -240,13 +276,16 @@ namespace AnimalGame.MainUI
             MarkDirtyRepaint();
         }
 
-        private float X(float degrees) => contentRect.width * (.5f + (degrees - heading) / 180);
+        private float X(float degrees) => contentRect.width * (.5f + (degrees - heading) / displayRange);
 
         private void UpdateLabels()
         {
-            float start = Mathf.Floor(heading / 30) * 30 - 120;
+            float start = Mathf.Floor((heading - displayRange * .5f) / 30) * 30 - 30;
+            int labelCount = Mathf.CeilToInt(displayRange / 30) + 3;
             for (int i = 0; i < labels.Length; i++)
             {
+                labels[i].style.display = i < labelCount ? DisplayStyle.Flex : DisplayStyle.None;
+                if (i >= labelCount) continue;
                 float degrees = start + i * 30;
                 int normalized = Mathf.RoundToInt(Mathf.Repeat(degrees, 360));
                 bool isDirection = normalized % 90 == 0;
@@ -295,8 +334,9 @@ namespace AnimalGame.MainUI
             p.lineWidth = lineWidth; p.strokeColor = Color.white;
             float y = contentRect.height - 3;
             //HudDrawing.Line(p, new Vector2(0, y), new Vector2(contentRect.width, y));
-            int start = Mathf.FloorToInt((heading - 90) / 10) * 10;
-            for (int degree = start; degree <= heading + 90; degree += 10)
+            float halfRange = displayRange * .5f;
+            int start = Mathf.FloorToInt((heading - halfRange) / 10) * 10;
+            for (int degree = start; degree <= heading + halfRange; degree += 10)
             {
                 float x = X(degree);
                 if (x < lineWidth * .5f || x > contentRect.width - lineWidth * .5f) continue;
@@ -338,17 +378,24 @@ namespace AnimalGame.MainUI
         {
             Painter2D p = context.painter2D;
             Vector2 c = contentRect.center;
-            float rx = contentRect.width * .5f - 12, ry = contentRect.height * .5f - 12;
-            if (rx <= 0 || ry <= 0) return;
+            float radius = Mathf.Min(contentRect.width, contentRect.height) * .5f - 22;
+            if (radius <= 0) return;
             p.strokeColor = Color.white; p.lineWidth = 2;
-            HudDrawing.Arc(p, c, rx, ry, 180, 180);
-            // Actual separate arc segments keep the lower ellipse dashed on every rendering backend.
-            for (float angle = 0; angle < 180; angle += 6) HudDrawing.Arc(p, c, rx, ry, angle, 3);
-            HudDrawing.Line(p, c + Vector2.left * (rx + 7), c + Vector2.right * (rx + 7));
+            HudDrawing.Arc(p, c, radius, radius, 180, 180);
+            // Separate arc segments keep the lower half dashed on every rendering backend.
+            for (float angle = 4; angle < 180; angle += 30)
+                HudDrawing.Arc(p, c, radius, radius, angle, 16);
+            for (float angle = 180; angle <= 360; angle += 30)
+            {
+                Vector2 tick = HudDrawing.Radial(angle);
+                HudDrawing.Line(p, c + tick * (radius - 6), c + tick * (radius + 6));
+            }
             Vector2 d = HudDrawing.Radial(180 + dayProgress * 360);
-            Vector2 sun = c + new Vector2(d.x * rx, d.y * ry);
-            p.fillColor = Color.black; HudDrawing.Arc(p, sun, 10, 10, 0, 360, true);
-            p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, 6.5f, 6.5f, 0, 360, true);
+            Vector2 sun = c + d * radius;
+            float sunRadius = Mathf.Min(18, radius * .2f);
+            p.fillColor = Color.black; HudDrawing.Arc(p, sun, sunRadius + 2, sunRadius + 2, 0, 360, true);
+            p.strokeColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360);
+            p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius * .58f, sunRadius * .58f, 0, 360, true);
         }
     }
 
@@ -362,15 +409,22 @@ namespace AnimalGame.MainUI
         private float topNotchHeightValue = 18;
         private float bottomNotchWidthValue = 176;
         private float bottomNotchHeightValue = 32;
-        private float notchChamferValue = 14;
+        private float topNotchChamferValue = 14;
+        private float bottomNotchChamferValue = 14;
 
         [UxmlAttribute] public float margin { get => marginValue; set => SetDimension(ref marginValue, value); }
         [UxmlAttribute] public float cornerChamfer { get => cornerChamferValue; set => SetDimension(ref cornerChamferValue, value); }
+        /// <summary>Width of the notch's inner horizontal edge, excluding both sloped sides.</summary>
         [UxmlAttribute] public float topNotchWidth { get => topNotchWidthValue; set => SetDimension(ref topNotchWidthValue, value); }
         [UxmlAttribute] public float topNotchHeight { get => topNotchHeightValue; set => SetDimension(ref topNotchHeightValue, value); }
+        /// <summary>Width of the notch's inner horizontal edge, excluding both sloped sides.</summary>
         [UxmlAttribute] public float bottomNotchWidth { get => bottomNotchWidthValue; set => SetDimension(ref bottomNotchWidthValue, value); }
         [UxmlAttribute] public float bottomNotchHeight { get => bottomNotchHeightValue; set => SetDimension(ref bottomNotchHeightValue, value); }
-        [UxmlAttribute] public float notchChamfer { get => notchChamferValue; set => SetDimension(ref notchChamferValue, value); }
+        /// <summary>Horizontal width of each sloped notch side, independent of notch height.</summary>
+        [UxmlAttribute] public float topNotchChamfer { get => topNotchChamferValue; set => SetDimension(ref topNotchChamferValue, value); }
+        [UxmlAttribute] public float bottomNotchChamfer { get => bottomNotchChamferValue; set => SetDimension(ref bottomNotchChamferValue, value); }
+
+        internal event System.Action ShapeChanged;
 
         private void SetDimension(ref float field, float value)
         {
@@ -378,6 +432,7 @@ namespace AnimalGame.MainUI
             if (field == value) return;
             field = value;
             MarkDirtyRepaint();
+            ShapeChanged?.Invoke();
         }
 
         public HudFrameElement()
@@ -388,21 +443,27 @@ namespace AnimalGame.MainUI
 
         private void Draw(MeshGenerationContext context)
         {
+            DrawShape(context.painter2D, true);
+        }
+
+        // Share both the filled mask and border vertices with CompassHostElement.
+        internal Vector2[] DrawShape(Painter2D p, bool drawBorder)
+        {
             float w = contentRect.width, h = contentRect.height;
-            if (w <= 0 || h <= 0) return;
+            if (w <= 0 || h <= 0) return System.Array.Empty<Vector2>();
             float scale = Mathf.Min(w / 1920f, h / 1080f);
             float inset = Mathf.Min(margin * scale, Mathf.Min(w, h) * .45f);
             float innerWidth = w - 2 * inset, innerHeight = h - 2 * inset;
             float cut = Mathf.Min(cornerChamfer * scale, Mathf.Min(innerWidth, innerHeight) * .5f);
             float maxNotchWidth = Mathf.Max(0, innerWidth - 2 * cut);
-            float topWidth = Mathf.Min(topNotchWidth * scale, maxNotchWidth);
-            float bottomWidth = Mathf.Min(bottomNotchWidth * scale, maxNotchWidth);
+            float topBevel = Mathf.Min(topNotchChamfer * scale, maxNotchWidth * .5f);
+            float bottomBevel = Mathf.Min(bottomNotchChamfer * scale, maxNotchWidth * .5f);
+            float topWidth = Mathf.Min(topNotchWidth * scale, Mathf.Max(0, maxNotchWidth - 2 * topBevel));
+            float bottomWidth = Mathf.Min(bottomNotchWidth * scale, Mathf.Max(0, maxNotchWidth - 2 * bottomBevel));
             float topHeight = Mathf.Min(topNotchHeight * scale, innerHeight * .4f);
             float bottomHeight = Mathf.Min(bottomNotchHeight * scale, innerHeight * .4f);
-            float bevel = notchChamfer * scale;
-            Vector2[] top = Notch(w * .5f, inset, topWidth, topHeight, bevel, 1);
-            Vector2[] bottom = Notch(w * .5f, h - inset, bottomWidth, bottomHeight, bevel, -1);
-            Painter2D p = context.painter2D;
+            Vector2[] top = Notch(w * .5f, inset, topWidth, topHeight, topBevel, 1);
+            Vector2[] bottom = Notch(w * .5f, h - inset, bottomWidth, bottomHeight, bottomBevel, -1);
             p.fillColor = Color.black;
             HudDrawing.Rect(p, 0, 0, w, inset);
             HudDrawing.Rect(p, 0, h - inset, w, inset);
@@ -426,22 +487,24 @@ namespace AnimalGame.MainUI
             border.Add(new Vector2(inset + cut, h - inset));
             border.Add(new Vector2(inset, h - inset - cut));
             border.Add(new Vector2(inset, inset + cut));
-            p.strokeColor = Color.white;
-            p.lineWidth = 1.5f * scale;
-            HudDrawing.Polygon(p, border.ToArray());
+            Vector2[] points = border.ToArray();
+            if (drawBorder)
+            {
+                p.strokeColor = Color.white;
+                p.lineWidth = 1.5f * scale;
+                HudDrawing.Polygon(p, points);
+            }
+            return points;
         }
 
         private static Vector2[] Notch(float x, float edge, float width, float height, float bevel, float direction)
         {
             float half = width * .5f;
-            bevel = Mathf.Min(bevel, Mathf.Min(half, height));
             return new[] {
-                new Vector2(x - half, edge),
-                new Vector2(x - half, edge + direction * (height - bevel)),
-                new Vector2(x - half + bevel, edge + direction * height),
-                new Vector2(x + half - bevel, edge + direction * height),
-                new Vector2(x + half, edge + direction * (height - bevel)),
-                new Vector2(x + half, edge)
+                new Vector2(x - half - bevel, edge),
+                new Vector2(x - half, edge + direction * height),
+                new Vector2(x + half, edge + direction * height),
+                new Vector2(x + half + bevel, edge)
             };
         }
     }

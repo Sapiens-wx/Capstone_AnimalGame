@@ -29,8 +29,6 @@ namespace AnimalGame.MainUI
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
         [SerializeField] private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
-        [Tooltip("Additional status movement when inventory opens, relative to its authored position and the ring movement.")]
-        [SerializeField] private Vector2 statusInventoryDisplacement = new Vector2(400, 51);
         [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .4f;
 
         private const float DesignWidth = 1920, DesignHeight = 1080;
@@ -44,7 +42,7 @@ namespace AnimalGame.MainUI
         public float Integrity { get => integrity; set => integrity = Mathf.Clamp01(value); }
         public InventoryItem[] Items { get; } = new InventoryItem[SlotCount];
 
-        private VisualElement root, stage, view, ring, status, time, inventory, grid, entry, compassHost, coordinates;
+        private VisualElement root, stage, view, ring, status, time, sound, inventory, grid, compassHost, coordinates;
         private ViewRingElement innerRing, outerRing;
         private CircularProgressElement powerRing, integrityRing;
         private CompassElement compass;
@@ -58,6 +56,8 @@ namespace AnimalGame.MainUI
         private CursorLockMode originalCursorLock;
         private float progress, savedTimeScale, downElapsed, fit = 1, photoScale = 1, photoAlpha = 1;
         private float lastPower = -1, lastIntegrity = -1;
+        private float headingDegrees;
+        private float outerRingHeadingDegrees;
         private int selectedIndex;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
@@ -83,9 +83,9 @@ namespace AnimalGame.MainUI
             outerRing = root.Q<ViewRingElement>("OuterRing");
             status = root.Q("Status");
             time = root.Q("Time");
+            sound = root.Q("Sound");
             inventory = root.Q("Inventory");
             grid = root.Q("InventoryGrid");
-            entry = root.Q("InventoryEntry");
             selection = root.Q<InventorySelectionElement>("InventorySelection");
             frame = root.Q<HudFrameElement>("Frame");
             compass = root.Q<CompassElement>("Compass");
@@ -127,8 +127,8 @@ namespace AnimalGame.MainUI
                 var button = new Button(() => SelectItem(index)) { name = "InventorySlot" + (i + 1), userData = Items[i] };
                 button.AddToClassList("inventory-slot");
                 button.style.position = Position.Absolute;
-                button.style.left = (i % 2) * 240;
-                button.style.top = (i / 2) * 170;
+                button.style.left = new Length((i % 2) * 50, LengthUnit.Percent);
+                button.style.top = new Length((i / 2) * 25, LengthUnit.Percent);
                 button.RegisterCallback<PointerEnterEvent>(_ => { if (inventoryOpen) SelectItem(index); });
                 button.RegisterCallback<FocusInEvent>(_ => { if (inventoryOpen) SelectItem(index); });
                 // Navigation is owned by MainUI so each input moves the shared selection exactly once.
@@ -171,6 +171,8 @@ namespace AnimalGame.MainUI
             if (slots[selectedIndex] == null || !Positive(grid.layout.width)) return;
             Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position - selection.layout.position;
             selection.style.translate = new Translate(offset.x, offset.y);
+            selection.style.width = slots[selectedIndex].layout.width;
+            selection.style.height = slots[selectedIndex].layout.height;
         }
 
         public void ToggleInventory() { if (inventoryOpen) CloseInventory(); else OpenInventory(); }
@@ -256,34 +258,46 @@ namespace AnimalGame.MainUI
             view.style.translate = new Translate(viewOffset.x, viewOffset.y);
             view.style.scale = new Scale(new Vector3(fit, fit, 1));
 
-            float vertical = Ease(progress * 2), horizontal = Ease(progress * 2 - 1);
+            float motion = Ease(progress), horizontal = Ease(progress * 2 - 1);
             float openCircleX = (size.x * (2f / 3) - viewportOffset.x) / fit;
             if (!Positive(ring.layout.width) || !Positive(inventory.layout.width)) return;
             float authoredRingX = view.layout.x + ring.layout.x + innerRing.layout.x + innerRing.contentRect.center.x;
             ringDisplacement = new Vector2((openCircleX - authoredRingX) * horizontal, 0);
             ring.style.translate = new Translate(ringDisplacement.x, ringDisplacement.y);
             // Scale each element around its own screen corner, including its authored edge offsets.
-            Vector2 statusOffset = FitScreenElement(status, false, false);
-            FitScreenElement(time, true, false);
-            FitScreenElement(entry, false, true);
+            MoveTopHudOffscreen(status, false, motion);
+            MoveTopHudOffscreen(time, true, motion);
+            MoveTopHudOffscreen(sound, true, motion);
             FitScreenElement(coordinates, true, true);
-            status.style.translate = new Translate(statusOffset.x
-                + (ringDisplacement.x + statusInventoryDisplacement.x * horizontal) * fit,
-                statusOffset.y + statusInventoryDisplacement.y * vertical * fit);
-            Vector2 targetCenter = new Vector2((size.x * .25f - viewportOffset.x) / fit, DesignHeight * .5f);
-            Vector2 inventoryDelta = targetCenter - view.layout.position - inventory.layout.center;
-            inventory.style.translate = new Translate(inventoryDelta.x * horizontal, inventoryDelta.y * vertical);
-            bool visible = inventoryOpen || progress > 0;
-            inventory.style.visibility = visible ? Visibility.Visible : Visibility.Hidden;
+            // Keep the authored closed position relative to the screen's left edge, including on ultrawide displays.
+            // Only X changes: the UI Builder's top value controls the complete horizontal slide path.
+            float inventoryStartX = -viewportOffset.x / fit;
+            float inventoryEndX = (size.x * .25f - viewportOffset.x) / fit
+                - view.layout.x - inventory.layout.center.x;
+            inventory.style.translate = new Translate(Mathf.Lerp(inventoryStartX, inventoryEndX, motion), 0);
             grid.SetEnabled(inventoryOpen && progress >= .98f);
             foreach (Button slot in slots) if (slot != null) slot.pickingMode = inventoryOpen ? PickingMode.Position : PickingMode.Ignore;
-            entry.style.visibility = visible ? Visibility.Hidden : Visibility.Visible;
             coordinates.style.opacity = 1;
             frame.MarkDirtyRepaint();
             // Position and centering belong to UXML/USS; only size follows the screen fit.
-            compassHost.style.scale = new Scale(new Vector3(fit, fit, 1));
+            Vector3 compassScale = new Vector3(fit, fit, 1);
+            if (compassHost.style.scale.value.value != compassScale)
+            {
+                compassHost.style.scale = new Scale(compassScale);
+                (compassHost as CompassHostElement)?.RequestMaskRefresh();
+            }
+            if (levelIndicator != null)
+                levelIndicator.style.scale = new Scale(compassScale);
             SelectItem(selectedIndex);
             ApplyPhotoTransform();
+        }
+
+        private void MoveTopHudOffscreen(VisualElement element, bool right, float motion)
+        {
+            if (element == null) return;
+            Vector2 offset = FitScreenElement(element, right, false);
+            float distance = (Mathf.Max(0, element.layout.y + element.layout.height) + 4) * fit;
+            element.style.translate = new Translate(offset.x, offset.y - distance * motion);
         }
 
         private Vector2 FitScreenElement(VisualElement element, bool right, bool bottom)
@@ -316,16 +330,21 @@ namespace AnimalGame.MainUI
             if (bootstrap != null && bootstrap.robot != null)
             {
                 Vector2 forward = bootstrap.robot.Forward;
-                compass.SetHeading(Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg);
+                SetHeading(Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg);
             }
         }
 
         public void RefreshLatePresentation()
         {
             UpdateLevelIndicator();
-            if (outerRing == null) return;
-            // Tumble rotates only the outer ring, leaving the inner boundary and the rest of the HUD upright.
-            outerRing.style.rotate = new Rotate(-RobotTumbleUiRotation.ActiveRotationDegrees);
+            UpdateOuterRingRotation();
+        }
+
+        private void UpdateOuterRingRotation()
+        {
+            // Keep the tumble offset at full strength on top of the ring's heading.
+            if (outerRing != null)
+                outerRing.style.rotate = new Rotate(outerRingHeadingDegrees - RobotTumbleUiRotation.ActiveRotationDegrees);
         }
 
         public bool TryGetRingScreenGeometry(out Vector2 center, out float radius)
@@ -378,8 +397,18 @@ namespace AnimalGame.MainUI
             stage.style.opacity = photoAlpha;
         }
 
-        public void SetHeading(float degrees) => compass?.SetHeading(degrees);
+        public void SetHeading(float degrees)
+        {
+            if (float.IsNaN(degrees) || float.IsInfinity(degrees)) return;
+            // Scale the shortest heading change so crossing north does not jump by 180 degrees.
+            outerRingHeadingDegrees = Mathf.Repeat(outerRingHeadingDegrees
+                - Mathf.DeltaAngle(headingDegrees, degrees), 360);
+            headingDegrees = Mathf.Repeat(degrees, 360);
+            compass?.SetHeading(degrees);
+            UpdateOuterRingRotation();
+        }
         public void SetDayProgress(float normalized) => timeOrbit?.SetDayProgress(normalized);
+        /// <summary>Presentation hook for a future game clock; defaults to 2026_01_01 until called.</summary>
         public void SetDate(DateTime date)
         {
             displayedDate = date;
