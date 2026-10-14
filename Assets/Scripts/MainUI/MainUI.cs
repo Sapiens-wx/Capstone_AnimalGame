@@ -281,7 +281,12 @@ namespace AnimalGame.MainUI
             coordinates.style.opacity = 1;
             frame.MarkDirtyRepaint();
             // Position and centering belong to UXML/USS; only size follows the screen fit.
-            compassHost.style.scale = new Scale(new Vector3(fit, fit, 1));
+            Vector3 compassScale = new Vector3(fit, fit, 1);
+            if (compassHost.style.scale.value.value != compassScale)
+            {
+                compassHost.style.scale = new Scale(compassScale);
+                (compassHost as CompassHostElement)?.RequestMaskRefresh();
+            }
             SelectItem(selectedIndex);
             ApplyPhotoTransform();
         }

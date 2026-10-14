@@ -396,12 +396,15 @@ namespace AnimalGame.MainUI
         [UxmlAttribute] public float topNotchChamfer { get => topNotchChamferValue; set => SetDimension(ref topNotchChamferValue, value); }
         [UxmlAttribute] public float bottomNotchChamfer { get => bottomNotchChamferValue; set => SetDimension(ref bottomNotchChamferValue, value); }
 
+        internal event System.Action ShapeChanged;
+
         private void SetDimension(ref float field, float value)
         {
             value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
             if (field == value) return;
             field = value;
             MarkDirtyRepaint();
+            ShapeChanged?.Invoke();
         }
 
         public HudFrameElement()
@@ -412,8 +415,14 @@ namespace AnimalGame.MainUI
 
         private void Draw(MeshGenerationContext context)
         {
+            DrawShape(context.painter2D, true);
+        }
+
+        // Share both the filled mask and border vertices with CompassHostElement.
+        internal Vector2[] DrawShape(Painter2D p, bool drawBorder)
+        {
             float w = contentRect.width, h = contentRect.height;
-            if (w <= 0 || h <= 0) return;
+            if (w <= 0 || h <= 0) return System.Array.Empty<Vector2>();
             float scale = Mathf.Min(w / 1920f, h / 1080f);
             float inset = Mathf.Min(margin * scale, Mathf.Min(w, h) * .45f);
             float innerWidth = w - 2 * inset, innerHeight = h - 2 * inset;
@@ -427,7 +436,6 @@ namespace AnimalGame.MainUI
             float bottomHeight = Mathf.Min(bottomNotchHeight * scale, innerHeight * .4f);
             Vector2[] top = Notch(w * .5f, inset, topWidth, topHeight, topBevel, 1);
             Vector2[] bottom = Notch(w * .5f, h - inset, bottomWidth, bottomHeight, bottomBevel, -1);
-            Painter2D p = context.painter2D;
             p.fillColor = Color.black;
             HudDrawing.Rect(p, 0, 0, w, inset);
             HudDrawing.Rect(p, 0, h - inset, w, inset);
@@ -451,9 +459,14 @@ namespace AnimalGame.MainUI
             border.Add(new Vector2(inset + cut, h - inset));
             border.Add(new Vector2(inset, h - inset - cut));
             border.Add(new Vector2(inset, inset + cut));
-            p.strokeColor = Color.white;
-            p.lineWidth = 1.5f * scale;
-            HudDrawing.Polygon(p, border.ToArray());
+            Vector2[] points = border.ToArray();
+            if (drawBorder)
+            {
+                p.strokeColor = Color.white;
+                p.lineWidth = 1.5f * scale;
+                HudDrawing.Polygon(p, points);
+            }
+            return points;
         }
 
         private static Vector2[] Notch(float x, float edge, float width, float height, float bevel, float direction)
