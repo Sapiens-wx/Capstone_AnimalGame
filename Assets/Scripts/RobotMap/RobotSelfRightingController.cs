@@ -291,6 +291,7 @@ namespace AnimalGame.RobotMap
         {
             if (arms == null
                 || !arms.IsArmModeActive
+                || !arms.IsTumbleArmSupportAligned(supportDirectionToleranceDegrees)
                 || arms.CurrentInputMagnitude < minimumArmPushMagnitude)
             {
                 IsArmSupportCorrect = false;

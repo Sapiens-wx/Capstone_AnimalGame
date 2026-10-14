@@ -1407,11 +1407,15 @@ namespace AnimalGame.Editor
                 Set(mover, "turnSpeed", 60f);
                 Set(mover, "overallMotionScale", .88f);
                 float upper = (float)Get(f.Arms, "upperLength");
+                float length = (float)Get(f.Arms, "armLength");
                 Set(f.Arms, "armLength", 8f);
                 f.Tick(1, Vector2.right, false);
                 Require((float)Get(f.Arms, "upperLength") == upper, "Runtime inspector edit changed fixed length");
+                Set(f.Arms, "armLength", length);
                 var tumble = f.Root.AddComponent<RobotTumbleController>();
                 typeof(RobotTumbleController).GetProperty("State").SetValue(tumble, RobotTumbleState.Fallen);
+                typeof(RobotTumbleController).GetProperty("DirectionWorld").SetValue(tumble,
+                    (Vector2)f.Root.transform.TransformDirection(Vector2.left));
                 Set(f.Arms, "tumble", tumble);
                 Quaternion rotation = f.Root.transform.rotation;
                 f.Item(Vector2.zero, Vector2.one * 10f, 1);
@@ -1419,7 +1423,17 @@ namespace AnimalGame.Editor
                 Require(f.Arms.HeldObject == null && Quaternion.Angle(rotation, f.Root.transform.rotation) < .001f,
                     "Fallen robot grabbed or rotated");
                 Vector2 target = (Vector2)Get(f.Arms, "targetLocal");
-                Require(Mathf.Abs(Vector2.SignedAngle(Vector2.up, target)) <= 70.01f, "Fallen arm exceeded angle limit");
+                object leftArm = Get(f.Arms, "left"), rightArm = Get(f.Arms, "right");
+                object leftPose = leftArm.GetType().GetField("Pose").GetValue(leftArm);
+                object rightPose = rightArm.GetType().GetField("Pose").GetValue(rightArm);
+                MethodInfo socketAt = typeof(RobotArmController).GetMethod("SocketAt", BindingFlags.NonPublic | BindingFlags.Static);
+                Require(Vector2.Angle(f.Arms.TumbleArmSupportDirectionLocal, target) <= 70.01f,
+                    "Fallen arm exceeded its tumble-relative angle limit: target=" + target
+                    + ", direction=" + f.Arms.TumbleArmSupportDirectionLocal + ", blocked=" + f.Arms.IsBlocked
+                    + ", left=" + socketAt.Invoke(null, new[] { leftArm, leftPose })
+                    + " @ " + leftPose.GetType().GetField("SocketAngle").GetValue(leftPose)
+                    + ", right=" + socketAt.Invoke(null, new[] { rightArm, rightPose })
+                    + " @ " + rightPose.GetType().GetField("SocketAngle").GetValue(rightPose));
             }
         }
         private static void CheckGrabResistance()

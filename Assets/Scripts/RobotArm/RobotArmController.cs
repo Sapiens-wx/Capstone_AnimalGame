@@ -14,7 +14,7 @@ namespace AnimalGame.RobotArm
     [DefaultExecutionOrder(-50)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RobotMover), typeof(RobotMarkerView))]
-    public sealed class RobotArmController : MonoBehaviour
+    public sealed partial class RobotArmController : MonoBehaviour
     {
         [Header("Input")]
         [SerializeField] private KeyCode keyboardArmKey = KeyCode.CapsLock;
@@ -158,12 +158,17 @@ namespace AnimalGame.RobotArm
         private struct Pose
         {
             public float UpperAngle, LowerAngle, UpperLength, LowerLength, Hand;
+            // Only the tumble layout opts into moving sockets. Ordinary poses keep the authored socket.
+            public bool HasSocket;
+            public float SocketAngle;
             public static Pose Lerp(Pose a, Pose b, float t) => new Pose {
                 UpperAngle = Mathf.LerpAngle(a.UpperAngle, b.UpperAngle, t),
                 LowerAngle = Mathf.LerpAngle(a.LowerAngle, b.LowerAngle, t),
                 UpperLength = Mathf.Lerp(a.UpperLength, b.UpperLength, t),
                 LowerLength = Mathf.Lerp(a.LowerLength, b.LowerLength, t),
-                Hand = Mathf.Lerp(a.Hand, b.Hand, t) };
+                Hand = Mathf.Lerp(a.Hand, b.Hand, t),
+                HasSocket = a.HasSocket || b.HasSocket,
+                SocketAngle = Mathf.Lerp(a.SocketAngle, b.SocketAngle, t) };
         }
         private sealed class Arm
         {
@@ -252,6 +257,7 @@ namespace AnimalGame.RobotArm
             inputLocal = armHeld && !recycling ? Vector2.ClampMagnitude(localInput, 1f) : Vector2.zero;
             CurrentInputMagnitude = inputLocal.magnitude;
             CurrentTargetLocal = inputLocal;
+            PrepareTumbleArmLayout(armHeld);
             if (!recycling)
             {
                 if (!armHeld)
@@ -273,7 +279,7 @@ namespace AnimalGame.RobotArm
             FollowHeldObject();
             UpdateReady();
             if (State == RobotArmState.Recycling) UpdateRecycle(armHeld);
-            else if (armHeld && Upright && HandsReady)
+            else if (armHeld && Upright && HandsReady && !IsTumbleArmLayoutActive)
             {
                 if (!grab && heldObject != null)
                 {
@@ -284,7 +290,7 @@ namespace AnimalGame.RobotArm
             // A recycle callback may disable this component; do not restore its controls or visuals afterwards.
             if (!this || !isActiveAndEnabled) return;
             // Do not overwrite PlayRecycle with a release clip on the same A-release frame.
-            if (State != RobotArmState.Recycling) SetHandGrip(HandsReady && Upright && grab);
+            if (State != RobotArmState.Recycling) SetHandGrip(HandsReady && Upright && !IsTumbleArmLayoutActive && grab);
             ApplyVisuals(left); ApplyVisuals(right);
             framePosition = transform.position; frameRotation = transform.rotation;
         }
@@ -341,7 +347,7 @@ namespace AnimalGame.RobotArm
         }
         private void TurnBodyForLocalInput()
         {
-            if (!Upright || State == RobotArmState.Docking || CurrentInputMagnitude <= leftStickDeadZone) return;
+            if (!Upright || IsTumbleArmLayoutActive || State == RobotArmState.Docking || CurrentInputMagnitude <= leftStickDeadZone) return;
             float angle = Vector2.SignedAngle(Vector2.up, inputLocal);
             if (Mathf.Abs(angle) <= followAngle) return;
             // Input stays body-local: turning does not consume the stick's angle.
@@ -354,6 +360,7 @@ namespace AnimalGame.RobotArm
             ? mediumDockPosition : smallDockPosition);
         private void UpdateTarget()
         {
+            if (IsTumbleArmLayoutActive) { UpdateTumbleArmTarget(); return; }
             if (heldObject != null && heldObject.TryGetComponent(out HeavyGarbagePull pull))
             {
                 if (pull.HasGripAnchor || pull.IsReturningGrip)
@@ -421,6 +428,7 @@ namespace AnimalGame.RobotArm
 
         private void AdvanceArms(bool extending)
         {
+            if (IsTumbleArmLayoutActive) { AdvanceTumbleArms(extending); return; }
             float next = extending ? Mathf.Min(TotalDeploymentTime, deploymentTime + stepDelta)
                 : Mathf.Max(0f, deploymentTime - stepDelta * TotalDeploymentTime / retractDuration);
             Pose lp = DesiredPose(left, next), rp = DesiredPose(right, next);
@@ -493,7 +501,9 @@ namespace AnimalGame.RobotArm
         private float PoseTravel(Pose a, Pose b) =>
             Mathf.Abs(Mathf.DeltaAngle(a.UpperAngle, b.UpperAngle)) * Mathf.Deg2Rad * upperLength
             + Mathf.Abs(Mathf.DeltaAngle(a.LowerAngle, b.LowerAngle)) * Mathf.Deg2Rad * lowerLength
-            + Mathf.Abs(a.UpperLength - b.UpperLength) + Mathf.Abs(a.LowerLength - b.LowerLength);
+            + Mathf.Abs(a.UpperLength - b.UpperLength) + Mathf.Abs(a.LowerLength - b.LowerLength)
+            + (a.HasSocket || b.HasSocket ? Mathf.Abs(b.SocketAngle - a.SocketAngle) * Mathf.Deg2Rad
+                * diameter * .5f * socketRadiusOfBody : 0f);
         private bool PoseBlocked(Arm arm, Pose before, Pose after)
         {
             for (int segment = 0; segment < 2; segment++)
@@ -510,8 +520,9 @@ namespace AnimalGame.RobotArm
         }
         private InteractionShape SegmentShape(Arm arm, Pose pose, int segment)
         {
-            Vector2 elbow = arm.Socket + Direction(pose.LowerAngle) * pose.LowerLength;
-            Vector2 a = segment == 0 ? arm.Socket : elbow;
+            Vector2 socket = SocketAt(arm, pose);
+            Vector2 elbow = socket + Direction(pose.LowerAngle) * pose.LowerLength;
+            Vector2 a = segment == 0 ? socket : elbow;
             Vector2 b = segment == 0 ? elbow : elbow + Direction(pose.UpperAngle) * pose.UpperLength;
             float growth = segment == 0 ? pose.LowerLength / arm.LowerLength : pose.UpperLength / arm.UpperLength;
             Vector2 normal = new Vector2(-(b - a).y, (b - a).x).normalized * armWidth * growth * .5f;
@@ -586,8 +597,9 @@ namespace AnimalGame.RobotArm
 
         private InteractionShape SegmentAt(Arm arm, Pose pose, int segment, Matrix4x4 frame)
         {
-            Vector2 elbow = arm.Socket + Direction(pose.LowerAngle) * pose.LowerLength;
-            Vector2 a = segment == 0 ? arm.Socket : elbow;
+            Vector2 socket = SocketAt(arm, pose);
+            Vector2 elbow = socket + Direction(pose.LowerAngle) * pose.LowerLength;
+            Vector2 a = segment == 0 ? socket : elbow;
             Vector2 b = segment == 0 ? elbow : elbow + Direction(pose.UpperAngle) * pose.UpperLength;
             float growth = segment == 0 ? pose.LowerLength / arm.LowerLength : pose.UpperLength / arm.UpperLength;
             Vector2 normal = new Vector2(-(b - a).y, (b - a).x).normalized * armWidth * growth * .5f;
@@ -616,7 +628,7 @@ namespace AnimalGame.RobotArm
             position.z = HeldMotionRoot.position.z;
             return position;
         }
-        private static Vector2 HandPoint(Arm arm, Pose pose) => arm.Socket
+        private static Vector2 HandPoint(Arm arm, Pose pose) => SocketAt(arm, pose)
             + Direction(pose.UpperAngle) * pose.UpperLength + Direction(pose.LowerAngle) * pose.LowerLength;
 
         private void AddHeldMotion(InteractionPushPlan plan, Pose lp, Pose rp, Matrix4x4 frame,
@@ -1066,7 +1078,7 @@ namespace AnimalGame.RobotArm
             HeldMotionRoot.position = position;
             WorldInteraction.MarkHierarchySpatialDirty(HeldMotionRoot);
         }
-        private Vector2 HandLocal(Arm arm) => arm.Socket + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength
+        private Vector2 HandLocal(Arm arm) => SocketAt(arm, arm.Pose) + Direction(arm.Pose.UpperAngle) * arm.Pose.UpperLength
             + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
         private Vector2 HandWorld(Arm arm) => arm == null ? (Vector2)transform.position
             : (Vector2)marker.MarkerVisualRoot.TransformPoint(HandLocal(arm));
@@ -1125,14 +1137,15 @@ namespace AnimalGame.RobotArm
         {
             arm.Root.gameObject.SetActive(deploymentTime > 0f);
             Pose visualPose = arm.Pose;
+            Vector2 socket = SocketAt(arm, visualPose);
             if (mediumRecycleActive && visualPose.Hand > 0f)
             {
                 Vector2 exertedHand = HandLocal(arm) + new Vector2(arm.Side * handShakeOffset.x, handShakeOffset.y);
-                SolveIK(exertedHand - arm.Socket, visualPose.LowerLength, visualPose.UpperLength, arm.Side,
+                SolveIK(exertedHand - socket, visualPose.LowerLength, visualPose.UpperLength, arm.Side,
                     out visualPose.LowerAngle, out visualPose.UpperAngle);
             }
-            Vector2 elbow = arm.Socket + Direction(visualPose.LowerAngle) * visualPose.LowerLength;
-            SetSegmentVisual(arm.LowerSprite, arm.Socket, visualPose.LowerAngle - arm.LowerAnchorAngle, arm.LowerBottom,
+            Vector2 elbow = socket + Direction(visualPose.LowerAngle) * visualPose.LowerLength;
+            SetSegmentVisual(arm.LowerSprite, socket, visualPose.LowerAngle - arm.LowerAnchorAngle, arm.LowerBottom,
                 arm.LowerScale, visualPose.LowerLength / arm.LowerLength);
             SetSegmentVisual(arm.UpperSprite, elbow, visualPose.UpperAngle, arm.UpperBottom,
                 arm.UpperScale, visualPose.UpperLength / arm.UpperLength);
@@ -1193,6 +1206,7 @@ namespace AnimalGame.RobotArm
             Drop(); IsArmModeActive = false; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
             mover?.SetArmInputCaptured(false);
             deploymentTime = 0f; State = RobotArmState.Retracted; previousGrab = false;
+            ResetTumbleArmLayout();
             if (left != null) { left.Pose = default; left.Root.gameObject.SetActive(false); }
             if (right != null) { right.Pose = default; right.Root.gameObject.SetActive(false); }
         }
@@ -1208,8 +1222,9 @@ namespace AnimalGame.RobotArm
         }
         private void DrawArmBoxes(Arm arm)
         {
-            Vector2 elbow = arm.Socket + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
-            DrawBox(arm.Socket, elbow);
+            Vector2 socket = SocketAt(arm, arm.Pose);
+            Vector2 elbow = socket + Direction(arm.Pose.LowerAngle) * arm.Pose.LowerLength;
+            DrawBox(socket, elbow);
             DrawBox(elbow, HandLocal(arm));
         }
         private void DrawBox(Vector2 start, Vector2 end)
@@ -1220,6 +1235,7 @@ namespace AnimalGame.RobotArm
         }
         private void OnValidate()
         {
+            tumbleSocketQuarterTurnDuration = Mathf.Max(.01f, tumbleSocketQuarterTurnDuration);
             armScale = Mathf.Max(.01f, armScale);
             handScale = Mathf.Max(.01f, handScale);
             lowerArmScale = Mathf.Max(0f, lowerArmScale);
