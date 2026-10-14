@@ -186,12 +186,13 @@ namespace AnimalGame.MainUI
     [UxmlElement]
     public partial class CompassElement : VisualElement
     {
-        private readonly Label[] labels = new Label[9];
+        private readonly Label[] labels = new Label[15];
         private float heading;
         private float lineWidthValue = 2;
         private float degreeFontSizeValue = 17;
         private float directionFontSizeValue = 20;
         private float baselineOffsetValue = 33;
+        private float displayRangeValue = 180;
         private Font metricsFont;
         private float fontDescentRatio;
         public float Heading => heading;
@@ -201,6 +202,20 @@ namespace AnimalGame.MainUI
         [UxmlAttribute] public float directionFontSize { get => directionFontSizeValue; set => SetDimension(ref directionFontSizeValue, value, 1); }
         /// <summary>Distance from the Compass content bottom to the shared text bottom, in local UI units.</summary>
         [UxmlAttribute] public float baselineOffset { get => baselineOffsetValue; set => SetDimension(ref baselineOffsetValue, value); }
+        /// <summary>Total visible angular range in degrees, centered on the heading and clamped to 1–360.</summary>
+        [UxmlAttribute]
+        public float displayRange
+        {
+            get => displayRangeValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 180 : Mathf.Clamp(value, 1, 360);
+                if (displayRangeValue == value) return;
+                displayRangeValue = value;
+                UpdateLabels();
+                MarkDirtyRepaint();
+            }
+        }
 
         private void SetDimension(ref float field, float value, float minimum = 0)
         {
@@ -240,13 +255,16 @@ namespace AnimalGame.MainUI
             MarkDirtyRepaint();
         }
 
-        private float X(float degrees) => contentRect.width * (.5f + (degrees - heading) / 180);
+        private float X(float degrees) => contentRect.width * (.5f + (degrees - heading) / displayRange);
 
         private void UpdateLabels()
         {
-            float start = Mathf.Floor(heading / 30) * 30 - 120;
+            float start = Mathf.Floor((heading - displayRange * .5f) / 30) * 30 - 30;
+            int labelCount = Mathf.CeilToInt(displayRange / 30) + 3;
             for (int i = 0; i < labels.Length; i++)
             {
+                labels[i].style.display = i < labelCount ? DisplayStyle.Flex : DisplayStyle.None;
+                if (i >= labelCount) continue;
                 float degrees = start + i * 30;
                 int normalized = Mathf.RoundToInt(Mathf.Repeat(degrees, 360));
                 bool isDirection = normalized % 90 == 0;
@@ -295,8 +313,9 @@ namespace AnimalGame.MainUI
             p.lineWidth = lineWidth; p.strokeColor = Color.white;
             float y = contentRect.height - 3;
             //HudDrawing.Line(p, new Vector2(0, y), new Vector2(contentRect.width, y));
-            int start = Mathf.FloorToInt((heading - 90) / 10) * 10;
-            for (int degree = start; degree <= heading + 90; degree += 10)
+            float halfRange = displayRange * .5f;
+            int start = Mathf.FloorToInt((heading - halfRange) / 10) * 10;
+            for (int degree = start; degree <= heading + halfRange; degree += 10)
             {
                 float x = X(degree);
                 if (x < lineWidth * .5f || x > contentRect.width - lineWidth * .5f) continue;
