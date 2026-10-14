@@ -389,6 +389,7 @@ namespace AnimalGame.MainUI
 
         public void SetHeading(float degrees) => compass?.SetHeading(degrees);
         public void SetDayProgress(float normalized) => timeOrbit?.SetDayProgress(normalized);
+        /// <summary>Presentation hook for a future game clock; defaults to 2026_01_01 until called.</summary>
         public void SetDate(DateTime date)
         {
             displayedDate = date;

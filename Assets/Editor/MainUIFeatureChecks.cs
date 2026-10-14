@@ -37,6 +37,7 @@ namespace AnimalGame.Editor
                 root.style.width = 1920; root.style.height = 1080;
                 Settle(root, hud);
                 CheckInventory(root, hud);
+                CheckTime(root, hud);
                 Capture(root, texture, "mainui-features.png");
                 CheckRingOcclusion(root, texture);
                 Debug.Log("MAIN UI FEATURE CHECKS PASSED");
@@ -68,6 +69,19 @@ namespace AnimalGame.Editor
             Assert(root.Q<Label>(className: "inventory-title").text == "CARGO", "Cargo title");
             Assert(root.Q(className: "cargo-mark") != null, "Cargo square");
             hud.SelectItem(2); Layout(root);
+        }
+
+        private static void CheckTime(VisualElement root, Hud hud)
+        {
+            var time = root.Q("Time");
+            var orbit = root.Q<TimeOrbitElement>("TimeOrbit");
+            var date = root.Q<Label>("Date");
+            Assert(Mathf.Abs(time.layout.width - time.layout.height) < .01f, "Time uses square bounds");
+            Assert(Vector2.Distance(orbit.worldBound.center, date.worldBound.center) < .1f, "Date is centered in orbit");
+            Assert(date.text == "2026_01_01", "Unbound clock retains the default date");
+            hud.SetDate(new DateTime(2026, 10, 12));
+            Assert(date.text == "2026_10_12", "Date interface formats yyyy_mm_dd");
+            hud.SetDate(new DateTime(2026, 1, 1));
         }
 
         internal static void Settle(VisualElement root, Hud hud)

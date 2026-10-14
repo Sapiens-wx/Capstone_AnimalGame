@@ -378,17 +378,24 @@ namespace AnimalGame.MainUI
         {
             Painter2D p = context.painter2D;
             Vector2 c = contentRect.center;
-            float rx = contentRect.width * .5f - 12, ry = contentRect.height * .5f - 12;
-            if (rx <= 0 || ry <= 0) return;
+            float radius = Mathf.Min(contentRect.width, contentRect.height) * .5f - 22;
+            if (radius <= 0) return;
             p.strokeColor = Color.white; p.lineWidth = 2;
-            HudDrawing.Arc(p, c, rx, ry, 180, 180);
-            // Actual separate arc segments keep the lower ellipse dashed on every rendering backend.
-            for (float angle = 0; angle < 180; angle += 6) HudDrawing.Arc(p, c, rx, ry, angle, 3);
-            HudDrawing.Line(p, c + Vector2.left * (rx + 7), c + Vector2.right * (rx + 7));
+            HudDrawing.Arc(p, c, radius, radius, 180, 180);
+            // Separate arc segments keep the lower half dashed on every rendering backend.
+            for (float angle = 4; angle < 180; angle += 30)
+                HudDrawing.Arc(p, c, radius, radius, angle, 16);
+            for (float angle = 180; angle <= 360; angle += 30)
+            {
+                Vector2 tick = HudDrawing.Radial(angle);
+                HudDrawing.Line(p, c + tick * (radius - 6), c + tick * (radius + 6));
+            }
             Vector2 d = HudDrawing.Radial(180 + dayProgress * 360);
-            Vector2 sun = c + new Vector2(d.x * rx, d.y * ry);
-            p.fillColor = Color.black; HudDrawing.Arc(p, sun, 10, 10, 0, 360, true);
-            p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, 6.5f, 6.5f, 0, 360, true);
+            Vector2 sun = c + d * radius;
+            float sunRadius = Mathf.Min(18, radius * .2f);
+            p.fillColor = Color.black; HudDrawing.Arc(p, sun, sunRadius + 2, sunRadius + 2, 0, 360, true);
+            p.strokeColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360);
+            p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius * .58f, sunRadius * .58f, 0, 360, true);
         }
     }
 
