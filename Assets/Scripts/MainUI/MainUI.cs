@@ -287,6 +287,8 @@ namespace AnimalGame.MainUI
                 compassHost.style.scale = new Scale(compassScale);
                 (compassHost as CompassHostElement)?.RequestMaskRefresh();
             }
+            if (levelIndicator != null)
+                levelIndicator.style.scale = new Scale(compassScale);
             SelectItem(selectedIndex);
             ApplyPhotoTransform();
         }

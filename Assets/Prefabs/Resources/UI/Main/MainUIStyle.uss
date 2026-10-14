@@ -11,7 +11,7 @@ Label {
 .view-ring { width: 920px; height: 920px; }
 .inner-ring { width: 862px; height: 862px; }
 .outer-ring { width: 920px; height: 920px; transform-origin: 50% 50%; }
-.level-indicator { color: white; }
+.level-indicator { color: white; transform-origin: 50% 100%; }
 .level-degree { font-size: 22px; color: #D4B854; }
 .status { width: 310px; height: 154px; transform-origin: 0 0; }
 .integrity-ring { width: 154px; height: 154px; }
