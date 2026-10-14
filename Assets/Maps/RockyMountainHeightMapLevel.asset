@@ -29,7 +29,36 @@ MonoBehaviour:
   heightMapBorderInsetMeters: 0
   previewResolution: 4096
   pixelsPerUnit: 14
-  dynamicContourMaterial: {fileID: 2100000, guid: a7e87a2cf38142d8b97aba562ad8c813, type: 2}
+  dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}
+  contourIntervalMeters: 8
+  minimumContourWidth: 0.7
+  maximumContourWidth: 3.68
+  maximumContourCoverage: 0.3
+  contourEdgeSoftness: 0.4
+  contourColor: {r: 0.92, g: 0.97, b: 1, a: 1}
+  surfaceRevealEdgePixels: 4
+  staticWaterEditorTileSizeMeters: 8
+  staticWaterLayerOneSpeedMetersPerSecond: {x: 0.36, y: 0.04}
+  staticWaterLayerTwoSpeedMetersPerSecond: {x: -0.14, y: 0.22}
+  staticWaterLayerTwoScale: 1.35
+  staticWaterWaveDistortion: 0.03
+  staticWaterWaveSpeed: 0.8
+  staticWaterWaveLengthMeters: 12
+  staticWaterDeepSpeedMultiplier: 0.65
+  staticWaterEditorTexture: {fileID: 2800000, guid: f14cf7b4b026aad46abb88d4d128977a, type: 3}
+  lowerElevationFilterColor: {r: 0.12, g: 0.54, b: 0.78, a: 1}
+  higherElevationFilterColor: {r: 1, g: 0.82, b: 0.38, a: 1}
+  elevationFilterMaximumOpacity: 0.44
+  elevationFilterRelativeRangeMeters: 15
+  elevationFilterNeutralBandMeters: 1.5
+  elevationFilterResponseExponent: 1.15
+  playerHeightReferenceColor: {r: 1, g: 0.96, b: 0.7, a: 1}
+  playerHeightReferenceLineWidth: 2.4
+  playerHeightReferenceOpacity: 0.95
+  elevationFilterHillshadeStrength: 0.16
+  minimumContourOpacity: 0.15
+  maximumContourOpacity: 1
+  outsideRevealDarkening: 0.3
   viewportEdgeSamples: 32
   viewportGridHeightSamples: 16
   staticWaterResolution: 1024

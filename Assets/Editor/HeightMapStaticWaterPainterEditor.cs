@@ -176,12 +176,29 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             "maximumStaticWaterDepthMeters");
         SerializedProperty passableDepth = serializedLevel.FindProperty(
             "maximumPassableStaticWaterDepthMeters");
+        SerializedProperty previewTexture = serializedLevel.FindProperty(
+            "staticWaterEditorTexture");
         SerializedProperty previewTint = serializedLevel.FindProperty(
             "staticWaterEditorTint");
+        SerializedProperty previewTileSize = serializedLevel.FindProperty(
+            "staticWaterEditorTileSizeMeters");
+        SerializedProperty layerOneSpeed = serializedLevel.FindProperty(
+            "staticWaterLayerOneSpeedMetersPerSecond");
+        SerializedProperty layerTwoSpeed = serializedLevel.FindProperty(
+            "staticWaterLayerTwoSpeedMetersPerSecond");
+        SerializedProperty layerTwoScale = serializedLevel.FindProperty(
+            "staticWaterLayerTwoScale");
+        SerializedProperty waveDistortion = serializedLevel.FindProperty(
+            "staticWaterWaveDistortion");
+        SerializedProperty waveSpeed = serializedLevel.FindProperty(
+            "staticWaterWaveSpeed");
+        SerializedProperty waveLength = serializedLevel.FindProperty(
+            "staticWaterWaveLengthMeters");
+        SerializedProperty deepSpeedMultiplier = serializedLevel.FindProperty(
+            "staticWaterDeepSpeedMultiplier");
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Water Map", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox("Edit water texture and animation settings on the level's Dynamic Contour Material.", MessageType.Info);
         EditorGUI.BeginChangeCheck();
         EditorGUILayout.PropertyField(resolution, new GUIContent("Resolution"));
         EditorGUILayout.PropertyField(
@@ -191,8 +208,35 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             passableDepth,
             new GUIContent("Maximum Passable Depth (m)"));
         EditorGUILayout.PropertyField(
+            previewTexture,
+            new GUIContent("Preview Texture"));
+        EditorGUILayout.PropertyField(
             previewTint,
             new GUIContent("Preview Tint"));
+        EditorGUILayout.PropertyField(
+            previewTileSize,
+            new GUIContent("Water Tile Size (m)"));
+        EditorGUILayout.PropertyField(
+            layerOneSpeed,
+            new GUIContent("Primary Speed (m/s)"));
+        EditorGUILayout.PropertyField(
+            layerTwoSpeed,
+            new GUIContent("Secondary Speed (m/s)"));
+        EditorGUILayout.PropertyField(
+            layerTwoScale,
+            new GUIContent("Secondary Scale"));
+        EditorGUILayout.PropertyField(
+            waveDistortion,
+            new GUIContent("Wave Distortion"));
+        EditorGUILayout.PropertyField(
+            waveSpeed,
+            new GUIContent("Wave Speed"));
+        EditorGUILayout.PropertyField(
+            waveLength,
+            new GUIContent("Wave Length (m)"));
+        EditorGUILayout.PropertyField(
+            deepSpeedMultiplier,
+            new GUIContent("Deep Speed Multiplier"));
         bool settingsChanged = EditorGUI.EndChangeCheck();
         serializedLevel.ApplyModifiedProperties();
 
