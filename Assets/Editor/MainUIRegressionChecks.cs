@@ -120,8 +120,8 @@ namespace AnimalGame.Editor
                     CompareStatusMotion(root, hud.InventoryProgress);
                     hud.CloseInventory(); Step(hud, 1); ValidateLayout(root);
                     CompareEdgeAnchors(root);
-                    Assert(root.Q("InventoryEntry").resolvedStyle.visibility == Visibility.Visible,
-                        "Reversed inventory animation restores the entry at " + size);
+                    Assert(root.Q("Inventory").resolvedStyle.visibility == Visibility.Visible,
+                        "Reversed inventory animation keeps the inventory strip visible at " + size);
                 }
                 root.style.width = 1920; root.style.height = 1080;
                 level.SetDegree(0);
@@ -241,18 +241,18 @@ namespace AnimalGame.Editor
                 hud.CloseInventory(); Step(hud, 1); ValidateLayout(root);
                 Invoke(projection, "LateUpdate");
                 Assert(Time.timeScale == .5f, "Closing restores previous time scale");
-                Assert(root.Q("Inventory").resolvedStyle.visibility == Visibility.Hidden, "Closed panel hidden after return");
+                Assert(root.Q("Inventory").resolvedStyle.visibility == Visibility.Visible, "Closed inventory strip remains visible");
                 Assert(!allSlots[0].enabledInHierarchy, "Closed inventory buttons cannot interact");
                 CompareGeometry(hud, root, "Restored closed pose");
                 CompareEdgeAnchors(root);
+                Vector2 inventoryCenterBeforePhoto = root.Q("Inventory").worldBound.center;
                 hud.SetPhotoPose(1.2f, new Vector2(1920, 1080), new Vector2(60, -30), .5f);
                 ValidateLayout(root); CompareGeometry(hud, root, "Photo zoom and translation");
-                var photoEntry = root.Q("InventoryEntry").worldBound;
-                Vector2 photoEntryCenter = new Vector2(18 + 55, 1080 - 5 - 43);
-                photoEntryCenter = new Vector2(960, 540) + (photoEntryCenter - new Vector2(960, 540)) * 1.2f
-                    + new Vector2(60, -30) + root.worldBound.position;
-                Assert(Vector2.Distance(photoEntry.center, photoEntryCenter) < 1,
-                    "Corner HUD follows the Stage photo transform exactly once");
+                Vector2 photoCenter = root.worldBound.position + new Vector2(960, 540);
+                Vector2 expectedInventoryCenter = photoCenter + (inventoryCenterBeforePhoto - photoCenter) * 1.2f
+                    + new Vector2(60, -30);
+                Assert(Vector2.Distance(root.Q("Inventory").worldBound.center, expectedInventoryCenter) < 1,
+                    "Inventory follows the Stage photo transform exactly once");
                 hud.TryGetRingScreenGeometry(out Vector2 savedCenter, out float savedRadius);
                 document.enabled = false;
                 Assert(hud.TryGetRingScreenGeometry(out Vector2 hiddenCenter, out float hiddenRadius)
@@ -320,12 +320,13 @@ namespace AnimalGame.Editor
         {
             Rect screen = root.worldBound;
             float fit = Mathf.Min(root.layout.width / 1920f, root.layout.height / 1080f);
-            Rect entry = root.Q("InventoryEntry").worldBound;
-            Assert(Mathf.Abs(entry.xMin - screen.xMin - 18 * fit) < 1
-                && Mathf.Abs(screen.yMax - entry.yMax - 5 * fit) < 1,
-                "Inventory entry anchors to the screen bottom-left at " + screen.size);
-            Assert(Mathf.Abs(entry.width - 110 * fit) < 1 && Mathf.Abs(entry.height - 86 * fit) < 1,
-                "Inventory entry retains uniform design scaling at " + screen.size);
+            Assert(root.Q("InventoryEntry") == null, "Separate inventory entry is removed");
+            var inventory = root.Q("Inventory");
+            if (!open)
+                Assert(Mathf.Abs(inventory.worldBound.xMax - screen.xMin
+                    - (root.Q("HudView").layout.x + inventory.layout.xMax) * fit) < 1
+                    && inventory.resolvedStyle.visibility == Visibility.Visible,
+                    "Closed inventory strip follows the authored left position at " + screen.size);
             var timeElement = root.Q("Time");
             Rect time = timeElement.worldBound;
             Assert(Mathf.Abs(screen.xMax - time.xMax - 38 * fit) < 1
@@ -375,9 +376,10 @@ namespace AnimalGame.Editor
                 "Frame keeps the scene visible inside its border");
             if (Mathf.Abs(root.layout.width - 1280) < 1 && Mathf.Abs(root.layout.height - 720) < 1)
             {
-                Assert(image.GetPixel(10, target.height - 360).maxColorComponent < .02f,
+                // Sample the right margin; the left interior now intentionally contains the black inventory strip.
+                Assert(image.GetPixel(1280 - 10, target.height - 360).maxColorComponent < .02f,
                     "Scaled margin masks pixels outside the 1280x720 frame");
-                Assert(image.GetPixel(16, target.height - 360).maxColorComponent > .02f,
+                Assert(image.GetPixel(1280 - 16, target.height - 360).maxColorComponent > .02f,
                     "Design margin 20 scales to 13.33 at 1280x720 rather than staying at 20 pixels");
             }
             var folder = Path.Combine(Path.GetTempPath(), "AnimalGameMainUIValidation");

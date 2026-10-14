@@ -36,6 +36,9 @@ namespace AnimalGame.Editor
                 var root = document.rootVisualElement;
                 root.style.width = 1920; root.style.height = 1080;
                 Settle(root, hud);
+                Assert(root.Q("InventoryEntry") == null, "Separate inventory entry is removed");
+                Assert(root.Q("Inventory").resolvedStyle.visibility == Visibility.Visible,
+                    "Inventory is visible immediately after initialization");
                 CheckInventory(root, hud);
                 CheckTime(root, hud);
                 CheckSound(root, hud);
@@ -111,7 +114,9 @@ namespace AnimalGame.Editor
                 hud.CloseInventory(); Invoke(hud, "AdvanceInventoryAnimation", 1f);
                 root.style.width = size.x; root.style.height = size.y; Settle(root, hud);
                 Rect closed = inventory.worldBound;
-                Assert(closed.xMax <= root.worldBound.xMin + .1f, "Closed inventory starts beyond screen left at " + size);
+                float fit = Mathf.Min(size.x / 1920, size.y / 1080);
+                Assert(Mathf.Abs(closed.xMax - root.worldBound.xMin - 80 * fit) < .1f
+                    && inventory.resolvedStyle.visibility == Visibility.Visible, "Closed inventory exposes its right strip at " + size);
                 Rect statusClosed = status.worldBound;
                 float ringClosedX = root.Q("ViewRing").worldBound.center.x;
                 hud.OpenInventory(); Invoke(hud, "AdvanceInventoryAnimation", .125f); Settle(root, hud);

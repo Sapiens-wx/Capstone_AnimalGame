@@ -24,9 +24,7 @@ Label {
 .sound { width: 230px; height: 230px; transform-origin: 100% 0; }
 .time-orbit { width: 100%; height: 100%; }
 .date { color: #D4B854; font-size: 22px; -unity-font-style: bold; -unity-text-align: middle-center; }
-.inventory-entry { width: 110px; height: 86px; transform-origin: 0 100%; }
-.inventory-entry-label { width: 45px; height: 52px; color: #D4B854; font-size: 40px; -unity-text-align: middle-center; }
-.inventory { width: 570px; height: 780px; visibility: hidden; }
+.inventory { width: 570px; height: 780px; }
 .inventory-title { position: absolute; left: 90%; top: 14%; width: 9%; font-size: 14px; color: #D4B854; -unity-text-align: middle-center; }
 .cargo-mark { position: absolute; left: 93.5%; top: 11%; width: 12px; height: 12px; background-color: #D4B854; }
 .inventory-grid { width: 480px; height: 680px; }

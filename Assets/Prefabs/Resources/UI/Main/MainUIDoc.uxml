@@ -6,7 +6,7 @@
                 <hud:ViewRingElement name="InnerRing" class="inner-ring" style="position: absolute; left: 29px; top: 29px;" />
                 <hud:ViewRingElement name="OuterRing" ticks="true" radius-inset="12" tick-length="28" class="outer-ring" style="position: absolute; left: 0; top: 0;" />
             </ui:VisualElement>
-            <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -570px; top: 150px;">
+            <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -490px; top: 150px;">
                 <inventory:InventoryOutlineElement class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
                 <ui:VisualElement class="cargo-mark" picking-mode="Ignore" />
                 <ui:Label text="CARGO" class="inventory-title" />
@@ -28,10 +28,6 @@
                 <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
             </ui:VisualElement>
             <hud:SoundElement name="Sound" chamfer="36" class="sound" style="position: absolute; right: 292px; top: 52px;" />
-            <ui:VisualElement name="InventoryEntry" picking-mode="Ignore" class="inventory-entry" style="position: absolute; bottom: 5px; left: 18px;">
-                <inventory:InventoryOutlineElement collapsed="true" class="fill" style="position: absolute; left: 0; bottom: 0; right: -6px; top: 2px;" />
-                <ui:Label text="I" class="inventory-entry-label" style="position: absolute; left: 23px; top: 12px;" />
-            </ui:VisualElement>
             <ui:VisualElement name="Coordinates" picking-mode="Ignore" class="coordinates" style="position: absolute; right: 55px; bottom: 40px; width: 258px;">
                 <ui:VisualElement name="VisualElement" class="coordinate-row" style="border-bottom-width: 0;">
                     <ui:Label name="LatitudeHemisphere" text="N" class="coordinate-prefix" />

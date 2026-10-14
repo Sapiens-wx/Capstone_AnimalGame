@@ -42,7 +42,7 @@ namespace AnimalGame.MainUI
         public float Integrity { get => integrity; set => integrity = Mathf.Clamp01(value); }
         public InventoryItem[] Items { get; } = new InventoryItem[SlotCount];
 
-        private VisualElement root, stage, view, ring, status, time, sound, inventory, grid, entry, compassHost, coordinates;
+        private VisualElement root, stage, view, ring, status, time, sound, inventory, grid, compassHost, coordinates;
         private ViewRingElement innerRing, outerRing;
         private CircularProgressElement powerRing, integrityRing;
         private CompassElement compass;
@@ -84,7 +84,6 @@ namespace AnimalGame.MainUI
             sound = root.Q("Sound");
             inventory = root.Q("Inventory");
             grid = root.Q("InventoryGrid");
-            entry = root.Q("InventoryEntry");
             selection = root.Q<InventorySelectionElement>("InventorySelection");
             frame = root.Q<HudFrameElement>("Frame");
             compass = root.Q<CompassElement>("Compass");
@@ -267,7 +266,6 @@ namespace AnimalGame.MainUI
             MoveTopHudOffscreen(status, false, motion);
             MoveTopHudOffscreen(time, true, motion);
             MoveTopHudOffscreen(sound, true, motion);
-            FitScreenElement(entry, false, true);
             FitScreenElement(coordinates, true, true);
             // Keep the authored closed position relative to the screen's left edge, including on ultrawide displays.
             // Only X changes: the UI Builder's top value controls the complete horizontal slide path.
@@ -275,11 +273,8 @@ namespace AnimalGame.MainUI
             float inventoryEndX = (size.x * .25f - viewportOffset.x) / fit
                 - view.layout.x - inventory.layout.center.x;
             inventory.style.translate = new Translate(Mathf.Lerp(inventoryStartX, inventoryEndX, motion), 0);
-            bool visible = inventoryOpen || progress > 0;
-            inventory.style.visibility = visible ? Visibility.Visible : Visibility.Hidden;
             grid.SetEnabled(inventoryOpen && progress >= .98f);
             foreach (Button slot in slots) if (slot != null) slot.pickingMode = inventoryOpen ? PickingMode.Position : PickingMode.Ignore;
-            entry.style.visibility = visible ? Visibility.Hidden : Visibility.Visible;
             coordinates.style.opacity = 1;
             frame.MarkDirtyRepaint();
             // Position and centering belong to UXML/USS; only size follows the screen fit.
