@@ -13,7 +13,13 @@ namespace AnimalGame.Animals
         MovingInWater,
         Fleeing,
         Submerging,
-        Surfacing
+        Surfacing,
+        Flying,
+        Pecking,
+        Takeoff,
+        Landing,
+        EnteringTree,
+        EmergingFromTree
     }
 
     [Serializable]
@@ -57,8 +63,10 @@ namespace AnimalGame.Animals
             int ringCount,
             float minimumRepeatIntervalSeconds,
             float maximumRepeatIntervalSeconds,
-            float opacity = 0.82f)
+            float opacity = 0.82f,
+            bool enabled = true)
         {
+            this.enabled = enabled;
             this.maximumRadiusMeters = maximumRadiusMeters;
             this.durationSeconds = durationSeconds;
             this.ringCount = ringCount;

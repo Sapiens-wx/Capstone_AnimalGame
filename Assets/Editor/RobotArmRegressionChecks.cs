@@ -166,6 +166,7 @@ namespace AnimalGame.Editor
             Check("Immediate docking, adjustable raw thresholds, hysteresis and recycle completion", CheckDocking);
             Check("Production dock settings, raw drift, fixed inlet and wide hysteresis", CheckControllerDocking);
             Check("Chest-zone A release starts recycling immediately without docking or alignment", CheckInstantRecycle);
+            Check("Medium garbage remains ready through the chest interior and recycles on close release", CheckMediumNearBodyRecycle);
             Check("Chest-zone recycling excludes outside positions, big garbage and falling", CheckInstantRecycleExclusions);
             Check("Medium edge grips dock after reachable adjustment without changing outer grip", CheckDockGripAdjustment);
             Check("Empty and heavy arm control remain outside automatic docking", CheckDockExclusions);
@@ -505,6 +506,8 @@ namespace AnimalGame.Editor
 
                 var source = moved.gameObject.AddComponent<BoxCollider2D>();
                 moved.BoxSource = source;
+                // Selecting a source is explicit: assigning BoxSource alone retains Sprite/Custom geometry.
+                moved.ColliderType = ColliderType.Collider2D;
                 moved.WorldPosition = Vector3.zero;
                 Query(Vector2.zero);
                 source.offset = Vector2.up * 10;
@@ -591,7 +594,8 @@ namespace AnimalGame.Editor
                 && Mathf.Approximately((float)Get(settings, "dockExitMagnitude"), .5f)
                 && Mathf.Approximately((float)Get(settings, "aimSmoothingTime"), .37f)
                 && Mathf.Approximately((float)Get(settings, "recycleZoneHalfWidthOfBodyDiameter"), .35f)
-                && Mathf.Approximately((float)Get(settings, "recycleZoneHalfDepthOfBodyDiameter"), .3f),
+                && Mathf.Approximately((float)Get(settings, "recycleZoneHalfDepthOfBodyDiameter"), .3f)
+                && Mathf.Approximately((float)Get(settings, "mediumRecycleInnerToleranceOfBodyDiameter"), .05f),
                 "Production prefab did not retain smoothing and apply .08/.4/.5 docking settings");
 
             foreach (bool medium in new[] { false, true })
@@ -713,6 +717,140 @@ namespace AnimalGame.Editor
                 f.Tick(RecycleFrames(f.Arms, medium), Vector2.right, false);
                 Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
                     && recycled == 1, "Immediate chest-zone recycling failed to finish exactly once");
+            }
+        }
+
+        private static void CheckMediumNearBodyRecycle()
+        {
+            // Follow the same held object from the old dock toward the body, rather than only
+            // probing detached geometry. Readiness must never disappear along either side lane.
+            foreach (float side in new[] { -.98f, 0f, .98f })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.SetPositionAndRotation(new Vector3(3f, -2f), Quaternion.Euler(0f, 0f, 37f));
+                WorldInteraction item = GrabProductionGarbage(f, true);
+                Vector2 inlet = ChestInlet(f.Arms, true);
+                float diameter = (float)Get(f.Arms, "diameter");
+                float halfWidth = diameter * (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter");
+                Vector3 scale = item.LocalScale;
+                foreach (float y in new[] { inlet.y, inlet.y * .75f, inlet.y * .5f,
+                    inlet.y * .25f, diameter * .04f, 0f, -diameter * .04f, -diameter * .05f })
+                {
+                    PlaceHeldAtLocal(f, item, new Vector2(inlet.x + side * halfWidth, y));
+                    Call(f.Arms, "UpdateReady");
+                    Require(f.Arms.IsRecycleReady && f.Arms.State == RobotArmState.OuterOperating
+                        && f.Arms.HeldObject == item && item.Owner == f.Arms && item.LocalScale == scale,
+                        "Medium garbage lost readiness while moving toward the body: side=" + side + ", y=" + y);
+                }
+            }
+
+            foreach (string location in new[] { "front edge", "dock", "inside", "center", "overlap",
+                "inner edge", "left inside", "right overlap" })
+            foreach (bool armHeld in new[] { false, true })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Root.transform.SetPositionAndRotation(new Vector3(3f, -2f), Quaternion.Euler(0f, 0f, 37f));
+                WorldInteraction item = GrabProductionGarbage(f, true);
+                Vector3 scale = new Vector3(1.2f, .8f, 1f);
+                item.LocalScale = scale;
+                int recycled = 0;
+                Set(item, "onRecycled", (Action)(() => recycled++));
+                Vector2 inlet = ChestInlet(f.Arms, true);
+                float diameter = (float)Get(f.Arms, "diameter");
+                float halfWidth = diameter * (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter");
+                float halfDepth = diameter * (float)Get(f.Arms, "recycleZoneHalfDepthOfBodyDiameter");
+                Vector2 position = inlet;
+                if (location == "front edge") position.y += halfDepth * .99f;
+                else if (location == "inside") position.y *= .5f;
+                else if (location == "center") position = Vector2.zero;
+                else if (location == "overlap") position.y = -diameter * .04f;
+                else if (location == "inner edge") position.y = -diameter * .05f;
+                else if (location == "left inside") position = new Vector2(inlet.x - halfWidth * .98f, 0f);
+                else if (location == "right overlap") position = new Vector2(inlet.x + halfWidth * .98f, -diameter * .04f);
+                PlaceHeldAtLocal(f, item, position);
+                Call(f.Arms, "UpdateReady");
+                Require(f.Arms.IsRecycleReady, "Close medium release was not advertised ready: " + location);
+
+                // At a rotated world pose, simultaneous A/L3 release and a large sideways
+                // input frame must sample the visible held position before changing the aim.
+                Call(f.Arms, "Step", .25f, Vector2.right, armHeld, false);
+                Require(f.Arms.State == RobotArmState.Recycling && item.Owner == f.Arms
+                    && f.Arms.HeldObject == item && item.gameObject.activeSelf && recycled == 0,
+                    "Medium release did not start immediately at " + location + ", L3=" + armHeld);
+                Require(Vector2.Distance((Vector2)(Vector3)Get(f.Arms, "recycleStart"), position) < .0001f
+                    && item.LocalScale == scale,
+                    "Near-body release moved or resized garbage before latching its animation: " + location);
+                Vector3 expectedEnd = (Vector3)Get(f.Arms, "mediumRecycleEnd");
+                for (int i = 0; i < 6; i++)
+                {
+                    Call(f.Arms, "Step", .02f, i % 2 == 0 ? Vector2.left : Vector2.right,
+                        i % 2 == 0, i % 3 == 0);
+                    Require(f.Arms.State == RobotArmState.Recycling && item.Owner == f.Arms
+                        && f.Arms.HeldObject == item && item.LocalScale == scale && recycled == 0,
+                        "Repeated A/L3 input interrupted near-body recycling: " + location);
+                }
+                Call(f.Arms, "Step", RecycleDuration(f.Arms, true), Vector2.right, false, true);
+                Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
+                    && item.LocalScale == scale && recycled == 1,
+                    "Near-body medium recycling did not complete exactly once with intact scale: " + location);
+                Require(Vector3.Distance(f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot
+                    .InverseTransformPoint(item.WorldPosition), expectedEnd) < .0001f,
+                    "Close medium garbage did not reach its full ingestion endpoint: " + location);
+                f.Tick(90, Vector2.zero, false, false);
+                Require(recycled == 1 && f.Arms.State == RobotArmState.Retracted,
+                    "Near-body recycling repeated completion or failed to retract: " + location);
+            }
+
+            // The new inner corridor belongs only to medium garbage. Small garbage retains
+            // its existing ellipse, including the narrowing inner corners and y > 0 limit.
+            foreach (bool medium in new[] { false, true })
+            foreach (string exclusion in new[] { "behind tolerance", "inner side", "small center", "small inner corner" })
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                if (medium && exclusion.StartsWith("small")) continue;
+                f.Root.transform.SetPositionAndRotation(new Vector3(3f, -2f), Quaternion.Euler(0f, 0f, 37f));
+                WorldInteraction item = GrabProductionGarbage(f, medium);
+                Vector2 inlet = ChestInlet(f.Arms, medium);
+                float diameter = (float)Get(f.Arms, "diameter");
+                float halfWidth = diameter * (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter");
+                float halfDepth = diameter * (float)Get(f.Arms, "recycleZoneHalfDepthOfBodyDiameter");
+                Vector2 position = new Vector2(inlet.x, -diameter * .06f);
+                if (exclusion == "inner side") position = new Vector2(inlet.x + halfWidth * 1.02f, 0f);
+                else if (exclusion == "small center") position = Vector2.zero;
+                else if (exclusion == "small inner corner") position = inlet + new Vector2(halfWidth * .9f, -halfDepth * .9f);
+                PlaceHeldAtLocal(f, item, position);
+                Call(f.Arms, "UpdateReady");
+                Require(!f.Arms.IsRecycleReady, "Inner recycling corridor accepted " + exclusion + ", medium=" + medium);
+                Vector3 beforePosition = item.WorldPosition;
+                Call(f.Arms, "Step", 0f, Vector2.right, false, false);
+                Require(f.Arms.State == RobotArmState.Retracting && f.Arms.HeldObject == null
+                    && item.Owner == null && item.gameObject.activeSelf
+                    && Vector3.Distance(beforePosition, item.WorldPosition) < .0001f,
+                    "Excluded close release recycled or moved garbage: " + exclusion + ", medium=" + medium);
+            }
+
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                WorldInteraction item = GrabProductionGarbage(f, true);
+                float diameter = (float)Get(f.Arms, "diameter");
+                Set(f.Arms, "mediumRecycleInnerToleranceOfBodyDiameter", .1f);
+                PlaceHeldAtLocal(f, item, new Vector2(0f, -diameter * .08f));
+                Call(f.Arms, "UpdateReady");
+                Require(f.Arms.IsRecycleReady, "Increasing medium inner tolerance did not widen the close acceptance area");
+                PlaceHeldAtLocal(f, item, new Vector2(0f, -diameter * .11f));
+                Call(f.Arms, "UpdateReady");
+                Require(!f.Arms.IsRecycleReady, "Adjustable medium inner tolerance removed the back boundary");
+                Set(f.Arms, "mediumRecycleInnerToleranceOfBodyDiameter", 0f);
+                PlaceHeldAtLocal(f, item, Vector2.zero);
+                Call(f.Arms, "UpdateReady");
+                Require(f.Arms.IsRecycleReady, "Zero inner tolerance rejected medium garbage at body center");
+                PlaceHeldAtLocal(f, item, new Vector2(0f, -diameter * .001f));
+                Call(f.Arms, "UpdateReady");
+                Require(!f.Arms.IsRecycleReady, "Zero medium inner tolerance still accepted garbage behind the body center");
+                Set(f.Arms, "mediumRecycleInnerToleranceOfBodyDiameter", -.1f);
+                PlaceHeldAtLocal(f, item, Vector2.zero);
+                Call(f.Arms, "UpdateReady");
+                Require(f.Arms.IsRecycleReady, "Negative serialized inner tolerance was not clamped to zero");
             }
         }
 
@@ -1190,9 +1328,16 @@ namespace AnimalGame.Editor
                 f.Tick(120, Vector2.up, true);
                 Require(f.Arms.State == RobotArmState.Extending && f.Arms.HeldObject == null && f.Arms.IsBlocked,
                     "Blocked deployment allowed grabbing or finished");
+                // Fixture arm geometry determines the full reach. Keep the pickup at that
+                // deployed hand target instead of assuming the origin's fixed 3-unit box covers it.
+                Vector2 deployedLeft = (Vector2)Get(f.Arms, "targetLocal")
+                    - Vector2.right * (float)Get(f.Arms, "handSpacing") * .5f;
+                item.WorldPosition = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot.TransformPoint(deployedLeft);
+                item.LocalSize = Vector2.one * .05f;
                 obstacle.enabled = false;
                 f.Tick(120, Vector2.up, true);
-                Require(f.Arms.HeldObject == item, "Removing obstacle did not resume deployment/grab");
+                Require(f.Arms.HeldObject == item, "Removing obstacle did not resume deployment/grab: deployment="
+                    + f.Arms.VisibleDeployment01 + ", left=" + f.Arms.LeftHandWorld + ", item=" + item.WorldPosition);
                 f.Tick(1, Vector2.up, false);
                 obstacle.enabled = true;
                 f.Tick(1, Vector2.up, true);

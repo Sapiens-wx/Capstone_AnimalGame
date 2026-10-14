@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using AnimalGame.Discovery;
+using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -15,6 +16,7 @@ namespace AnimalGame.RobotMap
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RobotMarkerView))]
     [RequireComponent(typeof(BioScanAnimalMarkerUI))]
+    [RequireComponent(typeof(BioScanStaticAreaUI))]
     [AddComponentMenu("Animal Game/Robot/Biological Scan Controller")]
     public sealed class BioScanController : MonoBehaviour
     {
@@ -97,9 +99,11 @@ namespace AnimalGame.RobotMap
             new Color(0.055f, 0.2f, 0.72f, 1f);
 
         private readonly HashSet<int> revealedEntityIds = new HashSet<int>();
+        private readonly List<ScannableInteractable> scanTargetSnapshot = new List<ScannableInteractable>();
 
         private RobotMarkerView markerView;
         private BioScanAnimalMarkerUI animalMarkers;
+        private BioScanStaticAreaUI staticAreaMarkers;
         private ScanChargeUI scanInput;
         private Transform scannerRoot;
         private Transform armRevealRoot;
@@ -129,6 +133,7 @@ namespace AnimalGame.RobotMap
         {
             markerView = GetComponent<RobotMarkerView>();
             animalMarkers = GetComponent<BioScanAnimalMarkerUI>();
+            EnsureStaticAreaMarkers();
             CreateSignalResources();
         }
 
@@ -147,6 +152,7 @@ namespace AnimalGame.RobotMap
             if (animalMarkers == null)
                 animalMarkers = GetComponent<BioScanAnimalMarkerUI>();
             animalMarkers.Initialize(input, worldCamera);
+            EnsureStaticAreaMarkers().Initialize(input, worldCamera);
             if (scanInput == input)
             {
                 SubscribeToInput();
@@ -156,6 +162,16 @@ namespace AnimalGame.RobotMap
             UnsubscribeFromInput();
             scanInput = input;
             SubscribeToInput();
+        }
+
+        private BioScanStaticAreaUI EnsureStaticAreaMarkers()
+        {
+            if (staticAreaMarkers == null)
+                staticAreaMarkers = GetComponent<BioScanStaticAreaUI>();
+            // Existing scene instances predate the new RequireComponent attribute.
+            if (staticAreaMarkers == null)
+                staticAreaMarkers = gameObject.AddComponent<BioScanStaticAreaUI>();
+            return staticAreaMarkers;
         }
 
         private void Update()
@@ -593,6 +609,24 @@ namespace AnimalGame.RobotMap
                 }
                 else
                     entity.RevealTemporarily(temporaryRevealDuration);
+            }
+
+            // A scan callback may disable, destroy or spawn props. Snapshot the
+            // registry before notifying targets so those changes cannot break iteration.
+            scanTargetSnapshot.Clear();
+            scanTargetSnapshot.AddRange(ScannableInteractable.Active);
+            foreach (ScannableInteractable target in scanTargetSnapshot)
+            {
+                if (target == null || !target.CanScan
+                    || target.ScanType != InteractableScanType.StaticArea
+                    || target.gameObject.scene != gameObject.scene)
+                    continue;
+                int targetId = target.GetInstanceID();
+                if (revealedEntityIds.Contains(targetId)
+                    || !target.IntersectsScanWave(scanWaveOrigin, innerRadius, outerRadius))
+                    continue;
+                revealedEntityIds.Add(targetId);
+                EnsureStaticAreaMarkers().ShowScannedInteractable(target);
             }
         }
 

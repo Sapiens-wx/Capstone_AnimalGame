@@ -140,7 +140,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private float maximumHeightMeters = 70f;
 
         [Header("Physical Height Field")]
-        [SerializeField, Range(128, 2048)] private int bakedHeightResolution = 2048;
+        [SerializeField, Range(128, 4096)] private int bakedHeightResolution = 2048;
         [SerializeField] private bool normalizeSourceRange = true;
         [SerializeField, Min(0f)] private float surfaceSmoothingSigmaMeters = 0.75f;
 
@@ -435,7 +435,34 @@ namespace AnimalGame.MapTest
         public float HeightMapBorderMaskThreshold =>
             heightMapBorderMaskThreshold;
         public float HeightMapBorderInsetMeters => heightMapBorderInsetMeters;
-        public HeightMapPrebakedData PrebakedHeightField => prebakedHeightField;
+        public HeightMapPrebakedData PrebakedHeightField
+        {
+            get
+            {
+#if UNITY_EDITOR
+                string localPath = LocalPrebakeCachePath;
+                if (localPath != null)
+                    return UnityEditor.AssetDatabase.LoadAssetAtPath<HeightMapPrebakedData>(localPath);
+#endif
+                return prebakedHeightField;
+            }
+        }
+#if UNITY_EDITOR
+        public bool UsesLocalPrebakeCache => LocalPrebakeCachePath != null;
+
+        private string LocalPrebakeCachePath
+        {
+            get
+            {
+                string path = UnityEditor.AssetDatabase.GetAssetPath(this);
+                // These test caches are regenerated locally and have no serialized GUID reference.
+                return path.StartsWith("Assets/Maps/TerrainGridV1/", StringComparison.Ordinal)
+                    && path.EndsWith(".asset", StringComparison.Ordinal)
+                    ? path.Substring(0, path.Length - ".asset".Length) + "_HeightPrebake.asset"
+                    : null;
+            }
+        }
+#endif
         public int PreviewResolution => previewResolution;
         public float ContourIntervalMeters => contourIntervalMeters;
         public float PixelsPerUnit => pixelsPerUnit;
@@ -651,6 +678,11 @@ namespace AnimalGame.MapTest
 #if UNITY_EDITOR
         public void SetPrebakedHeightField(HeightMapPrebakedData data)
         {
+            if (UsesLocalPrebakeCache)
+            {
+                prebakedHeightField = null;
+                return;
+            }
             prebakedHeightField = data;
         }
 
@@ -1323,7 +1355,7 @@ namespace AnimalGame.MapTest
             maximumHeightMeters = Mathf.Max(
                 minimumHeightMeters + 0.01f,
                 maximumHeightMeters);
-            bakedHeightResolution = Mathf.Clamp(bakedHeightResolution, 128, 2048);
+            bakedHeightResolution = Mathf.Clamp(bakedHeightResolution, 128, 4096);
             surfaceSmoothingSigmaMeters = Mathf.Max(0f, surfaceSmoothingSigmaMeters);
             detailSmoothingSigmaMeters = Mathf.Max(0f, detailSmoothingSigmaMeters);
             preserveLargeStepHeightMeters = Mathf.Max(

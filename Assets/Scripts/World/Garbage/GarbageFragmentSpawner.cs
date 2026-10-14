@@ -50,6 +50,7 @@ namespace AnimalGame.Garbage
         private float pullBurstDeceleration;
         private float pullSeparationDuration;
         private Vector3 pullInitialHand;
+        private float inheritedScanRemaining;
 
         private sealed class PullFragment
         {
@@ -224,6 +225,7 @@ namespace AnimalGame.Garbage
                     return false;
                 placed.Add(fragment.Position); placedRadii.Add(fragment.Radius);
             }
+            CaptureScanRemaining();
             PullFragment held = pullFragments[0];
             WorldInteraction carried = SpawnPullFragment(held);
             if (carried == null) return false;
@@ -318,6 +320,7 @@ namespace AnimalGame.Garbage
             motion.Initialize(map, player);
             if (!fragment.Held && fragment.Speed > 0f)
                 motion.Launch(fragment.Direction * fragment.Speed, pullBurstDeceleration);
+            InheritFragmentScan(clone);
             return interaction;
         }
 
@@ -503,12 +506,15 @@ namespace AnimalGame.Garbage
         private IEnumerator BreakRoutine(bool transferToHand)
         {
             ResolveContext();
+            CaptureScanRemaining();
             // Stop new grabs while the old held object is still allowed to be released.
             source.SetKind(WorldInteractionKind.None);
             float elapsed = 0f;
             while (elapsed < fadeDuration)
             {
                 elapsed += Time.deltaTime;
+                if (!AnimalGame.Animals.AnimalSimulation.IsPaused)
+                    inheritedScanRemaining = Mathf.Max(0f, inheritedScanRemaining - Time.deltaTime);
                 float opacity = 1f - Mathf.Clamp01(elapsed / Mathf.Max(.001f, fadeDuration));
                 for (int i = 0; i < renderers.Length; i++)
                 {
@@ -561,8 +567,11 @@ namespace AnimalGame.Garbage
             Vector3 position = new Vector3(midpoint.x, midpoint.y, transform.position.z);
             GameObject clone = Instantiate(prefab, position, prefab.transform.rotation);
             result = clone.GetComponent<WorldInteraction>();
+            if (result == null) { DestroyRuntimeObject(clone); return false; }
+            if (clone.scene != gameObject.scene) result.MoveToScene(gameObject.scene);
             if (!clone.TryGetComponent(out GarbageMotion motion)) motion = clone.AddComponent<GarbageMotion>();
             motion.Initialize(map, player);
+            InheritFragmentScan(clone);
             // Scattered fragments still avoid this fragment, but its own placement is unconditional.
             placed.Add(position); placedRadii.Add(FragmentRadius(prefab));
             return true;
@@ -586,14 +595,29 @@ namespace AnimalGame.Garbage
                 if (!SafePath(position, bearing, speed, radius)) continue;
                 GameObject clone = Instantiate(prefab, position, prefab.transform.rotation);
                 result = clone.GetComponent<WorldInteraction>();
-                if (result == null) { Destroy(clone); continue; }
+                if (result == null) { DestroyRuntimeObject(clone); continue; }
+                if (clone.scene != gameObject.scene) result.MoveToScene(gameObject.scene);
                 placed.Add(position); placedRadii.Add(radius);
                 if (!clone.TryGetComponent(out GarbageMotion motion)) motion = clone.AddComponent<GarbageMotion>();
                 motion.Initialize(map, player);
                 if (speed > 0f) motion.Launch(bearing.normalized * speed, launchDeceleration);
+                InheritFragmentScan(clone);
                 return true;
             }
             return false;
+        }
+
+        private void CaptureScanRemaining()
+        {
+            inheritedScanRemaining = TryGetComponent(out ScannableInteractable scanned) ? scanned.RevealRemaining : 0f;
+        }
+
+        private void InheritFragmentScan(GameObject fragment)
+        {
+            if (inheritedScanRemaining <= 0f) return;
+            if (!fragment.TryGetComponent(out ScannableInteractable scanned))
+                scanned = fragment.AddComponent<ScannableInteractable>();
+            scanned.InheritScanRemaining(inheritedScanRemaining);
         }
 
         private static float FragmentRadius(GameObject prefab)

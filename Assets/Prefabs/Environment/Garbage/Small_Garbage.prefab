@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 2687310893502706157}
   - component: {fileID: 6100000000000000001}
   - component: {fileID: 6100000000000000002}
+  - component: {fileID: 6100000000000000003}
   m_Layer: 0
   m_Name: Small_Garbage
   m_TagString: Untagged
@@ -167,3 +168,36 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stopSpeed: 0.04
   maximumSweepStep: 0.3
+--- !u!114 &6100000000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8098866755847926482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e93807a4a0e14ebfa1d15ac17c9f70d8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  scanType: 0
+  spriteSource: {fileID: 8875290478793147246}
+  customNormalizedOutline:
+  - {x: -0.488189, y: -0.233607}
+  - {x: -0.472441, y: -0.241803}
+  - {x: 0.031496, y: -0.405738}
+  - {x: 0.362205, y: -0.487705}
+  - {x: 0.385827, y: -0.487705}
+  - {x: 0.488189, y: 0.413934}
+  - {x: 0.488189, y: 0.471311}
+  - {x: -0.259843, y: 0.487705}
+  - {x: -0.330709, y: 0.487705}
+  - {x: -0.338583, y: 0.479508}
+  - {x: -0.488189, y: -0.225410}
+  displayDuration: 7
+  fadeOutDuration: 0.6
+  areaColor: {r: 0.83137255, g: 0.72156864, b: 0.32941177, a: 1}
+  lineWidthPixels: 1.4
+  lineSpacingPixels: 15.4
+  intersectionGapPixels: 5.6
+  lineAngleDegrees: -37
