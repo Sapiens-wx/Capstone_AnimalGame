@@ -6,7 +6,7 @@
                 <hud:ViewRingElement name="InnerRing" class="inner-ring" style="position: absolute; left: 29px; top: 29px;" />
                 <hud:ViewRingElement name="OuterRing" ticks="true" radius-inset="12" tick-length="28" class="outer-ring" style="position: absolute; left: 0; top: 0;" />
             </ui:VisualElement>
-            <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -480px; top: 1015px;">
+            <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -570px; top: 150px;">
                 <inventory:InventoryOutlineElement class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
                 <ui:VisualElement class="cargo-mark" picking-mode="Ignore" />
                 <ui:Label text="CARGO" class="inventory-title" />

@@ -326,10 +326,11 @@ namespace AnimalGame.Editor
                 "Inventory entry anchors to the screen bottom-left at " + screen.size);
             Assert(Mathf.Abs(entry.width - 110 * fit) < 1 && Mathf.Abs(entry.height - 86 * fit) < 1,
                 "Inventory entry retains uniform design scaling at " + screen.size);
-            Rect time = root.Q("Time").worldBound;
+            var timeElement = root.Q("Time");
+            Rect time = timeElement.worldBound;
             Assert(Mathf.Abs(screen.xMax - time.xMax - 38 * fit) < 1
-                && Mathf.Abs(time.yMin - screen.yMin - 52 * fit) < 1,
-                "Time anchors to the screen top-right at " + screen.size);
+                && Mathf.Abs(time.yMin - screen.yMin - (open ? -timeElement.layout.height - 4 : timeElement.layout.y) * fit) < 1,
+                "Time anchors to the top-right and exits upward at " + screen.size);
             Rect coordinates = root.Q("Coordinates").worldBound;
             Assert(Mathf.Abs(screen.xMax - coordinates.xMax - 55 * fit) < 1
                 && Mathf.Abs(screen.yMax - coordinates.yMax - 40 * fit) < 1,
@@ -338,30 +339,23 @@ namespace AnimalGame.Editor
             Assert(Mathf.Abs(compass.center.x - screen.center.x) < 1
                 && Mathf.Abs(compass.yMin - screen.yMin - root.Q("CompassHost").layout.y) < 1,
                 "Compass anchors to the screen top-center at " + screen.size);
-            Assert(Mathf.Abs(compass.width - 392 * fit) < 1,
+            Assert(Mathf.Abs(compass.width - root.Q("CompassHost").layout.width * fit) < 1,
                 "Compass retains uniform design scaling at " + screen.size);
-            Rect status = root.Q("Status").worldBound;
-            float displacementX = 0;
-            if (open)
-            {
-                float viewportX = (root.layout.width - 1920 * fit) * .5f;
-                displacementX = root.layout.width * (2f / 3) - viewportX - 960 * fit + 400 * fit;
-            }
-            Assert(Mathf.Abs(status.xMin - screen.xMin - 42 * fit - displacementX) < 1
-                && Mathf.Abs(status.yMin - screen.yMin - (44 + (open ? 51 : 0)) * fit) < 1,
+            var statusElement = root.Q("Status");
+            Rect status = statusElement.worldBound;
+            Assert(Mathf.Abs(status.xMin - screen.xMin - statusElement.layout.x * fit) < 1
+                && Mathf.Abs(status.yMin - screen.yMin - (open ? -statusElement.layout.height - 4 : statusElement.layout.y) * fit) < 1,
                 "Status uses the screen anchor and panel-space animation at " + screen.size);
         }
         private static void CompareStatusMotion(VisualElement root, float progress)
         {
             float fit = Mathf.Min(root.layout.width / 1920f, root.layout.height / 1080f);
-            float horizontal = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress * 2 - 1));
-            float vertical = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress * 2));
-            float viewportX = (root.layout.width - 1920 * fit) * .5f;
-            Vector2 expected = root.worldBound.position + new Vector2(
-                42 * fit + (root.layout.width * (2f / 3) - viewportX - 960 * fit + 400 * fit) * horizontal,
-                (44 + 51 * vertical) * fit);
-            Assert(Vector2.Distance(root.Q("Status").worldBound.position, expected) < 1,
-                "Status follows the two-phase animation at progress " + progress + " and size " + root.layout.size);
+            float motion = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress));
+            var status = root.Q("Status");
+            Vector2 expected = root.worldBound.position + new Vector2(status.layout.x,
+                Mathf.Lerp(status.layout.y, -status.layout.height - 4, motion)) * fit;
+            Assert(Vector2.Distance(status.worldBound.position, expected) < 1,
+                "Status follows the reversible upward animation at progress " + progress + " and size " + root.layout.size);
         }
         private static void RenderAndCapture(VisualElement root, RenderTexture target, string filename)
         {

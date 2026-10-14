@@ -29,8 +29,6 @@ namespace AnimalGame.MainUI
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
         [SerializeField] private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
-        [Tooltip("Additional status movement when inventory opens, relative to its authored position and the ring movement.")]
-        [SerializeField] private Vector2 statusInventoryDisplacement = new Vector2(400, 51);
         [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .4f;
 
         private const float DesignWidth = 1920, DesignHeight = 1080;
@@ -259,24 +257,24 @@ namespace AnimalGame.MainUI
             view.style.translate = new Translate(viewOffset.x, viewOffset.y);
             view.style.scale = new Scale(new Vector3(fit, fit, 1));
 
-            float vertical = Ease(progress * 2), horizontal = Ease(progress * 2 - 1);
+            float motion = Ease(progress), horizontal = Ease(progress * 2 - 1);
             float openCircleX = (size.x * (2f / 3) - viewportOffset.x) / fit;
             if (!Positive(ring.layout.width) || !Positive(inventory.layout.width)) return;
             float authoredRingX = view.layout.x + ring.layout.x + innerRing.layout.x + innerRing.contentRect.center.x;
             ringDisplacement = new Vector2((openCircleX - authoredRingX) * horizontal, 0);
             ring.style.translate = new Translate(ringDisplacement.x, ringDisplacement.y);
             // Scale each element around its own screen corner, including its authored edge offsets.
-            Vector2 statusOffset = FitScreenElement(status, false, false);
-            FitScreenElement(time, true, false);
-            if (sound != null) FitScreenElement(sound, true, false);
+            MoveTopHudOffscreen(status, false, motion);
+            MoveTopHudOffscreen(time, true, motion);
+            MoveTopHudOffscreen(sound, true, motion);
             FitScreenElement(entry, false, true);
             FitScreenElement(coordinates, true, true);
-            status.style.translate = new Translate(statusOffset.x
-                + (ringDisplacement.x + statusInventoryDisplacement.x * horizontal) * fit,
-                statusOffset.y + statusInventoryDisplacement.y * vertical * fit);
-            Vector2 targetCenter = new Vector2((size.x * .25f - viewportOffset.x) / fit, DesignHeight * .5f);
-            Vector2 inventoryDelta = targetCenter - view.layout.position - inventory.layout.center;
-            inventory.style.translate = new Translate(inventoryDelta.x * horizontal, inventoryDelta.y * vertical);
+            // Keep the authored closed position relative to the screen's left edge, including on ultrawide displays.
+            // Only X changes: the UI Builder's top value controls the complete horizontal slide path.
+            float inventoryStartX = -viewportOffset.x / fit;
+            float inventoryEndX = (size.x * .25f - viewportOffset.x) / fit
+                - view.layout.x - inventory.layout.center.x;
+            inventory.style.translate = new Translate(Mathf.Lerp(inventoryStartX, inventoryEndX, motion), 0);
             bool visible = inventoryOpen || progress > 0;
             inventory.style.visibility = visible ? Visibility.Visible : Visibility.Hidden;
             grid.SetEnabled(inventoryOpen && progress >= .98f);
@@ -295,6 +293,14 @@ namespace AnimalGame.MainUI
                 levelIndicator.style.scale = new Scale(compassScale);
             SelectItem(selectedIndex);
             ApplyPhotoTransform();
+        }
+
+        private void MoveTopHudOffscreen(VisualElement element, bool right, float motion)
+        {
+            if (element == null) return;
+            Vector2 offset = FitScreenElement(element, right, false);
+            float distance = (Mathf.Max(0, element.layout.y + element.layout.height) + 4) * fit;
+            element.style.translate = new Translate(offset.x, offset.y - distance * motion);
         }
 
         private Vector2 FitScreenElement(VisualElement element, bool right, bool bottom)

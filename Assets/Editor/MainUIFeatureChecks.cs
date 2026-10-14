@@ -39,6 +39,7 @@ namespace AnimalGame.Editor
                 CheckInventory(root, hud);
                 CheckTime(root, hud);
                 CheckSound(root, hud);
+                CheckAnimation(root, hud, texture);
                 Capture(root, texture, "mainui-features.png");
                 CheckRingOcclusion(root, texture);
                 Debug.Log("MAIN UI FEATURE CHECKS PASSED");
@@ -99,6 +100,50 @@ namespace AnimalGame.Editor
                 Assert(Mathf.Abs(time.worldBound.xMin - sound.worldBound.xMax - 24 * fit) < .1f
                     && Mathf.Abs(sound.worldBound.yMin - time.worldBound.yMin) < .1f, "Sound stays left of Time at " + size);
             }
+        }
+
+        private static void CheckAnimation(VisualElement root, Hud hud, RenderTexture texture)
+        {
+            var inventory = root.Q("Inventory");
+            var status = root.Q("Status");
+            foreach (Vector2 size in new[] { new Vector2(1280, 720), new Vector2(1440, 1080), new Vector2(2560, 1080), new Vector2(1920, 1080) })
+            {
+                hud.CloseInventory(); Invoke(hud, "AdvanceInventoryAnimation", 1f);
+                root.style.width = size.x; root.style.height = size.y; Settle(root, hud);
+                Rect closed = inventory.worldBound;
+                Assert(closed.xMax <= root.worldBound.xMin + .1f, "Closed inventory starts beyond screen left at " + size);
+                Rect statusClosed = status.worldBound;
+                float ringClosedX = root.Q("ViewRing").worldBound.center.x;
+                hud.OpenInventory(); Invoke(hud, "AdvanceInventoryAnimation", .125f); Settle(root, hud);
+                Rect quarter = inventory.worldBound;
+                Assert(quarter.xMin > closed.xMin && Mathf.Abs(quarter.yMin - closed.yMin) < .1f, "Inventory moves right without moving vertically");
+                Assert(status.worldBound.yMax < statusClosed.yMax && Mathf.Abs(status.worldBound.xMin - statusClosed.xMin) < .1f, "Status moves straight up");
+                Assert(Mathf.Abs(root.Q("ViewRing").worldBound.center.x - ringClosedX) < .1f, "Ring retains its delayed horizontal motion");
+                Invoke(hud, "AdvanceInventoryAnimation", .125f); Settle(root, hud);
+                hud.CloseInventory(); Invoke(hud, "AdvanceInventoryAnimation", .125f); Settle(root, hud);
+                Assert(Vector2.Distance(inventory.worldBound.position, quarter.position) < .1f, "Reversing retraces the same inventory path");
+                hud.OpenInventory(); Invoke(hud, "AdvanceInventoryAnimation", 1f); Settle(root, hud);
+                Assert(Mathf.Abs(inventory.worldBound.center.x - root.worldBound.xMin - size.x * .25f) < .1f, "Open inventory reaches the screen quarter");
+                Assert(Mathf.Abs(inventory.worldBound.yMin - closed.yMin) < .1f, "Open inventory retains authored vertical position");
+                foreach (string name in new[] { "Status", "Time", "Sound" })
+                    Assert(root.Q(name).worldBound.yMax < root.worldBound.yMin, name + " exits above the screen");
+                hud.CloseInventory(); Invoke(hud, "AdvanceInventoryAnimation", 1f); Settle(root, hud);
+                Assert(Vector2.Distance(inventory.worldBound.position, closed.position) < .1f
+                    && Vector2.Distance(status.worldBound.position, statusClosed.position) < .1f, "Closing restores the original pose");
+            }
+            // An artist can change the initial pose in UI Builder without runtime overwriting it.
+            float left = inventory.layout.x, top = inventory.layout.y;
+            inventory.style.left = left - 70; inventory.style.top = top + 23; Settle(root, hud);
+            Rect edited = inventory.worldBound;
+            hud.OpenInventory(); Invoke(hud, "AdvanceInventoryAnimation", 1f); Settle(root, hud);
+            Assert(Mathf.Abs(inventory.worldBound.yMin - edited.yMin) < .1f, "Edited top controls the slide path");
+            hud.CloseInventory(); Invoke(hud, "AdvanceInventoryAnimation", 1f); Settle(root, hud);
+            Assert(Vector2.Distance(inventory.worldBound.position, edited.position) < .1f, "Edited left remains the closed endpoint");
+            inventory.style.left = left; inventory.style.top = top; Settle(root, hud);
+            Capture(root, texture, "mainui-features-closed.png");
+            hud.OpenInventory(); Invoke(hud, "AdvanceInventoryAnimation", .25f); Settle(root, hud);
+            Capture(root, texture, "mainui-features-half.png");
+            Invoke(hud, "AdvanceInventoryAnimation", 1f); Settle(root, hud);
         }
 
         internal static void Settle(VisualElement root, Hud hud)
