@@ -13,8 +13,10 @@ namespace Capstone.Audio
             internal EventInstance Instance;
             internal EventDescription Description;
             internal readonly ParameterState[] Parameters = new ParameterState[(int)ActionAudioParameter.Count];
-            internal bool Active, Failed, Fading;
-            internal float Gain, FadeElapsed, PollElapsed;
+            internal bool Active, Failed, Fading, Recovering, Paused, KeyedOff;
+            internal float Gain, FadeElapsed, PollElapsed, DesiredPitch = 1f, AppliedPitch = 1f;
+            internal float Envelope = 1f, FadeStartEnvelope, FadeDuration;
+            internal float RecoveryElapsed, RecoveryStartEnvelope, RecoveryDuration;
         }
 
         private struct ParameterState
@@ -38,7 +40,23 @@ namespace Capstone.Audio
 
         // A fixed slot per cue bounds concurrency; repeatedly requesting a loop
         // does not create new instances or allocate. Empty references stay silent.
-        internal bool Play(Milestone2ActionCue cue)
+        internal bool Play(Milestone2ActionCue cue) => Start(cue, 0, 1f);
+
+        internal bool PlayFrom(Milestone2ActionCue cue, int timelineMs) => Start(cue, timelineMs, 1f);
+
+        internal bool PlayWithGain(Milestone2ActionCue cue, float gain) => Start(cue, 0, Mathf.Clamp01(gain));
+
+        internal bool IsActive(Milestone2ActionCue cue) => slots[(int)cue].Active && !slots[(int)cue].Fading;
+        internal bool IsAlive(Milestone2ActionCue cue) => slots[(int)cue].Active;
+
+        internal bool TryGetTimelinePosition(Milestone2ActionCue cue, out int milliseconds)
+        {
+            Slot slot = slots[(int)cue];
+            milliseconds = 0;
+            return slot.Active && slot.Instance.getTimelinePosition(out milliseconds) == RESULT.OK;
+        }
+
+        private bool Start(Milestone2ActionCue cue, int timelineMs, float gain, float fadeInSeconds = 0f)
         {
             Slot slot = slots[(int)cue];
             AudioCueSettings config = settings.GetCue(cue);
@@ -47,12 +65,22 @@ namespace Capstone.Audio
             try
             {
                 slot.Instance = RuntimeManager.CreateInstance(config.EventReference);
-                slot.Gain = config.LinearGain;
-                RESULT result = slot.Instance.setVolume(slot.Gain);
+                slot.Gain = config.LinearGain * gain;
+                slot.Envelope = fadeInSeconds > 0f ? 0f : 1f;
+                RESULT result = slot.Instance.setVolume(slot.Gain * slot.Envelope);
                 if (result == RESULT.OK) result = slot.Instance.getDescription(out slot.Description);
                 if (result != RESULT.OK) throw new InvalidOperationException(result.ToString());
                 slot.Active = true;
                 slot.Fading = false;
+                slot.Recovering = fadeInSeconds > 0f;
+                slot.RecoveryElapsed = 0f;
+                slot.RecoveryStartEnvelope = slot.Envelope;
+                slot.RecoveryDuration = fadeInSeconds;
+                slot.Paused = slot.KeyedOff = false;
+                slot.AppliedPitch = slot.DesiredPitch;
+                result = slot.Instance.setPitch(slot.AppliedPitch);
+                if (result == RESULT.OK && timelineMs > 0) result = slot.Instance.setTimelinePosition(timelineMs);
+                if (result != RESULT.OK) throw new InvalidOperationException(result.ToString());
                 slot.PollElapsed = 0f;
                 for (int index = 0; index < slot.Parameters.Length; index++)
                 {
@@ -81,14 +109,68 @@ namespace Capstone.Audio
             return Play(cue);
         }
 
-        internal void SetLoop(Milestone2ActionCue cue, bool active)
+        internal void SetLoop(Milestone2ActionCue cue, bool active) => SetLoopFrom(cue, active, 0);
+
+        internal void SetLoopFrom(Milestone2ActionCue cue, bool active, int timelineMs, float fadeInSeconds = -1f)
         {
             Slot slot = slots[(int)cue];
             if (active)
             {
-                if (!slot.Active || slot.Fading) Play(cue);
+                if (!slot.Active || slot.KeyedOff)
+                    Start(cue, timelineMs, 1f, fadeInSeconds >= 0f ? fadeInSeconds
+                        : IsMovementLoop(cue) ? settings.MovementFadeInSeconds : 0f);
+                else if (slot.Fading)
+                {
+                    // A brief motion dropout resumes the same sample/phase,
+                    // restoring its current gain smoothly instead of restarting.
+                    slot.Fading = false;
+                    slot.Recovering = true;
+                    slot.RecoveryStartEnvelope = slot.Envelope;
+                    slot.RecoveryElapsed = 0f;
+                    slot.RecoveryDuration = settings.MovementFadeInSeconds;
+                    SetPitch(cue, slot.DesiredPitch);
+                    for (int index = 0; index < slot.Parameters.Length; index++)
+                        if (slot.Parameters[index].HasDesiredValue) ApplyParameter(slot, (ActionAudioParameter)index);
+                }
             }
             else Stop(cue);
+        }
+
+        internal void SetPitch(Milestone2ActionCue cue, float pitch)
+        {
+            Slot slot = slots[(int)cue];
+            slot.DesiredPitch = Mathf.Clamp(pitch, 0.01f, 4f);
+            if (!slot.Active || slot.Fading || Mathf.Abs(slot.DesiredPitch - slot.AppliedPitch) < 0.001f) return;
+            if (slot.Instance.setPitch(slot.DesiredPitch) == RESULT.OK) slot.AppliedPitch = slot.DesiredPitch;
+        }
+
+        internal void SetPaused(Milestone2ActionCue cue, bool paused)
+        {
+            Slot slot = slots[(int)cue];
+            if (!slot.Active || slot.Fading || slot.Paused == paused) return;
+            if (slot.Instance.setPaused(paused) == RESULT.OK) slot.Paused = paused;
+        }
+
+        internal void KeyOff(Milestone2ActionCue cue)
+        {
+            Slot slot = slots[(int)cue];
+            if (!slot.Active || slot.Fading || slot.KeyedOff) return;
+            SetPaused(cue, false);
+            // Disable the conditional loop, then enter the exact supplied tail
+            // immediately, so locking/recovery does not wait for another cycle.
+            int tail = cue == Milestone2ActionCue.Slide ? 2480 : 800;
+            string hold = cue == Milestone2ActionCue.Slide ? "SlideHold"
+                : cue == Milestone2ActionCue.ArmDeploy ? "DeployHold" : "RetractHold";
+            RESULT result = slot.Instance.setParameterByName(hold, 0f);
+            if (result == RESULT.OK) result = slot.Instance.setTimelinePosition(tail);
+            if (result == RESULT.OK) slot.KeyedOff = true;
+            else
+            {
+                Release(slot);
+                slot.Failed = true;
+                UnityEngine.Debug.LogWarning("[Milestone 2 Audio] Cannot release "
+                    + Milestone2ActionCatalog.EventPath((int)cue) + ": " + result);
+            }
         }
 
         internal void SetParameter(Milestone2ActionCue cue, ActionAudioParameter parameter, float value)
@@ -135,13 +217,28 @@ namespace Capstone.Audio
         {
             Slot slot = slots[(int)cue];
             if (!slot.Active) return;
-            if (immediately || settings.FadeOutSeconds <= 0f) Release(slot);
+            if (immediately) Release(slot);
+            else FadeStop(cue, cue == Milestone2ActionCue.Drive || cue == Milestone2ActionCue.DriveAcceleration
+                ? settings.EngineFadeOutSeconds : IsMovementLoop(cue) ? settings.GroundFadeOutSeconds : settings.FadeOutSeconds);
+        }
+
+        internal void FadeStop(Milestone2ActionCue cue, float duration)
+        {
+            Slot slot = slots[(int)cue];
+            if (!slot.Active) return;
+            if (duration <= 0f) Release(slot);
             else if (!slot.Fading)
             {
                 slot.Fading = true;
+                slot.Recovering = false;
                 slot.FadeElapsed = 0f;
+                slot.FadeDuration = duration;
+                slot.FadeStartEnvelope = slot.Envelope;
             }
         }
+
+        private static bool IsMovementLoop(Milestone2ActionCue cue) => cue == Milestone2ActionCue.Drive
+            || cue == Milestone2ActionCue.GroundMove || cue == Milestone2ActionCue.GroundTurn;
 
         internal void Tick(float deltaTime)
         {
@@ -152,8 +249,17 @@ namespace Capstone.Audio
                 if (slot.Fading)
                 {
                     slot.FadeElapsed += deltaTime;
-                    if (slot.FadeElapsed >= settings.FadeOutSeconds) { Release(slot); continue; }
-                    slot.Instance.setVolume(slot.Gain * (1f - slot.FadeElapsed / settings.FadeOutSeconds));
+                    if (slot.FadeElapsed >= slot.FadeDuration) { Release(slot); continue; }
+                    slot.Envelope = slot.FadeStartEnvelope * (1f - slot.FadeElapsed / slot.FadeDuration);
+                    slot.Instance.setVolume(slot.Gain * slot.Envelope);
+                }
+                else if (slot.Recovering)
+                {
+                    slot.RecoveryElapsed += deltaTime;
+                    float progress = Mathf.Clamp01(slot.RecoveryElapsed / slot.RecoveryDuration);
+                    slot.Envelope = Mathf.Lerp(slot.RecoveryStartEnvelope, 1f, progress);
+                    slot.Instance.setVolume(slot.Gain * slot.Envelope);
+                    if (progress >= 1f) slot.Recovering = false;
                 }
                 // One-shots complete asynchronously. Poll only live handles at
                 // 10 Hz rather than querying every slot on every frame.
@@ -182,6 +288,8 @@ namespace Capstone.Audio
             slot.Instance.clearHandle();
             slot.Active = false;
             slot.Fading = false;
+            slot.Recovering = false;
+            slot.Paused = slot.KeyedOff = false;
         }
     }
 }

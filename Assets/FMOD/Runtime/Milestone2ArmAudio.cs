@@ -9,6 +9,8 @@ namespace Capstone.Audio
     internal sealed class Milestone2ArmAudio
     {
         private const float DeploymentEpsilon = 0.000001f;
+        private const int MechanismLoopStartMilliseconds = 350;
+        private const int MechanismReleaseMilliseconds = 800;
         private readonly Milestone2ActionSettings settings;
         private readonly Milestone2ActionVoices voices;
         private RobotArmController source;
@@ -22,6 +24,8 @@ namespace Capstone.Audio
         private float blockedCooldownRemaining;
         private bool previousBlocked;
         private bool hasBaseline;
+        private bool deploymentSession;
+        private bool retractionSession;
 
         internal RobotArmController Source => source;
 
@@ -72,8 +76,9 @@ namespace Capstone.Audio
             bool canObserveMotion = elapsed > DeploymentEpsilon;
             bool upright = mover == null || mover.MovementMode == RobotMovementMode.Driven;
 
-            bool deploying = canObserveMotion && source.State == RobotArmState.Extending
-                && deploymentDelta > DeploymentEpsilon;
+            bool deploying = canObserveMotion && deploymentDelta > DeploymentEpsilon
+                && (source.State == RobotArmState.Extending
+                    || source.State == RobotArmState.OuterOperating || source.State == RobotArmState.Docking);
             // The controller changes State on the same frame it reaches either endpoint.
             bool finishingDeployment = canObserveMotion && deploymentDelta > DeploymentEpsilon
                 && previousDeployment < 1f - DeploymentEpsilon
@@ -87,12 +92,16 @@ namespace Capstone.Audio
                 ? Mathf.Clamp01(Mathf.Abs(deploymentDelta) / elapsed) : 0f;
             UpdateMechanismParameters(Milestone2ActionCue.ArmDeploy, deployment, deploymentEffort, 1f);
             UpdateMechanismParameters(Milestone2ActionCue.ArmRetract, deployment, deploymentEffort, -1f);
-            voices.SetLoop(Milestone2ActionCue.ArmDeploy, deploying && !finishingDeployment);
-            voices.SetLoop(Milestone2ActionCue.ArmRetract, retracting && !finishingRetraction);
-            if (finishingDeployment)
-                voices.Play(Milestone2ActionCue.ArmDeployLock);
-            if (finishingRetraction)
-                voices.Play(Milestone2ActionCue.ArmRetractLock);
+            if (deploying || finishingDeployment)
+                CancelMechanism(Milestone2ActionCue.ArmRetract, ref retractionSession);
+            if (retracting || finishingRetraction)
+                CancelMechanism(Milestone2ActionCue.ArmDeploy, ref deploymentSession);
+            UpdateMechanism(Milestone2ActionCue.ArmDeploy, deploying, finishingDeployment,
+                source.State == RobotArmState.Extending,
+                previousDeployment <= DeploymentEpsilon, ref deploymentSession);
+            UpdateMechanism(Milestone2ActionCue.ArmRetract, retracting, finishingRetraction,
+                source.State == RobotArmState.Retracting,
+                previousDeployment >= 1f - DeploymentEpsilon, ref retractionSession);
 
             bool manualArmState = source.State == RobotArmState.OuterOperating
                 || source.State == RobotArmState.Docking;
@@ -153,6 +162,7 @@ namespace Capstone.Audio
                  cue <= (int)Milestone2ActionCue.ArmRetractLock; cue++)
                 voices.Stop((Milestone2ActionCue)cue, true);
             hasBaseline = false;
+            deploymentSession = retractionSession = false;
             previousHeldObject = null;
             blockedCooldownRemaining = 0f;
         }
@@ -177,6 +187,41 @@ namespace Capstone.Audio
 
         private Transform ResolveHandFrame() => marker != null && marker.MarkerVisualRoot != null
             ? marker.MarkerVisualRoot : source.transform;
+
+        private void UpdateMechanism(Milestone2ActionCue cue, bool moving, bool completed,
+            bool waitingForMotion, bool startsAtEndpoint, ref bool session)
+        {
+            if (completed)
+            {
+                // The same sustain event owns the lock tail. A missed/very short
+                // movement starts at the sustain boundary, never replays its intro.
+                if (!voices.IsActive(cue))
+                    voices.PlayFrom(cue, MechanismReleaseMilliseconds);
+                voices.KeyOff(cue);
+                session = false;
+                return;
+            }
+            if (moving)
+            {
+                if (!session || !voices.IsActive(cue))
+                    voices.PlayFrom(cue, startsAtEndpoint ? 0 : MechanismLoopStartMilliseconds);
+                voices.SetPaused(cue, false);
+                session = true;
+                return;
+            }
+            if (!session) return;
+            if (waitingForMotion)
+                voices.SetPaused(cue, true);
+            else
+                CancelMechanism(cue, ref session);
+        }
+
+        private void CancelMechanism(Milestone2ActionCue cue, ref bool session)
+        {
+            // Cancellation must not cross the sustain marker into the lock tail.
+            voices.Stop(cue, true);
+            session = false;
+        }
 
         private void UpdateMechanismParameters(Milestone2ActionCue cue, float progress,
             float effort, float direction)

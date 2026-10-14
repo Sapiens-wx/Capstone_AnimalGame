@@ -16,11 +16,115 @@ MonoBehaviour:
   cues:
   - eventReference:
       Guid:
+        Data1: 287258347
+        Data2: 1170595168
+        Data3: 885312399
+        Data4: -190005199
+      Path: event:/Robot/Move/Start
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -561844974
+        Data2: 1099613558
+        Data3: 668179350
+        Data4: -583963536
+      Path: event:/Robot/Move/Drive
+    gainDb: 0
+  - eventReference:
+      Guid:
         Data1: 0
         Data2: 0
         Data3: 0
         Data4: 0
       Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -1756297595
+        Data2: 1290565296
+        Data3: 1672043943
+        Data4: -1011931950
+      Path: event:/Robot/Move/Slide
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -2023033929
+        Data2: 1254627590
+        Data3: -1069734002
+        Data4: -1966075074
+      Path: event:/Robot/Move/Airborne
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -487323128
+        Data2: 1137643112
+        Data3: -250145150
+        Data4: 1954116083
+      Path: event:/Robot/Move/Land
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 66713483
+        Data2: 1323250135
+        Data3: -2089050993
+        Data4: 922751772
+      Path: event:/Robot/Arm/Deploy
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -706394584
+        Data2: 1164006509
+        Data3: -427704954
+        Data4: -1354302477
+      Path: event:/Robot/Arm/Blocked
     gainDb: 0
   - eventReference:
       Guid:
@@ -72,11 +176,11 @@ MonoBehaviour:
     gainDb: 0
   - eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
+        Data1: 710530657
+        Data2: 1138356866
+        Data3: -156119113
+        Data4: -1174354338
+      Path: event:/Robot/Arm/Retract
     gainDb: 0
   - eventReference:
       Guid:
@@ -88,115 +192,50 @@ MonoBehaviour:
     gainDb: 0
   - eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
+        Data1: -1896422000
+        Data2: 1116957325
+        Data3: -591605868
+        Data4: -909946500
+      Path: event:/Robot/Move/Ground
     gainDb: 0
   - eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
+        Data1: -1161468786
+        Data2: 1216127156
+        Data3: 2027770006
+        Data4: 800091552
+      Path: event:/Robot/Move/GroundTurn
     gainDb: 0
   - eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
+        Data1: -1454206447
+        Data2: 1160583754
+        Data3: 1599601286
+        Data4: 1695907085
+      Path: event:/Robot/Move/LandParts
     gainDb: 0
   - eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-  - eventReference:
-      Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
+        Data1: -404071391
+        Data2: 1225057166
+        Data3: 1978814092
+        Data4: 1182282034
+      Path: event:/Robot/Move/Acceleration
     gainDb: 0
   fadeOutSeconds: 0.05
   movementThreshold: 0.01
   turnThreshold: 0.5
-  movementStopDelay: 0.05
+  movementStopDelay: 0.12
+  engineFadeOutSeconds: 0.25
+  groundFadeOutSeconds: 0.18
+  movementFadeInSeconds: 0.04
+  engineCrossfadeSeconds: 0.08
   driveReferenceSpeed: 5
   turnReferenceSpeed: 100
   brakeReferenceDeceleration: 8
+  engineAccelerationSeconds: 3.5
+  engineCoastDeceleration: 0.2
+  engineMinimumPitch: 0.25
   armMovementThreshold: 0.01
   armReferenceSpeed: 1
   blockedCooldown: 0.35

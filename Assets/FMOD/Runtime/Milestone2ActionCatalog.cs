@@ -4,7 +4,8 @@ namespace Capstone.Audio
     {
         MoveStart, Drive, Coast, Stop, Brake, Turn, GripLoss, Slide, Airborne, Land,
         ArmDeploy, ArmDeployLock, ArmServo, ArmBlocked, HandClose, HandOpen,
-        GrabSmall, GrabMedium, GrabLarge, Drop, ArmRetract, ArmRetractLock, Count
+        GrabSmall, GrabMedium, GrabLarge, Drop, ArmRetract, ArmRetractLock,
+        GroundMove, GroundTurn, LandParts, DriveAcceleration, Count
     }
 
     internal enum ActionAudioParameter { Speed, Direction, Throttle, Load, Effort, Progress, Impact, Count }
@@ -43,6 +44,10 @@ namespace Capstone.Audio
                 case Milestone2ActionCue.Drop: return "event:/Robot/Arm/Drop";
                 case Milestone2ActionCue.ArmRetract: return "event:/Robot/Arm/Retract";
                 case Milestone2ActionCue.ArmRetractLock: return "event:/Robot/Arm/RetractLock";
+                case Milestone2ActionCue.GroundMove: return "event:/Robot/Move/Ground";
+                case Milestone2ActionCue.GroundTurn: return "event:/Robot/Move/GroundTurn";
+                case Milestone2ActionCue.LandParts: return "event:/Robot/Move/LandParts";
+                case Milestone2ActionCue.DriveAcceleration: return "event:/Robot/Move/Acceleration";
                 default: throw new System.ArgumentOutOfRangeException(nameof(index));
             }
         }
@@ -59,6 +64,8 @@ namespace Capstone.Audio
                 case Milestone2ActionCue.ArmDeploy:
                 case Milestone2ActionCue.ArmServo:
                 case Milestone2ActionCue.ArmRetract: return true;
+                case Milestone2ActionCue.GroundMove:
+                case Milestone2ActionCue.GroundTurn: return true;
                 default: return false;
             }
         }

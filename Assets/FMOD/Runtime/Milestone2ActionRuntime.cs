@@ -26,7 +26,7 @@ namespace Capstone.Audio
         private static void CreateRuntime()
         {
             var config = Resources.Load<Milestone2ActionSettings>("Milestone2ActionSettings");
-            // The framework has no authored events yet. It costs no discovery or
+            // An empty delivery configuration costs no discovery or
             // per-frame work until at least one delivered event is GUID-bound.
             if (config == null || !config.Enabled || !config.HasAssignedEvents) return;
             var existing = FindFirstObjectByType<Milestone2ActionRuntime>();
