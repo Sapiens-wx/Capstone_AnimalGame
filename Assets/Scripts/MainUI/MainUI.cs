@@ -56,6 +56,8 @@ namespace AnimalGame.MainUI
         private CursorLockMode originalCursorLock;
         private float progress, savedTimeScale, downElapsed, fit = 1, photoScale = 1, photoAlpha = 1;
         private float lastPower = -1, lastIntegrity = -1;
+        private float headingDegrees;
+        private float outerRingHeadingDegrees;
         private int selectedIndex;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
@@ -328,16 +330,21 @@ namespace AnimalGame.MainUI
             if (bootstrap != null && bootstrap.robot != null)
             {
                 Vector2 forward = bootstrap.robot.Forward;
-                compass.SetHeading(Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg);
+                SetHeading(Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg);
             }
         }
 
         public void RefreshLatePresentation()
         {
             UpdateLevelIndicator();
-            if (outerRing == null) return;
-            // Tumble rotates only the outer ring, leaving the inner boundary and the rest of the HUD upright.
-            outerRing.style.rotate = new Rotate(-RobotTumbleUiRotation.ActiveRotationDegrees);
+            UpdateOuterRingRotation();
+        }
+
+        private void UpdateOuterRingRotation()
+        {
+            // Keep the tumble offset at full strength on top of the ring's heading.
+            if (outerRing != null)
+                outerRing.style.rotate = new Rotate(outerRingHeadingDegrees - RobotTumbleUiRotation.ActiveRotationDegrees);
         }
 
         public bool TryGetRingScreenGeometry(out Vector2 center, out float radius)
@@ -390,7 +397,16 @@ namespace AnimalGame.MainUI
             stage.style.opacity = photoAlpha;
         }
 
-        public void SetHeading(float degrees) => compass?.SetHeading(degrees);
+        public void SetHeading(float degrees)
+        {
+            if (float.IsNaN(degrees) || float.IsInfinity(degrees)) return;
+            // Scale the shortest heading change so crossing north does not jump by 180 degrees.
+            outerRingHeadingDegrees = Mathf.Repeat(outerRingHeadingDegrees
+                - Mathf.DeltaAngle(headingDegrees, degrees), 360);
+            headingDegrees = Mathf.Repeat(degrees, 360);
+            compass?.SetHeading(degrees);
+            UpdateOuterRingRotation();
+        }
         public void SetDayProgress(float normalized) => timeOrbit?.SetDayProgress(normalized);
         /// <summary>Presentation hook for a future game clock; defaults to 2026_01_01 until called.</summary>
         public void SetDate(DateTime date)

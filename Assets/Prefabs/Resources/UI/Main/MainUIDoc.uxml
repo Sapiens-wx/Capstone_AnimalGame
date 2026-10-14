@@ -8,10 +8,11 @@
             </ui:VisualElement>
             <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -490px; top: 150px;">
                 <inventory:InventoryOutlineElement class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
-                <ui:VisualElement class="cargo-mark" picking-mode="Ignore" />
-                <ui:Label text="CARGO" class="inventory-title" />
+                <ui:VisualElement picking-mode="Ignore" name="Square" class="cargo-mark" style="height: 18px; width: 20px; top: 98px; left: 529px;" />
+                <ui:Label text="CARGO" class="inventory-title" style="rotate: 90deg; top: 165px; left: 472px; -unity-font-style: bold; font-size: 27px; height: 29px; width: 134px;" />
                 <ui:VisualElement name="InventoryGrid" picking-mode="Ignore" class="inventory-grid" style="position: absolute; left: 32px; top: 55px;" />
                 <inventory:InventorySelectionElement name="InventorySelection" class="inventory-selection" style="position: absolute; left: 32px; top: 55px;" />
+                <ui:VisualElement style="flex-grow: 0; height: 266px; width: 52px; position: absolute; top: 86px; left: 514px; border-right-width: 2px; border-right-color: rgb(212, 184, 84); border-bottom-right-radius: 2px; border-top-right-radius: 2px;" />
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="EdgeHud" picking-mode="Ignore" class="edge-hud">
