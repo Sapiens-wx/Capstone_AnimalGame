@@ -76,7 +76,7 @@ namespace AnimalGame.MainUI
                 MarkDirtyRepaint();
             }
         }
-        private float tickLengthValue = 12;
+        private float tickLengthValue = 28;
         [UxmlAttribute]
         public float tickLength
         {
@@ -88,8 +88,22 @@ namespace AnimalGame.MainUI
                 MarkDirtyRepaint();
             }
         }
+        private float radiusInsetValue;
+        /// <summary>Inset of the circle, independent of the inward triangle depth.</summary>
+        [UxmlAttribute]
+        public float radiusInset
+        {
+            get => radiusInsetValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (radiusInsetValue == value) return;
+                radiusInsetValue = value;
+                MarkDirtyRepaint();
+            }
+        }
         public float Radius => Mathf.Max(0, Mathf.Min(contentRect.width, contentRect.height) * .5f
-            - lineWidth * .5f - (ticks ? tickLength : 0));
+            - lineWidth * .5f - radiusInset);
 
         public ViewRingElement()
         {
@@ -106,11 +120,18 @@ namespace AnimalGame.MainUI
             if (radius <= 0) return;
             HudDrawing.Arc(p, center, radius, radius, 0, 360);
             if (!ticks) return;
-            p.lineWidth = lineWidth * 1.6f;
+            p.fillColor = Color.black;
+            float depth = Mathf.Min(Mathf.Max(0, tickLength), radius);
+            if (depth <= 0) return;
             for (int i = 0; i < 12; i++)
             {
                 Vector2 d = HudDrawing.Radial(i * 30);
-                HudDrawing.Line(p, center + d * radius, center + d * (radius + tickLength));
+                Vector2 tangent = new Vector2(-d.y, d.x);
+                Vector2 baseCenter = center + d * radius;
+                Vector2[] triangle = { baseCenter - tangent * (depth * .4f),
+                    baseCenter + tangent * (depth * .4f), center + d * (radius - depth) };
+                HudDrawing.Polygon(p, triangle, true);
+                HudDrawing.Polygon(p, triangle);
             }
         }
     }

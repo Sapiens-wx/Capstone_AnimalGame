@@ -38,6 +38,7 @@ namespace AnimalGame.Editor
                 Settle(root, hud);
                 CheckInventory(root, hud);
                 Capture(root, texture, "mainui-features.png");
+                CheckRingOcclusion(root, texture);
                 Debug.Log("MAIN UI FEATURE CHECKS PASSED");
             }
             finally
@@ -80,6 +81,21 @@ namespace AnimalGame.Editor
         internal static void Layout(VisualElement root) => root.panel.GetType().GetMethod("ValidateLayout", Flags).Invoke(root.panel, null);
         internal static void Invoke(object obj, string name, params object[] args) => obj.GetType().GetMethod(name, Flags).Invoke(obj, args);
         internal static void Assert(bool condition, string message) { if (!condition) throw new Exception(message); }
+        private static void CheckRingOcclusion(VisualElement root, RenderTexture target)
+        {
+            var inner = root.Q<ViewRingElement>("InnerRing");
+            var outer = root.Q<ViewRingElement>("OuterRing");
+            Assert(outer.Radius > inner.Radius && outer.tickLength > outer.Radius - inner.Radius,
+                "Triangles reach across the inner ring");
+            // At the top axis the triangle's black interior must erase the previously drawn inner circle.
+            Vector2 point = inner.LocalToWorld(inner.contentRect.center + Vector2.up * -inner.Radius);
+            var previous = RenderTexture.active; RenderTexture.active = target;
+            var pixel = new Texture2D(1, 1, TextureFormat.RGB24, false);
+            pixel.ReadPixels(new Rect(Mathf.Round(point.x), target.height - Mathf.Round(point.y), 1, 1), 0, 0); pixel.Apply();
+            Assert(pixel.GetPixel(0, 0).maxColorComponent < .1f, "Triangle black fill occludes inner ring");
+            Object.DestroyImmediate(pixel); RenderTexture.active = previous;
+        }
+
         internal static void Capture(VisualElement root, RenderTexture target, string filename)
         {
             var previous = RenderTexture.active;

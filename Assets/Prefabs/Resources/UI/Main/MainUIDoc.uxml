@@ -4,7 +4,7 @@
         <ui:VisualElement name="HudView" picking-mode="Ignore" class="hud-view" style="position: absolute;">
             <ui:VisualElement name="ViewRing" picking-mode="Ignore" class="view-ring" style="position: absolute; left: 500px; top: 80px;">
                 <hud:ViewRingElement name="InnerRing" class="inner-ring" style="position: absolute; left: 29px; top: 29px;" />
-                <hud:ViewRingElement name="OuterRing" ticks="true" class="outer-ring" style="position: absolute; left: 0; top: 0;" />
+                <hud:ViewRingElement name="OuterRing" ticks="true" radius-inset="12" tick-length="28" class="outer-ring" style="position: absolute; left: 0; top: 0;" />
             </ui:VisualElement>
             <ui:VisualElement name="Inventory" picking-mode="Ignore" class="inventory" style="position: absolute; left: -480px; top: 1015px;">
                 <inventory:InventoryOutlineElement class="fill" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
