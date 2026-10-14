@@ -641,6 +641,7 @@ GameObject:
   - component: {fileID: 6128041736594210834}
   - component: {fileID: 775533119844220011}
   - component: {fileID: 775533119844220012}
+  - component: {fileID: 775533119844220013}
   m_Layer: 0
   m_Name: RobotMarker
   m_TagString: Untagged
@@ -1142,6 +1143,19 @@ MonoBehaviour:
   trailSpawnInterval: 0.24
   trailPointSizePixels: 3.2
   trailOpacity: 0.5
+--- !u!114 &775533119844220013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bdf84a972854d8fa00bd57702f4d63c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  areaShader: {fileID: 4800000, guid: 26c8e1b303004a2eb0a476d9b74c9c0b, type: 3}
 --- !u!1 &4976596186778311389
 GameObject:
   m_ObjectHideFlags: 0

@@ -12,6 +12,18 @@
 
 ## 给物体添加交互
 
+需要被生物扫描标出面积时，在物体根节点添加 `ScannableInteractable`，`Scan Type` 选择 `Static Area`，`Sprite Source` 指向主体贴图。`Custom Normalized Outline` 可设置相对于贴图范围中心的外包络（-0.5 到 0.5）；留空从 Sprite 网格生成凸包。内部透明空隙会填满。扫描波接触真实范围任意边缘后，显示金黄色双向短线网格，默认持续 7 秒、末尾 0.6 秒淡出；再次扫描只刷新时间。
+
+网格方向固定在场景的世界 XY 平面，使用垃圾主体真实的世界外包络生成一次并缓存世界线段；只有物体真实形状或样式改变时重建。玩家移动、转向、镜头震动或扫描缩放只投影既有端点，线段数量和在垃圾上的位置保持不变。默认 `Line Angle Degrees = -37` 是第一组的世界方向，第二组与其垂直；`Line Width Pixels = 1.4` 始终是最终屏幕像素，`Line Spacing Pixels = 15.4`、`Intersection Gap Pixels = 5.6` 是正常视野下的像素基准，均可在 Inspector 调整。正常视野下每个理论交点各留出总长 5.6 像素的空隙，短线段长 9.8 像素。扫描拉远/恢复时，网格间距、留空和段长随物体连续缩放，保留原来的整张网格，不重新排列或增删边缘线段。
+
+边缘在正常视野基准下只收能完整放入范围内的平头短线段，包含抗锯齿边缘，不使用面积遮罩切碎线；仅游戏窗口边界裁切，圆形视野外仍然可见。没有完整单元的小目标优先保留最多 4 根处于原格网位置的内接短线，极小目标使用一根清晰短线。首次生成使用共用场景格网原点；重叠区域保留透明度较高的线段，并在固定正常视野参考空间去除重复或冲突线段，避免镜头缩放触发新的删除判定。真实垃圾平移时，已缓存的网格随垃圾平移。显现时短暂淡入，随后保持稳定透明度，末尾淡出，不持续呼吸闪动。
+
+运行时材质启用 `Absolute Screen Placement`，顶点在最终 GPU 绘制阶段直接由已投影的屏幕像素定位，防止 UI 变换重复旋转已经随场景投影的线阵。独立批处理入口 `StaticScanCanvasRotationRenderChecks.RunBatch` 通过真实 Overlay CanvasRenderer 链检查玩家视角 0/45/90/180/270 度下的场景固定方向、缩放及网格重建后的父节点旋转；该入口只允许在验证副本运行，输出最终像素截图到 `output/StaticScanCanvasRotationRenderChecks`。
+
+小、中、大垃圾预制体均已配置该属性，旧场景及动态创建的 `GarbageItem` 也会自动补组件。静态面积类型可以被推动或抓取；分裂碎片继承剩余显示时间，回收、停用或交互类型变为 `None` 时清除提示。Unity 菜单 `Animal Game > Validation > Run Static Interactable Scan Checks` 检查该功能。
+
+`Run Static Interactable Scan Checks` 包含双向正交短线、交点留空、正常视野完整端头及边缘内含、小目标回退、重叠区域去重、真实世界轮廓、移动/转向/微小镜头震动/扫描缩放的逆投影世界端点与数量一致性、固定像素线宽、重复扫描稳定性、非呼吸透明度及生命周期检查。原点远处的目标也会检查微量缩放，防止格网相位放大导致跳动。`StaticScanCanvasRotationRenderChecks.RunBatch` 用真实 Canvas 最终像素检查缓存世界线段的连续投影、连通线段数量、走动与镜头微动，以及恢复视角后的像素一致性。`Run Static Interactable Scan Render Checks` 使用实际图形设备验证双向短线网格、透明交点、完整端头、基准线宽/间距、窗口边界裁切以及圆外可见性，输出生产大型垃圾预览到 `output/StaticInteractableScanRenderChecks`。像素检查需要图形设备，不能使用 `-nographics`。
+
 添加 `WorldInteraction` 组件，`Kind` 是位掩码，可以组合选择：
 
 - `Collision`：参与身体和机械臂障碍检测。

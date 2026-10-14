@@ -173,6 +173,7 @@ namespace AnimalGame.RobotMap
         public bool IsCharging => state == ScanVisualState.Charging
                                   || state == ScanVisualState.Charged;
         public float ReleaseRingExpansionDuration => releaseRingExpansionDuration;
+        public float BaseCameraOrthographicSize => Mathf.Max(0.01f, baseCameraOrthographicSize);
         public float UiRingRadiusPixels
         {
             get
