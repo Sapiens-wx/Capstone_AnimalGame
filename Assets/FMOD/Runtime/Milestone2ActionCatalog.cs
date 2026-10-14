@@ -70,12 +70,10 @@ namespace Capstone.Audio
             }
         }
 
-        // The gameplay API does not expose empty-hand grip changes or the cause
-        // of a Drop. Keep these slots without predicting input/forced releases.
+        // HandClose accompanies an owned grab; Drop confirms a live world release.
+        // Empty-hand opening still lacks a reliable public transition.
         public static bool HasObservableTrigger(int index) =>
-            index != (int)Milestone2ActionCue.HandClose
-            && index != (int)Milestone2ActionCue.HandOpen
-            && index != (int)Milestone2ActionCue.Drop;
+            index != (int)Milestone2ActionCue.HandOpen;
 
         internal static string ParameterName(ActionAudioParameter parameter)
         {

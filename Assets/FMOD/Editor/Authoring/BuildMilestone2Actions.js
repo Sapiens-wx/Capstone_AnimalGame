@@ -10,9 +10,9 @@
     var sourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone2/PlayerActions/";
     var workspace = studio.project.workspace;
     var definitions = [
-        { path: "event:/Robot/Move/Start", file: "Movement/M01_Move_Start.wav" },
-        { path: "event:/Robot/Move/Drive", file: "Movement/M02_Move_Drive_Loop.wav", loopStart: 3.5, loopEnd: 4.25, crossfade: 0.08 },
-        { path: "event:/Robot/Move/Acceleration", file: "Movement/M02_Move_Drive_Loop.wav", trimEnd: 3.75 },
+        { path: "event:/Robot/Move/Start", file: "Movement/M01_Move_Start.wav", releaseMs: 250, releaseParameter: "StartReleasePitch", endFade: 0.1 },
+        { path: "event:/Robot/Move/Drive", file: "Movement/M02_Move_Drive_Loop.wav", loopStart: 3.5, loopEnd: 4.25, crossfade: 0.08, releaseMs: 250, releaseParameter: "DriveReleasePitch" },
+        { path: "event:/Robot/Move/Acceleration", file: "Movement/M02_Move_Drive_Loop.wav", trimEnd: 3.75, releaseMs: 250, releaseParameter: "AccelerationReleasePitch", endFade: 0.1 },
         { path: "event:/Robot/Move/Slide", file: "Movement/M06_Move_LoseGrip.wav", loopStart: 1.23, loopEnd: 2.47, holdName: "SlideHold" },
         { path: "event:/Robot/Move/Airborne", file: "Movement/M07_MidAir_short_1.wav" },
         { path: "event:/Robot/Move/Land", file: "Movement/M08_Land_Impact.wav" },
@@ -21,7 +21,13 @@
         { path: "event:/Robot/Move/GroundTurn", file: "Movement/M_Move_Ground_turn.wav", loopStart: 0.81, loopEnd: 3.87, crossfade: 0.04 },
         { path: "event:/Robot/Arm/Deploy", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "DeployHold" },
         { path: "event:/Robot/Arm/Retract", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "RetractHold" },
-        { path: "event:/Robot/Arm/Blocked", file: "Arm/A03_Arm_Blocked_01.wav" }
+        { path: "event:/Robot/Arm/Blocked", file: "Arm/A03_Arm_Blocked_01.wav" },
+        { path: "event:/Robot/Arm/Servo", file: "Arm/A02_Arm_Servo_Loop.wav", loopStart: 0.25, loopEnd: 2.7, crossfade: 0.04, releaseMs: 80, releaseParameter: "ServoReleasePitch" },
+        { path: "event:/Robot/Arm/HandClose", file: "Arm/A04_Hand_Close_01.wav" },
+        { path: "event:/Robot/Arm/GrabSmall", file: "Arm/A05_Grab_Small_01.wav" },
+        { path: "event:/Robot/Arm/GrabMedium", file: "Arm/A06_Grab_Medium_01.wav" },
+        { path: "event:/Robot/Arm/GrabLarge", file: "Arm/A06_Grab_Medium_01.wav" },
+        { path: "event:/Robot/Arm/Drop", file: "Arm/A09_Drop_01.wav" }
     ];
     var preservedPaths = [
         "event:/Robot/Scan/Charge", "event:/Robot/Scan/Pulse",
@@ -124,6 +130,85 @@
         fade(destination, source, true);
         requireCondition(transition.isValid, "Invalid loop transition");
     }
+    function configureRelease(event, milliseconds, parameterName) {
+        var masterBus = event.mixer.masterBus;
+        var matches = masterBus.modulators.filter(function (modulator) {
+            return exactType(modulator, "ADSRModulator") && modulator.nameOfPropertyBeingModulated === "volume";
+        });
+        requireCondition(matches.length <= 1, "Duplicate release envelopes in " + event.getPath());
+        var envelope = matches.length ? matches[0] : studio.project.create("ADSRModulator");
+        envelope.nameOfPropertyBeingModulated = "volume";
+        envelope.objectBeingModulated = masterBus;
+        // Unity's ordinary fade remains resumable. This independent mixer
+        // envelope handles ALLOWFADEOUT when scene/disable cleanup drops the
+        // runtime handle, so its sound can finish without further Tick calls.
+        // Instance-clock duration is multiplied by the applied playback pitch
+        // through a local parameter. Native release therefore lasts the same
+        // real time at every RPM without changing the sound's pitch again.
+        envelope.clockSource = 0;
+        envelope.initialValue = 0;
+        envelope.peakValue = 0;
+        envelope.sustainValue = 0;
+        envelope.finalValue = -80;
+        envelope.attackTime = 0;
+        envelope.holdTime = 0;
+        envelope.decayTime = 0;
+        envelope.releaseTime = milliseconds;
+        requireCondition(envelope.isValid && closeEnough(envelope.releaseTime, milliseconds), "Invalid release envelope");
+        var parameters = event.getParameterPresets().map(normalizeParameter).filter(function (parameter) {
+            return parameter.presetOwner && parameter.presetOwner.name === parameterName;
+        });
+        requireCondition(parameters.length <= 1, "Duplicate release pitch parameter in " + event.getPath());
+        var releasePitch = parameters.length ? parameters[0] : normalizeParameter(event.addGameParameter({
+            name: parameterName, type: studio.project.parameterType.User, min: 0.01, max: 4
+        }));
+        requireCondition(exactType(releasePitch, "GameParameter"), "Release pitch must be a game parameter");
+        releasePitch.presetOwner.name = parameterName;
+        releasePitch.minimum = 0.01;
+        releasePitch.maximum = 4;
+        releasePitch.initialValue = 1;
+        releasePitch.isGlobal = false;
+        releasePitch.isReadOnly = false;
+        releasePitch.isHeld = false;
+
+        var automators = envelope.automators.filter(function (automator) {
+            return automator.nameOfPropertyBeingAutomated === "releaseTime";
+        });
+        requireCondition(automators.length <= 1, "Duplicate release-time automation in " + event.getPath());
+        var automator = automators.length ? automators[0] : envelope.addAutomator("releaseTime");
+        var curves = automator.automationCurves;
+        requireCondition(curves.length <= 1, "Unexpected extra release-time curves in " + event.getPath());
+        var curve = curves.length ? curves[0] : automator.addAutomationCurve(releasePitch);
+        requireCondition(curve.parameter && curve.parameter.id === releasePitch.id, "Release-time curve targets another parameter");
+        var points = curve.automationPoints.slice().sort(function (a, b) { return a.position - b.position; });
+        requireCondition(points.length <= 2, "Refusing to replace a complex release-time curve");
+        if (!points.length) points.push(curve.addAutomationPoint(0.01, milliseconds * 0.01));
+        if (points.length < 2) points.push(curve.addAutomationPoint(4, milliseconds * 4));
+        points[0].position = 0.01;
+        points[0].value = milliseconds * 0.01;
+        points[0].curveShape = 0;
+        points[1].position = 4;
+        points[1].value = milliseconds * 4;
+        points[1].curveShape = 0;
+        requireCondition(releasePitch.isValid && automator.isValid && curve.isValid, "Invalid release pitch automation");
+    }
+    function configureEndFade(sound, seconds) {
+        requireCondition(seconds > 0 && seconds < sound.length, "End fade exceeds its source window");
+        var curve = sound.fadeOutCurve;
+        requireCondition(!curve || exactType(curve, "FadeCurve"), "Unexpected sound end fade type");
+        if (!curve) {
+            curve = studio.project.create("FadeCurve");
+            sound.fadeOutCurve = curve;
+            curve.startPoint = studio.project.create("AutomationPoint");
+            curve.endPoint = studio.project.create("AutomationPoint");
+        }
+        curve.startPoint.position = sound.start + sound.length - seconds;
+        curve.startPoint.value = 1;
+        curve.startPoint.curveShape = 0;
+        curve.endPoint.position = sound.start + sound.length;
+        curve.endPoint.value = 0;
+        requireCondition(curve.isValid, "Invalid sound end fade");
+    }
 
     requireCondition(String(studio.project.filePath).replace(/\\/g, "/").toLowerCase() === expectedProject,
         "Refusing to modify a different Studio source project");
@@ -183,6 +268,8 @@
         sound.looping = false;
         // Studio Start Offset uses percent of the original asset, not seconds.
         sound.startOffset = 100 * trimStart / asset.length;
+        if (definition.releaseMs) configureRelease(event, definition.releaseMs, definition.releaseParameter);
+        if (definition.endFade) configureEndFade(sound, definition.endFade);
 
         var loops = studio.project.model.LoopRegion.findInstances().filter(function (region) {
             return region.timeline && region.timeline.id === event.timeline.id;
@@ -209,7 +296,9 @@
         console.log("M2_EVENT " + JSON.stringify({ path: definition.path, guid: event.id, file: definition.file,
             sourceSeconds: asset.length, startOffsetPercent: sound.startOffset, soundSeconds: sound.length,
             loopStart: definition.loopStart, loopEnd: definition.loopEnd === undefined && looping ? soundLength : definition.loopEnd,
-            hold: definition.holdName || null, crossfade: definition.crossfade || 0 }));
+            hold: definition.holdName || null, crossfade: definition.crossfade || 0,
+            releaseMs: definition.releaseMs || 0, releaseParameter: definition.releaseParameter || null,
+            endFade: definition.endFade || 0 }));
     });
     preservedPaths.forEach(function (path) {
         requireCondition(studio.project.lookup(path).id === preservedIds[path], "Preserved M1 GUID changed: " + path);

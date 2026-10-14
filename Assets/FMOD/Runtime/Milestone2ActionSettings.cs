@@ -12,6 +12,7 @@ namespace Capstone.Audio
         [Tooltip("Audio-only actual-motion dead zone, in world units per second.")]
         [SerializeField, Min(0f)] private float movementThreshold = 0.01f;
         [SerializeField, Min(0f)] private float turnThreshold = 0.5f;
+        [SerializeField] private bool enableStationaryTurnGroundAudio = true;
         [SerializeField, Min(0f)] private float movementStopDelay = 0.12f;
         [SerializeField, Min(0f)] private float engineFadeOutSeconds = 0.25f;
         [SerializeField, Min(0f)] private float groundFadeOutSeconds = 0.18f;
@@ -24,8 +25,16 @@ namespace Capstone.Audio
         [SerializeField, Min(0.01f)] private float engineAccelerationSeconds = 3.5f;
         [SerializeField, Min(0.01f)] private float engineCoastDeceleration = 0.2f;
         [SerializeField, Range(0.01f, 1f)] private float engineMinimumPitch = 0.25f;
+        [SerializeField, Range(0f, 1f)] private float engineGainMultiplier = 0.7f;
         [SerializeField, Min(0f)] private float armMovementThreshold = 0.01f;
         [SerializeField, Min(0.01f)] private float armReferenceSpeed = 1f;
+        [SerializeField, Min(0.01f)] private float armJointReferenceSpeed = 90f;
+        [SerializeField, Min(0f)] private float armJointMovementThresholdDegrees = 0.5f;
+        [Tooltip("Minimum unloaded servo pitch; held load can lower it further.")]
+        [SerializeField, Range(0.01f, 2f)] private float armMinimumPitch = 0.75f;
+        [SerializeField, Range(0.01f, 2f)] private float armMaximumPitch = 1.3f;
+        [SerializeField, Range(0f, 0.5f)] private float armLoadPitchReduction = 0.2f;
+        [SerializeField, Min(0.001f)] private float armPitchSmoothingSeconds = 0.06f;
         [SerializeField, Min(0f)] private float blockedCooldown = 0.35f;
         [SerializeField, Min(0.0001f)] private float parameterEpsilon = 0.005f;
 
@@ -33,6 +42,7 @@ namespace Capstone.Audio
         internal float FadeOutSeconds => Mathf.Max(0f, fadeOutSeconds);
         internal float MovementThreshold => Mathf.Max(0f, movementThreshold);
         internal float TurnThreshold => Mathf.Max(0f, turnThreshold);
+        internal bool StationaryTurnGroundAudioEnabled => enableStationaryTurnGroundAudio;
         internal float MovementStopDelay => Mathf.Max(0f, movementStopDelay);
         internal float EngineFadeOutSeconds => Mathf.Max(0f, engineFadeOutSeconds);
         internal float GroundFadeOutSeconds => Mathf.Max(0f, groundFadeOutSeconds);
@@ -44,8 +54,16 @@ namespace Capstone.Audio
         internal float EngineAccelerationPerSecond => 1f / Mathf.Max(0.01f, engineAccelerationSeconds);
         internal float EngineCoastDeceleration => Mathf.Max(0.01f, engineCoastDeceleration);
         internal float EngineMinimumPitch => Mathf.Clamp(engineMinimumPitch, 0.01f, 1f);
+        internal float EngineGainMultiplier => Mathf.Clamp01(engineGainMultiplier);
         internal float ArmMovementThreshold => Mathf.Max(0f, armMovementThreshold);
         internal float ArmReferenceSpeed => Mathf.Max(0.01f, armReferenceSpeed);
+        internal float ArmJointReferenceSpeed => Mathf.Max(0.01f, armJointReferenceSpeed);
+        internal float ArmJointReferenceSpeedDegrees => ArmJointReferenceSpeed;
+        internal float ArmJointMovementThresholdDegrees => Mathf.Max(0f, armJointMovementThresholdDegrees);
+        internal float ArmMinimumPitch => Mathf.Max(0.01f, armMinimumPitch);
+        internal float ArmMaximumPitch => Mathf.Max(ArmMinimumPitch, armMaximumPitch);
+        internal float ArmLoadPitchReduction => Mathf.Clamp(armLoadPitchReduction, 0f, 0.5f);
+        internal float ArmPitchSmoothingSeconds => Mathf.Max(0.001f, armPitchSmoothingSeconds);
         internal float BlockedCooldown => Mathf.Max(0f, blockedCooldown);
         internal float ParameterEpsilon => Mathf.Max(0.0001f, parameterEpsilon);
 

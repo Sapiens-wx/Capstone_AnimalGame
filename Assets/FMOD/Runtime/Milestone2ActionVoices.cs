@@ -14,6 +14,10 @@ namespace Capstone.Audio
             internal EventDescription Description;
             internal readonly ParameterState[] Parameters = new ParameterState[(int)ActionAudioParameter.Count];
             internal bool Active, Failed, Fading, Recovering, Paused, KeyedOff;
+            internal bool NativeReleaseEnvelope;
+            internal PARAMETER_ID ReleasePitchId;
+            internal bool HasReleasePitchParameter, HasReleasePitchValue;
+            internal float ReleasePitchValue;
             internal float Gain, FadeElapsed, PollElapsed, DesiredPitch = 1f, AppliedPitch = 1f;
             internal float Envelope = 1f, FadeStartEnvelope, FadeDuration;
             internal float RecoveryElapsed, RecoveryStartEnvelope, RecoveryDuration;
@@ -65,11 +69,21 @@ namespace Capstone.Audio
             try
             {
                 slot.Instance = RuntimeManager.CreateInstance(config.EventReference);
-                slot.Gain = config.LinearGain * gain;
+                slot.NativeReleaseEnvelope = IsEngineCue(cue) || cue == Milestone2ActionCue.ArmServo;
+                slot.Gain = config.LinearGain * gain * (IsEngineCue(cue) ? settings.EngineGainMultiplier : 1f);
                 slot.Envelope = fadeInSeconds > 0f ? 0f : 1f;
                 RESULT result = slot.Instance.setVolume(slot.Gain * slot.Envelope);
                 if (result == RESULT.OK) result = slot.Instance.getDescription(out slot.Description);
                 if (result != RESULT.OK) throw new InvalidOperationException(result.ToString());
+                slot.HasReleasePitchParameter = false;
+                slot.HasReleasePitchValue = false;
+                if (slot.NativeReleaseEnvelope)
+                {
+                    result = slot.Description.getParameterDescriptionByName(ReleasePitchName(cue), out PARAMETER_DESCRIPTION releasePitch);
+                    if (result != RESULT.OK) throw new InvalidOperationException("Reload RobotActions.bank: missing " + ReleasePitchName(cue));
+                    slot.ReleasePitchId = releasePitch.id;
+                    slot.HasReleasePitchParameter = true;
+                }
                 slot.Active = true;
                 slot.Fading = false;
                 slot.Recovering = fadeInSeconds > 0f;
@@ -79,6 +93,7 @@ namespace Capstone.Audio
                 slot.Paused = slot.KeyedOff = false;
                 slot.AppliedPitch = slot.DesiredPitch;
                 result = slot.Instance.setPitch(slot.AppliedPitch);
+                if (result == RESULT.OK) ApplyReleasePitch(slot);
                 if (result == RESULT.OK && timelineMs > 0) result = slot.Instance.setTimelinePosition(timelineMs);
                 if (result != RESULT.OK) throw new InvalidOperationException(result.ToString());
                 slot.PollElapsed = 0f;
@@ -141,7 +156,34 @@ namespace Capstone.Audio
             Slot slot = slots[(int)cue];
             slot.DesiredPitch = Mathf.Clamp(pitch, 0.01f, 4f);
             if (!slot.Active || slot.Fading || Mathf.Abs(slot.DesiredPitch - slot.AppliedPitch) < 0.001f) return;
-            if (slot.Instance.setPitch(slot.DesiredPitch) == RESULT.OK) slot.AppliedPitch = slot.DesiredPitch;
+            if (slot.Instance.setPitch(slot.DesiredPitch) == RESULT.OK)
+            {
+                slot.AppliedPitch = slot.DesiredPitch;
+                ApplyReleasePitch(slot);
+            }
+        }
+
+        private static void ApplyReleasePitch(Slot slot)
+        {
+            if (!slot.HasReleasePitchParameter || (slot.HasReleasePitchValue
+                && Mathf.Abs(slot.ReleasePitchValue - slot.AppliedPitch) < 0.001f)) return;
+            if (slot.Instance.setParameterByID(slot.ReleasePitchId, slot.AppliedPitch, true) == RESULT.OK)
+            {
+                slot.ReleasePitchValue = slot.AppliedPitch;
+                slot.HasReleasePitchValue = true;
+            }
+        }
+
+        private static string ReleasePitchName(Milestone2ActionCue cue)
+        {
+            switch (cue)
+            {
+                case Milestone2ActionCue.MoveStart: return "StartReleasePitch";
+                case Milestone2ActionCue.Drive: return "DriveReleasePitch";
+                case Milestone2ActionCue.DriveAcceleration: return "AccelerationReleasePitch";
+                case Milestone2ActionCue.ArmServo: return "ServoReleasePitch";
+                default: return "";
+            }
         }
 
         internal void SetPaused(Milestone2ActionCue cue, bool paused)
@@ -218,7 +260,7 @@ namespace Capstone.Audio
             Slot slot = slots[(int)cue];
             if (!slot.Active) return;
             if (immediately) Release(slot);
-            else FadeStop(cue, cue == Milestone2ActionCue.Drive || cue == Milestone2ActionCue.DriveAcceleration
+            else FadeStop(cue, IsEngineCue(cue)
                 ? settings.EngineFadeOutSeconds : IsMovementLoop(cue) ? settings.GroundFadeOutSeconds : settings.FadeOutSeconds);
         }
 
@@ -240,6 +282,9 @@ namespace Capstone.Audio
         private static bool IsMovementLoop(Milestone2ActionCue cue) => cue == Milestone2ActionCue.Drive
             || cue == Milestone2ActionCue.GroundMove || cue == Milestone2ActionCue.GroundTurn;
 
+        private static bool IsEngineCue(Milestone2ActionCue cue) => cue == Milestone2ActionCue.MoveStart
+            || cue == Milestone2ActionCue.Drive || cue == Milestone2ActionCue.DriveAcceleration;
+
         internal void Tick(float deltaTime)
         {
             foreach (Slot slot in slots)
@@ -249,7 +294,13 @@ namespace Capstone.Audio
                 if (slot.Fading)
                 {
                     slot.FadeElapsed += deltaTime;
-                    if (slot.FadeElapsed >= slot.FadeDuration) { Release(slot); continue; }
+                    if (slot.FadeElapsed >= slot.FadeDuration)
+                    {
+                        slot.Envelope = 0f;
+                        slot.Instance.setVolume(0f);
+                        Release(slot);
+                        continue;
+                    }
                     slot.Envelope = slot.FadeStartEnvelope * (1f - slot.FadeElapsed / slot.FadeDuration);
                     slot.Instance.setVolume(slot.Gain * slot.Envelope);
                 }
@@ -282,7 +333,12 @@ namespace Capstone.Audio
         {
             if (slot.Instance.hasHandle() && RuntimeManager.IsInitialized && slot.Instance.isValid())
             {
-                slot.Instance.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
+                ApplyReleasePitch(slot);
+                // Studio's release envelope survives clearing this controlled
+                // handle, including scene changes/disable where Tick no longer
+                // runs. Already silent manual fades release without a second tail.
+                slot.Instance.stop(slot.NativeReleaseEnvelope && slot.Envelope > 0f
+                    ? FMOD.Studio.STOP_MODE.ALLOWFADEOUT : FMOD.Studio.STOP_MODE.IMMEDIATE);
                 slot.Instance.release();
             }
             slot.Instance.clearHandle();

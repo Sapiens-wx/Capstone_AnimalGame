@@ -11,21 +11,35 @@ namespace Capstone.Audio
         private const float DeploymentEpsilon = 0.000001f;
         private const int MechanismLoopStartMilliseconds = 350;
         private const int MechanismReleaseMilliseconds = 800;
+        private const int ServoLoopStartMilliseconds = 250;
+        private const float JointBindingRetrySeconds = 0.25f;
         private readonly Milestone2ActionSettings settings;
         private readonly Milestone2ActionVoices voices;
         private RobotArmController source;
         private RobotMover mover;
         private RobotMarkerView marker;
-        private Transform handFrame;
+        private Transform visualFrame;
+        private Transform leftUpper;
+        private Transform leftLower;
+        private Transform rightUpper;
+        private Transform rightLower;
         private WorldInteraction previousHeldObject;
-        private Vector2 previousLeftHandLocal;
-        private Vector2 previousRightHandLocal;
+        private GarbageItem previousHeldGarbage;
+        private WorldInteraction pendingDrop;
+        private int pendingDropFrame;
+        private int pendingDropSceneHandle;
+        private bool previousHeldWasOwnedGarbage;
+        private JointAngles previousJointAngles;
         private float previousDeployment;
         private float blockedCooldownRemaining;
+        private float jointBindingRetryRemaining;
+        private float servoPitch;
         private bool previousBlocked;
         private bool hasBaseline;
+        private bool hasJointBaseline;
         private bool deploymentSession;
         private bool retractionSession;
+        private bool componentDisabled;
 
         internal RobotArmController Source => source;
 
@@ -51,30 +65,27 @@ namespace Capstone.Audio
 
         internal void Tick(float deltaTime)
         {
+            float elapsed = Mathf.Max(0f, deltaTime);
             if (!IsSourceAvailable())
             {
-                if (hasBaseline)
-                    StopAllImmediately();
+                ObserveDisabledRelease(elapsed);
                 return;
             }
 
+            componentDisabled = false;
             if (!hasBaseline)
             {
+                if (elapsed > DeploymentEpsilon)
+                    ConfirmPendingDrop(source.HeldObject);
                 EstablishBaseline();
                 return;
             }
 
-            float elapsed = Mathf.Max(0f, deltaTime);
             blockedCooldownRemaining = Mathf.Max(0f, blockedCooldownRemaining - elapsed);
             float deployment = source.VisibleDeployment01;
             float deploymentDelta = deployment - previousDeployment;
-            Transform currentHandFrame = ResolveHandFrame();
-            bool sameHandFrame = currentHandFrame == handFrame;
-            handFrame = currentHandFrame;
-            Vector2 leftHandLocal = HandLocal(source.LeftHandWorld);
-            Vector2 rightHandLocal = HandLocal(source.RightHandWorld);
             bool canObserveMotion = elapsed > DeploymentEpsilon;
-            bool upright = mover == null || mover.MovementMode == RobotMovementMode.Driven;
+            float jointSpeed = ObserveJointSpeed(elapsed);
 
             bool deploying = canObserveMotion && deploymentDelta > DeploymentEpsilon
                 && (source.State == RobotArmState.Extending
@@ -105,21 +116,33 @@ namespace Capstone.Audio
 
             bool manualArmState = source.State == RobotArmState.OuterOperating
                 || source.State == RobotArmState.Docking;
-            float handSpeed = canObserveMotion && sameHandFrame
-                ? Mathf.Max((leftHandLocal - previousLeftHandLocal).magnitude,
-                    (rightHandLocal - previousRightHandLocal).magnitude) / elapsed : 0f;
-            bool servoMoving = canObserveMotion && upright && source.IsArmModeActive
+            bool servoMoving = canObserveMotion && source.IsArmModeActive
                 && (mover == null || !mover.IsPhotoModeInputLocked) && manualArmState
                 && deployment >= 1f - DeploymentEpsilon
                 && !deploying && !retracting && !finishingDeployment && !finishingRetraction
-                && handSpeed > settings.ArmMovementThreshold;
-            float servoSpeed = Mathf.Clamp01(handSpeed / Mathf.Max(0.0001f, settings.ArmReferenceSpeed));
+                && jointSpeed > settings.ArmJointMovementThresholdDegrees;
+            float servoSpeed = Mathf.Clamp01(jointSpeed / settings.ArmJointReferenceSpeedDegrees);
+            WorldInteraction heldObject = source.HeldObject;
+            float heldLoad = heldObject != null && heldObject.Available && heldObject.Owner == source
+                ? Mathf.Clamp01(heldObject.GrabResistance) : 0f;
             voices.SetParameter(Milestone2ActionCue.ArmServo, ActionAudioParameter.Speed, servoSpeed);
             voices.SetParameter(Milestone2ActionCue.ArmServo, ActionAudioParameter.Effort, servoSpeed);
             voices.SetParameter(Milestone2ActionCue.ArmServo, ActionAudioParameter.Progress, deployment);
-            voices.SetParameter(Milestone2ActionCue.ArmServo, ActionAudioParameter.Load,
-                mover != null ? Mathf.Clamp01(1f - mover.GrabMovementMultiplier) : 0f);
-            voices.SetLoop(Milestone2ActionCue.ArmServo, servoMoving);
+            voices.SetParameter(Milestone2ActionCue.ArmServo, ActionAudioParameter.Load, heldLoad);
+            if (servoMoving)
+            {
+                float targetPitch = Mathf.Clamp(
+                    Mathf.Lerp(settings.ArmMinimumPitch, settings.ArmMaximumPitch, servoSpeed)
+                    * (1f - heldLoad * settings.ArmLoadPitchReduction),
+                    settings.ArmMinimumPitch * (1f - settings.ArmLoadPitchReduction), settings.ArmMaximumPitch);
+                servoPitch = voices.IsAlive(Milestone2ActionCue.ArmServo)
+                    ? Mathf.Lerp(servoPitch, targetPitch,
+                        1f - Mathf.Exp(-elapsed / settings.ArmPitchSmoothingSeconds))
+                    : targetPitch;
+                // Prime the real FMOD pitch before starting the loop's audible window.
+                voices.SetPitch(Milestone2ActionCue.ArmServo, servoPitch);
+            }
+            voices.SetLoopFrom(Milestone2ActionCue.ArmServo, servoMoving, ServoLoopStartMilliseconds);
 
             bool blocked = source.IsBlocked;
             if (canObserveMotion && blocked && !previousBlocked
@@ -129,64 +152,220 @@ namespace Capstone.Audio
                 blockedCooldownRemaining = settings.BlockedCooldown;
             }
 
-            WorldInteraction heldObject = source.HeldObject;
+            if (canObserveMotion)
+                ConfirmPendingDrop(heldObject);
             if (!ReferenceEquals(heldObject, previousHeldObject))
             {
+                WorldInteraction oldHeld = previousHeldObject;
+                bool wasOwnedGarbage = previousHeldWasOwnedGarbage;
+                CacheHeldObject(heldObject);
+                int sceneHandle = source.gameObject.scene.handle;
+                if (canObserveMotion && wasOwnedGarbage
+                    && IsWorldReleaseCandidate(oldHeld, heldObject, sceneHandle))
+                {
+                    // Confirm next frame: Destroy is deferred, while recycle or
+                    // fragment replacement must never sound like a world release.
+                    QueueDrop(oldHeld, sceneHandle);
+                }
                 // A successful fragment handoff replaces one held object with another;
                 // it does not represent a new player grab.
-                if (canObserveMotion && ReferenceEquals(previousHeldObject, null) && heldObject != null
+                if (canObserveMotion && ReferenceEquals(oldHeld, null) && heldObject != null
                     && heldObject.Available && heldObject.Owner == source
-                    && heldObject.TryGetComponent(out GarbageItem garbage))
+                    && previousHeldGarbage != null)
                 {
-                    Milestone2ActionCue cue = garbage.Size == RecyclableSize.Small
+                    Milestone2ActionCue cue = previousHeldGarbage.Size == RecyclableSize.Small
                         ? Milestone2ActionCue.GrabSmall
-                        : garbage.Size == RecyclableSize.Medium
+                        : previousHeldGarbage.Size == RecyclableSize.Medium
                             ? Milestone2ActionCue.GrabMedium : Milestone2ActionCue.GrabLarge;
+                    voices.Play(Milestone2ActionCue.HandClose);
                     voices.Play(cue);
                 }
-                previousHeldObject = heldObject;
             }
+            // Release can clear Owner before the controller clears HeldObject.
+            // Keep the confirmed ownership for this held-reference session.
+            if (heldObject != null && previousHeldGarbage != null
+                && heldObject.Available && heldObject.Owner == source)
+                previousHeldWasOwnedGarbage = true;
 
-            // HandClose/HandOpen need a public empty-hand grip transition. Drop needs
-            // a public release reason to distinguish player release from forced release.
-            // Their authored cues remain available without predicting raw input.
+            // HandClose layers the successful owned grab. Empty-hand grip/HandOpen
+            // still need a public transition. Drop covers any confirmed release
+            // into the world, including forced release, without predicting input.
             previousDeployment = deployment;
-            previousLeftHandLocal = leftHandLocal;
-            previousRightHandLocal = rightHandLocal;
             previousBlocked = blocked;
         }
 
         internal void StopAllImmediately()
         {
+            StopArmVoices(false);
+            ResetObservation();
+            pendingDrop = null;
+            componentDisabled = false;
+        }
+
+        private void StopArmVoices(bool preserveDrop)
+        {
             for (int cue = (int)Milestone2ActionCue.ArmDeploy;
                  cue <= (int)Milestone2ActionCue.ArmRetractLock; cue++)
+            {
+                if (preserveDrop && cue == (int)Milestone2ActionCue.Drop) continue;
                 voices.Stop((Milestone2ActionCue)cue, true);
+            }
+        }
+
+        private void ResetObservation()
+        {
             hasBaseline = false;
             deploymentSession = retractionSession = false;
             previousHeldObject = null;
+            previousHeldGarbage = null;
+            previousHeldWasOwnedGarbage = false;
             blockedCooldownRemaining = 0f;
+            ResetJointBinding();
+            servoPitch = settings.ArmMinimumPitch;
         }
 
         private bool IsSourceAvailable() => source != null && source.isActiveAndEnabled
+            && source.gameObject.activeInHierarchy
             && (mover == null || mover.isActiveAndEnabled);
+
+        private void ObserveDisabledRelease(float elapsed)
+        {
+            // Disabling just the arm invokes gameplay Drop. Whole-object/scene
+            // teardown and the existing explicit lifecycle cleanup remain silent.
+            bool liveWorld = source != null && source.gameObject.activeInHierarchy
+                && (mover == null || mover.isActiveAndEnabled) && Time.timeScale > 0f;
+            if (liveWorld)
+            {
+                var scene = source.gameObject.scene;
+                liveWorld = scene.IsValid() && scene.isLoaded;
+            }
+            if (!liveWorld)
+            {
+                if (hasBaseline || componentDisabled || !ReferenceEquals(pendingDrop, null))
+                    StopAllImmediately();
+                return;
+            }
+
+            WorldInteraction heldObject = source.HeldObject;
+            if (elapsed > DeploymentEpsilon)
+                ConfirmPendingDrop(heldObject);
+            if (componentDisabled) return;
+
+            WorldInteraction oldHeld = previousHeldObject;
+            int sceneHandle = source.gameObject.scene.handle;
+            bool released = elapsed > DeploymentEpsilon && previousHeldWasOwnedGarbage
+                && !ReferenceEquals(oldHeld, heldObject)
+                && IsWorldReleaseCandidate(oldHeld, heldObject, sceneHandle);
+            StopArmVoices(true);
+            ResetObservation();
+            componentDisabled = true;
+            if (released) QueueDrop(oldHeld, sceneHandle);
+        }
 
         private void EstablishBaseline()
         {
-            handFrame = ResolveHandFrame();
+            visualFrame = ResolveVisualFrame();
+            ResetJointBinding();
+            ObserveJointSpeed(0f);
             previousDeployment = source.VisibleDeployment01;
-            previousLeftHandLocal = HandLocal(source.LeftHandWorld);
-            previousRightHandLocal = HandLocal(source.RightHandWorld);
-            previousHeldObject = source.HeldObject;
+            CacheHeldObject(source.HeldObject);
             previousBlocked = source.IsBlocked;
             hasBaseline = true;
         }
 
-        private Vector2 HandLocal(Vector2 worldPosition) =>
-            handFrame.InverseTransformPoint(new Vector3(worldPosition.x, worldPosition.y,
-                handFrame.position.z));
-
-        private Transform ResolveHandFrame() => marker != null && marker.MarkerVisualRoot != null
+        private Transform ResolveVisualFrame() => marker != null && marker.MarkerVisualRoot != null
             ? marker.MarkerVisualRoot : source.transform;
+
+        private void CacheHeldObject(WorldInteraction heldObject)
+        {
+            previousHeldObject = heldObject;
+            previousHeldGarbage = heldObject != null && heldObject.TryGetComponent(out GarbageItem garbage)
+                ? garbage : null;
+            previousHeldWasOwnedGarbage = previousHeldGarbage != null
+                && heldObject.Available && heldObject.Owner == source;
+        }
+
+        private void QueueDrop(WorldInteraction dropped, int sceneHandle)
+        {
+            pendingDrop = dropped;
+            pendingDropFrame = Time.frameCount;
+            pendingDropSceneHandle = sceneHandle;
+        }
+
+        private void ConfirmPendingDrop(WorldInteraction heldObject)
+        {
+            WorldInteraction dropped = pendingDrop;
+            if (ReferenceEquals(dropped, null) || Time.frameCount == pendingDropFrame) return;
+            pendingDrop = null;
+            if (IsWorldReleaseCandidate(dropped, heldObject, pendingDropSceneHandle))
+                voices.Play(Milestone2ActionCue.Drop);
+        }
+
+        private bool IsWorldReleaseCandidate(WorldInteraction dropped, WorldInteraction heldObject,
+            int sceneHandle)
+        {
+            if (dropped == null || ReferenceEquals(heldObject, dropped) || !dropped.Available || dropped.Owner != null
+                || (dropped.Kind & WorldInteractionKind.Grabbable) == 0) return false;
+            var scene = source.gameObject.scene;
+            return scene.IsValid() && scene.isLoaded && scene.handle == sceneHandle
+                && dropped.gameObject.scene == scene;
+        }
+
+        private float ObserveJointSpeed(float elapsed)
+        {
+            Transform nextFrame = ResolveVisualFrame();
+            if (nextFrame != visualFrame)
+            {
+                visualFrame = nextFrame;
+                ResetJointBinding();
+            }
+            if (leftUpper == null || leftLower == null || rightUpper == null || rightLower == null)
+            {
+                hasJointBaseline = false;
+                jointBindingRetryRemaining = Mathf.Max(0f, jointBindingRetryRemaining - elapsed);
+                if (jointBindingRetryRemaining > 0f) return 0f;
+                jointBindingRetryRemaining = JointBindingRetrySeconds;
+                // These are existing public visual transforms, cached between binds.
+                leftUpper = visualFrame.Find("Left Mechanical Arm/Upper Arm");
+                leftLower = visualFrame.Find("Left Mechanical Arm/Lower Arm");
+                rightUpper = visualFrame.Find("Right Mechanical Arm/Upper Arm");
+                rightLower = visualFrame.Find("Right Mechanical Arm/Lower Arm");
+                if (leftUpper == null || leftLower == null || rightUpper == null || rightLower == null)
+                    return 0f;
+            }
+
+            float leftLowerAngle = leftLower.localEulerAngles.z;
+            float rightLowerAngle = rightLower.localEulerAngles.z;
+            var angles = new JointAngles
+            {
+                LeftShoulder = leftLowerAngle,
+                LeftElbow = leftUpper.localEulerAngles.z - leftLowerAngle,
+                RightShoulder = rightLowerAngle,
+                RightElbow = rightUpper.localEulerAngles.z - rightLowerAngle
+            };
+            float speed = hasJointBaseline && elapsed > DeploymentEpsilon
+                ? Mathf.Max(
+                    Mathf.Max(Mathf.Abs(Mathf.DeltaAngle(previousJointAngles.LeftShoulder, angles.LeftShoulder)),
+                        Mathf.Abs(Mathf.DeltaAngle(previousJointAngles.LeftElbow, angles.LeftElbow))),
+                    Mathf.Max(Mathf.Abs(Mathf.DeltaAngle(previousJointAngles.RightShoulder, angles.RightShoulder)),
+                        Mathf.Abs(Mathf.DeltaAngle(previousJointAngles.RightElbow, angles.RightElbow)))) / elapsed
+                : 0f;
+            previousJointAngles = angles;
+            hasJointBaseline = true;
+            return speed;
+        }
+
+        private void ResetJointBinding()
+        {
+            leftUpper = leftLower = rightUpper = rightLower = null;
+            jointBindingRetryRemaining = 0f;
+            hasJointBaseline = false;
+        }
+
+        private struct JointAngles
+        {
+            internal float LeftShoulder, LeftElbow, RightShoulder, RightElbow;
+        }
 
         private void UpdateMechanism(Milestone2ActionCue cue, bool moving, bool completed,
             bool waitingForMotion, bool startsAtEndpoint, ref bool session)
