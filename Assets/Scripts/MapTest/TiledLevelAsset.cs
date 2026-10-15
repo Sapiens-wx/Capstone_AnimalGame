@@ -21,6 +21,13 @@ namespace AnimalGame.MapTest
         [SerializeField] private HeightMapLevelAsset presentation;
         [SerializeField] private Vector2 worldUnitsPerMeter = Vector2.one * (2048f / 30f / 250f);
         [SerializeField] private List<Tile> tiles = new List<Tile>();
+        [Header("Geographic Coordinates")]
+        [Tooltip("Minimum (west) and maximum (east) longitude in degrees for the entire map.")]
+        [SerializeField] private Vector2 longitudeRange = new Vector2(0, 1);
+        [Tooltip("Minimum (south) and maximum (north) latitude in degrees for the entire map.")]
+        [SerializeField] private Vector2 latitudeRange = new Vector2(0, 1);
+        public Vector2 LongitudeRange => longitudeRange;
+        public Vector2 LatitudeRange => latitudeRange;
         public IReadOnlyList<Tile> Tiles => tiles;
         public HeightMapLevelAsset Presentation => presentation;
         public Vector2 TileSizeMeters => tileSizeMeters;

@@ -15,6 +15,8 @@ MonoBehaviour:
   tileSizeMeters: {x: 250, y: 250}
   presentation: {fileID: 11400000, guid: f1dd8df6724d9e344a86971f124eefce, type: 2}
   worldUnitsPerMeter: {x: 0.27306667, y: 0.27306667}
+  longitudeRange: {x: 117, y: 123}
+  latitudeRange: {x: 43, y: 47}
   tiles:
   - coordinate: {x: 0, y: 0}
     level: {fileID: 11400000, guid: f1dd8df6724d9e344a86971f124eefce, type: 2}

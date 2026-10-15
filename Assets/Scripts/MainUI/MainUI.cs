@@ -28,8 +28,6 @@ namespace AnimalGame.MainUI
         [SerializeField, Range(0, 1)] private float power = 1;
         [SerializeField, Range(0, 1)] private float integrity = 1;
         [Header("Level indicator")]
-        [Tooltip("Optional terrain slope source. When unset, uses the scene bootstrap robot.")]
-        [SerializeField] private RobotMover slopeSource;
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
         [SerializeField] private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -55,6 +53,7 @@ namespace AnimalGame.MainUI
         private TimeOrbitElement timeOrbit;
         private InventorySelectionElement selection;
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
+        private Label latitudeHemisphereLabel, longitudeHemisphereLabel;
         private readonly Button[] slots = new Button[SlotCount];
         private bool started, inventoryOpen, pauseOwned, originalCursor, openHoldLatched, hasGeometry;
         private bool defaultItemsLoaded;
@@ -66,13 +65,18 @@ namespace AnimalGame.MainUI
         private int selectedIndex;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
-        private DateTime displayedDate = new DateTime(2026, 1, 1);
+        private DateTime lastCoordinateRefresh, lastClockMinute;
+        private bool telemetryNeedsRefresh = true;
 
         private void Awake()
         {
             if (document == null) document = GetComponent<UIDocument>();
         }
-        private void OnEnable() => Active = this;
+        private void OnEnable()
+        {
+            Active = this;
+            telemetryNeedsRefresh = true;
+        }
         private void Start() { started = true; Init(); }
 
         public void Init()
@@ -106,6 +110,8 @@ namespace AnimalGame.MainUI
             latitudeLabel = root.Q<Label>("Latitude");
             longitudeLabel = root.Q<Label>("Longitude");
             altitudeLabel = root.Q<Label>("Altitude");
+            latitudeHemisphereLabel = root.Q<Label>("LatitudeHemisphere");
+            longitudeHemisphereLabel = root.Q<Label>("LongitudeHemisphere");
             if (stage == null || view == null || innerRing == null || grid == null) return;
 
             root.pickingMode = PickingMode.Ignore;
@@ -123,7 +129,8 @@ namespace AnimalGame.MainUI
                 defaultItemsLoaded = true;
             }
             BuildSlots();
-            SetDate(displayedDate);
+            ClearCoordinates();
+            RefreshTelemetry(DateTime.Now, true);
             lastPower = lastIntegrity = -1;
             ApplyLayout();
             UpdateStatus();
@@ -251,6 +258,7 @@ namespace AnimalGame.MainUI
             if (!started || document == null) return;
             if (root != document.rootVisualElement || stage == null) Init();
             if (stage == null) return;
+            RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
             HandleInput();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
         }
@@ -260,9 +268,7 @@ namespace AnimalGame.MainUI
         private void UpdateLevelIndicator()
         {
             if (levelIndicator == null) return;
-            RobotMover robot = slopeSource;
-            if (robot == null && HeightMapPlayerSceneBootstrap.inst != null)
-                robot = HeightMapPlayerSceneBootstrap.inst.robot;
+            RobotMover robot = HeightMapPlayerSceneBootstrap.inst.robot;
             levelIndicator.SetDegree(robot != null && robot.CurrentTraversalResult.HasData
                 ? robot.CurrentTraversalResult.SignedSlopeAngle : 0);
         }
@@ -441,22 +447,63 @@ namespace AnimalGame.MainUI
             UpdateOuterRingRotation();
         }
         public void SetDayProgress(float normalized) => timeOrbit?.SetDayProgress(normalized);
-        /// <summary>Presentation hook for a future game clock; defaults to 2026_01_01 until called.</summary>
+        /// <summary>Displays the local computer date using the HUD's date format.</summary>
         public void SetDate(DateTime date)
         {
-            displayedDate = date;
             if (dateLabel != null) dateLabel.text = date.ToString("yyyy_MM_dd", CultureInfo.InvariantCulture);
         }
-        // TODO: Bind these display interfaces to the future map coordinate conversion and altitude data source.
+        private void RefreshTelemetry(DateTime now, bool force)
+        {
+            DateTime minute = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMinute));
+            if (force || minute != lastClockMinute)
+            {
+                lastClockMinute = minute;
+                SetDate(now);
+                SetDayProgress((float)(minute.TimeOfDay.TotalMinutes / 1440d));
+            }
+
+            // Refresh once after a stall; also recover immediately if the computer clock moves backward.
+            double elapsed = (now - lastCoordinateRefresh).TotalMilliseconds;
+            if (force || elapsed >= 100 || elapsed < 0)
+            {
+                lastCoordinateRefresh = now;
+                UpdateCoordinates();
+            }
+            telemetryNeedsRefresh = false;
+        }
+
+        private void UpdateCoordinates()
+        {
+            var bootstrap = HeightMapPlayerSceneBootstrap.inst;
+            MapTestSceneController map = bootstrap != null ? bootstrap.map : null;
+            RobotMover robot = bootstrap != null ? bootstrap.robot : null;
+            if (map == null || robot == null
+                || !map.TrySampleGeographicWorldPosition(robot.MapPosition,
+                    out float latitude, out float longitude, out float height))
+            {
+                ClearCoordinates();
+                return;
+            }
+
+            SetCoordinates(latitude, longitude);
+            SetAltitude(height);
+        }
+
+        private void ClearCoordinates()
+        {
+            if (latitudeLabel != null) latitudeLabel.text = "--.-----\u00b0";
+            if (longitudeLabel != null) longitudeLabel.text = "--.-----\u00b0";
+            if (altitudeLabel != null) altitudeLabel.text = "--m";
+            if (latitudeHemisphereLabel != null) latitudeHemisphereLabel.text = "--";
+            if (longitudeHemisphereLabel != null) longitudeHemisphereLabel.text = "--";
+        }
+
         public void SetCoordinates(float latitude, float longitude)
         {
             if (latitudeLabel != null) latitudeLabel.text = Mathf.Abs(latitude).ToString("F5", CultureInfo.InvariantCulture) + "°";
             if (longitudeLabel != null) longitudeLabel.text = Mathf.Abs(longitude).ToString("F5", CultureInfo.InvariantCulture) + "°";
-            if (root != null)
-            {
-                root.Q<Label>("LatitudeHemisphere").text = latitude < 0 ? "S" : "N";
-                root.Q<Label>("LongitudeHemisphere").text = longitude < 0 ? "W" : "E";
-            }
+            if (latitudeHemisphereLabel != null) latitudeHemisphereLabel.text = latitude < 0 ? "S" : "N";
+            if (longitudeHemisphereLabel != null) longitudeHemisphereLabel.text = longitude < 0 ? "W" : "E";
         }
         public void SetAltitude(float meters) { if (altitudeLabel != null) altitudeLabel.text = meters.ToString("F0") + "m"; }
 

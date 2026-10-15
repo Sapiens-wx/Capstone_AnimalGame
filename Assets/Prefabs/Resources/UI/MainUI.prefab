@@ -36,7 +36,7 @@ RectTransform:
   m_GameObject: {fileID: 100000000}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 982787043818235404}
@@ -228,6 +228,8 @@ MonoBehaviour:
   power: 1
   integrity: 1
   slopeSource: {fileID: 0}
+  coordinateMap: {fileID: 0}
+  coordinateRobot: {fileID: 0}
   animationDuration: 0.5
   easing:
     serializedVersion: 2
@@ -371,6 +373,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1195579321100125089, guid: 5b172d88c09e4f99951ccdd4949d05ef, type: 3}
+      propertyPath: m_ParentUI
+      value: 
+      objectReference: {fileID: 5078151001591562568}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

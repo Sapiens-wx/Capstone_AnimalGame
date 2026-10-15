@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using AnimalGame.Animals;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -50,7 +51,8 @@ namespace AnimalGame.RobotMap
             && photoImage != null && snapshotImage != null
             && root.Q<Label>("animal-name") != null && root.Q<Label>("scientific-name") != null
             && root.Q<Label>("region") != null && root.Q<Label>("altitude") != null
-            && root.Q<Label>("coordinates") != null && root.Q<Label>("metadata") != null;
+            && root.Q<Label>("coordinates") != null && root.Q<Label>("metadata") != null
+            && root.Q<Label>("longitude") != null && root.Q<Label>("latitude") != null;
         public Vector2 WarmupLayoutSize => root == null ? Vector2.zero : root.layout.size;
         public bool HasWarmupLayout => IsWarmupReady && PositiveSize(root.layout.size) && PositiveSize(stage.layout.size);
         private static bool PositiveSize(Vector2 size) => size.x > 0 && size.y > 0
@@ -206,9 +208,7 @@ namespace AnimalGame.RobotMap
             contourSource = contours;
             root.Q<Label>("animal-name").text = result.EnglishName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
-            root.Q<Label>("region").text = result.RegionName;
-            root.Q<Label>("altitude").text = result.HasHeight ? $"{result.HeightMeters:0}m" : "- m";
-            root.Q<Label>("coordinates").text = $"Coordinates ({result.MapPositionMeters.x:0.0}, {result.MapPositionMeters.y:0.0})";
+            UpdateLocation(result);
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
             root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
             saveLabel.text = "Save Photo";
@@ -242,6 +242,19 @@ namespace AnimalGame.RobotMap
             root.style.display = DisplayStyle.Flex;
             RenderCard();
             ApplyAnimation();
+        }
+
+        private void UpdateLocation(PhotoResultSnapshot result)
+        {
+            root.Q<Label>("region").text = result.RegionName;
+            root.Q<Label>("altitude").text = result.HasHeight ? $"{result.HeightMeters:0}m" : "- m";
+            root.Q<Label>("coordinates").text = $"Coordinates ({result.MapPositionMeters.x:0.0}, {result.MapPositionMeters.y:0.0})";
+            root.Q<Label>("longitude").text = result.HasGeographicCoordinates
+                ? "Longitude " + Mathf.Abs(result.Longitude).ToString("F5", CultureInfo.InvariantCulture)
+                    + "\u00b0 " + (result.Longitude < 0 ? "W" : "E") : "Longitude --";
+            root.Q<Label>("latitude").text = result.HasGeographicCoordinates
+                ? "Latitude " + Mathf.Abs(result.Latitude).ToString("F5", CultureInfo.InvariantCulture)
+                    + "\u00b0 " + (result.Latitude < 0 ? "S" : "N") : "Latitude --";
         }
 
         public void SetSaved() => saveLabel.text = "Photo Saved";

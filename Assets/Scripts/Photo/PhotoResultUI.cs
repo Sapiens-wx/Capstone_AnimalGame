@@ -447,6 +447,7 @@ namespace AnimalGame.RobotMap
         {
             Vector2 mapPosition = subject.transform.position;
             float heightMeters = 0f;
+            float latitude = 0f, longitude = 0f;
             bool hasMapPosition = false;
             bool hasHeight = false;
             if (map != null)
@@ -454,10 +455,10 @@ namespace AnimalGame.RobotMap
                 hasMapPosition = map.TrySampleWorldPosition(subject.transform.position,
                     out Vector2 sampledPosition, out _);
                 if (hasMapPosition) mapPosition = sampledPosition;
-                // PhotoModeController lives on the robot: elevation belongs to the shutter location.
+                // PhotoModeController lives on the robot: freeze the player's shutter location.
                 if (controller != null)
-                    hasHeight = map.TrySampleWorldPosition(controller.transform.position,
-                        out _, out heightMeters);
+                    hasHeight = map.TrySampleGeographicWorldPosition(controller.transform.position,
+                        out latitude, out longitude, out heightMeters);
             }
 
             string levelName = map != null && map.LevelAsset != null
@@ -483,6 +484,9 @@ namespace AnimalGame.RobotMap
                 subject.Species,
                 subject.PhotoState,
                 hasMapPosition,
+                hasHeight,
+                latitude,
+                longitude,
                 hasHeight);
         }
 
@@ -580,7 +584,10 @@ namespace AnimalGame.RobotMap
             AnimalSpecies species,
             AnimalState state,
             bool hasMapPosition,
-            bool hasHeight)
+            bool hasHeight,
+            float latitude = 0f,
+            float longitude = 0f,
+            bool hasGeographicCoordinates = false)
         {
             SpeciesId = speciesId;
             DisplayName = displayName;
@@ -600,6 +607,9 @@ namespace AnimalGame.RobotMap
             State = state;
             HasMapPosition = hasMapPosition;
             HasHeight = hasHeight;
+            Latitude = latitude;
+            Longitude = longitude;
+            HasGeographicCoordinates = hasGeographicCoordinates;
         }
 
         public string SpeciesId { get; }
@@ -619,6 +629,9 @@ namespace AnimalGame.RobotMap
         public bool HasHeight { get; }
         public Vector2 MapPositionMeters { get; }
         public float HeightMeters { get; }
+        public bool HasGeographicCoordinates { get; }
+        public float Latitude { get; }
+        public float Longitude { get; }
         public float FrameCoverage { get; }
         public DateTime CapturedAt { get; }
     }

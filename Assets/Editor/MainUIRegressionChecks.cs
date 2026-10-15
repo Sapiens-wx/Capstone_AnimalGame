@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Xml.Linq;
 using AnimalGame.MainUI;
 using AnimalGame.MainUI.Inventory;
+using AnimalGame.Animals;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using UnityEditor;
@@ -48,6 +49,7 @@ namespace AnimalGame.Editor
                 var hud = obj.AddComponent<Hud>();
                 hud.Init();
                 var root = document.rootVisualElement;
+                CheckTelemetry(hud, root, scene);
                 Assert(root.Q<ViewRingElement>("InnerRing") != null, "Custom UXML elements import");
                 var level = root.Q<LevelIndicatorElement>("LevelIndicator");
                 Assert(level != null, "Level indicator imports from UXML");
@@ -294,6 +296,142 @@ namespace AnimalGame.Editor
                 if (texture != null) { texture.Release(); Object.DestroyImmediate(texture); }
                 if (settings != null) Object.DestroyImmediate(settings);
                 Time.timeScale = previousScale;
+            }
+        }
+
+        private static void CheckTelemetry(Hud hud, VisualElement root, Scene scene)
+        {
+            var midnight = new DateTime(2026, 10, 16);
+            Invoke(hud, "RefreshTelemetry", midnight.AddMilliseconds(-1), true);
+            Assert(root.Q<Label>("Date").text == "2026_10_15", "Clock displays date before midnight");
+            float previousScale = Time.timeScale;
+            Time.timeScale = 0;
+            Invoke(hud, "RefreshTelemetry", midnight, false);
+            Assert(root.Q<Label>("Date").text == "2026_10_16", "Date crosses midnight while paused");
+            var orbit = root.Q<TimeOrbitElement>("TimeOrbit");
+            Assert((float)typeof(TimeOrbitElement).GetField("dayProgress", Flags).GetValue(orbit) == 0,
+                "Midnight starts day progress");
+            Invoke(hud, "RefreshTelemetry", midnight.AddHours(12), false);
+            Assert((float)typeof(TimeOrbitElement).GetField("dayProgress", Flags).GetValue(orbit) == .5f,
+                "Noon is halfway through orbit");
+            Time.timeScale = previousScale;
+            Assert(root.Q<Label>("Altitude").text == "--m", "Missing map displays placeholders");
+
+            var mapObject = new GameObject("HUD coordinate map");
+            SceneManager.MoveGameObjectToScene(mapObject, scene);
+            var map = mapObject.AddComponent<MapTestSceneController>();
+            var robotObject = new GameObject("HUD coordinate robot");
+            SceneManager.MoveGameObjectToScene(robotObject, scene);
+            var robot = robotObject.AddComponent<RobotMover>();
+            robot.enabled = false;
+            var heights = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            heights.SetPixels(Enumerable.Repeat(Color.white * .5f, 4).ToArray());
+            heights.Apply();
+            var previousBootstrap = HeightMapPlayerSceneBootstrap.inst;
+            var bootstrapObject = new GameObject("Telemetry bootstrap");
+            bootstrapObject.SetActive(false);
+            SceneManager.MoveGameObjectToScene(bootstrapObject, scene);
+            var bootstrap = bootstrapObject.AddComponent<HeightMapPlayerSceneBootstrap>();
+            bootstrap.map = map;
+            bootstrap.robot = robot;
+            HeightMapPlayerSceneBootstrap.inst = bootstrap;
+            try
+            {
+                using (var fixture = new TiledMapTestFixture(map, heights, 100, 2, 70))
+                {
+                    typeof(TiledLevelAsset).GetField("longitudeRange", Flags).SetValue(map.LevelAsset, new Vector2(-110, -100));
+                    typeof(TiledLevelAsset).GetField("latitudeRange", Flags).SetValue(map.LevelAsset, new Vector2(30, 40));
+                    map.transform.position = new Vector3(50, -20, 0);
+                    robot.transform.position = map.WorldBounds.min;
+                    Invoke(hud, "RefreshTelemetry", midnight, true);
+                    Assert(root.Q<Label>("Longitude").text == "110.00000°"
+                        && root.Q<Label>("Latitude").text == "30.00000°", "Southwest uses minimum coordinates");
+                    Assert(root.Q<Label>("LongitudeHemisphere").text == "W", "Negative longitude uses west");
+                    Assert(map.TrySampleWorldPosition(robot.MapPosition, out _, out float height)
+                        && root.Q<Label>("Altitude").text == height.ToString("F0") + "m", "Altitude uses map height in meters");
+                    robot.transform.position = map.WorldBounds.max;
+                    Invoke(hud, "RefreshTelemetry", midnight.AddMilliseconds(99), false);
+                    Assert(root.Q<Label>("Longitude").text == "110.00000°", "Coordinates wait for 100 milliseconds");
+                    Invoke(hud, "RefreshTelemetry", midnight.AddMilliseconds(100), false);
+                    Assert(root.Q<Label>("Longitude").text == "100.00000°"
+                        && root.Q<Label>("Latitude").text == "40.00000°", "Northeast uses maximum coordinates");
+                    robot.transform.position = map.WorldBounds.center;
+                    Invoke(hud, "RefreshTelemetry", midnight.AddMilliseconds(200), false);
+                    Assert(root.Q<Label>("Longitude").text == "105.00000°"
+                        && root.Q<Label>("Latitude").text == "35.00000°", "Map center interpolates both axes");
+                    robot.transform.position = map.WorldBounds.max + Vector3.one;
+                    Invoke(hud, "RefreshTelemetry", midnight.AddMilliseconds(300), false);
+                    Assert(root.Q<Label>("Altitude").text == "--m"
+                        && root.Q<Label>("Longitude").text == "--.-----°"
+                        && root.Q<Label>("Latitude").text == "--.-----°", "Outside map clears all coordinates");
+                    robot.transform.position = map.WorldBounds.center;
+                    Invoke(hud, "RefreshTelemetry", midnight.AddMilliseconds(150), false);
+                    Assert(root.Q<Label>("Altitude").text != "--m", "Clock moving backward recovers refresh immediately");
+                    CheckPhotoLocation(map, robot, scene);
+                }
+            }
+            finally
+            {
+                HeightMapPlayerSceneBootstrap.inst = previousBootstrap;
+                Object.DestroyImmediate(bootstrapObject);
+                Object.DestroyImmediate(robotObject);
+                Object.DestroyImmediate(mapObject);
+                Object.DestroyImmediate(heights);
+                Invoke(hud, "RefreshTelemetry", DateTime.Now, true);
+            }
+        }
+
+        private static void CheckPhotoLocation(MapTestSceneController map, RobotMover robot, Scene scene)
+        {
+            var subjectObject = new GameObject("Location snapshot subject");
+            subjectObject.SetActive(false);
+            SceneManager.MoveGameObjectToScene(subjectObject, scene);
+            var resultObject = new GameObject("Location snapshot UI");
+            resultObject.SetActive(false);
+            SceneManager.MoveGameObjectToScene(resultObject, scene);
+            try
+            {
+                var subject = subjectObject.AddComponent<AnimalPhotoSubject>();
+                subject.transform.position = map.WorldBounds.max;
+                robot.transform.position = map.WorldBounds.min;
+                var controller = robot.gameObject.AddComponent<PhotoModeController>();
+                controller.enabled = false;
+                var resultUI = resultObject.AddComponent<PhotoResultUI>();
+                typeof(PhotoResultUI).GetField("map", Flags).SetValue(resultUI, map);
+                typeof(PhotoResultUI).GetField("controller", Flags).SetValue(resultUI, controller);
+                var create = typeof(PhotoResultUI).GetMethod("CreateSnapshot", Flags);
+                var snapshot = (PhotoResultSnapshot)create.Invoke(resultUI, new object[] { subject, null, .5f });
+                Assert(snapshot.HasGeographicCoordinates && snapshot.Latitude == 30 && snapshot.Longitude == -110,
+                    "Photo samples player coordinates rather than animal coordinates");
+                Assert(snapshot.MapPositionMeters == map.MapSizeMeters,
+                    "Photo retains separate animal map coordinates");
+                Assert(map.TrySampleWorldPosition(robot.MapPosition, out _, out float height)
+                    && snapshot.HasHeight && snapshot.HeightMeters == height, "Photo samples player ground elevation");
+                robot.transform.position = map.WorldBounds.max + Vector3.one;
+                Assert(snapshot.Latitude == 30 && snapshot.Longitude == -110 && snapshot.HeightMeters == height,
+                    "Captured location remains frozen after player moves");
+
+                var view = resultObject.AddComponent<PhotoResultView>();
+                var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                    "Assets/Prefabs/Resources/UI/Photo/PhotoResult.uxml").CloneTree();
+                typeof(PhotoResultView).GetField("root", Flags).SetValue(view, tree);
+                Invoke(view, "UpdateLocation", snapshot);
+                Assert(tree.Q<Label>("longitude").text == "Longitude 110.00000\u00b0 W"
+                    && tree.Q<Label>("latitude").text == "Latitude 30.00000\u00b0 N",
+                    "Photo labels display captured geographic coordinates and hemispheres");
+                Assert(tree.Q<Label>("altitude").text == $"{height:0}m", "Photo label displays captured altitude");
+                var missing = (PhotoResultSnapshot)create.Invoke(resultUI, new object[] { subject, null, .5f });
+                Assert(!missing.HasHeight && !missing.HasGeographicCoordinates,
+                    "Photo marks unavailable player location as missing");
+                Invoke(view, "UpdateLocation", missing);
+                Assert(tree.Q<Label>("longitude").text == "Longitude --"
+                    && tree.Q<Label>("latitude").text == "Latitude --"
+                    && tree.Q<Label>("altitude").text == "- m", "Photo clears stale location values");
+            }
+            finally
+            {
+                Object.DestroyImmediate(resultObject);
+                Object.DestroyImmediate(subjectObject);
             }
         }
 

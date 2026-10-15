@@ -271,6 +271,20 @@ namespace AnimalGame.MapTest
                 (worldPosition.y - bounds.min.y) / bounds.size.y * mapHeightMeters);
             return TrySampleMapPosition(mapPositionMeters, out heightMeters);
         }
+        /// <summary>Samples geographic coordinates and ground elevation at a world XY position.</summary>
+        public bool TrySampleGeographicWorldPosition(Vector2 worldPosition,
+            out float latitude, out float longitude, out float heightMeters)
+        {
+            latitude = longitude = 0;
+            if (!TrySampleWorldPosition(worldPosition, out Vector2 position, out heightMeters))
+                return false;
+            latitude = Mathf.Lerp(levelAsset.LatitudeRange.x, levelAsset.LatitudeRange.y,
+                position.y / mapHeightMeters);
+            longitude = Mathf.Lerp(levelAsset.LongitudeRange.x, levelAsset.LongitudeRange.y,
+                position.x / mapWidthMeters);
+            return true;
+        }
+
         public bool TrySampleMapPosition(Vector2 position, out float height) => TrySample(position, out height, 0);
         public bool TrySampleDetailMapPosition(Vector2 position, out float height) => TrySample(position, out height, 1);
         public bool TrySampleRawDetailMapPosition(Vector2 position, out float height) => TrySample(position, out height, 2);

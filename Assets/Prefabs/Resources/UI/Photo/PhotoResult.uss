@@ -72,7 +72,7 @@ Label {
     font-size: 36px;
 }
 
-#coordinates {
+#coordinates, #longitude, #latitude {
     left: 1430px;
     top: 583px;
     font-size: 27px;

@@ -83,7 +83,7 @@ namespace AnimalGame.Editor
             var date = root.Q<Label>("Date");
             Assert(Mathf.Abs(time.layout.width - time.layout.height) < .01f, "Time uses square bounds");
             Assert(Vector2.Distance(orbit.worldBound.center, date.worldBound.center) < .1f, "Date is centered in orbit");
-            Assert(date.text == "2026_01_01", "Unbound clock retains the default date");
+            Assert(date.text == DateTime.Now.ToString("yyyy_MM_dd"), "Clock initializes from the computer date");
             hud.SetDate(new DateTime(2026, 10, 12));
             Assert(date.text == "2026_10_12", "Date interface formats yyyy_mm_dd");
             hud.SetDate(new DateTime(2026, 1, 1));
