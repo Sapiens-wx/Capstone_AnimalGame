@@ -70,8 +70,8 @@ namespace Capstone.Audio
             }
         }
 
-        // HandClose accompanies an owned grab; Drop confirms a live world release.
-        // Empty-hand opening still lacks a reliable public transition.
+        // Empty-hand open/close share HandClose from observed sprite edges.
+        // HandOpen is an unused alternative slot; Drop confirms a live world release.
         public static bool HasObservableTrigger(int index) =>
             index != (int)Milestone2ActionCue.HandOpen;
 

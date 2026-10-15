@@ -1,8 +1,9 @@
 /*
  * Add Anthony's biological scan layer to the existing Scan/Pulse event.
  * Back up the external Studio project before running this script. It preserves
- * every existing event GUID and the original Pulse instrument, and never runs
- * the Milestone 1 initializer. Build RobotTools separately after saving.
+ * every existing event GUID and the original Pulse instrument/source. Only
+ * biological Pulse gain is automated; terrain retains its original level.
+ * Never runs the Milestone 1 initializer. Build RobotTools separately.
  */
 (function () {
     "use strict";
@@ -11,6 +12,8 @@
     var pulsePath = "event:/Robot/Scan/Pulse";
     var parameterName = "BioScanLayer";
     var trackName = "Biological Layer";
+    var biologicalPulseDb = 20 * Math.log(0.8) / Math.LN10;
+    var biologicalLayerDb = 20 * Math.log(0.4) / Math.LN10;
 
     function requireCondition(value, message) {
         if (!value) throw new Error("Biological scan layer: " + message);
@@ -27,6 +30,29 @@
             isAsync: sound.isAsync, isCutoff: sound.isCutoff, looping: sound.looping,
             volume: sound.volume, pitch: sound.pitch,
             conditions: sound.triggerConditions.map(function (condition) { return condition.id; }) });
+    }
+    function configurePulseGain(sound, parameter) {
+        var automators = sound.automators.filter(function (automator) {
+            return automator.nameOfPropertyBeingAutomated === "volume";
+        });
+        requireCondition(automators.length <= 1, "Duplicate original Pulse volume automation");
+        var automator = automators.length ? automators[0] : sound.addAutomator("volume");
+        var curves = automator.automationCurves;
+        requireCondition(curves.length <= 1, "Refusing to replace complex original Pulse volume automation");
+        var curve = curves.length ? curves[0] : automator.addAutomationCurve(parameter);
+        requireCondition(curve.parameter && curve.parameter.id === parameter.id,
+            "Original Pulse volume is automated by another parameter");
+        var points = curve.automationPoints.slice().sort(function (a, b) { return a.position - b.position; });
+        requireCondition(points.length <= 2, "Refusing to replace a complex original Pulse gain curve");
+        if (!points.length) points.push(curve.addAutomationPoint(0, 0));
+        if (points.length < 2) points.push(curve.addAutomationPoint(1, biologicalPulseDb));
+        points[0].position = 0;
+        points[0].value = 0;
+        points[0].curveShape = 0;
+        points[1].position = 1;
+        points[1].value = biologicalPulseDb;
+        points[1].curveShape = 0;
+        requireCondition(automator.isValid && curve.isValid, "Invalid original Pulse biological gain automation");
     }
 
     requireCondition(String(studio.project.filePath).replace(/\\/g, "/").toLowerCase() === expectedProject,
@@ -78,6 +104,7 @@
     parameter.isGlobal = false;
     parameter.isReadOnly = false;
     parameter.isHeld = false;
+    configurePulseGain(original, parameter);
 
     if (!layerTrack) layerTrack = pulse.addGroupTrack(trackName);
     var layer = layerSounds.length ? layerSounds[0] : layerTrack.addSound(pulse.timeline, "SingleSound", 0, original.length);
@@ -91,7 +118,7 @@
     layer.isAsync = true;
     layer.isCutoff = false;
     layer.looping = false;
-    layer.volume = 0;
+    layer.volume = biologicalLayerDb;
     layer.pitch = 0;
     var conditions = layer.triggerConditions;
     requireCondition(conditions.length <= 1, "Unexpected biological layer conditions");
@@ -114,5 +141,7 @@
         originalSound: original.id, layerSound: layer.id, parameter: parameterName, defaultValue: 0,
         condition: [0.5, 1], layerSeconds: asset.length, triggerSeconds: layer.length,
         isAsync: layer.isAsync, isCutoff: layer.isCutoff, looping: layer.looping,
+        terrainPulseGain: 1, biologicalPulseGain: 0.8, biologicalLayerGain: 0.4,
+        biologicalPulseDb: biologicalPulseDb, biologicalLayerDb: layer.volume,
         preservedEvents: eventIds.length }));
 }());

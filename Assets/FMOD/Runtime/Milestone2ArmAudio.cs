@@ -11,7 +11,7 @@ namespace Capstone.Audio
         private const float DeploymentEpsilon = 0.000001f;
         private const int MechanismLoopStartMilliseconds = 350;
         private const int MechanismReleaseMilliseconds = 800;
-        private const int ServoLoopStartMilliseconds = 250;
+        private const int ServoLoopStartMilliseconds = 50;
         private const float JointBindingRetrySeconds = 0.25f;
         private readonly Milestone2ActionSettings settings;
         private readonly Milestone2ActionVoices voices;
@@ -23,6 +23,10 @@ namespace Capstone.Audio
         private Transform leftLower;
         private Transform rightUpper;
         private Transform rightLower;
+        private SpriteRenderer leftHandRenderer;
+        private SpriteRenderer rightHandRenderer;
+        private Sprite previousLeftHandSprite;
+        private Sprite previousRightHandSprite;
         private WorldInteraction previousHeldObject;
         private GarbageItem previousHeldGarbage;
         private WorldInteraction pendingDrop;
@@ -33,6 +37,7 @@ namespace Capstone.Audio
         private float previousDeployment;
         private float blockedCooldownRemaining;
         private float jointBindingRetryRemaining;
+        private float handBindingRetryRemaining;
         private float servoPitch;
         private bool previousBlocked;
         private bool hasBaseline;
@@ -40,6 +45,8 @@ namespace Capstone.Audio
         private bool deploymentSession;
         private bool retractionSession;
         private bool componentDisabled;
+        private bool hasHandSpriteBaseline;
+        private bool previousHandContextReady;
 
         internal RobotArmController Source => source;
 
@@ -143,6 +150,9 @@ namespace Capstone.Audio
                 voices.SetPitch(Milestone2ActionCue.ArmServo, servoPitch);
             }
             voices.SetLoopFrom(Milestone2ActionCue.ArmServo, servoMoving, ServoLoopStartMilliseconds);
+            ObserveEmptyHandGrip(heldObject, deployment,
+                deploying || retracting || finishingDeployment || finishingRetraction,
+                canObserveMotion, elapsed);
 
             bool blocked = source.IsBlocked;
             if (canObserveMotion && blocked && !previousBlocked
@@ -177,7 +187,6 @@ namespace Capstone.Audio
                         ? Milestone2ActionCue.GrabSmall
                         : previousHeldGarbage.Size == RecyclableSize.Medium
                             ? Milestone2ActionCue.GrabMedium : Milestone2ActionCue.GrabLarge;
-                    voices.Play(Milestone2ActionCue.HandClose);
                     voices.Play(cue);
                 }
             }
@@ -187,9 +196,8 @@ namespace Capstone.Audio
                 && heldObject.Available && heldObject.Owner == source)
                 previousHeldWasOwnedGarbage = true;
 
-            // HandClose layers the successful owned grab. Empty-hand grip/HandOpen
-            // still need a public transition. Drop covers any confirmed release
-            // into the world, including forced release, without predicting input.
+            // Empty-hand open/close share HandClose; owned grabs use only their
+            // material cue. Drop confirms a real release without predicting input.
             previousDeployment = deployment;
             previousBlocked = blocked;
         }
@@ -221,6 +229,7 @@ namespace Capstone.Audio
             previousHeldWasOwnedGarbage = false;
             blockedCooldownRemaining = 0f;
             ResetJointBinding();
+            ResetHandBinding();
             servoPitch = settings.ArmMinimumPitch;
         }
 
@@ -270,6 +279,8 @@ namespace Capstone.Audio
             previousDeployment = source.VisibleDeployment01;
             CacheHeldObject(source.HeldObject);
             previousBlocked = source.IsBlocked;
+            ResetHandBinding();
+            ObserveEmptyHandGrip(source.HeldObject, previousDeployment, false, false, 0f);
             hasBaseline = true;
         }
 
@@ -318,6 +329,7 @@ namespace Capstone.Audio
             {
                 visualFrame = nextFrame;
                 ResetJointBinding();
+                ResetHandBinding();
             }
             if (leftUpper == null || leftLower == null || rightUpper == null || rightLower == null)
             {
@@ -360,6 +372,56 @@ namespace Capstone.Audio
             leftUpper = leftLower = rightUpper = rightLower = null;
             jointBindingRetryRemaining = 0f;
             hasJointBaseline = false;
+        }
+
+        private void ObserveEmptyHandGrip(WorldInteraction heldObject, float deployment,
+            bool mechanismMoving, bool canPlay, float elapsed)
+        {
+            if (leftHandRenderer == null || rightHandRenderer == null)
+            {
+                hasHandSpriteBaseline = previousHandContextReady = false;
+                handBindingRetryRemaining = Mathf.Max(0f, handBindingRetryRemaining - elapsed);
+                if (handBindingRetryRemaining > 0f) return;
+                handBindingRetryRemaining = JointBindingRetrySeconds;
+                Transform leftHand = visualFrame.Find("Left Mechanical Arm/Mechanical Hand");
+                Transform rightHand = visualFrame.Find("Right Mechanical Arm/Mechanical Hand");
+                leftHandRenderer = leftHand != null && leftHand.TryGetComponent(out SpriteRenderer leftRenderer)
+                    ? leftRenderer : null;
+                rightHandRenderer = rightHand != null && rightHand.TryGetComponent(out SpriteRenderer rightRenderer)
+                    ? rightRenderer : null;
+                if (leftHandRenderer == null || rightHandRenderer == null) return;
+            }
+
+            Sprite leftSprite = leftHandRenderer.sprite;
+            Sprite rightSprite = rightHandRenderer.sprite;
+            bool contextReady = source.IsArmModeActive
+                && (source.State == RobotArmState.OuterOperating || source.State == RobotArmState.Docking)
+                && deployment >= 1f - DeploymentEpsilon
+                && (mover == null || (mover.MovementMode == RobotMovementMode.Driven && !mover.IsPhotoModeInputLocked))
+                && leftHandRenderer.enabled && rightHandRenderer.enabled
+                && leftHandRenderer.gameObject.activeInHierarchy && rightHandRenderer.gameObject.activeInHierarchy
+                && leftSprite != null && rightSprite != null;
+            bool emptyBeforeAndAfter = ReferenceEquals(previousHeldObject, null) && ReferenceEquals(heldObject, null);
+            if (canPlay && hasHandSpriteBaseline && previousHandContextReady && contextReady
+                && emptyBeforeAndAfter && !mechanismMoving
+                && (leftSprite != previousLeftHandSprite || rightSprite != previousRightHandSprite))
+            {
+                // SetHandGrip changes both visible sprites on the actual edge.
+                // One event covers either direction and retriggers even while alive.
+                voices.Play(Milestone2ActionCue.HandClose);
+            }
+            previousLeftHandSprite = leftSprite;
+            previousRightHandSprite = rightSprite;
+            previousHandContextReady = contextReady;
+            hasHandSpriteBaseline = true;
+        }
+
+        private void ResetHandBinding()
+        {
+            leftHandRenderer = rightHandRenderer = null;
+            previousLeftHandSprite = previousRightHandSprite = null;
+            handBindingRetryRemaining = 0f;
+            hasHandSpriteBaseline = previousHandContextReady = false;
         }
 
         private struct JointAngles

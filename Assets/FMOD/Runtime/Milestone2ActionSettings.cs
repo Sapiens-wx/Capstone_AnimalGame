@@ -14,18 +14,18 @@ namespace Capstone.Audio
         [SerializeField, Min(0f)] private float turnThreshold = 0.5f;
         [SerializeField] private bool enableStationaryTurnGroundAudio = true;
         [SerializeField, Min(0f)] private float movementStopDelay = 0.12f;
-        [SerializeField, Min(0f)] private float engineFadeOutSeconds = 0.25f;
+        [SerializeField, Min(0f)] private float engineFadeOutSeconds = 0.5f;
         [SerializeField, Min(0f)] private float groundFadeOutSeconds = 0.18f;
         [SerializeField, Min(0.001f)] private float movementFadeInSeconds = 0.04f;
-        [SerializeField, Min(0.001f)] private float engineCrossfadeSeconds = 0.08f;
+        [SerializeField, Min(0.001f)] private float engineCrossfadeSeconds = 0.04f;
         [SerializeField, Min(0.01f)] private float driveReferenceSpeed = 5f;
         [SerializeField, Min(0.01f)] private float turnReferenceSpeed = 100f;
         [SerializeField, Min(0.01f)] private float brakeReferenceDeceleration = 8f;
-        [Tooltip("Audio RPM reaches maximum in 3.5 seconds at full throttle.")]
-        [SerializeField, Min(0.01f)] private float engineAccelerationSeconds = 3.5f;
-        [SerializeField, Min(0.01f)] private float engineCoastDeceleration = 0.2f;
+        [Tooltip("Seconds for the engine loop to rise from minimum to maximum pitch.")]
+        [SerializeField, Min(0.01f)] private float engineAccelerationSeconds = 2.75f;
         [SerializeField, Range(0.01f, 1f)] private float engineMinimumPitch = 0.25f;
-        [SerializeField, Range(0f, 1f)] private float engineGainMultiplier = 0.7f;
+        [SerializeField, Range(0.01f, 1f)] private float engineMaximumPitch = 0.85f;
+        [SerializeField, Range(0f, 1f)] private float engineGainMultiplier = 0.2f;
         [SerializeField, Min(0f)] private float armMovementThreshold = 0.01f;
         [SerializeField, Min(0.01f)] private float armReferenceSpeed = 1f;
         [SerializeField, Min(0.01f)] private float armJointReferenceSpeed = 90f;
@@ -52,8 +52,9 @@ namespace Capstone.Audio
         internal float TurnReferenceSpeed => Mathf.Max(0.01f, turnReferenceSpeed);
         internal float BrakeReferenceDeceleration => Mathf.Max(0.01f, brakeReferenceDeceleration);
         internal float EngineAccelerationPerSecond => 1f / Mathf.Max(0.01f, engineAccelerationSeconds);
-        internal float EngineCoastDeceleration => Mathf.Max(0.01f, engineCoastDeceleration);
+        internal float EngineAccelerationSeconds => Mathf.Max(0.01f, engineAccelerationSeconds);
         internal float EngineMinimumPitch => Mathf.Clamp(engineMinimumPitch, 0.01f, 1f);
+        internal float EngineMaximumPitch => Mathf.Clamp(engineMaximumPitch, EngineMinimumPitch, 1f);
         internal float EngineGainMultiplier => Mathf.Clamp01(engineGainMultiplier);
         internal float ArmMovementThreshold => Mathf.Max(0f, armMovementThreshold);
         internal float ArmReferenceSpeed => Mathf.Max(0.01f, armReferenceSpeed);
