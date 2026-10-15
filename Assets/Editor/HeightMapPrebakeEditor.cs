@@ -107,9 +107,16 @@ namespace AnimalGame.Editor
                     AssetDatabase.CreateAsset(data, outputPath);
                 }
 
-                Texture2D raw = field.CreateRawDetailTexture();
-                Texture2D detail = field.CreateDetailTexture() ?? raw;
-                Texture2D surface = field.CreateSurfaceTextureCopy();
+                string texturePathPrefix = Path.GetDirectoryName(outputPath).Replace('\\', '/')
+                    + "/" + Path.GetFileNameWithoutExtension(levelPath);
+                Texture2D raw = SaveHeightTexture(
+                    field.CreateRawDetailTexture(), texturePathPrefix + "_RawDetail.asset");
+                Texture2D generatedDetail = field.CreateDetailTexture();
+                Texture2D detail = generatedDetail != null
+                    ? SaveHeightTexture(generatedDetail, texturePathPrefix + "_Detail.asset")
+                    : raw;
+                Texture2D surface = SaveHeightTexture(
+                    field.CreateSurfaceTextureCopy(), texturePathPrefix + "_Surface.asset");
                 Texture2D mask = field.CreatePlayableMaskTextureCopy();
                 Texture2D preview = field.CreateVisualizationTexture(
                     level.PreviewResolution,
@@ -117,10 +124,6 @@ namespace AnimalGame.Editor
                     level.LowHeightColor,
                     level.MiddleHeightColor,
                     level.HighHeightColor);
-                AddSubAsset(raw, data);
-                if (detail != raw)
-                    AddSubAsset(detail, data);
-                AddSubAsset(surface, data);
                 AddSubAsset(mask, data);
                 AddSubAsset(preview, data);
                 data.SetBakedData(
@@ -145,6 +148,29 @@ namespace AnimalGame.Editor
             {
                 EditorUtility.ClearProgressBar();
             }
+        }
+
+        private static Texture2D SaveHeightTexture(Texture2D generated, string path)
+        {
+            generated.hideFlags = HideFlags.None;
+            Object existing = AssetDatabase.LoadMainAssetAtPath(path);
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(generated, path);
+                return generated;
+            }
+
+            if (!(existing is Texture2D texture) || texture.format != TextureFormat.RFloat)
+            {
+                Object.DestroyImmediate(generated);
+                throw new System.InvalidOperationException("Refusing to overwrite an unrelated asset at " + path);
+            }
+
+            // Update in place so repeated bakes retain the texture's GUID and references.
+            EditorUtility.CopySerialized(generated, texture);
+            Object.DestroyImmediate(generated);
+            EditorUtility.SetDirty(texture);
+            return texture;
         }
 
         private static void AddSubAsset(Object asset, Object parent)
