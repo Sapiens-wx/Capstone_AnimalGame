@@ -196,9 +196,19 @@ namespace AnimalGame.Editor
                 ValidateLayout(root); Step(hud, 0); ValidateLayout(root);
                 using (var evt = PointerEnterEvent.GetPooled()) { evt.target = lastSlot; lastSlot.SendEvent(evt); }
                 Assert(hud.SelectedIndex == 7, "Hover moves shared selection");
-                hud.SetItem(7, new InventoryItem()); ValidateLayout(root);
-                Assert(root.Query<EmptyInventoryElement>().ToList().Count == 7, "Occupied item removes only its empty marker");
-                hud.SetItem(7, null);
+                var inventoryItem = ScriptableObject.CreateInstance<InventoryItem>();
+                try
+                {
+                    hud.SetItem(7, inventoryItem); ValidateLayout(root);
+                    Assert(root.Query<EmptyInventoryElement>().ToList().Count == 7, "Occupied item removes only its empty marker");
+                    Assert(lastSlot.Q<Image>("ItemImage").style.display.value == DisplayStyle.Flex,
+                        "Occupied item displays its image element");
+                }
+                finally
+                {
+                    hud.SetItem(7, null);
+                    Object.DestroyImmediate(inventoryItem);
+                }
 
                 var cameraObject = new GameObject("Projection regression");
                 SceneManager.MoveGameObjectToScene(cameraObject, scene);

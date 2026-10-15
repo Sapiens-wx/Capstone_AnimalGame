@@ -223,8 +223,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   document: {fileID: 5078151001591562568}
   emptyItemTemplate: {fileID: 9197481963319205126, guid: d2094fa53a1bef84ea7da428b2a3b604, type: 3}
+  defaultItems:
+  - {fileID: 11400000, guid: f033bc3a57d7e6848a20706ce75cfbf1, type: 2}
   power: 1
   integrity: 1
+  slopeSource: {fileID: 0}
   animationDuration: 0.5
   easing:
     serializedVersion: 2
@@ -250,7 +253,6 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  closedInventoryOffset: {x: -480, y: -65}
   gamepadOpenHoldSeconds: 0.4
 --- !u!114 &7246715380435037797
 MonoBehaviour:
@@ -303,8 +305,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cdcbb2c9a3fbce643b5a6940a8f0ab55, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &6981481316202249659
 MonoBehaviour:
   m_ObjectHideFlags: 0

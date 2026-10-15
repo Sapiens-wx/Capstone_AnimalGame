@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using AnimalGame.Animals;
 using AnimalGame.MainUI.Inventory;
@@ -20,6 +21,9 @@ namespace AnimalGame.MainUI
     {
         [SerializeField] private UIDocument document;
         [SerializeField] private VisualTreeAsset emptyItemTemplate;
+        [Header("Initial inventory")]
+        [Tooltip("Initial slot contents, in order. Only the first eight entries are used; null entries leave empty slots.")]
+        [SerializeField] private List<InventoryItem> defaultItems = new List<InventoryItem>();
         [Header("Status (normalized)")]
         [SerializeField, Range(0, 1)] private float power = 1;
         [SerializeField, Range(0, 1)] private float integrity = 1;
@@ -53,6 +57,7 @@ namespace AnimalGame.MainUI
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
         private readonly Button[] slots = new Button[SlotCount];
         private bool started, inventoryOpen, pauseOwned, originalCursor, openHoldLatched, hasGeometry;
+        private bool defaultItemsLoaded;
         private CursorLockMode originalCursorLock;
         private float progress, savedTimeScale, openHoldElapsed, fit = 1, photoScale = 1, photoAlpha = 1;
         private float lastPower = -1, lastIntegrity = -1;
@@ -111,6 +116,12 @@ namespace AnimalGame.MainUI
             root.style.overflow = Overflow.Hidden;
             if (emptyItemTemplate == null)
                 emptyItemTemplate = Resources.Load<VisualTreeAsset>("UI/Main/EmptyInventoryItem");
+            if (!defaultItemsLoaded)
+            {
+                for (int i = 0; defaultItems != null && i < Mathf.Min(SlotCount, defaultItems.Count); i++)
+                    Items[i] = defaultItems[i];
+                defaultItemsLoaded = true;
+            }
             BuildSlots();
             SetDate(displayedDate);
             lastPower = lastIntegrity = -1;
@@ -153,7 +164,6 @@ namespace AnimalGame.MainUI
             if (button == null) return;
             button.Clear();
             button.userData = Items[index];
-            if (Items[index] != null) return; // Future item presentation belongs here.
             if (emptyItemTemplate != null)
             {
                 TemplateContainer empty = emptyItemTemplate.CloneTree();
@@ -161,7 +171,33 @@ namespace AnimalGame.MainUI
                 empty.pickingMode = PickingMode.Ignore;
                 button.Add(empty);
             }
-            else button.Add(new EmptyInventoryElement { style = { flexGrow = 1 } });
+            else
+            {
+                button.Add(new EmptyInventoryElement { name = "EmptyItem", style = { flexGrow = 1 } });
+                button.Add(new Image { name = "ItemImage", pickingMode = PickingMode.Ignore,
+                    style = { position = Position.Absolute, left = 12, right = 12, top = 12, bottom = 38 } });
+                button.Add(new Label { name = "ItemName", pickingMode = PickingMode.Ignore,
+                    style = { position = Position.Absolute, left = 8, right = 8, bottom = 8, height = 24,
+                        unityTextAlign = TextAnchor.MiddleCenter, color = Color.white, fontSize = 18,
+                        overflow = Overflow.Hidden } });
+            }
+
+            InventoryItem item = Items[index];
+            var placeholder = button.Q<EmptyInventoryElement>("EmptyItem");
+            if (item != null) placeholder?.RemoveFromHierarchy();
+            var image = button.Q<Image>("ItemImage");
+            if (image != null)
+            {
+                image.sprite = item != null ? item.Image : null;
+                image.scaleMode = ScaleMode.ScaleToFit;
+                image.style.display = item != null ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+            var label = button.Q<Label>("ItemName");
+            if (label != null)
+            {
+                label.text = item != null ? item.ItemName : string.Empty;
+                label.style.display = item != null ? DisplayStyle.Flex : DisplayStyle.None;
+            }
         }
 
         public void SelectItem(int index)
