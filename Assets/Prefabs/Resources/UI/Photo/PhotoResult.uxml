@@ -100,9 +100,13 @@
                 <ui:Label name="region" text="Rocky Mountains" style="color: rgb(212, 184, 84); rotate: 0.015rad; top: 456px; left: 1338px; width: 280px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); font-size: 40px; -unity-text-align: upper-right;" />
                 <ui:Label name="altitude" text="123m" style="rotate: 0.015rad; top: 517px; left: 1402px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" />
                 <ui:Label name="coordinates" text="Coordinates - -" style="top: 573px; left: 1438px; rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" />
-                <ui:Label name="longitude" text="Longitude --" style="top: 610px; left: 1438px; rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" />
-                <ui:Label name="latitude" text="Latitude --" style="top: 647px; left: 1438px; rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" />
-                <ui:VisualElement name="catalog-badge" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" ><ui:VisualElement class="catalog-icon-line" /><ui:VisualElement class="catalog-icon-line" /><ui:VisualElement class="catalog-icon-line" /></ui:VisualElement>
+                <ui:Label name="longitude" text="Longitude --" style="top: 613px; left: 1472px; rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); color: rgb(212, 184, 84);" />
+                <ui:Label name="latitude" text="Latitude --" style="top: 651px; left: 1515px; rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); color: rgb(212, 184, 84);" />
+                <ui:VisualElement name="catalog-badge" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);">
+                    <ui:VisualElement class="catalog-icon-line" />
+                    <ui:VisualElement class="catalog-icon-line" />
+                    <ui:VisualElement class="catalog-icon-line" />
+                </ui:VisualElement>
                 <ui:Label name="catalog-label" text="Catalog" style="rotate: 0.015rad; top: 423px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); -unity-font-style: normal; font-size: 40px;" />
                 <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); -unity-font-style: bold;" />
                 <ui:Label name="save-label" text="Save Photo" style="rotate: 0.015rad; left: 1069px; top: 545px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); font-size: 40px;" />

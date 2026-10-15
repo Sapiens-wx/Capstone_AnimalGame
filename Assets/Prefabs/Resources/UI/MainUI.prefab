@@ -170,8 +170,8 @@ MonoBehaviour:
   photoLibrary: {fileID: 11400000, guid: 31cc7cf493f858a4eba15aea2638b632, type: 2}
   frameInsetNormalized: 0.025
   minimumSubjectCoverage: 0.18
-  minimumSubjectLongestSidePixels: 24
-  minimumSubjectAreaPixels: 400
+  minimumSubjectLongestSidePixels: 18
+  minimumSubjectAreaPixels: 350
   coverageScoreWeight: 0.55
   centerednessScoreWeight: 0.3
   sizeScoreWeight: 0.15
@@ -227,9 +227,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: f033bc3a57d7e6848a20706ce75cfbf1, type: 2}
   power: 1
   integrity: 1
-  slopeSource: {fileID: 0}
-  coordinateMap: {fileID: 0}
-  coordinateRobot: {fileID: 0}
   animationDuration: 0.5
   easing:
     serializedVersion: 2
