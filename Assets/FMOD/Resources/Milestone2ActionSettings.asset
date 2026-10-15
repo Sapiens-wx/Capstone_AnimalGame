@@ -101,7 +101,7 @@ MonoBehaviour:
         Data3: -2089050993
         Data4: 922751772
       Path: event:/Robot/Arm/Deploy
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: 0
@@ -109,7 +109,7 @@ MonoBehaviour:
         Data3: 0
         Data4: 0
       Path:
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: -1909701297
@@ -117,7 +117,7 @@ MonoBehaviour:
         Data3: 784715660
         Data4: 1456026666
       Path: event:/Robot/Arm/Servo
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: -706394584
@@ -125,7 +125,7 @@ MonoBehaviour:
         Data3: -427704954
         Data4: -1354302477
       Path: event:/Robot/Arm/Blocked
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: 2046136790
@@ -133,7 +133,7 @@ MonoBehaviour:
         Data3: -1415981671
         Data4: -470298585
       Path: event:/Robot/Arm/HandClose
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: 0
@@ -141,7 +141,7 @@ MonoBehaviour:
         Data3: 0
         Data4: 0
       Path:
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: -1788675513
@@ -149,7 +149,7 @@ MonoBehaviour:
         Data3: 387070599
         Data4: 1716410144
       Path: event:/Robot/Arm/GrabSmall
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: 298780965
@@ -157,7 +157,7 @@ MonoBehaviour:
         Data3: -382681930
         Data4: -1997134385
       Path: event:/Robot/Arm/GrabMedium
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: 2118600181
@@ -165,7 +165,7 @@ MonoBehaviour:
         Data3: 322743471
         Data4: -388241116
       Path: event:/Robot/Arm/GrabLarge
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: -623064366
@@ -173,7 +173,7 @@ MonoBehaviour:
         Data3: 265566086
         Data4: 753279838
       Path: event:/Robot/Arm/Drop
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: 710530657
@@ -181,7 +181,7 @@ MonoBehaviour:
         Data3: -156119113
         Data4: -1174354338
       Path: event:/Robot/Arm/Retract
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: 0
@@ -189,7 +189,7 @@ MonoBehaviour:
         Data3: 0
         Data4: 0
       Path:
-    gainDb: 0
+    gainDb: -4.436974992
   - eventReference:
       Guid:
         Data1: -1896422000
@@ -205,7 +205,7 @@ MonoBehaviour:
         Data3: 2027770006
         Data4: 800091552
       Path: event:/Robot/Move/GroundTurn
-    gainDb: 0
+    gainDb: -2.498774732
   - eventReference:
       Guid:
         Data1: -1454206447
@@ -227,17 +227,17 @@ MonoBehaviour:
   turnThreshold: 0.5
   enableStationaryTurnGroundAudio: 1
   movementStopDelay: 0.12
-  engineFadeOutSeconds: 0.25
+  engineFadeOutSeconds: 0.5
   groundFadeOutSeconds: 0.18
   movementFadeInSeconds: 0.04
-  engineCrossfadeSeconds: 0.08
+  engineCrossfadeSeconds: 0.04
   driveReferenceSpeed: 5
   turnReferenceSpeed: 100
   brakeReferenceDeceleration: 8
-  engineAccelerationSeconds: 3.5
-  engineCoastDeceleration: 0.2
+  engineAccelerationSeconds: 2.75
   engineMinimumPitch: 0.25
-  engineGainMultiplier: 0.7
+  engineMaximumPitch: 0.85
+  engineGainMultiplier: 0.2
   armMovementThreshold: 0.01
   armReferenceSpeed: 1
   armJointReferenceSpeed: 90

@@ -16,7 +16,9 @@ namespace AnimalGame.Garbage
         {
             Interaction = GetComponent<WorldInteraction>();
             // Covers existing scene objects and dynamically created garbage as well as prefabs.
-            if (!TryGetComponent(out ScannableInteractable _)) gameObject.AddComponent<ScannableInteractable>();
+            if (!TryGetComponent(out ScannableInteractable scan))
+                scan = gameObject.AddComponent<ScannableInteractable>();
+            if (size == RecyclableSize.Small) scan.EnableSmallAreaFill();
         }
     }
 }

@@ -196,8 +196,20 @@ MonoBehaviour:
   - {x: -0.488189, y: -0.225410}
   displayDuration: 7
   fadeOutDuration: 0.6
+  fadeInDuration: 0.65
+  breathingPeriod: 2
+  breathingMinAlpha: 0.14
+  breathingMaxAlpha: 0.62
   areaColor: {r: 0.83137255, g: 0.72156864, b: 0.32941177, a: 1}
-  lineWidthPixels: 1.4
-  lineSpacingPixels: 15.4
-  intersectionGapPixels: 5.6
-  lineAngleDegrees: -37
+  lineWidthPixels: 0.9
+  lineSpacingPixels: 7.7
+  useSmallAreaFill: 1
+  smallAreaLineSpacingPixels: 4
+  lineAngleDegrees: 45
+  showOutlineDots: 1
+  outlineDotSizePixels: 3.6
+  outlineDotSpacingPixels: 13
+  smallOutlineDotSpacingPixels: 9
+  outlineBreathingPeriod: 2.4
+  outlineBreathingMinAlpha: 0.42
+  outlineBreathingMaxAlpha: 0.5

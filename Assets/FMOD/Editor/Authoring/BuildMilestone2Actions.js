@@ -10,23 +10,23 @@
     var sourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone2/PlayerActions/";
     var workspace = studio.project.workspace;
     var definitions = [
-        { path: "event:/Robot/Move/Start", file: "Movement/M01_Move_Start.wav", releaseMs: 250, releaseParameter: "StartReleasePitch", endFade: 0.1 },
-        { path: "event:/Robot/Move/Drive", file: "Movement/M02_Move_Drive_Loop.wav", loopStart: 3.5, loopEnd: 4.25, crossfade: 0.08, releaseMs: 250, releaseParameter: "DriveReleasePitch" },
-        { path: "event:/Robot/Move/Acceleration", file: "Movement/M02_Move_Drive_Loop.wav", trimEnd: 3.75, releaseMs: 250, releaseParameter: "AccelerationReleasePitch", endFade: 0.1 },
+        { path: "event:/Robot/Move/Start", file: "Movement/M01_Move_Start.wav", releaseMs: 125, releaseParameter: "StartReleasePitch", endFade: 0.05 },
+        { path: "event:/Robot/Move/Drive", file: "Movement/M02_Move_Drive_Loop.wav", loopStart: 3.5, loopEnd: 4.25, crossfade: 0.04, releaseMs: 125, releaseParameter: "DriveReleasePitch" },
+        { path: "event:/Robot/Move/Acceleration", file: "Movement/M02_Move_Drive_Loop.wav", trimEnd: 2.75, releaseMs: 125, releaseParameter: "AccelerationReleasePitch", endFade: 0.05 },
         { path: "event:/Robot/Move/Slide", file: "Movement/M06_Move_LoseGrip.wav", loopStart: 1.23, loopEnd: 2.47, holdName: "SlideHold" },
         { path: "event:/Robot/Move/Airborne", file: "Movement/M07_MidAir_short_1.wav" },
         { path: "event:/Robot/Move/Land", file: "Movement/M08_Land_Impact.wav" },
         { path: "event:/Robot/Move/LandParts", file: "Movement/M08_Land_shatter.wav" },
         { path: "event:/Robot/Move/Ground", file: "Movement/M_Move_Ground_Default.wav", loopStart: 1, crossfade: 0.04 },
-        { path: "event:/Robot/Move/GroundTurn", file: "Movement/M_Move_Ground_turn.wav", loopStart: 0.81, loopEnd: 3.87, crossfade: 0.04 },
+        { path: "event:/Robot/Move/GroundTurn", file: "Movement/M05_Move_Turn_Loop.wav", loopStart: 0.3, loopEnd: 1.6, crossfade: 0.04 },
         { path: "event:/Robot/Arm/Deploy", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "DeployHold" },
         { path: "event:/Robot/Arm/Retract", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "RetractHold" },
         { path: "event:/Robot/Arm/Blocked", file: "Arm/A03_Arm_Blocked_01.wav" },
-        { path: "event:/Robot/Arm/Servo", file: "Arm/A02_Arm_Servo_Loop.wav", loopStart: 0.25, loopEnd: 2.7, crossfade: 0.04, releaseMs: 80, releaseParameter: "ServoReleasePitch" },
+        { path: "event:/Robot/Arm/Servo", file: "Arm/A02_Arm_Servo_Loop.wav", loopStart: 0.05, loopEnd: 0.65, crossfade: 0.04, releaseMs: 80, releaseParameter: "ServoReleasePitch" },
         { path: "event:/Robot/Arm/HandClose", file: "Arm/A04_Hand_Close_01.wav" },
         { path: "event:/Robot/Arm/GrabSmall", file: "Arm/A05_Grab_Small_01.wav" },
         { path: "event:/Robot/Arm/GrabMedium", file: "Arm/A06_Grab_Medium_01.wav" },
-        { path: "event:/Robot/Arm/GrabLarge", file: "Arm/A06_Grab_Medium_01.wav" },
+        { path: "event:/Robot/Arm/GrabLarge", file: "Arm/A07_Grab_Large_01.wav" },
         { path: "event:/Robot/Arm/Drop", file: "Arm/A09_Drop_01.wav" }
     ];
     var preservedPaths = [

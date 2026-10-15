@@ -143,7 +143,7 @@ namespace AnimalGame.RobotMap
 
         [SerializeField, Range(0.5f, 8f)] private float guideLineWidthPixels = 2.2f;
         [SerializeField, Range(0.01f, 0.5f)] private float guideFadeDuration = 0.14f;
-        [SerializeField] private Color guideNeutralColor = new Color(0.45f, 0.9f, 1f, 0.34f);
+        [SerializeField] private Color guideNeutralColor = new Color(1f, 1f, 1f, 0.34f);
         [SerializeField] private Color guideReadyColor = new Color(1f, 0.82f, 0.18f, 0.72f);
 
         public RobotSelfRightingState State { get; private set; } =
@@ -291,6 +291,7 @@ namespace AnimalGame.RobotMap
         {
             if (arms == null
                 || !arms.IsArmModeActive
+                || !arms.IsTumbleArmSupportAligned(supportDirectionToleranceDegrees)
                 || arms.CurrentInputMagnitude < minimumArmPushMagnitude)
             {
                 IsArmSupportCorrect = false;

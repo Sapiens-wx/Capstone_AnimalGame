@@ -11,7 +11,7 @@ namespace Capstone.Audio
         private RobotHeightMotionDetector height;
         private Vector2 previousPosition;
         private float previousAngle, engineRpm, engineDirection, forwardReference, linearStillElapsed, turnStillElapsed;
-        private bool linearMotion, turnMotion, originalAcceleration;
+        private bool linearMotion, turnMotion, engineReleasing;
         private bool hasBaseline, wasMoving, slipEpisode, wasAirborne;
 
         internal RobotMover Source => source;
@@ -87,6 +87,16 @@ namespace Capstone.Audio
                 ? Mathf.Max(0.01f, source.UnloadedReverseSpeed) : forwardReference;
             float normalizedSpeed = Mathf.Clamp01(speed / reference);
             bool hasThrottle = Mathf.Abs(throttle) > 0.01f;
+            if (engineReleasing)
+            {
+                if (voices.IsAlive(Milestone2ActionCue.Drive))
+                    engineRpm = RpmFromPitch(voices.GetEnginePitch(Milestone2ActionCue.Drive));
+                else
+                {
+                    engineRpm = 0f;
+                    engineReleasing = false;
+                }
+            }
             bool stationaryTurn = driven && !airborne && !slip && !hasThrottle
                 && speed <= settings.MovementThreshold * 0.5f && turnSpeed > settings.TurnThreshold;
             if (stationaryTurn)
@@ -94,54 +104,43 @@ namespace Capstone.Audio
                 // Pure turning belongs to the ground layer. Retire coast RPM so
                 // ending the turn cannot bring the fading engine back to life.
                 engineRpm = engineDirection = 0f;
-                originalAcceleration = false;
+                engineReleasing = false;
             }
-            bool pendingRamp = originalAcceleration && voices.IsAlive(Milestone2ActionCue.DriveAcceleration);
-            if (hasThrottle && (engineDirection == 0f || (engineRpm <= 0.001f && !pendingRamp)))
+            if (hasThrottle && (engineDirection == 0f || (engineRpm <= 0.001f && !engineReleasing)))
                 engineDirection = Mathf.Sign(throttle);
             // Opposite throttle brakes the audible RPM until it reaches idle.
             // Physical speed crossing zero cannot prematurely cancel the brake.
-            bool braking = hasThrottle && engineDirection * throttle < 0f && (engineRpm > 0.001f || pendingRamp);
+            bool braking = hasThrottle && engineDirection * throttle < 0f && (engineRpm > 0.001f || engineReleasing);
             bool powering = hasThrottle && !braking;
             bool motorMotion = driven && !stationaryTurn && (hasThrottle
-                || (engineRpm > 0.001f && (voices.IsAlive(Milestone2ActionCue.Drive)
-                    || voices.IsAlive(Milestone2ActionCue.DriveAcceleration))));
+                || voices.IsAlive(Milestone2ActionCue.Drive));
 
             // Motor command and audio RPM are independent of ground contact or
             // displacement. Ground friction still follows actual ground motion.
             if (motorMotion)
             {
-                bool freshMotorStart = !voices.IsAlive(Milestone2ActionCue.Drive)
-                    && !voices.IsAlive(Milestone2ActionCue.DriveAcceleration);
                 float target = powering ? Mathf.Clamp01(Mathf.Abs(throttle)) : 0f;
-                UpdateMotor(target, powering, braking, hasThrottle, throttle, deltaTime);
+                UpdateMotor(target, powering, braking, deltaTime);
                 voices.SetParameter(Milestone2ActionCue.Drive, ActionAudioParameter.Speed, normalizedSpeed);
                 voices.SetParameter(Milestone2ActionCue.Drive, ActionAudioParameter.Throttle, Mathf.Abs(throttle));
                 voices.SetParameter(Milestone2ActionCue.Drive, ActionAudioParameter.Load,
                     Mathf.Clamp01(1f - source.GrabMovementMultiplier));
-                if (freshMotorStart && !wasMoving && powering) voices.Play(Milestone2ActionCue.MoveStart);
                 wasMoving = true;
-                if (!powering) voices.Stop(Milestone2ActionCue.MoveStart);
-                if (!hasThrottle && engineRpm <= 0.001f)
-                {
-                    voices.Stop(Milestone2ActionCue.Drive);
-                    voices.Stop(Milestone2ActionCue.DriveAcceleration);
-                }
             }
             else
             {
-                voices.Stop(Milestone2ActionCue.Drive);
+                voices.FadeEngineToIdle(Milestone2ActionCue.Drive, false);
                 voices.Stop(Milestone2ActionCue.DriveAcceleration);
                 voices.Stop(Milestone2ActionCue.MoveStart);
                 if (wasMoving && driven && !airborne && !slip && !stationaryTurn) voices.Play(Milestone2ActionCue.Stop);
                 wasMoving = false;
                 if (!voices.IsAlive(Milestone2ActionCue.Drive) && !voices.IsAlive(Milestone2ActionCue.DriveAcceleration))
-                { engineRpm = 0f; originalAcceleration = false; }
+                { engineRpm = 0f; engineReleasing = false; }
             }
 
             voices.SetLoop(Milestone2ActionCue.GroundMove, driven && !airborne && !slip && translating);
             voices.SetLoopFrom(Milestone2ActionCue.GroundTurn,
-                settings.StationaryTurnGroundAudioEnabled && driven && !airborne && !slip && !translating && turning, 810);
+                settings.StationaryTurnGroundAudioEnabled && driven && !airborne && !slip && !translating && turning, 300);
             if (slip)
             {
                 if (!slipEpisode) voices.Play(Milestone2ActionCue.Slide);
@@ -169,7 +168,7 @@ namespace Capstone.Audio
             voices.Stop(Milestone2ActionCue.LandParts, true);
             voices.Stop(Milestone2ActionCue.DriveAcceleration, true);
             hasBaseline = wasMoving = wasAirborne = false;
-            linearMotion = turnMotion = originalAcceleration = false;
+            linearMotion = turnMotion = engineReleasing = false;
             engineRpm = engineDirection = linearStillElapsed = turnStillElapsed = 0f;
         }
 
@@ -185,46 +184,36 @@ namespace Capstone.Audio
             return moving;
         }
 
-        private void UpdateMotor(float target, bool powering, bool braking, bool hasThrottle, float throttle, float deltaTime)
+        private float RpmFromPitch(float pitch)
         {
-            bool hasSustain = voices.IsAlive(Milestone2ActionCue.Drive);
-            bool hasRamp = voices.IsAlive(Milestone2ActionCue.DriveAcceleration);
-            if (!hasSustain && !hasRamp)
+            float range = settings.EngineMaximumPitch - settings.EngineMinimumPitch;
+            return range > 0f ? Mathf.Clamp01((pitch - settings.EngineMinimumPitch) / range) : 0f;
+        }
+
+        private void UpdateMotor(float target, bool powering, bool braking, float deltaTime)
+        {
+            if (!voices.IsAlive(Milestone2ActionCue.Drive))
             {
                 engineRpm = 0f;
-                originalAcceleration = powering && hasThrottle && Mathf.Abs(throttle) >= 0.9f;
-                if (originalAcceleration)
-                {
-                    voices.SetPitch(Milestone2ActionCue.DriveAcceleration, 1f);
-                    voices.SetLoopFrom(Milestone2ActionCue.DriveAcceleration, true, 0, settings.MovementFadeInSeconds);
-                    hasRamp = voices.IsAlive(Milestone2ActionCue.DriveAcceleration);
-                    if (!hasRamp) originalAcceleration = false;
-                }
+                engineReleasing = false;
             }
-
-            if (originalAcceleration && hasRamp)
+            if (!powering)
             {
-                // Query actual audio progress only while this short one-shot is
-                // playing. Its original acceleration is always played at 1x.
-                voices.SetLoopFrom(Milestone2ActionCue.DriveAcceleration, true, 0);
-                if (voices.TryGetTimelinePosition(Milestone2ActionCue.DriveAcceleration, out int position))
-                {
-                    engineRpm = Mathf.Clamp01(position / 3500f);
-                    if (powering && Mathf.Abs(throttle) >= 0.9f && position < 3420) return;
-                }
-                // Overlap at most two motor events for 80 ms; interrupting the
-                // ramp never hard-seeks its live source or replays its intro.
-                voices.SetPitch(Milestone2ActionCue.Drive, Mathf.Lerp(settings.EngineMinimumPitch, 1f, engineRpm));
-                voices.SetLoopFrom(Milestone2ActionCue.Drive, true, 3500, settings.EngineCrossfadeSeconds);
-                voices.FadeStop(Milestone2ActionCue.DriveAcceleration, settings.EngineCrossfadeSeconds);
-                originalAcceleration = false;
+                // Pitch and volume descend together, starting at the release
+                // edge. Braking changes pitch speed, not the volume fade time.
+                voices.FadeEngineToIdle(Milestone2ActionCue.Drive, braking);
+                engineReleasing = voices.IsAlive(Milestone2ActionCue.Drive);
                 return;
             }
-            originalAcceleration = false;
-            float rate = powering || target > engineRpm ? settings.EngineAccelerationPerSecond
-                : settings.EngineCoastDeceleration * (braking ? 3f : 1f);
-            engineRpm = Mathf.MoveTowards(engineRpm, target, rate * deltaTime);
-            voices.SetPitch(Milestone2ActionCue.Drive, Mathf.Lerp(settings.EngineMinimumPitch, 1f, engineRpm));
+            if (engineReleasing)
+            {
+                engineRpm = RpmFromPitch(voices.GetEnginePitch(Milestone2ActionCue.Drive));
+                engineReleasing = false;
+            }
+            // Use one stable part of M02 for every RPM. Its original intro has
+            // an independent rising sweep, so a 1x intro cannot obey this cap.
+            engineRpm = Mathf.MoveTowards(engineRpm, target, settings.EngineAccelerationPerSecond * deltaTime);
+            voices.SetPitch(Milestone2ActionCue.Drive, Mathf.Lerp(settings.EngineMinimumPitch, settings.EngineMaximumPitch, engineRpm));
             voices.SetLoopFrom(Milestone2ActionCue.Drive, true, 3500);
         }
 

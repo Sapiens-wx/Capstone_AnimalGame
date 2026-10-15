@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef99f88617f112c4b9dc5bcf95523774, type: 3}
   m_Name: Drone
   m_EditorClassIdentifier: 
-  itemName: 
-  image: {fileID: 0}
+  itemName: Drone
+  image: {fileID: 9148800814639467426, guid: 6db5671a49b1d5146bd50e0eb5ea521d, type: 3}

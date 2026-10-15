@@ -25,6 +25,8 @@ namespace AnimalGame.Editor
     {
         private const int Size = 512;
         private const float ReferenceOrthographicSize = 5f;
+        private const float LineWidth = .9f;
+        private const int GoldMinRed = 35, GoldMinGreen = 25, GoldRedBlueGap = 15, GoldGreenBlueGap = 10;
         private static readonly Vector2 WorldOrigin = new Vector2(120f, 100f);
         private const string OutputDirectory = "output/StaticScanCanvasRotationRenderChecks";
 
@@ -45,17 +47,25 @@ namespace AnimalGame.Editor
                     // stable frames after this warmup, never that first frame.
                     fixture.Capture("warmup-000", 0f, 5f, 0f, false);
                     Color32[] baseline = fixture.Capture("view-000", 0f, 5f, 0f, false);
-                    AssertGoldPixels(baseline, "view-000");
-                    foreach (float angle in new[] { 45f, 90f, 180f, 270f })
+                    AssertSnapshotDirection(baseline, fixture.ReferenceWorldAngle, 0f, "view-000");
+                    foreach (float angle in new[] { 45f, 90f, 180f, 270f, 359f, 1f, 360f })
                     {
                         string name = "view-" + angle.ToString("000");
                         Color32[] actual = fixture.Capture(name, angle, 5f, 0f, false);
-                        AssertWorldFixedDirection(baseline, actual, angle, name);
-                        if (Mathf.Abs(angle % 90f) < .01f)
-                            AssertRotatedFootprint(baseline, actual, Mathf.RoundToInt(angle / 90f), name);
+                        AssertSnapshotDirection(actual, fixture.ReferenceWorldAngle, angle, name);
                     }
-                    AssertWorldFixedDirection(baseline,
-                        fixture.Capture("view-090-zoom-8", 90f, 8f, 0f, false), 90f, "view-090-zoom-8");
+                    AssertSnapshotDirection(
+                        fixture.Capture("view-090-zoom-8", 90f, 8f, 0f, false),
+                        fixture.ReferenceWorldAngle, 90f, "view-090-zoom-8");
+                    // The scan captured a world direction once. Only the
+                    // actual camera turn projects it; the player's heading
+                    // contributes no additional rotation after that capture.
+                    AssertSnapshotDirection(
+                        fixture.Capture("view-045-camera-lag-30", 45f, 5f, 0f, false, default, -30f),
+                        fixture.ReferenceWorldAngle, 15f, "view-045-camera-lag-30");
+                    AssertSnapshotDirection(
+                        fixture.Capture("view-000-camera-independent-35", 0f, 5f, 0f, false, default, 35f),
+                        fixture.ReferenceWorldAngle, 35f, "view-000-camera-independent-35");
                     Color32[] view180 = fixture.Capture("view-180-parent-0", 180f, 5f, 0f, false);
                     AssertStablePixels(view180,
                         fixture.Capture("view-180-parent-37", 180f, 5f, 37f, false), "view-180-parent-37");
@@ -64,11 +74,8 @@ namespace AnimalGame.Editor
                         fixture.Capture("view-270-parent-late-90", 270f, 5f, 90f, true),
                         "view-270-parent-late-90");
 
-                    // A lattice rebuilt in the current pixel projection can
-                    // appear stable at the origin and exact quarter turns,
-                    // while its phase slips badly at distant world positions.
-                    // Every frame below checks the real GPU pixels against the
-                    // same independently generated world endpoints.
+                    // Every frame projects the exact same independent world
+                    // endpoints captured on the scan's first presentation.
                     fixture.Capture("move-positive", 0f, 5f, 0f, false, new Vector2(.8f, -.6f));
                     fixture.Capture("move-negative", 0f, 5f, 0f, false, new Vector2(-.8f, .6f));
                     for (int frame = 0; frame < 16; frame++)
@@ -82,12 +89,60 @@ namespace AnimalGame.Editor
                     AssertIdenticalPixels(baseline,
                         fixture.Capture("returned-original-pose", 0f, 5f, 0f, false),
                         "returned-original-pose");
+
+                    // A real Reveal on a still-visible target captures a fresh
+                    // screen-slash direction, without hiding/recreating the UI.
+                    fixture.BeginRescan(60f, 60f);
+                    Color32[] rescanned60 = fixture.Capture("rescan-view-060", 60f, 5f, 0f, false);
+                    AssertSnapshotDirection(rescanned60, fixture.ReferenceWorldAngle, 60f, "rescan-view-060");
+                    AssertSnapshotDirection(
+                        fixture.Capture("rescan-060-view-145", 145f, 7f, 0f, false),
+                        fixture.ReferenceWorldAngle, 145f, "rescan-060-view-145");
+                    AssertIdenticalPixels(rescanned60,
+                        fixture.Capture("rescan-060-returned", 60f, 5f, 0f, false),
+                        "rescan-060-returned");
+
+                    // Scan before the camera's late update, then draw after it
+                    // reaches a different final angle. Capture that final view,
+                    // not the camera at Reveal and not the player's own angle.
+                    fixture.BeginRescan(-25f, 120f);
+                    Color32[] delayed = fixture.Capture("rescan-final-camera-120", 100f, 5f, 0f,
+                        false, default, 20f);
+                    AssertSnapshotDirection(delayed, fixture.ReferenceWorldAngle, 120f,
+                        "rescan-final-camera-120");
+                    AssertSnapshotDirection(
+                        fixture.Capture("rescan-120-camera-145", 180f, 5f, 0f, false, default, -35f),
+                        fixture.ReferenceWorldAngle, 145f, "rescan-120-camera-145");
+                    AssertIdenticalPixels(delayed,
+                        fixture.Capture("rescan-120-returned", 100f, 5f, 0f, false, default, 20f),
+                        "rescan-120-returned");
+                }
+                using (var outlined = new Fixture(true))
+                {
+                    outlined.Capture("outline-warmup", 0f, 5f, 0f, false);
+                    Color32[] baseline = outlined.Capture("outline-view-000", 0f, 5f, 0f, false);
+                    foreach (float angle in new[] { 45f, 90f, 180f, 270f })
+                        outlined.Capture("outline-view-" + angle.ToString("000"), angle, 5f, 0f, false);
+                    outlined.Capture("outline-move-zoom", 35f, 7f, 0f, false, new Vector2(.45f, -.3f));
+                    AssertIdenticalPixels(baseline,
+                        outlined.Capture("outline-parent-rotation", 0f, 5f, 37f, true),
+                        "outline-parent-rotation");
+                    AssertIdenticalPixels(baseline,
+                        outlined.Capture("outline-returned", 0f, 5f, 0f, false), "outline-returned");
+                    outlined.BeginRescan(-25f, 120f);
+                    outlined.Capture("outline-rescan-120", 100f, 5f, 0f, false, default, 20f);
+                    outlined.Capture("outline-rescan-turned", 180f, 6f, 0f, false, new Vector2(-.2f, .3f));
                 }
                 Debug.Log("Static scan overlay Canvas pixel checks PASS: actual ScreenSpaceOverlay CanvasRenderer "
-                    + "list, disconnected perpendicular grid projected through RobotCameraFollow at 0/45/90/180/270 degrees, "
-                    + "fourth-harmonic GPU direction, rotating asymmetric footprint, zoom, no extra inherited UI rotation, "
+                    + "list, scan-time 45 degree screen slash captured into fixed world bars, later views "
+                    + "at 0/45/90/180/270 degrees and heading wrap, independent camera rotation/lag, "
+                    + "real asymmetric footprint, rendered-component PCA direction, zoom, no extra inherited UI rotation, "
                     + "a parent rotation after mesh rebuild, translation and tiny shake/zoom at world (120,100), "
-                    + "independent world-bar GPU pixel coverage, stable connected bar count and exact return-to-pose pixels. Device: "
+                    + "independent captured world-bar GPU coverage, exact expected connected bar count, "
+                    + "visible-target rescans, late final camera orientation capture and exact return-to-pose pixels; "
+                    + "separate enabled diamond-outline fixture with scan-seeded world point centers fixed until rescan, "
+                    + "independent layer tint thresholds and a combined pixel oracle through turns, movement, "
+                    + "zoom, UI-parent rotation and fresh seeded rescans. Device: "
                     + SystemInfo.graphicsDeviceType
                     + ". Images: " + Path.GetFullPath(OutputDirectory));
                 EditorApplication.Exit(0);
@@ -99,8 +154,27 @@ namespace AnimalGame.Editor
             }
         }
 
-        private static bool IsGold(Color32 pixel) => pixel.r > 35 && pixel.g > 25
-            && pixel.r > pixel.b + 15 && pixel.g > pixel.b + 10;
+        private static bool IsGold(Color32 pixel) => pixel.r > GoldMinRed && pixel.g > GoldMinGreen
+            && pixel.r > pixel.b + GoldRedBlueGap && pixel.g > pixel.b + GoldGreenBlueGap;
+
+        private static float PredictableGoldCoverage(Color32 tint)
+        {
+            // The fixture is drawn over black. Linear SrcAlpha RGB therefore
+            // reaches tint.rgb * tint.a * SDF coverage. Demand three byte levels
+            // above every gold threshold, plus >=40% coverage, so conversion and
+            // byte rounding cannot turn a predicted visible AA pixel into noise.
+            const float margin = 3f;
+            float alpha = tint.a / 255f;
+            Require(alpha > 0f && tint.r > tint.b && tint.g > tint.b,
+                "The pixel fixture needs a measurable quantized gold tint.");
+            float required = Mathf.Max(.4f,
+                (GoldMinRed + margin) / (tint.r * alpha),
+                (GoldMinGreen + margin) / (tint.g * alpha),
+                (GoldRedBlueGap + margin) / ((tint.r - tint.b) * alpha),
+                (GoldGreenBlueGap + margin) / ((tint.g - tint.b) * alpha));
+            Require(required < 1f, "The fixture tint is too dim to predict visible gold AA pixels.");
+            return required;
+        }
 
         private static void AssertGoldPixels(Color32[] pixels, string name)
         {
@@ -109,30 +183,63 @@ namespace AnimalGame.Editor
             Require(gold > 600, name + " has insufficient real Canvas gold pixels: " + gold);
         }
 
-        private static float PixelGridAngle(Color32[] pixels)
+        private static float PixelLineAngle(Color32[] pixels)
         {
-            // Two perpendicular families cancel the ordinary second-harmonic
-            // image structure tensor. The fourth harmonic combines both
-            // families and their square caps into one direction modulo 90°.
-            // This uses final GPU pixels, rather than the generated vertices.
+            // Gradients of subpixel AA strokes inherit the square pixel grid's
+            // angular bias. Recover each rendered connected bar's long axis
+            // instead, using only its gold pixels and their covariance. Long
+            // components carry more weight; short cap pixels cannot dominate.
             double real = 0, imaginary = 0, energy = 0;
-            for (int y = 1; y < Size - 1; y++)
-            for (int x = 1; x < Size - 1; x++)
+            int measuredBars = 0;
+            var visited = new bool[pixels.Length];
+            var pending = new int[pixels.Length];
+            for (int seed = 0; seed < pixels.Length; seed++)
             {
-                int index = y * Size + x;
-                double dx = pixels[index + 1].r - pixels[index - 1].r;
-                double dy = pixels[index + Size].r - pixels[index - Size].r;
-                double xx = dx * dx, yy = dy * dy, weight = xx + yy;
-                if (weight < 1) continue;
-                real += (xx * xx - 6 * xx * yy + yy * yy) / weight;
-                imaginary += 4 * dx * dy * (xx - yy) / weight;
-                energy += weight;
+                if (visited[seed] || !IsGold(pixels[seed])) continue;
+                int remaining = 1, count = 0;
+                double sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0;
+                pending[0] = seed;
+                visited[seed] = true;
+                while (remaining > 0)
+                {
+                    int index = pending[--remaining], x = index % Size, y = index / Size;
+                    count++;
+                    sumX += x; sumY += y;
+                    sumXX += x * x; sumYY += y * y; sumXY += x * y;
+                    for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        int nextX = x + dx, nextY = y + dy;
+                        if (nextX < 0 || nextX >= Size || nextY < 0 || nextY >= Size) continue;
+                        int next = nextY * Size + nextX;
+                        if (visited[next] || !IsGold(pixels[next])) continue;
+                        visited[next] = true;
+                        pending[remaining++] = next;
+                    }
+                }
+                if (count < 6) continue;
+                double meanX = sumX / count, meanY = sumY / count;
+                double xx = sumXX / count - meanX * meanX;
+                double yy = sumYY / count - meanY * meanY;
+                double xy = sumXY / count - meanX * meanY;
+                double axisReal = xx - yy, axisImaginary = 2 * xy;
+                double axisMagnitude = Math.Sqrt(axisReal * axisReal + axisImaginary * axisImaginary);
+                double variance = xx + yy;
+                if (variance <= 0 || axisMagnitude / variance < .8) continue;
+                double majorVariance = (variance + axisMagnitude) * .5;
+                if (majorVariance < 4) continue;
+                // atan2(axisImaginary, axisReal) is twice the PCA axis angle.
+                // Major variance weights roughly by the squared bar length.
+                real += majorVariance * axisReal / axisMagnitude;
+                imaginary += majorVariance * axisImaginary / axisMagnitude;
+                energy += majorVariance;
+                measuredBars++;
             }
+            Require(measuredBars > 3, "Too few elongated rendered bars were available for the pixel PCA direction check.");
             double coherence = Math.Sqrt(real * real + imaginary * imaginary) / Math.Max(1, energy);
-            Require(coherence > .2, "The final GPU pixels do not contain a coherent pair of perpendicular grid directions.");
-            return (float)(.25 * Math.Atan2(imaginary, real) * 180 / Math.PI);
+            Require(coherence > .4, "The final GPU pixels do not contain a coherent single parallel direction.");
+            return (float)(.5 * Math.Atan2(imaginary, real) * 180 / Math.PI);
         }
-
         private static void AssertStablePixels(Color32[] expected, Color32[] actual, string name)
         {
             Require(expected.Length == actual.Length, name + " changed the capture dimensions.");
@@ -145,11 +252,11 @@ namespace AnimalGame.Editor
                 if (first != second) differences++;
             }
             float changed = union > 0 ? (float)differences / union : 1f;
-            float expectedAngle = PixelGridAngle(expected), actualAngle = PixelGridAngle(actual);
-            Debug.Log(name + " Canvas GPU grid angle (modulo 90): " + actualAngle.ToString("0.00")
+            float expectedAngle = PixelLineAngle(expected), actualAngle = PixelLineAngle(actual);
+            Debug.Log(name + " Canvas GPU line angle (modulo 180): " + actualAngle.ToString("0.00")
                 + " degrees; baseline " + expectedAngle.ToString("0.00")
                 + " degrees; changed gold pixels " + (changed * 100f).ToString("0.00") + "%.");
-            Require(Mathf.Abs(Mathf.DeltaAngle(expectedAngle * 4f, actualAngle * 4f)) < 2f,
+            Require(Mathf.Abs(Mathf.DeltaAngle(expectedAngle * 2f, actualAngle * 2f)) < 1f,
                 name + " changed the line direction measured from final Canvas GPU pixels.");
             Require(changed < .025f, name + " changed " + (changed * 100f).ToString("0.00")
                 + "% of the final rendered gold pattern; the lines rotated, scaled or moved.");
@@ -196,53 +303,20 @@ namespace AnimalGame.Editor
             return components;
         }
 
-        private static void AssertWorldFixedDirection(Color32[] baseline, Color32[] actual,
+        private static void AssertSnapshotDirection(Color32[] actual, float capturedWorldAngle,
             float cameraAngle, string name)
         {
             AssertGoldPixels(actual, name);
-            float baselineAngle = PixelGridAngle(baseline), actualAngle = PixelGridAngle(actual);
-            float expectedAngle = baselineAngle - cameraAngle;
-            float difference = Mathf.Abs(Mathf.DeltaAngle(expectedAngle * 4f, actualAngle * 4f)) * .25f;
-            Debug.Log(name + " Canvas GPU grid angle (modulo 90): " + actualAngle.ToString("0.00")
-                + " degrees; expected world-fixed projection " + expectedAngle.ToString("0.00")
+            float actualAngle = PixelLineAngle(actual);
+            float expectedAngle = capturedWorldAngle - cameraAngle;
+            float difference = Mathf.Abs(Mathf.DeltaAngle(expectedAngle * 2f, actualAngle * 2f)) * .5f;
+            Debug.Log(name + " Canvas GPU line angle (modulo 180): " + actualAngle.ToString("0.00")
+                + " degrees; expected captured-world projection " + expectedAngle.ToString("0.00")
                 + " degrees; directional difference " + difference.ToString("0.00") + " degrees.");
-            // Gradients have a small rasterization bias. A 45° view rotation
-            // remains decisive for two orthogonal families; 90° exchanges the
-            // families, so those cases also check the rotated footprint below.
+            // Pixel PCA can have a small rasterization bias; direction modulo 180°
+            // must project the captured world direction through this camera.
             Require(difference < 7f,
-                name + " did not rotate on screen with the fixed world direction.");
-        }
-
-        private static void AssertRotatedFootprint(Color32[] baseline, Color32[] actual,
-            int clockwiseQuarterTurns, string name)
-        {
-            int union = 0, differences = 0, unrotatedUnion = 0, unrotatedDifferences = 0;
-            for (int y = 0; y < Size; y++)
-            for (int x = 0; x < Size; x++)
-            {
-                int rotatedX = x, rotatedY = y;
-                for (int turn = 0; turn < clockwiseQuarterTurns; turn++)
-                {
-                    int previousX = rotatedX;
-                    rotatedX = rotatedY;
-                    rotatedY = Size - 1 - previousX;
-                }
-                bool expected = IsGold(baseline[y * Size + x]);
-                bool rotated = IsGold(actual[rotatedY * Size + rotatedX]);
-                if (expected || rotated) union++;
-                if (expected != rotated) differences++;
-                bool unrotated = IsGold(actual[y * Size + x]);
-                if (expected || unrotated) unrotatedUnion++;
-                if (expected != unrotated) unrotatedDifferences++;
-            }
-            float mismatch = (float)differences / Mathf.Max(1, union);
-            float unrotatedMismatch = (float)unrotatedDifferences / Mathf.Max(1, unrotatedUnion);
-            Debug.Log(name + " rotated asymmetric GPU footprint mismatch: " + (mismatch * 100f).ToString("0.00")
-                + "%; unrotated mismatch: " + (unrotatedMismatch * 100f).ToString("0.00") + "%.");
-            Require(mismatch < .1f, name + " did not project the same world grid and footprint through the rotated camera.");
-            if (clockwiseQuarterTurns % 2 == 1)
-                Require(unrotatedMismatch > .1f,
-                    name + " left the asymmetric footprint fixed on screen; a 90° grid-angle equivalence hid its rotation.");
+                name + " did not project the scan-time captured world direction.");
         }
 
         private sealed class Fixture : IDisposable
@@ -250,6 +324,7 @@ namespace AnimalGame.Editor
             private readonly Scene scene;
             private readonly Camera camera;
             private readonly Transform player;
+            private readonly ScannableInteractable scanTarget;
             private readonly RobotCameraFollow cameraFollow;
             private readonly BioScanStaticAreaUI overlay;
             private readonly Canvas canvas;
@@ -260,10 +335,17 @@ namespace AnimalGame.Editor
             private readonly RenderTexture cameraTarget, canvasTarget;
             private readonly List<StaticScanLineSegment> referenceWorldSegments =
                 new List<StaticScanLineSegment>();
+            private readonly List<Vector2> referenceWorldOutlinePoints = new List<Vector2>();
+            private readonly bool includeOutline;
             private bool drewOverlay;
+            private bool expectedPendingCapture;
+            private long referenceRevision;
+            private uint referenceOutlineSeed;
+            public float ReferenceWorldAngle { get; private set; }
 
-            public Fixture()
+            public Fixture(bool enableOutline = false)
             {
+                includeOutline = enableOutline;
                 // A normal empty scene allows native uGUI to register its actual
                 // overlay renderer. A preview scene can suppress overlay lists.
                 scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -293,26 +375,40 @@ namespace AnimalGame.Editor
                 targetObject.transform.localScale = new Vector3(1.5f, 1f, 1f);
                 targetObject.transform.rotation = Quaternion.Euler(0f, 0f, 23f);
                 targetObject.AddComponent<SpriteRenderer>().sprite = sprite;
-                var target = targetObject.AddComponent<ScannableInteractable>();
-                Set(target, "customNormalizedOutline", new[] {
+                scanTarget = targetObject.AddComponent<ScannableInteractable>();
+                Set(scanTarget, "customNormalizedOutline", new[] {
                     new Vector2(-.5f, -.35f), new Vector2(-.3f, .5f),
                     new Vector2(.5f, .3f), new Vector2(.4f, -.5f) });
-                Set(target, "lineWidthPixels", 1.4f);
-                Set(target, "lineSpacingPixels", 15.4f);
-                Set(target, "intersectionGapPixels", 5.6f);
-                Call(target, "OnEnable");
-                BuildIndependentWorldReference(target);
+                Set(scanTarget, "lineWidthPixels", LineWidth);
+                Set(scanTarget, "lineSpacingPixels", 7.7f);
+                Set(scanTarget, "showOutlineDots", enableOutline);
+                // Geometry checks freeze both independently animated layers at
+                // a shared bright phase; RenderChecks probes real defaults.
+                Set(scanTarget, "breathingPeriod", 1.4f);
+                Set(scanTarget, "outlineBreathingPeriod", 1.4f);
+                Set(scanTarget, "fadeInDuration", 0f);
+                Require(Mathf.Abs(scanTarget.LineAngleDegrees - 45f) < .001f,
+                    "The production static scan must author a 45 degree screen slash at capture.");
+
+                Call(scanTarget, "OnEnable");
                 overlay = Create("Canvas pixel check static area presenter").AddComponent<BioScanStaticAreaUI>();
                 overlay.Initialize(null, camera);
                 // Runtime subscribes here; Edit Mode does not promise the
                 // MonoBehaviour callbacks for non-ExecuteAlways components.
                 Call(overlay, "OnEnable");
-                overlay.ShowScannedInteractable(target);
+                overlay.ShowScannedInteractable(scanTarget);
+                Require(scanTarget.IsScanOrientationPending && !scanTarget.HasCapturedScanOrientation,
+                    "A real scan must wait for the first presentation's final camera orientation.");
                 // Advance beyond the subtle initial fade-in so this fixture
                 // tests visible bars, rather than the transparent reveal frame.
                 typeof(ScannableInteractable).GetMethod("TickReveal", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .Invoke(target, new object[] { .25f });
+                    .Invoke(scanTarget, new object[] { scanTarget.BreathingPeriod });
+                ReferenceWorldAngle = camera.transform.eulerAngles.z + scanTarget.LineAngleDegrees;
                 Call(overlay, "TickAreas");
+                referenceRevision = Convert.ToInt64(scanTarget.ScanOrientationRevision);
+                AssertCapturedOrientation("initial scan");
+                BuildIndependentWorldReference();
+                if (includeOutline) BuildIndependentOutlineReference();
                 canvas = (Canvas)Get(overlay, "areaCanvas");
                 Require(canvas != null && canvas.renderMode == RenderMode.ScreenSpaceOverlay,
                     "Production presenter did not create its overlay Canvas.");
@@ -332,21 +428,84 @@ namespace AnimalGame.Editor
                 graphic.rectTransform.anchorMin = Vector2.zero;
                 graphic.rectTransform.anchorMax = Vector2.one;
                 graphic.rectTransform.offsetMin = graphic.rectTransform.offsetMax = Vector2.zero;
+                if (includeOutline)
+                {
+                    IList outlines = (IList)Get(overlay, "outlineGraphics");
+                    Require(outlines.Count > 0, "Enabled production outline did not create its own graphic.");
+                    foreach (BioScanStaticAreaGraphic outline in outlines)
+                    {
+                        outline.rectTransform.SetParent(rotationParent, false);
+                        outline.rectTransform.anchorMin = Vector2.zero;
+                        outline.rectTransform.anchorMax = Vector2.one;
+                        outline.rectTransform.offsetMin = outline.rectTransform.offsetMax = Vector2.zero;
+                    }
+                }
                 Canvas.ForceUpdateCanvases();
             }
 
+            public void BeginRescan(float cameraAngleAtReveal, float finalCameraAngleAtFirstDraw)
+            {
+                Require(!expectedPendingCapture && scanTarget.HasCapturedScanOrientation,
+                    "Finish the preceding snapshot before starting a new scan.");
+                camera.transform.rotation = Quaternion.Euler(0f, 0f, cameraAngleAtReveal);
+                scanTarget.Reveal();
+                Require(scanTarget.IsScanOrientationPending && !scanTarget.HasCapturedScanOrientation,
+                    "Rescanning a visible target must invalidate its old orientation and defer recapture.");
+                ReferenceWorldAngle = Mathf.DeltaAngle(0f,
+                    finalCameraAngleAtFirstDraw + scanTarget.LineAngleDegrees);
+                expectedPendingCapture = true;
+            }
+
+            private void AssertCapturedOrientation(string name)
+            {
+                Require(scanTarget.HasCapturedScanOrientation && !scanTarget.IsScanOrientationPending,
+                    name + " did not capture the pending scan orientation on first presentation.");
+                Require(Mathf.Abs(Mathf.DeltaAngle(scanTarget.CapturedScanWorldAngleDegrees,
+                    ReferenceWorldAngle)) < .001f,
+                    name + " captured a different world direction than the first draw's final camera angle.");
+                long actualRevision = Convert.ToInt64(scanTarget.ScanOrientationRevision);
+                if (expectedPendingCapture)
+                {
+                    Require(actualRevision > referenceRevision,
+                        name + " did not advance the orientation revision after a real rescan.");
+                    referenceRevision = actualRevision;
+                    expectedPendingCapture = false;
+                    BuildIndependentWorldReference();
+                    if (includeOutline)
+                    {
+                        Require(scanTarget.OutlinePatternSeed != 0
+                            && scanTarget.OutlinePatternSeed != referenceOutlineSeed,
+                            name + " did not assign a fresh nonzero outline arrangement seed on real rescan.");
+                        BuildIndependentOutlineReference();
+                    }
+                }
+                else
+                {
+                    Require(actualRevision == referenceRevision,
+                        name + " changed the orientation revision without a new scan.");
+                    if (includeOutline && referenceWorldOutlinePoints.Count > 0)
+                        Require(scanTarget.OutlinePatternSeed == referenceOutlineSeed,
+                            name + " changed its outline arrangement seed without a real rescan.");
+                }
+            }
+
             public Color32[] Capture(string name, float angle, float size, float parentAngle, bool rotateAfterRebuild,
-                Vector2 cameraOffset = default)
+                Vector2 cameraOffset = default, float cameraAngleOffset = 0f)
             {
                 player.position = WorldOrigin + cameraOffset;
                 player.rotation = Quaternion.Euler(0f, 0f, angle);
                 cameraFollow.SnapToTarget();
                 Require(Mathf.Abs(Mathf.DeltaAngle(camera.transform.eulerAngles.z, angle)) < .01f,
                     "RobotCameraFollow did not apply the player view rotation.");
+                if (Mathf.Abs(cameraAngleOffset) > .0001f)
+                    camera.transform.rotation = Quaternion.Euler(0f, 0f, angle + cameraAngleOffset);
+                Require(Mathf.Abs(Mathf.DeltaAngle(camera.transform.eulerAngles.z, angle + cameraAngleOffset)) < .01f,
+                    "The camera did not reach its requested independent view rotation.");
                 camera.orthographicSize = size;
                 rotationParent.localRotation = Quaternion.Euler(0f, 0f, rotateAfterRebuild ? 0f : parentAngle);
                 Canvas.ForceUpdateCanvases();
                 Call(overlay, "TickAreas");
+                AssertCapturedOrientation(name);
                 Canvas.ForceUpdateCanvases();
                 if (rotateAfterRebuild) rotationParent.localRotation = Quaternion.Euler(0f, 0f, parentAngle);
                 LogCaptureState(name, "before-render");
@@ -369,7 +528,7 @@ namespace AnimalGame.Editor
                     snapshot.Apply();
                     File.WriteAllBytes(Path.Combine(OutputDirectory, name + ".png"), snapshot.EncodeToPNG());
                     Color32[] pixels = snapshot.GetPixels32();
-                    if (!name.StartsWith("warmup", StringComparison.Ordinal))
+                    if (name.IndexOf("warmup", StringComparison.Ordinal) < 0)
                         AssertProjectedReferencePixels(pixels, name);
                     return pixels;
                 }
@@ -380,34 +539,276 @@ namespace AnimalGame.Editor
                 }
             }
 
-            private void BuildIndependentWorldReference(ScannableInteractable target)
+            private void BuildIndependentWorldReference()
             {
                 // No presenter layout, UI mesh or shader metadata is read here.
-                // Generate once in the normal view's metric, then retain world
-                // endpoints as an independent oracle for all final GPU frames.
+                // Generate once per real scan in a fixed normal-view metric.
+                // Keep these independent world endpoints through every later
+                // player/camera turn, movement and zoom until the next scan.
+                referenceWorldSegments.Clear();
                 var offsets = new List<Vector2>();
-                Require(target.TryGetPresentationFootprint(offsets, out Vector3 center),
+                Require(scanTarget.TryGetPresentationFootprint(offsets, out Vector3 center),
                     "The pixel fixture target did not supply a world footprint.");
                 float pixelsPerWorldUnit = Size / (ReferenceOrthographicSize * 2f);
                 for (int index = 0; index < offsets.Count; index++) offsets[index] *= pixelsPerWorldUnit;
                 var referenceBars = new List<StaticScanLineSegment>();
-                Require(BioScanStaticLinePattern.Build(offsets, 15.4f, -37f, referenceBars,
-                    5.6f, 1.4f, -(Vector2)center * pixelsPerWorldUnit),
-                    "The independent normal-view lattice did not produce bars.");
+                Require(BioScanStaticLinePattern.Build(offsets, scanTarget.LineSpacingPixels,
+                    ReferenceWorldAngle, referenceBars, LineWidth, Vector2.zero),
+                    "The independent scan-time world lattice did not produce bars.");
                 foreach (StaticScanLineSegment bar in referenceBars)
                     referenceWorldSegments.Add(new StaticScanLineSegment(
                         (Vector2)center + bar.Start / pixelsPerWorldUnit,
                         (Vector2)center + bar.End / pixelsPerWorldUnit));
-                Require(referenceWorldSegments.Count > 20,
-                    "The distant pixel fixture needs enough independent grid bars to expose phase changes.");
+                Require(referenceWorldSegments.Count > 10,
+                    "The distant pixel fixture needs enough independent parallel bars to expose phase changes.");
+            }
+
+            private void BuildIndependentOutlineReference()
+            {
+                referenceWorldOutlinePoints.Clear();
+                referenceOutlineSeed = scanTarget.OutlinePatternSeed;
+                Require(referenceOutlineSeed != 0, "A real scan must generate a nonzero outline arrangement seed.");
+                var offsets = new List<Vector2>();
+                Require(scanTarget.TryGetPresentationFootprint(offsets, out Vector3 center),
+                    "The outline fixture has no world footprint.");
+                float pixelsPerWorldUnit = Size / (ReferenceOrthographicSize * 2f);
+                for (int index = 0; index < offsets.Count; index++) offsets[index] *= pixelsPerWorldUnit;
+                var points = new List<Vector2>();
+                float spacing = scanTarget.UseSmallAreaFill ? scanTarget.SmallOutlineDotSpacingPixels
+                    : scanTarget.OutlineDotSpacingPixels;
+                Require(BioScanStaticOutlinePattern.BuildDots(offsets, spacing, points,
+                    scanTarget.OutlineDotSizePixels, referenceOutlineSeed),
+                    "The independent fixed outline did not produce diamond point centers.");
+                foreach (Vector2 point in points)
+                    referenceWorldOutlinePoints.Add((Vector2)center + point / pixelsPerWorldUnit);
+                Require(referenceWorldOutlinePoints.Count > 10,
+                    "The outline fixture needs enough visible diamond points and gaps to measure.");
+            }
+
+            private float MinimumExpectedGoldCoverage(bool forOutline = false)
+            {
+                float period = forOutline ? scanTarget.OutlineBreathingPeriod : scanTarget.BreathingPeriod;
+                Require(scanTarget.RevealElapsed >= scanTarget.FadeInDuration
+                    && scanTarget.RevealRemaining >= scanTarget.FadeOutDuration
+                    && Mathf.Repeat(scanTarget.RevealElapsed, period) < .0001f,
+                    "The AA oracle requires the fixture's fully appeared bright breathing frame.");
+                Color tint = scanTarget.AreaColor;
+                tint.a *= forOutline ? scanTarget.OutlineBreathingMaxAlpha : scanTarget.BreathingMaxAlpha;
+                return PredictableGoldCoverage((Color32)tint);
+            }
+
+            private float[] ProjectedDistances(List<StaticScanLineSegment> bars, float width, bool inScreenSpace = false)
+            {
+                var distances = new float[Size * Size];
+                for (int index = 0; index < distances.Length; index++) distances[index] = float.PositiveInfinity;
+                foreach (StaticScanLineSegment world in bars)
+                {
+                    Vector2 start = inScreenSpace ? world.Start : (Vector2)camera.WorldToScreenPoint((Vector3)world.Start);
+                    Vector2 end = inScreenSpace ? world.End : (Vector2)camera.WorldToScreenPoint((Vector3)world.End);
+                    Vector2 midpoint = (start + end) * .5f;
+                    Vector2 direction = (end - start).normalized;
+                    Vector2 normal = new(-direction.y, direction.x);
+                    float halfLength = Vector2.Distance(start, end) * .5f;
+                    int minimumX = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(start.x, end.x) - 3f), 0, Size - 1);
+                    int maximumX = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(start.x, end.x) + 3f), 0, Size - 1);
+                    int minimumY = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(start.y, end.y) - 3f), 0, Size - 1);
+                    int maximumY = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(start.y, end.y) + 3f), 0, Size - 1);
+                    for (int y = minimumY; y <= maximumY; y++)
+                    for (int x = minimumX; x <= maximumX; x++)
+                    {
+                        Vector2 delta = new Vector2(x + .5f, y + .5f) - midpoint;
+                        Vector2 box = new(Mathf.Abs(Vector2.Dot(delta, direction)) - halfLength,
+                            Mathf.Abs(Vector2.Dot(delta, normal)) - width * .5f);
+                        float distance = Vector2.Max(box, Vector2.zero).magnitude
+                            + Mathf.Min(Mathf.Max(box.x, box.y), 0f);
+                        int index = y * Size + x;
+                        distances[index] = Mathf.Min(distances[index], distance);
+                    }
+                }
+                return distances;
+            }
+
+            private static double Cross(Vector2 first, Vector2 second)
+                => (double)first.x * second.y - (double)first.y * second.x;
+
+            private static List<Vector2> IndependentPointHull(List<Vector2> points)
+            {
+                var sorted = new List<Vector2>(points);
+                sorted.Sort((first, second) => first.x != second.x
+                    ? first.x.CompareTo(second.x) : first.y.CompareTo(second.y));
+                var unique = new List<Vector2>();
+                foreach (Vector2 point in sorted)
+                    if (unique.Count == 0 || (point - unique[unique.Count - 1]).sqrMagnitude > .00000001f)
+                        unique.Add(point);
+                if (unique.Count < 3) return new List<Vector2>();
+                var hull = new List<Vector2>();
+                foreach (Vector2 point in unique)
+                {
+                    while (hull.Count >= 2 && Cross(hull[hull.Count - 1] - hull[hull.Count - 2],
+                        point - hull[hull.Count - 1]) <= 0d) hull.RemoveAt(hull.Count - 1);
+                    hull.Add(point);
+                }
+                int lower = hull.Count;
+                for (int index = unique.Count - 2; index >= 0; index--)
+                {
+                    Vector2 point = unique[index];
+                    while (hull.Count > lower && Cross(hull[hull.Count - 1] - hull[hull.Count - 2],
+                        point - hull[hull.Count - 1]) <= 0d) hull.RemoveAt(hull.Count - 1);
+                    hull.Add(point);
+                }
+                hull.RemoveAt(hull.Count - 1);
+                return hull.Count >= 3 ? hull : new List<Vector2>();
+            }
+
+            private static List<StaticScanLineSegment> IndependentBoundaryClip(
+                List<StaticScanLineSegment> sources, List<Vector2> hull, float width)
+            {
+                var clipped = new List<StaticScanLineSegment>();
+                if (hull.Count < 3) return clipped;
+                foreach (StaticScanLineSegment source in sources)
+                {
+                    Vector2 vector = source.End - source.Start;
+                    double length = vector.magnitude;
+                    if (length < .0001d) continue;
+                    Vector2 direction = vector.normalized, normal = new(-direction.y, direction.x);
+                    double minimum = 0d, maximum = length;
+                    for (int index = 0; index < hull.Count && maximum >= minimum; index++)
+                    {
+                        Vector2 start = hull[index], edge = hull[(index + 1) % hull.Count] - start;
+                        double along = Cross(edge, direction);
+                        // The full AA rectangle is supported independently in
+                        // the bar's two axes; clearance is a Euclidean 1 px
+                        // offset from this hull edge, not one extra px per axis.
+                        double support = Math.Abs(Cross(edge, normal)) * (width * .5d + 1d)
+                            + Math.Abs(along) + edge.magnitude * 1.01d;
+                        double remainder = Cross(edge, start - source.Start) + support;
+                        if (Math.Abs(along) < .0000001d)
+                        {
+                            if (remainder > .000001d) maximum = -1d;
+                        }
+                        else if (along > 0d) minimum = Math.Max(minimum, remainder / along);
+                        else maximum = Math.Min(maximum, remainder / along);
+                    }
+                    if (maximum - minimum < .25d) continue;
+                    clipped.Add(new StaticScanLineSegment(source.Start + direction * (float)minimum,
+                        source.Start + direction * (float)maximum));
+                }
+                return clipped;
+            }
+
+            private static float BoundaryDistance(Vector2 point, List<Vector2> hull)
+            {
+                if (hull.Count < 3) return float.NegativeInfinity;
+                double minimum = double.PositiveInfinity;
+                for (int index = 0; index < hull.Count; index++)
+                {
+                    Vector2 edge = hull[(index + 1) % hull.Count] - hull[index];
+                    minimum = Math.Min(minimum, Cross(edge, point - hull[index]) / edge.magnitude);
+                }
+                return (float)minimum;
+            }
+
+            private void AssertCombinedReferencePixels(Color32[] pixels, string name)
+            {
+                float requiredHatchCoverage = MinimumExpectedGoldCoverage();
+                float requiredOutlineCoverage = MinimumExpectedGoldCoverage(true);
+                float[] originalHatch = ProjectedDistances(referenceWorldSegments, scanTarget.LineWidthPixels);
+                var projectedCenters = new List<Vector2>();
+                foreach (Vector2 point in referenceWorldOutlinePoints)
+                    projectedCenters.Add(camera.WorldToScreenPoint((Vector3)point));
+                List<Vector2> pointHull = IndependentPointHull(projectedCenters);
+                var projectedSourceHatch = new List<StaticScanLineSegment>();
+                foreach (StaticScanLineSegment source in referenceWorldSegments)
+                    projectedSourceHatch.Add(new StaticScanLineSegment(
+                        camera.WorldToScreenPoint((Vector3)source.Start), camera.WorldToScreenPoint((Vector3)source.End)));
+                List<StaticScanLineSegment> clippedHatch = IndependentBoundaryClip(projectedSourceHatch,
+                    pointHull, scanTarget.LineWidthPixels);
+                float[] hatch = ProjectedDistances(clippedHatch, scanTarget.LineWidthPixels, true);
+                // Independently project cached centers, then construct a square
+                // of fixed screen size. Never scale the glyph by world zoom or
+                // re-sample its perimeter points in the current camera view.
+                Vector2 projectedOrigin = camera.WorldToScreenPoint((Vector3)WorldOrigin);
+                Vector2 projectedWorldDiagonal = (Vector2)camera.WorldToScreenPoint(
+                    (Vector3)(WorldOrigin + Vector2.one.normalized)) - projectedOrigin;
+                Vector2 glyphDirection = projectedWorldDiagonal.normalized;
+                float squareSide = scanTarget.OutlineDotSizePixels / Mathf.Sqrt(2f);
+                var diamonds = new List<StaticScanLineSegment>();
+                foreach (Vector2 center in projectedCenters)
+                {
+                    Vector2 extent = glyphDirection * (squareSide * .5f);
+                    diamonds.Add(new StaticScanLineSegment(center - extent, center + extent));
+                }
+                float[] outline = ProjectedDistances(diamonds, squareSide, true);
+                int predicted = 0, missing = 0, unexpected = 0, outlineOnly = 0,
+                    removedProtrusions = 0, escapedHatchPixels = 0;
+                for (int index = 0; index < pixels.Length; index++)
+                {
+                    float distance = Mathf.Min(hatch[index], outline[index]);
+                    float hatchCoverage = 1f - Mathf.SmoothStep(0f, 1f,
+                        Mathf.InverseLerp(-.5f, .5f, hatch[index]));
+                    float outlineCoverage = 1f - Mathf.SmoothStep(0f, 1f,
+                        Mathf.InverseLerp(-.5f, .5f, outline[index]));
+                    if (hatchCoverage >= requiredHatchCoverage || outlineCoverage >= requiredOutlineCoverage)
+                    {
+                        predicted++;
+                        if (!IsGold(pixels[index])) missing++;
+                        if (outlineCoverage >= requiredOutlineCoverage && hatch[index] > .65f) outlineOnly++;
+                    }
+                    if (distance > .65f && IsGold(pixels[index])) unexpected++;
+                    if (outline[index] > .65f && (IsGold(pixels[index])
+                        || (originalHatch[index] < -.2f && hatch[index] > .65f)))
+                    {
+                        Vector2 point = new(index % Size + .5f, index / Size + .5f);
+                        float boundaryDistance = BoundaryDistance(point, pointHull);
+                        if (IsGold(pixels[index]) && boundaryDistance < -.001f) escapedHatchPixels++;
+                        if (originalHatch[index] < -.2f && hatch[index] > .65f && boundaryDistance < 0f)
+                        {
+                            removedProtrusions++;
+                            Require(!IsGold(pixels[index]), name + " retained an old hatch tip outside its diamond point hull.");
+                        }
+                    }
+                }
+                Require(predicted > 600 && outlineOnly > 20,
+                    name + " did not exercise both the hatch and independently visible diamond outline pixels.");
+                Require(missing == 0, name + " lost " + missing + "/" + predicted
+                    + " predictable pixels of the fixed hatch/outline world endpoints.");
+                Require(unexpected <= 2, name + " introduced " + unexpected
+                    + " gold pixels outside the independently projected hatch/outline union.");
+                Require(escapedHatchPixels == 0, name + " drew " + escapedHatchPixels
+                    + " hatch-only pixels outside the actual diamond-center boundary.");
+                Require(removedProtrusions > 2, name + " did not exercise the original protruding hatch tips.");
+                int measuredGaps = 0;
+                for (int index = 0; index < referenceWorldOutlinePoints.Count; index++)
+                {
+                    Vector2 previous = referenceWorldOutlinePoints[index];
+                    Vector2 next = referenceWorldOutlinePoints[(index + 1) % referenceWorldOutlinePoints.Count];
+                    Vector2 midpoint = camera.WorldToScreenPoint((Vector3)((previous + next) * .5f));
+                    int x = Mathf.FloorToInt(midpoint.x), y = Mathf.FloorToInt(midpoint.y);
+                    if (x < 0 || x >= Size || y < 0 || y >= Size) continue;
+                    int pixel = y * Size + x;
+                    if (Mathf.Min(hatch[pixel], outline[pixel]) <= .65f) continue;
+                    Require(!IsGold(pixels[pixel]), name + " filled a measurable outline gap away from the hatch.");
+                    measuredGaps++;
+                }
+                Require(measuredGaps > 5, name + " did not expose enough actual diamond-outline gaps.");
+                Debug.Log(name + " fixed hatch/outline union PASS: " + predicted + " predicted visible pixels, "
+                    + outlineOnly + " outline-only pixels, " + measuredGaps + " transparent outline gaps; "
+                    + referenceWorldOutlinePoints.Count + " fixed world point centers with constant pixel-sized diamonds, scan seed "
+                    + referenceOutlineSeed + "; " + removedProtrusions + " old protruding tip pixels removed, "
+                    + clippedHatch.Count + "/" + referenceWorldSegments.Count + " source bars retained after independent clipping.");
             }
 
             private void AssertProjectedReferencePixels(Color32[] pixels, string name)
             {
+                if (includeOutline) { AssertCombinedReferencePixels(pixels, name); return; }
+                // This fixture deliberately freezes the fully appeared target
+                // at its bright breathing limit. Quantize the same tint that
+                // reaches UGUI, rather than assuming every AA pixel is opaque.
+                float minimumGoldCoverage = MinimumExpectedGoldCoverage();
                 var expectedDistance = new float[pixels.Length];
                 for (int index = 0; index < expectedDistance.Length; index++)
                     expectedDistance[index] = float.PositiveInfinity;
-                int interiorPixels = 0, missingInterior = 0;
+                int interiorPixels = 0, missingInterior = 0, aaOnlyBars = 0;
                 foreach (StaticScanLineSegment worldBar in referenceWorldSegments)
                 {
                     Vector2 start = camera.WorldToScreenPoint((Vector3)worldBar.Start);
@@ -420,24 +821,54 @@ namespace AnimalGame.Editor
                     int maximumX = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(start.x, end.x) + 3f), 0, Size - 1);
                     int minimumY = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(start.y, end.y) - 3f), 0, Size - 1);
                     int maximumY = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(start.y, end.y) + 3f), 0, Size - 1);
-                    int barInterior = 0, barMissing = 0;
+                    int barInterior = 0, barMissing = 0, predictableAaPixels = 0, missingAaPixels = 0;
+                    float maximumCoverage = 0f;
                     for (int y = minimumY; y <= maximumY; y++)
                     for (int x = minimumX; x <= maximumX; x++)
                     {
                         Vector2 delta = new Vector2(x + .5f, y + .5f) - middle;
                         Vector2 box = new Vector2(Mathf.Abs(Vector2.Dot(delta, direction)) - halfLength,
-                            Mathf.Abs(Vector2.Dot(delta, normal)) - .7f);
+                            Mathf.Abs(Vector2.Dot(delta, normal)) - LineWidth * .5f);
                         float distance = Vector2.Max(box, Vector2.zero).magnitude
                             + Mathf.Min(Mathf.Max(box.x, box.y), 0f);
                         int index = y * Size + x;
                         expectedDistance[index] = Mathf.Min(expectedDistance[index], distance);
-                        if (distance >= -.35f) continue;
+                        float coverage = 1f - Mathf.SmoothStep(0f, 1f,
+                            Mathf.InverseLerp(-.5f, .5f, distance));
+                        maximumCoverage = Mathf.Max(maximumCoverage, coverage);
+                        if (coverage >= minimumGoldCoverage)
+                        {
+                            predictableAaPixels++;
+                            if (!IsGold(pixels[index])) missingAaPixels++;
+                        }
+                        // A 0.9 px bar has no distance < -0.5 opaque core;
+                        // -0.2 still guarantees at least 78.4% AA coverage.
+                        if (distance >= -.2f) continue;
                         barInterior++;
                         if (!IsGold(pixels[index])) barMissing++;
                     }
-                    Require(barInterior > 2, name + " moved a reference bar outside the fixture's measurable interior.");
-                    Require(barMissing <= Mathf.Max(1, barInterior / 20), name
-                        + " lost the lit interior of a fixed world bar; camera motion changed the displayed lattice.");
+                    if (barInterior == 0)
+                    {
+                        // A short subpixel bar can land entirely between pixel
+                        // centers. Its SDF still predicts visible AA pixels:
+                        // require those pixels individually, never skip the bar.
+                        Require(predictableAaPixels > 0, name
+                            + " has no predictable visible pixel for a reference bar: maximum SDF coverage "
+                            + maximumCoverage.ToString("F4") + ", required "
+                            + minimumGoldCoverage.ToString("F4") + ".");
+                        Require(missingAaPixels == 0, name + " lost " + missingAaPixels + "/"
+                            + predictableAaPixels + " predictable AA gold pixels of a coreless reference bar.");
+                        aaOnlyBars++;
+                        interiorPixels += predictableAaPixels;
+                        missingInterior += missingAaPixels;
+                        continue;
+                    }
+                    // Zoom can reduce a valid complete fringe bar to only one
+                    // or two high-coverage pixel centers. Require all of those
+                    // pixels, while retaining the long-bar rounding tolerance.
+                    int allowedMissing = barInterior < 3 ? 0 : Mathf.Max(1, barInterior / 20);
+                    Require(barMissing <= allowedMissing, name
+                        + " lost the lit interior of an independently captured world bar.");
                     interiorPixels += barInterior;
                     missingInterior += barMissing;
                 }
@@ -449,13 +880,14 @@ namespace AnimalGame.Editor
                     if (expectedDistance[index] > .65f) unexpectedGold++;
                 }
                 int components = CountGoldComponents(pixels);
-                Debug.Log(name + " independently projected world lattice: " + referenceWorldSegments.Count
+                Debug.Log(name + " independently captured world lattice: " + referenceWorldSegments.Count
                     + " bars / " + components + " GPU components; missing interior " + missingInterior
-                    + "/" + interiorPixels + "; unexpected gold " + unexpectedGold + "/" + goldPixels + ".");
+                    + "/" + interiorPixels + "; AA-only bars individually verified " + aaOnlyBars
+                    + "; unexpected gold " + unexpectedGold + "/" + goldPixels + ".");
                 Require(missingInterior <= Mathf.Max(2, interiorPixels / 200),
-                    name + " does not cover the continuously projected interiors of the reference world lattice.");
+                    name + " does not cover the projected interiors of the scan-time reference lattice.");
                 Require(unexpectedGold <= Mathf.Max(2, goldPixels / 200),
-                    name + " introduced gold pixels away from the continuously projected reference world lattice.");
+                    name + " introduced gold pixels away from the projected scan-time reference lattice.");
                 Require(components == referenceWorldSegments.Count, name + " changed the actual visible bar count: "
                     + components + " GPU components instead of " + referenceWorldSegments.Count + ".");
             }

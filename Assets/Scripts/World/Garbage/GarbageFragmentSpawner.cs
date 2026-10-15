@@ -50,7 +50,10 @@ namespace AnimalGame.Garbage
         private float pullBurstDeceleration;
         private float pullSeparationDuration;
         private Vector3 pullInitialHand;
-        private float inheritedScanRemaining;
+        private float inheritedScanRemaining, inheritedScanElapsed;
+        private bool inheritedScanHasCapturedOrientation;
+        private uint inheritedScanOutlineSeed;
+        private float inheritedScanWorldAngleDegrees;
 
         private sealed class PullFragment
         {
@@ -514,7 +517,11 @@ namespace AnimalGame.Garbage
             {
                 elapsed += Time.deltaTime;
                 if (Time.timeScale > 0f)
-                    inheritedScanRemaining = Mathf.Max(0f, inheritedScanRemaining - Time.deltaTime);
+                {
+                    float scanStep = Mathf.Min(inheritedScanRemaining, Mathf.Max(0f, Time.deltaTime));
+                    inheritedScanRemaining -= scanStep;
+                    inheritedScanElapsed += scanStep;
+                }
                 float opacity = 1f - Mathf.Clamp01(elapsed / Mathf.Max(.001f, fadeDuration));
                 for (int i = 0; i < renderers.Length; i++)
                 {
@@ -609,7 +616,15 @@ namespace AnimalGame.Garbage
 
         private void CaptureScanRemaining()
         {
-            inheritedScanRemaining = TryGetComponent(out ScannableInteractable scanned) ? scanned.RevealRemaining : 0f;
+            bool hasScan = TryGetComponent(out ScannableInteractable scanned);
+            inheritedScanRemaining = hasScan ? scanned.RevealRemaining : 0f;
+            inheritedScanElapsed = hasScan ? scanned.RevealElapsed : 0f;
+            inheritedScanOutlineSeed = hasScan ? scanned.OutlinePatternSeed : 0u;
+            // Source interaction is disabled before the fragments are created.
+            // Retain the captured world direction independently of its live state.
+            inheritedScanHasCapturedOrientation = hasScan && scanned.HasCapturedScanOrientation;
+            inheritedScanWorldAngleDegrees = inheritedScanHasCapturedOrientation
+                ? scanned.CapturedScanWorldAngleDegrees : 0f;
         }
 
         private void InheritFragmentScan(GameObject fragment)
@@ -617,7 +632,8 @@ namespace AnimalGame.Garbage
             if (inheritedScanRemaining <= 0f) return;
             if (!fragment.TryGetComponent(out ScannableInteractable scanned))
                 scanned = fragment.AddComponent<ScannableInteractable>();
-            scanned.InheritScanRemaining(inheritedScanRemaining);
+            scanned.InheritScanRemaining(inheritedScanRemaining, inheritedScanElapsed,
+                inheritedScanHasCapturedOrientation, inheritedScanWorldAngleDegrees, inheritedScanOutlineSeed);
         }
 
         private static float FragmentRadius(GameObject prefab)

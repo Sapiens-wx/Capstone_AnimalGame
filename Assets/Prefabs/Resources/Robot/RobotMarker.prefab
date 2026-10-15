@@ -909,7 +909,7 @@ MonoBehaviour:
   guideDepthOfBodyDiameter: 0.12
   guideLineWidthPixels: 2.2
   guideFadeDuration: 0.14
-  guideNeutralColor: {r: 0.45, g: 0.9, b: 1, a: 0.34}
+  guideNeutralColor: {r: 1, g: 1, b: 1, a: 0.34}
   guideReadyColor: {r: 1, g: 0.82, b: 0.18, a: 0.72}
 --- !u!114 &6754498989903123457
 MonoBehaviour:
@@ -1156,6 +1156,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   areaShader: {fileID: 4800000, guid: 26c8e1b303004a2eb0a476d9b74c9c0b, type: 3}
+  alignOnScan: 1
 --- !u!1 &4976596186778311389
 GameObject:
   m_ObjectHideFlags: 0

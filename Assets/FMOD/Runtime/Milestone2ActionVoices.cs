@@ -14,6 +14,8 @@ namespace Capstone.Audio
             internal EventDescription Description;
             internal readonly ParameterState[] Parameters = new ParameterState[(int)ActionAudioParameter.Count];
             internal bool Active, Failed, Fading, Recovering, Paused, KeyedOff;
+            internal bool EngineReleasing, EngineReleaseBraking;
+            internal float EngineReleaseStartPitch, EngineReleaseElapsed, EngineReleaseDuration;
             internal bool NativeReleaseEnvelope;
             internal PARAMETER_ID ReleasePitchId;
             internal bool HasReleasePitchParameter, HasReleasePitchValue;
@@ -53,6 +55,12 @@ namespace Capstone.Audio
         internal bool IsActive(Milestone2ActionCue cue) => slots[(int)cue].Active && !slots[(int)cue].Fading;
         internal bool IsAlive(Milestone2ActionCue cue) => slots[(int)cue].Active;
 
+        internal float GetEnginePitch(Milestone2ActionCue cue)
+        {
+            Slot slot = slots[(int)cue];
+            return slot.Active ? slot.AppliedPitch : slot.DesiredPitch;
+        }
+
         internal bool TryGetTimelinePosition(Milestone2ActionCue cue, out int milliseconds)
         {
             Slot slot = slots[(int)cue];
@@ -85,12 +93,15 @@ namespace Capstone.Audio
                     slot.HasReleasePitchParameter = true;
                 }
                 slot.Active = true;
+                slot.EngineReleasing = slot.EngineReleaseBraking = false;
                 slot.Fading = false;
                 slot.Recovering = fadeInSeconds > 0f;
                 slot.RecoveryElapsed = 0f;
                 slot.RecoveryStartEnvelope = slot.Envelope;
                 slot.RecoveryDuration = fadeInSeconds;
                 slot.Paused = slot.KeyedOff = false;
+                if (cue == Milestone2ActionCue.Drive)
+                    slot.DesiredPitch = Mathf.Clamp(slot.DesiredPitch, 0.01f, settings.EngineMaximumPitch);
                 slot.AppliedPitch = slot.DesiredPitch;
                 result = slot.Instance.setPitch(slot.AppliedPitch);
                 if (result == RESULT.OK) ApplyReleasePitch(slot);
@@ -143,7 +154,12 @@ namespace Capstone.Audio
                     slot.RecoveryStartEnvelope = slot.Envelope;
                     slot.RecoveryElapsed = 0f;
                     slot.RecoveryDuration = settings.MovementFadeInSeconds;
-                    SetPitch(cue, slot.DesiredPitch);
+                    bool wasEngineRelease = slot.EngineReleasing;
+                    slot.EngineReleasing = slot.EngineReleaseBraking = false;
+                    if (wasEngineRelease)
+                        slot.DesiredPitch = slot.AppliedPitch;
+                    else
+                        SetPitch(cue, slot.DesiredPitch);
                     for (int index = 0; index < slot.Parameters.Length; index++)
                         if (slot.Parameters[index].HasDesiredValue) ApplyParameter(slot, (ActionAudioParameter)index);
                 }
@@ -154,13 +170,55 @@ namespace Capstone.Audio
         internal void SetPitch(Milestone2ActionCue cue, float pitch)
         {
             Slot slot = slots[(int)cue];
-            slot.DesiredPitch = Mathf.Clamp(pitch, 0.01f, 4f);
+            slot.DesiredPitch = Mathf.Clamp(pitch, 0.01f,
+                cue == Milestone2ActionCue.Drive ? settings.EngineMaximumPitch : 4f);
             if (!slot.Active || slot.Fading || Mathf.Abs(slot.DesiredPitch - slot.AppliedPitch) < 0.001f) return;
-            if (slot.Instance.setPitch(slot.DesiredPitch) == RESULT.OK)
+            ApplyPitch(slot, slot.DesiredPitch);
+        }
+
+        private static void ApplyPitch(Slot slot, float pitch, bool finalValue = false)
+        {
+            if (Mathf.Abs(pitch - slot.AppliedPitch) < 0.001f
+                && (!finalValue || pitch == slot.AppliedPitch)) return;
+            if (slot.Instance.setPitch(pitch) == RESULT.OK)
             {
-                slot.AppliedPitch = slot.DesiredPitch;
+                slot.AppliedPitch = pitch;
                 ApplyReleasePitch(slot);
             }
+        }
+
+        internal void FadeEngineToIdle(Milestone2ActionCue cue, bool braking)
+        {
+            Slot slot = slots[(int)cue];
+            if (!slot.Active) return;
+            if (!IsEngineCue(cue)) { Stop(cue); return; }
+            float duration = settings.EngineFadeOutSeconds * (braking ? 0.5f : 1f);
+            if (!slot.EngineReleasing)
+            {
+                slot.EngineReleasing = true;
+                slot.EngineReleaseBraking = braking;
+                slot.EngineReleaseStartPitch = slot.AppliedPitch;
+                slot.EngineReleaseElapsed = 0f;
+                slot.EngineReleaseDuration = duration;
+            }
+            else if (braking && !slot.EngineReleaseBraking)
+            {
+                // Brake from the current pitch and gain, doubling both slopes
+                // without restarting either envelope from its original value.
+                float remaining = Mathf.Max(0f, slot.EngineReleaseDuration - slot.EngineReleaseElapsed);
+                slot.EngineReleaseBraking = true;
+                slot.EngineReleaseStartPitch = slot.AppliedPitch;
+                slot.EngineReleaseElapsed = 0f;
+                slot.EngineReleaseDuration = remaining * 0.5f;
+                if (slot.Fading)
+                {
+                    float fadeRemaining = Mathf.Max(0f, slot.FadeDuration - slot.FadeElapsed);
+                    slot.FadeStartEnvelope = slot.Envelope;
+                    slot.FadeElapsed = 0f;
+                    slot.FadeDuration = fadeRemaining * 0.5f;
+                }
+            }
+            FadeStop(cue, duration);
         }
 
         private static void ApplyReleasePitch(Slot slot)
@@ -291,6 +349,13 @@ namespace Capstone.Audio
             {
                 if (!slot.Active) continue;
                 if (!slot.Instance.isValid()) { Release(slot); continue; }
+                if (slot.EngineReleasing)
+                {
+                    slot.EngineReleaseElapsed += deltaTime;
+                    float progress = slot.EngineReleaseDuration > 0f
+                        ? Mathf.Clamp01(slot.EngineReleaseElapsed / slot.EngineReleaseDuration) : 1f;
+                    ApplyPitch(slot, Mathf.Lerp(slot.EngineReleaseStartPitch, settings.EngineMinimumPitch, progress), progress >= 1f);
+                }
                 if (slot.Fading)
                 {
                     slot.FadeElapsed += deltaTime;
@@ -345,6 +410,7 @@ namespace Capstone.Audio
             slot.Active = false;
             slot.Fading = false;
             slot.Recovering = false;
+            slot.EngineReleasing = slot.EngineReleaseBraking = false;
             slot.Paused = slot.KeyedOff = false;
         }
     }
