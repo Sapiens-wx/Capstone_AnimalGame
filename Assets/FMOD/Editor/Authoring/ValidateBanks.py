@@ -1,4 +1,4 @@
-"""Offline FMOD bank checks. Writes recordings/reports only under Library."""
+"""Offline FMOD bank checks. Keeps personal recordings/reports outside the repository."""
 import ctypes as c
 import hashlib
 import json
@@ -13,7 +13,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[4]
 PROJECT = Path(r"C:\Users\PC\FMODProjects\Capstone_AnimalGame")
 BANKS = PROJECT / "Build/Desktop"
-OUTPUT = REPO / "Library/FMODValidation/OfflineAudio"
+OUTPUT = Path.home() / ".codex/validation/Capstone_AnimalGame/Milestone1/OfflineAudio"
 OUTPUT.mkdir(parents=True, exist_ok=True)
 SOURCE = REPO / "FMOD/SourceAudio/Milestone1"
 CHARGE_LOOP_START = .71
@@ -181,7 +181,8 @@ def render(event_path, seconds, volume=1.0, count=1, suffix="", interval=0):
 before = {str(p): digest(p) for p in SOURCE.rglob("*.wav")}
 metadata = [obj for p in (PROJECT / "Metadata").rglob("*.xml") for obj in ET.parse(p).getroot()]
 classes = Counter(obj.attrib.get("class") for obj in metadata)
-assert classes["Event"] == 7 and classes["AudioFile"] == 7, classes
+# This validator checks M1; later action banks can add their own events/assets.
+assert classes["Event"] >= 7 and classes["AudioFile"] >= 7, classes
 for forbidden in ("Snapshot", "MixerVCA", "MixerGroup", "MixerReturn", "Plugin", "SpatialiserEffect", "ObjectSpatialiserEffect"):
     assert classes[forbidden] == 0, (forbidden, classes[forbidden])
 master = next(obj for obj in metadata if obj.attrib.get("class") == "MixerMaster")

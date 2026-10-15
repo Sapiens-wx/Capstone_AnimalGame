@@ -156,7 +156,7 @@ namespace AnimalGame.MapTest
         private float gridX, gridY, gridFirstX, gridMaximumX, gridMaximumY, gridSpacing;
         private float gridRadiusSquared, gridExclusionSquared;
         private Vector3 nearOrigin, nearAxisX, nearAxisY, farOrigin, farAxisX, farAxisY;
-        private BakedHeightField scanHeightField;
+        private IMapHeightSource scanHeightField;
         private float scanContourInterval;
         private int capturedProfileSamples, capturedCompletionFrames, generatedGridCount, totalGridCount;
         public int ScanFramesUsed { get; private set; }
@@ -221,7 +221,7 @@ namespace AnimalGame.MapTest
 
             if (map == null || evaluator == null || mapCamera == null
                 || robot == null || scanChargeUi == null
-                || map.HeightField == null)
+                || map.RuntimeMap == null)
             {
                 Debug.LogError(
                     "TraversalScanOverlayUI requires map, evaluator, camera, robot, scan UI, and a baked height field.",
@@ -247,7 +247,7 @@ namespace AnimalGame.MapTest
                 return;
             }
 
-            if (scanHeightField != null && (scanHeightField != map.HeightField
+            if (scanHeightField != null && (scanHeightField != map.RuntimeMap
                 || scanContourInterval != map.ContourIntervalMeters)) ClearSnapshot();
             UpdatePersistentSnapshot();
 
@@ -275,7 +275,7 @@ namespace AnimalGame.MapTest
             }
 
             scanOrigin = robotMapPosition;
-            scanHeightField = map.HeightField;
+            scanHeightField = map.RuntimeMap;
             scanContourInterval = map.ContourIntervalMeters;
             capturedProfileSamples = Mathf.Max(1, profileSamplesPerViewRadius);
             capturedCompletionFrames = Mathf.Max(1, scanCompletionFrames);
@@ -347,7 +347,7 @@ namespace AnimalGame.MapTest
 
         private void RevealScanWave()
         {
-            if (scanHeightField != map.HeightField || scanContourInterval != map.ContourIntervalMeters)
+            if (scanHeightField != map.RuntimeMap || scanContourInterval != map.ContourIntervalMeters)
             {
                 ClearSnapshot();
                 return;
@@ -646,10 +646,10 @@ namespace AnimalGame.MapTest
             isNearContour = false;
             float probeX = Mathf.Max(
                 terrainGradientProbeMeters,
-                map.HeightField.TexelSizeXMeters);
+                map.SampleSpacing(mapPosition).x);
             float probeY = Mathf.Max(
                 terrainGradientProbeMeters,
-                map.HeightField.TexelSizeYMeters);
+                map.SampleSpacing(mapPosition).y);
             if (!TrySampleMapHeight(mapPosition, out float centreHeight))
                 return false;
 
@@ -666,10 +666,10 @@ namespace AnimalGame.MapTest
 
             float interval = Mathf.Max(0.01f, map.ContourIntervalMeters);
             float relativeHeight = centreHeight
-                                   - map.HeightField.MinimumHeightMeters;
+                                   - map.MinimumHeightMeters;
             float nearestContourHeight = Mathf.Round(relativeHeight / interval)
                                          * interval
-                                         + map.HeightField.MinimumHeightMeters;
+                                         + map.MinimumHeightMeters;
             float estimatedDistance = gradientMagnitude > 0.0001f
                 ? Mathf.Abs(centreHeight - nearestContourHeight)
                   / gradientMagnitude

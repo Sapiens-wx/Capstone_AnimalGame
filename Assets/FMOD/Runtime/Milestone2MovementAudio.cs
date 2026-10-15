@@ -1,0 +1,244 @@
+using AnimalGame.RobotMap;
+using UnityEngine;
+
+namespace Capstone.Audio
+{
+    internal sealed class Milestone2MovementAudio
+    {
+        private readonly Milestone2ActionSettings settings;
+        private readonly Milestone2ActionVoices voices;
+        private RobotMover source;
+        private RobotHeightMotionDetector height;
+        private Vector2 previousPosition;
+        private float previousAngle, engineRpm, engineDirection, forwardReference, linearStillElapsed, turnStillElapsed;
+        private bool linearMotion, turnMotion, engineReleasing;
+        private bool hasBaseline, wasMoving, slipEpisode, wasAirborne;
+
+        internal RobotMover Source => source;
+        internal RobotHeightMotionDetector HeightSource => height;
+
+        internal Milestone2MovementAudio(Milestone2ActionSettings settings, Milestone2ActionVoices voices)
+        {
+            this.settings = settings;
+            this.voices = voices;
+            forwardReference = settings.DriveReferenceSpeed;
+        }
+
+        internal void Bind(RobotMover next, RobotHeightMotionDetector nextHeight)
+        {
+            if (ReferenceEquals(source, next) && ReferenceEquals(height, nextHeight)) return;
+            if (!ReferenceEquals(height, null)) height.Landed -= OnLanded;
+            StopAllImmediately();
+            source = next;
+            height = nextHeight;
+            forwardReference = settings.DriveReferenceSpeed;
+            if (height != null) height.Landed += OnLanded;
+            if (source != null) EstablishBaseline();
+        }
+
+        internal void Tick(float deltaTime)
+        {
+            if (source == null || !source.isActiveAndEnabled)
+            {
+                StopAllImmediately();
+                return;
+            }
+            if (deltaTime <= 0f) return;
+            if (!hasBaseline) { EstablishBaseline(); return; }
+
+            Vector2 position = source.MapPosition;
+            float angle = source.transform.eulerAngles.z;
+            Vector2 velocity = (position - previousPosition) / deltaTime;
+            float longitudinalSpeed = Vector2.Dot(velocity, source.Forward);
+            float speed = velocity.magnitude;
+            float turnSpeed = Mathf.Abs(Mathf.DeltaAngle(previousAngle, angle)) / deltaTime;
+            bool airborne = height != null && height.isActiveAndEnabled && height.HasData && height.IsAirborne;
+            bool driven = source.MovementMode == RobotMovementMode.Driven;
+            bool translating = false, turning = false;
+            if (driven && !airborne)
+            {
+                translating = ObserveMotion(speed, settings.MovementThreshold,
+                    ref linearMotion, ref linearStillElapsed, deltaTime);
+                turning = ObserveMotion(turnSpeed, settings.TurnThreshold,
+                    ref turnMotion, ref turnStillElapsed, deltaTime);
+            }
+            else
+            {
+                linearMotion = turnMotion = false;
+                linearStillElapsed = turnStillElapsed = 0f;
+            }
+            bool groundMotion = driven && !airborne && (translating || turning);
+            bool slip = driven && !airborne && (source.CurrentLevelThreeClimbPhase == LevelThreeClimbFailurePhase.Slip
+                || source.IsAutoAligningDownhill
+                || (source.IsLevelThreeUnstable
+                    && (source.CurrentTerrainVelocity.sqrMagnitude > settings.MovementThreshold * settings.MovementThreshold
+                        || Mathf.Abs(source.CurrentTerrainTurnSpeed) > settings.TurnThreshold)));
+
+            if (airborne && !wasAirborne)
+            {
+                StopGroundImmediately();
+                if (driven) voices.Play(Milestone2ActionCue.Airborne);
+            }
+
+            float throttle = source.CurrentThrottleIntent;
+            if (throttle > 0.01f && source.UnresistedMovementIntentWorld.sqrMagnitude > 0.0001f)
+                forwardReference = source.UnresistedMovementIntentWorld.magnitude / throttle;
+            float reference = longitudinalSpeed < -settings.MovementThreshold
+                ? Mathf.Max(0.01f, source.UnloadedReverseSpeed) : forwardReference;
+            float normalizedSpeed = Mathf.Clamp01(speed / reference);
+            bool hasThrottle = Mathf.Abs(throttle) > 0.01f;
+            if (engineReleasing)
+            {
+                if (voices.IsAlive(Milestone2ActionCue.Drive))
+                    engineRpm = RpmFromPitch(voices.GetEnginePitch(Milestone2ActionCue.Drive));
+                else
+                {
+                    engineRpm = 0f;
+                    engineReleasing = false;
+                }
+            }
+            bool stationaryTurn = driven && !airborne && !slip && !hasThrottle
+                && speed <= settings.MovementThreshold * 0.5f && turnSpeed > settings.TurnThreshold;
+            if (stationaryTurn)
+            {
+                // Pure turning belongs to the ground layer. Retire coast RPM so
+                // ending the turn cannot bring the fading engine back to life.
+                engineRpm = engineDirection = 0f;
+                engineReleasing = false;
+            }
+            if (hasThrottle && (engineDirection == 0f || (engineRpm <= 0.001f && !engineReleasing)))
+                engineDirection = Mathf.Sign(throttle);
+            // Opposite throttle brakes the audible RPM until it reaches idle.
+            // Physical speed crossing zero cannot prematurely cancel the brake.
+            bool braking = hasThrottle && engineDirection * throttle < 0f && (engineRpm > 0.001f || engineReleasing);
+            bool powering = hasThrottle && !braking;
+            bool motorMotion = driven && !stationaryTurn && (hasThrottle
+                || voices.IsAlive(Milestone2ActionCue.Drive));
+
+            // Motor command and audio RPM are independent of ground contact or
+            // displacement. Ground friction still follows actual ground motion.
+            if (motorMotion)
+            {
+                float target = powering ? Mathf.Clamp01(Mathf.Abs(throttle)) : 0f;
+                UpdateMotor(target, powering, braking, deltaTime);
+                voices.SetParameter(Milestone2ActionCue.Drive, ActionAudioParameter.Speed, normalizedSpeed);
+                voices.SetParameter(Milestone2ActionCue.Drive, ActionAudioParameter.Throttle, Mathf.Abs(throttle));
+                voices.SetParameter(Milestone2ActionCue.Drive, ActionAudioParameter.Load,
+                    Mathf.Clamp01(1f - source.GrabMovementMultiplier));
+                wasMoving = true;
+            }
+            else
+            {
+                voices.FadeEngineToIdle(Milestone2ActionCue.Drive, false);
+                voices.Stop(Milestone2ActionCue.DriveAcceleration);
+                voices.Stop(Milestone2ActionCue.MoveStart);
+                if (wasMoving && driven && !airborne && !slip && !stationaryTurn) voices.Play(Milestone2ActionCue.Stop);
+                wasMoving = false;
+                if (!voices.IsAlive(Milestone2ActionCue.Drive) && !voices.IsAlive(Milestone2ActionCue.DriveAcceleration))
+                { engineRpm = 0f; engineReleasing = false; }
+            }
+
+            voices.SetLoop(Milestone2ActionCue.GroundMove, driven && !airborne && !slip && translating);
+            voices.SetLoopFrom(Milestone2ActionCue.GroundTurn,
+                settings.StationaryTurnGroundAudioEnabled && driven && !airborne && !slip && !translating && turning, 300);
+            if (slip)
+            {
+                if (!slipEpisode) voices.Play(Milestone2ActionCue.Slide);
+                voices.SetPaused(Milestone2ActionCue.Slide, !groundMotion);
+                slipEpisode = true;
+            }
+            else if (slipEpisode)
+            {
+                if (driven && !airborne) voices.KeyOff(Milestone2ActionCue.Slide);
+                else voices.Stop(Milestone2ActionCue.Slide, true);
+                slipEpisode = false;
+            }
+            if (!driven) StopGroundImmediately();
+
+            previousPosition = position;
+            previousAngle = angle;
+            wasAirborne = airborne;
+        }
+
+        internal void StopAllImmediately()
+        {
+            for (int cue = (int)Milestone2ActionCue.MoveStart; cue <= (int)Milestone2ActionCue.Land; cue++)
+                voices.Stop((Milestone2ActionCue)cue, true);
+            StopGroundImmediately();
+            voices.Stop(Milestone2ActionCue.LandParts, true);
+            voices.Stop(Milestone2ActionCue.DriveAcceleration, true);
+            hasBaseline = wasMoving = wasAirborne = false;
+            linearMotion = turnMotion = engineReleasing = false;
+            engineRpm = engineDirection = linearStillElapsed = turnStillElapsed = 0f;
+        }
+
+        private bool ObserveMotion(float speed, float enterThreshold, ref bool moving, ref float stillElapsed, float deltaTime)
+        {
+            float threshold = moving ? enterThreshold * 0.5f : enterThreshold;
+            if (speed > threshold) { moving = true; stillElapsed = 0f; }
+            else if (moving)
+            {
+                stillElapsed += deltaTime;
+                if (stillElapsed >= settings.MovementStopDelay) moving = false;
+            }
+            return moving;
+        }
+
+        private float RpmFromPitch(float pitch)
+        {
+            float range = settings.EngineMaximumPitch - settings.EngineMinimumPitch;
+            return range > 0f ? Mathf.Clamp01((pitch - settings.EngineMinimumPitch) / range) : 0f;
+        }
+
+        private void UpdateMotor(float target, bool powering, bool braking, float deltaTime)
+        {
+            if (!voices.IsAlive(Milestone2ActionCue.Drive))
+            {
+                engineRpm = 0f;
+                engineReleasing = false;
+            }
+            if (!powering)
+            {
+                // Pitch and volume descend together, starting at the release
+                // edge. Braking changes pitch speed, not the volume fade time.
+                voices.FadeEngineToIdle(Milestone2ActionCue.Drive, braking);
+                engineReleasing = voices.IsAlive(Milestone2ActionCue.Drive);
+                return;
+            }
+            if (engineReleasing)
+            {
+                engineRpm = RpmFromPitch(voices.GetEnginePitch(Milestone2ActionCue.Drive));
+                engineReleasing = false;
+            }
+            // Use one stable part of M02 for every RPM. Its original intro has
+            // an independent rising sweep, so a 1x intro cannot obey this cap.
+            engineRpm = Mathf.MoveTowards(engineRpm, target, settings.EngineAccelerationPerSecond * deltaTime);
+            voices.SetPitch(Milestone2ActionCue.Drive, Mathf.Lerp(settings.EngineMinimumPitch, settings.EngineMaximumPitch, engineRpm));
+            voices.SetLoopFrom(Milestone2ActionCue.Drive, true, 3500);
+        }
+
+        private void StopGroundImmediately()
+        {
+            voices.Stop(Milestone2ActionCue.GroundMove, true);
+            voices.Stop(Milestone2ActionCue.GroundTurn, true);
+            voices.Stop(Milestone2ActionCue.Slide, true);
+            slipEpisode = false;
+        }
+
+        private void EstablishBaseline()
+        {
+            previousPosition = source.MapPosition;
+            previousAngle = source.transform.eulerAngles.z;
+            wasAirborne = height != null && height.HasData && height.IsAirborne;
+            hasBaseline = true;
+        }
+
+        private void OnLanded(RobotLandingImpact impact)
+        {
+            if (source == null || !source.isActiveAndEnabled || Time.timeScale <= 0f
+                || source.MovementMode != RobotMovementMode.Driven) return;
+            voices.PlayWithGain(Milestone2ActionCue.Land, Mathf.Clamp01(impact.Strength01));
+            voices.Play(Milestone2ActionCue.LandParts);
+        }
+    }
+}

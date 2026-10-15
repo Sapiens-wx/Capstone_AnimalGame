@@ -78,3 +78,7 @@ MonoBehaviour:
   fadeOutSeconds: 0.05
   cameraMoveThreshold: 0.01
   cameraMoveStopDelay: 0.05
+  cameraMovePlaybackRateEnabled: 1
+  cameraMoveMinimumPlaybackRate: 0.8
+  cameraMoveMaximumPlaybackRate: 2
+  cameraMoveReferenceSpeed: 5

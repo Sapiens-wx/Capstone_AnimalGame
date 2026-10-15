@@ -130,7 +130,7 @@ GameObject:
   - component: {fileID: 527974760}
   - component: {fileID: 527974761}
   m_Layer: 0
-  m_Name: Combined 500m V1 Height Map
+  m_Name: Tiled 500m V1 Height Map
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -163,22 +163,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a11e9ca3a547c4bbd3a97b9854dd74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  levelAsset: {fileID: 11400000, guid: dd90b0fdad3a88142a23af7d32702ce7, type: 2}
-  heightMap: {fileID: 2800000, guid: bdc25412635c4c84fa9f4e07a4314db1, type: 3}
-  mapWidthMeters: 500
-  mapHeightMeters: 500
-  minimumHeightMeters: 0
-  maximumHeightMeters: 70
-  bakedHeightResolution: 4096
-  normalizeSourceRange: 0
-  surfaceSmoothingSigmaMeters: 0
-  detailSmoothingSigmaMeters: 0
-  previewResolution: 4096
+  levelAsset: {fileID: 11400000, guid: 79627e37633ebce4d9ef3fce81caba9f, type: 2}
   contourIntervalMeters: 7
-  pixelsPerUnit: 30
   editorHeightResolution: 1024
   editorPreviewResolution: 2048
   dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}
+  minimumContourOpacity: 0.15
+  maximumContourOpacity: 1
+  outsideRevealDarkening: 0.3
   minimumContourWidth: 0.7
   maximumContourWidth: 3.68
   maximumContourCoverage: 0.3

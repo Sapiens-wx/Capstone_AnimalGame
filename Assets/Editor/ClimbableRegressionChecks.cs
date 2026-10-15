@@ -155,14 +155,7 @@ namespace AnimalGame.Editor
             var texture = new Texture2D(2, 2);
             texture.SetPixels(new[] { Color.black, Color.white, Color.black, Color.white });
             texture.Apply();
-            BakedHeightField field = BakedHeightField.Bake(texture, 64, Vector2.one * 100f, 0f, 300f, false, 0f);
-            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, 2, 2), Vector2.one * 0.5f, 0.02f);
-            SpriteRenderer renderer = terrain.AddComponent<SpriteRenderer>();
-            renderer.sprite = sprite;
-            Set(map, "heightField", field);
-            Set(map, "mapRenderer", renderer);
-            Set(map, "mapWidthMeters", 100f);
-            Set(map, "mapHeightMeters", 100f);
+            using var tiledFixture = new TiledMapTestFixture(map, texture, 100, 1, 300);
             HeightMapTraversalEvaluator evaluator = terrain.AddComponent<HeightMapTraversalEvaluator>();
             evaluator.Initialize(map);
             SlopeTraversalResult original = evaluator.EvaluateImmediateSafety(Vector2.zero, Vector2.left);
@@ -182,10 +175,6 @@ namespace AnimalGame.Editor
             wall.LocalSize = Vector2.one;
             Require(!evaluator.TryPlanPush(Vector2.zero, new Vector2(3f, 0f), null, new List<WorldInteraction>()),
                 "Climbable bypassed a physical wall");
-            // Map owns the field after assignment; detach before disposing the fixture.
-            Set(map, "heightField", null);
-            field.Dispose();
-            UnityEngine.Object.DestroyImmediate(sprite);
             UnityEngine.Object.DestroyImmediate(texture);
         }
 

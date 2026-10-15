@@ -4,6 +4,7 @@ namespace Capstone.Audio
 {
     internal sealed class Milestone1ScanAudio
     {
+        private const string BiologicalLayerParameter = "BioScanLayer";
         private readonly Milestone1AudioVoices voices;
         private ScanChargeUI source;
         private Milestone1AudioVoice charge;
@@ -81,14 +82,14 @@ namespace Capstone.Audio
         private void OnTerrainScan()
         {
             if (source != null && source.isActiveAndEnabled)
-                voices.Play(Milestone1Cue.ScanPulse);
+                voices.Play(Milestone1Cue.ScanPulse, BiologicalLayerParameter, 0f);
         }
 
         private void OnBiologicalScanReleased()
         {
             StopCharge();
             if (source != null && source.isActiveAndEnabled)
-                voices.Play(Milestone1Cue.ScanPulse);
+                voices.Play(Milestone1Cue.ScanPulse, BiologicalLayerParameter, 1f);
         }
 
         private void StopCharge()

@@ -1,0 +1,111 @@
+{
+    "format": "Terrain Grid V1",
+    "version": 1,
+    "gridWidth": 2,
+    "gridHeight": 2,
+    "worldSizeMeters": {
+        "x": 500.0,
+        "y": 500.0
+    },
+    "tileSizeMeters": 250.0,
+    "minimumHeightMeters": 0.0,
+    "maximumHeightMeters": 70.0,
+    "sourceResolution": 2049,
+    "bakedResolution": 2048,
+    "previewResolution": 2048,
+    "pixelsPerUnit": 30.0,
+    "contourIntervalMeters": 7.0,
+    "normalizeSourceRange": false,
+    "surfaceSmoothingSigmaMeters": 0.0,
+    "detailSmoothingSigmaMeters": 0.0,
+    "rawByteOrder": "little",
+    "rawRowOrder": "Z=0 first; no Flip Vertically",
+    "pngFormat": "16-bit grayscale; top row Z=250",
+    "validation": "PASS: 4 source tiles, every imported R16 sample equals RAW, V1 channels unsmoothed; shared edges assumed continuous.",
+    "tiles": [
+        {
+            "name": "Tile_0_0",
+            "gridX": 0,
+            "gridZ": 0,
+            "tileOriginMeters": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "sourceWorldOrigin": {
+                "x": 300.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rawAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_0_0.raw",
+            "heightMapAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_0_0_height_R16.png",
+            "mapDataAssetPath": "Assets/Maps/TerrainGridV1/Tile_0_0_MapData.asset",
+            "prebakeAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_0_0_MapData_HeightPrebake.asset",
+            "rawSha256": "0595f55f2f222c085311af64fae7f5faa893b4338b0f8b590e1c21861f1fff94",
+            "actualMinimumMeters": 0.4272526204586029,
+            "actualMaximumMeters": 63.62752914428711
+        },
+        {
+            "name": "Tile_1_0",
+            "gridX": 1,
+            "gridZ": 0,
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 0.0
+            },
+            "sourceWorldOrigin": {
+                "x": 550.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rawAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_1_0.raw",
+            "heightMapAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_1_0_height_R16.png",
+            "mapDataAssetPath": "Assets/Maps/TerrainGridV1/Tile_1_0_MapData.asset",
+            "prebakeAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_1_0_MapData_HeightPrebake.asset",
+            "rawSha256": "4113d17540bef0f3fcd325ffc1913a1989ccce005b2db2aecac8a98ebac8a32c",
+            "actualMinimumMeters": 0.15381094813346864,
+            "actualMaximumMeters": 63.62752914428711
+        },
+        {
+            "name": "Tile_0_1",
+            "gridX": 0,
+            "gridZ": 1,
+            "tileOriginMeters": {
+                "x": 0.0,
+                "y": 250.0
+            },
+            "sourceWorldOrigin": {
+                "x": 300.0,
+                "y": 0.0,
+                "z": 250.0
+            },
+            "rawAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_0_1.raw",
+            "heightMapAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_0_1_height_R16.png",
+            "mapDataAssetPath": "Assets/Maps/TerrainGridV1/Tile_0_1_MapData.asset",
+            "prebakeAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_0_1_MapData_HeightPrebake.asset",
+            "rawSha256": "4172eaac89e341a13ebb7555167a65ad9aa3328b3d593ae066cbf4cefe622109",
+            "actualMinimumMeters": 10.019073486328125,
+            "actualMaximumMeters": 64.00137329101563
+        },
+        {
+            "name": "Tile_1_1",
+            "gridX": 1,
+            "gridZ": 1,
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 250.0
+            },
+            "sourceWorldOrigin": {
+                "x": 550.0,
+                "y": 0.0,
+                "z": 250.0
+            },
+            "rawAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_1_1.raw",
+            "heightMapAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_1_1_height_R16.png",
+            "mapDataAssetPath": "Assets/Maps/TerrainGridV1/Tile_1_1_MapData.asset",
+            "prebakeAssetPath": "Assets/Maps/TerrainGridV1/data/Tile_1_1_MapData_HeightPrebake.asset",
+            "rawSha256": "37d45048d06e4f52e94c8c66523230e5c7bfc78dd9702f4b713ebababcdd9ed2",
+            "actualMinimumMeters": 10.012664794921875,
+            "actualMaximumMeters": 64.00137329101563
+        }
+    ]
+}

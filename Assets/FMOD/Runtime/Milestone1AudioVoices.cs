@@ -20,6 +20,11 @@ namespace Capstone.Audio
 
         internal Milestone1AudioVoice Play(Milestone1Cue cue)
         {
+            return Play(cue, null, 0f);
+        }
+
+        internal Milestone1AudioVoice Play(Milestone1Cue cue, string parameterName, float parameterValue, float playbackRate = 1f)
+        {
             AudioCueSettings cueSettings = settings.GetCue(cue);
             if (cueSettings == null || cueSettings.EventReference.IsNull)
             {
@@ -31,6 +36,13 @@ namespace Capstone.Audio
             try
             {
                 instance = RuntimeManager.CreateInstance(cueSettings.EventReference);
+                var voice = new Milestone1AudioVoice(instance, cueSettings.LinearGain);
+                // Set the initial value before start so an authored default does not
+                // leak into the first mixer update. Unauthored parameters are optional.
+                if (!string.IsNullOrEmpty(parameterName))
+                    voice.SetNormalizedParameter(parameterName, parameterValue, settings.CameraParameterEpsilon);
+                if (!Mathf.Approximately(playbackRate, 1f))
+                    voice.SetPlaybackRate(playbackRate);
                 RESULT result = instance.setVolume(cueSettings.LinearGain);
                 if (result == RESULT.OK)
                     result = instance.start();
@@ -42,7 +54,6 @@ namespace Capstone.Audio
                     return null;
                 }
 
-                var voice = new Milestone1AudioVoice(instance, cueSettings.LinearGain);
                 voices.Add(voice);
                 Milestone1AudioDiagnostics.RecordStarted(EventPath(cue));
                 return voice;
@@ -112,6 +123,14 @@ namespace Capstone.Audio
         private float fadeElapsed;
         private float fadeDuration;
         private bool fading;
+        private bool parameterLookupAttempted;
+        private bool parameterAvailable;
+        private PARAMETER_ID parameterId;
+        private bool parameterValueSet;
+        private float lastParameterValue;
+        private bool playbackRateSet;
+        private bool playbackRateFailed;
+        private float lastPlaybackRate;
 
         internal bool IsReleased { get; private set; }
         internal bool IsPlaying => !IsReleased && !fading;
@@ -120,6 +139,62 @@ namespace Capstone.Audio
         {
             this.instance = instance;
             this.initialVolume = initialVolume;
+        }
+
+        internal void SetPlaybackRate(float rate)
+        {
+            if (!IsPlaying || playbackRateFailed || !instance.isValid()) return;
+            rate = Mathf.Max(0.01f, rate);
+            if (playbackRateSet && Mathf.Abs(rate - lastPlaybackRate) <= 0.001f) return;
+            RESULT result = instance.setPitch(rate);
+            if (result != RESULT.OK)
+            {
+                playbackRateFailed = true;
+                UnityEngine.Debug.LogWarning("[Milestone 1 Audio] Cannot set camera movement playback rate: " + result);
+                return;
+            }
+            lastPlaybackRate = rate;
+            playbackRateSet = true;
+        }
+
+        internal void SetNormalizedParameter(string parameterName, float value, float epsilon)
+        {
+            if (!IsPlaying || !instance.isValid())
+                return;
+
+            // Each voice drives at most one local parameter. Resolve once for this
+            // instance, including failed lookups, rather than retrying every frame.
+            if (!parameterLookupAttempted)
+            {
+                parameterLookupAttempted = true;
+                if (string.IsNullOrEmpty(parameterName)
+                    || instance.getDescription(out EventDescription description) != RESULT.OK
+                    || description.getParameterDescriptionByName(parameterName, out PARAMETER_DESCRIPTION parameter) != RESULT.OK
+                    || parameter.type != PARAMETER_TYPE.GAME_CONTROLLED
+                    || (parameter.flags & (PARAMETER_FLAGS.READONLY | PARAMETER_FLAGS.GLOBAL
+                                           | PARAMETER_FLAGS.DISCRETE | PARAMETER_FLAGS.LABELED)) != 0)
+                {
+                    return;
+                }
+                parameterId = parameter.id;
+                parameterAvailable = true;
+            }
+
+            if (!parameterAvailable)
+                return;
+            float normalizedValue = Mathf.Clamp01(value);
+            if (parameterValueSet && Mathf.Abs(normalizedValue - lastParameterValue) <= Mathf.Max(0f, epsilon))
+                return;
+
+            if (instance.setParameterByID(parameterId, normalizedValue) != RESULT.OK)
+            {
+                // A rejected parameter remains disabled for this voice; playback
+                // and its ordinary gain/fade handling continue without log spam.
+                parameterAvailable = false;
+                return;
+            }
+            lastParameterValue = normalizedValue;
+            parameterValueSet = true;
         }
 
         internal void Stop(float seconds)

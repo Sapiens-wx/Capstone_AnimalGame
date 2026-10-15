@@ -207,11 +207,14 @@ namespace AnimalGame.Editor
                 source.Reveal();
                 Tick(source, 3f);
                 RequireNear(source.RevealRemaining, 4f, "A scan must count down from seven seconds.");
-                using (AnimalSimulation.AcquirePause())
+                float previousTimeScale = Time.timeScale;
+                try
                 {
+                    Time.timeScale = 0;
                     Tick(source, 1f);
                     RequireNear(source.RevealRemaining, 4f, "Simulation pause must freeze static scan lifetime.");
                 }
+                finally { Time.timeScale = previousTimeScale; }
                 ScannableInteractable fragment = f.Target(Vector2.right * 4f);
                 fragment.InheritScanFrom(source);
                 RequireNear(fragment.RevealRemaining, 4f,
@@ -1120,12 +1123,15 @@ namespace AnimalGame.Editor
                 byte trough = AssertOutlineAndHatchOpacity(f, overlay, target);
                 Require(trough < peak,
                     "The perimeter must retain its own gentle breathing rather than inherit the stronger hatch pulse.");
-                using (AnimalSimulation.AcquirePause())
+                float previousTimeScale = Time.timeScale;
+                try
                 {
+                    Time.timeScale = 0f;
                     Tick(target, 1f);
                     Require(AssertOutlineAndHatchOpacity(f, overlay, target) == trough,
                         "Pausing simulation must freeze the perimeter's independent breathing clock.");
                 }
+                finally { Time.timeScale = previousTimeScale; }
                 for (int frame = 0; frame <= 24; frame++)
                 {
                     float phase = frame / 24f;
@@ -2642,8 +2648,10 @@ namespace AnimalGame.Editor
                 Require(AreaTint(target).a > 0f
                     && target.BreathingMaxAlpha - AreaTint(target).a > .45f,
                     "The stronger pulse must remain faintly visible at its trough while producing a substantial brightness change.");
-                using (AnimalSimulation.AcquirePause())
+                float previousTimeScale = Time.timeScale;
+                try
                 {
+                    Time.timeScale = 0f;
                     float remaining = target.RevealRemaining, elapsed = target.RevealElapsed;
                     float alpha = AreaTint(target).a;
                     Tick(target, target.BreathingPeriod);
@@ -2654,6 +2662,7 @@ namespace AnimalGame.Editor
                     RequireNear(AreaTint(target).a, alpha,
                         "Pause must freeze the breathing opacity on its current frame.");
                 }
+                finally { Time.timeScale = previousTimeScale; }
                 Tick(target, target.BreathingPeriod * .5f);
                 RequireNear(AreaTint(target).a, target.BreathingMaxAlpha,
                     "The following cycle must return to the same peak opacity.");

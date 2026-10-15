@@ -88,8 +88,8 @@ namespace Capstone.Audio.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.SaveAssetIfDirty(config);
             AssetDatabase.SaveAssetIfDirty(settings);
-            Directory.CreateDirectory("Library/FMODValidation");
-            File.WriteAllText("Library/FMODValidation/setup.json",
+            Directory.CreateDirectory(Milestone1AudioValidation.OutputDirectory);
+            File.WriteAllText(Path.Combine(Milestone1AudioValidation.OutputDirectory, "setup.json"),
                 "{\"configured\":true,\"events\":7,\"source\":\"FMOD/Banks/Desktop\",\"config\":\"" + ConfigPath + "\"}");
             Debug.Log("[Milestone 1 Audio] Configured 7 two-dimensional events and relative Desktop banks.");
         }

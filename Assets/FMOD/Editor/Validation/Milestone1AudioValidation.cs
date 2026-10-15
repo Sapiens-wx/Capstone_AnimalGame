@@ -26,7 +26,10 @@ namespace Capstone.Audio.Editor
     {
         private const string RunningKey = "Capstone.FMOD.Validation.Running";
         private const string PassKey = "Capstone.FMOD.Validation.Pass";
-        private const string ReportPath = "Library/FMODValidation/play-mode.json";
+        internal static readonly string OutputDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".codex", "validation", "Capstone_AnimalGame", "Milestone1");
+        private static readonly string ReportPath = Path.Combine(OutputDirectory, "play-mode.json");
         private const string ScanCharge = "event:/Robot/Scan/Charge";
         private const string ScanPulse = "event:/Robot/Scan/Pulse";
         private const string CameraOpen = "event:/Robot/Camera/Open";
@@ -590,11 +593,9 @@ namespace Capstone.Audio.Editor
         public static void BuildDesktop()
         {
             var buildReport = new ValidationReport { startedUtc = DateTime.UtcNow.ToString("O") };
-            // Unity rejects player output inside its internal Library directory.
-            // Builds is already excluded by this project's existing .gitignore.
-            string directory = "Builds/FMODValidation";
+            // Personal validation reports and players belong outside the shared repository.
+            string directory = Path.Combine(OutputDirectory, "Builds");
             Directory.CreateDirectory(directory);
-            Directory.CreateDirectory("Library/FMODValidation");
             try
             {
                 if (EditorApplication.isPlayingOrWillChangePlaymode)
@@ -631,7 +632,7 @@ namespace Capstone.Audio.Editor
                 buildReport.errors.Add(exception.ToString());
             }
             buildReport.finishedUtc = DateTime.UtcNow.ToString("O");
-            File.WriteAllText("Library/FMODValidation/build.json", JsonUtility.ToJson(buildReport, true));
+            File.WriteAllText(Path.Combine(OutputDirectory, "build.json"), JsonUtility.ToJson(buildReport, true));
             Debug.Log("FMOD M1 desktop build validation " + (buildReport.passed ? "PASSED" : "FAILED"));
             if (Application.isBatchMode)
                 EditorApplication.Exit(buildReport.passed ? 0 : 1);

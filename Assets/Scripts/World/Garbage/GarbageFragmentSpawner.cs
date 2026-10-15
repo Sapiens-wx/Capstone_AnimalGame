@@ -516,7 +516,7 @@ namespace AnimalGame.Garbage
             while (elapsed < fadeDuration)
             {
                 elapsed += Time.deltaTime;
-                if (!AnimalGame.Animals.AnimalSimulation.IsPaused)
+                if (Time.timeScale > 0f)
                 {
                     float scanStep = Mathf.Min(inheritedScanRemaining, Mathf.Max(0f, Time.deltaTime));
                     inheritedScanRemaining -= scanStep;

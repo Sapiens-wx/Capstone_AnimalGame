@@ -15,7 +15,7 @@ namespace AnimalGame.Editor
     {
         internal const string Folder = "Assets/Maps/MainMapReplica";
         internal const string DataPath = Folder + "/MainMapReplicaTerrainData.asset";
-        private const string LevelPath = "Assets/Maps/MainHeightMapLevel.asset";
+        private const string LevelPath = "Assets/Maps/MainHeightMapLevel/MainHeightMapLevel.asset";
         private const string TerrainName = "Main Map Replica Terrain";
         private const string ReportPath = "Temp/MainMapReplica/Validation.txt";
         private const int Resolution = 2049;

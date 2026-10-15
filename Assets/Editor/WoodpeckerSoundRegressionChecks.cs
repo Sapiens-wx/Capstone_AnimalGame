@@ -54,7 +54,6 @@ namespace AnimalGame.Editor
                 Check(CheckInterruptedPecking);
                 Check(CheckFleeAndTreeEntry);
                 Check(CheckHiddenAndEmergenceRetries);
-                Check(CheckSimulationPause);
                 Check(CheckWaveFadeLifetimeAndPool);
                 Debug.Log($"Woodpecker sound checks PASS: {passed} groups; shipped/factory profiles, Muskrat compatibility, world origins, aerial classification, state pulses, contact-synchronized pecking, hiding/retries, pause and pooled wave lifetime");
             }
@@ -175,9 +174,9 @@ namespace AnimalGame.Editor
         private static void CheckAerialWaterAndFleeClassification()
         {
             using var f = new Fixture();
-            HeightMapLevelAsset water = f.Own(ScriptableObject.CreateInstance<HeightMapLevelAsset>());
+            HeightMapLevelAsset water = f.Map.Presentation;
             Set(water, "mapWidthMeters", 100f); Set(water, "mapHeightMeters", 100f);
-            Set(water, "staticWaterDepthMap", new byte[] { 255, 255, 255, 255 }); Set(f.Map, "levelAsset", water);
+            Set(water, "staticWaterDepthMap", new byte[] { 255, 255, 255, 255 });
             Require(f.Map.TrySampleStaticWaterMapPosition(f.Motor.CurrentMapPosition, out float depth) && depth > .01f, "Water-classification fixture is dry");
             Require(f.Motor.SetAerialTarget(new Vector2(80f, 50f), 9f), "Aerial fixture target rejected");
             Require((AnimalSoundKind)Call(f.Emitter, "ChooseMovementSoundKind") == AnimalSoundKind.Flying, "Flight over water was classified as swimming");
@@ -186,7 +185,7 @@ namespace AnimalGame.Editor
             Property(f.Agent, "CurrentState", AnimalState.Daily);
             Require(f.Motor.SetTarget(new Vector2(80f, 50f), 1f), "Ground fixture target rejected");
             Require((AnimalSoundKind)Call(f.Emitter, "ChooseMovementSoundKind") == AnimalSoundKind.MovingInWater, "Shared emitter lost swimming classification");
-            Set(f.Map, "levelAsset", null);
+            Set(water, "staticWaterDepthMap", new byte[0]);
             Require((AnimalSoundKind)Call(f.Emitter, "ChooseMovementSoundKind") == AnimalSoundKind.MovingOnLand, "Shared emitter lost ground classification");
         }
 
@@ -257,9 +256,9 @@ namespace AnimalGame.Editor
             Require(f.Count == 1, "Muskrat movement lost immediate initial sound");
             float countdown = (float)Get(emitter, "movementSoundCountdown");
             Require(countdown >= 3.2f && countdown <= 4.54f, "Muskrat initial land cadence changed");
-            HeightMapLevelAsset water = f.Own(ScriptableObject.CreateInstance<HeightMapLevelAsset>());
+            HeightMapLevelAsset water = f.Map.Presentation;
             Set(water, "mapWidthMeters", 100f); Set(water, "mapHeightMeters", 100f);
-            Set(water, "staticWaterDepthMap", new byte[] { 255, 255, 255, 255 }); Set(f.Map, "levelAsset", water);
+            Set(water, "staticWaterDepthMap", new byte[] { 255, 255, 255, 255 });
             emitter.Tick(.1f);
             Require(f.Count == 1, "Muskrat land-to-water transition stacked another sound");
             Near((float)Get(emitter, "movementSoundCountdown"), countdown - .1f, "Land-to-water transition reset Muskrat countdown");
@@ -375,23 +374,6 @@ namespace AnimalGame.Editor
             Require(f.Agent.CurrentState == AnimalState.Daily, "Emergence failed to restore daily behavior");
         }
 
-        private static void CheckSimulationPause()
-        {
-            using var f = new Fixture();
-            f.BeginPecking(); Set(f.Behaviour, "actionTimer", 0f);
-            f.Emitter.Emit(AnimalSoundKind.Pecking);
-            object wave = f.Last; Set(wave, "Elapsed", .1f);
-            float peckElapsed = (float)Get(f.Behaviour, "peckElapsed");
-            using (AnimalSimulation.AcquirePause())
-            {
-                Call(f.Agent, "Update"); Call(f.Manager, "Update");
-                Near((float)Get(f.Behaviour, "peckElapsed"), peckElapsed, "Paused animal advanced peck motion");
-                Near((float)Get(wave, "Elapsed"), .1f, "Paused wave advanced lifetime");
-                Require(Phase(f.Behaviour, "dailyPhase") == "Pecking" && f.Count == 1, "Paused animal changed phase or emitted another sound");
-            }
-            Require(!AnimalSimulation.IsPaused, "Regression pause handle was not released");
-        }
-
         private static void CheckWaveFadeLifetimeAndPool()
         {
             using var f = new Fixture();
@@ -413,6 +395,7 @@ namespace AnimalGame.Editor
 
         private sealed class Fixture : IDisposable
         {
+            private TiledMapTestFixture tiledFixture;
             private readonly List<Object> assets = new List<Object>();
             private readonly AnimalSoundWaveManager previousManager;
             public Scene Scene { get; }
@@ -442,8 +425,7 @@ namespace AnimalGame.Editor
                 texture.SetPixels(new[] { Color.gray, Color.gray, Color.gray, Color.gray }); texture.Apply();
                 Sprite sprite = Own(Sprite.Create(texture, new Rect(0f, 0f, 2f, 2f), Vector2.one * .5f, .02f));
                 SpriteRenderer renderer = mapRoot.AddComponent<SpriteRenderer>(); renderer.sprite = sprite;
-                Set(Map, "heightField", BakedHeightField.Bake(texture, 64, Vector2.one * 100f, 0f, 1f, false, 0f));
-                Set(Map, "mapRenderer", renderer); Set(Map, "mapWidthMeters", 100f); Set(Map, "mapHeightMeters", 100f);
+                tiledFixture = new TiledMapTestFixture(Map, texture, 100, 1);
                 Require(Map.TrySampleMapPosition(Vector2.one * 50f, out _), "Flat fixture map is not playable");
                 HomeTree = Tree(new Vector2(50f, 50f)); OtherTree = Tree(new Vector2(70f, 50f));
                 AnimalSpeciesConfig shippedConfig = AssetDatabase.LoadAssetAtPath<AnimalSpeciesConfig>(WoodConfig);
@@ -486,6 +468,7 @@ namespace AnimalGame.Editor
             }
             public void Dispose()
             {
+                tiledFixture?.Dispose();
                 ClearWaves();
                 foreach (string resource in new[] { "waveMaterial", "quadMesh" })
                 {

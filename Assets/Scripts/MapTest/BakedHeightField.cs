@@ -9,7 +9,7 @@ namespace AnimalGame.MapTest
     /// channel can remove image quantization before step detection, and the
     /// independently smoothed surface channel is used for slopes and contours.
     /// </summary>
-    public sealed class BakedHeightField : IDisposable
+    public sealed class BakedHeightField : IDisposable, IMapHeightSource
     {
         private readonly float[] rawDetailHeightsMeters;
         private readonly float[] detailHeightsMeters;
@@ -194,6 +194,17 @@ namespace AnimalGame.MapTest
                 bakedPlayableMask,
                 playableMaskTexture,
                 surfaceTexture);
+        }
+
+        public bool TrySample(Vector2 position, out float height, int channel = 0)
+        {
+            height = 0;
+            if (float.IsNaN(position.x) || float.IsNaN(position.y) || position.x < 0 || position.y < 0
+                || position.x > MapSizeMeters.x || position.y > MapSizeMeters.y) return false;
+            var uv = new Vector2(position.x / MapSizeMeters.x, position.y / MapSizeMeters.y);
+            if (!IsPlayable(uv)) return false;
+            height = channel == 1 ? SampleDetailHeight(uv) : channel == 2 ? SampleRawDetailHeight(uv) : SampleSurfaceHeight(uv);
+            return true;
         }
 
         public float SampleSurfaceHeight(Vector2 uv)

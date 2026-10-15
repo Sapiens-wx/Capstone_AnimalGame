@@ -1,0 +1,250 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bfa8c032a30d4f47b8e2a5d3a6a02deb, type: 3}
+  m_Name: Milestone2ActionSettings
+  m_EditorClassIdentifier:
+  enablePlayerActions: 1
+  cues:
+  - eventReference:
+      Guid:
+        Data1: 287258347
+        Data2: 1170595168
+        Data3: 885312399
+        Data4: -190005199
+      Path: event:/Robot/Move/Start
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -561844974
+        Data2: 1099613558
+        Data3: 668179350
+        Data4: -583963536
+      Path: event:/Robot/Move/Drive
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -1756297595
+        Data2: 1290565296
+        Data3: 1672043943
+        Data4: -1011931950
+      Path: event:/Robot/Move/Slide
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -2023033929
+        Data2: 1254627590
+        Data3: -1069734002
+        Data4: -1966075074
+      Path: event:/Robot/Move/Airborne
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -487323128
+        Data2: 1137643112
+        Data3: -250145150
+        Data4: 1954116083
+      Path: event:/Robot/Move/Land
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: 66713483
+        Data2: 1323250135
+        Data3: -2089050993
+        Data4: 922751772
+      Path: event:/Robot/Arm/Deploy
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: -1909701297
+        Data2: 1148086182
+        Data3: 784715660
+        Data4: 1456026666
+      Path: event:/Robot/Arm/Servo
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: -706394584
+        Data2: 1164006509
+        Data3: -427704954
+        Data4: -1354302477
+      Path: event:/Robot/Arm/Blocked
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: 2046136790
+        Data2: 1140686344
+        Data3: -1415981671
+        Data4: -470298585
+      Path: event:/Robot/Arm/HandClose
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: -1788675513
+        Data2: 1256556090
+        Data3: 387070599
+        Data4: 1716410144
+      Path: event:/Robot/Arm/GrabSmall
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: 298780965
+        Data2: 1238348908
+        Data3: -382681930
+        Data4: -1997134385
+      Path: event:/Robot/Arm/GrabMedium
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: 2118600181
+        Data2: 1288934426
+        Data3: 322743471
+        Data4: -388241116
+      Path: event:/Robot/Arm/GrabLarge
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: -623064366
+        Data2: 1304640207
+        Data3: 265566086
+        Data4: 753279838
+      Path: event:/Robot/Arm/Drop
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: 710530657
+        Data2: 1138356866
+        Data3: -156119113
+        Data4: -1174354338
+      Path: event:/Robot/Arm/Retract
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: -4.436974992
+  - eventReference:
+      Guid:
+        Data1: -1896422000
+        Data2: 1116957325
+        Data3: -591605868
+        Data4: -909946500
+      Path: event:/Robot/Move/Ground
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -1161468786
+        Data2: 1216127156
+        Data3: 2027770006
+        Data4: 800091552
+      Path: event:/Robot/Move/GroundTurn
+    gainDb: -2.498774732
+  - eventReference:
+      Guid:
+        Data1: -1454206447
+        Data2: 1160583754
+        Data3: 1599601286
+        Data4: 1695907085
+      Path: event:/Robot/Move/LandParts
+    gainDb: 0
+  - eventReference:
+      Guid:
+        Data1: -404071391
+        Data2: 1225057166
+        Data3: 1978814092
+        Data4: 1182282034
+      Path: event:/Robot/Move/Acceleration
+    gainDb: 0
+  fadeOutSeconds: 0.05
+  movementThreshold: 0.01
+  turnThreshold: 0.5
+  enableStationaryTurnGroundAudio: 1
+  movementStopDelay: 0.12
+  engineFadeOutSeconds: 0.5
+  groundFadeOutSeconds: 0.18
+  movementFadeInSeconds: 0.04
+  engineCrossfadeSeconds: 0.04
+  driveReferenceSpeed: 5
+  turnReferenceSpeed: 100
+  brakeReferenceDeceleration: 8
+  engineAccelerationSeconds: 2.75
+  engineMinimumPitch: 0.25
+  engineMaximumPitch: 0.85
+  engineGainMultiplier: 0.2
+  armMovementThreshold: 0.01
+  armReferenceSpeed: 1
+  armJointReferenceSpeed: 90
+  armJointMovementThresholdDegrees: 0.5
+  armMinimumPitch: 0.75
+  armMaximumPitch: 1.3
+  armLoadPitchReduction: 0.2
+  armPitchSmoothingSeconds: 0.06
+  blockedCooldown: 0.35
+  parameterEpsilon: 0.005

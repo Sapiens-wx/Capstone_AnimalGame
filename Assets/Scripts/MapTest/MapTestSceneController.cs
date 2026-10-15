@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
 using UnityEngine;
@@ -9,56 +10,18 @@ namespace AnimalGame.MapTest
     [DefaultExecutionOrder(-1000)]
     public sealed class MapTestSceneController : MonoBehaviour
     {
-        private const float LowestVisibleContourOpacity = 0.15f;
-        private const float HighestVisibleContourOpacity = 1f;
         private const float DefaultSurfaceRevealRadiusPixels = 430f;
         private const float VisibleRangeSamplesPerSecond = 2f;
 
         [Header("Fixed Level Asset")]
-        [Tooltip("Persistent map definition used by this scene. When assigned, its terrain and presentation settings override the legacy fields below.")]
-        [SerializeField] private HeightMapLevelAsset levelAsset;
+        [Tooltip("Required tiled definition. Use a single-tile definition for standalone maps.")]
+        [SerializeField] private TiledLevelAsset levelAsset;
 
-        [Header("Height Source (Legacy Fallback)")]
-        [Tooltip("Original readable 8-bit grayscale image used only as the source for the runtime physical-height bake. It is no longer sampled directly by movement or contours.")]
-        [SerializeField] private Texture2D heightMap;
-
-        // SPATIAL INDEX: map dimensions and mapRenderer.bounds define query coordinates.
-        // RebuildGeneratedMap/ReleaseGeneratedMap invalidate automatically. External
-        // map transform or renderer edits must call WorldInteractionQuery.InvalidateSpatialIndex().
-        [Tooltip("Physical width represented by the complete height source, in logical map meters.")]
-        [SerializeField, Min(1f)] private float mapWidthMeters = 1000f;
-
-        [Tooltip("Physical height represented by the complete height source, in logical map meters.")]
-        [SerializeField, Min(1f)] private float mapHeightMeters = 1000f;
-
-        [Tooltip("Elevation assigned to the lowest normalized value in the baked height field.")]
-        [SerializeField] private float minimumHeightMeters;
-
-        [Tooltip("Elevation assigned to the highest normalized value in the baked height field.")]
-        [SerializeField] private float maximumHeightMeters = 200f;
-
-        [Header("Physical Height Field Bake")]
-        [Tooltip("Square resolution of the shared runtime height field. Higher values retain smaller terrain details but increase bake time and memory.")]
-        [SerializeField, Range(128, 4096)] private int bakedHeightResolution = 1024;
-
-        [Tooltip("Maps the darkest and brightest values actually present in the 8-bit source to the configured minimum and maximum elevations. Disable to preserve the full 0-to-1 grayscale scale.")]
-        [SerializeField] private bool normalizeSourceRange = true;
-
-        [Tooltip("Gaussian standard deviation in logical map meters used to reconstruct a continuous physical surface from 8-bit height steps. About 99.7% of the smoothing kernel lies within three times this distance.")]
-        [SerializeField, Min(0f)] private float surfaceSmoothingSigmaMeters = 0.75f;
-
-        [Tooltip("Gaussian standard deviation in logical map meters applied only to detail-height samples used for normal traversal step detection. Zero preserves the original unfiltered detail channel.")]
-        [SerializeField, Min(0f)] private float detailSmoothingSigmaMeters;
+        private float mapWidthMeters, mapHeightMeters, minimumHeightMeters, maximumHeightMeters;
 
         [Header("Visualization")]
-        [Tooltip("Resolution of the generated color-map sprite. This changes visual sharpness only; physical height precision is controlled by Baked Height Resolution.")]
-        [SerializeField, Range(128, 8000)] private int previewResolution = 512;
-
         [Tooltip("Vertical elevation difference in meters between neighboring contour lines.")]
         [SerializeField, Min(1f)] private float contourIntervalMeters = 10f;
-
-        [Tooltip("Generated preview pixels per Unity world unit. Together with Preview Resolution, this determines the rendered map object's world-space size, not its logical meter size.")]
-        [SerializeField, Min(1f)] private float pixelsPerUnit = 16f;
 
         [Header("Editor Preview")]
         [Tooltip("Lower physical bake resolution used only while editing. Runtime still uses the fixed level asset's full bake resolution.")]
@@ -69,6 +32,14 @@ namespace AnimalGame.MapTest
 
         [Tooltip("Direct reference to the contour shader used by standalone builds. Keep this assigned so Unity includes the shader instead of stripping a Shader.Find-only dependency.")]
         [SerializeField] private Shader dynamicContourShader;
+
+        [Tooltip("Opacity of the lowest contour currently visible in the camera.")]
+        [SerializeField, Range(0f, 1f)] private float minimumContourOpacity = 0.15f;
+        [Tooltip("Opacity of the highest contour currently visible in the camera.")]
+        [SerializeField, Range(0f, 1f)] private float maximumContourOpacity = 1f;
+
+        [Tooltip("Darkening outside the view ring: zero leaves the map unchanged; one makes it black.")]
+        [SerializeField, Range(0f, 1f)] private float outsideRevealDarkening = 0.3f;
 
         [Header("Viewport Contours")]
         [Tooltip("Width of the lowest contour currently visible in the camera.")]
@@ -164,33 +135,19 @@ namespace AnimalGame.MapTest
         [SerializeField] private Color contourColor = new Color(0.92f, 0.97f, 1f);
 
         private Camera mapCamera;
-        private SpriteRenderer mapRenderer;
-        private BakedHeightField heightField;
+        private GameObject generatedCameraObject;
+        private TiledMapRuntime runtimeMap;
+        private readonly List<TiledMapTileView> tileViews = new List<TiledMapTileView>();
+        private readonly List<SpriteRenderer> tileRenderers = new List<SpriteRenderer>();
         private Material contourMaterial;
-        private Texture2D bakedSurfaceVisual;
         private float surfaceRevealEdgePixels = 4f;
         private ScanChargeUI surfaceRevealUi;
-        private Material surfaceSettingsMaterial;
-        private Texture2D appliedSurfaceVisual;
-        private Vector2 appliedSurfaceCenterPixels = new Vector2(
-            float.NaN,
-            float.NaN);
-        private float appliedSurfaceRadiusPixels = float.NaN;
-        private float appliedSurfaceEdgePixels = float.NaN;
-        private bool appliedSurfaceEnabled;
-        private bool appliedSurfaceRevealEnabled;
-        private int appliedWaterPresentationHash = int.MinValue;
-        private Texture2D generatedPreviewTexture;
-        private bool generatedPreviewTextureIsPrebaked;
-        private Sprite generatedMapSprite;
-        private GameObject generatedMapObject;
         private int lastViewportUpdateFrame = -1;
         private float nextVisibleRangeSampleTime;
         private float targetVisibleMinimumHeight;
         private float targetVisibleMaximumHeight;
         private bool hasVisibleRangeTarget;
         private int editorConfigurationHash = int.MinValue;
-        private int editorSurfacePresentationHash = int.MinValue;
         private bool rebuildingMap;
         private bool generatedForPlayMode;
         private Transform elevationFilterTarget;
@@ -204,17 +161,20 @@ namespace AnimalGame.MapTest
         public float VisibleMinimumContourHeight { get; private set; }
         public float VisibleMaximumContourHeight { get; private set; }
         public Vector2 MapSizeMeters => new Vector2(mapWidthMeters, mapHeightMeters);
-        public HeightMapLevelAsset LevelAsset => levelAsset;
-        public BakedHeightField HeightField => heightField;
+        public TiledLevelAsset LevelAsset => levelAsset;
+        public HeightMapLevelAsset Presentation => levelAsset != null ? levelAsset.Presentation : null;
+        public TiledMapRuntime RuntimeMap => runtimeMap;
+        public float MinimumHeightMeters => minimumHeightMeters;
+        public Vector2 SampleSpacing(Vector2 position) => runtimeMap?.SampleSpacing(position) ?? Vector2.zero;
         public float ContourIntervalMeters => contourIntervalMeters;
         public Color BackgroundColor => backgroundColor;
         public bool IsElevationFilterActive =>
             elevationFilterRequested || elevationFilterProgress > 0.001f;
 
-        public bool HasGeneratedMap => mapRenderer != null && heightField != null;
+        public bool HasGeneratedMap => runtimeMap != null && tileViews.Count == runtimeMap.TileCount && tileViews.Count > 0;
 
         // Capture reads the live contour material; it never owns or destroys this renderer.
-        internal SpriteRenderer PhotoContourRenderer => mapRenderer;
+        internal IReadOnlyList<SpriteRenderer> PhotoContourRenderers => tileRenderers;
 
         internal void GetPhotoSnapshotCircle(out Vector2 centerPixels, out float radiusPixels)
         {
@@ -230,9 +190,10 @@ namespace AnimalGame.MapTest
         {
             get
             {
-                return HasGeneratedMap
-                    ? mapRenderer.bounds
-                    : new Bounds(Vector3.zero, Vector3.zero);
+                if (!HasGeneratedMap) return new Bounds(transform.position, Vector3.zero);
+                Vector2 size = Vector2.Scale(MapSizeMeters, levelAsset.WorldUnitsPerMeter);
+                Vector3 scale = transform.lossyScale;
+                return new Bounds(transform.position, new Vector3(size.x * scale.x, size.y * scale.y, 0));
             }
         }
 
@@ -274,9 +235,12 @@ namespace AnimalGame.MapTest
 
         private void Update()
         {
+            RefreshContourMaterialSettings();
             if (Application.isPlaying)
             {
                 UpdateElevationFilterRuntime();
+                RefreshSurfaceMaterialSettings();
+                RefreshTileMaterials();
                 return;
             }
 
@@ -285,166 +249,55 @@ namespace AnimalGame.MapTest
 
             RefreshEditorSurfaceIfChanged();
             int configurationHash = CalculateEditorConfigurationHash();
-            if (!HasGeneratedMap
-                || generatedForPlayMode
+            if (generatedForPlayMode
                 || configurationHash != editorConfigurationHash)
             {
                 RebuildGeneratedMap();
             }
         }
 
-        public float SampleHeight(Vector2 uv)
-        {
-            return heightField != null
-                ? heightField.SampleSurfaceHeight(uv)
-                : minimumHeightMeters;
-        }
-
-        public float SampleDetailHeight(Vector2 uv)
-        {
-            return heightField != null
-                ? heightField.SampleDetailHeight(uv)
-                : minimumHeightMeters;
-        }
-
-        public float SampleRawDetailHeight(Vector2 uv)
-        {
-            return heightField != null
-                ? heightField.SampleRawDetailHeight(uv)
-                : minimumHeightMeters;
-        }
-
-        public bool TrySampleWorldPosition(
-            Vector2 worldPosition,
-            out Vector2 mapPositionMeters,
-            out float heightMeters)
+        public float SampleHeight(Vector2 uv) => TrySampleMapPosition(Vector2.Scale(uv, MapSizeMeters), out float h) ? h : minimumHeightMeters;
+        public float SampleDetailHeight(Vector2 uv) => TrySampleDetailMapPosition(Vector2.Scale(uv, MapSizeMeters), out float h) ? h : minimumHeightMeters;
+        public float SampleRawDetailHeight(Vector2 uv) => TrySampleRawDetailMapPosition(Vector2.Scale(uv, MapSizeMeters), out float h) ? h : minimumHeightMeters;
+        public bool TrySampleWorldPosition(Vector2 worldPosition, out Vector2 mapPositionMeters, out float heightMeters)
         {
             mapPositionMeters = Vector2.zero;
-            heightMeters = 0f;
-
-            if (!HasGeneratedMap)
-                return false;
-
+            heightMeters = 0;
+            if (!HasGeneratedMap) return false;
             Bounds bounds = WorldBounds;
-            bool inside = worldPosition.x >= bounds.min.x && worldPosition.x <= bounds.max.x
-                          && worldPosition.y >= bounds.min.y && worldPosition.y <= bounds.max.y;
-            if (!inside)
-                return false;
-
-            Vector2 uv = new Vector2(
-                Mathf.InverseLerp(bounds.min.x, bounds.max.x, worldPosition.x),
-                Mathf.InverseLerp(bounds.min.y, bounds.max.y, worldPosition.y));
-            if (!heightField.IsPlayable(uv))
-                return false;
-
-            mapPositionMeters = new Vector2(
-                uv.x * mapWidthMeters,
-                uv.y * mapHeightMeters);
-            heightMeters = SampleHeight(uv);
-            return true;
+            if (worldPosition.x < bounds.min.x || worldPosition.y < bounds.min.y
+                || worldPosition.x > bounds.max.x || worldPosition.y > bounds.max.y) return false;
+            mapPositionMeters = new Vector2((worldPosition.x - bounds.min.x) / bounds.size.x * mapWidthMeters,
+                (worldPosition.y - bounds.min.y) / bounds.size.y * mapHeightMeters);
+            return TrySampleMapPosition(mapPositionMeters, out heightMeters);
         }
-
-        public bool TrySampleMapPosition(Vector2 mapPositionMeters, out float heightMeters)
+        public bool TrySampleMapPosition(Vector2 position, out float height) => TrySample(position, out height, 0);
+        public bool TrySampleDetailMapPosition(Vector2 position, out float height) => TrySample(position, out height, 1);
+        public bool TrySampleRawDetailMapPosition(Vector2 position, out float height) => TrySample(position, out height, 2);
+        private bool TrySample(Vector2 position, out float height, int channel)
         {
-            heightMeters = 0f;
-
-            if (!HasGeneratedMap
-                || mapPositionMeters.x < 0f
-                || mapPositionMeters.x > mapWidthMeters
-                || mapPositionMeters.y < 0f
-                || mapPositionMeters.y > mapHeightMeters)
-            {
-                return false;
-            }
-
-            Vector2 uv = new Vector2(
-                mapPositionMeters.x / Mathf.Max(0.0001f, mapWidthMeters),
-                mapPositionMeters.y / Mathf.Max(0.0001f, mapHeightMeters));
-            if (!heightField.IsPlayable(uv))
-                return false;
-            heightMeters = SampleHeight(uv);
-            return true;
+            height = 0;
+            return runtimeMap != null && runtimeMap.TrySample(position, out height, channel);
         }
-
-        public bool TrySampleStaticWaterWorldPosition(
-            Vector2 worldPosition,
-            out float depthMeters)
+        public bool TrySampleStaticWaterWorldPosition(Vector2 position, out float depth)
         {
-            depthMeters = 0f;
-            if (!TrySampleWorldPosition(
-                    worldPosition,
-                    out Vector2 mapPositionMeters,
-                    out _))
-            {
-                return false;
-            }
-
-            depthMeters = levelAsset != null
-                ? levelAsset.SampleStaticWaterDepth(mapPositionMeters)
-                : 0f;
-            return true;
+            depth = 0;
+            return TrySampleWorldPosition(position, out var mapPosition, out _)
+                && TrySampleStaticWaterMapPosition(mapPosition, out depth);
         }
-
-        public bool TrySampleStaticWaterMapPosition(
-            Vector2 mapPositionMeters,
-            out float depthMeters)
+        public bool TrySampleStaticWaterMapPosition(Vector2 position, out float depth)
         {
-            depthMeters = 0f;
-            if (!TrySampleMapPosition(mapPositionMeters, out _))
-                return false;
-
-            depthMeters = levelAsset != null
-                ? levelAsset.SampleStaticWaterDepth(mapPositionMeters)
-                : 0f;
-            return true;
+            depth = 0;
+            return runtimeMap != null && runtimeMap.TrySampleWater(position, out depth);
         }
-
-        public bool TrySampleDetailMapPosition(
-            Vector2 mapPositionMeters,
-            out float heightMeters)
+        public bool ContainsLevel(HeightMapLevelAsset level) => levelAsset != null && levelAsset.Contains(level);
+        public bool TryGetTileOrigin(HeightMapLevelAsset level, out Vector2 origin)
         {
-            heightMeters = 0f;
-
-            if (!HasGeneratedMap
-                || mapPositionMeters.x < 0f
-                || mapPositionMeters.x > mapWidthMeters
-                || mapPositionMeters.y < 0f
-                || mapPositionMeters.y > mapHeightMeters)
-            {
-                return false;
-            }
-
-            Vector2 uv = new Vector2(
-                mapPositionMeters.x / Mathf.Max(0.0001f, mapWidthMeters),
-                mapPositionMeters.y / Mathf.Max(0.0001f, mapHeightMeters));
-            if (!heightField.IsPlayable(uv))
-                return false;
-            heightMeters = SampleDetailHeight(uv);
-            return true;
-        }
-
-        public bool TrySampleRawDetailMapPosition(
-            Vector2 mapPositionMeters,
-            out float heightMeters)
-        {
-            heightMeters = 0f;
-
-            if (!HasGeneratedMap
-                || mapPositionMeters.x < 0f
-                || mapPositionMeters.x > mapWidthMeters
-                || mapPositionMeters.y < 0f
-                || mapPositionMeters.y > mapHeightMeters)
-            {
-                return false;
-            }
-
-            Vector2 uv = new Vector2(
-                mapPositionMeters.x / Mathf.Max(0.0001f, mapWidthMeters),
-                mapPositionMeters.y / Mathf.Max(0.0001f, mapHeightMeters));
-            if (!heightField.IsPlayable(uv))
-                return false;
-            heightMeters = SampleRawDetailHeight(uv);
-            return true;
+            origin = default;
+            if (levelAsset == null) return false;
+            foreach (var entry in levelAsset.Tiles)
+                if (entry.level == level) { origin = Vector2.Scale(entry.coordinate, levelAsset.TileSizeMeters); return true; }
+            return false;
         }
 
         public Vector3 MapPositionToWorld(Vector2 mapPositionMeters)
@@ -537,44 +390,46 @@ namespace AnimalGame.MapTest
 
         private void RebuildGeneratedMap()
         {
-            if (rebuildingMap)
-                return;
-
+            if (rebuildingMap) return;
             rebuildingMap = true;
             try
             {
-                hasVisibleRangeTarget = false;
-                nextVisibleRangeSampleTime = 0f;
-                ApplyFixedLevelAsset();
                 ReleaseGeneratedMap();
-                if (heightMap == null)
+                hasVisibleRangeTarget = false;
+                nextVisibleRangeSampleTime = 0;
+                if (levelAsset == null) return;
+                if (!levelAsset.Validate(out string error)) throw new System.InvalidOperationException(error);
+                if (Quaternion.Angle(transform.rotation, Quaternion.identity) > 0.001f
+                    || transform.lossyScale.x <= 0 || transform.lossyScale.y <= 0)
+                    throw new System.InvalidOperationException("Tiled maps require positive scale and zero rotation.");
+                ApplyFixedLevelAsset();
+                runtimeMap = new TiledMapRuntime(levelAsset, Application.isPlaying,
+                    Application.isPlaying ? int.MaxValue : editorHeightResolution);
+                CreateDynamicContourMaterial();
+                foreach (var tile in runtimeMap.Tiles)
                 {
-                    if (Application.isPlaying)
-                    {
-                        Debug.LogError(
-                            "MapTestScene is missing its fixed height-map texture.",
-                            this);
-                        enabled = false;
-                    }
-
-                    return;
+                    var view = new TiledMapTileView(tile);
+                    view.Build(transform, levelAsset, contourMaterial,
+                        Application.isPlaying ? int.MaxValue : editorPreviewResolution);
+                    tileViews.Add(view);
+                    tileRenderers.Add(view.Renderer);
                 }
-
-                BakePhysicalHeightField();
-                if (Application.isPlaying)
-                    CreateCamera();
-                CreateHeightVisualization();
                 if (Application.isPlaying)
                 {
+                    if (mapCamera == null) CreateCamera();
                     UpdateVisibleContourRange(mapCamera);
                 }
-                else
-                {
-                    ShowCompleteContourRange();
-                }
-
+                else ShowCompleteContourRange();
+                RefreshSurfaceMaterialSettings();
+                RefreshTileMaterials();
                 generatedForPlayMode = Application.isPlaying;
                 editorConfigurationHash = CalculateEditorConfigurationHash();
+            }
+            catch (System.Exception exception)
+            {
+                ReleaseGeneratedMap();
+                editorConfigurationHash = CalculateEditorConfigurationHash();
+                Debug.LogException(exception, this);
             }
             finally
             {
@@ -583,40 +438,58 @@ namespace AnimalGame.MapTest
             }
         }
 
+
         private void ApplyFixedLevelAsset()
         {
-            if (levelAsset == null || !levelAsset.IsValid)
+            if (Presentation == null || !Presentation.IsValid)
                 return;
 
-            heightMap = levelAsset.HeightMap;
             mapWidthMeters = levelAsset.MapSizeMeters.x;
             mapHeightMeters = levelAsset.MapSizeMeters.y;
-            minimumHeightMeters = levelAsset.MinimumHeightMeters;
-            maximumHeightMeters = levelAsset.MaximumHeightMeters;
-            bakedHeightResolution = levelAsset.BakedHeightResolution;
-            normalizeSourceRange = levelAsset.NormalizeSourceRange;
-            surfaceSmoothingSigmaMeters =
-                levelAsset.SurfaceSmoothingSigmaMeters;
-            detailSmoothingSigmaMeters =
-                levelAsset.DetailSmoothingSigmaMeters;
-            previewResolution = levelAsset.PreviewResolution;
-            contourIntervalMeters = levelAsset.ContourIntervalMeters;
-            pixelsPerUnit = levelAsset.PixelsPerUnit;
-            dynamicContourShader = levelAsset.DynamicContourShader;
-            minimumContourWidth = levelAsset.MinimumContourWidth;
-            maximumContourWidth = levelAsset.MaximumContourWidth;
-            maximumContourCoverage = levelAsset.MaximumContourCoverage;
-            contourEdgeSoftness = levelAsset.ContourEdgeSoftness;
-            viewportEdgeSamples = levelAsset.ViewportEdgeSamples;
-            viewportGridHeightSamples = levelAsset.ViewportGridHeightSamples;
-            bakedSurfaceVisual = levelAsset.BakedSurfaceVisual;
-            surfaceRevealEdgePixels = levelAsset.SurfaceRevealEdgePixels;
-            editorSurfacePresentationHash = levelAsset.SurfacePresentationHash;
-            backgroundColor = levelAsset.BackgroundColor;
-            lowHeightColor = levelAsset.LowHeightColor;
-            middleHeightColor = levelAsset.MiddleHeightColor;
-            highHeightColor = levelAsset.HighHeightColor;
-            contourColor = levelAsset.ContourColor;
+            minimumHeightMeters = Presentation.MinimumHeightMeters;
+            maximumHeightMeters = Presentation.MaximumHeightMeters;
+            contourIntervalMeters = Presentation.ContourIntervalMeters;
+            dynamicContourShader = Presentation.DynamicContourShader;
+            minimumContourWidth = Presentation.MinimumContourWidth;
+            maximumContourWidth = Presentation.MaximumContourWidth;
+            maximumContourCoverage = Presentation.MaximumContourCoverage;
+            contourEdgeSoftness = Presentation.ContourEdgeSoftness;
+            viewportEdgeSamples = Presentation.ViewportEdgeSamples;
+            viewportGridHeightSamples = Presentation.ViewportGridHeightSamples;
+            surfaceRevealEdgePixels = Presentation.SurfaceRevealEdgePixels;
+            backgroundColor = Presentation.BackgroundColor;
+            lowHeightColor = Presentation.LowHeightColor;
+            middleHeightColor = Presentation.MiddleHeightColor;
+            highHeightColor = Presentation.HighHeightColor;
+            contourColor = Presentation.ContourColor;
+            ApplyLevelPresentationSettings();
+        }
+
+        private void ApplyLevelPresentationSettings()
+        {
+            if (Presentation == null || !Presentation.IsValid)
+                return;
+
+            contourIntervalMeters = Presentation.ContourIntervalMeters;
+            minimumContourWidth = Presentation.MinimumContourWidth;
+            maximumContourWidth = Presentation.MaximumContourWidth;
+            maximumContourCoverage = Presentation.MaximumContourCoverage;
+            contourEdgeSoftness = Presentation.ContourEdgeSoftness;
+            contourColor = Presentation.ContourColor;
+            surfaceRevealEdgePixels = Presentation.SurfaceRevealEdgePixels;
+            lowerElevationFilterColor = Presentation.LowerElevationFilterColor;
+            higherElevationFilterColor = Presentation.HigherElevationFilterColor;
+            elevationFilterMaximumOpacity = Presentation.ElevationFilterMaximumOpacity;
+            elevationFilterRelativeRangeMeters = Presentation.ElevationFilterRelativeRangeMeters;
+            elevationFilterNeutralBandMeters = Presentation.ElevationFilterNeutralBandMeters;
+            elevationFilterResponseExponent = Presentation.ElevationFilterResponseExponent;
+            playerHeightReferenceColor = Presentation.PlayerHeightReferenceColor;
+            playerHeightReferenceLineWidth = Presentation.PlayerHeightReferenceLineWidth;
+            playerHeightReferenceOpacity = Presentation.PlayerHeightReferenceOpacity;
+            elevationFilterHillshadeStrength = Presentation.ElevationFilterHillshadeStrength;
+            minimumContourOpacity = Presentation.MinimumContourOpacity;
+            maximumContourOpacity = Presentation.MaximumContourOpacity;
+            outsideRevealDarkening = Presentation.OutsideRevealDarkening;
         }
 
         private int CalculateEditorConfigurationHash()
@@ -625,9 +498,7 @@ namespace AnimalGame.MapTest
             {
                 int hash = levelAsset != null
                     ? levelAsset.ConfigurationHash
-                    : heightMap != null
-                        ? heightMap.GetInstanceID()
-                        : 0;
+                    : 0;
                 hash = hash * 397 ^ editorHeightResolution;
                 hash = hash * 397 ^ editorPreviewResolution;
                 hash = hash * 397 ^ transform.position.GetHashCode();
@@ -639,61 +510,13 @@ namespace AnimalGame.MapTest
 
         private void RefreshEditorSurfaceIfChanged()
         {
-            if (levelAsset == null)
-                return;
-
-            int presentationHash = levelAsset.SurfacePresentationHash;
-            if (presentationHash == editorSurfacePresentationHash)
-                return;
-
-            bakedSurfaceVisual = levelAsset.BakedSurfaceVisual;
-            surfaceRevealEdgePixels = levelAsset.SurfaceRevealEdgePixels;
-            editorSurfacePresentationHash = presentationHash;
             RefreshSurfaceMaterialSettings();
+            RefreshTileMaterials();
         }
 
-        private void BakePhysicalHeightField()
-        {
-            heightField?.Dispose();
-            HeightMapPrebakedData prebakedData = levelAsset != null
-                ? levelAsset.PrebakedHeightField
-                : null;
-            if (Application.isPlaying
-                && prebakedData != null
-                && prebakedData.Matches(levelAsset))
-            {
-                heightField = BakedHeightField.FromPrebakedData(prebakedData);
-                if (heightField != null)
-                    return;
 
-                Debug.LogWarning(
-                    "Could not read the pre-baked height field. Falling back to runtime baking.",
-                    this);
-            }
 
-            int requestedResolution = Application.isPlaying
-                ? bakedHeightResolution
-                : Mathf.Min(bakedHeightResolution, editorHeightResolution);
-            heightField = BakedHeightField.Bake(
-                heightMap,
-                requestedResolution,
-                MapSizeMeters,
-                minimumHeightMeters,
-                maximumHeightMeters,
-                normalizeSourceRange,
-                surfaceSmoothingSigmaMeters,
-                detailSmoothingSigmaMeters,
-                levelAsset != null && levelAsset.UseHeightMapBorderMask,
-                levelAsset != null
-                    ? levelAsset.HeightMapBorderMaskThreshold
-                    : 0.01f,
-                levelAsset != null
-                    ? levelAsset.HeightMapBorderInsetMeters
-                    : 0f,
-                levelAsset != null
-                    ? levelAsset.PlayableAreaMask
-                    : null);
-        }
+
 
         private void CreateCamera()
         {
@@ -702,113 +525,34 @@ namespace AnimalGame.MapTest
                 existingCamera.gameObject.SetActive(false);
 
             var cameraObject = new GameObject("Map Test Camera");
+            generatedCameraObject = cameraObject;
             cameraObject.tag = "MainCamera";
             cameraObject.transform.position = new Vector3(0f, 0f, -10f);
             mapCamera = cameraObject.AddComponent<Camera>();
             mapCamera.orthographic = true;
             mapCamera.clearFlags = CameraClearFlags.SolidColor;
             mapCamera.backgroundColor = backgroundColor;
-            mapCamera.orthographicSize = previewResolution / pixelsPerUnit * 0.58f;
+            mapCamera.orthographicSize = levelAsset.MapSizeMeters.y * levelAsset.WorldUnitsPerMeter.y * 0.58f;
         }
 
-        private void CreateHeightVisualization()
-        {
-            int generatedResolution = Application.isPlaying
-                ? previewResolution
-                : Mathf.Min(previewResolution, editorPreviewResolution);
-            HeightMapPrebakedData prebakedData = levelAsset != null
-                ? levelAsset.PrebakedHeightField
-                : null;
-            generatedPreviewTextureIsPrebaked = Application.isPlaying
-                                               && prebakedData != null
-                                               && prebakedData.Matches(levelAsset);
-            generatedPreviewTexture = generatedPreviewTextureIsPrebaked
-                ? prebakedData.PreviewTexture
-                : heightField.CreateVisualizationTexture(
-                    generatedResolution,
-                    backgroundColor,
-                    lowHeightColor,
-                    middleHeightColor,
-                    highHeightColor);
-            float runtimeWorldSize = previewResolution
-                                     / Mathf.Max(1f, pixelsPerUnit);
-            float generatedPixelsPerUnit = generatedResolution
-                                           / Mathf.Max(0.0001f, runtimeWorldSize);
-            generatedMapSprite = Sprite.Create(
-                generatedPreviewTexture,
-                new Rect(0f, 0f, generatedPreviewTexture.width, generatedPreviewTexture.height),
-                new Vector2(0.5f, 0.5f),
-                generatedPixelsPerUnit);
-            generatedMapSprite.name = "Height Map Visualization";
-            if (!Application.isPlaying)
-            {
-                // Editor previews are temporary and must not enter player builds.
-                generatedMapSprite.hideFlags = HideFlags.DontSave;
-                if (!generatedPreviewTextureIsPrebaked)
-                    generatedPreviewTexture.hideFlags = HideFlags.DontSave;
-            }
-            generatedMapObject = new GameObject("2D Height Map");
-            generatedMapObject.transform.SetParent(transform, false);
-            generatedMapObject.transform.localPosition = Vector3.zero;
-            generatedMapObject.transform.localRotation = Quaternion.identity;
-            generatedMapObject.transform.localScale = Vector3.one;
-            if (!Application.isPlaying)
-                generatedMapObject.hideFlags = HideFlags.DontSave;
-            mapRenderer = generatedMapObject.AddComponent<SpriteRenderer>();
-            mapRenderer.sprite = generatedMapSprite;
-            // The map is the visual background. Keep it well behind every robot
-            // marker layer so transparent contour rendering can never win an
-            // ambiguous same-plane draw-order comparison.
-            mapRenderer.sortingOrder = -1000;
-            CreateDynamicContourMaterial();
-        }
+
+
 
         private void CreateDynamicContourMaterial()
         {
-            Shader shader = dynamicContourShader != null
-                ? dynamicContourShader
-                : Shader.Find("AnimalGame/Dynamic Height Contours");
-            if (shader == null)
-            {
-                Debug.LogError(
-                    "Missing shader: AnimalGame/Dynamic Height Contours. " +
-                    "Assign Dynamic Contour Shader on the map prefab so standalone " +
-                    "builds keep the shader.",
-                    this);
-                return;
-            }
-
-            contourMaterial = new Material(shader)
-            {
-                name = Application.isPlaying
-                    ? "Runtime Dynamic Contour Material"
-                    : "Editor Dynamic Contour Preview"
-            };
-            if (!Application.isPlaying)
-                contourMaterial.hideFlags = HideFlags.DontSave;
-            contourMaterial.SetTexture("_HeightTex", heightField.SurfaceTexture);
-            bool hasPlayableMask = heightField.PlayableMaskTexture != null;
-            contourMaterial.SetTexture(
-                "_PlayableMaskTex",
-                hasPlayableMask
-                    ? heightField.PlayableMaskTexture
-                    : Texture2D.whiteTexture);
-            contourMaterial.SetFloat(
-                "_PlayableMaskEnabled",
-                hasPlayableMask ? 1f : 0f);
-            contourMaterial.SetFloat("_MinimumHeight", minimumHeightMeters);
-            contourMaterial.SetFloat("_MaximumHeight", maximumHeightMeters);
-            contourMaterial.SetFloat("_ContourInterval", contourIntervalMeters);
-            contourMaterial.SetColor("_ContourColor", contourColor);
-            contourMaterial.SetVector(
-                "_MapSizeMeters",
-                new Vector4(mapWidthMeters, mapHeightMeters, 0f, 0f));
+            Shader shader = dynamicContourShader != null ? dynamicContourShader : Shader.Find("AnimalGame/Dynamic Height Contours");
+            if (shader == null) throw new System.InvalidOperationException("Missing dynamic contour shader.");
+            contourMaterial = new Material(shader) { name = "Shared Map Presentation", hideFlags = HideFlags.DontSave };
             RefreshContourMaterialSettings();
-            RefreshSurfaceMaterialSettings();
             RefreshElevationFilterStaticMaterialSettings();
             RefreshElevationFilterMaterialSettings();
-            mapRenderer.material = contourMaterial;
         }
+        private void RefreshTileMaterials()
+        {
+            if (contourMaterial == null) return;
+            foreach (var view in tileViews) view.Refresh(contourMaterial);
+        }
+
 
         private void ShowCompleteContourRange()
         {
@@ -847,6 +591,7 @@ namespace AnimalGame.MapTest
             UpdateVisibleContourRange(cameraToRender);
             RefreshSurfaceMaterialSettings();
             RefreshElevationFilterMaterialSettings();
+            RefreshTileMaterials();
         }
 
         private void UpdateVisibleContourRange(Camera cameraToSample)
@@ -970,7 +715,7 @@ namespace AnimalGame.MapTest
             if (!TryProjectViewportPointToMapPlane(
                     cameraToSample,
                     viewportPoint,
-                    mapRenderer.transform.position.z,
+                    WorldBounds.center.z,
                     out Vector3 world)
                 || world.x < bounds.min.x
                 || world.x > bounds.max.x
@@ -980,10 +725,7 @@ namespace AnimalGame.MapTest
                 return;
             }
 
-            Vector2 uv = new Vector2(
-                Mathf.InverseLerp(bounds.min.x, bounds.max.x, world.x),
-                Mathf.InverseLerp(bounds.min.y, bounds.max.y, world.y));
-            float height = SampleHeight(uv);
+            if (!TrySampleWorldPosition(world, out _, out float height)) return;
             minimumTerrain = Mathf.Min(minimumTerrain, height);
             maximumTerrain = Mathf.Max(maximumTerrain, height);
             validSamples++;
@@ -1029,132 +771,37 @@ namespace AnimalGame.MapTest
             if (contourMaterial == null)
                 return;
 
+            ApplyLevelPresentationSettings();
+            contourMaterial.SetFloat("_ContourInterval", contourIntervalMeters);
+            contourMaterial.SetColor("_ContourColor", contourColor);
+            contourMaterial.SetFloat("_OutsideRevealDarkening", Mathf.Clamp01(outsideRevealDarkening));
+            RefreshElevationFilterStaticMaterialSettings();
             contourMaterial.SetFloat("_MinimumLineWidth", minimumContourWidth);
             contourMaterial.SetFloat("_MaximumLineWidth", maximumContourWidth);
             contourMaterial.SetFloat("_MaximumCoverage", maximumContourCoverage);
             contourMaterial.SetFloat("_EdgeSoftness", contourEdgeSoftness);
-            contourMaterial.SetFloat("_MinimumOpacity", LowestVisibleContourOpacity);
-            contourMaterial.SetFloat("_MaximumOpacity", HighestVisibleContourOpacity);
+            contourMaterial.SetFloat("_MinimumOpacity", minimumContourOpacity);
+            contourMaterial.SetFloat("_MaximumOpacity", maximumContourOpacity);
         }
 
         private void RefreshSurfaceMaterialSettings()
         {
-            if (contourMaterial == null)
-                return;
-
-            bool hasSurface = bakedSurfaceVisual != null;
-            bool hasWater = levelAsset != null
-                            && levelAsset.BakedStaticWaterMask != null
-                            && levelAsset.StaticWaterTexture != null;
-            int waterPresentationHash = levelAsset != null
-                ? levelAsset.SurfacePresentationHash
-                : 0;
-            // In Edit Mode the complete baked layer remains visible so the Scene
-            // painter can author the fixed map. The player build applies the one
-            // inexpensive screen-space cutoff to the otherwise static texture.
-            bool revealEnabled = Application.isPlaying
-                                 && (hasSurface || hasWater);
-            Vector2 centerPixels = surfaceRevealUi != null
-                ? surfaceRevealUi.GetUiCenterScreenPoint()
-                : new Vector2(
-                    Screen.width * 0.5f,
-                    Screen.height * 0.5f);
-            float radiusPixels = surfaceRevealUi != null
-                ? surfaceRevealUi.GetUiRingScreenRadiusPixels()
-                : DefaultSurfaceRevealRadiusPixels;
-            radiusPixels = Mathf.Max(1f, radiusPixels);
-            float edgePixels = Mathf.Max(0f, surfaceRevealEdgePixels);
-            if (surfaceSettingsMaterial == contourMaterial
-                && appliedSurfaceVisual == bakedSurfaceVisual
-                && appliedSurfaceEnabled == hasSurface
-                && appliedSurfaceRevealEnabled == revealEnabled
-                && appliedWaterPresentationHash == waterPresentationHash
-                && (appliedSurfaceCenterPixels - centerPixels).sqrMagnitude
-                <= 0.0001f
-                && Mathf.Approximately(appliedSurfaceRadiusPixels, radiusPixels)
-                && Mathf.Approximately(appliedSurfaceEdgePixels, edgePixels))
-            {
-                return;
-            }
-
-            contourMaterial.SetTexture(
-                "_SurfaceTex",
-                hasSurface ? bakedSurfaceVisual : Texture2D.blackTexture);
-            contourMaterial.SetFloat("_SurfaceEnabled", hasSurface ? 1f : 0f);
-            contourMaterial.SetTexture(
-                "_WaterMaskTex",
-                hasWater
-                    ? levelAsset.BakedStaticWaterMask
-                    : Texture2D.blackTexture);
-            contourMaterial.SetTexture(
-                "_WaterPatternTex",
-                hasWater
-                    ? levelAsset.StaticWaterTexture
-                    : Texture2D.blackTexture);
-            contourMaterial.SetFloat("_WaterEnabled", hasWater ? 1f : 0f);
-            if (hasWater)
-            {
-                contourMaterial.SetVector(
-                    "_MapSizeMeters",
-                    new Vector4(
-                        levelAsset.MapSizeMeters.x,
-                        levelAsset.MapSizeMeters.y,
-                        0f,
-                        0f));
-                contourMaterial.SetFloat(
-                    "_WaterTileSizeMeters",
-                    levelAsset.StaticWaterTileSizeMeters);
-                Vector2 primarySpeed =
-                    levelAsset.StaticWaterLayerOneSpeedMetersPerSecond;
-                Vector2 secondarySpeed =
-                    levelAsset.StaticWaterLayerTwoSpeedMetersPerSecond;
-                contourMaterial.SetVector(
-                    "_WaterLayerOneSpeed",
-                    new Vector4(primarySpeed.x, primarySpeed.y, 0f, 0f));
-                contourMaterial.SetVector(
-                    "_WaterLayerTwoSpeed",
-                    new Vector4(secondarySpeed.x, secondarySpeed.y, 0f, 0f));
-                contourMaterial.SetFloat(
-                    "_WaterLayerTwoScale",
-                    levelAsset.StaticWaterLayerTwoScale);
-                contourMaterial.SetFloat(
-                    "_WaterWaveDistortion",
-                    levelAsset.StaticWaterWaveDistortion);
-                contourMaterial.SetFloat(
-                    "_WaterWaveSpeed",
-                    levelAsset.StaticWaterWaveSpeed);
-                contourMaterial.SetFloat(
-                    "_WaterWaveLengthMeters",
-                    levelAsset.StaticWaterWaveLengthMeters);
-                contourMaterial.SetFloat(
-                    "_WaterDeepSpeedMultiplier",
-                    levelAsset.StaticWaterDeepSpeedMultiplier);
-            }
-            contourMaterial.SetFloat(
-                "_SurfaceRevealEnabled",
-                revealEnabled ? 1f : 0f);
-            contourMaterial.SetVector(
-                "_SurfaceRevealCenterPixels",
-                new Vector4(centerPixels.x, centerPixels.y, 0f, 0f));
-            contourMaterial.SetFloat("_SurfaceRevealRadiusPixels", radiusPixels);
-            contourMaterial.SetFloat("_SurfaceRevealEdgePixels", edgePixels);
-            surfaceSettingsMaterial = contourMaterial;
-            appliedSurfaceVisual = bakedSurfaceVisual;
-            appliedSurfaceEnabled = hasSurface;
-            appliedSurfaceRevealEnabled = revealEnabled;
-            appliedWaterPresentationHash = waterPresentationHash;
-            appliedSurfaceCenterPixels = centerPixels;
-            appliedSurfaceRadiusPixels = radiusPixels;
-            appliedSurfaceEdgePixels = edgePixels;
+            if (contourMaterial == null) return;
+            Vector2 center = surfaceRevealUi != null ? surfaceRevealUi.GetUiCenterScreenPoint()
+                : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            float radius = surfaceRevealUi != null ? surfaceRevealUi.GetUiRingScreenRadiusPixels() : DefaultSurfaceRevealRadiusPixels;
+            contourMaterial.SetFloat("_SurfaceRevealEnabled", Application.isPlaying ? 1 : 0);
+            contourMaterial.SetVector("_SurfaceRevealCenterPixels", new Vector4(center.x, center.y, 0, 0));
+            contourMaterial.SetFloat("_SurfaceRevealRadiusPixels", Mathf.Max(1, radius));
+            contourMaterial.SetFloat("_SurfaceRevealEdgePixels", surfaceRevealEdgePixels);
         }
+
 
         private void UpdateElevationFilterRuntime()
         {
             bool togglePressed = (elevationFilterKeyboardToggleKey != KeyCode.None
                                   && Input.GetKeyDown(
-                                      elevationFilterKeyboardToggleKey))
-                                 || AdaptiveLegacyGamepadInput
-                                     .WasDpadRightPressedThisFrame();
+                                      elevationFilterKeyboardToggleKey));
             if (togglePressed)
                 elevationFilterRequested = !elevationFilterRequested;
 
@@ -1372,35 +1019,22 @@ namespace AnimalGame.MapTest
         private void OnDestroy()
         {
             ReleaseGeneratedMap();
+            DestroyGeneratedObject(generatedCameraObject);
         }
 
         private void ReleaseGeneratedMap()
         {
             WorldInteractionQuery.InvalidateSpatialIndex();
-            heightField?.Dispose();
-            heightField = null;
-
-            if (contourMaterial != null)
-                DestroyGeneratedObject(contourMaterial);
+            foreach (var view in tileViews) view.Dispose();
+            tileViews.Clear();
+            tileRenderers.Clear();
+            runtimeMap?.Dispose();
+            runtimeMap = null;
+            if (contourMaterial != null) DestroyGeneratedObject(contourMaterial);
             contourMaterial = null;
-            surfaceSettingsMaterial = null;
-            appliedWaterPresentationHash = int.MinValue;
             elevationFilterHasValidPlayerHeight = false;
-
-            if (generatedMapSprite != null)
-                DestroyGeneratedObject(generatedMapSprite);
-            generatedMapSprite = null;
-
-            if (generatedPreviewTexture != null && !generatedPreviewTextureIsPrebaked)
-                DestroyGeneratedObject(generatedPreviewTexture);
-            generatedPreviewTexture = null;
-            generatedPreviewTextureIsPrebaked = false;
-
-            if (generatedMapObject != null)
-                DestroyGeneratedObject(generatedMapObject);
-            generatedMapObject = null;
-            mapRenderer = null;
         }
+
 
         private static void DestroyGeneratedObject(Object generatedObject)
         {
@@ -1419,12 +1053,10 @@ namespace AnimalGame.MapTest
             mapWidthMeters = Mathf.Max(1f, mapWidthMeters);
             mapHeightMeters = Mathf.Max(1f, mapHeightMeters);
             maximumHeightMeters = Mathf.Max(minimumHeightMeters + 0.01f, maximumHeightMeters);
-            bakedHeightResolution = Mathf.Clamp(bakedHeightResolution, 128, 4096);
-            surfaceSmoothingSigmaMeters = Mathf.Max(0f, surfaceSmoothingSigmaMeters);
-            detailSmoothingSigmaMeters = Mathf.Max(0f, detailSmoothingSigmaMeters);
-            previewResolution = Mathf.Clamp(previewResolution, 128, 8000);
             contourIntervalMeters = Mathf.Max(1f, contourIntervalMeters);
-            pixelsPerUnit = Mathf.Max(1f, pixelsPerUnit);
+            minimumContourOpacity = Mathf.Clamp01(minimumContourOpacity);
+            maximumContourOpacity = Mathf.Clamp01(maximumContourOpacity);
+            outsideRevealDarkening = Mathf.Clamp01(outsideRevealDarkening);
             elevationFilterMaximumOpacity = Mathf.Clamp01(
                 elevationFilterMaximumOpacity);
             elevationFilterRelativeRangeMeters = Mathf.Max(

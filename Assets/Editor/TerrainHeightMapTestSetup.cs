@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.IO;
 using System.Text;
@@ -67,7 +68,7 @@ namespace AnimalGame.Editor
             mapObject.SetActive(false);
             var map = mapObject.AddComponent<MapTestSceneController>();
             var mapSettings = new SerializedObject(map);
-            mapSettings.FindProperty("levelAsset").objectReferenceValue = level;
+            mapSettings.FindProperty("levelAsset").objectReferenceValue = TiledLevelAssetEditorUtility.WrapSingle(level);
             // Match runtime resolution in the editor so the small ledges also line up there.
             mapSettings.FindProperty("editorHeightResolution").intValue = 513;
             mapSettings.FindProperty("editorPreviewResolution").intValue = 1024;
@@ -102,7 +103,7 @@ namespace AnimalGame.Editor
             var maps = Object.FindObjectsByType<MapTestSceneController>(FindObjectsSortMode.None);
             Require(maps.Length == 1 && maps[0].HasGeneratedMap, "Expected exactly one generated map.");
             MapTestSceneController map = maps[0];
-            HeightMapLevelAsset level = map.LevelAsset;
+            HeightMapLevelAsset level = map.Presentation;
             Require(level != null && AssetDatabase.GetAssetPath(level) == LevelPath, "Incorrect level reference.");
             Require(AssetDatabase.GetAssetPath(level.HeightMap) == TexturePath
                 && level.HeightMap.format == TextureFormat.R16, "Incorrect source texture or texture precision.");
@@ -114,7 +115,7 @@ namespace AnimalGame.Editor
             Require(level.BakedSurfaceVisual == null && level.BakedStaticWaterMask == null
                 && level.PlayableAreaMask == null && !level.UseHeightMapBorderMask,
                 "Unexpected surface or mask inherited from another level.");
-            Require(map.HeightField.Width == 513 && map.HeightField.Height == 513, "Height field resolution changed.");
+            Require(map.RuntimeMap.Tiles.First().Field.Width == 513 && map.RuntimeMap.Tiles.First().Field.Height == 513, "Height field resolution changed.");
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             Require(pipeline != null && pipeline.scriptableRenderer.GetType().Name == "Renderer2D",
                 "The test scene should be using the original 2D renderer.");
@@ -126,7 +127,7 @@ namespace AnimalGame.Editor
             for (int z = 0; z < 513; z++)
                 for (int x = 0; x < 513; x++)
                     maximumError = Mathf.Max(maximumError,
-                        Mathf.Abs(map.HeightField.GetSurfaceHeightSample(x, z) - heights[z, x] * terrain.size.y));
+                        Mathf.Abs(map.RuntimeMap.Tiles.First().Field.GetSurfaceHeightSample(x, z) - heights[z, x] * terrain.size.y));
             Require(maximumError < 0.002f, "The exported PNG no longer matches TerrainData; re-export and rebake.");
 
             var report = new StringBuilder();
@@ -159,7 +160,7 @@ namespace AnimalGame.Editor
 
         private static void ValidateRuntime(MapTestSceneController map, HeightMapLevelAsset level, StringBuilder report)
         {
-            Require(map.HeightField.SurfaceTexture == level.PrebakedHeightField.SurfaceTexture, "Runtime is not using the test prebake.");
+            Require(map.RuntimeMap.Tiles.First().Field.SurfaceTexture == level.PrebakedHeightField.SurfaceTexture, "Runtime is not using the test prebake.");
             var robots = Object.FindObjectsByType<RobotMover>(FindObjectsSortMode.None);
             var evaluators = Object.FindObjectsByType<HeightMapTraversalEvaluator>(FindObjectsSortMode.None);
             Require(robots.Length == 1 && evaluators.Length == 1 && evaluators[0].IsInitialized, "Player or traversal initialization failed.");

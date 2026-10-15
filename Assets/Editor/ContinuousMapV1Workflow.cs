@@ -22,7 +22,7 @@ namespace AnimalGame.Editor
             TerrainGridV1Builder.OpenAuthoringScene();
             // SetNeighbors links are editor state, so restore them after loading the source scene.
             TerrainGridV1Builder.Reconnect(false);
-            TerrainGridV1CombinedExporter.Export();
+            TerrainGridV1Exporter.Export();
             Scene authoring = SceneManager.GetActiveScene();
             if (authoring.isDirty && !EditorSceneManager.SaveScene(authoring))
                 throw new InvalidOperationException("Could not save the authored terrain scene.");
