@@ -227,17 +227,17 @@ MonoBehaviour:
   turnThreshold: 0.5
   enableStationaryTurnGroundAudio: 1
   movementStopDelay: 0.12
-  engineFadeOutSeconds: 0.25
+  engineFadeOutSeconds: 0.5
   groundFadeOutSeconds: 0.18
   movementFadeInSeconds: 0.04
-  engineCrossfadeSeconds: 0.08
+  engineCrossfadeSeconds: 0.04
   driveReferenceSpeed: 5
   turnReferenceSpeed: 100
   brakeReferenceDeceleration: 8
-  engineAccelerationSeconds: 3.5
-  engineCoastDeceleration: 0.2
+  engineAccelerationSeconds: 2.75
   engineMinimumPitch: 0.25
-  engineGainMultiplier: 0.7
+  engineMaximumPitch: 0.85
+  engineGainMultiplier: 0.2
   armMovementThreshold: 0.01
   armReferenceSpeed: 1
   armJointReferenceSpeed: 90
