@@ -8,35 +8,21 @@ namespace AnimalGame.MapTest
     {
         public SpriteRenderer Renderer { get; private set; }
         private readonly TiledMapRuntime.Tile tile;
-        private Texture2D preview;
-        private bool ownsPreview;
         private Sprite sprite;
         private Material material;
         private GameObject root;
 
         public TiledMapTileView(TiledMapRuntime.Tile tile) { this.tile = tile; }
 
-        public void Build(Transform parent, TiledLevelAsset definition, Material sharedSettings, int previewLimit)
+        public void Build(Transform parent, TiledLevelAsset definition, Material sharedSettings)
         {
             try
             {
-                var level = tile.Level;
-                var presentation = definition.Presentation;
-                var cache = tile.UsesPrebake ? level.PrebakedHeightField : null;
-                // Cached previews contain tile-specific colors. Use them only with the shared palette.
-                bool matchingPalette = level.BackgroundColor == presentation.BackgroundColor
-                    && level.LowHeightColor == presentation.LowHeightColor
-                    && level.MiddleHeightColor == presentation.MiddleHeightColor
-                    && level.HighHeightColor == presentation.HighHeightColor;
-                preview = matchingPalette && cache != null ? cache.PreviewTexture : null;
-                ownsPreview = preview == null;
-                if (ownsPreview)
-                    preview = tile.Field.CreateVisualizationTexture(Mathf.Min(level.PreviewResolution, previewLimit),
-                        presentation.BackgroundColor, presentation.LowHeightColor,
-                        presentation.MiddleHeightColor, presentation.HighHeightColor);
-                sprite = Sprite.Create(preview, new Rect(0, 0, preview.width, preview.height), Vector2.one * 0.5f, 1);
+                // The shader renders terrain from physical height and authored surface data.
+                var carrier = Texture2D.blackTexture;
+                sprite = Sprite.Create(carrier, new Rect(0, 0, carrier.width, carrier.height),
+                    Vector2.one * 0.5f, 1, 0, SpriteMeshType.FullRect);
                 sprite.hideFlags = HideFlags.DontSave;
-                if (ownsPreview) preview.hideFlags = HideFlags.DontSave;
                 root = new GameObject("Map Tile " + tile.Coordinate) { hideFlags = HideFlags.DontSave };
                 root.transform.SetParent(parent, false);
                 Vector2 tileSize = definition.TileSizeMeters;
@@ -44,7 +30,7 @@ namespace AnimalGame.MapTest
                     - definition.MapSizeMeters * 0.5f;
                 root.transform.localPosition = Vector2.Scale(center, definition.WorldUnitsPerMeter);
                 Vector2 worldSize = Vector2.Scale(tileSize, definition.WorldUnitsPerMeter);
-                root.transform.localScale = new Vector3(worldSize.x / preview.width, worldSize.y / preview.height, 1);
+                root.transform.localScale = new Vector3(worldSize.x / carrier.width, worldSize.y / carrier.height, 1);
                 Renderer = root.AddComponent<SpriteRenderer>();
                 Renderer.sprite = sprite;
                 Renderer.sortingOrder = -1000;
@@ -86,8 +72,7 @@ namespace AnimalGame.MapTest
         public void Dispose()
         {
             Destroy(root); Destroy(material); Destroy(sprite);
-            if (ownsPreview) Destroy(preview);
-            root = null; material = null; sprite = null; preview = null; Renderer = null;
+            root = null; material = null; sprite = null; Renderer = null;
         }
         private static void Destroy(UnityEngine.Object value)
         {

@@ -25,18 +25,18 @@ Label {
 }
 
 .view-ring {
-    width: 920px;
-    height: 920px;
+    width: 960px;
+    height: 960px;
 }
 
 .inner-ring {
-    width: 862px;
-    height: 862px;
+    width: 902px;
+    height: 902px;
 }
 
 .outer-ring {
-    width: 920px;
-    height: 920px;
+    width: 960px;
+    height: 960px;
     transform-origin: 50% 50%;
 }
 

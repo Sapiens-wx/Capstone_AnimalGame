@@ -118,14 +118,7 @@ namespace AnimalGame.Editor
                 Texture2D surface = SaveHeightTexture(
                     field.CreateSurfaceTextureCopy(), texturePathPrefix + "_Surface.asset");
                 Texture2D mask = field.CreatePlayableMaskTextureCopy();
-                Texture2D preview = field.CreateVisualizationTexture(
-                    level.PreviewResolution,
-                    level.BackgroundColor,
-                    level.LowHeightColor,
-                    level.MiddleHeightColor,
-                    level.HighHeightColor);
                 AddSubAsset(mask, data);
-                AddSubAsset(preview, data);
                 data.SetBakedData(
                     level,
                     field.SourceMinimum,
@@ -133,8 +126,7 @@ namespace AnimalGame.Editor
                     raw,
                     detail,
                     surface,
-                    mask,
-                    preview);
+                    mask);
                 foreach (Object previous in previousSubAssets)
                     if (previous != data && previous is Texture2D)
                         Object.DestroyImmediate(previous, true);

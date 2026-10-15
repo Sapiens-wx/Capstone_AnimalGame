@@ -169,9 +169,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private HeightMapPrebakedData prebakedHeightField;
 
         [Header("Map Presentation")]
-        [SerializeField, Range(128, 8000)] private int previewResolution = 2160;
         [SerializeField, Min(1f)] private float contourIntervalMeters = 8f;
-        [SerializeField, Min(1f)] private float pixelsPerUnit = 32f;
         [Tooltip("Direct shader reference keeps the runtime-created contour material available in standalone builds.")]
         [SerializeField] private Shader dynamicContourShader;
         [SerializeField, Range(0.1f, 10f)] private float minimumContourWidth = 0.7f;
@@ -412,9 +410,6 @@ namespace AnimalGame.MapTest
         [Header("Color Palette")]
         [SerializeField] private Color backgroundColor =
             new Color(0.008f, 0.012f, 0.017f, 1f);
-        [SerializeField] private Color lowHeightColor = Color.black;
-        [SerializeField] private Color middleHeightColor = Color.black;
-        [SerializeField] private Color highHeightColor = Color.black;
         [SerializeField] private Color contourColor =
             new Color(0.92f, 0.97f, 1f, 1f);
 
@@ -463,9 +458,7 @@ namespace AnimalGame.MapTest
             }
         }
 #endif
-        public int PreviewResolution => previewResolution;
         public float ContourIntervalMeters => contourIntervalMeters;
-        public float PixelsPerUnit => pixelsPerUnit;
         public Shader DynamicContourShader => dynamicContourShader;
         public float MinimumContourWidth => minimumContourWidth;
         public float MaximumContourWidth => maximumContourWidth;
@@ -537,9 +530,6 @@ namespace AnimalGame.MapTest
             }
         }
         public Color BackgroundColor => backgroundColor;
-        public Color LowHeightColor => lowHeightColor;
-        public Color MiddleHeightColor => middleHeightColor;
-        public Color HighHeightColor => highHeightColor;
         public Color ContourColor => contourColor;
         public Color LowerElevationFilterColor => lowerElevationFilterColor;
         public Color HigherElevationFilterColor => higherElevationFilterColor;
@@ -640,9 +630,7 @@ namespace AnimalGame.MapTest
                     hash = hash * 397 ^ useHeightMapBorderMask.GetHashCode();
                     hash = hash * 397 ^ heightMapBorderMaskThreshold.GetHashCode();
                     hash = hash * 397 ^ heightMapBorderInsetMeters.GetHashCode();
-                    hash = hash * 397 ^ previewResolution;
                     hash = hash * 397 ^ contourIntervalMeters.GetHashCode();
-                    hash = hash * 397 ^ pixelsPerUnit.GetHashCode();
                     hash = hash * 397 ^ (dynamicContourShader != null
                         ? dynamicContourShader.GetInstanceID()
                         : 0);
@@ -653,9 +641,6 @@ namespace AnimalGame.MapTest
                     hash = hash * 397 ^ viewportEdgeSamples;
                     hash = hash * 397 ^ viewportGridHeightSamples;
                     hash = hash * 397 ^ backgroundColor.GetHashCode();
-                    hash = hash * 397 ^ lowHeightColor.GetHashCode();
-                    hash = hash * 397 ^ middleHeightColor.GetHashCode();
-                    hash = hash * 397 ^ highHeightColor.GetHashCode();
                     hash = hash * 397 ^ contourColor.GetHashCode();
                     hash = hash * 397 ^ lowerElevationFilterColor.GetHashCode();
                     hash = hash * 397 ^ higherElevationFilterColor.GetHashCode();
@@ -1371,7 +1356,6 @@ namespace AnimalGame.MapTest
             heightMapBorderInsetMeters = Mathf.Max(
                 0f,
                 heightMapBorderInsetMeters);
-            previewResolution = Mathf.Clamp(previewResolution, 128, 8000);
             minimumContourOpacity = Mathf.Clamp01(minimumContourOpacity);
             maximumContourOpacity = Mathf.Clamp01(maximumContourOpacity);
             outsideRevealDarkening = Mathf.Clamp01(outsideRevealDarkening);
@@ -1384,7 +1368,6 @@ namespace AnimalGame.MapTest
             playerHeightReferenceOpacity = Mathf.Clamp01(playerHeightReferenceOpacity);
             elevationFilterHillshadeStrength = Mathf.Clamp(elevationFilterHillshadeStrength, 0f, 0.5f);
             contourIntervalMeters = Mathf.Max(1f, contourIntervalMeters);
-            pixelsPerUnit = Mathf.Max(1f, pixelsPerUnit);
             minimumContourWidth = Mathf.Clamp(minimumContourWidth, 0.1f, 10f);
             maximumContourWidth = Mathf.Clamp(maximumContourWidth, 0.1f, 10f);
             maximumContourCoverage = Mathf.Clamp(maximumContourCoverage, 0.1f, 0.7f);

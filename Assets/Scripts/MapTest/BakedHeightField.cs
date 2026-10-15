@@ -420,57 +420,6 @@ namespace AnimalGame.MapTest
                 : null;
         }
 
-        public Texture2D CreateVisualizationTexture(
-            int resolution, Color backgroundColor, Color lowHeightColor,
-            Color middleHeightColor, Color highHeightColor)
-        {
-            var texture = new Texture2D(
-                resolution, resolution, TextureFormat.RGBA32, false, true)
-            {
-                name = "Pre-Baked Height Preview",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp
-            };
-            var colors = new Color32[resolution * resolution];
-            float onePixel = 1f / resolution;
-            float heightRange = MaximumHeightMeters - MinimumHeightMeters;
-            for (int y = 0; y < resolution; y++)
-            {
-                for (int x = 0; x < resolution; x++)
-                {
-                    Vector2 uv = new Vector2(
-                        (x + 0.5f) / resolution, (y + 0.5f) / resolution);
-                    if (!IsPlayable(uv))
-                    {
-                        colors[y * resolution + x] = backgroundColor;
-                        continue;
-                    }
-
-                    float height = SampleSurfaceHeight(uv);
-                    float normalized = Mathf.InverseLerp(
-                        MinimumHeightMeters, MaximumHeightMeters, height);
-                    float heightRight = SampleSurfaceHeight(
-                        uv + Vector2.right * onePixel);
-                    float heightUp = SampleSurfaceHeight(
-                        uv + Vector2.up * onePixel);
-                    float lighting = Mathf.Clamp(
-                        (heightRight - heightUp) / Mathf.Max(1f, heightRange) * 9f,
-                        -0.22f,
-                        0.22f);
-                    Color color = (normalized < 0.55f
-                        ? Color.Lerp(lowHeightColor, middleHeightColor, normalized / 0.55f)
-                        : Color.Lerp(middleHeightColor, highHeightColor, (normalized - 0.55f) / 0.45f))
-                        * (1f + lighting);
-                    color.a = 1f;
-                    colors[y * resolution + x] = color;
-                }
-            }
-
-            texture.SetPixels32(colors);
-            texture.Apply(false, true);
-            return texture;
-        }
-
         private static float[] ReadHeightTexture(
             Texture2D texture,
             int sampleCount,

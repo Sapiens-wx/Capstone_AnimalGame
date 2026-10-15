@@ -205,7 +205,8 @@ Shader "AnimalGame/Dynamic Height Contours"
 
             fixed4 frag(v2f input) : SV_Target
             {
-                fixed4 baseColor = tex2D(_MainTex, input.uv) * input.color;
+                // The sprite only supplies geometry; its carrier texture must not control map opacity.
+                fixed4 baseColor = fixed4(0, 0, 0, input.color.a);
                 if (_PhotoContoursOnly > 0.5) baseColor = fixed4(0, 0, 0, 1);
                 if (_PlayableMaskEnabled > 0.5
                     && tex2D(_PlayableMaskTex, input.uv).r < 0.5)

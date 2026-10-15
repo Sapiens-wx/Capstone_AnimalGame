@@ -48,14 +48,9 @@ namespace AnimalGame.Editor
             settings.FindProperty("surfaceSmoothingSigmaMeters").floatValue = 0f;
             settings.FindProperty("detailSmoothingSigmaMeters").floatValue = 0f;
             settings.FindProperty("useHeightMapBorderMask").boolValue = false;
-            settings.FindProperty("previewResolution").intValue = 1024;
-            settings.FindProperty("pixelsPerUnit").floatValue = 16f;
             settings.FindProperty("contourIntervalMeters").floatValue = 1f;
             settings.FindProperty("dynamicContourShader").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Shader>(AssetDatabase.GUIDToAssetPath("66c17e2481f6472cb3cd86fe63c9f57a"));
-            settings.FindProperty("lowHeightColor").colorValue = new Color(0.025f, 0.09f, 0.12f, 1f);
-            settings.FindProperty("middleHeightColor").colorValue = new Color(0.08f, 0.42f, 0.42f, 1f);
-            settings.FindProperty("highHeightColor").colorValue = new Color(0.72f, 0.82f, 0.67f, 1f);
             settings.ApplyModifiedPropertiesWithoutUndo();
             Require(level.DynamicContourShader != null, "The existing contour shader is missing.");
             AssetDatabase.CreateAsset(level, LevelPath);
@@ -71,7 +66,6 @@ namespace AnimalGame.Editor
             mapSettings.FindProperty("levelAsset").objectReferenceValue = TiledLevelAssetEditorUtility.WrapSingle(level);
             // Match runtime resolution in the editor so the small ledges also line up there.
             mapSettings.FindProperty("editorHeightResolution").intValue = 513;
-            mapSettings.FindProperty("editorPreviewResolution").intValue = 1024;
             mapSettings.ApplyModifiedPropertiesWithoutUndo();
             mapObject.SetActive(true);
 

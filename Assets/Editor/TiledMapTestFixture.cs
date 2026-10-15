@@ -25,7 +25,6 @@ namespace AnimalGame.Editor
             settings.FindProperty("normalizeSourceRange").boolValue = false;
             settings.FindProperty("surfaceSmoothingSigmaMeters").floatValue = 0;
             settings.FindProperty("bakedHeightResolution").intValue = 128;
-            settings.FindProperty("previewResolution").intValue = 128;
             settings.ApplyModifiedPropertiesWithoutUndo();
             level = ScriptableObject.CreateInstance<TiledLevelAsset>();
             level.Configure(Vector2.one * sizeMeters, Vector2.one * worldUnitsPerMeter, tile,

@@ -23,12 +23,6 @@ namespace AnimalGame.MapTest
         [SerializeField] private Texture2D detailTexture;
         [SerializeField] private Texture2D surfaceTexture;
         [SerializeField] private Texture2D playableMaskTexture;
-        [SerializeField] private int previewResolution;
-        [SerializeField] private Color backgroundColor;
-        [SerializeField] private Color lowHeightColor;
-        [SerializeField] private Color middleHeightColor;
-        [SerializeField] private Color highHeightColor;
-        [SerializeField] private Texture2D previewTexture;
 
         public int Resolution => resolution;
         public Vector2 MapSizeMeters => mapSizeMeters;
@@ -40,7 +34,6 @@ namespace AnimalGame.MapTest
         public Texture2D DetailTexture => detailTexture;
         public Texture2D SurfaceTexture => surfaceTexture;
         public Texture2D PlayableMaskTexture => playableMaskTexture;
-        public Texture2D PreviewTexture => previewTexture;
 
         public bool Matches(HeightMapLevelAsset level)
         {
@@ -57,19 +50,14 @@ namespace AnimalGame.MapTest
                    && Mathf.Approximately(heightMapBorderMaskThreshold, level.HeightMapBorderMaskThreshold)
                    && Mathf.Approximately(heightMapBorderInsetMeters, level.HeightMapBorderInsetMeters)
                    && rawDetailTexture != null && detailTexture != null
-                   && surfaceTexture != null && previewTexture != null
-                   && previewResolution == level.PreviewResolution
-                   && backgroundColor == level.BackgroundColor
-                   && lowHeightColor == level.LowHeightColor
-                   && middleHeightColor == level.MiddleHeightColor
-                   && highHeightColor == level.HighHeightColor;
+                   && surfaceTexture != null;
         }
 
         public void SetBakedData(
             HeightMapLevelAsset level, float bakedSourceMinimum,
             float bakedSourceMaximum, Texture2D rawTexture,
             Texture2D bakedDetailTexture, Texture2D bakedSurfaceTexture,
-            Texture2D bakedPlayableMaskTexture, Texture2D bakedPreviewTexture)
+            Texture2D bakedPlayableMaskTexture)
         {
             sourceHeightMap = level.HeightMap;
             sourcePlayableAreaMask = level.PlayableAreaMask;
@@ -89,12 +77,6 @@ namespace AnimalGame.MapTest
             detailTexture = bakedDetailTexture;
             surfaceTexture = bakedSurfaceTexture;
             playableMaskTexture = bakedPlayableMaskTexture;
-            previewResolution = level.PreviewResolution;
-            backgroundColor = level.BackgroundColor;
-            lowHeightColor = level.LowHeightColor;
-            middleHeightColor = level.MiddleHeightColor;
-            highHeightColor = level.HighHeightColor;
-            previewTexture = bakedPreviewTexture;
         }
     }
 }

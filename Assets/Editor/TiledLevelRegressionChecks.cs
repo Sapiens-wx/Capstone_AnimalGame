@@ -107,7 +107,6 @@ namespace AnimalGame.Editor
                     serialized.FindProperty("surfaceSmoothingSigmaMeters").floatValue = 0;
                     serialized.FindProperty("detailSmoothingSigmaMeters").floatValue = 0;
                     serialized.FindProperty("bakedHeightResolution").intValue = 128;
-                    serialized.FindProperty("previewResolution").intValue = 128;
                     serialized.FindProperty("staticWaterResolution").intValue = 64;
                     serialized.FindProperty("maximumStaticWaterDepthMeters").floatValue = 10;
                     var water = serialized.FindProperty("staticWaterDepthMap");
@@ -153,8 +152,7 @@ namespace AnimalGame.Editor
                     var data = ScriptableObject.CreateInstance<HeightMapPrebakedData>(); owned.Add(data);
                     var raw = source.Field.CreateRawDetailTexture(); owned.Add(raw);
                     var surface = source.Field.CreateSurfaceTextureCopy(); owned.Add(surface);
-                    var preview = source.Field.CreateVisualizationTexture(128, Color.black, Color.black, Color.black, Color.black); owned.Add(preview);
-                    data.SetBakedData(source.Level, source.Field.SourceMinimum, source.Field.SourceMaximum, raw, raw, surface, null, preview);
+                    data.SetBakedData(source.Level, source.Field.SourceMinimum, source.Field.SourceMaximum, raw, raw, surface, null);
                     source.Level.SetPrebakedHeightField(data);
                     using (var cached = new TiledMapRuntime(tiled, true))
                     {

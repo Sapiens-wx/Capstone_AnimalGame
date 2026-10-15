@@ -25,8 +25,7 @@ namespace AnimalGame.Editor
             var existing = AssetDatabase.LoadAssetAtPath<TiledLevelAsset>(path);
             if (existing != null) return existing;
             return Create(path, level.MapSizeMeters,
-                new Vector2(level.PreviewResolution / level.PixelsPerUnit / level.MapSizeMeters.x,
-                    level.PreviewResolution / level.PixelsPerUnit / level.MapSizeMeters.y),
+                Vector2.one * (2048f / 30f / 250f),
                 level, new[] { new TiledLevelAsset.Tile(Vector2Int.zero, level) });
         }
 

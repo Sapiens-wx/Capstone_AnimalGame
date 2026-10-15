@@ -148,8 +148,6 @@ namespace AnimalGame.Editor
                 SetObject(serialized, "playableAreaMask", null);
                 SetBool(serialized, "useHeightMapBorderMask", false);
                 SetFloat(serialized, "heightMapBorderInsetMeters", 0f);
-                SetInt(serialized, "previewResolution", bakeResolution);
-                SetFloat(serialized, "pixelsPerUnit", 30f);
                 SetFloat(serialized, "contourIntervalMeters", 7f);
                 // Copy the V1 presentation, never its physical/painted caches or authored masks.
                 SetObject(serialized, "prebakedHeightField", null);
@@ -478,8 +476,6 @@ namespace AnimalGame.Editor
             public float maximumHeightMeters = HeightRange;
             public int sourceResolution = SourceResolution;
             public int bakedResolution = BakeResolution;
-            public int previewResolution = BakeResolution;
-            public float pixelsPerUnit = 30f;
             public float contourIntervalMeters = 7f;
             public bool normalizeSourceRange = false;
             public float surfaceSmoothingSigmaMeters = 0f;

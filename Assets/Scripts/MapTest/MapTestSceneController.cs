@@ -27,9 +27,6 @@ namespace AnimalGame.MapTest
         [Tooltip("Lower physical bake resolution used only while editing. Runtime still uses the fixed level asset's full bake resolution.")]
         [SerializeField, Range(128, 1024)] private int editorHeightResolution = 512;
 
-        [Tooltip("Lower color preview resolution used only while editing. World-space map size remains identical to runtime.")]
-        [SerializeField, Range(128, 2048)] private int editorPreviewResolution = 512;
-
         [Tooltip("Direct reference to the contour shader used by standalone builds. Keep this assigned so Unity includes the shader instead of stripping a Shader.Find-only dependency.")]
         [SerializeField] private Shader dynamicContourShader;
 
@@ -121,15 +118,6 @@ namespace AnimalGame.MapTest
         [Header("Color Palette")]
         [Tooltip("Color outside the generated map.")]
         [SerializeField] private Color backgroundColor = new Color(0.008f, 0.012f, 0.017f);
-
-        [Tooltip("Color used at the minimum map height.")]
-        [SerializeField] private Color lowHeightColor = new Color(0.025f, 0.09f, 0.12f);
-
-        [Tooltip("Color used around the middle map height.")]
-        [SerializeField] private Color middleHeightColor = new Color(0.08f, 0.42f, 0.42f);
-
-        [Tooltip("Color used at the maximum map height.")]
-        [SerializeField] private Color highHeightColor = new Color(0.72f, 0.82f, 0.67f);
 
         [Tooltip("Base color of all dynamic contour lines before height-dependent opacity is applied.")]
         [SerializeField] private Color contourColor = new Color(0.92f, 0.97f, 1f);
@@ -423,8 +411,7 @@ namespace AnimalGame.MapTest
                 foreach (var tile in runtimeMap.Tiles)
                 {
                     var view = new TiledMapTileView(tile);
-                    view.Build(transform, levelAsset, contourMaterial,
-                        Application.isPlaying ? int.MaxValue : editorPreviewResolution);
+                    view.Build(transform, levelAsset, contourMaterial);
                     tileViews.Add(view);
                     tileRenderers.Add(view.Renderer);
                 }
@@ -472,9 +459,6 @@ namespace AnimalGame.MapTest
             viewportGridHeightSamples = Presentation.ViewportGridHeightSamples;
             surfaceRevealEdgePixels = Presentation.SurfaceRevealEdgePixels;
             backgroundColor = Presentation.BackgroundColor;
-            lowHeightColor = Presentation.LowHeightColor;
-            middleHeightColor = Presentation.MiddleHeightColor;
-            highHeightColor = Presentation.HighHeightColor;
             contourColor = Presentation.ContourColor;
             ApplyLevelPresentationSettings();
         }
@@ -514,7 +498,6 @@ namespace AnimalGame.MapTest
                     ? levelAsset.ConfigurationHash
                     : 0;
                 hash = hash * 397 ^ editorHeightResolution;
-                hash = hash * 397 ^ editorPreviewResolution;
                 hash = hash * 397 ^ transform.position.GetHashCode();
                 hash = hash * 397 ^ transform.rotation.GetHashCode();
                 hash = hash * 397 ^ transform.lossyScale.GetHashCode();
@@ -1023,13 +1006,6 @@ namespace AnimalGame.MapTest
             GUI.color = previousColor;
         }
 
-        private Color EvaluateHeightColor(float height)
-        {
-            return height < 0.55f
-                ? Color.Lerp(lowHeightColor, middleHeightColor, height / 0.55f)
-                : Color.Lerp(middleHeightColor, highHeightColor, (height - 0.55f) / 0.45f);
-        }
-
         private void OnDestroy()
         {
             ReleaseGeneratedMap();
@@ -1101,10 +1077,6 @@ namespace AnimalGame.MapTest
                 editorHeightResolution,
                 128,
                 1024);
-            editorPreviewResolution = Mathf.Clamp(
-                editorPreviewResolution,
-                128,
-                2048);
             RefreshElevationFilterStaticMaterialSettings();
             RefreshElevationFilterMaterialSettings();
             editorConfigurationHash = int.MinValue;

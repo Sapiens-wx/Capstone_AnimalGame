@@ -78,7 +78,6 @@ namespace AnimalGame.Editor
                 var mapSettings = new SerializedObject(map);
                 mapSettings.FindProperty("levelAsset").objectReferenceValue = level;
                 mapSettings.FindProperty("editorHeightResolution").intValue = 1024;
-                mapSettings.FindProperty("editorPreviewResolution").intValue = 2048;
                 mapSettings.ApplyModifiedPropertiesWithoutUndo();
                 map.enabled = true;
 
@@ -200,8 +199,8 @@ namespace AnimalGame.Editor
             else
             {
                 var settings = new SerializedObject(map);
-                Require(settings.FindProperty("editorHeightResolution").intValue == 1024
-                    && settings.FindProperty("editorPreviewResolution").intValue == 2048, "The lightweight editor preview settings changed.");
+                Require(settings.FindProperty("editorHeightResolution").intValue == 1024,
+                    "The lightweight editor height settings changed.");
                 Require(Components<Camera>(scene).All(camera => !camera.enabled || !camera.gameObject.activeInHierarchy),
                     "The default editor camera would compete with the runtime player camera.");
                 var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
