@@ -503,7 +503,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             return false;
 
         Vector3 world = ray.GetPoint(distance);
-        return mapController.TrySampleWorldPosition(
+        return TrySampleTilePosition(
             (Vector2)world,
             out mapPosition,
             out _);
@@ -518,7 +518,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             Vector2 mapPoint = centreMapPosition + new Vector2(
                 Mathf.Cos(angle),
                 Mathf.Sin(angle)) * brushRadiusMeters;
-            points[index] = mapController.MapPositionToWorld(mapPoint);
+            points[index] = TilePositionToWorld(mapPoint);
         }
 
         Color outlineColor;
@@ -681,14 +681,14 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             : null;
         if (selectedMap != null)
         {
-            SetLevelAsset(selectedMap.LevelAsset);
+            SetLevelAsset(selectedMap.LevelAsset != null && selectedMap.LevelAsset.Tiles.Count == 1 ? selectedMap.LevelAsset.Tiles[0].level : null);
             return;
         }
 
         MapTestSceneController[] openMaps =
             UnityEngine.Object.FindObjectsByType<MapTestSceneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (openMaps.Length > 0)
-            SetLevelAsset(openMaps[0].LevelAsset);
+            SetLevelAsset(openMaps[0].LevelAsset != null && openMaps[0].LevelAsset.Tiles.Count == 1 ? openMaps[0].LevelAsset.Tiles[0].level : null);
     }
 
     private void SetLevelAsset(HeightMapLevelAsset asset)
@@ -744,6 +744,23 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         BakeAndObserve(false);
     }
 
+    private Vector3 TilePositionToWorld(Vector2 position)
+    {
+        mapController.TryGetTileOrigin(levelAsset, out var origin);
+        return mapController.MapPositionToWorld(origin + position);
+    }
+
+    private bool TrySampleTilePosition(Vector2 world, out Vector2 local, out float height)
+    {
+        local = default;
+        height = 0;
+        if (!mapController.TrySampleWorldPosition(world, out var global, out height)
+            || !mapController.TryGetTileOrigin(levelAsset, out var origin)) return false;
+        local = global - origin;
+        return local.x >= 0 && local.y >= 0
+            && local.x <= levelAsset.MapSizeMeters.x && local.y <= levelAsset.MapSizeMeters.y;
+    }
+
     private void ResolveSceneMap()
     {
         mapController = null;
@@ -756,7 +773,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         {
             if (candidate != null
                 && !EditorUtility.IsPersistent(candidate)
-                && candidate.LevelAsset == levelAsset)
+                && candidate.ContainsLevel(levelAsset))
             {
                 mapController = candidate;
                 return;
@@ -971,7 +988,9 @@ internal static class HeightMapSurfaceBaker
                 false);
             readableOutput.Apply(false, false);
 
-            string directory = Path.GetDirectoryName(levelPath);
+            string directory = HeightMapAssetPaths.DataDirectory(levelPath);
+            Directory.CreateDirectory(directory);
+            AssetDatabase.Refresh();
             string fileName = Path.GetFileNameWithoutExtension(levelPath)
                               + "_SurfaceVisual.png";
             string outputPath = Path.Combine(directory ?? "Assets", fileName)

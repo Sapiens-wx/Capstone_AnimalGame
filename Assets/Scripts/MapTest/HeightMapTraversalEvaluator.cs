@@ -355,7 +355,7 @@ namespace AnimalGame.MapTest
             depthMeters = 0f;
             maximumPassableDepthMeters = 0f;
             HeightMapLevelAsset levelAsset = map != null
-                ? map.LevelAsset
+                ? map.Presentation
                 : null;
             if (!IsInitialized || levelAsset == null)
                 return false;
@@ -1154,7 +1154,7 @@ namespace AnimalGame.MapTest
             Vector2 forwardMapDirection)
         {
             HeightMapLevelAsset levelAsset = map != null
-                ? map.LevelAsset
+                ? map.Presentation
                 : null;
             if (levelAsset == null)
                 return false;
@@ -1177,8 +1177,9 @@ namespace AnimalGame.MapTest
             {
                 Vector2 samplePosition = centreMapPosition
                                          + lateral * halfWidth * sampleIndex;
-                if (levelAsset.SampleStaticWaterDepth(samplePosition)
-                    > passableDepth + 0.0001f)
+                // Missing terrain is classified by the following surface analysis as Boundary.
+                if (map.TrySampleStaticWaterMapPosition(samplePosition, out float waterDepth)
+                    && waterDepth > passableDepth + 0.0001f)
                 {
                     return true;
                 }
@@ -1299,7 +1300,7 @@ namespace AnimalGame.MapTest
             int lateralSamples = EnsureOdd(stepLateralSamples, 1, 9);
             float actualSpacing = length / segments;
             HeightMapLevelAsset levelAsset = map != null
-                ? map.LevelAsset
+                ? map.Presentation
                 : null;
             float preserveLargeStepHeight = levelAsset != null
                 ? Mathf.Max(0f, levelAsset.PreserveLargeStepHeightMeters)

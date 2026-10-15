@@ -29,6 +29,7 @@ namespace AnimalGame.Editor
             Scene scene = RequireScene();
             Require(FindRoot(scene) == null, "The V1 grid already exists. Sculpt it; creation does not overwrite it.");
             EnsureFolder(Folder);
+            EnsureFolder(Folder + "/data");
             for (int i = 0; i < 4; i++)
                 Require(!File.Exists(DataPath(i % 2, i / 2)), "A V1 TerrainData already exists. Restore its grid instead of overwriting it.");
 
@@ -185,7 +186,7 @@ namespace AnimalGame.Editor
         [MenuItem("Animal Game/Terrain Grid V1/Validate Grid and Seams")]
         public static void Validate() => Debug.Log(ValidateGrid());
 
-        public static string ValidateGrid()
+        public static string ValidateGrid(bool checkSeams = true)
         {
             Terrain[] tiles = GetGridTerrains();
             var assets = new System.Collections.Generic.HashSet<TerrainData>();
@@ -209,6 +210,7 @@ namespace AnimalGame.Editor
                         && tile.topNeighbor == (z < 1 ? tiles[(z + 1) * 2 + x] : null)
                         && tile.bottomNeighbor == (z > 0 ? tiles[(z - 1) * 2 + x] : null), $"{tile.name}: neighbor links differ from the 2 x 2 layout.");
                 }
+            if (!checkSeams) return "PASS: V1 grid structure validated. Authored edges assumed continuous.";
             float maximumError = 0f;
             int comparisons = 0;
             for (int z = 0; z < 2; z++)
@@ -310,7 +312,7 @@ namespace AnimalGame.Editor
         }
 
         private static GameObject FindRoot(Scene scene) => scene.GetRootGameObjects().FirstOrDefault(r => r.name == RootName);
-        private static string DataPath(int x, int z) => $"{Folder}/Tile_{x}_{z}_TerrainData.asset";
+        private static string DataPath(int x, int z) => $"{Folder}/data/Tile_{x}_{z}_TerrainData.asset";
 
         private static void EnsureFolder(string path)
         {

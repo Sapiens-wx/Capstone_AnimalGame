@@ -19,10 +19,10 @@ namespace AnimalGame.RobotMap
             Dispose();
             CenterViewport = Vector2.one * 0.5f;
             RadiusViewportHeight = 0.4f;
-            if (source == null || map == null || map.PhotoContourRenderer == null) return false;
-            SpriteRenderer terrain = map.PhotoContourRenderer;
-            Material original = terrain.sharedMaterial;
-            if (original == null) return false;
+            if (source == null || map == null || map.PhotoContourRenderers.Count == 0) return false;
+            var terrains = new HashSet<SpriteRenderer>(map.PhotoContourRenderers);
+            var originals = new Dictionary<SpriteRenderer, Material>();
+            var temporaryMaterials = new List<Material>();
             map.GetPhotoSnapshotCircle(out Vector2 center, out float radius);
             radius = Mathf.Max(1, radius);
             CenterViewport = new Vector2(center.x / Screen.width, center.y / Screen.height);
@@ -30,7 +30,6 @@ namespace AnimalGame.RobotMap
 
             var cameraObject = new GameObject("Photo Contour Snapshot Camera") { hideFlags = HideFlags.HideAndDontSave };
             Camera camera = cameraObject.AddComponent<Camera>();
-            var material = new Material(original) { hideFlags = HideFlags.HideAndDontSave };
             var hidden = new List<Renderer>();
             RenderTexture previousActive = RenderTexture.active;
             try
@@ -43,7 +42,8 @@ namespace AnimalGame.RobotMap
                 camera.rect = new Rect(0, 0, 1, 1);
                 camera.allowHDR = false;
                 camera.allowMSAA = false;
-                camera.cullingMask = 1 << terrain.gameObject.layer;
+                camera.cullingMask = 0;
+                foreach (var terrain in terrains) camera.cullingMask |= 1 << terrain.gameObject.layer;
                 var data = camera.GetUniversalAdditionalCameraData();
                 data.renderPostProcessing = false;
                 data.renderShadows = false;
@@ -61,17 +61,23 @@ namespace AnimalGame.RobotMap
                 crop.m13 = -cy * crop.m11;
                 camera.projectionMatrix = crop * source.projectionMatrix;
 
-                material.SetFloat("_SurfaceEnabled", 0);
-                material.SetFloat("_PhotoContoursOnly", 1);
-                material.SetFloat("_SurfaceRevealEnabled", 0);
-                material.SetFloat("_WaterEnabled", 0);
-                material.SetFloat("_ElevationFilterEnabled", 0);
-                material.SetColor("_ContourColor", Color.white);
-                terrain.sharedMaterial = material;
+                foreach (var terrain in terrains)
+                {
+                    originals.Add(terrain, terrain.sharedMaterial);
+                    var material = new Material(terrain.sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
+                    temporaryMaterials.Add(material);
+                    material.SetFloat("_SurfaceEnabled", 0);
+                    material.SetFloat("_PhotoContoursOnly", 1);
+                    material.SetFloat("_SurfaceRevealEnabled", 0);
+                    material.SetFloat("_WaterEnabled", 0);
+                    material.SetFloat("_ElevationFilterEnabled", 0);
+                    material.SetColor("_ContourColor", Color.white);
+                    terrain.sharedMaterial = material;
+                }
                 // Synchronous render: exclude every other renderer, restoring exactly in finally.
                 foreach (Renderer renderer in UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
                 {
-                    if (renderer == terrain || renderer.forceRenderingOff
+                    if ((renderer is SpriteRenderer sprite && terrains.Contains(sprite)) || renderer.forceRenderingOff
                         || (camera.cullingMask & (1 << renderer.gameObject.layer)) == 0) continue;
                     renderer.forceRenderingOff = true;
                     hidden.Add(renderer);
@@ -94,11 +100,12 @@ namespace AnimalGame.RobotMap
             }
             finally
             {
-                terrain.sharedMaterial = original;
+                foreach (var pair in originals)
+                    if (pair.Key != null) pair.Key.sharedMaterial = pair.Value;
                 foreach (Renderer renderer in hidden)
                     if (renderer != null) renderer.forceRenderingOff = false;
                 RenderTexture.active = previousActive;
-                UnityEngine.Object.Destroy(material);
+                foreach (var material in temporaryMaterials) UnityEngine.Object.Destroy(material);
                 UnityEngine.Object.Destroy(cameraObject);
             }
         }

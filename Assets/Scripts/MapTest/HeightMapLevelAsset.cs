@@ -458,7 +458,7 @@ namespace AnimalGame.MapTest
                 // These test caches are regenerated locally and have no serialized GUID reference.
                 return path.StartsWith("Assets/Maps/TerrainGridV1/", StringComparison.Ordinal)
                     && path.EndsWith(".asset", StringComparison.Ordinal)
-                    ? path.Substring(0, path.Length - ".asset".Length) + "_HeightPrebake.asset"
+                    ? HeightMapAssetPaths.PrebakePath(path)
                     : null;
             }
         }

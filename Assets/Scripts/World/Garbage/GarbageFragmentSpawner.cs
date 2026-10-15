@@ -513,7 +513,7 @@ namespace AnimalGame.Garbage
             while (elapsed < fadeDuration)
             {
                 elapsed += Time.deltaTime;
-                if (!AnimalGame.Animals.AnimalSimulation.IsPaused)
+                if (Time.timeScale > 0f)
                     inheritedScanRemaining = Mathf.Max(0f, inheritedScanRemaining - Time.deltaTime);
                 float opacity = 1f - Mathf.Clamp01(elapsed / Mathf.Max(.001f, fadeDuration));
                 for (int i = 0; i < renderers.Length; i++)

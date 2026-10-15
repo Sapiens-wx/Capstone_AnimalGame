@@ -12,12 +12,19 @@ namespace AnimalGame.Editor
         [MenuItem(MenuPath)]
         private static void PrebakeSelectedLevel()
         {
+            TiledLevelAsset tiled = GetSelectedTiledLevel();
+            if (tiled != null)
+            {
+                if (!tiled.Validate(out string error)) throw new System.InvalidOperationException(error);
+                foreach (var tile in tiled.Tiles) Bake(tile.level, preserveAssetGuid: true);
+                return;
+            }
             HeightMapLevelAsset level = GetSelectedLevel();
             if (level == null)
             {
                 EditorUtility.DisplayDialog(
                     "Pre-Bake Height Map",
-                    "Select a HeightMapLevelAsset or a Map Test Controller with an assigned level asset.",
+                    "Select a tile MapData, TiledLevelAsset, or Map Test Controller.",
                     "OK");
                 return;
             }
@@ -28,7 +35,7 @@ namespace AnimalGame.Editor
         [MenuItem(MenuPath, true)]
         private static bool ValidatePrebakeSelectedLevel()
         {
-            return GetSelectedLevel() != null;
+            return GetSelectedLevel() != null || GetSelectedTiledLevel() != null;
         }
 
         private static HeightMapLevelAsset GetSelectedLevel()
@@ -36,11 +43,14 @@ namespace AnimalGame.Editor
             if (Selection.activeObject is HeightMapLevelAsset level)
                 return level;
 
-            if (Selection.activeGameObject == null)
-                return null;
+            return null;
+        }
 
-            MapTestSceneController controller = Selection.activeGameObject
-                .GetComponent<MapTestSceneController>();
+        private static TiledLevelAsset GetSelectedTiledLevel()
+        {
+            if (Selection.activeObject is TiledLevelAsset tiled) return tiled;
+            var controller = Selection.activeGameObject != null
+                ? Selection.activeGameObject.GetComponent<MapTestSceneController>() : null;
             return controller != null ? controller.LevelAsset : null;
         }
 
@@ -54,11 +64,9 @@ namespace AnimalGame.Editor
             }
 
             string levelPath = AssetDatabase.GetAssetPath(level);
-            string outputPath = Path.Combine(
-                    Path.GetDirectoryName(levelPath) ?? "Assets",
-                    Path.GetFileNameWithoutExtension(levelPath)
-                    + "_HeightPrebake.asset")
-                .Replace('\\', '/');
+            string outputPath = HeightMapAssetPaths.PrebakePath(levelPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+            AssetDatabase.Refresh();
 
             try
             {

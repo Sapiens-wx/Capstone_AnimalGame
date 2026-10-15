@@ -83,7 +83,7 @@ namespace AnimalGame.World
         private void TickReveal(float deltaTime)
         {
             if (!CanScan) { ClearReveal(); return; }
-            if (AnimalSimulation.IsPaused || revealRemaining <= 0f) return;
+            if (Time.timeScale <= 0f || revealRemaining <= 0f) return;
             float step = Mathf.Min(revealRemaining, Mathf.Max(0f, deltaTime));
             revealRemaining -= step;
             revealElapsed += step;

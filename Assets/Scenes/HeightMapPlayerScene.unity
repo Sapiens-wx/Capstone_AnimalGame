@@ -4626,7 +4626,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a11e9ca3a547c4bbd3a97b9854dd74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  levelAsset: {fileID: 11400000, guid: d3dbab9a072046ddb953f7aa427eb177, type: 2}
+  levelAsset: {fileID: 11400000, guid: f635f26878595214eb8a2fb79b286cb9, type: 2}
   heightMap: {fileID: 2800000, guid: 8b67fa9e7636ced418527687e79fd9a3, type: 3}
   mapWidthMeters: 250
   mapHeightMeters: 250

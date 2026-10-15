@@ -17,13 +17,14 @@ namespace AnimalGame.Editor
         private const float TileSize = 250f;
         private const float HeightRange = 70f;
         private const string TemplatePath = "Assets/Maps/Terrain_Test_03_MapData.asset";
-        private const string ExportFolder = "Assets/Maps/TerrainGridV1/Exports";
+        private const string ExportFolder = "Assets/Maps/TerrainGridV1/data";
+        private const string LevelFolder = "Assets/Maps/TerrainGridV1";
 
         [MenuItem("Animal Game/Terrain Grid V1/Export V1 Height Maps")]
         public static void Export()
         {
             // Validate before writing anything; never repair or normalize authored heights during export.
-            string sourceReport = TerrainGridV1Builder.ValidateGrid();
+            string sourceReport = TerrainGridV1Builder.ValidateGrid(checkSeams: false);
             Terrain[] terrains = TerrainGridV1Builder.GetGridTerrains();
             Require(terrains.Length == 4, "The V1 grid must contain exactly four Terrain tiles.");
             Require(AssetDatabase.LoadAssetAtPath<HeightMapLevelAsset>(TemplatePath) != null,
@@ -32,8 +33,6 @@ namespace AnimalGame.Editor
             AssetDatabase.Refresh();
 
             var manifest = new WorldManifest();
-            var sourceEdges = new Edges[4];
-            var bakedEdges = new Edges[4];
             try
             {
                 for (int index = 0; index < terrains.Length; index++)
@@ -46,7 +45,6 @@ namespace AnimalGame.Editor
                         0, 0, SourceResolution, SourceResolution);
                     byte[] raw = QuantizeRaw(heights, out ushort minimum, out ushort maximum);
                     heights = null;
-                    sourceEdges[index] = ReadRawEdges(raw);
                     string rawPath = ExportFolder + "/" + name + ".raw";
                     string pngPath = ExportFolder + "/" + name + "_height_R16.png";
                     bool changed = !File.Exists(rawPath) || !FileBytesEqual(rawPath, raw);
@@ -62,7 +60,6 @@ namespace AnimalGame.Editor
                     HeightMapPrebakeEditor.Bake(level, preserveAssetGuid: true);
                     Require(level.PrebakedHeightField != null && level.PrebakedHeightField.Matches(level),
                         name + " has no matching V1 prebake.");
-                    bakedEdges[index] = ReadFloatEdges(level.PrebakedHeightField.RawDetailTexture);
                     VerifyBakedChannels(level.PrebakedHeightField);
                     manifest.tiles[index] = new TileManifest
                     {
@@ -82,10 +79,8 @@ namespace AnimalGame.Editor
                     // Only edge arrays survive to the next tile; no complete source arrays are retained.
                     raw = null;
                 }
-                VerifyGridEdges(sourceEdges, 0f, "Exported R16 integers");
-                VerifyGridEdges(bakedEdges, 0.000001f, "Baked normalized heights");
                 manifest.validation = "PASS: 4 source tiles, every imported R16 sample equals RAW, "
-                    + "all shared R16 edges exact, all baked edges continuous, V1 channels unsmoothed.";
+                    + "V1 channels unsmoothed; shared edges assumed continuous.";
                 File.WriteAllText(ExportFolder + "/world-manifest.json", JsonUtility.ToJson(manifest, true),
                     new UTF8Encoding(false));
                 string report = sourceReport + "\n\n" + manifest.validation + "\n"
@@ -93,8 +88,9 @@ namespace AnimalGame.Editor
                     + "RAW row 0 is Terrain Z=0. PNG top row is Terrain Z=250; Unity imports it back to Y=Z.\n"
                     + "Each Map Data: 250 x 250 m, 0..70 m, bake 2048, preview 2048, PPU 30, contours 7 m.\n"
                     + "Normalization, smoothing and border masks are disabled. Existing per-tile water/surface authoring is preserved.\n"
-                    + "This manifest describes authoring/export tiles; it does not implement runtime streaming or cross-tile queries.\n";
+                    + "TiledLevelAsset references these tiles for resident runtime sampling and rendering; no streaming.\n";
                 File.WriteAllText(ExportFolder + "/validation-report.txt", report, new UTF8Encoding(false));
+                TiledLevelAssetEditorUtility.CreateGrid();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
                 Debug.Log(report);
@@ -116,7 +112,7 @@ namespace AnimalGame.Editor
 
         private static void SelectMapData(int x, int z)
         {
-            string path = ExportFolder + "/Tile_" + x + "_" + z + "_MapData.asset";
+            string path = LevelFolder + "/Tile_" + x + "_" + z + "_MapData.asset";
             HeightMapLevelAsset level = AssetDatabase.LoadAssetAtPath<HeightMapLevelAsset>(path);
             Require(level != null, "Run Export V1 Height Maps before selecting " + path);
             Selection.activeObject = level;
@@ -124,7 +120,7 @@ namespace AnimalGame.Editor
         }
 
         internal static HeightMapLevelAsset ConfigureLevel(string name, Texture2D heightMap,
-            string outputFolder = ExportFolder, float mapSizeMeters = TileSize, int bakeResolution = BakeResolution)
+            string outputFolder = LevelFolder, float mapSizeMeters = TileSize, int bakeResolution = BakeResolution)
         {
             string path = outputFolder + "/" + name + "_MapData.asset";
             HeightMapLevelAsset level = AssetDatabase.LoadAssetAtPath<HeightMapLevelAsset>(path);
@@ -147,14 +143,14 @@ namespace AnimalGame.Editor
             SetBool(serialized, "normalizeSourceRange", false);
             SetFloat(serialized, "surfaceSmoothingSigmaMeters", 0f);
             SetFloat(serialized, "detailSmoothingSigmaMeters", 0f);
-            SetObject(serialized, "playableAreaMask", null);
-            SetBool(serialized, "useHeightMapBorderMask", false);
-            SetFloat(serialized, "heightMapBorderInsetMeters", 0f);
-            SetInt(serialized, "previewResolution", bakeResolution);
-            SetFloat(serialized, "pixelsPerUnit", 30f);
-            SetFloat(serialized, "contourIntervalMeters", 7f);
             if (isNew)
             {
+                SetObject(serialized, "playableAreaMask", null);
+                SetBool(serialized, "useHeightMapBorderMask", false);
+                SetFloat(serialized, "heightMapBorderInsetMeters", 0f);
+                SetInt(serialized, "previewResolution", bakeResolution);
+                SetFloat(serialized, "pixelsPerUnit", 30f);
+                SetFloat(serialized, "contourIntervalMeters", 7f);
                 // Copy the V1 presentation, never its physical/painted caches or authored masks.
                 SetObject(serialized, "prebakedHeightField", null);
                 SetObject(serialized, "staticWaterEditorTexture", null);

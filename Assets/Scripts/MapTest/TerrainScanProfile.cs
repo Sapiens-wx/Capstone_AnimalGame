@@ -34,8 +34,8 @@ namespace AnimalGame.MapTest
     /// O(1) memory; no DDA or per-height-field-pixel traversal.</summary>
     public struct TerrainScanProfile
     {
-        private BakedHeightField field;
-        private Vector2 originUv, targetUv;
+        private IMapHeightSource field;
+        private Vector2 originPosition, targetPosition;
         private TerrainScanPeakState peaks;
         public int SampleCount { get; private set; }
         public int SamplesRead { get; private set; }
@@ -44,31 +44,27 @@ namespace AnimalGame.MapTest
         public bool Blocked => peaks.Blocked;
         public bool Clear => Complete && !InvalidMap && !Blocked;
 
-        // SampleCount counts positions after O, including P. O is always read
-        // separately, so count=1 still checks both endpoints.
-        public TerrainScanProfile(BakedHeightField heightField, Vector2 origin,
+        public TerrainScanProfile(IMapHeightSource source, Vector2 origin,
             Vector2 target, float interval, int sampleCount) : this()
         {
-            field = heightField;
+            field = source;
+            originPosition = origin;
+            targetPosition = target;
             SampleCount = Math.Max(1, sampleCount);
-            originUv = new Vector2(origin.x / field.MapSizeMeters.x, origin.y / field.MapSizeMeters.y);
-            targetUv = new Vector2(target.x / field.MapSizeMeters.x, target.y / field.MapSizeMeters.y);
-            InvalidMap = !InBounds(originUv) || !InBounds(targetUv)
-                || !field.IsPlayable(originUv) || !field.IsPlayable(targetUv);
+            float originHeight = 0;
+            InvalidMap = source == null || !source.TrySample(origin, out originHeight) || !source.TrySample(target, out _);
             if (InvalidMap) { Complete = true; return; }
-            peaks = new TerrainScanPeakState(field.SampleSurfaceHeight(originUv), interval);
+            peaks = new TerrainScanPeakState(originHeight, interval);
             Complete = origin == target;
         }
-
-        private static bool InBounds(Vector2 uv) => uv.x >= 0f && uv.x <= 1f && uv.y >= 0f && uv.y <= 1f;
 
         public void Step()
         {
             if (Complete) return;
             SamplesRead++;
-            Vector2 uv = Vector2.Lerp(originUv, targetUv, (float)SamplesRead / SampleCount);
-            if (!field.IsPlayable(uv)) InvalidMap = true;
-            else peaks.Add(field.SampleSurfaceHeight(uv));
+            Vector2 position = Vector2.Lerp(originPosition, targetPosition, (float)SamplesRead / SampleCount);
+            if (!field.TrySample(position, out float height)) InvalidMap = true;
+            else peaks.Add(height);
             Complete = InvalidMap || Blocked || SamplesRead >= SampleCount;
         }
     }

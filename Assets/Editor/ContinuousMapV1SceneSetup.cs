@@ -14,22 +14,22 @@ using UnityEngine.SceneManagement;
 
 namespace AnimalGame.Editor
 {
-    /// <summary>Deploys the joined V1 terrain into its independent player test scene.</summary>
+    /// <summary>Deploys the tiled V1 terrain into its independent player test scene.</summary>
     public static class ContinuousMapV1SceneSetup
     {
         public const string ScenePath = "Assets/Scenes/ContinousMapTestScene.unity";
-        public const string LevelPath = "Assets/Maps/TerrainGridV1/Combined/Combined_500m_MapData.asset";
+        public const string LevelPath = "Assets/Maps/TerrainGridV1/TerrainGridV1_TiledLevel.asset";
         private const string TemplateScenePath = "Assets/Scenes/TerrainHeightMapTestScene.unity";
         private const string RootName = "Continuous V1 Height Map Test";
         private const string ReportFolder = "Temp/ContinuousMapV1";
         private static readonly Vector2 InitialSpawn = new Vector2(250f, 100f);
 
-        [MenuItem("Animal Game/Terrain Grid V1/Deploy Combined Map to ContinousMapTestScene")]
+        [MenuItem("Animal Game/Terrain Grid V1/Deploy Tiled Map to ContinousMapTestScene")]
         public static void Deploy()
         {
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Exit Play mode before deploying the test scene.");
             Scene target = RequireScene();
-            HeightMapLevelAsset level = LoadLevel();
+            TiledLevelAsset level = LoadLevel();
             RequirePlayerResources();
             GameObject root = target.GetRootGameObjects().SingleOrDefault(obj => obj.name == RootName);
             Require(Components<MapTestSceneController>(target).All(map => root != null && map.transform.IsChildOf(root.transform)),
@@ -72,8 +72,8 @@ namespace AnimalGame.Editor
                 root.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
                 root.transform.localScale = Vector3.one;
 
-                var map = GetOrCreate<MapTestSceneController>(root, "Combined 500m V1 Height Map");
-                Undo.RecordObject(map, "Configure combined V1 map");
+                var map = GetOrCreate<MapTestSceneController>(root, "Tiled 500m V1 Height Map");
+                Undo.RecordObject(map, "Configure tiled V1 map");
                 EditorUtility.CopySerialized(sourceMap, map);
                 var mapSettings = new SerializedObject(map);
                 mapSettings.FindProperty("levelAsset").objectReferenceValue = level;
@@ -134,7 +134,7 @@ namespace AnimalGame.Editor
         public static void Validate()
         {
             Scene scene = RequireScene();
-            HeightMapLevelAsset level = LoadLevel();
+            TiledLevelAsset level = LoadLevel();
             MapTestSceneController[] maps = Components<MapTestSceneController>(scene);
             HeightMapPlayerSceneBootstrap[] bootstraps = Components<HeightMapPlayerSceneBootstrap>(scene);
             EventSystem[] eventSystems = Components<EventSystem>(scene);
@@ -144,14 +144,14 @@ namespace AnimalGame.Editor
                 && eventSystems[0].GetComponent<StandaloneInputModule>() != null, "Expected one complete EventSystem.");
             var map = maps[0];
             var bootstrap = bootstraps[0];
-            Require(map.LevelAsset == level && map.MapSizeMeters == new Vector2(500f, 500f), "Incorrect combined map assignment.");
+            Require(map.LevelAsset == level && map.MapSizeMeters == new Vector2(500f, 500f), "Incorrect tiled map assignment.");
             Require(map.transform.lossyScale == Vector3.one && Quaternion.Angle(map.transform.rotation, Quaternion.identity) < 0.001f,
                 "The V1 world scale requires an unrotated, unit-scale map.");
-            float expectedWorldSize = level.PreviewResolution / level.PixelsPerUnit;
+            float expectedWorldSize = level.MapSizeMeters.x * level.WorldUnitsPerMeter.x;
             Require(Mathf.Abs(map.WorldBounds.size.x - expectedWorldSize) < 0.001f
                 && Mathf.Abs(map.WorldBounds.size.y - expectedWorldSize) < 0.001f, "Rendered map scale changed.");
             Require(Mathf.Abs(map.MapMetersToWorldDistance(Vector2.right, 1f) - 2048f / 30f / 250f) < 0.00001f,
-                "The combined world does not preserve V1 world units per logical meter.");
+                "The tiled world does not preserve V1 world units per logical meter.");
             bool spawnPlayable = map.TrySampleMapPosition(InitialSpawn, out float spawnHeight);
             Require(bootstrap.PlayerSpawnMapPositionMeters == InitialSpawn && spawnPlayable,
                 "The initial spawn has no playable height data.");
@@ -159,12 +159,12 @@ namespace AnimalGame.Editor
             var report = new StringBuilder();
             report.AppendLine($"PASS: ContinousMapTestScene ({(Application.isPlaying ? "Play" : "Edit")})");
             report.AppendLine($"Independent level: {LevelPath}");
-            report.AppendLine("Logical size: 500 x 500 m; source: 4097 R16; runtime bake / preview: 4096; PPU: 30.");
+            report.AppendLine("Logical size: 500 x 500 m; four sources: 2049 R16; per-tile runtime bake / preview: 2048; PPU: 30.");
             report.AppendLine($"World size: {map.WorldBounds.size.x:F6} x {map.WorldBounds.size.y:F6}; V1 scale: {expectedWorldSize / 500f:F9} world units per meter.");
             report.AppendLine($"Spawn: {InitialSpawn}; editor/runtime sampled height: {spawnHeight:F6} m.");
             report.AppendLine("The original Resources robot, traversal, camera and scan prefabs are used without modifying their settings.");
-            HeightMapPrebakedData localCache = level.PrebakedHeightField;
-            bool hasMatchingCache = localCache != null && localCache.Matches(level);
+            HeightMapPrebakedData localCache = level.Presentation.PrebakedHeightField;
+            bool hasMatchingCache = localCache != null && localCache.Matches(level.Presentation);
             report.AppendLine(hasMatchingCache
                 ? "Height data: matching local prebake cache available."
                 : "Height data: no matching local cache; Play rebuilds from the source PNG.");
@@ -177,10 +177,10 @@ namespace AnimalGame.Editor
                 Require(bootstrap.map == map && bootstrap.mapCamera != null && bootstrap.cameraFollow != null
                     && bootstrap.scanOverlay != null && bootstrap.scanChargeUi != null && bootstrap.mainUiCanvas != null,
                     "The original follow camera, gameplay UI or terrain scan wiring did not initialize.");
-                Require(map.HeightField.Width == 4096 && map.HeightField.Height == 4096,
-                    "Runtime did not create the full combined height field.");
+                Require(map.RuntimeMap.TileCount == 4 && map.RuntimeMap.Tiles.All(tile => tile.Field.Width == 2048 && tile.Field.Height == 2048),
+                    "Runtime did not create four independent 2048 height fields.");
                 if (hasMatchingCache)
-                    Require(map.HeightField.SurfaceTexture == localCache.SurfaceTexture,
+                    Require(map.RuntimeMap.Tiles.First(tile => tile.Level == level.Presentation).Field.SurfaceTexture == localCache.SurfaceTexture,
                         "Runtime did not load the matching local prebake.");
                 Require(Components<RobotMover>(scene).Length == 1, "Expected one runtime robot.");
                 Require(Components<Camera>(scene).Count(camera => camera.enabled && camera.gameObject.activeInHierarchy) == 1,
@@ -188,7 +188,7 @@ namespace AnimalGame.Editor
                 Require(bootstrap.cameraShake != null
                     && Mathf.Abs(bootstrap.cameraShake.BaseOrthographicSize - resourceCamera.orthographicSize) < 0.001f,
                     "The camera base size differs from the original V1 camera prefab.");
-                Require(bootstrap.mapCamera.backgroundColor == level.BackgroundColor, "Gameplay background differs from the level.");
+                Require(bootstrap.mapCamera.backgroundColor == level.Presentation.BackgroundColor, "Gameplay background differs from the level.");
                 var cameraData = bootstrap.mapCamera.GetComponent<UniversalAdditionalCameraData>();
                 Require(cameraData != null && cameraData.scriptableRenderer.GetType().Name == "Renderer2D",
                     "The gameplay camera is not using the original 2D renderer.");
@@ -214,21 +214,11 @@ namespace AnimalGame.Editor
             Debug.Log(report.ToString(), map);
         }
 
-        private static HeightMapLevelAsset LoadLevel()
+        private static TiledLevelAsset LoadLevel()
         {
-            var level = AssetDatabase.LoadAssetAtPath<HeightMapLevelAsset>(LevelPath);
-            Require(level != null && level.IsValid, "Export the combined 500 m MapData before deploying this scene.");
-            Require(level.MapSizeMeters == new Vector2(500f, 500f) && level.MinimumHeightMeters == 0f
-                && level.MaximumHeightMeters == 70f && level.BakedHeightResolution == 4096
-                && level.PreviewResolution == 4096 && level.PixelsPerUnit == 30f && level.ContourIntervalMeters == 7f,
-                "The combined level does not preserve the planned V1 scale and precision.");
-            Require(!level.NormalizeSourceRange && level.SurfaceSmoothingSigmaMeters == 0f
-                && level.DetailSmoothingSigmaMeters == 0f && !level.UseHeightMapBorderMask, "Combined heights must not be normalized or smoothed again.");
-            Require(level.HeightMap.format == TextureFormat.R16 && level.HeightMap.isReadable
-                && level.HeightMap.width == 4097 && level.HeightMap.height == 4097, "Expected a readable 4097 x 4097 R16 source.");
-            Require(level.LowHeightColor == Color.black && level.MiddleHeightColor == Color.black && level.HighHeightColor == Color.black
-                && level.BackgroundColor.r < 0.02f && level.BackgroundColor.g < 0.02f && level.BackgroundColor.b < 0.02f,
-                "The combined level should retain the original black terrain/background style.");
+            var level = AssetDatabase.LoadAssetAtPath<TiledLevelAsset>(LevelPath);
+            Require(level != null && level.IsValid, "Export the tiled V1 level before deploying this scene.");
+            Require(level.MapSizeMeters == new Vector2(500, 500) && level.Tiles.Count == 4, "Expected four V1 tiles.");
             return level;
         }
 
@@ -251,6 +241,8 @@ namespace AnimalGame.Editor
             Require(existing.Length <= 1, "The managed root contains duplicated " + typeof(T).Name + " components.");
             if (existing.Length == 1)
             {
+                Undo.RecordObject(existing[0].gameObject, "Name tiled map object");
+                existing[0].gameObject.name = objectName;
                 existing[0].gameObject.SetActive(true);
                 return existing[0];
             }

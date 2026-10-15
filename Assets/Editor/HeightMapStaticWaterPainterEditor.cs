@@ -9,7 +9,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private const float DefaultBrushRadiusMeters = 8f;
     private const int BrushOutlineSegments = 64;
     private const string DefaultWaterTexturePath =
-        "Assets/Arts/Textures/Texture_Water.png";
+        "Assets/Maps/MainHeightMapLevel/data/Texture_Water.png";
     private const string PreviewShaderName =
         "Hidden/AnimalGame/StaticWaterEditorPreview";
 
@@ -439,7 +439,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             return false;
 
         Vector3 world = ray.GetPoint(distance);
-        return mapController.TrySampleWorldPosition(
+        return TrySampleTilePosition(
             (Vector2)world,
             out mapPosition,
             out _);
@@ -455,7 +455,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             Vector2 mapPoint = centreMapPosition + new Vector2(
                 Mathf.Cos(angle),
                 Mathf.Sin(angle)) * brushRadiusMeters;
-            points[index] = mapController.MapPositionToWorld(mapPoint);
+            points[index] = TilePositionToWorld(mapPoint);
             points[index].z -= 0.08f;
         }
 
@@ -471,7 +471,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             : paintMode == StaticWaterDepthPaintMode.Set
                 ? $"Set {targetDepthMeters:0.00} m"
                 : paintMode.ToString();
-        Vector3 labelPosition = mapController.MapPositionToWorld(
+        Vector3 labelPosition = TilePositionToWorld(
             centreMapPosition + Vector2.up * brushRadiusMeters);
         labelPosition.z -= 0.09f;
         Handles.Label(labelPosition, label, EditorStyles.miniBoldLabel);
@@ -708,12 +708,12 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         if (previewMesh == null || mapController == null)
             return;
 
-        Vector3 bottomLeft = mapController.MapPositionToWorld(Vector2.zero);
-        Vector3 bottomRight = mapController.MapPositionToWorld(
+        Vector3 bottomLeft = TilePositionToWorld(Vector2.zero);
+        Vector3 bottomRight = TilePositionToWorld(
             new Vector2(levelAsset.MapSizeMeters.x, 0f));
-        Vector3 topLeft = mapController.MapPositionToWorld(
+        Vector3 topLeft = TilePositionToWorld(
             new Vector2(0f, levelAsset.MapSizeMeters.y));
-        Vector3 topRight = mapController.MapPositionToWorld(
+        Vector3 topRight = TilePositionToWorld(
             levelAsset.MapSizeMeters);
         bottomLeft.z -= 0.04f;
         bottomRight.z -= 0.04f;
@@ -835,14 +835,14 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             : null;
         if (selectedMap != null)
         {
-            SetLevelAsset(selectedMap.LevelAsset);
+            SetLevelAsset(selectedMap.LevelAsset != null && selectedMap.LevelAsset.Tiles.Count == 1 ? selectedMap.LevelAsset.Tiles[0].level : null);
             return;
         }
 
         MapTestSceneController[] openMaps =
             Object.FindObjectsByType<MapTestSceneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (openMaps.Length > 0)
-            SetLevelAsset(openMaps[0].LevelAsset);
+            SetLevelAsset(openMaps[0].LevelAsset != null && openMaps[0].LevelAsset.Tiles.Count == 1 ? openMaps[0].LevelAsset.Tiles[0].level : null);
     }
 
     private void SetLevelAsset(HeightMapLevelAsset asset)
@@ -872,6 +872,23 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         SceneView.RepaintAll();
     }
 
+    private Vector3 TilePositionToWorld(Vector2 position)
+    {
+        mapController.TryGetTileOrigin(levelAsset, out var origin);
+        return mapController.MapPositionToWorld(origin + position);
+    }
+
+    private bool TrySampleTilePosition(Vector2 world, out Vector2 local, out float height)
+    {
+        local = default;
+        height = 0;
+        if (!mapController.TrySampleWorldPosition(world, out var global, out height)
+            || !mapController.TryGetTileOrigin(levelAsset, out var origin)) return false;
+        local = global - origin;
+        return local.x >= 0 && local.y >= 0
+            && local.x <= levelAsset.MapSizeMeters.x && local.y <= levelAsset.MapSizeMeters.y;
+    }
+
     private void ResolveSceneMap()
     {
         MapTestSceneController previousMap = mapController;
@@ -884,7 +901,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             {
                 if (candidate != null
                     && !EditorUtility.IsPersistent(candidate)
-                    && candidate.LevelAsset == levelAsset)
+                    && candidate.ContainsLevel(levelAsset))
                 {
                     mapController = candidate;
                     break;
@@ -952,7 +969,9 @@ internal static class HeightMapStaticWaterMaskBaker
             output.SetPixels32(pixels);
             output.Apply(false, false);
 
-            string directory = Path.GetDirectoryName(levelPath);
+            string directory = HeightMapAssetPaths.DataDirectory(levelPath);
+            Directory.CreateDirectory(directory);
+            AssetDatabase.Refresh();
             string fileName = Path.GetFileNameWithoutExtension(levelPath)
                               + "_WaterMask.png";
             string outputPath = Path.Combine(directory ?? "Assets", fileName)

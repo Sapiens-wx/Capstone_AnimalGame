@@ -1,0 +1,8 @@
+PASS: V1 grid structure validated. Authored edges assumed continuous.
+
+PASS: 4 source tiles, every imported R16 sample equals RAW, V1 channels unsmoothed; shared edges assumed continuous.
+Source: 2049 x 2049, unsigned 16-bit little-endian RAW; PNG: grayscale 16-bit.
+RAW row 0 is Terrain Z=0. PNG top row is Terrain Z=250; Unity imports it back to Y=Z.
+Each Map Data: 250 x 250 m, 0..70 m, bake 2048, preview 2048, PPU 30, contours 7 m.
+Normalization, smoothing and border masks are disabled. Existing per-tile water/surface authoring is preserved.
+TiledLevelAsset references these tiles for resident runtime sampling and rendering; no streaming.

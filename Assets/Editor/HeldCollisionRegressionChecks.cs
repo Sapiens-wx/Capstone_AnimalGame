@@ -204,9 +204,7 @@ namespace AnimalGame.Editor
                 try
                 {
                     mapRoot.transform.localScale = new Vector3(2, 3, 1);
-                    SpriteRenderer renderer = mapRoot.AddComponent<SpriteRenderer>(); renderer.sprite = sprite;
-                    Set(map, "heightField", BakedHeightField.Bake(texture, 64, Vector2.one * 10, 0, 1, false, 0));
-                    Set(map, "mapRenderer", renderer); Set(map, "mapWidthMeters", 10f); Set(map, "mapHeightMeters", 10f);
+                    using var tiledFixture = new TiledMapTestFixture(map, texture, 10, 1);
                     Require(map.HasGeneratedMap, "Map fixture unavailable");
                     foreach (Vector2 direction in new[] { Vector2.up, Vector2.right })
                     {

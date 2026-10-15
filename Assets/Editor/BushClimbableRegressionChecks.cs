@@ -702,6 +702,7 @@ namespace AnimalGame.Editor
 
         private sealed class Fixture : IDisposable
         {
+            private readonly List<TiledMapTestFixture> tiledFixtures = new List<TiledMapTestFixture>();
             public readonly Scene Scene = EditorSceneManager.NewPreviewScene();
             private readonly List<WorldInteraction> scratch = new();
             private readonly List<Object> assets = new();
@@ -730,15 +731,12 @@ namespace AnimalGame.Editor
                 map.enabled = false;
                 Texture2D texture = Own(new Texture2D(2, 2));
                 texture.SetPixels(new[] { Color.gray, Color.gray, Color.gray, Color.gray }); texture.Apply();
-                Sprite sprite = Own(Sprite.Create(texture, new Rect(0, 0, 2, 2), Vector2.one * .5f, .2f / worldUnitsPerMetre));
-                SpriteRenderer renderer = root.AddComponent<SpriteRenderer>(); renderer.sprite = sprite;
-                Set(map, "heightField", BakedHeightField.Bake(texture, 64, Vector2.one * 10f, 0f, 1f, false, 0f));
-                Set(map, "mapRenderer", renderer); Set(map, "mapWidthMeters", 10f); Set(map, "mapHeightMeters", 10f);
-                Require(map.TrySampleWorldPosition(Vector2.zero, out _, out _), "Sight test map did not initialize");
+                tiledFixtures.Add(new TiledMapTestFixture(map, texture, 10, worldUnitsPerMetre));
                 return map;
             }
             public void Dispose()
             {
+                foreach (var fixture in tiledFixtures) fixture.Dispose();
                 EditorSceneManager.ClosePreviewScene(Scene);
                 foreach (Object asset in assets) if (asset != null) Object.DestroyImmediate(asset);
             }

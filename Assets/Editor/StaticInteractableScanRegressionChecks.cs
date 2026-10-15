@@ -180,11 +180,14 @@ namespace AnimalGame.Editor
                 source.Reveal();
                 Tick(source, 3f);
                 RequireNear(source.RevealRemaining, 4f, "A scan must count down from seven seconds.");
-                using (AnimalSimulation.AcquirePause())
+                float previousTimeScale = Time.timeScale;
+                try
                 {
+                    Time.timeScale = 0;
                     Tick(source, 1f);
                     RequireNear(source.RevealRemaining, 4f, "Simulation pause must freeze static scan lifetime.");
                 }
+                finally { Time.timeScale = previousTimeScale; }
                 ScannableInteractable fragment = f.Target(Vector2.right * 4f);
                 fragment.InheritScanFrom(source);
                 RequireNear(fragment.RevealRemaining, 4f,
