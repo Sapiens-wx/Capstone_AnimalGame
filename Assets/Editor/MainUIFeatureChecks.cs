@@ -92,7 +92,7 @@ namespace AnimalGame.Editor
         private static void CheckSound(VisualElement root, Hud hud)
         {
             var sound = root.Q<SoundElement>("Sound");
-            Assert(sound != null && sound.chamfer == 36, "Sound imports its chamfer attribute");
+            Assert(sound != null && sound.lineLength == 72, "Sound imports its line length attribute");
             var time = root.Q("Time");
             foreach (Vector2 size in new[] { new Vector2(1280, 720), new Vector2(1440, 1080), new Vector2(2560, 1080), new Vector2(1920, 1080) })
             {
@@ -166,14 +166,20 @@ namespace AnimalGame.Editor
         {
             var inner = root.Q<ViewRingElement>("InnerRing");
             var outer = root.Q<ViewRingElement>("OuterRing");
-            Assert(outer.Radius > inner.Radius && outer.tickLength > outer.Radius - inner.Radius,
-                "Triangles reach across the inner ring");
-            // At the top axis the triangle's black interior must erase the previously drawn inner circle.
-            Vector2 point = inner.LocalToWorld(inner.contentRect.center + Vector2.up * -inner.Radius);
+            Assert(Mathf.Approximately(outer.Radius - inner.Radius, outer.fillInset),
+                "Black annulus spans the inner and outer circles");
+            // Sample between ticks and borders: the annulus is black, the view stays visible.
             var previous = RenderTexture.active; RenderTexture.active = target;
             var pixel = new Texture2D(1, 1, TextureFormat.RGB24, false);
-            pixel.ReadPixels(new Rect(Mathf.Round(point.x), target.height - Mathf.Round(point.y), 1, 1), 0, 0); pixel.Apply();
-            Assert(pixel.GetPixel(0, 0).maxColorComponent < .1f, "Triangle black fill occludes inner ring");
+            foreach (bool inAnnulus in new[] { true, false })
+            {
+                float radius = inAnnulus ? outer.Radius - outer.fillInset * .5f : inner.Radius - 40;
+                Vector2 point = outer.LocalToWorld(outer.contentRect.center + new Vector2(Mathf.Cos(15 * Mathf.Deg2Rad), Mathf.Sin(15 * Mathf.Deg2Rad)) * radius);
+                pixel.ReadPixels(new Rect(Mathf.Round(point.x), target.height - Mathf.Round(point.y), 1, 1), 0, 0); pixel.Apply();
+                float brightness = pixel.GetPixel(0, 0).maxColorComponent;
+                Assert(inAnnulus ? brightness < .02f : brightness > .02f,
+                    inAnnulus ? "Annulus fills black" : "View interior remains transparent");
+            }
             Object.DestroyImmediate(pixel); RenderTexture.active = previous;
         }
 

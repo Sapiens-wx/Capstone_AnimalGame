@@ -3,23 +3,20 @@ using UnityEngine.UIElements;
 
 namespace AnimalGame.MainUI
 {
-    /// <summary>Centered tilt readout with rotating long/short segments on each side.</summary>
+    /// <summary>Centered tilt readout with one rotating line on each side.</summary>
     [UxmlElement]
     public partial class LevelIndicatorElement : VisualElement
     {
         private readonly Label readout;
         private float widthValue = 2, lengthValue = 360, heightValue = 180;
-        private float centerMarginValue = 64, lineMarginValue = 12, lineRatioValue = 2;
+        private float centerMarginValue = 64;
         private float degreeValue;
 
         [UxmlAttribute] public float width { get => widthValue; set => SetDimension(ref widthValue, value); }
         [UxmlAttribute] public float length { get => lengthValue; set => SetDimension(ref lengthValue, value); }
         [UxmlAttribute] public float height { get => heightValue; set => SetDimension(ref heightValue, value); }
-        /// <summary>Total gap between the two inner segments, across the readout.</summary>
+        /// <summary>Total gap between the two lines, across the readout.</summary>
         [UxmlAttribute] public float centerMargin { get => centerMarginValue; set => SetDimension(ref centerMarginValue, value); }
-        [UxmlAttribute] public float lineMargin { get => lineMarginValue; set => SetDimension(ref lineMarginValue, value); }
-        /// <summary>Length of the outer long segment divided by the inner short segment.</summary>
-        [UxmlAttribute] public float lineRatio { get => lineRatioValue; set => SetDimension(ref lineRatioValue, value, 1); }
         [UxmlAttribute] public float degree { get => degreeValue; set => SetDegree(value); }
 
         public LevelIndicatorElement()
@@ -33,7 +30,7 @@ namespace AnimalGame.MainUI
             readout.style.marginTop = readout.style.marginBottom = 0;
             readout.style.paddingLeft = readout.style.paddingRight = 0;
             readout.style.paddingTop = readout.style.paddingBottom = 0;
-            readout.style.fontSize = 20;
+            readout.style.fontSize = 22;
             readout.style.unityFontStyleAndWeight=FontStyle.Bold;
             Add(readout);
             RegisterCallback<GeometryChangedEvent>(_ => CenterReadout());
@@ -48,21 +45,6 @@ namespace AnimalGame.MainUI
             degreeValue = value;
             readout.text = Mathf.RoundToInt(value) + "\u00b0";
             MarkDirtyRepaint();
-        }
-
-        /// <summary>Signed balance: positive is right/forward, negative is left/backward; absolute 1 is the support boundary.</summary>
-        public void SetBalance(float signedMagnitude, bool tippedOver = false)
-        {
-            signedMagnitude = Finite(signedMagnitude) ? signedMagnitude : 0;
-            SetDegree(tippedOver ? (signedMagnitude < 0 ? -90 : 90) : Mathf.Clamp(signedMagnitude, -1, 1) * 90);
-        }
-
-        /// <summary>The dominant local axis determines the sign; ties prefer right/left (x).</summary>
-        public void SetBalance(Vector2 localOffset, bool tippedOver = false)
-        {
-            if (!Finite(localOffset.x) || !Finite(localOffset.y)) localOffset = Vector2.zero;
-            float axis = Mathf.Abs(localOffset.x) >= Mathf.Abs(localOffset.y) ? localOffset.x : localOffset.y;
-            SetBalance(localOffset.magnitude * (axis < 0 ? -1 : 1), tippedOver);
         }
 
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
@@ -90,9 +72,7 @@ namespace AnimalGame.MainUI
             float span = Mathf.Lerp(length, height, 1 - Mathf.Pow(1 - degreeNormalized, 3));
             float half = span * .5f;
             float inner = Mathf.Min(centerMargin * .5f, half);
-            float gap = Mathf.Min(Mathf.Lerp(lineMargin, 0, degreeNormalized), half - inner);
-            float shortLength = (half - inner - gap) / (lineRatio + 1);
-            if (width <= 0 || shortLength <= 0) return;
+            if (width <= 0 || half <= inner) return;
 
             Painter2D painter = context.painter2D;
             painter.strokeColor = resolvedStyle.color;
@@ -103,8 +83,7 @@ namespace AnimalGame.MainUI
             for (int sign = -1; sign <= 1; sign += 2)
             {
                 Vector2 axis = direction * sign;
-                HudDrawing.Line(painter, center + axis * inner, center + axis * (inner + shortLength));
-                HudDrawing.Line(painter, center + axis * (inner + shortLength + gap), center + axis * half);
+                HudDrawing.Line(painter, center + axis * inner, center + axis * half);
             }
         }
     }

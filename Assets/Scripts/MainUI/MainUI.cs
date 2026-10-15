@@ -24,8 +24,8 @@ namespace AnimalGame.MainUI
         [SerializeField, Range(0, 1)] private float power = 1;
         [SerializeField, Range(0, 1)] private float integrity = 1;
         [Header("Level indicator")]
-        [Tooltip("Optional player balance source. When unset, uses the scene bootstrap's player balance.")]
-        [SerializeField] private RobotBalanceController balanceSource;
+        [Tooltip("Optional terrain slope source. When unset, uses the scene bootstrap robot.")]
+        [SerializeField] private RobotMover slopeSource;
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
         [SerializeField] private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -52,9 +52,9 @@ namespace AnimalGame.MainUI
         private InventorySelectionElement selection;
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
         private readonly Button[] slots = new Button[SlotCount];
-        private bool started, inventoryOpen, pauseOwned, originalCursor, downLatched, hasGeometry;
+        private bool started, inventoryOpen, pauseOwned, originalCursor, openHoldLatched, hasGeometry;
         private CursorLockMode originalCursorLock;
-        private float progress, savedTimeScale, downElapsed, fit = 1, photoScale = 1, photoAlpha = 1;
+        private float progress, savedTimeScale, openHoldElapsed, fit = 1, photoScale = 1, photoAlpha = 1;
         private float lastPower = -1, lastIntegrity = -1;
         private float headingDegrees;
         private float outerRingHeadingDegrees;
@@ -224,14 +224,11 @@ namespace AnimalGame.MainUI
         private void UpdateLevelIndicator()
         {
             if (levelIndicator == null) return;
-            RobotBalanceController balance = balanceSource;
-            if (balance == null && HeightMapPlayerSceneBootstrap.inst != null)
-                balance = HeightMapPlayerSceneBootstrap.inst.balance;
-            // Authored degree is only a preview; gameplay always follows the player's live balance.
-            bool tippedOver = balance != null && balance.IsTippedOver;
-            Vector2 localOffset = balance == null ? Vector2.zero
-                : tippedOver ? balance.CurrentTipOver.LocalDirection : balance.CurrentState.NormalizedLocalOffset;
-            levelIndicator.SetBalance(localOffset, tippedOver);
+            RobotMover robot = slopeSource;
+            if (robot == null && HeightMapPlayerSceneBootstrap.inst != null)
+                robot = HeightMapPlayerSceneBootstrap.inst.robot;
+            levelIndicator.SetDegree(robot != null && robot.CurrentTraversalResult.HasData
+                ? robot.CurrentTraversalResult.SignedSlopeAngle : 0);
         }
 
         private void AdvanceInventoryAnimation(float deltaTime)
@@ -431,7 +428,7 @@ namespace AnimalGame.MainUI
 
         private void HandleInput()
         {
-            bool toggle = false, close = false, heldDown = false;
+            bool toggle = false, close = false, heldOpen = false;
             Vector2Int navigation = Vector2Int.zero;
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null)
@@ -445,7 +442,7 @@ namespace AnimalGame.MainUI
             foreach (Gamepad pad in Gamepad.all)
             {
                 if (!pad.added) continue;
-                heldDown |= pad.dpad.down.isPressed;
+                heldOpen |= pad.dpad.right.isPressed;
                 close |= pad.buttonEast.wasPressedThisFrame;
                 if (pad.dpad.left.wasPressedThisFrame) navigation.x = -1;
                 if (pad.dpad.right.wasPressedThisFrame) navigation.x = 1;
@@ -467,11 +464,11 @@ namespace AnimalGame.MainUI
 #endif
             if (toggle) ToggleInventory();
             if (close && inventoryOpen) CloseInventory();
-            if (!heldDown) { downElapsed = 0; downLatched = false; }
-            else if (!inventoryOpen && !downLatched)
+            if (!heldOpen) { openHoldElapsed = 0; openHoldLatched = false; }
+            else if (!inventoryOpen && !openHoldLatched)
             {
-                downElapsed += Time.unscaledDeltaTime;
-                if (downElapsed >= gamepadOpenHoldSeconds) { downLatched = true; OpenInventory(); }
+                openHoldElapsed += Time.unscaledDeltaTime;
+                if (openHoldElapsed >= gamepadOpenHoldSeconds) { openHoldLatched = true; OpenInventory(); }
             }
             if (!inventoryOpen || progress < .98f || navigation == Vector2Int.zero) return;
             int column = Mathf.Clamp(selectedIndex % 2 + navigation.x, 0, 1);
@@ -482,6 +479,7 @@ namespace AnimalGame.MainUI
         private void OnDisable()
         {
             inventoryOpen = false; progress = 0;
+            openHoldElapsed = 0; openHoldLatched = false;
             ReleasePause();
             if (Active == this) Active = null;
         }

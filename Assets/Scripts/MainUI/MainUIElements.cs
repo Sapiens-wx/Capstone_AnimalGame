@@ -50,6 +50,34 @@ namespace AnimalGame.MainUI
     }
 
     [UxmlElement]
+    public partial class ViewRingGroupElement : VisualElement
+    {
+        private float lineWidthValue = 2;
+        /// <summary>Shared stroke width for both rings and their ticks.</summary>
+        [UxmlAttribute]
+        public float lineWidth
+        {
+            get => lineWidthValue;
+            set
+            {
+                lineWidthValue = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                ApplyLineWidth();
+            }
+        }
+
+        public ViewRingGroupElement()
+        {
+            pickingMode = PickingMode.Ignore;
+            RegisterCallback<AttachToPanelEvent>(_ => ApplyLineWidth(), TrickleDown.TrickleDown);
+        }
+
+        private void ApplyLineWidth()
+        {
+            this.Query<ViewRingElement>().ForEach(ring => ring.lineWidth = lineWidth);
+        }
+    }
+
+    [UxmlElement]
     public partial class ViewRingElement : VisualElement
     {
         private bool ticksValue;
@@ -89,7 +117,7 @@ namespace AnimalGame.MainUI
             }
         }
         private float radiusInsetValue;
-        /// <summary>Inset of the circle, independent of the inward triangle depth.</summary>
+        /// <summary>Inset of the circle, independent of the inward tick length.</summary>
         [UxmlAttribute]
         public float radiusInset
         {
@@ -105,6 +133,20 @@ namespace AnimalGame.MainUI
         public float Radius => Mathf.Max(0, Mathf.Min(contentRect.width, contentRect.height) * .5f
             - lineWidth * .5f - radiusInset);
 
+        private float fillInsetValue = 0;
+        /// <summary>Black fill depth inward from the circle in UI units.</summary>
+        [UxmlAttribute]
+        public float fillInset
+        {
+            get => fillInsetValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (fillInsetValue == value) return;
+                fillInsetValue = value;
+                MarkDirtyRepaint();
+            }
+        }
         public ViewRingElement()
         {
             pickingMode = PickingMode.Ignore;
@@ -118,20 +160,27 @@ namespace AnimalGame.MainUI
             Vector2 center = contentRect.center;
             float radius = Radius;
             if (radius <= 0) return;
+            float fillDepth = Mathf.Min(fillInset, radius);
+            if (fillDepth > 0)
+            {
+                p.fillColor = Color.black;
+                p.BeginPath();
+                for (int i = 0; i <= 180; i++)
+                {
+                    Vector2 point = center + HudDrawing.Radial(i * 2) * radius;
+                    if (i == 0) p.MoveTo(point); else p.LineTo(point);
+                }
+                for (int i = 180; i >= 0; i--)
+                    p.LineTo(center + HudDrawing.Radial(i * 2) * (radius - fillDepth));
+                p.ClosePath(); p.Fill();
+            }
             HudDrawing.Arc(p, center, radius, radius, 0, 360);
             if (!ticks) return;
-            p.fillColor = Color.black;
-            float depth = Mathf.Min(Mathf.Max(0, tickLength), radius);
-            if (depth <= 0) return;
-            for (int i = 0; i < 12; i++)
+            float depth = Mathf.Clamp(tickLength, 0, radius);
+            for (int i = 0; i < 12 && depth > 0; i++)
             {
                 Vector2 d = HudDrawing.Radial(i * 30);
-                Vector2 tangent = new Vector2(-d.y, d.x);
-                Vector2 baseCenter = center + d * radius;
-                Vector2[] triangle = { baseCenter - tangent * (depth * .4f),
-                    baseCenter + tangent * (depth * .4f), center + d * (radius - depth) };
-                HudDrawing.Polygon(p, triangle, true);
-                HudDrawing.Polygon(p, triangle);
+                HudDrawing.Line(p, center + d * radius, center + d * (radius - depth));
             }
         }
     }
@@ -142,6 +191,21 @@ namespace AnimalGame.MainUI
     {
         private float value = 1;
         [UxmlAttribute] public float progress { get => value; set => SetProgress(value); }
+        private float lengthValue = 8;
+        /// <summary>Length of the yellow radial indicator, measured outward from the ring's inner edge.</summary>
+        [UxmlAttribute]
+        public float length
+        {
+            get => lengthValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (lengthValue == value) return;
+                lengthValue = value;
+                MarkDirtyRepaint();
+            }
+        }
+
         private bool outsideValue;
         [UxmlAttribute]
         public bool outside
@@ -167,6 +231,20 @@ namespace AnimalGame.MainUI
             }
         }
 
+        private float notchDepthValue = 10;
+        /// <summary>Depth of the three inward integrity points in UI units.</summary>
+        [UxmlAttribute]
+        public float notchDepth
+        {
+            get => notchDepthValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (notchDepthValue == value) return;
+                notchDepthValue = value;
+                MarkDirtyRepaint();
+            }
+        }
         public CircularProgressElement()
         {
             pickingMode = PickingMode.Ignore;
@@ -185,22 +263,41 @@ namespace AnimalGame.MainUI
         {
             Painter2D p = context.painter2D;
             Vector2 c = contentRect.center;
-            float trackRadius = Mathf.Min(contentRect.width, contentRect.height) * .5f - 10;
-            if (trackRadius <= 0) return;
-            p.lineWidth = 2; p.strokeColor = Color.white;
-            HudDrawing.Arc(p, c, trackRadius, trackRadius, 0, 360);
-            float radius = trackRadius + (outside ? 4 : -4);
-            p.lineWidth = lineWidth; p.strokeColor = HudDrawing.Yellow;
-            if (value > 0) HudDrawing.Arc(p, c, radius, radius, 0, value * 360);
-            // At zero and one the two endpoints coincide, so draw their short line only once.
-            Endcap(p, c, radius, 0);
-            if (value > 0 && value < 1) Endcap(p, c, radius, value * 360);
-        }
-
-        private static void Endcap(Painter2D p, Vector2 center, float radius, float degrees)
-        {
-            Vector2 d = HudDrawing.Radial(degrees);
-            HudDrawing.Line(p, center + d * (radius - 3), center + d * (radius + 9));
+            float radius = Mathf.Min(contentRect.width, contentRect.height) * .5f - lineWidth * .5f - 2;
+            if (radius <= 0 || value <= 0 || lineWidth <= 0) return;
+            p.lineWidth = lineWidth; p.lineCap = LineCap.Butt;
+            p.strokeColor = outside ? HudDrawing.Yellow : Color.white;
+            if (outside)
+            {
+                // Screen angles increase clockwise. Consume counterclockwise from
+                // the upper-right start, keeping the right-hand endpoint fixed.
+                float consumed = (1 - value) * 300;
+                for (int i = 0; i < 10; i++)
+                {
+                    float start = Mathf.Max(consumed, i * 30 + (i == 0 ? 0 : 2));
+                    float end = (i + 1) * 30 - (i == 9 ? 0 : 2);
+                    if (end > start) HudDrawing.Arc(p, c, radius, radius, -60 - start, -(end - start));
+                }
+                Vector2 d = HudDrawing.Radial(-60 - consumed);
+                float innerRadius = Mathf.Max(0, radius - lineWidth * .5f);
+                if (length > 0)
+                    HudDrawing.Line(p, c + d * innerRadius, c + d * (innerRadius + length));
+                return;
+            }
+            // Three asymmetric inward points on the white integrity outline.
+            float sweep = value * 360;
+            p.BeginPath();
+            int steps = Mathf.Max(1, Mathf.CeilToInt(sweep));
+            for (int i = 0; i <= steps; i++)
+            {
+                float angle = sweep * i / steps;
+                float phase = Mathf.Repeat(angle, 120);
+                float inset = phase <= 12 ? (1 - phase / 12) * Mathf.Min(notchDepth, radius) : 0;
+                Vector2 point = c + HudDrawing.Radial(-60 + angle) * (radius - inset);
+                if (i == 0) p.MoveTo(point); else p.LineTo(point);
+            }
+            if (value >= 1) p.ClosePath();
+            p.Stroke();
         }
     }
 
@@ -364,6 +461,64 @@ namespace AnimalGame.MainUI
     public partial class TimeOrbitElement : VisualElement
     {
         private float dayProgress = .25f;
+        private float radiusValue;
+        /// <summary>Orbit radius in UI units. Zero sizes the orbit automatically.</summary>
+        [UxmlAttribute]
+        public float radius
+        {
+            get => radiusValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (radiusValue == value) return;
+                radiusValue = value;
+                MarkDirtyRepaint();
+            }
+        }
+
+        private float tickLengthValue = 12;
+        /// <summary>Total tick length in UI units, centered on the orbit.</summary>
+        [UxmlAttribute]
+        public float tickLength
+        {
+            get => tickLengthValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (tickLengthValue == value) return;
+                tickLengthValue = value;
+                MarkDirtyRepaint();
+            }
+        }
+
+        private float lineWidthValue = 2;
+        /// <summary>Stroke width of the white orbit and ticks only.</summary>
+        [UxmlAttribute]
+        public float lineWidth
+        {
+            get => lineWidthValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Max(0, value);
+                if (lineWidthValue == value) return;
+                lineWidthValue = value;
+                MarkDirtyRepaint();
+            }
+        }
+        private float dashGapValue = 10;
+        /// <summary>Angular gap between lower segments in degrees (0 to 29).</summary>
+        [UxmlAttribute]
+        public float dashGap
+        {
+            get => dashGapValue;
+            set
+            {
+                value = float.IsNaN(value) || float.IsInfinity(value) ? 0 : Mathf.Clamp(value, 0, 29);
+                if (dashGapValue == value) return;
+                dashGapValue = value;
+                MarkDirtyRepaint();
+            }
+        }
         public TimeOrbitElement()
         {
             pickingMode = PickingMode.Ignore;
@@ -378,22 +533,28 @@ namespace AnimalGame.MainUI
         {
             Painter2D p = context.painter2D;
             Vector2 c = contentRect.center;
-            float radius = Mathf.Min(contentRect.width, contentRect.height) * .5f - 22;
-            if (radius <= 0) return;
-            p.strokeColor = Color.white; p.lineWidth = 2;
-            HudDrawing.Arc(p, c, radius, radius, 180, 180);
-            // Separate arc segments keep the lower half dashed on every rendering backend.
-            for (float angle = 4; angle < 180; angle += 30)
-                HudDrawing.Arc(p, c, radius, radius, angle, 16);
-            for (float angle = 180; angle <= 360; angle += 30)
+            float orbitRadius = radius > 0 ? radius : Mathf.Min(contentRect.width, contentRect.height) * .5f - 22;
+            if (orbitRadius <= 0) return;
+            if (lineWidth > 0)
             {
-                Vector2 tick = HudDrawing.Radial(angle);
-                HudDrawing.Line(p, c + tick * (radius - 6), c + tick * (radius + 6));
+                p.strokeColor = Color.white; p.lineWidth = lineWidth;
+                HudDrawing.Arc(p, c, orbitRadius, orbitRadius, 180, 180);
+                // Separate arc segments keep the lower half dashed on every rendering backend.
+                for (int i = 0; i < 6; i++)
+                    HudDrawing.Arc(p, c, orbitRadius, orbitRadius, i * 30 + dashGap * .5f, 30 - dashGap);
+                float halfTickLength = tickLength * .5f;
+                for (float angle = 180; angle <= 360 && tickLength > 0; angle += 30)
+                {
+                    Vector2 tick = HudDrawing.Radial(angle);
+                    HudDrawing.Line(p, c + tick * (orbitRadius - halfTickLength), c + tick * (orbitRadius + halfTickLength));
+                }
             }
             Vector2 d = HudDrawing.Radial(180 + dayProgress * 360);
-            Vector2 sun = c + d * radius;
-            float sunRadius = Mathf.Min(18, radius * .2f);
-            p.fillColor = Color.black; HudDrawing.Arc(p, sun, sunRadius + 2, sunRadius + 2, 0, 360, true);
+            Vector2 sun = c + d * orbitRadius;
+            float sunRadius = Mathf.Min(18, orbitRadius * .2f);
+            float sunMaskRadius = sunRadius + 2;
+            p.fillColor = Color.black; HudDrawing.Arc(p, sun, sunMaskRadius, sunMaskRadius, 0, 360, true);
+            p.lineWidth = 2;
             p.strokeColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360);
             p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius * .58f, sunRadius * .58f, 0, 360, true);
         }

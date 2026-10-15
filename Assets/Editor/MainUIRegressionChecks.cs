@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Xml.Linq;
 using AnimalGame.MainUI;
 using AnimalGame.MainUI.Inventory;
+using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -53,19 +54,14 @@ namespace AnimalGame.Editor
                 var authoredLevel = XDocument.Load("Assets/Prefabs/Resources/UI/Main/MainUIDoc.uxml")
                     .Descendants().Single(e => (string)e.Attribute("name") == "LevelIndicator");
                 foreach (var attribute in new[] { ("width", "width"), ("length", "length"), ("height", "height"),
-                    ("center-margin", "centerMargin"), ("line-margin", "lineMargin"), ("line-ratio", "lineRatio"), ("degree", "degree") })
+                    ("center-margin", "centerMargin"), ("degree", "degree") })
                 {
                     float expected = float.Parse((string)authoredLevel.Attribute(attribute.Item1), CultureInfo.InvariantCulture);
                     float actual = (float)typeof(LevelIndicatorElement).GetProperty(attribute.Item2).GetValue(level);
                     Assert(Mathf.Approximately(actual, expected), "Level imports authored " + attribute.Item1);
                 }
-                level.SetBalance(.5f);
-                Assert(level.degree == 45 && level.Q<Label>("DegreeText").text == "45\u00b0",
-                    "Balance halfway to the support boundary displays 45 degrees");
-                level.SetBalance(0, true);
-                Assert(level.degree == 90, "A tipped robot displays 90 even with zero live balance");
-                level.SetBalance(1.2f);
-                Assert(level.degree == 90, "Balance overflow clamps to 90 degrees");
+                level.SetDegree(45);
+                Assert(level.degree == 45 && level.Q<Label>("DegreeText").text == "45\u00b0", "Slope degree updates readout");
                 level.SetDegree(-10);
                 Assert(level.degree == -10 && level.Q<Label>("DegreeText").text == "-10\u00b0",
                     "Runtime degree preserves negative tilt and text");
@@ -73,25 +69,28 @@ namespace AnimalGame.Editor
                 Assert(level.degree == -90, "Runtime degree clamps at -90");
                 level.SetDegree(120);
                 Assert(level.degree == 90, "Runtime degree clamps at 90");
-                level.SetBalance(-.5f);
-                Assert(level.degree == -45, "Signed balance maps to negative degrees");
-                foreach (var sample in new[] { (Vector2.right, 90f), (Vector2.up, 90f),
-                    (Vector2.left, -90f), (Vector2.down, -90f), (new Vector2(.3f, -.4f), -90f),
-                    (new Vector2(-.4f, .3f), -90f), (new Vector2(.4f, -.3f), 90f), (new Vector2(-.3f, .4f), 90f) })
-                {
-                    Vector2 offset = sample.Item1;
-                    float expected = sample.Item2;
-                    level.SetBalance(offset * .5f);
-                    Assert(Mathf.Approximately(level.degree, expected * offset.magnitude * .5f),
-                        "Local balance direction maps correctly for " + offset);
-                    level.SetBalance(offset, true);
-                    Assert(level.degree == expected, "Tip-over preserves direction for " + offset);
-                }
                 level.degree = float.NaN;
                 Assert(level.degree == 0, "Invalid degree stays finite");
                 level.degree = 45;
                 hud.RefreshLatePresentation();
                 Assert(level.degree == 0, "Gameplay presentation replaces preview degree when no player is bound");
+                var slopeObject = new GameObject("Terrain slope source");
+                SceneManager.MoveGameObjectToScene(slopeObject, scene);
+                var slopeRobot = slopeObject.AddComponent<RobotMover>();
+                slopeRobot.enabled = false;
+                typeof(Hud).GetField("slopeSource", Flags).SetValue(hud, slopeRobot);
+                foreach (float angle in new[] { 23f, -14f, 0f })
+                {
+                    var terrain = new SlopeTraversalResult(true, true, false, UphillSlopeLevel.LevelOne,
+                        Mathf.Abs(angle), angle, 0, 0, Mathf.Abs(angle), 0, 0, Vector2.down, TraversalBlockReason.None);
+                    typeof(RobotMover).GetProperty("CurrentTraversalResult").SetValue(slopeRobot, terrain);
+                    hud.RefreshLatePresentation();
+                    Assert(level.degree == angle, "HUD reads signed terrain slope " + angle);
+                }
+                typeof(RobotMover).GetProperty("CurrentTraversalResult").SetValue(slopeRobot, SlopeTraversalResult.NoData);
+                hud.RefreshLatePresentation();
+                Assert(level.degree == 0, "Unavailable terrain resets slope readout");
+                typeof(Hud).GetField("slopeSource", Flags).SetValue(hud, null);
                 level.degree = 45;
                 Assert(!hud.TryGetRingScreenGeometry(out _, out _), "No scan geometry before first layout");
                 var screenSizes = new[] { new Vector2(1920, 1080), new Vector2(1280, 720),

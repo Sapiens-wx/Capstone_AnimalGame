@@ -801,9 +801,7 @@ namespace AnimalGame.MapTest
         {
             bool togglePressed = (elevationFilterKeyboardToggleKey != KeyCode.None
                                   && Input.GetKeyDown(
-                                      elevationFilterKeyboardToggleKey))
-                                 || AdaptiveLegacyGamepadInput
-                                     .WasDpadRightPressedThisFrame();
+                                      elevationFilterKeyboardToggleKey));
             if (togglePressed)
                 elevationFilterRequested = !elevationFilterRequested;
 
