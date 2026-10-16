@@ -258,8 +258,10 @@ namespace Capstone.Audio
             SetPaused(cue, false);
             // Disable the conditional loop, then enter the exact supplied tail
             // immediately, so locking/recovery does not wait for another cycle.
-            int tail = cue == Milestone2ActionCue.Slide ? 2480 : 800;
+            int tail = cue == Milestone2ActionCue.Slide ? 2480
+                : cue == Milestone2ActionCue.GroundTurn ? 1200 : 800;
             string hold = cue == Milestone2ActionCue.Slide ? "SlideHold"
+                : cue == Milestone2ActionCue.GroundTurn ? "TurnHold"
                 : cue == Milestone2ActionCue.ArmDeploy ? "DeployHold" : "RetractHold";
             RESULT result = slot.Instance.setParameterByName(hold, 0f);
             if (result == RESULT.OK) result = slot.Instance.setTimelinePosition(tail);
