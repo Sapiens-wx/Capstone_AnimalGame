@@ -212,10 +212,12 @@ namespace AnimalGame.MainUI
             selectedIndex = Mathf.Clamp(index, 0, SlotCount - 1);
             if (selection == null) return;
             if (slots[selectedIndex] == null || !Positive(grid.layout.width)) return;
-            Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position - selection.layout.position;
+            float inset = InventorySelectionElement.InnerFrameInset;
+            Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position
+                - selection.layout.position - Vector2.one * inset;
             selection.style.translate = new Translate(offset.x, offset.y);
-            selection.style.width = slots[selectedIndex].layout.width;
-            selection.style.height = slots[selectedIndex].layout.height;
+            selection.style.width = slots[selectedIndex].layout.width + inset * 2;
+            selection.style.height = slots[selectedIndex].layout.height + inset * 2;
         }
 
         public void ToggleInventory() { if (inventoryOpen) CloseInventory(); else OpenInventory(); }

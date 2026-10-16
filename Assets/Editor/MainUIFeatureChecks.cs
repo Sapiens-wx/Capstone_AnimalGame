@@ -68,8 +68,11 @@ namespace AnimalGame.Editor
                 if (i < 6) Assert(Mathf.Abs(slot.layout.yMax - grid[i + 2].layout.yMin) < .01f, "Adjacent rows touch");
                 hud.SelectItem(i); Layout(root);
                 var selection = root.Q<InventorySelectionElement>("InventorySelection");
-                Assert(Vector2.Distance(selection.worldBound.position, slot.worldBound.position) < .1f
-                    && Vector2.Distance(selection.worldBound.size, slot.worldBound.size) < .1f, "Selection matches slot " + i);
+                Vector2 inset = Vector2.one * InventorySelectionElement.InnerFrameInset;
+                Vector2 innerMin = selection.LocalToWorld(selection.contentRect.min + inset);
+                Vector2 innerMax = selection.LocalToWorld(selection.contentRect.max - inset);
+                Assert(Vector2.Distance(innerMin, slot.worldBound.min) < .1f
+                    && Vector2.Distance(innerMax, slot.worldBound.max) < .1f, "Selection inner frame matches slot " + i);
             }
             Assert(root.Q<Label>(className: "inventory-title").text == "CARGO", "Cargo title");
             Assert(root.Q(className: "cargo-mark") != null, "Cargo square");
