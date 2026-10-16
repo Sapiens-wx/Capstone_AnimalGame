@@ -65,7 +65,9 @@ namespace AnimalGame.MainUI
         private int selectedIndex;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
-        private DateTime lastCoordinateRefresh, lastClockMinute;
+        private DateTime lastCoordinateRefresh, gameTime;
+        private double elapsedGameClockSeconds;
+        private bool gameClockInitialized;
         private bool telemetryNeedsRefresh = true;
 
         private void Awake()
@@ -130,6 +132,7 @@ namespace AnimalGame.MainUI
             }
             BuildSlots();
             ClearCoordinates();
+            InitializeGameClock(DateTime.Now);
             RefreshTelemetry(DateTime.Now, true);
             lastPower = lastIntegrity = -1;
             ApplyLayout();
@@ -260,6 +263,7 @@ namespace AnimalGame.MainUI
             if (!started || document == null) return;
             if (root != document.rootVisualElement || stage == null) Init();
             if (stage == null) return;
+            AdvanceGameClock(Time.deltaTime);
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
             HandleInput();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
@@ -449,21 +453,40 @@ namespace AnimalGame.MainUI
             UpdateOuterRingRotation();
         }
         public void SetDayProgress(float normalized) => timeOrbit?.SetDayProgress(normalized);
-        /// <summary>Displays the local computer date using the HUD's date format.</summary>
+        /// <summary>Displays the supplied date using the HUD's date format.</summary>
         public void SetDate(DateTime date)
         {
             if (dateLabel != null) dateLabel.text = date.ToString("yyyy_MM_dd", CultureInfo.InvariantCulture);
         }
+        private void InitializeGameClock(DateTime now)
+        {
+            if (!gameClockInitialized)
+            {
+                gameTime = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMinute));
+                elapsedGameClockSeconds = 0;
+                gameClockInitialized = true;
+            }
+            // Rebind a rebuilt UI to the current clock without restarting time.
+            SetDate(gameTime);
+            SetDayProgress((float)(gameTime.TimeOfDay.TotalMinutes / 1440d));
+        }
+
+        private void AdvanceGameClock(float deltaTime)
+        {
+            if (!gameClockInitialized || deltaTime <= 0) return;
+            elapsedGameClockSeconds += deltaTime;
+            double minutesToAdvance = Math.Floor(elapsedGameClockSeconds);
+            if (minutesToAdvance < 1) return;
+
+            elapsedGameClockSeconds -= minutesToAdvance;
+            DateTime previousDate = gameTime.Date;
+            gameTime = gameTime.AddMinutes(minutesToAdvance);
+            if (gameTime.Date != previousDate) SetDate(gameTime);
+            SetDayProgress((float)(gameTime.TimeOfDay.TotalMinutes / 1440d));
+        }
+
         private void RefreshTelemetry(DateTime now, bool force)
         {
-            DateTime minute = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMinute));
-            if (force || minute != lastClockMinute)
-            {
-                lastClockMinute = minute;
-                SetDate(now);
-                SetDayProgress((float)(minute.TimeOfDay.TotalMinutes / 1440d));
-            }
-
             // Refresh once after a stall; also recover immediately if the computer clock moves backward.
             double elapsed = (now - lastCoordinateRefresh).TotalMilliseconds;
             if (force || elapsed >= 100 || elapsed < 0)
