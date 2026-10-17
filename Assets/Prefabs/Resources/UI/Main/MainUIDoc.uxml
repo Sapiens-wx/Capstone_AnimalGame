@@ -1,5 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:hud="AnimalGame.MainUI" xmlns:inventory="AnimalGame.MainUI.Inventory" editor-extension-mode="False">
-    <Style src="project://database/Assets/Prefabs/Resources/UI/Main/MainUIStyle.uss?fileID=7433441132597879392&amp;guid=b617651db47b0724fa851c04f244ad70&amp;type=3" />
+    <Style src="project://database/Assets/Prefabs/Resources/UI/Main/MainUIStyle.uss?fileID=7433441132597879392&amp;guid=b617651db47b0724fa851c04f244ad70&amp;type=3#MainUIStyle" />
     <ui:VisualElement name="Stage" picking-mode="Ignore" class="stage" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;">
         <ui:VisualElement name="HudView" picking-mode="Ignore" class="hud-view" style="position: absolute;">
             <hud:ViewRingGroupElement name="ViewRing" line-width="5" picking-mode="Ignore" class="view-ring" style="position: absolute; left: 480px; top: 60px;">
@@ -27,7 +27,7 @@
                 <hud:TimeOrbitElement name="TimeOrbit" line-width="4" tick-length="12" radius="77" dash-gap="14" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
                 <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; font-size: 20px;" />
             </ui:VisualElement>
-            <hud:SoundElement name="Sound" line-width="4" line-length="45.2" class="sound" style="position: absolute; right: 278px; top: 47px; height: 177px; width: 162px;" />
+            <hud:SoundElement name="Sound" line-width="4" line-length="45.2" class="sound" style="position: absolute; right: 278px; top: 86px; height: 94px; width: 162px;" />
             <ui:VisualElement name="Coordinates" picking-mode="Ignore" class="coordinates" style="position: absolute; right: 68px; bottom: 30px; width: 258px;">
                 <ui:VisualElement name="VisualElement" class="coordinate-row" style="border-bottom-width: 0;">
                     <ui:Label name="LatitudeHemisphere" text="N" class="coordinate-prefix" />

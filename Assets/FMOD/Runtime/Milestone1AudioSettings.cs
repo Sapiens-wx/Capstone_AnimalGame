@@ -83,9 +83,15 @@ namespace Capstone.Audio
     {
         [SerializeField] private EventReference eventReference;
         [SerializeField, Range(-80f, 12f)] private float gainDb;
+        [Tooltip("Report this cue's actual playback lifetime to the Main UI sound wave.")]
+        [SerializeField] private bool readBySoundUI;
+        [Tooltip("Designed noise strength (0..1), independent of the player's mixer volume.")]
+        [SerializeField, Range(0f, 1f)] private float soundUIStrength = .5f;
 
         internal EventReference EventReference => eventReference;
         internal float LinearGain => Mathf.Pow(10f, Mathf.Clamp(gainDb, -80f, 12f) / 20f);
+        internal bool ReadBySoundUI => readBySoundUI;
+        internal float SoundUIStrength => Mathf.Clamp01(soundUIStrength);
     }
 
     internal enum Milestone1Cue
