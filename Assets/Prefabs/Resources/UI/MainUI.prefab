@@ -20,6 +20,7 @@ GameObject:
   - component: {fileID: 7246715380435037797}
   - component: {fileID: 220450902544469017}
   - component: {fileID: 6981481316202249659}
+  - component: {fileID: 114000008}
   m_Layer: 5
   m_Name: MainUI
   m_TagString: Untagged
@@ -227,6 +228,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: f033bc3a57d7e6848a20706ce75cfbf1, type: 2}
   power: 1
   integrity: 1
+  powerRingOnDuration:
+    min: 0.11
+    max: 0.8
+  powerRingOffDuration:
+    min: 0.01
+    max: 0.07
   animationDuration: 0.5
   easing:
     serializedVersion: 2
@@ -318,6 +325,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a604e7f2e7c84a02b739efa702669801, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &114000008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b29dd4f8ad3e4dcb8b79acaa49bd6ec6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  document: {fileID: 5078151001591562568}
+  pointCount: 67
+  frequency: 15
+  phaseSpeed: 1
+  maximumAmplitude: 1
+  waveLineWidth: 2
+  amplitudeSmoothingSeconds: 0.05
+  initialDamping: 120
+  expansionSeconds: 5
 --- !u!1001 &982787043818110092
 PrefabInstance:
   m_ObjectHideFlags: 0

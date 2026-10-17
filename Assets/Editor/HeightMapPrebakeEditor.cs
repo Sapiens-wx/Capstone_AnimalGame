@@ -82,11 +82,7 @@ namespace AnimalGame.Editor
                     level.MaximumHeightMeters,
                     level.NormalizeSourceRange,
                     level.SurfaceSmoothingSigmaMeters,
-                    level.DetailSmoothingSigmaMeters,
-                    level.UseHeightMapBorderMask,
-                    level.HeightMapBorderMaskThreshold,
-                    level.HeightMapBorderInsetMeters,
-                    level.PlayableAreaMask);
+                    level.DetailSmoothingSigmaMeters);
 
                 EditorUtility.DisplayProgressBar(
                     "Pre-Bake Height Map",
@@ -117,16 +113,13 @@ namespace AnimalGame.Editor
                     : raw;
                 Texture2D surface = SaveHeightTexture(
                     field.CreateSurfaceTextureCopy(), texturePathPrefix + "_Surface.asset");
-                Texture2D mask = field.CreatePlayableMaskTextureCopy();
-                AddSubAsset(mask, data);
                 data.SetBakedData(
                     level,
                     field.SourceMinimum,
                     field.SourceMaximum,
                     raw,
                     detail,
-                    surface,
-                    mask);
+                    surface);
                 foreach (Object previous in previousSubAssets)
                     if (previous != data && previous is Texture2D)
                         Object.DestroyImmediate(previous, true);

@@ -153,17 +153,6 @@ namespace AnimalGame.MapTest
         [Tooltip("Distance sampled on each side of a suspected raw step to distinguish a persistent ledge or cliff from a narrow image artifact.")]
         [SerializeField, Min(0f)] private float largeStepConfirmationDistanceMeters = 1f;
 
-        [Header("Playable Area")]
-        [Tooltip("Optional explicit black/white playable-area mask. White is playable and black is outside. When assigned, this takes priority over height-map border detection.")]
-        [SerializeField] private Texture2D playableAreaMask;
-        [Tooltip("Treats near-black pixels connected to the height-map border as outside the playable map. Enclosed dark valleys remain playable.")]
-        [SerializeField] private bool useHeightMapBorderMask;
-        [Tooltip("Maximum source grayscale value considered part of the connected black border.")]
-        [SerializeField, Range(0f, 0.25f)]
-        private float heightMapBorderMaskThreshold = 0.01f;
-        [Tooltip("Additional physical distance removed inside the detected silhouette, keeping the robot away from antialiased edge pixels.")]
-        [SerializeField, Min(0f)] private float heightMapBorderInsetMeters;
-
         [Header("Pre-Baked Height Field")]
         [Tooltip("Generated with Animal Game/Pre-Bake Height Map after changing physical height settings.")]
         [SerializeField] private HeightMapPrebakedData prebakedHeightField;
@@ -425,11 +414,6 @@ namespace AnimalGame.MapTest
             preserveLargeStepHeightMeters;
         public float LargeStepConfirmationDistanceMeters =>
             largeStepConfirmationDistanceMeters;
-        public Texture2D PlayableAreaMask => playableAreaMask;
-        public bool UseHeightMapBorderMask => useHeightMapBorderMask;
-        public float HeightMapBorderMaskThreshold =>
-            heightMapBorderMaskThreshold;
-        public float HeightMapBorderInsetMeters => heightMapBorderInsetMeters;
         public HeightMapPrebakedData PrebakedHeightField
         {
             get
@@ -624,12 +608,6 @@ namespace AnimalGame.MapTest
                     hash = hash * 397 ^ preserveLargeStepHeightMeters.GetHashCode();
                     hash = hash * 397 ^
                            largeStepConfirmationDistanceMeters.GetHashCode();
-                    hash = hash * 397 ^ (playableAreaMask != null
-                        ? playableAreaMask.GetInstanceID()
-                        : 0);
-                    hash = hash * 397 ^ useHeightMapBorderMask.GetHashCode();
-                    hash = hash * 397 ^ heightMapBorderMaskThreshold.GetHashCode();
-                    hash = hash * 397 ^ heightMapBorderInsetMeters.GetHashCode();
                     hash = hash * 397 ^ contourIntervalMeters.GetHashCode();
                     hash = hash * 397 ^ (dynamicContourShader != null
                         ? dynamicContourShader.GetInstanceID()
@@ -1349,13 +1327,6 @@ namespace AnimalGame.MapTest
             largeStepConfirmationDistanceMeters = Mathf.Max(
                 0f,
                 largeStepConfirmationDistanceMeters);
-            heightMapBorderMaskThreshold = Mathf.Clamp(
-                heightMapBorderMaskThreshold,
-                0f,
-                0.25f);
-            heightMapBorderInsetMeters = Mathf.Max(
-                0f,
-                heightMapBorderInsetMeters);
             minimumContourOpacity = Mathf.Clamp01(minimumContourOpacity);
             maximumContourOpacity = Mathf.Clamp01(maximumContourOpacity);
             outsideRevealDarkening = Mathf.Clamp01(outsideRevealDarkening);

@@ -299,22 +299,92 @@ namespace AnimalGame.Editor
             }
         }
 
+        [MenuItem("Animal Game/Validation/Run Main UI Clock Checks")]
+        public static void RunClockChecks()
+        {
+            var scene = EditorSceneManager.NewPreviewScene();
+            PanelSettings settings = null;
+            try
+            {
+                var obj = new GameObject("Main UI clock checks");
+                SceneManager.MoveGameObjectToScene(obj, scene);
+                settings = Object.Instantiate(AssetDatabase.LoadAssetAtPath<PanelSettings>(
+                    "Assets/Prefabs/Resources/UI/Main/MainUISetting.asset"));
+                var document = obj.AddComponent<UIDocument>();
+                document.panelSettings = settings;
+                document.visualTreeAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                    "Assets/Prefabs/Resources/UI/Main/MainUIDoc.uxml");
+                var hud = obj.AddComponent<Hud>();
+                hud.Init();
+                CheckGameClock(hud, document.rootVisualElement);
+                Debug.Log("MAIN UI CLOCK CHECKS PASSED");
+            }
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+                if (settings != null) Object.DestroyImmediate(settings);
+            }
+        }
+
+        private static void CheckGameClock(Hud hud, VisualElement root)
+        {
+            var clock = typeof(Hud).GetField("gameTime", Flags);
+            var elapsed = typeof(Hud).GetField("elapsedGameClockSeconds", Flags);
+            var initialized = typeof(Hud).GetField("gameClockInitialized", Flags);
+            DateTime savedTime = (DateTime)clock.GetValue(hud);
+            double savedElapsed = (double)elapsed.GetValue(hud);
+            float previousScale = Time.timeScale;
+            try
+            {
+                initialized.SetValue(hud, false);
+                Invoke(hud, "InitializeGameClock", new DateTime(2026, 12, 31, 23, 59, 38));
+                var start = new DateTime(2026, 12, 31, 23, 59, 0);
+                Assert((DateTime)clock.GetValue(hud) == start, "Clock initializes at minute precision");
+                Invoke(hud, "AdvanceGameClock", .75f);
+                Assert((DateTime)clock.GetValue(hud) == start, "Fractional seconds wait for a complete second");
+                Invoke(hud, "AdvanceGameClock", .5f);
+                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(1)
+                    && root.Q<Label>("Date").text == "2027_01_01", "Game clock rolls date across year end");
+                var orbit = root.Q<TimeOrbitElement>("TimeOrbit");
+                Assert((float)typeof(TimeOrbitElement).GetField("dayProgress", Flags).GetValue(orbit) == 0,
+                    "Midnight starts day progress");
+                Time.timeScale = 0;
+                Invoke(hud, "AdvanceGameClock", .75f * Time.timeScale);
+                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(1), "Scaled clock stays still while paused");
+                Time.timeScale = 1;
+                Invoke(hud, "AdvanceGameClock", .75f);
+                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(2), "Resume preserves fractional time");
+                Invoke(hud, "AdvanceGameClock", 3.5f);
+                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(5), "Long frames advance every complete second");
+                hud.Init();
+                Invoke(hud, "AdvanceGameClock", .5f);
+                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(6), "UI reinitialization preserves clock and remainder");
+                Invoke(hud, "RefreshTelemetry", start.AddYears(-1), true);
+                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(6)
+                    && root.Q<Label>("Date").text == "2027_01_01", "System clock changes do not overwrite game time");
+                // A minute tick must not replace the existing date string on the same day.
+                string dateText = root.Q<Label>("Date").text;
+                Invoke(hud, "AdvanceGameClock", 1f);
+                Assert(ReferenceEquals(dateText, root.Q<Label>("Date").text), "Same-day ticks retain the date text");
+                initialized.SetValue(hud, false);
+                Invoke(hud, "InitializeGameClock", new DateTime(2028, 2, 28, 23, 59, 0));
+                Invoke(hud, "AdvanceGameClock", 1f);
+                Assert(root.Q<Label>("Date").text == "2028_02_29", "DateTime handles leap-day rollover");
+            }
+            finally
+            {
+                Time.timeScale = previousScale;
+                clock.SetValue(hud, savedTime);
+                elapsed.SetValue(hud, savedElapsed);
+                initialized.SetValue(hud, true);
+                Invoke(hud, "InitializeGameClock", DateTime.Now);
+            }
+        }
+
         private static void CheckTelemetry(Hud hud, VisualElement root, Scene scene)
         {
+            CheckGameClock(hud, root);
             var midnight = new DateTime(2026, 10, 16);
-            Invoke(hud, "RefreshTelemetry", midnight.AddMilliseconds(-1), true);
-            Assert(root.Q<Label>("Date").text == "2026_10_15", "Clock displays date before midnight");
-            float previousScale = Time.timeScale;
-            Time.timeScale = 0;
-            Invoke(hud, "RefreshTelemetry", midnight, false);
-            Assert(root.Q<Label>("Date").text == "2026_10_16", "Date crosses midnight while paused");
-            var orbit = root.Q<TimeOrbitElement>("TimeOrbit");
-            Assert((float)typeof(TimeOrbitElement).GetField("dayProgress", Flags).GetValue(orbit) == 0,
-                "Midnight starts day progress");
-            Invoke(hud, "RefreshTelemetry", midnight.AddHours(12), false);
-            Assert((float)typeof(TimeOrbitElement).GetField("dayProgress", Flags).GetValue(orbit) == .5f,
-                "Noon is halfway through orbit");
-            Time.timeScale = previousScale;
             Assert(root.Q<Label>("Altitude").text == "--m", "Missing map displays placeholders");
 
             var mapObject = new GameObject("HUD coordinate map");

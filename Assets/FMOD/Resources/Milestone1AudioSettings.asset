@@ -21,6 +21,8 @@ MonoBehaviour:
         Data4: -856313512
       Path: event:/Robot/Scan/Charge
     gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0.5
   scanPulse:
     eventReference:
       Guid:
@@ -30,6 +32,8 @@ MonoBehaviour:
         Data4: 1724700800
       Path: event:/Robot/Scan/Pulse
     gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0.5
   cameraOpen:
     eventReference:
       Guid:
@@ -39,6 +43,8 @@ MonoBehaviour:
         Data4: 1780028266
       Path: event:/Robot/Camera/Open
     gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0.5
   cameraClose:
     eventReference:
       Guid:
@@ -48,6 +54,8 @@ MonoBehaviour:
         Data4: -1016355429
       Path: event:/Robot/Camera/Close
     gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0.5
   cameraMove:
     eventReference:
       Guid:
@@ -57,6 +65,8 @@ MonoBehaviour:
         Data4: 760045012
       Path: event:/Robot/Camera/Move
     gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0.5
   cameraFocus:
     eventReference:
       Guid:
@@ -66,6 +76,8 @@ MonoBehaviour:
         Data4: -78081035
       Path: event:/Robot/Camera/Focus
     gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0.5
   cameraShutter:
     eventReference:
       Guid:
@@ -75,6 +87,8 @@ MonoBehaviour:
         Data4: -1109905559
       Path: event:/Robot/Camera/Shutter
     gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.7
   fadeOutSeconds: 0.05
   cameraMoveThreshold: 0.01
   cameraMoveStopDelay: 0.05

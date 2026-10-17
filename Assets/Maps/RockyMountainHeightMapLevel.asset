@@ -23,10 +23,6 @@ MonoBehaviour:
   detailSmoothingSigmaMeters: 0.75
   preserveLargeStepHeightMeters: 2
   largeStepConfirmationDistanceMeters: 1.5
-  playableAreaMask: {fileID: 0}
-  useHeightMapBorderMask: 0
-  heightMapBorderMaskThreshold: 0.01
-  heightMapBorderInsetMeters: 0
   previewResolution: 4096
   pixelsPerUnit: 14
   dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}

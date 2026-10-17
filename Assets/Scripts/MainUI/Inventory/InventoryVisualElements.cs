@@ -22,13 +22,18 @@ namespace AnimalGame.MainUI.Inventory
     [UxmlElement]
     public partial class InventorySelectionElement : VisualElement
     {
+        private const float StrokeWidth = 4f;
+        private const float CornerInset = 3f;
+        // Distance from the element bounds to the inner edge of the corner strokes.
+        public const float InnerFrameInset = CornerInset + StrokeWidth * .5f;
+
         public InventorySelectionElement()
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += context =>
             {
-                Painter2D p = context.painter2D; p.lineWidth = 4; p.strokeColor = HudDrawing.Yellow;
-                float w = contentRect.width, h = contentRect.height, a = 3, length = 32;
+                Painter2D p = context.painter2D; p.lineWidth = StrokeWidth; p.strokeColor = HudDrawing.Yellow;
+                float w = contentRect.width, h = contentRect.height, a = CornerInset, length = 64;
                 foreach (Vector2 corner in new[] { new Vector2(a, a), new Vector2(w - a, a),
                     new Vector2(w - a, h - a), new Vector2(a, h - a) })
                 {

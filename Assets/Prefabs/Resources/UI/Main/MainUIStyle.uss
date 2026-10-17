@@ -175,8 +175,8 @@ Label {
 }
 
 .inventory-selection {
-    width: 240px;
-    height: 170px;
+    width: 252px;
+    height: 175px;
 }
 
 .empty-item {

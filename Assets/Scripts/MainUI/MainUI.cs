@@ -27,6 +27,11 @@ namespace AnimalGame.MainUI
         [Header("Status (normalized)")]
         [SerializeField, Range(0, 1)] private float power = 1;
         [SerializeField, Range(0, 1)] private float integrity = 1;
+        [Header("Power ring flicker")]
+        [Tooltip("Visible duration in seconds. A new duration is sampled each time the ring lights up.")]
+        [SerializeField] private FlickerDuration powerRingOnDuration = new FlickerDuration(.15f, .6f);
+        [Tooltip("Hidden duration in seconds. A new duration is sampled each time the ring goes dark.")]
+        [SerializeField] private FlickerDuration powerRingOffDuration = new FlickerDuration(.04f, .12f);
         [Header("Level indicator")]
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
@@ -35,6 +40,7 @@ namespace AnimalGame.MainUI
 
         private const float DesignWidth = 1920, DesignHeight = 1080;
         private const int SlotCount = 8;
+
         public static MainUI Active { get; private set; }
         public static bool BlocksGameplay => Active != null && Active.isActiveAndEnabled && Active.pauseOwned;
         public bool IsInventoryOpen => inventoryOpen;
@@ -65,8 +71,28 @@ namespace AnimalGame.MainUI
         private int selectedIndex;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
-        private DateTime lastCoordinateRefresh, lastClockMinute;
+        private DateTime lastCoordinateRefresh, gameTime;
+        private double elapsedGameClockSeconds;
+        private bool gameClockInitialized;
         private bool telemetryNeedsRefresh = true;
+        private bool powerRingLit = true;
+        private float powerRingFlickerRemaining;
+
+        [Serializable]
+        private struct FlickerDuration
+        {
+            [Min(.01f)] public float min;
+            [Min(.01f)] public float max;
+
+            public FlickerDuration(float min, float max) { this.min = min; this.max = max; }
+
+            public float Sample()
+            {
+                float lower = Mathf.Max(.01f, Mathf.Min(min, max));
+                float upper = Mathf.Max(lower, Mathf.Max(min, max));
+                return UnityEngine.Random.Range(lower, upper);
+            }
+        }
 
         private void Awake()
         {
@@ -76,6 +102,7 @@ namespace AnimalGame.MainUI
         {
             Active = this;
             telemetryNeedsRefresh = true;
+            ResetPowerRingFlicker();
         }
         private void Start() { started = true; Init(); }
 
@@ -103,6 +130,7 @@ namespace AnimalGame.MainUI
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
             powerRing = root.Q<CircularProgressElement>("PowerRing");
+            ResetPowerRingFlicker();
             integrityRing = root.Q<CircularProgressElement>("IntegrityRing");
             powerLabel = root.Q<Label>("PowerPercent");
             integrityLabel = root.Q<Label>("IntegrityPercent");
@@ -130,6 +158,7 @@ namespace AnimalGame.MainUI
             }
             BuildSlots();
             ClearCoordinates();
+            InitializeGameClock(DateTime.Now);
             RefreshTelemetry(DateTime.Now, true);
             lastPower = lastIntegrity = -1;
             ApplyLayout();
@@ -212,10 +241,12 @@ namespace AnimalGame.MainUI
             selectedIndex = Mathf.Clamp(index, 0, SlotCount - 1);
             if (selection == null) return;
             if (slots[selectedIndex] == null || !Positive(grid.layout.width)) return;
-            Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position - selection.layout.position;
+            float inset = InventorySelectionElement.InnerFrameInset;
+            Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position
+                - selection.layout.position - Vector2.one * inset;
             selection.style.translate = new Translate(offset.x, offset.y);
-            selection.style.width = slots[selectedIndex].layout.width;
-            selection.style.height = slots[selectedIndex].layout.height;
+            selection.style.width = slots[selectedIndex].layout.width + inset * 2;
+            selection.style.height = slots[selectedIndex].layout.height + inset * 2;
         }
 
         public void ToggleInventory() { if (inventoryOpen) CloseInventory(); else OpenInventory(); }
@@ -258,9 +289,29 @@ namespace AnimalGame.MainUI
             if (!started || document == null) return;
             if (root != document.rootVisualElement || stage == null) Init();
             if (stage == null) return;
+            AdvanceGameClock(Time.deltaTime);
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
             HandleInput();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
+            UpdatePowerRingFlicker(Time.unscaledDeltaTime);
+        }
+
+        private void ResetPowerRingFlicker()
+        {
+            powerRingLit = true;
+            powerRingFlickerRemaining = powerRingOnDuration.Sample();
+            if (powerRing != null) powerRing.visible = true;
+        }
+
+        private void UpdatePowerRingFlicker(float deltaTime)
+        {
+            if (powerRing == null) return;
+            powerRingFlickerRemaining -= deltaTime;
+            if (powerRingFlickerRemaining > 0f) return;
+
+            powerRingLit = !powerRingLit;
+            powerRing.visible = powerRingLit;
+            powerRingFlickerRemaining = (powerRingLit ? powerRingOnDuration : powerRingOffDuration).Sample();
         }
 
         private void LateUpdate() => RefreshLatePresentation();
@@ -447,21 +498,40 @@ namespace AnimalGame.MainUI
             UpdateOuterRingRotation();
         }
         public void SetDayProgress(float normalized) => timeOrbit?.SetDayProgress(normalized);
-        /// <summary>Displays the local computer date using the HUD's date format.</summary>
+        /// <summary>Displays the supplied date using the HUD's date format.</summary>
         public void SetDate(DateTime date)
         {
             if (dateLabel != null) dateLabel.text = date.ToString("yyyy_MM_dd", CultureInfo.InvariantCulture);
         }
+        private void InitializeGameClock(DateTime now)
+        {
+            if (!gameClockInitialized)
+            {
+                gameTime = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMinute));
+                elapsedGameClockSeconds = 0;
+                gameClockInitialized = true;
+            }
+            // Rebind a rebuilt UI to the current clock without restarting time.
+            SetDate(gameTime);
+            SetDayProgress((float)(gameTime.TimeOfDay.TotalMinutes / 1440d));
+        }
+
+        private void AdvanceGameClock(float deltaTime)
+        {
+            if (!gameClockInitialized || deltaTime <= 0) return;
+            elapsedGameClockSeconds += deltaTime;
+            double minutesToAdvance = Math.Floor(elapsedGameClockSeconds);
+            if (minutesToAdvance < 1) return;
+
+            elapsedGameClockSeconds -= minutesToAdvance;
+            DateTime previousDate = gameTime.Date;
+            gameTime = gameTime.AddMinutes(minutesToAdvance);
+            if (gameTime.Date != previousDate) SetDate(gameTime);
+            SetDayProgress((float)(gameTime.TimeOfDay.TotalMinutes / 1440d));
+        }
+
         private void RefreshTelemetry(DateTime now, bool force)
         {
-            DateTime minute = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMinute));
-            if (force || minute != lastClockMinute)
-            {
-                lastClockMinute = minute;
-                SetDate(now);
-                SetDayProgress((float)(minute.TimeOfDay.TotalMinutes / 1440d));
-            }
-
             // Refresh once after a stall; also recover immediately if the computer clock moves backward.
             double elapsed = (now - lastCoordinateRefresh).TotalMilliseconds;
             if (force || elapsed >= 100 || elapsed < 0)
@@ -561,6 +631,7 @@ namespace AnimalGame.MainUI
 
         private void OnDisable()
         {
+            if (powerRing != null) powerRing.visible = true;
             inventoryOpen = false; progress = 0;
             openHoldElapsed = 0; openHoldLatched = false;
             ReleasePause();

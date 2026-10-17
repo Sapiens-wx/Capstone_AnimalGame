@@ -56,9 +56,15 @@ namespace AnimalGame.Editor
                 Require(Profile(field, Vector2.zero, Vector2.one).Blocked, "Interior bilinear valley must block.");
             using (var field = Field(2, 2, new float[] { 0, 100, 0, 0 }))
                 Require(Profile(field, Vector2.zero, Vector2.up).Clear, "Off-ray high corner must not block.");
-            using (var field = Field(3, 2, new float[6], new byte[] { 255, 0, 255, 255, 0, 255 }))
-                Require(Profile(field, Vector2.zero, new Vector2(2, 0)).InvalidMap,
-                    "Line must reject an interior playable-mask hole.");
+            using (var field = Field(3, 2, new float[6]))
+            {
+                Require(Profile(field, Vector2.zero, new Vector2(2, 0)).Clear,
+                    "Zero-height terrain remains playable throughout the rectangular map.");
+                Require(!field.IsPlayable(new Vector2(-0.01f, 0.5f))
+                    && !field.IsPlayable(new Vector2(1.01f, 0.5f))
+                    && field.IsPlayable(Vector2.zero) && field.IsPlayable(Vector2.one),
+                    "Rectangular bounds include the edges and reject points outside.");
+            }
 
             // Compare the configured sample positions against an independent
             // bilinear-surface oracle; detection now deliberately uses fixed density.
@@ -79,7 +85,7 @@ namespace AnimalGame.Editor
             CheckSamplingDensity();
             CheckSelection();
             CheckFrameScheduling();
-            Debug.Log("Terrain scan regression checks passed: ordered peaks, configurable sampling, masks, spatial buckets, OR selection, and frame deadlines.");
+            Debug.Log("Terrain scan regression checks passed: ordered peaks, configurable sampling, rectangular bounds, spatial buckets, OR selection, and frame deadlines.");
         }
 
         public static void RunBatch()
@@ -263,12 +269,12 @@ namespace AnimalGame.Editor
             return profile;
         }
 
-        private static BakedHeightField Field(int width, int height, float[] values, byte[] mask = null)
+        private static BakedHeightField Field(int width, int height, float[] values)
         {
             return (BakedHeightField)typeof(BakedHeightField).GetConstructors(Private)[0].Invoke(new object[]
             {
                 width, height, new Vector2(width - 1, height - 1), 0f, 100f, 0f, 1f,
-                values, values, values, mask, null, null, false
+                values, values, values, null, false
             });
         }
 

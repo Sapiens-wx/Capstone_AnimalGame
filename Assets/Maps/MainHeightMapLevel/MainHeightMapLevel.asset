@@ -23,10 +23,6 @@ MonoBehaviour:
   detailSmoothingSigmaMeters: 0
   preserveLargeStepHeightMeters: 1.8
   largeStepConfirmationDistanceMeters: 1
-  playableAreaMask: {fileID: 0}
-  useHeightMapBorderMask: 0
-  heightMapBorderMaskThreshold: 0.01
-  heightMapBorderInsetMeters: 0
   prebakedHeightField: {fileID: 11400000, guid: a41f5996709b43542bea64cbe6f764c4, type: 2}
   previewResolution: 2160
   contourIntervalMeters: 8

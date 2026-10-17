@@ -152,7 +152,7 @@ namespace AnimalGame.Editor
                     var data = ScriptableObject.CreateInstance<HeightMapPrebakedData>(); owned.Add(data);
                     var raw = source.Field.CreateRawDetailTexture(); owned.Add(raw);
                     var surface = source.Field.CreateSurfaceTextureCopy(); owned.Add(surface);
-                    data.SetBakedData(source.Level, source.Field.SourceMinimum, source.Field.SourceMaximum, raw, raw, surface, null);
+                    data.SetBakedData(source.Level, source.Field.SourceMinimum, source.Field.SourceMaximum, raw, raw, surface);
                     source.Level.SetPrebakedHeightField(data);
                     using (var cached = new TiledMapRuntime(tiled, true))
                     {

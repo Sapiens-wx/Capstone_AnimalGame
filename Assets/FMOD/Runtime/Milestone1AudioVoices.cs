@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.MainUI;
 using FMOD;
 using FMOD.Studio;
 using FMODUnity;
@@ -55,6 +56,8 @@ namespace Capstone.Audio
                 }
 
                 voices.Add(voice);
+                if (cueSettings.ReadBySoundUI)
+                    voice.SoundUIHandle = SoundUIPlayback.BeginSound(cueSettings.SoundUIStrength);
                 Milestone1AudioDiagnostics.RecordStarted(EventPath(cue));
                 return voice;
             }
@@ -117,6 +120,7 @@ namespace Capstone.Audio
 
     internal sealed class Milestone1AudioVoice
     {
+        internal SoundHandle SoundUIHandle;
         private EventInstance instance;
         private readonly float initialVolume;
         private float age;
@@ -248,6 +252,8 @@ namespace Capstone.Audio
         {
             if (IsReleased)
                 return;
+            SoundUIPlayback.EndSound(SoundUIHandle);
+            SoundUIHandle = default;
             if (instance.isValid())
             {
                 instance.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);

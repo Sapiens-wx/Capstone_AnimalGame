@@ -42,9 +42,7 @@ namespace AnimalGame.MapTest
                     bool cached = field != null;
                     field ??= BakedHeightField.Bake(level.HeightMap, Mathf.Min(level.BakedHeightResolution, resolutionLimit),
                         level.MapSizeMeters, level.MinimumHeightMeters, level.MaximumHeightMeters,
-                        level.NormalizeSourceRange, level.SurfaceSmoothingSigmaMeters, level.DetailSmoothingSigmaMeters,
-                        level.UseHeightMapBorderMask, level.HeightMapBorderMaskThreshold, level.HeightMapBorderInsetMeters,
-                        level.PlayableAreaMask);
+                        level.NormalizeSourceRange, level.SurfaceSmoothingSigmaMeters, level.DetailSmoothingSigmaMeters);
                     resident.Add(entry.coordinate, new Tile(entry.coordinate, level, field, cached));
                 }
             }

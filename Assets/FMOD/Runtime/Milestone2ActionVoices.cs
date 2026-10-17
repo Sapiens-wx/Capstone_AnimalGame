@@ -1,4 +1,5 @@
 using System;
+using AnimalGame.MainUI;
 using FMOD;
 using FMOD.Studio;
 using FMODUnity;
@@ -10,6 +11,9 @@ namespace Capstone.Audio
     {
         private sealed class Slot
         {
+            internal SoundHandle SoundUIHandle;
+            internal bool ReadBySoundUI;
+            internal float SoundUIStrength;
             internal EventInstance Instance;
             internal EventDescription Description;
             internal readonly ParameterState[] Parameters = new ParameterState[(int)ActionAudioParameter.Count];
@@ -117,6 +121,10 @@ namespace Capstone.Audio
                 }
                 result = slot.Instance.start();
                 if (result != RESULT.OK) throw new InvalidOperationException(result.ToString());
+                slot.ReadBySoundUI = config.ReadBySoundUI;
+                slot.SoundUIStrength = config.SoundUIStrength * gain;
+                if (slot.ReadBySoundUI)
+                    slot.SoundUIHandle = SoundUIPlayback.BeginSound(slot.SoundUIStrength);
                 return true;
             }
             catch (Exception exception)
@@ -248,7 +256,17 @@ namespace Capstone.Audio
         {
             Slot slot = slots[(int)cue];
             if (!slot.Active || slot.Fading || slot.Paused == paused) return;
-            if (slot.Instance.setPaused(paused) == RESULT.OK) slot.Paused = paused;
+            if (slot.Instance.setPaused(paused) == RESULT.OK)
+            {
+                slot.Paused = paused;
+                if (paused)
+                {
+                    SoundUIPlayback.EndSound(slot.SoundUIHandle);
+                    slot.SoundUIHandle = default;
+                }
+                else if (slot.ReadBySoundUI)
+                    slot.SoundUIHandle = SoundUIPlayback.BeginSound(slot.SoundUIStrength);
+            }
         }
 
         internal void KeyOff(Milestone2ActionCue cue)
@@ -398,6 +416,9 @@ namespace Capstone.Audio
 
         private static void Release(Slot slot)
         {
+            SoundUIPlayback.EndSound(slot.SoundUIHandle);
+            slot.SoundUIHandle = default;
+            slot.ReadBySoundUI = false;
             if (slot.Instance.hasHandle() && RuntimeManager.IsInitialized && slot.Instance.isValid())
             {
                 ApplyReleasePitch(slot);

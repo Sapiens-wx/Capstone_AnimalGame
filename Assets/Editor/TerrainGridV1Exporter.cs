@@ -145,9 +145,6 @@ namespace AnimalGame.Editor
             SetFloat(serialized, "detailSmoothingSigmaMeters", 0f);
             if (isNew)
             {
-                SetObject(serialized, "playableAreaMask", null);
-                SetBool(serialized, "useHeightMapBorderMask", false);
-                SetFloat(serialized, "heightMapBorderInsetMeters", 0f);
                 SetFloat(serialized, "contourIntervalMeters", 7f);
                 // Copy the V1 presentation, never its physical/painted caches or authored masks.
                 SetObject(serialized, "prebakedHeightField", null);
