@@ -1,8 +1,10 @@
 /*
  * Author delivered M2 actions in the external FMOD Studio 2.03 project.
- * Back up the complete Studio project before running this script. It imports
- * source files without processing them, preserves existing event GUIDs, and
- * saves only after validating the requested events. Build Desktop separately.
+ * Back up the complete Studio project before running this script. First sync
+ * changed source files byte-for-byte into the existing flat Studio Assets
+ * directory and refresh their metadata. Existing AudioFile assets are reused;
+ * only new files are imported. No audio is processed and event GUIDs survive.
+ * Saves only after validating the requested events. Build Desktop separately.
  */
 (function () {
     "use strict";
@@ -18,7 +20,9 @@
         { path: "event:/Robot/Move/Land", file: "Movement/M08_Land_Impact.wav" },
         { path: "event:/Robot/Move/LandParts", file: "Movement/M08_Land_shatter.wav" },
         { path: "event:/Robot/Move/Ground", file: "Movement/M_Move_Ground_Default.wav", loopStart: 1, crossfade: 0.04 },
-        { path: "event:/Robot/Move/GroundTurn", file: "Movement/M05_Move_Turn_Loop.wav", loopStart: 0.3, loopEnd: 1.6, crossfade: 0.04 },
+        // Retain the restored beat through 1.20 without a transition overlap.
+        // GroundTurn key-off in Milestone2ActionVoices starts its tail at 1200 ms.
+        { path: "event:/Robot/Move/GroundTurn", file: "Movement/M05_Move_Turn_Loop.wav", loopStart: 0.25, loopEnd: 1.20, holdName: "TurnHold", crossfade: 0 },
         { path: "event:/Robot/Arm/Deploy", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "DeployHold" },
         { path: "event:/Robot/Arm/Retract", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "RetractHold" },
         { path: "event:/Robot/Arm/Blocked", file: "Arm/A03_Arm_Blocked_01.wav" },
@@ -42,6 +46,18 @@
     }
     function closeEnough(a, b) { return Math.abs(a - b) < 0.000001; }
     function exactType(object, type) { return object && object.isOfExactType(type); }
+    function deliveredAsset(file) {
+        var rootName = file.substring(file.lastIndexOf("/") + 1);
+        var matches = studio.project.model.AudioFile.findInstances().filter(function (asset) {
+            return String(asset.getAssetPath()).replace(/\\/g, "/") === rootName;
+        });
+        requireCondition(matches.length <= 1, "Duplicate root audio asset " + rootName);
+        // Reimporting an existing replaced file may fail on a name conflict.
+        // Its bytes and metadata must already have been synchronized above.
+        var asset = matches.length ? matches[0] : studio.project.importAudioFile(sourceRoot + file);
+        requireCondition(asset && asset.isValid && asset.length > 0, "Import or lookup failed for " + file);
+        return asset;
+    }
     function findFolder(name, parent) {
         var matches = studio.project.model.EventFolder.findInstances().filter(function (item) {
             return item.name === name && item.folder && item.folder.id === parent.id;
@@ -129,6 +145,18 @@
         fade(source, destination, false);
         fade(destination, source, true);
         requireCondition(transition.isValid, "Invalid loop transition");
+    }
+    function removeCrossfade(loop) {
+        var transition = loop.transitionTimeline;
+        if (!transition) return;
+        requireCondition(exactType(transition, "TransitionTimeline"), "Unexpected loop transition type");
+        requireCondition(transition.modules.every(function (module) {
+            return exactType(module, "TransitionSourceSound") || exactType(module, "TransitionDestinationSound");
+        }), "Refusing to remove custom loop transition content");
+        // Deleting this owned timeline also removes its source/destination
+        // proxies and references. Retain the event, source sound and loop GUIDs.
+        requireCondition(studio.project.deleteObject(transition), "Cannot remove the old loop crossfade");
+        requireCondition(!loop.transitionTimeline, "Loop crossfade remains after deletion");
     }
     function configureRelease(event, milliseconds, parameterName) {
         var masterBus = event.mixer.masterBus;
@@ -237,8 +265,7 @@
     definitions.forEach(function (definition) {
         var asset = imported[definition.file];
         if (!asset) {
-            asset = studio.project.importAudioFile(sourceRoot + definition.file);
-            requireCondition(asset && asset.isValid && asset.length > 0, "Import failed for " + definition.file);
+            asset = deliveredAsset(definition.file);
             imported[definition.file] = asset;
         }
         var trimStart = definition.trimStart === undefined ? 0 : definition.trimStart;
@@ -287,7 +314,8 @@
             loop.length = loopEnd - definition.loopStart;
             if (definition.holdName) configureHold(event, loop, definition.holdName);
             else requireCondition(loop.triggerConditions.length === 0, "Unexpected loop conditions in " + definition.path);
-            if (definition.crossfade) configureCrossfade(loop, sound, definition.crossfade);
+            if (definition.crossfade === 0) removeCrossfade(loop);
+            else if (definition.crossfade) configureCrossfade(loop, sound, definition.crossfade);
             requireCondition(loop.isValid && closeEnough(loop.position + loop.length, loopEnd), "Invalid loop region");
         }
         requireCondition(sound.isValid && !event.is3D(), "Invalid or non-2D event " + definition.path);

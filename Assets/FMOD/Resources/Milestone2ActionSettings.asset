@@ -251,7 +251,7 @@ MonoBehaviour:
         Data3: 2027770006
         Data4: 800091552
       Path: event:/Robot/Move/GroundTurn
-    gainDb: -2.498774732
+    gainDb: -0.915149811
     readBySoundUI: 1
     soundUIStrength: 0.35
   - eventReference:

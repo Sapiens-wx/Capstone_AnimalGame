@@ -12,7 +12,7 @@ namespace Capstone.Audio
         private Vector2 previousPosition;
         private float previousAngle, engineRpm, engineDirection, forwardReference, linearStillElapsed, turnStillElapsed;
         private bool linearMotion, turnMotion, engineReleasing;
-        private bool hasBaseline, wasMoving, slipEpisode, wasAirborne;
+        private bool hasBaseline, wasMoving, slipEpisode, wasAirborne, groundTurnLooping;
 
         internal RobotMover Source => source;
         internal RobotHeightMotionDetector HeightSource => height;
@@ -139,8 +139,9 @@ namespace Capstone.Audio
             }
 
             voices.SetLoop(Milestone2ActionCue.GroundMove, driven && !airborne && !slip && translating);
-            voices.SetLoopFrom(Milestone2ActionCue.GroundTurn,
-                settings.StationaryTurnGroundAudioEnabled && driven && !airborne && !slip && !translating && turning, 300);
+            UpdateGroundTurn(settings.StationaryTurnGroundAudioEnabled && driven && !airborne
+                && !slip && !translating && turning,
+                settings.StationaryTurnGroundAudioEnabled && driven && !airborne && !slip);
             if (slip)
             {
                 if (!slipEpisode) voices.Play(Milestone2ActionCue.Slide);
@@ -167,7 +168,7 @@ namespace Capstone.Audio
             StopGroundImmediately();
             voices.Stop(Milestone2ActionCue.LandParts, true);
             voices.Stop(Milestone2ActionCue.DriveAcceleration, true);
-            hasBaseline = wasMoving = wasAirborne = false;
+            hasBaseline = wasMoving = wasAirborne = groundTurnLooping = false;
             linearMotion = turnMotion = engineReleasing = false;
             engineRpm = engineDirection = linearStillElapsed = turnStillElapsed = 0f;
         }
@@ -223,6 +224,22 @@ namespace Capstone.Audio
             voices.Stop(Milestone2ActionCue.GroundTurn, true);
             voices.Stop(Milestone2ActionCue.Slide, true);
             slipEpisode = false;
+            groundTurnLooping = false;
+        }
+
+        private void UpdateGroundTurn(bool turning, bool canPlayTail)
+        {
+            if (turning)
+                // A keyed-off tail is replaced in the same fixed slot, from
+                // the loop start; it never resumes with TurnHold still zero.
+                voices.SetLoopFrom(Milestone2ActionCue.GroundTurn, true, 0);
+            else if (!canPlayTail)
+                voices.Stop(Milestone2ActionCue.GroundTurn, true);
+            else if (groundTurnLooping)
+                // Let the source's natural tail finish without a gain fade or
+                // repeated stop/key-off requests on subsequent idle frames.
+                voices.KeyOff(Milestone2ActionCue.GroundTurn);
+            groundTurnLooping = turning;
         }
 
         private void EstablishBaseline()
