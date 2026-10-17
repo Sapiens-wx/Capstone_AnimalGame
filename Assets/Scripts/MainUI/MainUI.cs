@@ -27,6 +27,11 @@ namespace AnimalGame.MainUI
         [Header("Status (normalized)")]
         [SerializeField, Range(0, 1)] private float power = 1;
         [SerializeField, Range(0, 1)] private float integrity = 1;
+        [Header("Power ring flicker")]
+        [Tooltip("Visible duration in seconds. A new duration is sampled each time the ring lights up.")]
+        [SerializeField] private FlickerDuration powerRingOnDuration = new FlickerDuration(.15f, .6f);
+        [Tooltip("Hidden duration in seconds. A new duration is sampled each time the ring goes dark.")]
+        [SerializeField] private FlickerDuration powerRingOffDuration = new FlickerDuration(.04f, .12f);
         [Header("Level indicator")]
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
@@ -35,6 +40,7 @@ namespace AnimalGame.MainUI
 
         private const float DesignWidth = 1920, DesignHeight = 1080;
         private const int SlotCount = 8;
+
         public static MainUI Active { get; private set; }
         public static bool BlocksGameplay => Active != null && Active.isActiveAndEnabled && Active.pauseOwned;
         public bool IsInventoryOpen => inventoryOpen;
@@ -69,6 +75,24 @@ namespace AnimalGame.MainUI
         private double elapsedGameClockSeconds;
         private bool gameClockInitialized;
         private bool telemetryNeedsRefresh = true;
+        private bool powerRingLit = true;
+        private float powerRingFlickerRemaining;
+
+        [Serializable]
+        private struct FlickerDuration
+        {
+            [Min(.01f)] public float min;
+            [Min(.01f)] public float max;
+
+            public FlickerDuration(float min, float max) { this.min = min; this.max = max; }
+
+            public float Sample()
+            {
+                float lower = Mathf.Max(.01f, Mathf.Min(min, max));
+                float upper = Mathf.Max(lower, Mathf.Max(min, max));
+                return UnityEngine.Random.Range(lower, upper);
+            }
+        }
 
         private void Awake()
         {
@@ -78,6 +102,7 @@ namespace AnimalGame.MainUI
         {
             Active = this;
             telemetryNeedsRefresh = true;
+            ResetPowerRingFlicker();
         }
         private void Start() { started = true; Init(); }
 
@@ -105,6 +130,7 @@ namespace AnimalGame.MainUI
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
             powerRing = root.Q<CircularProgressElement>("PowerRing");
+            ResetPowerRingFlicker();
             integrityRing = root.Q<CircularProgressElement>("IntegrityRing");
             powerLabel = root.Q<Label>("PowerPercent");
             integrityLabel = root.Q<Label>("IntegrityPercent");
@@ -267,6 +293,25 @@ namespace AnimalGame.MainUI
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
             HandleInput();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
+            UpdatePowerRingFlicker(Time.unscaledDeltaTime);
+        }
+
+        private void ResetPowerRingFlicker()
+        {
+            powerRingLit = true;
+            powerRingFlickerRemaining = powerRingOnDuration.Sample();
+            if (powerRing != null) powerRing.visible = true;
+        }
+
+        private void UpdatePowerRingFlicker(float deltaTime)
+        {
+            if (powerRing == null) return;
+            powerRingFlickerRemaining -= deltaTime;
+            if (powerRingFlickerRemaining > 0f) return;
+
+            powerRingLit = !powerRingLit;
+            powerRing.visible = powerRingLit;
+            powerRingFlickerRemaining = (powerRingLit ? powerRingOnDuration : powerRingOffDuration).Sample();
         }
 
         private void LateUpdate() => RefreshLatePresentation();
@@ -586,6 +631,7 @@ namespace AnimalGame.MainUI
 
         private void OnDisable()
         {
+            if (powerRing != null) powerRing.visible = true;
             inventoryOpen = false; progress = 0;
             openHoldElapsed = 0; openHoldLatched = false;
             ReleasePause();
