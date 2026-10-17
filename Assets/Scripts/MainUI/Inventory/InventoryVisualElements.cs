@@ -33,7 +33,7 @@ namespace AnimalGame.MainUI.Inventory
             generateVisualContent += context =>
             {
                 Painter2D p = context.painter2D; p.lineWidth = StrokeWidth; p.strokeColor = HudDrawing.Yellow;
-                float w = contentRect.width, h = contentRect.height, a = CornerInset, length = 32;
+                float w = contentRect.width, h = contentRect.height, a = CornerInset, length = 64;
                 foreach (Vector2 corner in new[] { new Vector2(a, a), new Vector2(w - a, a),
                     new Vector2(w - a, h - a), new Vector2(a, h - a) })
                 {

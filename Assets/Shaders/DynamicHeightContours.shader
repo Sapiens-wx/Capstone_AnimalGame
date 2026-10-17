@@ -5,8 +5,6 @@ Shader "AnimalGame/Dynamic Height Contours"
         [PerRendererData] _MainTex ("Base Map", 2D) = "white" {}
         [HideInInspector] _PhotoContoursOnly ("Photo Contours Only", Float) = 0
         _HeightTex ("Height Map", 2D) = "black" {}
-        _PlayableMaskTex ("Playable Area Mask", 2D) = "white" {}
-        _PlayableMaskEnabled ("Playable Area Mask Enabled", Float) = 0
         _SurfaceTex ("Editor-Baked Terrain Surface", 2D) = "black" {}
         _SurfaceEnabled ("Surface Enabled", Float) = 0
         _SurfaceRevealEnabled ("Surface UI Reveal Enabled", Float) = 0
@@ -94,7 +92,6 @@ Shader "AnimalGame/Dynamic Height Contours"
             sampler2D _MainTex;
             float _PhotoContoursOnly;
             sampler2D _HeightTex;
-            sampler2D _PlayableMaskTex;
             sampler2D _SurfaceTex;
             sampler2D _WaterMaskTex;
             sampler2D _WaterPatternTex;
@@ -105,7 +102,6 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _SurfaceRevealRadiusPixels;
             float _SurfaceRevealEdgePixels;
             float _OutsideRevealDarkening;
-            float _PlayableMaskEnabled;
             float _WaterEnabled;
             float4 _MapSizeMeters;
             float _WaterTileSizeMeters;
@@ -208,12 +204,6 @@ Shader "AnimalGame/Dynamic Height Contours"
                 // The sprite only supplies geometry; its carrier texture must not control map opacity.
                 fixed4 baseColor = fixed4(0, 0, 0, input.color.a);
                 if (_PhotoContoursOnly > 0.5) baseColor = fixed4(0, 0, 0, 1);
-                if (_PlayableMaskEnabled > 0.5
-                    && tex2D(_PlayableMaskTex, input.uv).r < 0.5)
-                {
-                    return baseColor;
-                }
-
                 float revealMask = 1.0;
                 if (_SurfaceRevealEnabled > 0.5)
                 {

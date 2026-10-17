@@ -47,7 +47,6 @@ namespace AnimalGame.Editor
             settings.FindProperty("normalizeSourceRange").boolValue = false;
             settings.FindProperty("surfaceSmoothingSigmaMeters").floatValue = 0f;
             settings.FindProperty("detailSmoothingSigmaMeters").floatValue = 0f;
-            settings.FindProperty("useHeightMapBorderMask").boolValue = false;
             settings.FindProperty("contourIntervalMeters").floatValue = 1f;
             settings.FindProperty("dynamicContourShader").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Shader>(AssetDatabase.GUIDToAssetPath("66c17e2481f6472cb3cd86fe63c9f57a"));
@@ -106,8 +105,7 @@ namespace AnimalGame.Editor
                 && level.SurfaceSmoothingSigmaMeters == 0f && level.DetailSmoothingSigmaMeters == 0f,
                 "Height scale or smoothing does not match the exported Terrain.");
             Require(level.PrebakedHeightField != null && level.PrebakedHeightField.Matches(level), "Rebake the test level.");
-            Require(level.BakedSurfaceVisual == null && level.BakedStaticWaterMask == null
-                && level.PlayableAreaMask == null && !level.UseHeightMapBorderMask,
+            Require(level.BakedSurfaceVisual == null && level.BakedStaticWaterMask == null,
                 "Unexpected surface or mask inherited from another level.");
             Require(map.RuntimeMap.Tiles.First().Field.Width == 513 && map.RuntimeMap.Tiles.First().Field.Height == 513, "Height field resolution changed.");
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;

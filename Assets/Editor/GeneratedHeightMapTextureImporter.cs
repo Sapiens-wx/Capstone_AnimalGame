@@ -12,7 +12,6 @@ namespace AnimalGame.EditorTools
     public sealed class GeneratedHeightMapTextureImporter : AssetPostprocessor
     {
         private const string HeightFileName = "Rocky_Moutain_Height_R16.png";
-        private const string MaskFileName = "Rocky_Moutain_PlayableMask.png";
 
         public override uint GetVersion()
         {
@@ -23,8 +22,7 @@ namespace AnimalGame.EditorTools
         {
             string fileName = Path.GetFileName(assetPath);
             bool isHeight = fileName == HeightFileName;
-            bool isMask = fileName == MaskFileName;
-            if (!isHeight && !isMask)
+            if (!isHeight)
                 return;
 
             var importer = (TextureImporter)assetImporter;
@@ -35,7 +33,7 @@ namespace AnimalGame.EditorTools
             importer.alphaSource = TextureImporterAlphaSource.None;
             importer.npotScale = TextureImporterNPOTScale.None;
             importer.wrapMode = TextureWrapMode.Clamp;
-            importer.filterMode = isHeight ? FilterMode.Bilinear : FilterMode.Point;
+            importer.filterMode = FilterMode.Bilinear;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.maxTextureSize = 2048;
 
@@ -43,9 +41,7 @@ namespace AnimalGame.EditorTools
                 importer.GetDefaultPlatformTextureSettings();
             settings.maxTextureSize = 2048;
             settings.textureCompression = TextureImporterCompression.Uncompressed;
-            settings.format = isHeight
-                ? TextureImporterFormat.R16
-                : TextureImporterFormat.R8;
+            settings.format = TextureImporterFormat.R16;
             importer.SetPlatformTextureSettings(settings);
         }
     }

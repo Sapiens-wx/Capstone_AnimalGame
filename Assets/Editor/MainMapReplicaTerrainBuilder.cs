@@ -94,9 +94,7 @@ namespace AnimalGame.Editor
         private static BakedHeightField BakeSource(HeightMapLevelAsset level) => BakedHeightField.Bake(
             level.HeightMap, level.BakedHeightResolution, level.MapSizeMeters,
             level.MinimumHeightMeters, level.MaximumHeightMeters, level.NormalizeSourceRange,
-            level.SurfaceSmoothingSigmaMeters, level.DetailSmoothingSigmaMeters,
-            level.UseHeightMapBorderMask, level.HeightMapBorderMaskThreshold,
-            level.HeightMapBorderInsetMeters, level.PlayableAreaMask);
+            level.SurfaceSmoothingSigmaMeters, level.DetailSmoothingSigmaMeters);
 
         private static void ValidateAgainstSource(Terrain terrain, HeightMapLevelAsset level, BakedHeightField field)
         {

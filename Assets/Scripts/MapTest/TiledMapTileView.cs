@@ -48,8 +48,6 @@ namespace AnimalGame.MapTest
             material.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
             material.SetFloat("_MinimumHeight", level.MinimumHeightMeters);
             material.SetFloat("_MaximumHeight", level.MaximumHeightMeters);
-            material.SetTexture("_PlayableMaskTex", tile.Field.PlayableMaskTexture ?? Texture2D.whiteTexture);
-            material.SetFloat("_PlayableMaskEnabled", tile.Field.PlayableMaskTexture != null ? 1 : 0);
             material.SetVector("_MapSizeMeters", new Vector4(level.MapSizeMeters.x, level.MapSizeMeters.y, 0, 0));
             material.SetTexture("_SurfaceTex", level.BakedSurfaceVisual ?? Texture2D.blackTexture);
             material.SetFloat("_SurfaceEnabled", level.BakedSurfaceVisual != null ? 1 : 0);
