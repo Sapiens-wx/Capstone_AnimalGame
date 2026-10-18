@@ -123,7 +123,7 @@ namespace AnimalGame.Editor
                 "The five regions do not exactly fill their shared outer outline.");
             OfficialMapRegion plains = plan.FindRegion("plains");
             Require(plains != null && Math.Abs(plains.AreaSquareMeters - OfficialMapPlan.TargetPlainsAreaSquareMeters) < 1d,
-                "The plains must be calibrated to 2,250,000 m2 within 1 m2.");
+                "The plains must be calibrated to 1,562,500 m2 within 1 m2.");
             int authoringTerrainCount = Components<Terrain>(plan.gameObject.scene).Length;
 
             var report = new StringBuilder("PASS: Official_Map_01 region planning\n");
@@ -135,7 +135,7 @@ namespace AnimalGame.Editor
             report.AppendLine($"Total outlined area: {totalArea / 1000000d:F9} km2; one closed perimeter; "
                 + $"{edges.Values.Count(owners => owners.Count == 2)} exact shared edges; no crossings or gaps.");
             report.AppendLine($"Height-difference references: 350 m and 70 m; bottom world Y={plan.transform.position.y + plan.ReferenceBaseHeightMeters:F4} m. "
-                + "Also 1 m cube / 2 m figure, 250 m square and 1500 m square.");
+                + "Also 1 m cube / 2 m figure, 250 m square and 1250 m square.");
             report.AppendLine("Plan lies at Y=0; region elevation bands are suggestions, not generated or measured terrain.");
             report.AppendLine($"Authoring Terrain objects currently in this scene: {authoringTerrainCount}. Region areas are independent of their rectangular coverage.");
             Directory.CreateDirectory(ReportDirectory);
