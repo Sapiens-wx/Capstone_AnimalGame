@@ -39,11 +39,23 @@ namespace AnimalGame.Editor
 
         private static void Update()
         {
+            Scene activeScene = SceneManager.GetActiveScene();
+            bool officialTerrainScene = activeScene.path == OfficialMap01PlanBuilder.ScenePath;
+            if (officialTerrainScene)
+            {
+                officialTerrainScene = false;
+                foreach (GameObject root in activeScene.GetRootGameObjects())
+                    if (root.GetComponentInChildren<Terrain>(true) != null)
+                    {
+                        officialTerrainScene = true;
+                        break;
+                    }
+            }
             // Preview belongs to the authoring scene, regardless of whether its
             // original prototype terrain has been renamed, replaced or deleted.
             bool shouldPreview = !EditorApplication.isPlayingOrWillChangePlaymode
                 && !EditorApplication.isCompiling && !EditorApplication.isUpdating
-                && SceneManager.GetActiveScene().path == TerrainPrototypeBuilder.ScenePath;
+                && (activeScene.path == TerrainPrototypeBuilder.ScenePath || officialTerrainScene);
             if (!shouldPreview)
             {
                 Restore();

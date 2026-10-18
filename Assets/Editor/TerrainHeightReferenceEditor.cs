@@ -115,9 +115,17 @@ namespace AnimalGame.Editor
         {
             if (Event.current == null || Event.current.type != EventType.Repaint
                 || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            bool officialPlanIsActive = false;
+            foreach (OfficialMapPlan plan in Object.FindObjectsByType<OfficialMapPlan>(FindObjectsSortMode.None))
+                if (plan.isActiveAndEnabled && plan.ShowPlan && plan.gameObject.scene == activeScene)
+                    officialPlanIsActive = true;
             foreach (TerrainHeightReference reference in Object.FindObjectsByType<TerrainHeightReference>(
                          FindObjectsSortMode.None))
-                if (reference.gameObject.scene.IsValid() && reference.gameObject.scene.isLoaded)
+                // An unsaved authoring scene may remain loaded while the official plan is edited.
+                // Keep its cached measurements out of the active plan without changing that scene.
+                if (reference.gameObject.scene.IsValid() && reference.gameObject.scene.isLoaded
+                    && (!officialPlanIsActive || reference.gameObject.scene == activeScene))
                     DrawHeightReference(reference);
         }
 

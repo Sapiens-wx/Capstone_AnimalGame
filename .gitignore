@@ -114,3 +114,6 @@ InitTestScene*.unity*
 # Regenerable V1 terrain height caches remain local; keep TerrainData, PNG and MapData.
 /Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset
 /Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset.meta
+
+# Local source snapshots before the official grassland blockout; never duplicate them in Git.
+/LocalBackups/OfficialMap01/RoughBlockout/
