@@ -117,3 +117,6 @@ InitTestScene*.unity*
 
 # Local source snapshots before the official grassland blockout; never duplicate them in Git.
 /LocalBackups/OfficialMap01/RoughBlockout/
+
+# Named TerrainData saves and automatic recovery versions stay local.
+/LocalBackups/TerrainSaves/
