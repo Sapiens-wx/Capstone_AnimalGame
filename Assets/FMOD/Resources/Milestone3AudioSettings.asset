@@ -1,0 +1,233 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8382e43f8484d76b2f08c2b1e74b70d, type: 3}
+  m_Name: Milestone3AudioSettings
+  m_EditorClassIdentifier:
+  enableAudio: 1
+  cues:
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Balance/TumbleStart
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 1277249031
+        Data2: 1235449963
+        Data3: 1928567209
+        Data4: 2056115725
+      Path: event:/Robot/Balance/TumbleMove
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 1988729321
+        Data2: 1207605610
+        Data3: 733393563
+        Data4: 1320200997
+      Path: event:/Robot/Balance/TumbleImpact
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 325226965
+        Data2: 1182440399
+        Data3: 1314617749
+        Data4: 1054912307
+      Path: event:/Robot/Balance/RockImpact
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 977844210
+        Data2: 1315937101
+        Data3: 1503290253
+        Data4: 900573290
+      Path: event:/Robot/Balance/RecoveredUpright
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 606103037
+        Data2: 1232070186
+        Data3: -311520876
+        Data4: 1329438571
+      Path: event:/Robot/Balance/SettledFallen
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -762397083
+        Data2: 1090199892
+        Data3: 317412006
+        Data4: 1669907832
+      Path: event:/Robot/Balance/SupportStart
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 2100974330
+        Data2: 1151402012
+        Data3: -1977286254
+        Data4: 1615535844
+      Path: event:/Robot/Balance/SupportLoad
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -470234703
+        Data2: 1330429046
+        Data3: 1033890178
+        Data4: 1724335349
+      Path: event:/Robot/Balance/ForceAccepted
+    gainDb: -4.436974992
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -109207335
+        Data2: 1098980382
+        Data3: 898737310
+        Data4: 1365059807
+      Path: event:/Robot/Balance/ForceRejected
+    gainDb: -4.436974992
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 826712167
+        Data2: 1106047143
+        Data3: 1617008038
+        Data4: -563865011
+      Path: event:/Robot/Balance/PullBalance
+    gainDb: -4.436974992
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 1122403277
+        Data2: 1201813551
+        Data3: 724305040
+        Data4: -1491928985
+      Path: event:/Robot/Balance/SupportFailed
+    gainDb: -4.436974992
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -782244414
+        Data2: 1307229019
+        Data3: 155036561
+        Data4: -1787549371
+      Path: event:/Robot/Balance/RightingChassis
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -138594316
+        Data2: 1307683933
+        Data3: -1598925922
+        Data4: -1820839283
+      Path: event:/Robot/Balance/RightingLand
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Recycle/PushStart
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Recycle/PushLoop
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Recycle/Small
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 913005732
+        Data2: 1142765339
+        Data3: 681171363
+        Data4: 1586175342
+      Path: event:/Robot/Recycle/Intake
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Recycle/Complete
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Balance/TumbleImpact02
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -209982521
+        Data2: 1250219419
+        Data3: -1047865686
+        Data4: -1270603025
+      Path: event:/Robot/Balance/TumbleImpact03
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  fadeOutSeconds: 0.05
+  parameterEpsilon: 0.005
+  tumbleMotionThreshold: 0.01
+  tumbleReferenceSpeed: 4
+  tumbleImpactEnergyReference: 12
+  effortReferenceFrequency: 3
+  progressEpsilon: 0.00001
