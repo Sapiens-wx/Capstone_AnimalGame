@@ -115,15 +115,54 @@ namespace AnimalGame.Editor
                 Check(hud.Items[0] == metal && hud.Items[2] == null, "Preview does not mutate inventory");
                 Check(root.Q("InventorySlot3").Q<Image>("ItemImage").sprite == metal.Image &&
                     root.Q("InventorySlot3").Q<EmptyInventoryElement>().style.display.value == DisplayStyle.None, "Preview shows sprite and hides cross");
+                using (var leave = PointerLeaveEvent.GetPooled())
+                {
+                    var slot = root.Q("InventorySlot3");
+                    leave.target = slot; slot.SendEvent(leave);
+                }
+                Check(hud.SelectedIndex == 2 && (int)Field(hud, "moveTarget") == 2 &&
+                    root.Q("InventorySlot3").Q<EmptyInventoryElement>().style.display.value == DisplayStyle.None,
+                    "Leaving the slot retains the frame and preview");
+                PointerMove(root, Vector2.one);
+                Check(hud.SelectedIndex == 2 && (int)Field(hud, "moveTarget") == 2,
+                    "Moving the mouse outside the grid retains the current target");
+                Call(hud, "SetMoveTarget", 7);
+                Call(hud, "NavigateInventory", Vector2Int.right);
+                Check(hud.SelectedIndex == 7 && (int)Field(hud, "moveTarget") == 7 &&
+                    root.Q("InventorySlot8").Q<Image>("ItemImage").sprite == metal.Image &&
+                    root.Q("InventorySlot8").Q<EmptyInventoryElement>().style.display.value == DisplayStyle.None,
+                    "Right boundary keeps the current empty slot preview");
+                Call(hud, "NavigateInventory", new Vector2Int(0, 1));
+                Check(hud.SelectedIndex == 7 && (int)Field(hud, "moveTarget") == 7,
+                    "Bottom boundary also retains the current target");
                 Call(hud, "SetMoveTarget", 1);
                 Check(hud.SelectedIndex == 1 && (int)Field(hud, "moveTarget") == -1, "Frame can pass through an occupied slot");
+                PointerMove(root, Vector2.one);
+                Check(hud.SelectedIndex == 1 && (int)Field(hud, "moveTarget") == -1 &&
+                    root.Q("InventorySlot8").Q<EmptyInventoryElement>().style.display.value == DisplayStyle.Flex,
+                    "Leaving an occupied slot does not restore the previous empty slot preview");
                 Call(hud, "ConfirmInventoryMove");
                 Check(hud.Items[0] == metal && hud.Items[1] == synthetic, "Confirm on occupied slot does nothing");
                 Check(root.Q("InventorySlot3").Q<EmptyInventoryElement>().style.display.value == DisplayStyle.Flex, "Previous preview restores cross");
                 Call(hud, "SetMoveTarget", 4); Call(hud, "BackInventory");
                 Check(hud.IsInventoryOpen && hud.SelectedIndex == 0 && hud.Items[0] == metal && hud.Items[4] == null, "Cancel restores source selection without closing");
                 Fresh(hud); Call(hud, "ClickInventorySlot", 0); Fresh(hud); Call(hud, "ExecuteInventoryAction", 2);
-                Call(hud, "SetMoveTarget", 7); Fresh(hud); Call(hud, "ConfirmInventoryMove");
+                Fresh(hud); Call(hud, "ConfirmInventoryMove");
+                Check(hud.IsInventoryOpen && hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Browse &&
+                    hud.SelectedIndex == 0 && hud.Items[0] == metal && hud.Inventory.Quantity(0) == 2,
+                    "Confirming at the source ends MOVE without changing the stack");
+                Fresh(hud); Call(hud, "ClickInventorySlot", 0); Fresh(hud); Call(hud, "ExecuteInventoryAction", 2);
+                Call(hud, "SetMoveTarget", 4); Fresh(hud); Call(hud, "ClickInventorySlot", 0);
+                Check(hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Browse && hud.SelectedIndex == 0 &&
+                    hud.Items[0] == metal && hud.Inventory.Quantity(0) == 2 && hud.Items[4] == null &&
+                    root.Q("InventorySlot5").Q<EmptyInventoryElement>().style.display.value == DisplayStyle.Flex,
+                    "Clicking the source completes MOVE and clears the previous preview");
+                Call(hud, "ClickInventorySlot", 0);
+                Check(hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Browse,
+                    "Source confirmation click cannot also reopen the menu");
+                Fresh(hud); Call(hud, "ClickInventorySlot", 0); Fresh(hud); Call(hud, "ExecuteInventoryAction", 2);
+                Call(hud, "SetMoveTarget", 7); Call(hud, "NavigateInventory", Vector2Int.right);
+                Fresh(hud); Call(hud, "ConfirmInventoryMove");
                 Check(hud.Items[0] == null && hud.Items[7] == metal && hud.Inventory.Quantity(7) == 2, "Confirm transfers exactly the whole stack");
                 Check(hud.SelectedIndex == 7 && hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Browse, "Commit selects destination in browse mode");
                 Call(hud, "NavigateInventory", new Vector2Int(0, -1));
@@ -195,6 +234,12 @@ namespace AnimalGame.Editor
                 Input(default); Fresh(hud); Call(hud, "ClickInventorySlot", 0); Fresh(hud); Call(hud, "ExecuteInventoryAction", 2);
                 Input(default, new KeyboardState(Key.N));
                 Check(hud.IsInventoryOpen && hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Browse, "N first cancels MOVE");
+                Input(default);
+                Fresh(hud); Call(hud, "ClickInventorySlot", 0); Fresh(hud); Call(hud, "ExecuteInventoryAction", 2);
+                Input(new GamepadState().WithButton(GamepadButton.South));
+                Check(hud.IsInventoryOpen && hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Browse &&
+                    hud.SelectedIndex == 0 && hud.Items[0] == metal && hud.Inventory.Quantity(0) == 1,
+                    "Gamepad A at the source completes MOVE in place");
                 Input(default);
                 }
 #endif

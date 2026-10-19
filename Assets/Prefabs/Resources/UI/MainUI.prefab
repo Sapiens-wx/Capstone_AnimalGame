@@ -222,11 +222,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9f357ea297a79904eaf624ed5d61b81a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  inventoryRewards: {fileID: 11400000, guid: f8afad1a7512481e958dffe5fd896144, type: 2}
-  newItemBlinkPeriod: 1
-  inventoryStickDeadzone: 0.5
-  inventoryRepeatDelay: 0.35
-  inventoryRepeatInterval: 0.12
   document: {fileID: 5078151001591562568}
   emptyItemTemplate: {fileID: 9197481963319205126, guid: d2094fa53a1bef84ea7da428b2a3b604, type: 3}
   defaultItems:
@@ -234,8 +229,8 @@ MonoBehaviour:
   power: 1
   integrity: 1
   powerRingOnDuration:
-    min: 0.11
-    max: 0.8
+    min: 0.3
+    max: 1.5
   powerRingOffDuration:
     min: 0.01
     max: 0.07
@@ -265,6 +260,11 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   gamepadOpenHoldSeconds: 0.4
+  inventoryRewards: {fileID: 11400000, guid: f8afad1a7512481e958dffe5fd896144, type: 2}
+  newItemBlinkPeriod: 1
+  inventoryStickDeadzone: 0.5
+  inventoryRepeatDelay: 0.35
+  inventoryRepeatInterval: 0.12
 --- !u!114 &7246715380435037797
 MonoBehaviour:
   m_ObjectHideFlags: 0

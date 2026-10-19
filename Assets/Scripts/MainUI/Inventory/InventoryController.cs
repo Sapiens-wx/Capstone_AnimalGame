@@ -339,9 +339,10 @@ namespace AnimalGame.MainUI.Inventory
         private void SetMoveTarget(int index)
         {
             int old = moveTarget;
-            // Updated requirement: the frame may cross occupied slots, but cannot preview or place there.
+            // Only a valid slot changes the frame. Leaving the grid or hitting its edge
+            // keeps the current slot's preview; an occupied current slot has no preview.
             if (index >= 0 && index < SlotCount) SelectItem(index);
-            moveTarget = index >= 0 && index < SlotCount && Items[index] == null ? index : -1;
+            moveTarget = Items[selectedIndex] == null ? selectedIndex : -1;
             if (old == moveTarget) return;
             if (old >= 0) RefreshItem(old);
             if (moveTarget >= 0) RefreshItem(moveTarget);
@@ -349,8 +350,17 @@ namespace AnimalGame.MainUI.Inventory
 
         private void ConfirmInventoryMove()
         {
-            if (CancelInventoryInputPending() || moveTarget < 0 || Items[moveTarget] != null || Items[moveSource] != movingItem ||
+            if (interactionState != InventoryInteractionState.Move || CancelInventoryInputPending() ||
+                moveSource < 0 || Items[moveSource] != movingItem ||
                 inventoryStore.Quantity(moveSource) != movingQuantity) return;
+            // Confirming the source completes the operation without changing the stack.
+            if (selectedIndex == moveSource)
+            {
+                ResetInventoryInteraction();
+                lastInventoryActionFrame = Time.frameCount;
+                return;
+            }
+            if (moveTarget < 0 || Items[moveTarget] != null) return;
             int source = moveSource, target = moveTarget;
             ResetInventoryInteraction();
             if (inventoryStore.Move(source, target)) SelectItem(target);

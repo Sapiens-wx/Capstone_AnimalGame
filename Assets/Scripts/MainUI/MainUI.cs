@@ -259,7 +259,7 @@ namespace AnimalGame.MainUI
             if (powerRingFlickerRemaining > 0f) return;
 
             powerRingLit = !powerRingLit;
-            powerRing.visible = powerRingLit;
+            powerRing.style.opacity = powerRingLit?1:UnityEngine.Random.Range(0.5f, 0.9f);
             powerRingFlickerRemaining = (powerRingLit ? powerRingOnDuration : powerRingOffDuration).Sample();
         }
 
