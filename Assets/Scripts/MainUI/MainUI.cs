@@ -5,19 +5,17 @@ using AnimalGame.Animals;
 using AnimalGame.MainUI.Inventory;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace AnimalGame.MainUI
 {
     [DefaultExecutionOrder(-200)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UIDocument))]
-    public sealed class MainUI : MonoBehaviour
+    public sealed class MainUI : MonoBehaviour, IInventoryHost
     {
         [SerializeField] private UIDocument document;
         [SerializeField] private VisualTreeAsset emptyItemTemplate;
@@ -38,17 +36,63 @@ namespace AnimalGame.MainUI
         [SerializeField] private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
         [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .4f;
 
+        [Header("Inventory interactions")]
+        [SerializeField] private InventoryRewardTable inventoryRewards;
+        [SerializeField, Min(.1f)] private float newItemBlinkPeriod = 1;
+        [SerializeField, Range(.1f, .95f)] private float inventoryStickDeadzone = .5f;
+        [SerializeField, Min(.05f)] private float inventoryRepeatDelay = .35f;
+        [SerializeField, Min(.05f)] private float inventoryRepeatInterval = .12f;
+
+        private InventoryController inventoryController;
+        public InventoryController InventoryController
+        {
+            get
+            {
+                inventoryController ??= new InventoryController(this);
+                inventoryController.Configure(new InventoryControllerSettings
+                {
+                    Rewards = inventoryRewards, ItemTemplate = emptyItemTemplate,
+                    BlinkPeriod = newItemBlinkPeriod, StickDeadzone = inventoryStickDeadzone,
+                    RepeatDelay = inventoryRepeatDelay, RepeatInterval = inventoryRepeatInterval,
+                    OpenHoldSeconds = gamepadOpenHoldSeconds
+                });
+                inventoryController.InitializeInventoryData(defaultItems);
+                return inventoryController;
+            }
+        }
+
+        public InventoryStore Inventory => InventoryController.Inventory;
+        public InventoryInteractionState InteractionState => InventoryController.InteractionState;
+        public event Action<InventoryItem> UseRequested
+        {
+            add => InventoryController.UseRequested += value;
+            remove => InventoryController.UseRequested -= value;
+        }
+        public event Action<InventoryItem> InfoRequested
+        {
+            add => InventoryController.InfoRequested += value;
+            remove => InventoryController.InfoRequested -= value;
+        }
+        public Action<int> DiscardRequested
+        {
+            get => InventoryController.DiscardRequested;
+            set => InventoryController.DiscardRequested = value;
+        }
+        public InventoryStore.AddResult AddItem(InventoryItem item, int quantity = 1) => InventoryController.AddItem(item, quantity);
+        public InventoryStore.AddResult GrantRecycleRewards(RecyclableSize size) => InventoryController.GrantRecycleRewards(size);
+        public void SetItem(int index, InventoryItem item) => InventoryController.SetItem(index, item);
+        public void SelectItem(int index) => InventoryController.SelectItem(index);
+
         private const float DesignWidth = 1920, DesignHeight = 1080;
-        private const int SlotCount = 8;
 
         public static MainUI Active { get; private set; }
         public static bool BlocksGameplay => Active != null && Active.isActiveAndEnabled && Active.pauseOwned;
         public bool IsInventoryOpen => inventoryOpen;
         public float InventoryProgress => progress;
-        public int SelectedIndex => selectedIndex;
+        public int SelectedIndex => InventoryController.SelectedIndex;
         public float Power { get => power; set => power = Mathf.Clamp01(value); }
         public float Integrity { get => integrity; set => integrity = Mathf.Clamp01(value); }
-        public InventoryItem[] Items { get; } = new InventoryItem[SlotCount];
+        public InventoryItem[] Items => InventoryController.Items;
 
         private VisualElement root, stage, view, ring, status, time, sound, inventory, grid, compassHost, coordinates;
         private ViewRingElement innerRing, outerRing;
@@ -57,18 +101,14 @@ namespace AnimalGame.MainUI
         private LevelIndicatorElement levelIndicator;
         private HudFrameElement frame;
         private TimeOrbitElement timeOrbit;
-        private InventorySelectionElement selection;
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
         private Label latitudeHemisphereLabel, longitudeHemisphereLabel;
-        private readonly Button[] slots = new Button[SlotCount];
-        private bool started, inventoryOpen, pauseOwned, originalCursor, openHoldLatched, hasGeometry;
-        private bool defaultItemsLoaded;
+        private bool started, inventoryOpen, pauseOwned, originalCursor, hasGeometry;
         private CursorLockMode originalCursorLock;
-        private float progress, savedTimeScale, openHoldElapsed, fit = 1, photoScale = 1, photoAlpha = 1;
+        private float progress, savedTimeScale, fit = 1, photoScale = 1, photoAlpha = 1;
         private float lastPower = -1, lastIntegrity = -1;
         private float headingDegrees;
         private float outerRingHeadingDegrees;
-        private int selectedIndex;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
         private DateTime lastCoordinateRefresh, gameTime;
@@ -122,7 +162,6 @@ namespace AnimalGame.MainUI
             sound = root.Q("Sound");
             inventory = root.Q("Inventory");
             grid = root.Q("InventoryGrid");
-            selection = root.Q<InventorySelectionElement>("InventorySelection");
             frame = root.Q<HudFrameElement>("Frame");
             compass = root.Q<CompassElement>("Compass");
             levelIndicator = root.Q<LevelIndicatorElement>("LevelIndicator");
@@ -150,13 +189,7 @@ namespace AnimalGame.MainUI
             root.style.overflow = Overflow.Hidden;
             if (emptyItemTemplate == null)
                 emptyItemTemplate = Resources.Load<VisualTreeAsset>("UI/Main/EmptyInventoryItem");
-            if (!defaultItemsLoaded)
-            {
-                for (int i = 0; defaultItems != null && i < Mathf.Min(SlotCount, defaultItems.Count); i++)
-                    Items[i] = defaultItems[i];
-                defaultItemsLoaded = true;
-            }
-            BuildSlots();
+            InventoryController.Bind(root, inventory, grid, root.Q<InventorySelectionElement>("InventorySelection"));
             ClearCoordinates();
             InitializeGameClock(DateTime.Now);
             RefreshTelemetry(DateTime.Now, true);
@@ -165,91 +198,7 @@ namespace AnimalGame.MainUI
             UpdateStatus();
         }
 
-        private void BuildSlots()
-        {
-            grid.Clear();
-            for (int i = 0; i < SlotCount; i++)
-            {
-                int index = i;
-                var button = new Button(() => SelectItem(index)) { name = "InventorySlot" + (i + 1), userData = Items[i] };
-                button.AddToClassList("inventory-slot");
-                button.style.position = Position.Absolute;
-                button.style.left = new Length((i % 2) * 50, LengthUnit.Percent);
-                button.style.top = new Length((i / 2) * 25, LengthUnit.Percent);
-                button.RegisterCallback<PointerEnterEvent>(_ => { if (inventoryOpen) SelectItem(index); });
-                button.RegisterCallback<FocusInEvent>(_ => { if (inventoryOpen) SelectItem(index); });
-                // Navigation is owned by MainUI so each input moves the shared selection exactly once.
-                button.RegisterCallback<NavigationMoveEvent>(evt => evt.StopImmediatePropagation());
-                grid.Add(button);
-                slots[i] = button;
-                RefreshItem(i);
-            }
-            SelectItem(selectedIndex);
-        }
-
-        public void SetItem(int index, InventoryItem item)
-        {
-            if (index < 0 || index >= SlotCount) throw new ArgumentOutOfRangeException(nameof(index));
-            Items[index] = item;
-            RefreshItem(index);
-        }
-
-        private void RefreshItem(int index)
-        {
-            Button button = slots[index];
-            if (button == null) return;
-            button.Clear();
-            button.userData = Items[index];
-            if (emptyItemTemplate != null)
-            {
-                TemplateContainer empty = emptyItemTemplate.CloneTree();
-                empty.AddToClassList("empty-item");
-                empty.pickingMode = PickingMode.Ignore;
-                button.Add(empty);
-            }
-            else
-            {
-                button.Add(new EmptyInventoryElement { name = "EmptyItem", style = { flexGrow = 1 } });
-                button.Add(new Image { name = "ItemImage", pickingMode = PickingMode.Ignore,
-                    style = { position = Position.Absolute, left = 12, right = 12, top = 12, bottom = 38 } });
-                button.Add(new Label { name = "ItemName", pickingMode = PickingMode.Ignore,
-                    style = { position = Position.Absolute, left = 8, right = 8, bottom = 8, height = 24,
-                        unityTextAlign = TextAnchor.MiddleCenter, color = Color.white, fontSize = 18,
-                        overflow = Overflow.Hidden } });
-            }
-
-            InventoryItem item = Items[index];
-            var placeholder = button.Q<EmptyInventoryElement>("EmptyItem");
-            if (item != null) placeholder?.RemoveFromHierarchy();
-            var image = button.Q<Image>("ItemImage");
-            if (image != null)
-            {
-                image.sprite = item != null ? item.Image : null;
-                image.scaleMode = ScaleMode.ScaleToFit;
-                image.style.display = item != null ? DisplayStyle.Flex : DisplayStyle.None;
-            }
-            var label = button.Q<Label>("ItemName");
-            if (label != null)
-            {
-                label.text = item != null ? item.ItemName : string.Empty;
-                label.style.display = item != null ? DisplayStyle.Flex : DisplayStyle.None;
-            }
-        }
-
-        public void SelectItem(int index)
-        {
-            selectedIndex = Mathf.Clamp(index, 0, SlotCount - 1);
-            if (selection == null) return;
-            if (slots[selectedIndex] == null || !Positive(grid.layout.width)) return;
-            float inset = InventorySelectionElement.InnerFrameInset;
-            Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position
-                - selection.layout.position - Vector2.one * inset;
-            selection.style.translate = new Translate(offset.x, offset.y);
-            selection.style.width = slots[selectedIndex].layout.width + inset * 2;
-            selection.style.height = slots[selectedIndex].layout.height + inset * 2;
-        }
-
-        public void ToggleInventory() { if (inventoryOpen) CloseInventory(); else OpenInventory(); }
+        public void ToggleInventory() { if (inventoryOpen) InventoryController.BackInventory(); else OpenInventory(); }
         public void OpenInventory()
         {
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
@@ -260,7 +209,7 @@ namespace AnimalGame.MainUI
             inventoryOpen = true;
             AcquirePause();
         }
-        public void CloseInventory() => inventoryOpen = false;
+        public void CloseInventory() { inventoryController?.ResetInventoryInteraction(); inventoryOpen = false; }
 
         private void AcquirePause()
         {
@@ -291,7 +240,7 @@ namespace AnimalGame.MainUI
             if (stage == null) return;
             AdvanceGameClock(Time.deltaTime);
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
-            HandleInput();
+            InventoryController.Tick();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
             UpdatePowerRingFlicker(Time.unscaledDeltaTime);
         }
@@ -365,8 +314,6 @@ namespace AnimalGame.MainUI
             float inventoryEndX = (size.x * .25f - viewportOffset.x) / fit
                 - view.layout.x - inventory.layout.center.x;
             inventory.style.translate = new Translate(Mathf.Lerp(inventoryStartX, inventoryEndX, motion), 0);
-            grid.SetEnabled(inventoryOpen && progress >= .98f);
-            foreach (Button slot in slots) if (slot != null) slot.pickingMode = inventoryOpen ? PickingMode.Position : PickingMode.Ignore;
             coordinates.style.opacity = 1;
             frame.MarkDirtyRepaint();
             // Position and centering belong to UXML/USS; only size follows the screen fit.
@@ -378,7 +325,7 @@ namespace AnimalGame.MainUI
             }
             if (levelIndicator != null)
                 levelIndicator.style.scale = new Scale(compassScale);
-            SelectItem(selectedIndex);
+            InventoryController.RefreshLayout();
             ApplyPhotoTransform();
         }
 
@@ -579,63 +526,14 @@ namespace AnimalGame.MainUI
 
         private static bool Positive(float x) => x > 0 && !float.IsNaN(x) && !float.IsInfinity(x);
 
-        private void HandleInput()
-        {
-            bool toggle = false, close = false, heldOpen = false;
-            Vector2Int navigation = Vector2Int.zero;
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null)
-            {
-                toggle = Keyboard.current.nKey.wasPressedThisFrame;
-                if (Keyboard.current.leftArrowKey.wasPressedThisFrame) navigation.x = -1;
-                if (Keyboard.current.rightArrowKey.wasPressedThisFrame) navigation.x = 1;
-                if (Keyboard.current.upArrowKey.wasPressedThisFrame) navigation.y = -1;
-                if (Keyboard.current.downArrowKey.wasPressedThisFrame) navigation.y = 1;
-            }
-            foreach (Gamepad pad in Gamepad.all)
-            {
-                if (!pad.added) continue;
-                heldOpen |= pad.dpad.right.isPressed;
-                close |= pad.buttonEast.wasPressedThisFrame;
-                if (pad.dpad.left.wasPressedThisFrame) navigation.x = -1;
-                if (pad.dpad.right.wasPressedThisFrame) navigation.x = 1;
-                if (pad.dpad.up.wasPressedThisFrame) navigation.y = -1;
-                if (pad.dpad.down.wasPressedThisFrame) navigation.y = 1;
-            }
-#endif
-#if ENABLE_LEGACY_INPUT_MANAGER
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current == null)
-#endif
-            {
-                toggle = Input.GetKeyDown(KeyCode.N);
-                if (Input.GetKeyDown(KeyCode.LeftArrow)) navigation.x = -1;
-                if (Input.GetKeyDown(KeyCode.RightArrow)) navigation.x = 1;
-                if (Input.GetKeyDown(KeyCode.UpArrow)) navigation.y = -1;
-                if (Input.GetKeyDown(KeyCode.DownArrow)) navigation.y = 1;
-            }
-#endif
-            if (toggle) ToggleInventory();
-            if (close && inventoryOpen) CloseInventory();
-            if (!heldOpen) { openHoldElapsed = 0; openHoldLatched = false; }
-            else if (!inventoryOpen && !openHoldLatched)
-            {
-                openHoldElapsed += Time.unscaledDeltaTime;
-                if (openHoldElapsed >= gamepadOpenHoldSeconds) { openHoldLatched = true; OpenInventory(); }
-            }
-            if (!inventoryOpen || progress < .98f || navigation == Vector2Int.zero) return;
-            int column = Mathf.Clamp(selectedIndex % 2 + navigation.x, 0, 1);
-            int row = Mathf.Clamp(selectedIndex / 2 + navigation.y, 0, 3);
-            SelectItem(row * 2 + column);
-        }
-
         private void OnDisable()
         {
+            inventoryController?.Suspend();
             if (powerRing != null) powerRing.visible = true;
             inventoryOpen = false; progress = 0;
-            openHoldElapsed = 0; openHoldLatched = false;
             ReleasePause();
             if (Active == this) Active = null;
         }
+        private void OnDestroy() => inventoryController?.Dispose();
     }
 }

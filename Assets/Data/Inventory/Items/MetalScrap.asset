@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef99f88617f112c4b9dc5bcf95523774, type: 3}
+  m_Name: MetalScrap
+  m_EditorClassIdentifier: 
+  itemName: Metal Scrap
+  image: {fileID: 21300000, guid: f446094e75314a4e847320dffe3c29fb, type: 3}
+  maxStack: 10

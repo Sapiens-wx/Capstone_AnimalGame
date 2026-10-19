@@ -7,8 +7,10 @@ namespace AnimalGame.MainUI.Inventory
     {
         [SerializeField] private string itemName;
         [SerializeField] private Sprite image;
+        [SerializeField, Min(1)] private int maxStack = 1;
 
         public string ItemName => itemName;
         public Sprite Image => image;
+        public int MaxStack => Mathf.Max(1, maxStack);
     }
 }
