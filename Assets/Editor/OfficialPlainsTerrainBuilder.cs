@@ -221,7 +221,7 @@ namespace AnimalGame.Editor
             report.AppendLine(string.Format(CultureInfo.InvariantCulture,
                 "plainsPolygonAreaM2: {0:F6}; terrainCoverageAreaM2: {1:F6}; boundaryBufferAreaM2: {2:F6}",
                 plains.AreaSquareMeters, terrainArea, terrainArea - plains.AreaSquareMeters));
-            report.AppendLine("The 2.25 km2 target measures the region polygon, equivalent to 36 V1 tile areas; full rectangular edge tiles also cover boundary buffers.");
+            report.AppendLine("The 1.5625 km2 target measures the region polygon, equivalent to 25 V1 tile areas; full rectangular edge tiles also cover boundary buffers.");
             report.AppendLine("Each Unity unit is one metre. Validation reads the current authored heights; it does not generate terrain, other biomes, heightmap exports, or prebakes.");
             Directory.CreateDirectory(Path.GetDirectoryName(ReportPath));
             File.WriteAllText(ReportPath, report.ToString());
@@ -305,7 +305,7 @@ namespace AnimalGame.Editor
         private static Terrain At(Dictionary<Vector2Int, Terrain> terrains, Vector2Int cell)
             => terrains.TryGetValue(cell, out Terrain terrain) ? terrain : null;
 
-        private static List<Vector2Int> IntersectingCells(OfficialMapRegion plains)
+        internal static List<Vector2Int> IntersectingCells(OfficialMapRegion plains)
         {
             Rect bounds = plains.BoundsMeters;
             var result = new List<Vector2Int>();

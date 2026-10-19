@@ -308,8 +308,10 @@ namespace AnimalGame.World
         }
         public virtual void Recycle(Object owner)
         {
-            if (Owner != owner || !recyclable) return;
+            if (owner == null || Owner != owner || !recyclable || !Available) return;
             Owner = null;
+            if (TryGetComponent<AnimalGame.Garbage.GarbageItem>(out var garbage))
+                AnimalGame.MainUI.Inventory.GarbageInventoryRewards.Grant(garbage);
             onRecycled?.Invoke();
             // Default completion for the animation placeholder. Override for inventory/pooling.
             gameObject.SetActive(false);

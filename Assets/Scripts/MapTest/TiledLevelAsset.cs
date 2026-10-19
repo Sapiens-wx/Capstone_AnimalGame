@@ -21,6 +21,8 @@ namespace AnimalGame.MapTest
         [SerializeField] private HeightMapLevelAsset presentation;
         [SerializeField] private Vector2 worldUnitsPerMeter = Vector2.one * (2048f / 30f / 250f);
         [SerializeField] private List<Tile> tiles = new List<Tile>();
+        [Tooltip("Allow an irregular tile layout. Missing tiles remain invisible and cannot be traversed.")]
+        [SerializeField] private bool allowMissingTiles;
         [Header("Geographic Coordinates")]
         [Tooltip("Minimum (west) and maximum (east) longitude in degrees for the entire map.")]
         [SerializeField] private Vector2 longitudeRange = new Vector2(0, 1);
@@ -29,6 +31,7 @@ namespace AnimalGame.MapTest
         public Vector2 LongitudeRange => longitudeRange;
         public Vector2 LatitudeRange => latitudeRange;
         public IReadOnlyList<Tile> Tiles => tiles;
+        public bool AllowMissingTiles => allowMissingTiles;
         public HeightMapLevelAsset Presentation => presentation;
         public Vector2 TileSizeMeters => tileSizeMeters;
         public Vector2 WorldUnitsPerMeter => worldUnitsPerMeter;
@@ -65,7 +68,7 @@ namespace AnimalGame.MapTest
                     { error = "All tiles must match the declared tile dimensions."; break; }
                 }
                 Vector2Int size = GridSize;
-                if (error == null && (long)size.x * size.y != tiles.Count)
+                if (error == null && !allowMissingTiles && (long)size.x * size.y != tiles.Count)
                     error = "Tiles must fill a rectangle starting at (0,0), without holes.";
             }
             return error == null;
@@ -78,6 +81,7 @@ namespace AnimalGame.MapTest
                 unchecked
                 {
                     int hash = tileSizeMeters.GetHashCode() ^ worldUnitsPerMeter.GetHashCode();
+                    hash = hash * 397 ^ allowMissingTiles.GetHashCode();
                     hash = hash * 397 ^ (presentation != null ? presentation.ConfigurationHash : 0);
                     foreach (var tile in tiles)
                     {
@@ -94,12 +98,14 @@ namespace AnimalGame.MapTest
             return false;
         }
 #if UNITY_EDITOR
-        public void Configure(Vector2 size, Vector2 scale, HeightMapLevelAsset settings, IEnumerable<Tile> entries)
+        public void Configure(Vector2 size, Vector2 scale, HeightMapLevelAsset settings, IEnumerable<Tile> entries,
+            bool allowMissingTiles = false)
         {
             tileSizeMeters = size;
             worldUnitsPerMeter = scale;
             presentation = settings;
             tiles = new List<Tile>(entries);
+            this.allowMissingTiles = allowMissingTiles;
         }
 #endif
     }

@@ -115,6 +115,14 @@ InitTestScene*.unity*
 /Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset
 /Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset.meta
 
+# Regenerable prairie sample height caches stay local.
+/Assets/Maps/PlainsSample500/**/*_HeightPrebake.asset
+/Assets/Maps/PlainsSample500/**/*_HeightPrebake.asset.meta
+
+# Official-map play tests rebuild height caches locally.
+/Assets/Maps/Official_Map_01/Gameplay*/**/*_HeightPrebake.asset
+/Assets/Maps/Official_Map_01/Gameplay*/**/*_HeightPrebake.asset.meta
+
 # Local source snapshots before the official grassland blockout; never duplicate them in Git.
 /LocalBackups/OfficialMap01/RoughBlockout/
 

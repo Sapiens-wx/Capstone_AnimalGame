@@ -114,13 +114,13 @@ namespace AnimalGame.Editor
                 TerrainSaveEntry entry = selected.entries[0];
                 EditorGUILayout.LabelField($"存档尺寸：{entry.size.x:g} × {entry.size.z:g} m；高度范围 {entry.size.y:g} m；分辨率 {entry.resolution}²", EditorStyles.wordWrappedMiniLabel);
             }
-            EditorGUILayout.HelpBox("恢复前会自动保存当前版本。\n连续地形建议选整个地形组一起存取，保持区块边缘一致。", MessageType.None);
+            EditorGUILayout.HelpBox("恢复会直接覆盖当前 Terrain，不会自动备份；如需保留，请先手动存档。\n连续地形建议选整个地形组一起存取，保持区块边缘一致。", MessageType.None);
             using (new EditorGUI.DisabledScope(!writable || selected == null))
-                if (GUILayout.Button("恢复选中的存档（先自动备份当前版本）", GUILayout.Height(32)))
+                if (GUILayout.Button("恢复选中的存档", GUILayout.Height(32)))
                     Execute(() =>
                     {
                         TerrainSaveStore.Restore(targets, selected);
-                        return "已恢复：" + selected.label + "。恢复前版本也已保存在列表中。";
+                        return "已恢复：" + selected.label + "。";
                     });
             if (!string.IsNullOrEmpty(status)) EditorGUILayout.HelpBox(status, statusType);
             EditorGUILayout.Space(6);

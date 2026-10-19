@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3818b1e56bafa44080234e92b86b0ef, type: 3}
+  m_Name: PlainsSample500_TiledLevel
+  m_EditorClassIdentifier: 
+  tileSizeMeters: {x: 250, y: 250}
+  presentation: {fileID: 11400000, guid: 226da81858efcf047b68954fabd97a3d, type: 2}
+  worldUnitsPerMeter: {x: 0.27306667, y: 0.27306667}
+  tiles:
+  - coordinate: {x: 0, y: 0}
+    level: {fileID: 11400000, guid: 226da81858efcf047b68954fabd97a3d, type: 2}
+  - coordinate: {x: 1, y: 0}
+    level: {fileID: 11400000, guid: aed52e97c276bbe4ab58fdbdb7563432, type: 2}
+  - coordinate: {x: 0, y: 1}
+    level: {fileID: 11400000, guid: 40973c8daa51d0d4cbeeb82567bfecc8, type: 2}
+  - coordinate: {x: 1, y: 1}
+    level: {fileID: 11400000, guid: 198c02bd368db2b42bff53943e4c04f6, type: 2}
+  longitudeRange: {x: 0, y: 1}
+  latitudeRange: {x: 0, y: 1}

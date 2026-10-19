@@ -88,8 +88,8 @@ namespace AnimalGame.Editor
             return records.OrderByDescending(record => record.createdUtc, StringComparer.Ordinal).ToList();
         }
 
-        /// <summary>Returns the automatic save of the state immediately before restoration.</summary>
-        public static TerrainSaveRecord Restore(Terrain[] targets, TerrainSaveRecord selected)
+        /// <summary>Restores the selected snapshot directly, without creating a pre-restore save.</summary>
+        public static void Restore(Terrain[] targets, TerrainSaveRecord selected)
         {
             RequireWritable();
             TerrainSaveEntry[] current = Describe(targets);
@@ -103,22 +103,17 @@ namespace AnimalGame.Editor
             VerifyFiles(record);
             var paths = current.ToDictionary(entry => entry.guid, entry => entry.assetPath, StringComparer.Ordinal);
             List<Binding> bindings = CaptureBindings(paths.Keys);
-            TerrainSaveRecord recovery = Save(targets, "恢复前 · " + Truncate(record.label, 105), true);
-            try
+            // Flush native edits in place before replacing the asset. Otherwise a snapshot that
+            // matches the last disk version can reuse Unity's stale, edited in-memory object.
+            // These asset files are overwritten by Apply; no backup or save record is created.
+            foreach (string path in paths.Values)
             {
-                Apply(record, paths, bindings);
-                return recovery;
+                TerrainData data = AssetDatabase.LoadAssetAtPath<TerrainData>(path);
+                data.SyncHeightmap();
+                EditorUtility.SetDirty(data);
+                AssetDatabase.SaveAssetIfDirty(data);
             }
-            catch (Exception restoreError)
-            {
-                try { Apply(recovery, paths, bindings); }
-                catch (Exception rollbackError)
-                {
-                    throw new InvalidOperationException("恢复未完成，自动回退也失败。恢复前存档保存在："
-                        + DirectoryFor(recovery), new AggregateException(restoreError, rollbackError));
-                }
-                throw new InvalidOperationException("恢复失败，已自动回退至恢复前状态。\n" + restoreError.Message, restoreError);
-            }
+            Apply(record, paths, bindings);
         }
 
         public static Terrain[] GetTargets(GameObject root)
@@ -254,7 +249,6 @@ namespace AnimalGame.Editor
         }
         private static bool IsIdentifier(string value) => value != null && value.Length == 32 && value.All(Uri.IsHexDigit);
         private static bool IsPositive(float value) => !float.IsNaN(value) && !float.IsInfinity(value) && value > 0;
-        private static string Truncate(string value, int length) => value.Length <= length ? value : value.Substring(0, length);
         private static void RequireWritable() => Require(!EditorApplication.isPlayingOrWillChangePlaymode
             && !EditorApplication.isCompiling && !EditorApplication.isUpdating, "请在退出 Play、编译和资源导入完成后使用存档。");
         private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

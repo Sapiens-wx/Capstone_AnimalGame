@@ -37,7 +37,7 @@ namespace AnimalGame.Editor
             try
             {
                 fixture = new Fixture();
-                CheckSingleAndRecovery(fixture, scopes, report);
+                CheckSingleRestore(fixture, scopes, report);
                 CheckGroup(fixture, scopes, report);
                 CheckCorruptSnapshot(fixture, scopes, report);
                 Require(SceneManager.GetActiveScene() == activeScene,
@@ -76,7 +76,7 @@ namespace AnimalGame.Editor
             Debug.Log(report.ToString());
         }
 
-        private static void CheckSingleAndRecovery(Fixture fixture, HashSet<string> scopes, StringBuilder report)
+        private static void CheckSingleRestore(Fixture fixture, HashSet<string> scopes, StringBuilder report)
         {
             Terrain[] target = { fixture.First };
             Expected original = Expected.Capture(fixture.First.terrainData);
@@ -97,18 +97,17 @@ namespace AnimalGame.Editor
             Require(listed.Any(record => record.id == first.id) && listed.Any(record => record.id == second.id),
                 "Listing a terrain's saves lost one of its identically named records.");
 
-            TerrainSaveRecord beforeRestore = Track(TerrainSaveStore.Restore(target, first), scopes);
-            Require(beforeRestore.automatic && beforeRestore.entries.Length == 1,
-                "Restore did not return its automatic pre-restore save.");
+            TerrainSaveStore.Restore(target, first);
+            AssertSaveIds(target, first.scopeKey, first.id, second.id);
             original.AssertMatches(fixture.First.terrainData, "Original named save");
             AssertConnections(fixture, originalGuid);
             Require(GuidFor(fixture.First.terrainData) == originalGuid && Hash(fixture.FirstPath + ".meta") == metaHash,
                 "Restore changed the TerrainData GUID or metadata file.");
             Require(fixture.First.transform.position == position && Hash(fixture.SecondPath) == otherHash,
                 "Single-terrain restore changed its placement or another terrain asset.");
-            TerrainSaveRecord beforeRecovery = Track(TerrainSaveStore.Restore(target, beforeRestore), scopes);
-            Require(beforeRecovery.automatic, "Restoring an automatic save did not protect the current state.");
-            changed.AssertMatches(fixture.First.terrainData, "Recovering the automatic pre-restore save");
+            TerrainSaveStore.Restore(target, second);
+            AssertSaveIds(target, first.scopeKey, first.id, second.id);
+            changed.AssertMatches(fixture.First.terrainData, "Restoring the second manually named save");
             AssertConnections(fixture, originalGuid);
 
             string firstHash = Hash(fixture.FirstPath);
@@ -117,10 +116,11 @@ namespace AnimalGame.Editor
                 "A save belonging to another TerrainData was accepted.");
             Require(Hash(fixture.FirstPath) == firstHash && Hash(fixture.SecondPath) == secondHash,
                 "Rejecting a mismatched terrain save changed an asset.");
+            AssertSaveIds(target, first.scopeKey, first.id, second.id);
             report.AppendLine("PASS: two saves with the same name coexist and list independently.");
             report.AppendLine("PASS: height samples, texture weights, holes, grass density, dimensions and resolutions round-trip.");
             report.AppendLine("PASS: GUID, .meta bytes, shared Terrain/Collider links and scene placement survive restore.");
-            report.AppendLine("PASS: automatic pre-restore saves can be restored; mismatched targets are rejected without writes.");
+            report.AppendLine("PASS: restoring either named save creates no extra save or snapshot directory; mismatched targets are rejected without writes.");
         }
 
         private static void CheckGroup(Fixture fixture, HashSet<string> scopes, StringBuilder report)
@@ -139,11 +139,8 @@ namespace AnimalGame.Editor
                 "Group lookup depends on the order in which terrains were selected.");
             fixture.Apply(fixture.First.terrainData, 2);
             fixture.Apply(fixture.Second.terrainData, 3);
-            Expected changedFirst = Expected.Capture(fixture.First.terrainData);
-            Expected changedSecond = Expected.Capture(fixture.Second.terrainData);
-            TerrainSaveRecord automatic = Track(TerrainSaveStore.Restore(targets, group), scopes);
-            Require(automatic.automatic && automatic.entries.Length == 2,
-                "A group restore did not create a complete pre-restore save.");
+            TerrainSaveStore.Restore(new[] { fixture.Second, fixture.First }, group);
+            AssertSaveIds(targets, group.scopeKey, group.id);
             first.AssertMatches(fixture.First.terrainData, "Group first terrain");
             second.AssertMatches(fixture.Second.terrainData, "Group second terrain");
             AssertConnections(fixture, firstGuid);
@@ -151,10 +148,7 @@ namespace AnimalGame.Editor
                 && fixture.Second.GetComponent<TerrainCollider>().terrainData == fixture.Second.terrainData
                 && Hash(fixture.FirstPath + ".meta") == firstMeta && Hash(fixture.SecondPath + ".meta") == secondMeta,
                 "Group restore changed a GUID, metadata or collider connection.");
-            Track(TerrainSaveStore.Restore(new[] { fixture.Second, fixture.First }, automatic), scopes);
-            changedFirst.AssertMatches(fixture.First.terrainData, "Group automatic recovery first terrain");
-            changedSecond.AssertMatches(fixture.Second.terrainData, "Group automatic recovery second terrain");
-            report.AppendLine("PASS: two-terrain groups save and restore together, independent of selection order; group recovery is complete.");
+            report.AppendLine("PASS: two-terrain groups save and restore together, independent of selection order, without creating a pre-restore save.");
         }
 
         private static void CheckCorruptSnapshot(Fixture fixture, HashSet<string> scopes, StringBuilder report)
@@ -175,13 +169,25 @@ namespace AnimalGame.Editor
             string secondHash = Hash(fixture.SecondPath);
             Expected first = Expected.Capture(fixture.First.terrainData);
             Expected second = Expected.Capture(fixture.Second.terrainData);
+            string[] saveIds = TerrainSaveStore.List(targets).Select(save => save.id).ToArray();
             ExpectRejected(() => TerrainSaveStore.Restore(targets, record),
                 "A snapshot whose SHA256 did not match was accepted.");
             Require(Hash(fixture.FirstPath) == firstHash && Hash(fixture.SecondPath) == secondHash,
                 "A corrupt group snapshot caused a partial asset overwrite.");
             first.AssertMatches(fixture.First.terrainData, "Corruption refusal first terrain");
             second.AssertMatches(fixture.Second.terrainData, "Corruption refusal second terrain");
+            AssertSaveIds(targets, record.scopeKey, saveIds);
             report.AppendLine("PASS: a corrupt member of a group is rejected before either current asset is overwritten.");
+        }
+
+        private static void AssertSaveIds(Terrain[] targets, string scope, params string[] expected)
+        {
+            string[] saves = TerrainSaveStore.List(targets).Select(save => save.id).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+            string[] directories = Directory.GetDirectories(Path.Combine(TerrainSaveStore.RootFolder, scope))
+                .Select(Path.GetFileName).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+            string[] ids = expected.OrderBy(id => id, StringComparer.Ordinal).ToArray();
+            Require(saves.SequenceEqual(ids) && directories.SequenceEqual(ids),
+                "Restore created an unexpected save or snapshot directory.");
         }
 
         private static void AssertConnections(Fixture fixture, string guid)

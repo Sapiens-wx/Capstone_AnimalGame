@@ -1,0 +1,1627 @@
+{
+    "format": "Official prairie V1 sparse terrain tiles",
+    "version": 1,
+    "tileCount": 40,
+    "sourceResolution": 2049,
+    "runtimeResolution": 2048,
+    "sourceOrigin": {
+        "x": 1500.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "mapSizeMeters": {
+        "x": 1500.0,
+        "y": 2250.0
+    },
+    "spawnMapPositionMeters": {
+        "x": 600.0,
+        "y": 330.0
+    },
+    "tileSizeMeters": 250.0,
+    "worldUnitsPerMeter": 0.2730666697025299,
+    "minimumHeightMeters": 70.86518859863281,
+    "maximumHeightMeters": 115.63057708740235,
+    "encodingMinimumHeightMeters": 0.0,
+    "encodingMaximumHeightMeters": 350.0,
+    "contourIntervalMeters": 7.0,
+    "pngFormat": "16-bit grayscale; top row is north (+Terrain Z); Unity pixels retain Terrain row order",
+    "tiles": [
+        {
+            "name": "Plains_7_0",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_0_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_0_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_0_MapData.asset",
+            "quantizedSamplesSha256": "da8ce068e45519815a1603d9c0e1f2cf0d1ad9b249333e5a63350f403445c290",
+            "coordinate": {
+                "x": 1,
+                "y": 0
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 0.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 80.20065307617188
+        },
+        {
+            "name": "Plains_8_0",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_0_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_0_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_0_MapData.asset",
+            "quantizedSamplesSha256": "da96f64ea7df7986da2466a33d7a148e7b3b5d4d4f6ef37ca18a0e60233f3e91",
+            "coordinate": {
+                "x": 2,
+                "y": 0
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 0.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 80.23269653320313
+        },
+        {
+            "name": "Plains_9_0",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_0_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_0_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_0_MapData.asset",
+            "quantizedSamplesSha256": "89863f5e570396aaacf62fb45ea0157dab72b9f755cdf1498dc8b45dca220438",
+            "coordinate": {
+                "x": 3,
+                "y": 0
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 0.0
+            },
+            "minimumHeightMeters": 79.2713851928711,
+            "maximumHeightMeters": 81.01243591308594
+        },
+        {
+            "name": "Plains_10_0",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_0_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_0_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_0_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 4,
+                "y": 0
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 0.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_7_1",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_1_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_1_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_1_MapData.asset",
+            "quantizedSamplesSha256": "4167cebb296f02cfd31ee06351593567c129d8c75acc15893221983a3ca63d14",
+            "coordinate": {
+                "x": 1,
+                "y": 1
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 250.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 250.0
+            },
+            "minimumHeightMeters": 71.5594711303711,
+            "maximumHeightMeters": 100.08926391601563
+        },
+        {
+            "name": "Plains_8_1",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_1_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_1_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_1_MapData.asset",
+            "quantizedSamplesSha256": "c84ffeba134686a49df97e77944582c9ee834412083310ba648406f065a4a051",
+            "coordinate": {
+                "x": 2,
+                "y": 1
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 250.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 250.0
+            },
+            "minimumHeightMeters": 71.00404357910156,
+            "maximumHeightMeters": 115.63057708740235
+        },
+        {
+            "name": "Plains_9_1",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_1_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_1_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_1_MapData.asset",
+            "quantizedSamplesSha256": "439674c099519b7768d80bfa46d7e6247db300462c92584981e85ea36df51ce3",
+            "coordinate": {
+                "x": 3,
+                "y": 1
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 250.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 250.0
+            },
+            "minimumHeightMeters": 73.18302917480469,
+            "maximumHeightMeters": 92.2598648071289
+        },
+        {
+            "name": "Plains_10_1",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_1_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_1_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_1_MapData.asset",
+            "quantizedSamplesSha256": "f2122a0f03098448352354957dc04e65d77904b9466c78ebf51e245178ec086a",
+            "coordinate": {
+                "x": 4,
+                "y": 1
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 250.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 250.0
+            },
+            "minimumHeightMeters": 76.6224136352539,
+            "maximumHeightMeters": 81.22605895996094
+        },
+        {
+            "name": "Plains_7_2",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_2_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_2_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_2_MapData.asset",
+            "quantizedSamplesSha256": "050a04ac11fcb3f0cac766f236f6dfc963d5a65c53b8ea9a8fe6bdd12dfb4733",
+            "coordinate": {
+                "x": 1,
+                "y": 2
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 500.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 500.0
+            },
+            "minimumHeightMeters": 74.82795715332031,
+            "maximumHeightMeters": 97.53643035888672
+        },
+        {
+            "name": "Plains_8_2",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_2_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_2_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_2_MapData.asset",
+            "quantizedSamplesSha256": "4f8b66b0d6376a3b3d0d49ce6081dadfa5c3f24cf6ff45fd004d27bac40d8e79",
+            "coordinate": {
+                "x": 2,
+                "y": 2
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 500.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 500.0
+            },
+            "minimumHeightMeters": 70.86518859863281,
+            "maximumHeightMeters": 100.98649597167969
+        },
+        {
+            "name": "Plains_9_2",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_2_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_2_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_2_MapData.asset",
+            "quantizedSamplesSha256": "646dafcbea16360ca52075ff326f7e64b6d9bd643b8a021f6409ba4b086bb953",
+            "coordinate": {
+                "x": 3,
+                "y": 2
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 500.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 106.69031524658203
+        },
+        {
+            "name": "Plains_10_2",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_2_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_2_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_2_MapData.asset",
+            "quantizedSamplesSha256": "99cf9725653a3b3617b25a0c1052da53321223e5adca6cd361c1d849562b8b48",
+            "coordinate": {
+                "x": 4,
+                "y": 2
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 500.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 107.68367767333985
+        },
+        {
+            "name": "Plains_6_3",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_6_3_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_0_3_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_0_3_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 0,
+                "y": 3
+            },
+            "nativeOrigin": {
+                "x": 1500.0,
+                "y": 0.0,
+                "z": 750.0
+            },
+            "tileOriginMeters": {
+                "x": 0.0,
+                "y": 750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_7_3",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_3_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_3_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_3_MapData.asset",
+            "quantizedSamplesSha256": "209746c72d63c94fd6ec31b6273890adca0d7b7db392b941ee58a4e981a6fb3b",
+            "coordinate": {
+                "x": 1,
+                "y": 3
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 750.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 80.79881286621094
+        },
+        {
+            "name": "Plains_8_3",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_3_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_3_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_3_MapData.asset",
+            "quantizedSamplesSha256": "bf180628f4d63cd8b841f056a592793dc2ed930ece71d410c47750785635e1e2",
+            "coordinate": {
+                "x": 2,
+                "y": 3
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 750.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 98.39093780517578
+        },
+        {
+            "name": "Plains_9_3",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_3_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_3_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_3_MapData.asset",
+            "quantizedSamplesSha256": "6290756ce2908cddcfcfe0bb7677866048fdea1a69662ac4bdfd129139366138",
+            "coordinate": {
+                "x": 3,
+                "y": 3
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 750.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 81.67467498779297
+        },
+        {
+            "name": "Plains_10_3",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_3_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_3_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_3_MapData.asset",
+            "quantizedSamplesSha256": "81ee51df2a7068f8bc84b51b3a06a53aad849da92e5f55565da3b039f13a1fec",
+            "coordinate": {
+                "x": 4,
+                "y": 3
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 750.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 81.10856628417969
+        },
+        {
+            "name": "Plains_6_4",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_6_4_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_0_4_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_0_4_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 0,
+                "y": 4
+            },
+            "nativeOrigin": {
+                "x": 1500.0,
+                "y": 0.0,
+                "z": 1000.0
+            },
+            "tileOriginMeters": {
+                "x": 0.0,
+                "y": 1000.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_7_4",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_4_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_4_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_4_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 1,
+                "y": 4
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 1000.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 1000.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_8_4",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_4_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_4_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_4_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 2,
+                "y": 4
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 1000.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 1000.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_9_4",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_4_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_4_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_4_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 3,
+                "y": 4
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 1000.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 1000.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_10_4",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_4_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_4_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_4_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 4,
+                "y": 4
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 1000.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 1000.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_6_5",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_6_5_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_0_5_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_0_5_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 0,
+                "y": 5
+            },
+            "nativeOrigin": {
+                "x": 1500.0,
+                "y": 0.0,
+                "z": 1250.0
+            },
+            "tileOriginMeters": {
+                "x": 0.0,
+                "y": 1250.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_7_5",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_5_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_5_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_5_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 1,
+                "y": 5
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 1250.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 1250.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_8_5",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_5_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_5_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_5_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 2,
+                "y": 5
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 1250.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 1250.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_9_5",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_5_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_5_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_5_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 3,
+                "y": 5
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 1250.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 1250.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_10_5",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_5_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_5_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_5_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 4,
+                "y": 5
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 1250.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 1250.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_11_5",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_11_5_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_5_5_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_5_5_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 5,
+                "y": 5
+            },
+            "nativeOrigin": {
+                "x": 2750.0,
+                "y": 0.0,
+                "z": 1250.0
+            },
+            "tileOriginMeters": {
+                "x": 1250.0,
+                "y": 1250.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_6_6",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_6_6_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_0_6_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_0_6_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 0,
+                "y": 6
+            },
+            "nativeOrigin": {
+                "x": 1500.0,
+                "y": 0.0,
+                "z": 1500.0
+            },
+            "tileOriginMeters": {
+                "x": 0.0,
+                "y": 1500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_7_6",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_6_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_6_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_6_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 1,
+                "y": 6
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 1500.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 1500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_8_6",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_6_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_6_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_6_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 2,
+                "y": 6
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 1500.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 1500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_9_6",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_6_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_6_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_6_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 3,
+                "y": 6
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 1500.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 1500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_10_6",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_6_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_6_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_6_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 4,
+                "y": 6
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 1500.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 1500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_11_6",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_11_6_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_5_6_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_5_6_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 5,
+                "y": 6
+            },
+            "nativeOrigin": {
+                "x": 2750.0,
+                "y": 0.0,
+                "z": 1500.0
+            },
+            "tileOriginMeters": {
+                "x": 1250.0,
+                "y": 1500.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_7_7",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_7_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_7_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_7_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 1,
+                "y": 7
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 1750.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 1750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_8_7",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_7_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_7_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_7_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 2,
+                "y": 7
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 1750.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 1750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_9_7",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_7_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_3_7_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_3_7_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 3,
+                "y": 7
+            },
+            "nativeOrigin": {
+                "x": 2250.0,
+                "y": 0.0,
+                "z": 1750.0
+            },
+            "tileOriginMeters": {
+                "x": 750.0,
+                "y": 1750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_10_7",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_7_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_4_7_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_4_7_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 4,
+                "y": 7
+            },
+            "nativeOrigin": {
+                "x": 2500.0,
+                "y": 0.0,
+                "z": 1750.0
+            },
+            "tileOriginMeters": {
+                "x": 1000.0,
+                "y": 1750.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_7_8",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_8_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_1_8_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_1_8_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 1,
+                "y": 8
+            },
+            "nativeOrigin": {
+                "x": 1750.0,
+                "y": 0.0,
+                "z": 2000.0
+            },
+            "tileOriginMeters": {
+                "x": 250.0,
+                "y": 2000.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        },
+        {
+            "name": "Plains_8_8",
+            "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_8_TerrainData.asset",
+            "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay/data/Plains_2_8_height_R16.png",
+            "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay/Plains_2_8_MapData.asset",
+            "quantizedSamplesSha256": "bf4b45f254fb55d7031f4bf6c9ce2c6331d34c0c9acbb30ba95cf22fae4798ba",
+            "coordinate": {
+                "x": 2,
+                "y": 8
+            },
+            "nativeOrigin": {
+                "x": 2000.0,
+                "y": 0.0,
+                "z": 2000.0
+            },
+            "tileOriginMeters": {
+                "x": 500.0,
+                "y": 2000.0
+            },
+            "minimumHeightMeters": 79.99771118164063,
+            "maximumHeightMeters": 79.99771118164063
+        }
+    ],
+    "seams": [
+        {
+            "first": {
+                "x": 1,
+                "y": 0
+            },
+            "second": {
+                "x": 2,
+                "y": 0
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 0
+            },
+            "second": {
+                "x": 1,
+                "y": 1
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 0
+            },
+            "second": {
+                "x": 3,
+                "y": 0
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 0
+            },
+            "second": {
+                "x": 2,
+                "y": 1
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 0
+            },
+            "second": {
+                "x": 4,
+                "y": 0
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 0
+            },
+            "second": {
+                "x": 3,
+                "y": 1
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 0
+            },
+            "second": {
+                "x": 4,
+                "y": 1
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 1
+            },
+            "second": {
+                "x": 2,
+                "y": 1
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 1
+            },
+            "second": {
+                "x": 1,
+                "y": 2
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 1
+            },
+            "second": {
+                "x": 3,
+                "y": 1
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 1
+            },
+            "second": {
+                "x": 2,
+                "y": 2
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 1
+            },
+            "second": {
+                "x": 4,
+                "y": 1
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 1
+            },
+            "second": {
+                "x": 3,
+                "y": 2
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 1
+            },
+            "second": {
+                "x": 4,
+                "y": 2
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 2
+            },
+            "second": {
+                "x": 2,
+                "y": 2
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 2
+            },
+            "second": {
+                "x": 1,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 2
+            },
+            "second": {
+                "x": 3,
+                "y": 2
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 2
+            },
+            "second": {
+                "x": 2,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 2
+            },
+            "second": {
+                "x": 4,
+                "y": 2
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 2
+            },
+            "second": {
+                "x": 3,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 2
+            },
+            "second": {
+                "x": 4,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 0,
+                "y": 3
+            },
+            "second": {
+                "x": 1,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 0,
+                "y": 3
+            },
+            "second": {
+                "x": 0,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 3
+            },
+            "second": {
+                "x": 2,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 3
+            },
+            "second": {
+                "x": 1,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 3
+            },
+            "second": {
+                "x": 3,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 3
+            },
+            "second": {
+                "x": 2,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 3
+            },
+            "second": {
+                "x": 4,
+                "y": 3
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 3
+            },
+            "second": {
+                "x": 3,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 3
+            },
+            "second": {
+                "x": 4,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 0,
+                "y": 4
+            },
+            "second": {
+                "x": 1,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 0,
+                "y": 4
+            },
+            "second": {
+                "x": 0,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 4
+            },
+            "second": {
+                "x": 2,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 4
+            },
+            "second": {
+                "x": 1,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 4
+            },
+            "second": {
+                "x": 3,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 4
+            },
+            "second": {
+                "x": 2,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 4
+            },
+            "second": {
+                "x": 4,
+                "y": 4
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 4
+            },
+            "second": {
+                "x": 3,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 4
+            },
+            "second": {
+                "x": 4,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 0,
+                "y": 5
+            },
+            "second": {
+                "x": 1,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 0,
+                "y": 5
+            },
+            "second": {
+                "x": 0,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 5
+            },
+            "second": {
+                "x": 2,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 5
+            },
+            "second": {
+                "x": 1,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 5
+            },
+            "second": {
+                "x": 3,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 5
+            },
+            "second": {
+                "x": 2,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 5
+            },
+            "second": {
+                "x": 4,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 5
+            },
+            "second": {
+                "x": 3,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 5
+            },
+            "second": {
+                "x": 5,
+                "y": 5
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 5
+            },
+            "second": {
+                "x": 4,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 5,
+                "y": 5
+            },
+            "second": {
+                "x": 5,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 0,
+                "y": 6
+            },
+            "second": {
+                "x": 1,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 6
+            },
+            "second": {
+                "x": 2,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 6
+            },
+            "second": {
+                "x": 1,
+                "y": 7
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 6
+            },
+            "second": {
+                "x": 3,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 6
+            },
+            "second": {
+                "x": 2,
+                "y": 7
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 6
+            },
+            "second": {
+                "x": 4,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 6
+            },
+            "second": {
+                "x": 3,
+                "y": 7
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 6
+            },
+            "second": {
+                "x": 5,
+                "y": 6
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 4,
+                "y": 6
+            },
+            "second": {
+                "x": 4,
+                "y": 7
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 7
+            },
+            "second": {
+                "x": 2,
+                "y": 7
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 7
+            },
+            "second": {
+                "x": 1,
+                "y": 8
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 7
+            },
+            "second": {
+                "x": 3,
+                "y": 7
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 2,
+                "y": 7
+            },
+            "second": {
+                "x": 2,
+                "y": 8
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 3,
+                "y": 7
+            },
+            "second": {
+                "x": 4,
+                "y": 7
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        },
+        {
+            "first": {
+                "x": 1,
+                "y": 8
+            },
+            "second": {
+                "x": 2,
+                "y": 8
+            },
+            "maximumHeightDifferenceMeters": 0.0
+        }
+    ]
+}

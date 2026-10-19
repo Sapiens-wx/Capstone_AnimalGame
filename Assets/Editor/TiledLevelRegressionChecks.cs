@@ -191,11 +191,105 @@ namespace AnimalGame.Editor
                 tiled.Configure(Vector2.one * 10, Vector2.one * 0.25f, entries[0].level,
                     new[] { new TiledLevelAsset.Tile(Vector2Int.zero, entries[0].level) });
                 Require(tiled.IsValid && tiled.MapSizeMeters == Vector2.one * 10, "Single-tile level rejected.");
+                ValidateSparseLayout();
                 Debug.Log("PASS: Tiled levels: 2x3 layout, all height channels, boundaries, water, scan, mixed cache/fallback, render bounds, rebuild disposal and single-tile layout.");
             }
             finally
             {
                 if (root != null) Object.DestroyImmediate(root);
+                foreach (var asset in owned) if (asset != null) Object.DestroyImmediate(asset);
+            }
+        }
+
+        /// <summary>Opt-in sparse layouts use only authored tiles; gaps have no height, scan or traversal data.</summary>
+        public static void ValidateSparseLayout()
+        {
+            var owned = new List<Object>();
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewPreviewScene();
+            GameObject root = null;
+            try
+            {
+                var texture = new Texture2D(17, 17, TextureFormat.R16, false, true);
+                owned.Add(texture);
+                var pixels = new ushort[17 * 17];
+                for (int index = 0; index < pixels.Length; index++) pixels[index] = 32768;
+                texture.SetPixelData(pixels, 0);
+                texture.Apply();
+                var level = ScriptableObject.CreateInstance<HeightMapLevelAsset>();
+                owned.Add(level);
+                var settings = new SerializedObject(level);
+                settings.FindProperty("heightMap").objectReferenceValue = texture;
+                settings.FindProperty("mapWidthMeters").floatValue = 10;
+                settings.FindProperty("mapHeightMeters").floatValue = 10;
+                settings.FindProperty("minimumHeightMeters").floatValue = 0;
+                settings.FindProperty("maximumHeightMeters").floatValue = 70;
+                settings.FindProperty("normalizeSourceRange").boolValue = false;
+                settings.FindProperty("surfaceSmoothingSigmaMeters").floatValue = 0;
+                settings.FindProperty("detailSmoothingSigmaMeters").floatValue = 0;
+                settings.FindProperty("bakedHeightResolution").intValue = 128;
+                settings.ApplyModifiedPropertiesWithoutUndo();
+                var entries = new[]
+                {
+                    new TiledLevelAsset.Tile(Vector2Int.zero, level),
+                    new TiledLevelAsset.Tile(new Vector2Int(2, 0), level)
+                };
+                var tiled = ScriptableObject.CreateInstance<TiledLevelAsset>();
+                owned.Add(tiled);
+                tiled.Configure(Vector2.one * 10, Vector2.one * 0.25f, level, entries);
+                Require(!tiled.AllowMissingTiles && !tiled.IsValid, "Dense layout validation accepted a gap.");
+                int denseHash = tiled.ConfigurationHash;
+                tiled.Configure(Vector2.one * 10, Vector2.one * 0.25f, level, entries, allowMissingTiles: true);
+                Require(tiled.AllowMissingTiles && tiled.IsValid && tiled.MapSizeMeters == new Vector2(30, 10),
+                    "Opt-in sparse layout rejected its authored tiles or extent.");
+                Require(tiled.ConfigurationHash != denseHash, "Sparse mode did not invalidate the configuration hash.");
+                using (var runtime = new TiledMapRuntime(tiled, false))
+                {
+                    Require(runtime.TileCount == 2 && runtime.TrySample(new Vector2(5, 5), out _)
+                        && runtime.TrySample(new Vector2(25, 5), out _), "Sparse authored tiles have no height data.");
+                    Require(!runtime.TryLocate(new Vector2(15, 5), out _, out _)
+                        && !runtime.TrySample(new Vector2(15, 5), out _)
+                        && !runtime.TrySampleWater(new Vector2(15, 5), out _)
+                        && runtime.SampleSpacing(new Vector2(15, 5)) == Vector2.zero,
+                        "A missing tile exposes synthetic terrain or water data.");
+                    Require(!runtime.TrySample(new Vector2(10, 5), out _)
+                        && runtime.TrySample(new Vector2(20, 5), out _), "Sparse boundary ownership changed.");
+                    var profile = new TerrainScanProfile(runtime, new Vector2(5, 5), new Vector2(25, 5), 7, 40);
+                    while (!profile.Complete) profile.Step();
+                    Require(profile.InvalidMap && !profile.Clear, "A terrain scan crossed a missing tile.");
+                }
+                root = new GameObject("Sparse Tiled Regression Map") { hideFlags = HideFlags.DontSave };
+                root.SetActive(false);
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, scene);
+                var controller = root.AddComponent<MapTestSceneController>();
+                var config = new SerializedObject(controller);
+                config.FindProperty("levelAsset").objectReferenceValue = tiled;
+                config.FindProperty("editorHeightResolution").intValue = 128;
+                config.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                controller.SendMessage("RebuildGeneratedMap");
+                Require(controller.HasGeneratedMap && controller.RuntimeMap.TileCount == 2
+                    && root.GetComponentsInChildren<SpriteRenderer>().Length == 2,
+                    "Sparse rendering created a missing tile or failed to build an authored tile.");
+                Require(!controller.TrySampleWorldPosition(controller.MapPositionToWorld(new Vector2(15, 5)), out _, out _),
+                    "A missing tile accepted a world-space height query.");
+                var evaluator = root.AddComponent<HeightMapTraversalEvaluator>();
+                evaluator.Initialize(controller);
+                var path = evaluator.EvaluateMapPath(new Vector2(5, 5), new Vector2(25, 5));
+                Require(!path.IsPassable && path.BlockReason == TraversalBlockReason.Boundary,
+                    "Traversal crossed a missing tile.");
+                Object.DestroyImmediate(root);
+                root = null;
+                tiled.Configure(Vector2.one * 10, Vector2.one, level, new[] { entries[0], entries[0] }, true);
+                Require(!tiled.IsValid, "Sparse mode accepted duplicate coordinates.");
+                tiled.Configure(Vector2.one * 10, Vector2.one, level,
+                    new[] { new TiledLevelAsset.Tile(new Vector2Int(-1, 0), level) }, true);
+                Require(!tiled.IsValid, "Sparse mode accepted a negative coordinate.");
+                Debug.Log("PASS: opt-in sparse tile validation, missing heights/water, scan blocking, two authored renderers and traversal boundary.");
+            }
+            finally
+            {
+                if (root != null) Object.DestroyImmediate(root);
+                UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene);
                 foreach (var asset in owned) if (asset != null) Object.DestroyImmediate(asset);
             }
         }

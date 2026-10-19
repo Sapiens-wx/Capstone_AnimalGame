@@ -128,7 +128,8 @@ namespace AnimalGame.Editor
             Require(roots.Length == 1, "Expected the existing editable official plains root.");
             Terrain[] terrains = roots[0].GetComponentsInChildren<Terrain>(true)
                 .OrderBy(terrain => terrain.transform.position.z).ThenBy(terrain => terrain.transform.position.x).ToArray();
-            Require(terrains.Length == 50, "Expected the existing fifty grassland Terrain tiles. No new terrain is created.");
+            Require(terrains.Length == OfficialPlainsTerrainBuilder.IntersectingCells(plan.FindRegion("plains")).Count,
+                "Expected the complete set of existing 250 m grassland tiles covering the current plains outline. No new terrain is created.");
             foreach (Terrain terrain in terrains)
                 Require(terrain.gameObject.scene == plan.gameObject.scene
                     && terrain.terrainData != null

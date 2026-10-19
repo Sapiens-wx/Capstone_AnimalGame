@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f041e2a52344b769d10e996f42eede9, type: 3}
+  m_Name: InventoryRewards
+  m_EditorClassIdentifier: 
+  rules:
+  - size: 0
+    guaranteed: []
+    randomRolls: 1
+    random:
+    - item: {fileID: 11400000, guid: 4cb9dfc202c74b118e627a9f4703a283, type: 2}
+      quantity: 1
+      weight: 1
+    - item: {fileID: 11400000, guid: 18af5d91ce6f42429db22c786b0ba911, type: 2}
+      quantity: 1
+      weight: 1
+  - size: 1
+    guaranteed:
+    - item: {fileID: 11400000, guid: 4cb9dfc202c74b118e627a9f4703a283, type: 2}
+      quantity: 1
+      weight: 1
+    randomRolls: 1
+    random:
+    - item: {fileID: 11400000, guid: 4cb9dfc202c74b118e627a9f4703a283, type: 2}
+      quantity: 1
+      weight: 1
+    - item: {fileID: 11400000, guid: 18af5d91ce6f42429db22c786b0ba911, type: 2}
+      quantity: 1
+      weight: 1

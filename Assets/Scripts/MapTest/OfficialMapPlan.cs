@@ -35,12 +35,13 @@ namespace AnimalGame.MapTest
     [AddComponentMenu("Animal Game/Map Test/Official Map Plan")]
     public sealed class OfficialMapPlan : MonoBehaviour
     {
-        public const double TargetPlainsAreaSquareMeters = 2250000d;
+        public const double TargetPlainsAreaSquareMeters = 1562500d;
+        public const float PlainsAreaReferenceSizeMeters = 1250f;
         public const float V1ReferenceHeightMeters = 70f;
         public const float V1TileSizeMeters = 250f;
 
         [Header("Metric Planning Bounds")]
-        [SerializeField] private Vector2 worldSizeMeters = new Vector2(4500f, 2750f);
+        [SerializeField] private Vector2 worldSizeMeters = new Vector2(4250f, 2500f);
         [SerializeField, Min(1f)] private float tileSizeMeters = V1TileSizeMeters;
         [Tooltip("Planning ruler range only; no Terrain height samples are created or measured.")]
         [SerializeField, Min(1f)] private float maximumReferenceHeightMeters = 350f;
