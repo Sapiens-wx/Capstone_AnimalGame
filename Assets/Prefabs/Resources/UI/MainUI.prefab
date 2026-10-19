@@ -343,11 +343,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   document: {fileID: 5078151001591562568}
-  pointCount: 67
-  frequency: 15
+  pointCount: 80
+  frequency: 32
   phaseSpeed: 1
   maximumAmplitude: 1
   waveLineWidth: 2
+  noiseStrength: 0.75
+  noiseScale: 24.7
+  noiseSpeed: 15
   amplitudeSmoothingSeconds: 0.05
   initialDamping: 120
   expansionSeconds: 5

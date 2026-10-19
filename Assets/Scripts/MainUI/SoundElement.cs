@@ -3,7 +3,7 @@ using UnityEngine.UIElements;
 
 namespace AnimalGame.MainUI
 {
-    /// <summary>A moving sine wave with a centered Gaussian envelope and two white end lines.</summary>
+    /// <summary>A moving sine wave with smooth noise, a centered Gaussian envelope and two white end lines.</summary>
     [UxmlElement]
     public partial class SoundElement : VisualElement
     {
@@ -11,6 +11,8 @@ namespace AnimalGame.MainUI
         private float frequency = 5f, maximumAmplitude = .85f, waveLineWidth = 2f;
         private float amplitude, damping = 120f;
         private float phase, phaseSin, phaseCos = 1f;
+        private float noiseStrength, noiseScale = 12f, noiseTime;
+        private const float NoiseOffsetX = 17.31f, NoiseOffsetY = 43.79f;
         private float[] sampleX, carrier, carrierSine, xSquared, envelope;
         private bool carrierDirty = true, envelopeDirty = true;
 
@@ -49,6 +51,18 @@ namespace AnimalGame.MainUI
             phaseSin = Mathf.Sin(radians);
             phaseCos = Mathf.Cos(radians);
             if (amplitude > 0f) MarkDirtyRepaint();
+        }
+
+        internal void SetWaveNoise(float strength, float scale, float time)
+        {
+            strength = Mathf.Clamp01(strength);
+            scale = Mathf.Max(0f, scale);
+            if (noiseStrength == strength && noiseScale == scale && noiseTime == time) return;
+            bool affectsWave = noiseStrength > 0f || strength > 0f;
+            noiseStrength = strength;
+            noiseScale = scale;
+            noiseTime = time;
+            if (amplitude > 0f && affectsWave) MarkDirtyRepaint();
         }
 
         private void RefreshSamples()
@@ -137,9 +151,15 @@ namespace AnimalGame.MainUI
                 p.BeginPath();
                 for (int i = 0; i < pointCount; i++)
                 {
+                    float wave = carrier[i] * phaseCos - carrierSine[i] * phaseSin;
+                    if (noiseStrength > 0f)
+                    {
+                        float noise = 2f * Mathf.Clamp01(Mathf.PerlinNoise(
+                            NoiseOffsetX + sampleX[i] * noiseScale, NoiseOffsetY + noiseTime)) - 1f;
+                        wave = Mathf.Lerp(wave, noise, noiseStrength);
+                    }
                     var point = new Vector2(Mathf.Lerp(left, right, sampleX[i]),
-                        rect.center.y - height * envelope[i]
-                            * (carrier[i] * phaseCos - carrierSine[i] * phaseSin));
+                        rect.center.y - height * envelope[i] * wave);
                     if (i == 0) p.MoveTo(point);
                     else p.LineTo(point);
                 }
