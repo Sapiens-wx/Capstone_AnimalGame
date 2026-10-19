@@ -40,7 +40,8 @@ namespace AnimalGame.Editor
         private static void Update()
         {
             Scene activeScene = SceneManager.GetActiveScene();
-            bool officialTerrainScene = activeScene.path == OfficialMap01PlanBuilder.ScenePath;
+            bool officialTerrainScene = activeScene.path == OfficialMap01PlanBuilder.ScenePath
+                || activeScene.path == PlainsSample500Builder.ScenePath;
             if (officialTerrainScene)
             {
                 officialTerrainScene = false;

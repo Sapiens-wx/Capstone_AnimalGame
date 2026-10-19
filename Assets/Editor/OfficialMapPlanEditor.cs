@@ -44,7 +44,7 @@ namespace AnimalGame.Editor
                     OfficialMapPlanSceneDrawer.FramePlan(plan);
                 if (GUILayout.Button("70 m 与 350 m 高度参照 / Frame Heights"))
                     OfficialMapPlanSceneDrawer.FrameHeightReferences(plan);
-                if (GUILayout.Button("250 m 与 1500 m 面积参照 / Frame Areas"))
+                if (GUILayout.Button("250 m 与 1250 m 面积参照 / Frame Areas"))
                     OfficialMapPlanSceneDrawer.FrameAreaReferences(plan);
                 if (GUILayout.Button("1 m 方块与 2 m 人形 / Frame Human Scale"))
                     OfficialMapPlanSceneDrawer.FrameHumanScale(plan);
@@ -86,9 +86,9 @@ namespace AnimalGame.Editor
                 double difference = plains.AreaSquareMeters - OfficialMapPlan.TargetPlainsAreaSquareMeters;
                 double relativeError = difference / OfficialMapPlan.TargetPlainsAreaSquareMeters * 100d;
                 EditorGUILayout.HelpBox(
-                    $"草原目标：2.250 km² = 36 个 250 m 标准区块\n"
+                    $"草原目标：1.5625 km² = 25 个 250 m 标准区块\n"
                     + $"当前：{plains.AreaSquareMeters:N2} m²，偏差 {difference:+0.00;-0.00;0.00} m² ({relativeError:+0.0000;-0.0000;0.0000}%)。"
-                    + "\n1500 × 1500 m 方框只用于等面积比较；草原保留不规则轮廓。",
+                    + "\n1250 × 1250 m 方框只用于等面积比较；草原保留不规则轮廓。",
                     Math.Abs(relativeError) <= 0.1d ? MessageType.Info : MessageType.Warning);
             }
         }
@@ -152,8 +152,10 @@ namespace AnimalGame.Editor
             EnableDisplay(plan, "showAreaReferences");
             SceneView view = GetView(plan);
             view.in2DMode = false;
-            Vector2 center = new Vector2(plan.WorldSizeMeters.x + 1100f, 1025f);
-            view.LookAt(plan.CoordinateToWorld(center), Quaternion.Euler(90f, 0f, 0f), 1350f, true);
+            float referenceSize = OfficialMapPlan.PlainsAreaReferenceSizeMeters;
+            Vector2 center = new Vector2(plan.WorldSizeMeters.x + 350f + referenceSize * 0.5f,
+                (referenceSize + 500f) * 0.5f);
+            view.LookAt(plan.CoordinateToWorld(center), Quaternion.Euler(90f, 0f, 0f), referenceSize * 0.9f, true);
             FinishFrame(view);
         }
 
@@ -401,27 +403,29 @@ namespace AnimalGame.Editor
         private static void DrawAreaReferences(SceneView view, OfficialMapPlan plan)
         {
             Vector2 largeOrigin = new Vector2(plan.WorldSizeMeters.x + 350f, 0f);
-            Vector2 smallOrigin = largeOrigin + Vector2.up * 1750f;
+            float referenceSize = OfficialMapPlan.PlainsAreaReferenceSizeMeters;
+            float referenceHalfSize = referenceSize * 0.5f;
+            Vector2 smallOrigin = largeOrigin + Vector2.up * (referenceSize + OfficialMapPlan.V1TileSizeMeters);
             Color squareColor = new Color(0.56f, 1f, 0.66f, 1f);
-            DrawRectangle(plan, largeOrigin, Vector2.one * 1500f, squareColor, 2f);
+            DrawRectangle(plan, largeOrigin, Vector2.one * referenceSize, squareColor, 2f);
             Handles.color = new Color(squareColor.r, squareColor.g, squareColor.b, 0.28f);
-            for (int index = 1; index < 6; index++)
+            for (float offset = OfficialMapPlan.V1TileSizeMeters; offset < referenceSize;
+                offset += OfficialMapPlan.V1TileSizeMeters)
             {
-                float offset = index * 250f;
                 Handles.DrawLine(plan.CoordinateToWorld(largeOrigin + new Vector2(offset, 0f)),
-                    plan.CoordinateToWorld(largeOrigin + new Vector2(offset, 1500f)));
+                    plan.CoordinateToWorld(largeOrigin + new Vector2(offset, referenceSize)));
                 Handles.DrawLine(plan.CoordinateToWorld(largeOrigin + new Vector2(0f, offset)),
-                    plan.CoordinateToWorld(largeOrigin + new Vector2(1500f, offset)));
+                    plan.CoordinateToWorld(largeOrigin + new Vector2(referenceSize, offset)));
             }
             DrawRectangle(plan, smallOrigin, Vector2.one * 250f, V1Color, 2.5f);
             if (plan.ShowLabels)
             {
                 float squareWidth = ScreenDistance(view,
-                    plan.CoordinateToWorld(largeOrigin + new Vector2(0f, 750f)),
-                    plan.CoordinateToWorld(largeOrigin + new Vector2(1500f, 750f)));
+                    plan.CoordinateToWorld(largeOrigin + new Vector2(0f, referenceHalfSize)),
+                    plan.CoordinateToWorld(largeOrigin + new Vector2(referenceSize, referenceHalfSize)));
                 if (squareWidth >= 220f)
-                    DrawLabel(view, plan.CoordinateToWorld(largeOrigin + Vector2.one * 750f),
-                        "草原等面积参照\n1500 × 1500 m = 2.25 km²\n36 个 250 m 区块 · 方框不代表草原形状", squareColor, true);
+                    DrawLabel(view, plan.CoordinateToWorld(largeOrigin + Vector2.one * referenceHalfSize),
+                        "草原等面积参照\n1250 × 1250 m = 1.5625 km²\n25 个 250 m 区块 · 方框不代表草原形状", squareColor, true);
                 DrawLabel(view, plan.CoordinateToWorld(smallOrigin + new Vector2(125f, 340f)),
                     "单个 V1 区块\n250 × 250 m = 0.0625 km²", V1Color);
             }
