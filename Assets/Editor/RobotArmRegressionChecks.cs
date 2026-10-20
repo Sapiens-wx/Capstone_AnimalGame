@@ -656,8 +656,8 @@ namespace AnimalGame.Editor
                 }
                 f.Tick(1, Vector2.right * .501f, true);
                 Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsRecycleReady
-                    && Quaternion.Angle(heading, f.Root.transform.rotation) > .001f,
-                    "Input above .5 did not restore outer control while preserving spatial chest-zone readiness");
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Input above .5 did not restore outer control without prematurely starting body follow");
                 f.Tick(120, Vector2.right * .501f, true);
                 Require(!f.Arms.IsRecycleReady,
                     "Garbage remained ready after outer arm control moved it outside the chest zone");
@@ -938,8 +938,9 @@ namespace AnimalGame.Editor
                     "Empty-arm drift entered docking or bypassed the stick dead zone");
                 f.Tick(30, Vector2.right * .3f, false);
                 Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.HeldObject == null
-                    && Quaternion.Angle(heading, f.Root.transform.rotation) > 1f,
-                    "Inner-circle input incorrectly captured empty-arm aiming and body turning");
+                    && Mathf.Abs(Vector2.SignedAngle(Vector2.up, (Vector2)Get(f.Arms, "targetLocal"))) > 1f
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Inner-circle empty-arm input lost manual aiming or prematurely started body follow");
             }
             using (var f = new Fixture(useProductionSettings: true))
             {
