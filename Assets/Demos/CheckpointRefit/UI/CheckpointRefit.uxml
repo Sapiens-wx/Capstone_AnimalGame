@@ -1,0 +1,106 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:refit="AnimalGame.Demos.CheckpointRefit" editor-extension-mode="False">
+    <Style src="CheckpointRefit.uss" />
+    <ui:VisualElement name="refit-host" class="refit-host" picking-mode="Ignore">
+    <ui:Label name="refit-interaction-prompt" class="refit-interaction-prompt" picking-mode="Ignore" />
+    <ui:VisualElement name="refit-screen" class="refit-screen">
+        <ui:VisualElement name="refit-stage" class="refit-stage">
+            <ui:VisualElement name="refit-content" class="refit-content">
+                <ui:VisualElement class="refit-header">
+                    <ui:VisualElement class="refit-heading">
+                        <ui:Label text="REFIT" class="refit-title" />
+                        <ui:Label text="MAINTENANCE" class="refit-eyebrow" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="refit-location">
+                        <ui:Label name="refit-checkpoint" text="WEATHER TOWER / WX-03" class="refit-checkpoint" />
+                        <ui:Label text="SERVICE LINK CONNECTED" class="refit-link-state" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="refit-slot-navigation">
+                    <ui:Label text="BODY SLOTS" class="refit-eyebrow refit-nav-heading" />
+                    <ui:Button name="refit-slot-0" text="LEGS" class="refit-slot" />
+                    <ui:Button name="refit-slot-1" text="CAMERA" class="refit-slot" />
+                    <ui:Button name="refit-slot-2" text="ARMS" class="refit-slot refit-selected" />
+                    <ui:Button name="refit-slot-3" text="BACK" class="refit-slot" />
+                    <ui:Button name="refit-slot-4" text="SENSORS" class="refit-slot" />
+                </ui:VisualElement>
+                <ui:VisualElement class="refit-unit-panel">
+                    <ui:VisualElement class="refit-unit-caption">
+                        <ui:Label text="R-07 / UNIT PREVIEW" class="refit-eyebrow" />
+                        <ui:Label text="CURRENT UNIT" class="refit-preview-mode" />
+                    </ui:VisualElement>
+                    <ui:Image name="refit-player-preview" class="refit-robot-preview" picking-mode="Ignore" />
+                    <refit:RefitMechanicalFrameElement frame-kind="unit" class="refit-unit-brackets" />
+                    <ui:Label name="refit-preview-caption" text="CURRENT CONFIGURATION" class="refit-preview-caption" />
+                </ui:VisualElement>
+                <ui:VisualElement class="refit-module-library">
+                    <ui:Label name="refit-library-label" text="ARMS / UNKNOWN MODULES" class="refit-eyebrow" />
+                    <ui:VisualElement class="refit-module-row">
+                        <ui:Button name="refit-module-0" class="refit-module refit-selected">
+                            <ui:Label text="01 / ?" class="refit-module-code" />
+                            <ui:Label text="UNKNOWN" class="refit-module-name" />
+                            <ui:Label text="LOCKED" class="refit-module-state" />
+                            <ui:VisualElement class="refit-module-rule" picking-mode="Ignore" />
+                        </ui:Button>
+                        <ui:Button name="refit-module-1" class="refit-module">
+                            <ui:Label text="02 / ?" class="refit-module-code" />
+                            <ui:Label text="UNKNOWN" class="refit-module-name" />
+                            <ui:Label text="LOCKED" class="refit-module-state" />
+                            <ui:VisualElement class="refit-module-rule" picking-mode="Ignore" />
+                        </ui:Button>
+                        <ui:Button name="refit-module-2" class="refit-module refit-module-last">
+                            <ui:Label text="03 / ?" class="refit-module-code" />
+                            <ui:Label text="UNKNOWN" class="refit-module-name" />
+                            <ui:Label text="LOCKED" class="refit-module-state" />
+                            <ui:VisualElement class="refit-module-rule" picking-mode="Ignore" />
+                        </ui:Button>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="refit-detail">
+                    <ui:Label name="refit-module-id" text="UNIDENTIFIED / 01" class="refit-eyebrow" />
+                    <ui:Label text="Unknown Module" class="refit-detail-title" />
+                    <ui:Button name="refit-inspect" class="refit-inspection-window" tooltip="Enlarge inspection window">
+                        <refit:RefitRobotPreviewElement name="refit-inspection-preview" inspection-mode="true" class="refit-inspection-drawing" />
+                        <refit:RefitMechanicalFrameElement frame-kind="inspection" class="refit-window-frame" />
+                        <ui:Label text="INSPECTION" class="refit-photo-label" />
+                        <ui:Label text="+" class="refit-photo-expand" />
+                        <ui:Label text="NO INSPECTION DATA" class="refit-no-data" />
+                    </ui:Button>
+                    <ui:VisualElement class="refit-description">
+                        <ui:Label text="Description" class="refit-description-label" />
+                        <ui:Label text="Module data unavailable. Discover compatible equipment to identify this slot." class="refit-description-text" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="refit-equip-area">
+                        <ui:Label text="DISCOVERY REQUIRED" class="refit-equip-hint" />
+                        <ui:Button name="refit-equip" text="LOCKED" class="refit-equip-button" enabled="false" tooltip="This module has not been discovered." />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="refit-footer">
+                    <ui:Label text="PROTOTYPE / MODULES UNDISCOVERED" class="refit-footer-note" />
+                    <ui:VisualElement class="refit-controls">
+                        <ui:Label text="LB / RB   SLOT" class="refit-control-hint" />
+                        <ui:Label text="LEFT / RIGHT   MODULE" class="refit-control-hint" />
+                        <ui:Button name="refit-inspect-footer" text="X / I   INSPECT" class="refit-footer-button" />
+                        <ui:Button name="refit-close" text="B / ESC   BACK" class="refit-footer-button" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="refit-inspection-modal" class="refit-inspection-modal">
+                <ui:VisualElement class="refit-modal-header">
+                    <ui:VisualElement>
+                        <ui:Label name="refit-modal-code" text="UNIDENTIFIED / 01" class="refit-eyebrow" />
+                        <ui:Label text="Unknown Module" class="refit-modal-title" />
+                    </ui:VisualElement>
+                    <ui:Button name="refit-inspection-close" text="B / ESC   CLOSE" class="refit-footer-button refit-modal-close" />
+                </ui:VisualElement>
+                <ui:VisualElement class="refit-modal-image">
+                    <refit:RefitRobotPreviewElement inspection-mode="true" class="refit-inspection-drawing" />
+                    <refit:RefitMechanicalFrameElement frame-kind="inspection" class="refit-window-frame" />
+                    <ui:Label text="NO INSPECTION DATA" class="refit-modal-no-data" />
+                </ui:VisualElement>
+                <ui:Label text="Discover compatible equipment to unlock inspection data." class="refit-modal-caption" />
+            </ui:VisualElement>
+            <refit:RefitMechanicalFrameElement frame-kind="outer" class="refit-outer-frame" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
