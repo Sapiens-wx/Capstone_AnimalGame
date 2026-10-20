@@ -29,7 +29,7 @@
                 <hud:TimeOrbitElement name="TimeOrbit" line-width="4" tick-length="12" radius="77" dash-gap="14" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
                 <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; font-size: 20px;" />
             </ui:VisualElement>
-            <hud:SoundElement name="Sound" line-width="4" line-length="45.2" class="sound" style="position: absolute; right: 278px; top: 86px; height: 94px; width: 162px;" />
+            <hud:SoundElement name="Sound" line-width="4" line-length="45.2" class="sound" style="position: absolute; right: 278px; top: 67px; height: 136px; width: 162px;" />
             <ui:VisualElement name="Coordinates" picking-mode="Ignore" class="coordinates" style="position: absolute; right: 68px; bottom: 30px; width: 258px;">
                 <ui:VisualElement name="VisualElement" class="coordinate-row" style="border-bottom-width: 0;">
                     <ui:Label name="LatitudeHemisphere" text="N" class="coordinate-prefix" />

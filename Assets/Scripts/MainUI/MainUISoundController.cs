@@ -65,12 +65,19 @@ namespace AnimalGame.MainUI
         [Tooltip("Samples in one continuous Painter2D path. Buffers are reused until this count changes.")]
         [SerializeField, Range(16, 512)] private int pointCount = 97;
         [Tooltip("Sine cycles across the full width.")]
-        [SerializeField, Range(0.5f, 16f)] private float frequency = 5f;
+        [SerializeField, Range(0.5f, 32f)] private float frequency = 5f;
         [Tooltip("Constant phase speed in cycles per game second. Zero stops motion; game pause freezes phase.")]
         [SerializeField, Min(0f)] private float phaseSpeed = 1f;
         [Tooltip("Maximum wave height as a fraction of the available half-height.")]
         [SerializeField, Range(0f, 1f)] private float maximumAmplitude = 0.85f;
         [SerializeField, Min(0.1f)] private float waveLineWidth = 2f;
+        [Header("Wave noise")]
+        [Tooltip("Blend weight of smooth Perlin ripples. Zero preserves the original sine wave.")]
+        [SerializeField, Range(0f, 1f)] private float noiseStrength = 0.2f;
+        [Tooltip("Perlin sampling span across the full width. Larger values produce finer ripples.")]
+        [SerializeField, Min(0f)] private float noiseScale = 12f;
+        [Tooltip("Perlin coordinate units per game second. Zero freezes the noise shape; game pause freezes motion.")]
+        [SerializeField, Min(0f)] private float noiseSpeed = 0.6f;
         [Header("Amplitude transition")]
         [Tooltip("Exponential smoothing time in seconds, on both rising and falling amplitude. Zero is immediate.")]
         [SerializeField, Min(0f)] private float amplitudeSmoothingSeconds = 0.08f;
@@ -84,6 +91,7 @@ namespace AnimalGame.MainUI
         private SoundElement element;
         private long session = -1;
         private float elapsed, amplitude, damping, phase;
+        private float noiseTime;
 
         public int ActiveSoundCount => SoundUIPlayback.ActiveCount;
         public float TargetAmplitude => SoundUIPlayback.MaximumStrength;
@@ -117,11 +125,14 @@ namespace AnimalGame.MainUI
             element.ConfigureWaveform(pointCount, frequency, maximumAmplitude, waveLineWidth);
             element.SetWaveState(amplitude, damping);
             element.SetWavePhase(phase);
+            element.SetWaveNoise(noiseStrength, noiseScale, noiseTime);
         }
 
         private void Advance(float deltaTime)
         {
             deltaTime = Mathf.Max(0f, deltaTime);
+            // Independent of the wrapped sine phase so noise never jumps at 2 PI.
+            noiseTime += deltaTime * Mathf.Max(0f, noiseSpeed);
             // Advance even while silent or hidden, without resetting on sound edges.
             // Keep radians bounded to preserve precision during long sessions.
             if (deltaTime > 0f && phaseSpeed > 0f)

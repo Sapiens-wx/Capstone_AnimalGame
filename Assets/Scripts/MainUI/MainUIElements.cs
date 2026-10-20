@@ -552,12 +552,13 @@ namespace AnimalGame.MainUI
             // UI Y increases downward: midnight is bottom, noon is top.
             Vector2 d = HudDrawing.Radial(90 + dayProgress * 360);
             Vector2 sun = c + d * orbitRadius;
-            float sunRadius = Mathf.Min(18, orbitRadius * .2f);
-            float sunMaskRadius = sunRadius + 2;
+            //float sunRadius = Mathf.Min(16, orbitRadius * .18f);
+            float sunRadius=orbitRadius*.14f;
+            float sunMaskRadius = sunRadius + 4;
             p.fillColor = Color.black; HudDrawing.Arc(p, sun, sunMaskRadius, sunMaskRadius, 0, 360, true);
             p.lineWidth = 2;
-            p.strokeColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360);
-            p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius * .58f, sunRadius * .58f, 0, 360, true);
+            //p.strokeColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360);
+            p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360, true);
         }
     }
 
