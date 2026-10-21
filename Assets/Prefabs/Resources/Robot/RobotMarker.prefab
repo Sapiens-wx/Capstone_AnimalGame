@@ -1047,6 +1047,19 @@ MonoBehaviour:
   followAngle: 70
   maximumAimSpeedDegreesPerSecond: 240
   aimSmoothingTime: 0.37
+  normalAimInnerMagnitude: 0.14
+  normalAimFullMagnitude: 0.45
+  normalFollowEnterMagnitude: 0.55
+  normalFollowExitMagnitude: 0.45
+  normalFollowFullMagnitude: 0.85
+  normalRearEnterMagnitude: 0.65
+  normalRearExitMagnitude: 0.45
+  normalRearEnterBackward: 0.35
+  normalRearExitBackward: 0.2
+  normalRearConfirmDuration: 0.1
+  normalRearSideMagnitude: 0.18
+  normalRearSideSwitchDuration: 0.08
+  normalRearBlendDuration: 0.1
   smallDockPosition: {x: 0, y: 0.65}
   mediumDockPosition: {x: 0, y: 0.8}
   recycleZoneHalfWidthOfBodyDiameter: 0.35

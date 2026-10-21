@@ -11,7 +11,8 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d556b856fd1644a7a6bfe3288b5a3cc1, type: 3}
   m_Name: InstantCamera
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   cameraId: camera-instant
-  displayName: Instant Camera
+  displayName: zoom lens 300
   renderSet: {fileID: 11400000, guid: c42bc388e4544e4b9bed5040fa5ce2eb, type: 2}
+  handling: 0

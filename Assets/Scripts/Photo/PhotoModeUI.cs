@@ -114,6 +114,7 @@ namespace AnimalGame.RobotMap
         private PhotoRangeDimGraphic rangeDim;
         private PhotoFocusDimGraphic focusDim;
         private PhotoRangeGuideGraphic rangeGuide;
+        private FixedPrimeFrameGraphic fixedFrameGraphic;
         private readonly Vector3[] captureFrameWorldCorners = new Vector3[4];
         private readonly Image[] frameStrokeImages = new Image[12];
         private Image frameImage;
@@ -261,78 +262,139 @@ namespace AnimalGame.RobotMap
                 frameRoot.anchoredPosition = SnapToCanvasPixels(localPoint);
             }
 
-            float preferredFrameScale = Mathf.Lerp(
-                nearestFrameScale,
-                farthestFrameScale,
-                controller.Zoom01);
             float reveal = controller.Reveal01;
             float frameReveal = SmoothReveal(
                 reveal,
                 frameRevealStart,
                 frameRevealEnd);
             float revealScale = CalculateRevealScale(frameReveal);
-            float maximumRangeScale = CalculateMaximumRangeFrameScale();
-            float rangeScaleMultiplier = 1f;
-            if (maximumRangeScale < float.PositiveInfinity)
+            bool fixedPrime = controller.UsesFixedPrimeHandling;
+            SetFixedPrimeArtwork(fixedPrime);
+            if (fixedPrime)
             {
-                float largestPreferredScale = Mathf.Max(
+                UpdateFixedPrimeFrame(revealScale, frameReveal);
+            }
+            else
+            {
+                // Restore the authored zoom frame after using a prime lens.
+                frameRoot.sizeDelta = frameReferenceSize;
+                float preferredFrameScale = Mathf.Lerp(
                     nearestFrameScale,
-                    farthestFrameScale);
-                rangeScaleMultiplier = Mathf.Min(
-                    1f,
-                    maximumRangeScale
-                    / Mathf.Max(0.0001f, largestPreferredScale));
-            }
+                    farthestFrameScale,
+                    controller.Zoom01);
+                float maximumRangeScale = CalculateMaximumRangeFrameScale();
+                float rangeScaleMultiplier = 1f;
+                if (maximumRangeScale < float.PositiveInfinity)
+                {
+                    float largestPreferredScale = Mathf.Max(
+                        nearestFrameScale,
+                        farthestFrameScale);
+                    rangeScaleMultiplier = Mathf.Min(
+                        1f,
+                        maximumRangeScale
+                        / Mathf.Max(0.0001f, largestPreferredScale));
+                }
 
-            float displayedFrameScale = preferredFrameScale
-                                        * rangeScaleMultiplier
-                                        * revealScale;
-            if (maximumRangeScale < float.PositiveInfinity)
-            {
-                displayedFrameScale = Mathf.Min(
+                float displayedFrameScale = preferredFrameScale
+                                            * rangeScaleMultiplier
+                                            * revealScale;
+                if (maximumRangeScale < float.PositiveInfinity)
+                {
+                    displayedFrameScale = Mathf.Min(
+                        displayedFrameScale,
+                        maximumRangeScale);
+                }
+
+                UpdateFocusArtworkPresentation();
+                displayedFrameScale *= displayedFocusFrameScale;
+
+                frameRoot.localScale = new Vector3(
                     displayedFrameScale,
-                    maximumRangeScale);
-            }
-
-            UpdateFocusArtworkPresentation();
-            displayedFrameScale *= displayedFocusFrameScale;
-
-            frameRoot.localScale = new Vector3(
-                displayedFrameScale,
-                displayedFrameScale,
-                1f);
-            frameRoot.localRotation = Quaternion.Euler(
-                0f,
-                0f,
-                CalculateFrameTiltDegrees());
-            if (aimRoot != null)
-            {
-                aimRoot.localScale = new Vector3(
-                    displayedFocusAimScale,
-                    displayedFocusAimScale,
+                    displayedFrameScale,
                     1f);
+                frameRoot.localRotation = Quaternion.Euler(
+                    0f,
+                    0f,
+                    CalculateFrameTiltDegrees());
+                if (aimRoot != null)
+                {
+                    aimRoot.localScale = new Vector3(
+                        displayedFocusAimScale,
+                        displayedFocusAimScale,
+                        1f);
+                }
+
+                UpdateFrameStroke(displayedFrameScale, frameReveal);
+                SetArtworkAlpha(frameImage, frameReveal);
+                SetArtworkAlpha(
+                    bigAimImage,
+                    SmoothReveal(reveal, 0.5f, 0.9f)
+                    * displayedFocusAimAlpha);
+                SetArtworkAlpha(
+                    smallAimImage,
+                    SmoothReveal(reveal, 0.62f, 1f)
+                    * displayedFocusAimAlpha);
             }
 
-            UpdateFrameStroke(displayedFrameScale, frameReveal);
-            SetArtworkAlpha(frameImage, frameReveal);
-            SetArtworkAlpha(
-                bigAimImage,
-                SmoothReveal(reveal, 0.5f, 0.9f)
-                * displayedFocusAimAlpha);
-            SetArtworkAlpha(
-                smallAimImage,
-                SmoothReveal(reveal, 0.62f, 1f)
-                * displayedFocusAimAlpha);
             float guideReveal = SmoothReveal(
                 reveal,
                 guideRevealStart,
                 guideRevealEnd);
-            float focusPresentation = controller.FocusPresentation01;
+            float focusPresentation = fixedPrime
+                ? 0f
+                : controller.FocusPresentation01;
             rangeDim?.UpdatePresentation(
                 guideReveal * (1f - focusPresentation));
             focusDim?.UpdatePresentation(focusPresentation, photoCorner);
+            if (rangeGuide != null)
+                rangeGuide.color = fixedPrime ? cameraFrameColor : rangeGuideColor;
             rangeGuide?.UpdatePlayerScreenAnchor();
             rangeGuide?.SetReveal(guideReveal);
+        }
+
+        private void SetFixedPrimeArtwork(bool fixedPrime)
+        {
+            if (frameImage != null)
+                frameImage.enabled = !fixedPrime;
+            for (int index = 0; index < frameStrokeImages.Length; index++)
+            {
+                if (frameStrokeImages[index] != null)
+                    frameStrokeImages[index].enabled = !fixedPrime;
+            }
+
+            if (aimRoot != null && aimRoot.gameObject.activeSelf == fixedPrime)
+                aimRoot.gameObject.SetActive(!fixedPrime);
+            if (fixedFrameGraphic != null)
+                fixedFrameGraphic.enabled = fixedPrime;
+            if (focusDim != null)
+                focusDim.enabled = !fixedPrime;
+        }
+
+        private void UpdateFixedPrimeFrame(float revealScale, float frameReveal)
+        {
+            ResetFocusArtworkPresentation();
+            controller.GetFixedFrameWorldPoints(
+                out Vector3 leftEnd,
+                out Vector3 rightEnd);
+            Vector3 leftScreen = mapCamera.WorldToScreenPoint(leftEnd);
+            Vector3 rightScreen = mapCamera.WorldToScreenPoint(rightEnd);
+            float canvasScaleFactor = rootCanvas != null
+                ? Mathf.Max(0.0001f, rootCanvas.scaleFactor)
+                : 1f;
+            float width = Vector2.Distance(
+                    new Vector2(leftScreen.x, leftScreen.y),
+                    new Vector2(rightScreen.x, rightScreen.y))
+                / canvasScaleFactor;
+            width = Mathf.Max(1f, width);
+            frameRoot.sizeDelta = new Vector2(
+                width,
+                width / Mathf.Max(0.1f, controller.FixedFrameAspect));
+            frameRoot.localScale = new Vector3(revealScale, revealScale, 1f);
+            frameRoot.localRotation = Quaternion.identity;
+            fixedFrameGraphic?.SetPresentation(
+                cameraFrameColor,
+                frameReveal,
+                canvasScaleFactor * revealScale);
         }
 
         private void UpdateFocusArtworkPresentation()
@@ -675,6 +737,15 @@ namespace AnimalGame.RobotMap
             frameRoot.anchoredPosition = Vector2.zero;
             frameRoot.sizeDelta = frameReferenceSize;
             frameRoot.localScale = Vector3.one;
+
+            GameObject fixedFrameObject = CreateUiObject(
+                "Fixed Prime Camera Frame",
+                frameRoot,
+                true);
+            StretchToParent(fixedFrameObject.GetComponent<RectTransform>());
+            fixedFrameGraphic = fixedFrameObject.AddComponent<FixedPrimeFrameGraphic>();
+            fixedFrameGraphic.raycastTarget = false;
+            fixedFrameGraphic.enabled = false;
 
             for (int i = 0; i < frameStrokeImages.Length; i++)
             {
