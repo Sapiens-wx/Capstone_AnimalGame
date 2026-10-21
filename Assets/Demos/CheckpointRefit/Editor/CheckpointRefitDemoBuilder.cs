@@ -1,4 +1,5 @@
 using System;
+using AnimalGame.Animals;
 using AnimalGame.Interaction;
 using AnimalGame.Interaction.Editor;
 using AnimalGame.RobotArm;
@@ -252,6 +253,9 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 SceneManager.MoveGameObjectToScene(root, preview);
                 var terminal = root.AddComponent<CheckpointRefitTerminal>();
                 terminal.Configure(AssetDatabase.LoadAssetAtPath<GameObject>(UIPath));
+                terminal.ConfigureCameras(
+                    AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/InstantCamera.asset"),
+                    AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/HalflyBrokenPrimeCamera50.asset"));
                 DrawTerminal(root.transform, material);
                 EnsureInteractionMarker(root);
                 PrefabUtility.SaveAsPrefabAsset(root, TerminalPath, out bool saved);

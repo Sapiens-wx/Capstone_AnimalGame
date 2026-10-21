@@ -10,20 +10,47 @@ namespace AnimalGame.RobotMap
     public sealed class PhotoModeController : MonoBehaviour
     {
         [Header("Camera Model")]
-        [Tooltip("The equipped photographic camera. Empty uses Basic processing. Changing this affects the next shutter press.")]
+        [Tooltip("The equipped camera controls framing, shutter handling and photo processing. Empty uses the original zoom handling and Basic processing.")]
         [SerializeField] private PhotoCameraDefinition currentCamera;
 
         public PhotoCameraDefinition CurrentCamera => currentCamera;
         public PhotoCaptureSettings LastCaptureSettings { get; private set; }
+        public bool UsesFixedPrimeHandling => PresentationCamera != null
+            && PresentationCamera.Handling == PhotoCameraHandling.FixedPrimeHold;
+        public float FixedFrameWidthOfRange => PresentationCamera != null
+            ? PresentationCamera.FixedFrameWidthOfRange : 0.9f;
+        public float FixedFrameAspect => PresentationCamera != null
+            ? PresentationCamera.FixedFrameAspect : 2f;
+
+        private PhotoCameraDefinition PresentationCamera =>
+            IsCapturing || IsReviewing ? captureCamera : currentCamera;
+        private float RequiredHoldDuration => UsesFixedPrimeHandling
+            ? Mathf.Max(0.05f, PresentationCamera.AutomaticHoldSeconds)
+            : Mathf.Max(0.05f, focusDuration);
 
         /// <summary>Equipment systems may switch models even while an existing photo is being reviewed.</summary>
-        public void SetCamera(PhotoCameraDefinition camera) => currentCamera = camera;
+        public void SetCamera(PhotoCameraDefinition camera)
+        {
+            if (currentCamera == camera)
+                return;
+
+            currentCamera = camera;
+            if (IsCapturing || IsReviewing)
+            {
+                // The exposure and its review keep their original frame and copied
+                // photo settings. Apply the next model when framing resumes.
+                cameraHandlingChangePending = true;
+                return;
+            }
+
+            ApplyCameraHandlingChange();
+        }
 
         [Header("Input")]
         [Tooltip("Keyboard fallback used to enter or leave photo mode while testing without a gamepad.")]
         [SerializeField] private KeyCode keyboardToggleKey = KeyCode.P;
 
-        [Tooltip("Keyboard fallback for RB: enter photo mode, hold to focus, then press again to take a photo.")]
+        [Tooltip("Keyboard fallback for RB: enter photo mode and operate the equipped camera's focus/shutter control.")]
         [SerializeField] private KeyCode keyboardFocusAndShutterKey =
             KeyCode.Space;
 
@@ -147,7 +174,7 @@ namespace AnimalGame.RobotMap
                 if (captureState == PhotoCaptureState.Focusing)
                 {
                     return Mathf.Clamp01(
-                        focusElapsed / Mathf.Max(0.05f, focusDuration));
+                        focusElapsed / RequiredHoldDuration);
                 }
 
                 return IsFocusComplete ? 1f : 0f;
@@ -269,6 +296,9 @@ namespace AnimalGame.RobotMap
         private float shutterElapsed;
         private bool captureMomentFired;
         private bool photoReviewRequested;
+        private bool fixedHoldRequiresRelease;
+        private PhotoCameraDefinition captureCamera;
+        private bool cameraHandlingChangePending;
 
         private void Awake()
         {
@@ -428,6 +458,39 @@ namespace AnimalGame.RobotMap
             out Vector3 rightStart,
             out Vector3 rightEnd)
         {
+            if (UsesFixedPrimeHandling)
+            {
+                // The prime keeps its large frame and opens a wider range around
+                // it. Derive the rays from the frame's near corners, rather than
+                // using the narrower zoom range to dim part of the photograph.
+                const float frameMargin = 0.15f;
+                float frameWidth = CalculateFixedFrameWorldWidth();
+                float frameHeight = frameWidth / Mathf.Max(0.1f, FixedFrameAspect);
+                float nearDistance = AimLocalPosition.y - frameHeight * 0.5f;
+                float nearRun = Mathf.Max(
+                    0.01f,
+                    nearDistance - guideOriginForwardDistance);
+                float farDistance = Mathf.Max(
+                    guideOriginForwardDistance + 0.01f,
+                    AimLocalPosition.y + frameHeight * 0.5f + frameMargin);
+                float outwardSlope = Mathf.Max(
+                    0f,
+                    frameWidth * 0.5f + frameMargin - guideOriginSideOffset)
+                    / nearRun;
+                float farHalfWidth = guideOriginSideOffset
+                    + outwardSlope * (farDistance - guideOriginForwardDistance);
+
+                leftStart = LocalPointToWorld(new Vector2(
+                    -guideOriginSideOffset,
+                    guideOriginForwardDistance));
+                leftEnd = LocalPointToWorld(new Vector2(-farHalfWidth, farDistance));
+                rightStart = LocalPointToWorld(new Vector2(
+                    guideOriginSideOffset,
+                    guideOriginForwardDistance));
+                rightEnd = LocalPointToWorld(new Vector2(farHalfWidth, farDistance));
+                return;
+            }
+
             float radians = guideHalfAngleDegrees * Mathf.Deg2Rad;
             float forwardRun = Mathf.Max(
                 0f,
@@ -446,6 +509,24 @@ namespace AnimalGame.RobotMap
             rightEnd = LocalPointToWorld(new Vector2(
                 guideOriginSideOffset + lateralRun,
                 maximumAimDistance));
+        }
+
+        public void GetFixedFrameWorldPoints(out Vector3 left, out Vector3 right)
+        {
+            float halfWidth = CalculateFixedFrameWorldWidth() * 0.5f;
+            Vector3 offset = transform.right * halfWidth;
+            left = AimWorldPosition - offset;
+            right = AimWorldPosition + offset;
+        }
+
+        private float CalculateFixedFrameWorldWidth()
+        {
+            // Always use the authored zoom reference. Reading the expanded prime
+            // guide ends here would recursively enlarge the frame every update.
+            float referenceHalfWidth = guideOriginSideOffset
+                + Mathf.Tan(guideHalfAngleDegrees * Mathf.Deg2Rad)
+                * Mathf.Max(0f, maximumAimDistance - guideOriginForwardDistance);
+            return Mathf.Max(0.01f, referenceHalfWidth * 2f * FixedFrameWidthOfRange);
         }
 
         public bool RequestPhotoReview()
@@ -471,18 +552,34 @@ namespace AnimalGame.RobotMap
             shutterElapsed = 0f;
             captureMomentFired = false;
             photoReviewRequested = false;
+            captureCamera = null;
+            ApplyPendingCameraHandlingChange();
             if (state == PhotoModeState.Active)
                 mover?.SetPhotoModeInputLocked(false);
         }
 
         private void UpdateCaptureState(bool shoulderHeld, bool shoulderPressed)
         {
-            float deltaTime = Mathf.Max(0f, Time.unscaledDeltaTime);
+            AdvanceCaptureState(
+                shoulderHeld,
+                shoulderPressed,
+                Mathf.Max(0f, Time.unscaledDeltaTime));
+        }
+
+        private void AdvanceCaptureState(
+            bool shoulderHeld,
+            bool shoulderPressed,
+            float deltaTime)
+        {
+            deltaTime = Mathf.Max(0f, deltaTime);
 
             switch (captureState)
             {
                 case PhotoCaptureState.Framing:
-                    if (shoulderPressed)
+                    if (!shoulderHeld)
+                        fixedHoldRequiresRelease = false;
+                    if (shoulderPressed
+                        && (!UsesFixedPrimeHandling || !fixedHoldRequiresRelease))
                         BeginFocus();
                     break;
 
@@ -494,10 +591,15 @@ namespace AnimalGame.RobotMap
                     }
 
                     focusElapsed = Mathf.Min(
-                        focusDuration,
+                        RequiredHoldDuration,
                         focusElapsed + deltaTime);
                     if (FocusProgress01 >= 1f)
-                        CompleteFocus();
+                    {
+                        if (UsesFixedPrimeHandling)
+                            BeginCapture();
+                        else
+                            CompleteFocus();
+                    }
                     break;
 
                 case PhotoCaptureState.Focused:
@@ -562,6 +664,8 @@ namespace AnimalGame.RobotMap
             int seed = Guid.NewGuid().GetHashCode();
             LastCaptureSettings = currentCamera != null
                 ? currentCamera.Capture(seed) : PhotoCaptureSettings.Basic(seed);
+            captureCamera = currentCamera;
+            fixedHoldRequiresRelease = UsesFixedPrimeHandling;
             captureState = PhotoCaptureState.Capturing;
             shutterElapsed = 0f;
             captureMomentFired = false;
@@ -597,11 +701,25 @@ namespace AnimalGame.RobotMap
             shutterArmed = false;
             captureMomentFired = false;
             photoReviewRequested = false;
+            if (!enterReview)
+            {
+                captureCamera = null;
+                ApplyPendingCameraHandlingChange();
+            }
             mover?.SetPhotoModeInputLocked(enterReview);
         }
 
         private void UpdateFocusPresentation()
         {
+            // A damaged fixed prime has no focus travel or focus magnification.
+            // Its hold duration is only a shutter safeguard.
+            if (UsesFixedPrimeHandling)
+            {
+                focusPresentation01 = 0f;
+                focusPresentationVelocity = 0f;
+                return;
+            }
+
             bool focusPresentationActive =
                 captureState == PhotoCaptureState.Focusing
                 || captureState == PhotoCaptureState.Focused
@@ -647,6 +765,9 @@ namespace AnimalGame.RobotMap
             shutterElapsed = 0f;
             captureMomentFired = false;
             photoReviewRequested = false;
+            fixedHoldRequiresRelease = false;
+            captureCamera = null;
+            ApplyPendingCameraHandlingChange();
             if (!resetPresentation)
                 return;
 
@@ -657,6 +778,9 @@ namespace AnimalGame.RobotMap
 
         private void UpdateAimFromRightStick()
         {
+            if (UsesFixedPrimeHandling)
+                return;
+
             Vector2 rawStick = AdaptiveLegacyGamepadInput.ReadRightStick();
             Vector2 input = ApplyRadialDeadZone(rawStick, rightStickDeadZone);
             if (input.sqrMagnitude > 0.000001f)
@@ -794,7 +918,32 @@ namespace AnimalGame.RobotMap
 
         private void ResetAimToNearest()
         {
-            AimLocalPosition = new Vector2(0f, minimumAimDistance);
+            float distance = UsesFixedPrimeHandling
+                ? Mathf.Lerp(
+                    minimumAimDistance,
+                    maximumAimDistance,
+                    Mathf.Clamp01(PresentationCamera.FixedAimDistance01))
+                : minimumAimDistance;
+            AimLocalPosition = new Vector2(0f, distance);
+        }
+
+        private void ApplyPendingCameraHandlingChange()
+        {
+            if (!cameraHandlingChangePending)
+                return;
+
+            cameraHandlingChangePending = false;
+            ApplyCameraHandlingChange();
+        }
+
+        private void ApplyCameraHandlingChange()
+        {
+            CancelFocus();
+            focusPresentation01 = 0f;
+            focusPresentationVelocity = 0f;
+            cameraShake?.SetPhotoFocusMagnification(1f);
+            ResetAimToNearest();
+            UpdateAimFollowTarget();
         }
 
         private void EnsureAimFollowTarget()

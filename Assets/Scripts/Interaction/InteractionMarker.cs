@@ -9,7 +9,7 @@ namespace AnimalGame.Interaction
         [SerializeField] private MeshRenderer outerRing;
         [SerializeField] private MeshRenderer innerRing;
         [SerializeField] private Color tint = new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
-        [SerializeField, Min(.01f)] private float diameter = 1f;
+        [SerializeField, Min(.01f)] private float diameter = .75f;
         [SerializeField] private float outerDegreesPerSecond = -30f;
         [SerializeField] private float innerDegreesPerSecond = 45f;
         [SerializeField] private int sortingOrder = 25;

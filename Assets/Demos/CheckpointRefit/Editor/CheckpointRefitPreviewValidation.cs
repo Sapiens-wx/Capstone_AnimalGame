@@ -49,38 +49,41 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             Require(visibleText.IndexOf("UNKNOWN", StringComparison.OrdinalIgnoreCase) < 0
                 && visibleText.IndexOf("LOCKED", StringComparison.OrdinalIgnoreCase) < 0,
                 "Unavailable equipment must use a slash presentation instead of UNKNOWN / LOCKED text.");
-            bool installedSlot = view.SelectedSlotIndex == 0 || view.SelectedSlotIndex == 1;
             for (int module = 0; module < view.ModuleCount; module++)
             {
                 Button card = root.Q<Button>("refit-module-" + module);
                 Require(card != null, "Missing module card " + module + ".");
-                bool installed = installedSlot && module == 0;
-                Require(card.ClassListContains("refit-module-unavailable") != installed,
-                    "Installed and undiscovered module presentation differs from the initial configuration.");
+                bool available = view.IsModuleAvailable(view.SelectedSlotIndex, module);
+                bool installed = view.IsModuleInstalled(view.SelectedSlotIndex, module);
+                Require(!installed || available, "Installed equipment must also be available.");
+                Require(card.ClassListContains("refit-module-unavailable") != available,
+                    "Available and undiscovered module presentation differs from the player's equipment.");
                 VisualElement slash = card.Q<VisualElement>(className: "refit-module-slash");
-                Require(slash != null && IsShown(slash) != installed,
-                    "Undiscovered module cards must be crossed through; installed cards must retain their labels.");
+                Require(slash != null && IsShown(slash) != available,
+                    "Undiscovered module cards must be crossed through; available cards must retain their labels.");
                 string text = string.Join(" ", card.Query<TextElement>().ToList().Where(IsShown).Select(element => element.text)).Trim();
-                if (installed)
+                if (available)
                 {
-                    string title = view.SelectedSlotIndex == 0 ? "TRACKS" : "ZOOM 300";
-                    Require(text.Contains(title) && text.Contains("INSTALLED"),
-                        "The initial configuration must show " + title + " as installed.");
+                    string title = view.SelectedSlotIndex == 0 ? "TRACKS" : view.GetCameraModule(module)?.DisplayName;
+                    Require(!string.IsNullOrEmpty(title) && text.Contains(title)
+                        && text.Contains(installed ? "INSTALLED" : "AVAILABLE"),
+                        "Available equipment must show its actual name and installation state.");
                 }
                 else Require(string.IsNullOrWhiteSpace(text), "Unavailable module bars must have no name, number, or locked text.");
             }
-            bool selectedInstalled = installedSlot && view.SelectedModuleIndex == 0;
+            bool selectedInstalled = view.IsModuleInstalled(view.SelectedSlotIndex, view.SelectedModuleIndex);
+            bool selectedAvailable = view.IsModuleAvailable(view.SelectedSlotIndex, view.SelectedModuleIndex);
             Require(view.IsSelectedModuleInstalled == selectedInstalled, "Selected module installation state is inconsistent.");
+            Require(view.IsSelectedModuleAvailable == selectedAvailable, "Selected module availability state is inconsistent.");
             Button equip = root.Q<Button>("refit-equip");
-            Require(equip != null && !equip.enabledInHierarchy, "This presentation demo must never expose a live equip action.");
-            Require(!root.Query<Button>().ToList().Any(button => button.enabledInHierarchy
-                && string.Equals((button.text ?? string.Empty).Trim(), "Equip", StringComparison.OrdinalIgnoreCase)),
-                "The UI must never offer an enabled Equip action in this demo.");
-            if (selectedInstalled && view.SelectedSlotIndex == 1)
+            Require(equip != null, "Missing equipment action.");
+            Require(!equip.enabledInHierarchy || (view.SelectedSlotIndex == 1 && selectedAvailable && !selectedInstalled),
+                "Only an available, uninstalled camera may offer an enabled Equip action.");
+            if (selectedAvailable && view.SelectedSlotIndex == 1 && view.SelectedModuleIndex == 0)
             {
                 Label hint = root.Q<Label>("refit-equip-hint");
                 Require(hint != null && hint.text.IndexOf("GOOD", StringComparison.OrdinalIgnoreCase) >= 0,
-                    "The installed Zoom 300 lens must report good condition.");
+                    "Zoom lens 300 must report good condition, whether available or installed.");
             }
         }
 

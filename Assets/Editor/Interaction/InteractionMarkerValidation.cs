@@ -95,6 +95,8 @@ namespace AnimalGame.Interaction.Editor
             Require(asset != null, "The reusable marker prefab is missing.");
             InteractionMarker marker = asset.GetComponent<InteractionMarker>();
             Require(marker != null && marker.OuterRing != null && marker.InnerRing != null, "The prefab must reference both rings.");
+            Require(Mathf.Abs(new SerializedObject(marker).FindProperty("diameter").floatValue - .75f) < .0001f,
+                "The reusable marker must use the approved .75 default diameter.");
             Require(asset.GetComponentsInChildren<Renderer>(true).Length == 2
                 && asset.GetComponentsInChildren<Collider>(true).Length == 0,
                 "The generic presentation prefab must contain exactly two renderers and no interaction collider.");
@@ -165,8 +167,9 @@ namespace AnimalGame.Interaction.Editor
                 SaveImage(full, "marker-full.png");
                 report.fullPixels = CountLit(full);
                 Require(report.fullPixels > 10000, "The enabled marker is missing or too faint.");
-                CheckArcPattern(full, .475f);
-                CheckArcPattern(full, .275f);
+                float diameter = new SerializedObject(marker).FindProperty("diameter").floatValue;
+                CheckArcPattern(full, .475f * diameter);
+                CheckArcPattern(full, .275f * diameter);
                 report.checks.Add("GPU output shows four 60-degree arcs per ring, separated by 30-degree gaps, with an empty center.");
                 Require(!Lit(full.GetPixel(Size / 2, Size / 2)), "The center of the marker must be empty.");
 

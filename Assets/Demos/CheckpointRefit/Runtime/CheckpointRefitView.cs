@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.Animals;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace AnimalGame.Demos.CheckpointRefit
 {
     /// <summary>
-    /// Presentation-only maintenance screen showing the unit's initial installed assemblies.
-    /// It neither reads gameplay input nor changes the player, equipment, or persistent data.
+    /// Maintenance presentation that emits equipment requests for the terminal to handle.
+    /// Gameplay input and changes to the player's equipment remain outside the view.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UIDocument))]
@@ -43,17 +44,60 @@ namespace AnimalGame.Demos.CheckpointRefit
         private Button inspectButton;
         private Button inspectFooterButton;
         private Button equipButton;
+        private Button equipFooterButton;
         private Button inspectionCloseButton;
+        private RefitCameraEquipment cameraEquipment;
+        private PhotoCameraDefinition zoomLens300;
+        private PhotoCameraDefinition damagedPrime50;
 
         public event Action CloseRequested;
+        public event Action EquipRequested;
         public bool IsVisible { get; private set; }
         public bool IsInspectionOpen { get; private set; }
         public int SelectedSlotIndex { get; private set; }
         public int SelectedModuleIndex { get; private set; }
         public int SlotCount => SlotNames.Length;
         public int ModuleCount => moduleButtons.Length;
-        public bool IsSelectedModuleInstalled => IsInstalledModule(SelectedSlotIndex, SelectedModuleIndex);
+        public bool IsSelectedModuleAvailable => IsModuleAvailable(SelectedSlotIndex, SelectedModuleIndex);
+        public bool IsSelectedModuleInstalled => IsModuleInstalled(SelectedSlotIndex, SelectedModuleIndex);
+        public PhotoCameraDefinition SelectedCamera => SelectedSlotIndex == 1 ? GetCameraModule(SelectedModuleIndex) : null;
         public UIDocument Document => document != null ? document : (document = GetComponent<UIDocument>());
+
+        public void BindCameraEquipment(RefitCameraEquipment equipment, PhotoCameraDefinition zoomCamera, PhotoCameraDefinition damagedCamera)
+        {
+            cameraEquipment = equipment;
+            zoomLens300 = zoomCamera;
+            damagedPrime50 = damagedCamera;
+            RefreshSelection();
+        }
+
+        public PhotoCameraDefinition GetCameraModule(int index)
+            => index == 0 ? zoomLens300 : (index == 1 ? damagedPrime50 : null);
+
+        public bool IsModuleAvailable(int slotIndex, int moduleIndex)
+        {
+            if (slotIndex == 0) return moduleIndex == 0;
+            if (slotIndex != 1) return false;
+            var camera = GetCameraModule(moduleIndex);
+            return camera != null && (moduleIndex == 0 || (cameraEquipment != null && cameraEquipment.IsUnlocked(camera)));
+        }
+
+        public bool IsModuleInstalled(int slotIndex, int moduleIndex)
+        {
+            if (slotIndex == 0) return moduleIndex == 0;
+            return slotIndex == 1 && cameraEquipment != null && cameraEquipment.IsInstalled(GetCameraModule(moduleIndex));
+        }
+
+        public void RequestEquipSelected()
+        {
+            if (!IsVisible || IsInspectionOpen || !CanEquipSelection) return;
+            EquipRequested?.Invoke();
+        }
+
+        public void RefreshEquipment() => RefreshSelection();
+
+        private bool CanEquipSelection => SelectedSlotIndex == 1 && IsSelectedModuleAvailable
+            && !IsSelectedModuleInstalled && cameraEquipment != null && cameraEquipment.IsAvailable;
 
         private void OnEnable()
         {
@@ -132,7 +176,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         public void OpenInspection()
         {
-            if (!IsVisible || IsInspectionOpen || inspectionModal == null || !IsSelectedModuleInstalled) return;
+            if (!IsVisible || IsInspectionOpen || inspectionModal == null || !IsSelectedModuleAvailable) return;
             IsInspectionOpen = true;
             content.SetEnabled(false);
             inspectionModal.style.display = DisplayStyle.Flex;
@@ -182,6 +226,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             inspectButton = root.Q<Button>("refit-inspect");
             inspectFooterButton = root.Q<Button>("refit-inspect-footer");
             equipButton = root.Q<Button>("refit-equip");
+            equipFooterButton = root.Q<Button>("refit-equip-footer");
             inspectionCloseButton = root.Q<Button>("refit-inspection-close");
             for (int i = 0; i < slotButtons.Length; i++)
             {
@@ -199,7 +244,8 @@ namespace AnimalGame.Demos.CheckpointRefit
             BindClick(inspectFooterButton, OpenInspection);
             BindClick(inspectionCloseButton, () => CloseInspection());
             BindClick(root.Q<Button>("refit-close"), () => CloseRequested?.Invoke());
-            equipButton?.SetEnabled(false);
+            BindClick(equipButton, RequestEquipSelected);
+            BindClick(equipFooterButton, RequestEquipSelected);
             // The terminal owns directional navigation. Capture at the document root, including
             // events targeting that root after a focus change. Pointer clicks and Tab remain native.
             root.RegisterCallback<NavigationMoveEvent>(SuppressMove, TrickleDown.TrickleDown);
@@ -257,55 +303,72 @@ namespace AnimalGame.Demos.CheckpointRefit
             {
                 var button = moduleButtons[i];
                 if (button == null) continue;
-                bool installed = IsInstalledModule(SelectedSlotIndex, i);
+                bool available = IsModuleAvailable(SelectedSlotIndex, i);
+                bool installed = IsModuleInstalled(SelectedSlotIndex, i);
+                string name = SelectedSlotIndex == 0 ? "TRACKS" : GetCameraModule(i)?.DisplayName;
+                bool longName = available && name != null && name.Length > 22;
                 button.EnableInClassList("refit-selected", i == SelectedModuleIndex);
-                button.EnableInClassList("refit-module-unavailable", !installed);
-                button.tooltip = installed ? "Initial installed assembly" : "Module unavailable";
-                SetCardLabel(button, "refit-module-code", "01 / INITIAL", installed);
-                SetCardLabel(button, "refit-module-name", InstalledModuleName, installed);
-                SetCardLabel(button, "refit-module-state", "INSTALLED", installed);
+                button.EnableInClassList("refit-module-unavailable", !available);
+                button.EnableInClassList("refit-module-long-name", longName);
+                button.tooltip = available ? name + (installed ? " / Installed" : " / Available") : "Module unavailable";
+                SetCardLabel(button, "refit-module-code", (i + 1).ToString("00") + (SelectedSlotIndex == 0 ? " / INITIAL" : " / CAMERA"), available);
+                SetCardLabel(button, "refit-module-name", name, available);
+                SetCardLabel(button, "refit-module-state", installed ? "INSTALLED" : "AVAILABLE", available);
                 var slash = button.Q<VisualElement>(className: "refit-module-slash");
-                if (slash != null) slash.style.display = installed ? DisplayStyle.None : DisplayStyle.Flex;
+                if (slash != null) slash.style.display = available ? DisplayStyle.None : DisplayStyle.Flex;
             }
 
             if (libraryLabel != null) libraryLabel.text = SlotNames[SelectedSlotIndex] + " / MODULES";
+            bool selectedAvailable = IsSelectedModuleAvailable;
             bool selectedInstalled = IsSelectedModuleInstalled;
-            string kind = selectedInstalled ? (SelectedSlotIndex == 0 ? "tracks" : "camera") : "unavailable";
-            string title = selectedInstalled ? InstalledModuleName : "NO MODULE DATA";
-            string description = selectedInstalled
+            bool selectedDamagedCamera = SelectedSlotIndex == 1 && SelectedModuleIndex == 1;
+            string kind = selectedAvailable ? (SelectedSlotIndex == 0 ? "tracks" : "camera") : "unavailable";
+            string title = selectedAvailable ? (SelectedSlotIndex == 0 ? "TRACKS" : SelectedCamera.DisplayName) : "NO MODULE DATA";
+            string description = selectedAvailable
                 ? (SelectedSlotIndex == 0
                     ? "Standard tracked undercarriage. Installed as the unit's initial mobility assembly."
-                    : "Variable-zoom camera lens. Condition: good.")
+                    : (selectedDamagedCamera
+                        ? "Damaged 50 mm prime camera. Black-and-white photographs with severe blur and heavy grain."
+                        : "Variable-zoom lens in good condition. Captures the unit's original photographic finish."))
                 : "No module data available.";
-            string code = SlotNames[SelectedSlotIndex] + (selectedInstalled ? " / INITIAL ASSEMBLY" : " / \u2014");
+            string code = SlotNames[SelectedSlotIndex] + (selectedAvailable ? (selectedInstalled ? " / INSTALLED" : " / AVAILABLE") : " / \u2014");
             if (moduleId != null) moduleId.text = code;
             if (modalCode != null) modalCode.text = code;
-            if (detailTitle != null) detailTitle.text = title;
-            if (modalTitle != null) modalTitle.text = title;
+            if (detailTitle != null)
+            {
+                detailTitle.text = title;
+                detailTitle.EnableInClassList("refit-detail-title-long", title.Length > 22);
+            }
+            if (modalTitle != null)
+            {
+                modalTitle.text = title;
+                modalTitle.EnableInClassList("refit-modal-title-long", title.Length > 22);
+            }
             if (descriptionText != null) descriptionText.text = description;
             if (modalCaption != null) modalCaption.text = description;
-            if (equipHint != null) equipHint.text = selectedInstalled
-                ? (SelectedSlotIndex == 0 ? "INITIAL CONFIGURATION" : "CONDITION / GOOD")
+            if (equipHint != null) equipHint.text = selectedAvailable
+                ? (SelectedSlotIndex == 0 ? "INITIAL CONFIGURATION" : (selectedDamagedCamera ? "CONDITION / DAMAGED" : "CONDITION / GOOD"))
                 : "\u2014";
             if (equipButton != null)
             {
-                equipButton.text = selectedInstalled ? "INSTALLED" : "/";
-                equipButton.tooltip = selectedInstalled ? "Initial installed assembly" : "Module unavailable";
-                equipButton.EnableInClassList("refit-equip-unavailable", !selectedInstalled);
+                equipButton.text = selectedAvailable ? (selectedInstalled ? "INSTALLED" : "A / ENTER   EQUIP") : "/";
+                equipButton.tooltip = selectedAvailable ? (selectedInstalled ? "Currently installed" : "Equip selected camera") : "Module unavailable";
+                equipButton.EnableInClassList("refit-equip-unavailable", !selectedAvailable);
+                equipButton.SetEnabled(CanEquipSelection);
+            }
+            if (equipFooterButton != null)
+            {
+                equipFooterButton.SetEnabled(CanEquipSelection);
+                equipFooterButton.style.display = CanEquipSelection ? DisplayStyle.Flex : DisplayStyle.None;
             }
             if (inspectionPreview != null) inspectionPreview.ModuleKind = kind;
             if (modalPreview != null) modalPreview.ModuleKind = kind;
-            inspectButton?.SetEnabled(selectedInstalled);
-            inspectFooterButton?.SetEnabled(selectedInstalled);
-            if (photoExpand != null) photoExpand.style.display = selectedInstalled ? DisplayStyle.Flex : DisplayStyle.None;
-            if (noData != null) noData.style.display = selectedInstalled ? DisplayStyle.None : DisplayStyle.Flex;
-            if (modalNoData != null) modalNoData.style.display = selectedInstalled ? DisplayStyle.None : DisplayStyle.Flex;
+            inspectButton?.SetEnabled(selectedAvailable);
+            inspectFooterButton?.SetEnabled(selectedAvailable);
+            if (photoExpand != null) photoExpand.style.display = selectedAvailable ? DisplayStyle.Flex : DisplayStyle.None;
+            if (noData != null) noData.style.display = selectedAvailable ? DisplayStyle.None : DisplayStyle.Flex;
+            if (modalNoData != null) modalNoData.style.display = selectedAvailable ? DisplayStyle.None : DisplayStyle.Flex;
         }
-
-        private string InstalledModuleName => SelectedSlotIndex == 0 ? "TRACKS" : "ZOOM 300";
-
-        private static bool IsInstalledModule(int slotIndex, int moduleIndex)
-            => moduleIndex == 0 && (slotIndex == 0 || slotIndex == 1);
 
         private static void SetCardLabel(Button button, string className, string text, bool visible)
         {

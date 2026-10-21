@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.Animals;
 using AnimalGame.Interaction;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
@@ -22,12 +23,15 @@ namespace AnimalGame.Demos.CheckpointRefit
         [Tooltip("Optional explicit same-scene player. Otherwise binds the map player or the scene's only active RobotMover.")]
         [SerializeField] private RobotMover playerOverride;
         [SerializeField] private InteractionMarker interactionMarker;
+        [SerializeField] private PhotoCameraDefinition zoomLens300;
+        [SerializeField] private PhotoCameraDefinition damagedPrime50;
 
         private RobotMover player;
         private MapTestSceneController map;
         private CheckpointRefitView view;
         private GameObject uiInstance;
         private RefitGameplayLease lease;
+        private RefitCameraEquipment cameraEquipment;
         private readonly RefitPlayerPreview playerPreview = new RefitPlayerPreview();
         private bool inputArmed;
         private bool releasing;
@@ -46,6 +50,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         public bool IsNearby => PlayerPresent && DistanceToPlayer() <= interactionRadiusMeters;
         public float InteractionRadiusMeters => interactionRadiusMeters;
         public InteractionMarker Marker => interactionMarker;
+        public RefitCameraEquipment CameraEquipment => cameraEquipment;
         private bool PlayerPresent => player != null && player.gameObject.activeInHierarchy
             && player.gameObject.scene == gameObject.scene;
 
@@ -71,12 +76,42 @@ namespace AnimalGame.Demos.CheckpointRefit
             RefreshMarker();
         }
 
+        public void ConfigureCameras(PhotoCameraDefinition zoom, PhotoCameraDefinition damaged)
+        {
+            zoomLens300 = zoom;
+            damagedPrime50 = damaged;
+        }
+
+        private void BindCameraEquipment()
+        {
+            PhotoModeController controller = player.GetComponentInChildren<PhotoModeController>(true);
+            cameraEquipment = null;
+            if (controller != null)
+            {
+                cameraEquipment = player.GetComponent<RefitCameraEquipment>();
+                if (cameraEquipment == null) cameraEquipment = player.gameObject.AddComponent<RefitCameraEquipment>();
+                cameraEquipment.Configure(controller, zoomLens300);
+            }
+            view.BindCameraEquipment(cameraEquipment, zoomLens300, damagedPrime50);
+        }
+
+        private void EquipSelectedCamera()
+        {
+            if (!IsOpen || releasing || lease == null || !PlayerPresent || view == null
+                || view.IsInspectionOpen || view.SelectedSlotIndex != 1 || cameraEquipment == null) return;
+            PhotoCameraDefinition selected = view.SelectedModuleIndex == 0 ? zoomLens300
+                : view.SelectedModuleIndex == 1 ? damagedPrime50 : null;
+            if (cameraEquipment.TryEquip(selected)) view.RefreshEquipment();
+        }
+
         private void LateUpdate() => RefreshMarker();
 
         private void RefreshMarker()
         {
             // Closing input retains the gameplay lease after IsOpen becomes false.
-            interactionMarker?.SetSuppressed(!isActiveAndEnabled || IsOpen || lease != null || releasing);
+            // Discovery rings yield to the nearby prompt. Query the live range rather than the cached prompt,
+            // so closing-input release and crossing the boundary cannot produce a one-frame flash.
+            interactionMarker?.SetSuppressed(!isActiveAndEnabled || IsOpen || lease != null || releasing || IsNearby);
         }
 
         private void Start()
@@ -140,8 +175,11 @@ namespace AnimalGame.Demos.CheckpointRefit
                     return;
                 }
                 if (inspectionPressed) view.OpenInspection();
-                if (!view.IsInspectionOpen) Navigate();
-                // The demo displays the initial configuration; A/Enter performs no equip action.
+                if (!view.IsInspectionOpen)
+                {
+                    Navigate();
+                    if (interactPressed) view.RequestEquipSelected();
+                }
                 return;
             }
 
@@ -156,6 +194,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (!EnsureUi() || !RefitGameplayLease.CanAcquire(player, out _)) return false;
             try
             {
+                BindCameraEquipment();
                 // The lease disables arm behaviours, so snapshot initialized artwork first.
                 playerPreview.Capture(player);
                 if (!RefitGameplayLease.TryAcquire(player, out lease, out _))
@@ -232,13 +271,18 @@ namespace AnimalGame.Demos.CheckpointRefit
                 return false;
             }
             view.CloseRequested += Close;
+            view.EquipRequested += EquipSelectedCamera;
             view.Hide();
             return true;
         }
 
         private void DestroyUi()
         {
-            if (view != null) view.CloseRequested -= Close;
+            if (view != null)
+            {
+                view.CloseRequested -= Close;
+                view.EquipRequested -= EquipSelectedCamera;
+            }
             view = null;
             if (uiInstance == null) return;
             uiInstance.SetActive(false);

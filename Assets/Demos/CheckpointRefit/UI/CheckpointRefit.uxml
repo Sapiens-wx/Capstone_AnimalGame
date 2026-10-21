@@ -81,6 +81,7 @@
                     <ui:VisualElement class="refit-controls">
                         <ui:Label text="LB / RB   SLOT" class="refit-control-hint" />
                         <ui:Label text="LEFT / RIGHT   MODULE" class="refit-control-hint" />
+                        <ui:Button name="refit-equip-footer" text="A / ENTER   EQUIP" class="refit-footer-button" />
                         <ui:VisualElement name="refit-inspect-help">
                             <ui:Button name="refit-inspect-footer" text="X / I   INSPECT" class="refit-footer-button" />
                         </ui:VisualElement>

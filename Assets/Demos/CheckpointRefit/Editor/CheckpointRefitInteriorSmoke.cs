@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using AnimalGame.Animals;
 using AnimalGame.Demos.WasteRobot;
 using AnimalGame.Demos.WasteRobot.Editor;
 using AnimalGame.Interaction;
@@ -28,8 +29,9 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
         private const string SourceProject = "C:/Users/30791/Documents/GitHub/Capstone_AnimalGame";
         private enum Phase
         {
-            WaitingForPlay, WaitingForScene, Neutral, Opening, OpenHeld, OpenReleased,
-            CloseHeld, CloseReleased, ExitInside, ExitOutside, Finishing
+            WaitingForPlay, WaitingForScene, Neutral, RangeOutsideBeforeOpen, RangeReentered,
+            Opening, OpenHeld, OpenReleased, LensReady, LensEquipHeld, LensEquipReleased, CloseHeld, CloseReleased,
+            RangeOutsideAfterClose, RangeReturnedAfterClose, ExitInside, ExitOutside, Finishing
         }
 
         [Serializable] private sealed class Report
@@ -55,8 +57,13 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
         [SerializeField] private RobotMover player;
         [SerializeField] private WasteRobotBase machine;
         [SerializeField] private CheckpointRefitTerminal terminal;
+        [SerializeField] private PhotoModeController photoController;
+        [SerializeField] private RefitCameraEquipment cameraEquipment;
+        [SerializeField] private PhotoCameraDefinition zoomLens300, damagedPrime50;
+        [SerializeField] private bool restoreCameraPass, equipRequestsSubscribed;
+        [SerializeField] private int equipRequests;
         [SerializeField] private Transform terminalParent;
-        [SerializeField] private Vector3 terminalLocalPosition, terminalLocalScale, openingPosition;
+        [SerializeField] private Vector3 terminalLocalPosition, terminalLocalScale, openingPosition, interactionCenterPosition;
         [SerializeField] private Quaternion terminalLocalRotation;
         [SerializeField] private List<Behaviour> captured = new List<Behaviour>();
         [SerializeField] private List<bool> enabledBefore = new List<bool>();
@@ -166,19 +173,60 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                         if (!Settled(8)) break;
                         Require(terminal.Player == player && terminal.IsNearby, "The authored nested terminal did not resolve its nearby map player.");
                         Require(RefitGameplayLease.CanAcquire(player, out string reason), "Player not ready for maintenance: " + reason);
+                        CheckMarkerSuppressed(); CheckPrompt(true);
+                        report.checks.Add("The nearby A / Enter maintenance prompt replaces both marker rings before interaction.");
+                        MoveOutsideInteractionRange(); Begin(Phase.RangeOutsideBeforeOpen); break;
+                    case Phase.RangeOutsideBeforeOpen:
+                        if (!Settled(8)) break;
+                        Require(!terminal.IsNearby, "The player did not leave the authored interaction radius.");
+                        CheckPrompt(false);
                         CheckMarkerAvailable();
-                        report.checks.Add("The nested station marker is presented only after the map HUD publishes a valid circular-view clip.");
+                        report.checks.Add(InputName + " leaving the interaction radius hides the prompt and restores both marker rings with the valid circular-view clip.");
+                        MoveToInteractionCenter(); Begin(Phase.RangeReentered); break;
+                    case Phase.RangeReentered:
+                        if (!Settled(8)) break;
+                        Require(terminal.IsNearby && RefitGameplayLease.CanAcquire(player, out _),
+                            "Returning to the station did not restore maintenance eligibility.");
+                        CheckPrompt(true); CheckMarkerSuppressed();
+                        report.checks.Add(InputName + " re-entering the interaction radius restores the prompt and suppresses both marker rings.");
                         Snapshot(); PressOpen(); Begin(Phase.Opening); break;
                     case Phase.Opening:
                         if (!Settled(8)) break;
-                        CheckOpen(); Begin(Phase.OpenHeld); break;
+                        CheckOpen(); CheckCameraBeforeEquip();
+                        if (!equipRequestsSubscribed)
+                        {
+                            terminal.View.EquipRequested += OnEquipRequested;
+                            equipRequestsSubscribed = true;
+                        }
+                        Begin(Phase.OpenHeld); break;
                     case Phase.OpenHeld:
-                        CheckOpen();
+                        CheckOpen(); CheckCameraBeforeEquip();
                         if (!Settled(12)) break;
                         report.checks.Add(InputName + " opens the authored interior terminal and preserves interior state across multiple LateUpdates.");
                         Neutral(); Begin(Phase.OpenReleased); break;
                     case Phase.OpenReleased:
                         CheckOpen();
+                        if (!Settled()) break;
+                        PrepareLensSelection(); Begin(Phase.LensReady); break;
+                    case Phase.LensReady:
+                        CheckOpen(); CheckCameraBeforeEquip();
+                        if (!Settled()) break;
+                        CheckpointRefitPreviewValidation.CheckSelection(terminal.View);
+                        CheckpointRefitPreviewValidation.CheckModulePresentation(terminal.View);
+                        Require(terminal.View.IsSelectedModuleAvailable && !terminal.View.IsSelectedModuleInstalled
+                            && terminal.View.Document.rootVisualElement.Q<Button>("refit-equip").enabledInHierarchy,
+                            "The owned, uninstalled camera must expose a live Equip action.");
+                        PressOpen(); Begin(Phase.LensEquipHeld); break;
+                    case Phase.LensEquipHeld:
+                        CheckOpen();
+                        if (!Settled(12)) break;
+                        CheckCameraAfterEquip();
+                        report.checks.Add(InputName + (restoreCameraPass
+                            ? " restores the previously owned damaged prime 50 after reopening maintenance; its availability survives the first switch."
+                            : " equips the initially unlocked zoom lens 300 while gameplay is paused, without closing maintenance or repeating held input."));
+                        Neutral(); Begin(Phase.LensEquipReleased); break;
+                    case Phase.LensEquipReleased:
+                        CheckOpen(); CheckCameraAfterEquip();
                         if (!Settled()) break;
                         PressClose(); Begin(Phase.CloseHeld); break;
                     case Phase.CloseHeld:
@@ -190,9 +238,27 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                         report.checks.Add(InputName + " keeps both marker rings suppressed while the closing input still owns the gameplay lease.");
                         Neutral(); Begin(Phase.CloseReleased); break;
                     case Phase.CloseReleased:
+                        if (Time.timeScale > 0f && terminal.IsNearby) CheckMarkerSuppressed();
                         if (!Settled(8)) break;
                         CheckRestored();
-                        if (++cycle < 2) { Snapshot(); PressOpen(); Begin(Phase.Opening); }
+                        MoveOutsideInteractionRange(); Begin(Phase.RangeOutsideAfterClose); break;
+                    case Phase.RangeOutsideAfterClose:
+                        if (!Settled(8)) break;
+                        Require(!terminal.IsNearby, "The player did not leave the interaction radius after maintenance.");
+                        CheckPrompt(false); CheckMarkerAvailable();
+                        report.checks.Add(InputName + " marker rings recover after leaving the interaction radius following maintenance.");
+                        MoveToInteractionCenter(); Begin(Phase.RangeReturnedAfterClose); break;
+                    case Phase.RangeReturnedAfterClose:
+                        if (!Settled(8)) break;
+                        Require(terminal.IsNearby, "The player did not return to the interaction radius after maintenance.");
+                        CheckPrompt(true); CheckMarkerSuppressed();
+                        if (!restoreCameraPass)
+                        {
+                            restoreCameraPass = true;
+                            Snapshot(); PressOpen(); Begin(Phase.Opening);
+                        }
+                        else if (++cycle < 2)
+                        { restoreCameraPass = false; MoveOutsideInteractionRange(); Begin(Phase.RangeOutsideBeforeOpen); }
                         else { MoveToPortal(-.5f); Begin(Phase.ExitInside); }
                         break;
                     case Phase.ExitInside:
@@ -237,6 +303,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 .Single(value => value.gameObject.scene == player.gameObject.scene
                     && value.InteriorRoot != null && value.InteriorRoot.GetComponentsInChildren<CheckpointRefitTerminal>(true).Length > 0);
             terminal = machine.InteriorRoot.GetComponentsInChildren<CheckpointRefitTerminal>(true).Single();
+            PrepareCameraFixture();
             Require(machine.AutoBindPlayer && machine.TryBindScenePlayer() && machine.Target == player.transform,
                 "The saved machine must automatically resolve the original same-scene map player.");
             FieldInfo automatic = typeof(WasteRobotBase).GetField("targetWasAutoBound", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -256,9 +323,10 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             foreach (Collider2D value in machine.GetComponentsInChildren<Collider2D>(true)) value.enabled = false;
             machine.SetInside(true);
             insideTransitions = machine.TransitionCount;
+            interactionCenterPosition = player.transform.position;
             report.notes.Add("Runtime-only fixture: translated the saved machine from " + originalPosition + " to " + machine.transform.position
                 + " so the saved nested terminal meets the original player's flat starting position; disabled only fixture colliders. "
-                + "Kept every nested local transform and used SetInside(true) to prepare the interior. No scene or prefab is saved.");
+                + "Kept every nested local transform and used SetInside(true) to prepare the interior. Range checks move only the player along portal-local X, preserving the doorway side. No scene or prefab is saved.");
             Record(machine.Target == player.transform, "The original saved machine automatically binds the original map player without calling Bind.");
             CheckNestedTransform(); CheckInterior();
         }
@@ -311,8 +379,100 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 Require(captured[i] == null || captured[i].enabled == enabledBefore[i],
                     "Closing maintenance changed the original enabled state of " + captured[i]?.GetType().Name + ".");
             Record(player.isActiveAndEnabled, InputName + " release restores the original gameplay states and retains the machine interior.");
-            CheckMarkerAvailable();
-            report.checks.Add(InputName + " release restores both marker rings after gameplay ownership and the circular-view clip return.");
+            Require(terminal.IsNearby, "The player must remain in interaction range after maintenance closes.");
+            Require(photoController.CurrentCamera == CameraAfterPass
+                && player.GetComponent<RefitCameraEquipment>() == cameraEquipment,
+                "Closing maintenance must retain the chosen camera and the player's shared ownership state.");
+            CheckPrompt(true); CheckMarkerSuppressed();
+            report.checks.Add(InputName + " release restores the maintenance prompt while both marker rings remain suppressed in interaction range.");
+        }
+
+        private PhotoCameraDefinition CameraBeforePass => restoreCameraPass ? zoomLens300 : damagedPrime50;
+        private PhotoCameraDefinition CameraAfterPass => restoreCameraPass ? damagedPrime50 : zoomLens300;
+        private int RequestsBeforePass => cycle * 2 + (restoreCameraPass ? 1 : 0);
+        private void OnEquipRequested() => equipRequests++;
+
+        private void PrepareCameraFixture()
+        {
+            zoomLens300 = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/InstantCamera.asset");
+            damagedPrime50 = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/HalflyBrokenPrimeCamera50.asset");
+            var originalLook = AssetDatabase.LoadAssetAtPath<PhotoRenderSet>("Assets/Data/AnimalPhoto/Rendering/InstantFilmSet.asset");
+            Require(zoomLens300 != null && damagedPrime50 != null && originalLook != null,
+                "The camera catalog and original photographic look must be available.");
+            Require(zoomLens300.DisplayName == "zoom lens 300" && zoomLens300.RenderSet == originalLook,
+                "Zoom lens 300 must retain the original lens's rendering preset and use its requested name.");
+
+            // The fresh-player probe is inactive, and its controller never receives input or scene updates.
+            var owner = new GameObject("Refit camera ownership probe (runtime only)");
+            owner.SetActive(false);
+            try
+            {
+                PhotoModeController controller = owner.AddComponent<PhotoModeController>();
+                controller.SetCamera(zoomLens300);
+                RefitCameraEquipment equipment = owner.AddComponent<RefitCameraEquipment>();
+                equipment.Configure(controller, zoomLens300);
+                Require(equipment.IsAvailable && equipment.IsUnlocked(zoomLens300)
+                    && equipment.IsInstalled(zoomLens300) && !equipment.IsUnlocked(damagedPrime50),
+                    "The original camera must be initially unlocked without granting the damaged camera to a fresh player.");
+                Require(!equipment.TryEquip(damagedPrime50) && controller.CurrentCamera == zoomLens300,
+                    "An undiscovered camera must not be equipped through the shared ownership API.");
+                controller.SetCamera(damagedPrime50);
+                equipment.Configure(controller, zoomLens300);
+                Require(controller.CurrentCamera == damagedPrime50 && equipment.IsUnlocked(damagedPrime50),
+                    "Configuring a station must preserve the actual equipped camera and recognize existing ownership.");
+                Require(equipment.TryEquip(zoomLens300), "The initially unlocked lens must be equipable.");
+                equipment.Configure(controller, zoomLens300);
+                Require(equipment.IsUnlocked(damagedPrime50) && equipment.TryEquip(damagedPrime50),
+                    "Previously owned cameras must remain available when another station configures the same player.");
+            }
+            finally { Object.DestroyImmediate(owner); }
+            report.checks.Add("Fresh-player ownership unlocks zoom lens 300 only, rejects unavailable cameras, and preserves an already owned damaged camera across station reconfiguration.");
+
+            photoController = player.GetComponent<PhotoModeController>();
+            Require(photoController != null, "The original map player must have a photographic controller.");
+            photoController.SetCamera(damagedPrime50);
+            report.notes.Add("Camera fixture is runtime-only: the original player starts the input exercise with its damaged prime 50 equipped, so both directions of the switch can be tested without granting undiscovered equipment or editing the saved scene.");
+        }
+
+        private void CheckCameraBeforeEquip()
+        {
+            Require(photoController.CurrentCamera == CameraBeforePass,
+                "Opening or holding the station interaction must preserve the currently equipped camera.");
+            RefitCameraEquipment actual = player.GetComponent<RefitCameraEquipment>();
+            Require(actual != null && actual.IsAvailable && actual.IsUnlocked(zoomLens300)
+                && actual.IsUnlocked(damagedPrime50), "The terminal must bind the player's existing camera ownership.");
+            if (cameraEquipment == null) cameraEquipment = actual;
+            Require(cameraEquipment == actual, "Reopening maintenance must reuse the same player-owned equipment component.");
+            Require(equipRequests == RequestsBeforePass, "The opening input or its hold unexpectedly requested equipment.");
+        }
+
+        private void PrepareLensSelection()
+        {
+            CheckCameraBeforeEquip();
+            CheckpointRefitView view = terminal.View;
+            view.NavigateSlot(1 - view.SelectedSlotIndex);
+            Require(view.GetCameraModule(0) == zoomLens300 && view.GetCameraModule(1) == damagedPrime50
+                && view.GetCameraModule(2) == null, "The CAMERA slot must expose the real camera assets and retain its third unavailable bar.");
+            view.NavigateModule(2 - view.SelectedModuleIndex);
+            Require(!view.IsSelectedModuleAvailable, "The third camera bar must remain undiscovered.");
+            view.RequestEquipSelected();
+            Require(photoController.CurrentCamera == CameraBeforePass && equipRequests == RequestsBeforePass,
+                "Requesting an unavailable module must not change equipment or emit an equip action.");
+            CheckpointRefitPreviewValidation.CheckModulePresentation(view);
+            int target = restoreCameraPass ? 1 : 0;
+            view.NavigateModule(target - view.SelectedModuleIndex);
+        }
+
+        private void CheckCameraAfterEquip()
+        {
+            Require(photoController.CurrentCamera == CameraAfterPass && cameraEquipment.IsInstalled(CameraAfterPass)
+                && terminal.View.IsSelectedModuleInstalled && terminal.View.SelectedCamera == CameraAfterPass,
+                "The maintenance installation state must match the real photographic controller.");
+            Require(equipRequests == RequestsBeforePass + 1,
+                "Each deliberate A / Enter press must emit exactly one equipment request, including while held.");
+            Require(!terminal.View.Document.rootVisualElement.Q<Button>("refit-equip").enabledInHierarchy,
+                "The newly installed camera must stop offering the Equip action.");
+            CheckpointRefitPreviewValidation.CheckModulePresentation(terminal.View);
         }
         private InteractionMarker RequireMarker()
         {
@@ -331,13 +491,27 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 && Shader.GetGlobalFloat("_PlayerUiClipRadiusPixels") > 0f,
                 "The map must publish an enabled circular-view clip with a positive radius before marker presentation is restored.");
         }
+        private void CheckPrompt(bool visible)
+        {
+            Label prompt = terminal.View?.Document?.rootVisualElement.Q<Label>("refit-interaction-prompt");
+            Require(prompt != null && prompt.style.display.value == (visible ? DisplayStyle.Flex : DisplayStyle.None),
+                "The maintenance prompt must be " + (visible ? "visible" : "hidden") + " during " + phase + ".");
+        }
         private void CheckMarkerSuppressed()
         {
             InteractionMarker marker = RequireMarker();
             Require(marker.IsSuppressed && !marker.PresentationEnabled
                 && !marker.OuterRing.enabled && !marker.InnerRing.enabled,
-                "Maintenance must suppress both marker rings throughout UI ownership and held closing input during " + phase + ".");
+                "Both marker rings must remain suppressed during nearby interaction or UI ownership in " + phase + ".");
         }
+        private void MoveOutsideInteractionRange()
+        {
+            Vector2 direction = machine.transform.right;
+            float worldDistance = bootstrap.map.MapMetersToWorldDistance(direction, terminal.InteractionRadiusMeters * 1.25f);
+            Require(worldDistance > 0f, "The generated map must convert the interaction radius into world distance.");
+            player.transform.position = interactionCenterPosition + (Vector3)(direction.normalized * worldDistance);
+        }
+        private void MoveToInteractionCenter() => player.transform.position = interactionCenterPosition;
         private void MoveToPortal(float y)
         {
             Vector2 world = machine.PortalToWorld(new Vector2(0f, y));
@@ -405,6 +579,8 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             if (phase == Phase.Finishing) return;
             if (failure != null) report.errors.Add(failure.ToString());
             InputSystem.onBeforeUpdate -= QueueHeldKeyboard;
+            if (equipRequestsSubscribed && terminal != null && terminal.View != null)
+                terminal.View.EquipRequested -= OnEquipRequested;
             if (terminal != null) terminal.enabled = false;
             foreach (int id in new[] { gamepadId, keyboardId })
             {
