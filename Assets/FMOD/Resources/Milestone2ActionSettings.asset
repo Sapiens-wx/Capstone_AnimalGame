@@ -275,6 +275,8 @@ MonoBehaviour:
     readBySoundUI: 1
     soundUIStrength: 0.5
   fadeOutSeconds: 0.05
+  tumbleSlidePitch: 1.1
+  tumbleSlideAccentSeconds: 0.2
   movementThreshold: 0.01
   turnThreshold: 0.5
   enableStationaryTurnGroundAudio: 1

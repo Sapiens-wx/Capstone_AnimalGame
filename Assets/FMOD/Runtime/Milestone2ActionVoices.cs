@@ -18,6 +18,7 @@ namespace Capstone.Audio
             internal EventDescription Description;
             internal readonly ParameterState[] Parameters = new ParameterState[(int)ActionAudioParameter.Count];
             internal bool Active, Failed, Fading, Recovering, Paused, KeyedOff;
+            internal bool DeferFadeTick;
             internal bool EngineReleasing, EngineReleaseBraking;
             internal float EngineReleaseStartPitch, EngineReleaseElapsed, EngineReleaseDuration;
             internal bool NativeReleaseEnvelope;
@@ -277,7 +278,7 @@ namespace Capstone.Audio
             // Disable the conditional loop, then enter the exact supplied tail
             // immediately, so locking/recovery does not wait for another cycle.
             int tail = cue == Milestone2ActionCue.Slide ? 2480
-                : cue == Milestone2ActionCue.GroundTurn ? 1200 : 800;
+                : cue == Milestone2ActionCue.GroundTurn ? 1250 : 800;
             string hold = cue == Milestone2ActionCue.Slide ? "SlideHold"
                 : cue == Milestone2ActionCue.GroundTurn ? "TurnHold"
                 : cue == Milestone2ActionCue.ArmDeploy ? "DeployHold" : "RetractHold";
@@ -342,7 +343,7 @@ namespace Capstone.Audio
                 ? settings.EngineFadeOutSeconds : IsMovementLoop(cue) ? settings.GroundFadeOutSeconds : settings.FadeOutSeconds);
         }
 
-        internal void FadeStop(Milestone2ActionCue cue, float duration)
+        internal void FadeStop(Milestone2ActionCue cue, float duration, bool deferFirstTick = false)
         {
             Slot slot = slots[(int)cue];
             if (!slot.Active) return;
@@ -354,6 +355,7 @@ namespace Capstone.Audio
                 slot.FadeElapsed = 0f;
                 slot.FadeDuration = duration;
                 slot.FadeStartEnvelope = slot.Envelope;
+                slot.DeferFadeTick = deferFirstTick;
             }
         }
 
@@ -376,7 +378,13 @@ namespace Capstone.Audio
                         ? Mathf.Clamp01(slot.EngineReleaseElapsed / slot.EngineReleaseDuration) : 1f;
                     ApplyPitch(slot, Mathf.Lerp(slot.EngineReleaseStartPitch, settings.EngineMinimumPitch, progress), progress >= 1f);
                 }
-                if (slot.Fading)
+                if (slot.Fading && slot.DeferFadeTick)
+                {
+                    // A fade requested by a late-frame gameplay event starts
+                    // now; the preceding frame's delta must not exhaust it.
+                    slot.DeferFadeTick = false;
+                }
+                else if (slot.Fading)
                 {
                     slot.FadeElapsed += deltaTime;
                     if (slot.FadeElapsed >= slot.FadeDuration)
@@ -432,6 +440,7 @@ namespace Capstone.Audio
             slot.Instance.clearHandle();
             slot.Active = false;
             slot.Fading = false;
+            slot.DeferFadeTick = false;
             slot.Recovering = false;
             slot.EngineReleasing = slot.EngineReleaseBraking = false;
             slot.Paused = slot.KeyedOff = false;

@@ -124,10 +124,10 @@ TextureImporter:
       name: TreeLeaves_0
       rect:
         serializedVersion: 2
-        x: 274
-        y: 605
-        width: 145
-        height: 145
+        x: 271
+        y: 604
+        width: 149
+        height: 149
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -146,10 +146,10 @@ TextureImporter:
       name: TreeLeaves_1
       rect:
         serializedVersion: 2
-        x: 395
-        y: 671
-        width: 234
-        height: 124
+        x: 409
+        y: 670
+        width: 206
+        height: 115
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -168,10 +168,10 @@ TextureImporter:
       name: TreeLeaves_2
       rect:
         serializedVersion: 2
-        x: 605
-        y: 605
-        width: 145
-        height: 145
+        x: 604
+        y: 604
+        width: 149
+        height: 149
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -190,10 +190,10 @@ TextureImporter:
       name: TreeLeaves_3
       rect:
         serializedVersion: 2
-        x: 229
-        y: 395
-        width: 124
-        height: 234
+        x: 239
+        y: 409
+        width: 115
+        height: 206
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -212,10 +212,10 @@ TextureImporter:
       name: TreeLeaves_4
       rect:
         serializedVersion: 2
-        x: 274
-        y: 274
-        width: 145
-        height: 145
+        x: 271
+        y: 271
+        width: 149
+        height: 149
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -234,10 +234,10 @@ TextureImporter:
       name: TreeLeaves_5
       rect:
         serializedVersion: 2
-        x: 605
-        y: 274
-        width: 145
-        height: 145
+        x: 604
+        y: 271
+        width: 149
+        height: 149
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -256,10 +256,10 @@ TextureImporter:
       name: TreeLeaves_6
       rect:
         serializedVersion: 2
-        x: 671
-        y: 395
-        width: 124
-        height: 234
+        x: 670
+        y: 409
+        width: 115
+        height: 206
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -278,10 +278,10 @@ TextureImporter:
       name: TreeLeaves_7
       rect:
         serializedVersion: 2
-        x: 395
-        y: 229
-        width: 234
-        height: 124
+        x: 409
+        y: 239
+        width: 206
+        height: 115
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
