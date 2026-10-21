@@ -91,6 +91,7 @@ namespace AnimalGame.Demos.CheckpointRefit
                 cameraEquipment = player.GetComponent<RefitCameraEquipment>();
                 if (cameraEquipment == null) cameraEquipment = player.gameObject.AddComponent<RefitCameraEquipment>();
                 cameraEquipment.Configure(controller, zoomLens300);
+                cameraEquipment.Unlock(damagedPrime50);
             }
             view.BindCameraEquipment(cameraEquipment, zoomLens300, damagedPrime50);
         }

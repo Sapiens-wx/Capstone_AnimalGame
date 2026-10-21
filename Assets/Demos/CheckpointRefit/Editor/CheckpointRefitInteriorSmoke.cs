@@ -222,8 +222,8 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                         if (!Settled(12)) break;
                         CheckCameraAfterEquip();
                         report.checks.Add(InputName + (restoreCameraPass
-                            ? " restores the previously owned damaged prime 50 after reopening maintenance; its availability survives the first switch."
-                            : " equips the initially unlocked zoom lens 300 while gameplay is paused, without closing maintenance or repeating held input."));
+                            ? " restores zoom lens 300 after reopening maintenance; both cameras remain available."
+                            : " equips the automatically unlocked damaged prime 50 while gameplay is paused, without closing maintenance or repeating held input."));
                         Neutral(); Begin(Phase.LensEquipReleased); break;
                     case Phase.LensEquipReleased:
                         CheckOpen(); CheckCameraAfterEquip();
@@ -387,8 +387,8 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             report.checks.Add(InputName + " release restores the maintenance prompt while both marker rings remain suppressed in interaction range.");
         }
 
-        private PhotoCameraDefinition CameraBeforePass => restoreCameraPass ? zoomLens300 : damagedPrime50;
-        private PhotoCameraDefinition CameraAfterPass => restoreCameraPass ? damagedPrime50 : zoomLens300;
+        private PhotoCameraDefinition CameraBeforePass => restoreCameraPass ? damagedPrime50 : zoomLens300;
+        private PhotoCameraDefinition CameraAfterPass => restoreCameraPass ? zoomLens300 : damagedPrime50;
         private int RequestsBeforePass => cycle * 2 + (restoreCameraPass ? 1 : 0);
         private void OnEquipRequested() => equipRequests++;
 
@@ -416,7 +416,9 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     "The original camera must be initially unlocked without granting the damaged camera to a fresh player.");
                 Require(!equipment.TryEquip(damagedPrime50) && controller.CurrentCamera == zoomLens300,
                     "An undiscovered camera must not be equipped through the shared ownership API.");
-                controller.SetCamera(damagedPrime50);
+                equipment.Unlock(damagedPrime50);
+                Require(equipment.TryEquip(damagedPrime50),
+                    "The automatically unlocked damaged camera must be equipable by a fresh player.");
                 equipment.Configure(controller, zoomLens300);
                 Require(controller.CurrentCamera == damagedPrime50 && equipment.IsUnlocked(damagedPrime50),
                     "Configuring a station must preserve the actual equipped camera and recognize existing ownership.");
@@ -426,12 +428,12 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     "Previously owned cameras must remain available when another station configures the same player.");
             }
             finally { Object.DestroyImmediate(owner); }
-            report.checks.Add("Fresh-player ownership unlocks zoom lens 300 only, rejects unavailable cameras, and preserves an already owned damaged camera across station reconfiguration.");
+            report.checks.Add("Fresh-player ownership rejects unavailable cameras, allows the damaged camera after automatic unlock, and preserves ownership across station reconfiguration.");
 
             photoController = player.GetComponent<PhotoModeController>();
             Require(photoController != null, "The original map player must have a photographic controller.");
-            photoController.SetCamera(damagedPrime50);
-            report.notes.Add("Camera fixture is runtime-only: the original player starts the input exercise with its damaged prime 50 equipped, so both directions of the switch can be tested without granting undiscovered equipment or editing the saved scene.");
+            photoController.SetCamera(zoomLens300);
+            report.notes.Add("Camera fixture is runtime-only: the original player starts with zoom lens 300, and opening the terminal must automatically unlock the damaged prime 50 before the input exercise.");
         }
 
         private void CheckCameraBeforeEquip()
@@ -440,7 +442,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 "Opening or holding the station interaction must preserve the currently equipped camera.");
             RefitCameraEquipment actual = player.GetComponent<RefitCameraEquipment>();
             Require(actual != null && actual.IsAvailable && actual.IsUnlocked(zoomLens300)
-                && actual.IsUnlocked(damagedPrime50), "The terminal must bind the player's existing camera ownership.");
+                && actual.IsUnlocked(damagedPrime50), "The terminal must automatically unlock both cameras for the player.");
             if (cameraEquipment == null) cameraEquipment = actual;
             Require(cameraEquipment == actual, "Reopening maintenance must reuse the same player-owned equipment component.");
             Require(equipRequests == RequestsBeforePass, "The opening input or its hold unexpectedly requested equipment.");
@@ -459,7 +461,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             Require(photoController.CurrentCamera == CameraBeforePass && equipRequests == RequestsBeforePass,
                 "Requesting an unavailable module must not change equipment or emit an equip action.");
             CheckpointRefitPreviewValidation.CheckModulePresentation(view);
-            int target = restoreCameraPass ? 1 : 0;
+            int target = restoreCameraPass ? 0 : 1;
             view.NavigateModule(target - view.SelectedModuleIndex);
         }
 
