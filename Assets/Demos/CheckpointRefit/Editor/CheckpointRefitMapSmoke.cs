@@ -165,7 +165,9 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                         if (!Settled()) break;
                         CheckOpen();
                         CheckpointRefitPreviewValidation.CheckSourceArtworkDependency(player);
-                        report.checks.Add("The live map player's actual marker artwork drives the preview; capture and disposal preserve its source renderers.");
+                        report.checks.Add("The live map player's source-driven body preview is sharp, excludes its direction indicator, and preserves every source renderer.");
+                        Record(terminal.View.SelectedSlotIndex == 0 && terminal.View.SelectedModuleIndex == 0,
+                            "The map maintenance screen initially selects the installed TRACKS module.");
                         Record(terminal.IsOpen, "Actual Gamepad A opens maintenance beside the map player.");
                         Neutral(); Begin(Phase.Opened); break;
                     case Phase.Opened:
@@ -190,7 +192,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                         Record(Vector3.Distance(player.transform.position, openingPosition) < .0001f
                             && Quaternion.Angle(player.transform.rotation, openingRotation) < .001f,
                             "Map player position and heading remain unchanged under movement input.");
-                        CheckAllLocked(); Neutral(); Begin(Phase.ChallengeReleased); break;
+                        CheckAllInitialModules(); Neutral(); Begin(Phase.ChallengeReleased); break;
                     case Phase.ChallengeReleased:
                         if (!Settled()) break;
                         Pad(new GamepadState().WithButton(GamepadButton.East)); Begin(Phase.Closing); break;
@@ -287,26 +289,25 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             Require(terminal.View.GetComponent<UIDocument>().rootVisualElement.panel != null,
                 "Dedicated maintenance UIDocument must attach while the original HUD is suspended.");
             playerPreviewTexture = CheckpointRefitPreviewValidation.CheckActualPlayerImage(terminal.View, player);
+            CheckpointRefitPreviewValidation.CheckModulePresentation(terminal.View);
         }
 
-        private void CheckAllLocked()
+        private void CheckAllInitialModules()
         {
-            for (int slot = 0; slot < 5; slot++)
+            int initialSlot = terminal.View.SelectedSlotIndex;
+            int initialModule = terminal.View.SelectedModuleIndex;
+            for (int slot = 0; slot < terminal.View.SlotCount; slot++)
             {
-                terminal.View.NavigateSlot(1);
-                VisualElement root = terminal.View.Document.rootVisualElement;
-                for (int module = 0; module < 3; module++)
+                terminal.View.NavigateSlot(slot - terminal.View.SelectedSlotIndex);
+                for (int module = 0; module < terminal.View.ModuleCount; module++)
                 {
-                    terminal.View.NavigateModule(1);
-                    Button card = root.Q<Button>("refit-module-" + module);
-                    Require(card != null, "Missing unknown module card.");
-                    string text = string.Join(" ", card.Query<TextElement>().ToList().Select(element => element.text));
-                    Require(text.Contains("UNKNOWN") && text.Contains("LOCKED"), "Map UI exposed an unlocked or identified module.");
-                    Button equip = root.Q<Button>("refit-equip");
-                    Require(equip != null && !equip.enabledInHierarchy, "Map UI exposed an enabled equip action.");
+                    terminal.View.NavigateModule(module - terminal.View.SelectedModuleIndex);
+                    CheckpointRefitPreviewValidation.CheckModulePresentation(terminal.View);
                 }
             }
-            report.checks.Add("All five body slots and all module cards remain UNKNOWN / LOCKED with no enabled equip action.");
+            terminal.View.NavigateSlot(initialSlot - terminal.View.SelectedSlotIndex);
+            terminal.View.NavigateModule(initialModule - terminal.View.SelectedModuleIndex);
+            report.checks.Add("All four map maintenance slots retain TRACKS and the good-condition ZOOM 300 defaults; other module bars show slashes and expose no equip action.");
         }
 
         private void CheckRestored(string operation)

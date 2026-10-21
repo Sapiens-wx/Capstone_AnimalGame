@@ -134,17 +134,25 @@
 .refit-screen .refit-module-code { position: absolute; left: 18px; top: 4px; font-size: 16px; color: rgb(217, 217, 210); -unity-font-style: bold; }
 .refit-screen .refit-module-name { margin-top: 27px; font-size: 23px; -unity-font-style: bold; letter-spacing: 1px; }
 .refit-screen .refit-module-state { font-size: 16px; margin-top: 5px; color: rgb(207, 207, 201); -unity-font-style: bold; letter-spacing: 1px; }
+.refit-screen .refit-module-slash { display: none; position: absolute; left: 8px; right: 8px; top: 6px; bottom: 9px; color: rgb(139, 139, 132); }
+.refit-screen .refit-module.refit-module-unavailable { background-color: rgb(10, 10, 10); }
+.refit-screen .refit-module-unavailable .refit-module-code,
+.refit-screen .refit-module-unavailable .refit-module-name,
+.refit-screen .refit-module-unavailable .refit-module-state { display: none; }
+.refit-screen .refit-module-unavailable .refit-module-slash { display: flex; }
 .refit-screen .refit-module:focus { background-color: rgba(0, 0, 0, 0); border-top-color: rgb(113, 113, 113); }
 .refit-screen .refit-module-rule { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background-color: rgb(61, 61, 61); }
 .refit-screen .refit-module.refit-selected { background-color: rgba(212, 184, 84, 0.03); }
 .refit-screen .refit-module.refit-selected .refit-module-rule { height: 4px; background-color: rgb(212, 184, 84); }
 .refit-screen .refit-module.refit-selected .refit-module-name { color: rgb(212, 184, 84); }
+.refit-screen .refit-module.refit-selected .refit-module-slash { color: rgb(212, 184, 84); }
 
 .refit-screen .refit-detail { position: absolute; left: 1412px; right: 86px; top: 266px; bottom: 127px; }
 .refit-screen .refit-detail > .refit-eyebrow { font-size: 17px; }
 .refit-screen .refit-detail-title { font-size: 40px; -unity-font-style: bold; margin-top: 15px; margin-bottom: 28px; letter-spacing: 1px; }
 .refit-screen .refit-inspection-window { position: relative; width: 422px; height: 282px; background-color: rgb(12, 12, 12); border-width: 2px; border-color: rgb(77, 77, 73); }
-.refit-screen .refit-inspection-drawing { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.refit-screen .refit-inspection-window:disabled { background-color: rgb(12, 12, 12); opacity: 1; }
+.refit-screen .refit-inspection-drawing { position: absolute; left: 0; right: 0; top: 0; bottom: 0; color: rgb(139, 139, 132); }
 .refit-screen .refit-window-frame { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
 .refit-screen .refit-photo-label { position: absolute; left: 17px; top: 14px; font-size: 14px; letter-spacing: 1.5px; color: rgb(232, 232, 225); -unity-font-style: bold; }
 .refit-screen .refit-photo-expand { position: absolute; right: 15px; top: 10px; font-size: 23px; color: rgb(212, 184, 84); }
@@ -156,6 +164,7 @@
 .refit-screen .refit-equip-hint { font-size: 16px; color: rgb(217, 217, 210); -unity-font-style: bold; letter-spacing: 1px; margin-bottom: 17px; }
 .refit-screen .refit-equip-button { height: 65px; border-left-width: 1px; border-right-width: 1px; border-top-width: 1px; border-bottom-width: 1px; border-left-color: rgb(61, 61, 61); border-right-color: rgb(61, 61, 61); border-top-color: rgb(61, 61, 61); border-bottom-color: rgb(61, 61, 61); padding-left: 23px; font-size: 23px; letter-spacing: 2px; }
 .refit-screen .refit-equip-button:disabled { color: rgb(202, 202, 196); -unity-font-style: bold; }
+.refit-screen .refit-equip-button.refit-equip-unavailable { -unity-text-align: middle-center; font-size: 36px; }
 
 .refit-screen .refit-footer { position: absolute; left: 86px; right: 86px; bottom: 35px; height: 58px; border-top-width: 2px; border-top-color: rgb(207, 207, 199); padding-top: 10px; flex-direction: row; justify-content: space-between; align-items: center; }
 .refit-screen .refit-footer-note { color: rgb(217, 217, 210); -unity-font-style: bold; font-size: 16px; letter-spacing: 1px; }

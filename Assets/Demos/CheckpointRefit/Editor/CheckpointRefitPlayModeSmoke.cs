@@ -26,8 +26,8 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
         {
             WaitingForPlay, Warmup, Outside, Nearby, PadOpen, PadHeld, OpenReleased,
             PadDown, PadDownReleased, PadUp, PadUpReleased, KeyDown, KeyDownReleased,
-            KeyUp, KeyUpReleased, FocusMoved, FocusRestored,
-            ModalOpen, ModalBack, BlockedInputs, PrepareCapture, Capture, CloseSetup,
+            KeyUp, KeyUpReleased, PadWrapUp, PadWrapUpReleased, PadWrapDown, PadWrapDownReleased, FocusMoved, FocusRestored,
+            ModalOpen, ModalBack, BlockedInputs, PrepareCapture, Capture, CaptureCamera, CloseSetup,
             PadClose, PadReleased, KeyboardOpen, KeyboardReleased, EscapeModal,
             EscapeRelease, EscapeClose, KeyboardClosed, DisableCleanup, DisableReleased,
             DestroyCleanup, Finishing
@@ -174,19 +174,22 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     case Phase.PadOpen:
                         if (!Settled()) break;
                         CheckOpen(); selectedBeforeHold = terminal.View.SelectedModuleIndex;
+                        Record(terminal.View.SelectedSlotIndex == 0 && terminal.View.SelectedModuleIndex == 0,
+                            "Maintenance initially selects the installed TRACKS module in LEGS.");
                         Record(!terminal.View.IsInspectionOpen, "The opening A press does not activate the inspection window.");
                         Begin(Phase.PadHeld); break;
                     case Phase.PadHeld:
                         if (!Settled(8)) break;
                         Record(terminal.IsOpen && terminal.View.SelectedModuleIndex == selectedBeforeHold
-                            && !terminal.View.IsInspectionOpen, "Holding the opening A press cannot submit or change the locked selection.");
+                            && !terminal.View.IsInspectionOpen, "Holding the opening A press cannot submit or change the initial selection.");
                         Neutral(); Begin(Phase.OpenReleased); break;
                     case Phase.OpenReleased:
                         if (!Settled()) break;
                         CheckpointRefitPreviewValidation.CheckSelection(terminal.View);
                         CheckpointRefitPreviewValidation.CheckSourceArtworkDependency(player);
-                        report.checks.Add("Player snapshot uses the actual marker artwork, responds to source tint changes, and leaves the source unchanged.");
-                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + 1) % 5;
+                        report.checks.Add("Player snapshot renders the actual body at high resolution, follows its source tint, excludes the direction glyph, and preserves the live source.");
+                        CheckAllInitialModules();
+                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + 1) % terminal.View.SlotCount;
                         SendPad(new GamepadState { leftStick = Vector2.down });
                         Begin(Phase.PadDown); break;
                     case Phase.PadDown:
@@ -194,7 +197,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     case Phase.PadDownReleased:
                         if (!Settled()) break;
                         CheckNavigation("Left stick down");
-                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + 4) % 5;
+                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + terminal.View.SlotCount - 1) % terminal.View.SlotCount;
                         SendPad(new GamepadState { leftStick = Vector2.up });
                         Begin(Phase.PadUp); break;
                     case Phase.PadUp:
@@ -202,22 +205,39 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     case Phase.PadUpReleased:
                         if (!Settled()) break;
                         CheckNavigation("Left stick up");
-                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + 1) % 5;
+                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + 1) % terminal.View.SlotCount;
                         SendKeys(Key.DownArrow); Begin(Phase.KeyDown); break;
                     case Phase.KeyDown:
                         Neutral(); Begin(Phase.KeyDownReleased); break;
                     case Phase.KeyDownReleased:
                         if (!Settled()) break;
                         CheckNavigation("Keyboard down arrow");
-                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + 4) % 5;
+                        navigationExpectedSlot = (terminal.View.SelectedSlotIndex + terminal.View.SlotCount - 1) % terminal.View.SlotCount;
                         SendKeys(Key.UpArrow); Begin(Phase.KeyUp); break;
                     case Phase.KeyUp:
                         Neutral(); Begin(Phase.KeyUpReleased); break;
                     case Phase.KeyUpReleased:
                         if (!Settled()) break;
                         CheckNavigation("Keyboard up arrow");
+                        Require(terminal.View.SelectedSlotIndex == 0, "Wrap fixture must begin on LEGS.");
+                        navigationExpectedSlot = terminal.View.SlotCount - 1;
+                        SendPad(new GamepadState { leftStick = Vector2.up });
+                        Begin(Phase.PadWrapUp); break;
+                    case Phase.PadWrapUp:
+                        Neutral(); Begin(Phase.PadWrapUpReleased); break;
+                    case Phase.PadWrapUpReleased:
+                        if (!Settled()) break;
+                        CheckNavigation("Left stick up wraps LEGS to EXPANSION");
+                        navigationExpectedSlot = 0;
+                        SendPad(new GamepadState { leftStick = Vector2.down });
+                        Begin(Phase.PadWrapDown); break;
+                    case Phase.PadWrapDown:
+                        Neutral(); Begin(Phase.PadWrapDownReleased); break;
+                    case Phase.PadWrapDownReleased:
+                        if (!Settled()) break;
+                        CheckNavigation("Left stick down wraps EXPANSION to LEGS");
                         navigationExpectedSlot = terminal.View.SelectedSlotIndex;
-                        terminal.View.Document.rootVisualElement.Q<Button>("refit-slot-" + ((navigationExpectedSlot + 1) % 5)).Focus();
+                        terminal.View.Document.rootVisualElement.Q<Button>("refit-slot-" + ((navigationExpectedSlot + 1) % terminal.View.SlotCount)).Focus();
                         Begin(Phase.FocusMoved); break;
                     case Phase.FocusMoved:
                         if (!Settled()) break;
@@ -241,12 +261,16 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                         Record(terminal.View.SelectedSlotIndex != slotBefore,
                             "Body-slot navigation updates the selected slot without equipping an item.");
                         Record(terminal.View.SelectedModuleIndex != moduleBefore,
-                            "Module navigation changes the selected unknown module without equipping an item.");
-                        CheckLockedUI();
+                            "Module navigation can select an unavailable slash bar without equipping an item.");
+                        CheckModuleUI();
+                        terminal.View.OpenInspection();
+                        Record(!terminal.View.IsInspectionOpen, "An unavailable slash bar does not open a fabricated inspection.");
+                        terminal.View.NavigateModule(-terminal.View.SelectedModuleIndex);
+                        CheckModuleUI();
                         terminal.View.OpenInspection(); Begin(Phase.ModalOpen); break;
                     case Phase.ModalOpen:
                         if (!Settled()) break;
-                        Record(terminal.View.IsInspectionOpen, "The selected unknown module has an inspection presentation.");
+                        Record(terminal.View.IsInspectionOpen, "The installed Zoom 300 lens opens its technical inspection presentation.");
                         SendPad(new GamepadState().WithButton(GamepadButton.East)); Begin(Phase.ModalBack); break;
                     case Phase.ModalBack:
                         if (!Settled()) break;
@@ -269,13 +293,20 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                         RobotArmController arms = player.GetComponent<RobotArmController>();
                         Record(photo == null || !photo.IsActive, "Photo input cannot enter photo mode while maintenance is open.");
                         Record(arms == null || !arms.IsArmModeActive, "Grab input cannot enter mechanical-arm mode while maintenance is open.");
-                        CheckInventoryClosed(); CheckLockedUI(); Neutral();
-                        terminal.View.NavigateSlot(2 - terminal.View.SelectedSlotIndex);
+                        CheckInventoryClosed(); CheckModuleUI(); Neutral();
+                        terminal.View.NavigateSlot(-terminal.View.SelectedSlotIndex);
                         terminal.View.NavigateModule(-terminal.View.SelectedModuleIndex);
                         BeginCapture(); Begin(Phase.Capture); break;
                     case Phase.Capture:
                         if (!Settled(10)) break;
-                        EndCapture(); Begin(Phase.CloseSetup); break;
+                        CheckModuleUI(); EndCapture("checkpoint-refit-ui.png");
+                        terminal.View.NavigateSlot(1);
+                        BeginCapture(); Begin(Phase.CaptureCamera); break;
+                    case Phase.CaptureCamera:
+                        if (!Settled(10)) break;
+                        CheckModuleUI(); EndCapture("checkpoint-refit-camera.png");
+                        terminal.View.NavigateSlot(-terminal.View.SelectedSlotIndex);
+                        Begin(Phase.CloseSetup); break;
                     case Phase.CloseSetup:
                         if (!Settled()) break;
                         SendPad(new GamepadState().WithButton(GamepadButton.East)); Begin(Phase.PadClose); break;
@@ -395,7 +426,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 + (Mathf.Abs(Time.timeScale) < .0001f ? string.Empty : diagnostic));
             Record(!player.enabled, "Movement controller is suspended while maintenance is open."
                 + (!player.enabled ? string.Empty : diagnostic));
-            CheckLockedUI();
+            CheckModuleUI();
             playerPreviewTexture = CheckpointRefitPreviewValidation.CheckActualPlayerImage(terminal.View, player);
             report.checks.Add("Unit preview displays a nonempty render target from the real gameplay player's sprite artwork.");
         }
@@ -408,28 +439,30 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             report.checks.Add(input + " keeps selection, yellow text, left bar, and background on the same single body slot.");
         }
 
-        private void CheckLockedUI()
+        private void CheckModuleUI()
         {
             UIDocument document = terminal.View.GetComponent<UIDocument>();
             Require(document != null && document.rootVisualElement.panel != null, "UI document did not attach to a live panel.");
-            string visibleText = string.Join(" ", document.rootVisualElement.Query<TextElement>().ToList()
-                .Where(element => element.resolvedStyle.display != DisplayStyle.None).Select(element => element.text));
-            Record(visibleText.IndexOf("UNKNOWN", StringComparison.OrdinalIgnoreCase) >= 0
-                && visibleText.IndexOf("LOCKED", StringComparison.OrdinalIgnoreCase) >= 0,
-                "Equipment remains UNKNOWN / LOCKED after navigation and confirmation input.");
-            for (int i = 0; i < 3; i++)
+            CheckpointRefitPreviewValidation.CheckModulePresentation(terminal.View);
+            report.checks.Add("Selected slot retains its installed initial equipment and text-free unavailable slash bars, with no live equip action.");
+        }
+
+        private void CheckAllInitialModules()
+        {
+            int initialSlot = terminal.View.SelectedSlotIndex;
+            int initialModule = terminal.View.SelectedModuleIndex;
+            for (int slot = 0; slot < terminal.View.SlotCount; slot++)
             {
-                Button module = document.rootVisualElement.Q<Button>("refit-module-" + i);
-                Require(module != null, "Missing unknown module card " + i + ".");
-                string text = string.Join(" ", module.Query<TextElement>().ToList().Select(element => element.text));
-                Require(text.Contains("UNKNOWN") && text.Contains("LOCKED"),
-                    "Every module card must remain unidentified and locked.");
+                terminal.View.NavigateSlot(slot - terminal.View.SelectedSlotIndex);
+                for (int module = 0; module < terminal.View.ModuleCount; module++)
+                {
+                    terminal.View.NavigateModule(module - terminal.View.SelectedModuleIndex);
+                    CheckpointRefitPreviewValidation.CheckModulePresentation(terminal.View);
+                }
             }
-            Button equip = document.rootVisualElement.Q<Button>("refit-equip");
-            Require(equip != null && !equip.enabledInHierarchy, "The locked equipment action must remain disabled.");
-            Require(!document.rootVisualElement.Query<Button>().ToList().Any(button => button.enabledInHierarchy
-                && string.Equals((button.text ?? string.Empty).Trim(), "Equip", StringComparison.OrdinalIgnoreCase)),
-                "The UI must never offer an enabled Equip action in this Demo.");
+            terminal.View.NavigateSlot(initialSlot - terminal.View.SelectedSlotIndex);
+            terminal.View.NavigateModule(initialModule - terminal.View.SelectedModuleIndex);
+            report.checks.Add("All four slots preserve TRACKS and the good-condition ZOOM 300 defaults; every other entry is a text-free slash bar.");
         }
 
         private void CheckInventoryClosed()
@@ -472,7 +505,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             capturePanel.targetTexture = captureTexture;
         }
 
-        private void EndCapture()
+        private void EndCapture(string fileName)
         {
             RenderTexture priorActive = RenderTexture.active;
             Texture2D pixels = null;
@@ -485,7 +518,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 Color32[] samples = pixels.GetPixels32();
                 Require(samples.Count(pixel => pixel.a > 100 && (pixel.r > 120 || pixel.g > 120 || pixel.b > 120)) > 500,
                     "The actual UI Toolkit render contains no readable foreground content.");
-                string path = Path.Combine(outputDirectory, "checkpoint-refit-ui.png");
+                string path = Path.Combine(outputDirectory, fileName);
                 File.WriteAllBytes(path, pixels.EncodeToPNG());
                 report.screenshots.Add(path);
                 report.checks.Add("Actual UIDocument renders readable UI content to a 1600 x 1000 capture.");

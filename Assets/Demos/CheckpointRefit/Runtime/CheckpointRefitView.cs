@@ -6,15 +6,15 @@ using UnityEngine.UIElements;
 namespace AnimalGame.Demos.CheckpointRefit
 {
     /// <summary>
-    /// Presentation-only maintenance screen. Every module is deliberately unidentified and locked.
+    /// Presentation-only maintenance screen showing the unit's initial installed assemblies.
     /// It neither reads gameplay input nor changes the player, equipment, or persistent data.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UIDocument))]
     public sealed class CheckpointRefitView : MonoBehaviour
     {
-        private static readonly string[] SlotNames = { "LEGS", "CAMERA", "ARMS", "BACK", "SENSORS" };
-        private readonly Button[] slotButtons = new Button[5];
+        private static readonly string[] SlotNames = { "LEGS", "CAMERA", "BACK", "EXPANSION" };
+        private readonly Button[] slotButtons = new Button[4];
         private readonly Button[] moduleButtons = new Button[3];
         private readonly List<KeyValuePair<Button, Action>> clickHandlers = new List<KeyValuePair<Button, Action>>();
         private UIDocument document;
@@ -28,16 +28,31 @@ namespace AnimalGame.Demos.CheckpointRefit
         private Label libraryLabel;
         private Label moduleId;
         private Label modalCode;
+        private Label detailTitle;
+        private Label descriptionText;
+        private Label equipHint;
+        private Label modalTitle;
+        private Label modalCaption;
+        private Label photoExpand;
+        private Label noData;
+        private Label modalNoData;
+        private RefitModulePreviewElement inspectionPreview;
+        private RefitModulePreviewElement modalPreview;
         private Image playerPreview;
         private Label previewCaption;
         private Button inspectButton;
+        private Button inspectFooterButton;
+        private Button equipButton;
         private Button inspectionCloseButton;
 
         public event Action CloseRequested;
         public bool IsVisible { get; private set; }
         public bool IsInspectionOpen { get; private set; }
-        public int SelectedSlotIndex { get; private set; } = 2;
+        public int SelectedSlotIndex { get; private set; }
         public int SelectedModuleIndex { get; private set; }
+        public int SlotCount => SlotNames.Length;
+        public int ModuleCount => moduleButtons.Length;
+        public bool IsSelectedModuleInstalled => IsInstalledModule(SelectedSlotIndex, SelectedModuleIndex);
         public UIDocument Document => document != null ? document : (document = GetComponent<UIDocument>());
 
         private void OnEnable()
@@ -117,7 +132,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         public void OpenInspection()
         {
-            if (!IsVisible || IsInspectionOpen || inspectionModal == null) return;
+            if (!IsVisible || IsInspectionOpen || inspectionModal == null || !IsSelectedModuleInstalled) return;
             IsInspectionOpen = true;
             content.SetEnabled(false);
             inspectionModal.style.display = DisplayStyle.Flex;
@@ -152,9 +167,21 @@ namespace AnimalGame.Demos.CheckpointRefit
             libraryLabel = root.Q<Label>("refit-library-label");
             moduleId = root.Q<Label>("refit-module-id");
             modalCode = root.Q<Label>("refit-modal-code");
+            detailTitle = root.Q<Label>("refit-detail-title");
+            descriptionText = root.Q<Label>("refit-description-text");
+            equipHint = root.Q<Label>("refit-equip-hint");
+            modalTitle = root.Q<Label>("refit-modal-title");
+            modalCaption = root.Q<Label>("refit-modal-caption");
+            photoExpand = root.Q<Label>("refit-photo-expand");
+            noData = root.Q<Label>("refit-no-data");
+            modalNoData = root.Q<Label>("refit-modal-no-data");
+            inspectionPreview = root.Q<RefitModulePreviewElement>("refit-inspection-preview");
+            modalPreview = root.Q<RefitModulePreviewElement>("refit-modal-preview");
             playerPreview = root.Q<Image>("refit-player-preview");
             previewCaption = root.Q<Label>("refit-preview-caption");
             inspectButton = root.Q<Button>("refit-inspect");
+            inspectFooterButton = root.Q<Button>("refit-inspect-footer");
+            equipButton = root.Q<Button>("refit-equip");
             inspectionCloseButton = root.Q<Button>("refit-inspection-close");
             for (int i = 0; i < slotButtons.Length; i++)
             {
@@ -169,10 +196,10 @@ namespace AnimalGame.Demos.CheckpointRefit
                 BindClick(moduleButtons[i], () => SelectModule(index));
             }
             BindClick(inspectButton, OpenInspection);
-            BindClick(root.Q<Button>("refit-inspect-footer"), OpenInspection);
+            BindClick(inspectFooterButton, OpenInspection);
             BindClick(inspectionCloseButton, () => CloseInspection());
             BindClick(root.Q<Button>("refit-close"), () => CloseRequested?.Invoke());
-            root.Q<Button>("refit-equip")?.SetEnabled(false);
+            equipButton?.SetEnabled(false);
             // The terminal owns directional navigation. Capture at the document root, including
             // events targeting that root after a focus change. Pointer clicks and Tab remain native.
             root.RegisterCallback<NavigationMoveEvent>(SuppressMove, TrickleDown.TrickleDown);
@@ -226,11 +253,66 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void RefreshSelection()
         {
             for (int i = 0; i < slotButtons.Length; i++) slotButtons[i]?.EnableInClassList("refit-selected", i == SelectedSlotIndex);
-            for (int i = 0; i < moduleButtons.Length; i++) moduleButtons[i]?.EnableInClassList("refit-selected", i == SelectedModuleIndex);
-            if (libraryLabel != null) libraryLabel.text = SlotNames[SelectedSlotIndex] + " / UNKNOWN MODULES";
-            string code = "UNIDENTIFIED / " + (SelectedModuleIndex + 1).ToString("00");
+            for (int i = 0; i < moduleButtons.Length; i++)
+            {
+                var button = moduleButtons[i];
+                if (button == null) continue;
+                bool installed = IsInstalledModule(SelectedSlotIndex, i);
+                button.EnableInClassList("refit-selected", i == SelectedModuleIndex);
+                button.EnableInClassList("refit-module-unavailable", !installed);
+                button.tooltip = installed ? "Initial installed assembly" : "Module unavailable";
+                SetCardLabel(button, "refit-module-code", "01 / INITIAL", installed);
+                SetCardLabel(button, "refit-module-name", InstalledModuleName, installed);
+                SetCardLabel(button, "refit-module-state", "INSTALLED", installed);
+                var slash = button.Q<VisualElement>(className: "refit-module-slash");
+                if (slash != null) slash.style.display = installed ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (libraryLabel != null) libraryLabel.text = SlotNames[SelectedSlotIndex] + " / MODULES";
+            bool selectedInstalled = IsSelectedModuleInstalled;
+            string kind = selectedInstalled ? (SelectedSlotIndex == 0 ? "tracks" : "camera") : "unavailable";
+            string title = selectedInstalled ? InstalledModuleName : "NO MODULE DATA";
+            string description = selectedInstalled
+                ? (SelectedSlotIndex == 0
+                    ? "Standard tracked undercarriage. Installed as the unit's initial mobility assembly."
+                    : "Variable-zoom camera lens. Condition: good.")
+                : "No module data available.";
+            string code = SlotNames[SelectedSlotIndex] + (selectedInstalled ? " / INITIAL ASSEMBLY" : " / \u2014");
             if (moduleId != null) moduleId.text = code;
             if (modalCode != null) modalCode.text = code;
+            if (detailTitle != null) detailTitle.text = title;
+            if (modalTitle != null) modalTitle.text = title;
+            if (descriptionText != null) descriptionText.text = description;
+            if (modalCaption != null) modalCaption.text = description;
+            if (equipHint != null) equipHint.text = selectedInstalled
+                ? (SelectedSlotIndex == 0 ? "INITIAL CONFIGURATION" : "CONDITION / GOOD")
+                : "\u2014";
+            if (equipButton != null)
+            {
+                equipButton.text = selectedInstalled ? "INSTALLED" : "/";
+                equipButton.tooltip = selectedInstalled ? "Initial installed assembly" : "Module unavailable";
+                equipButton.EnableInClassList("refit-equip-unavailable", !selectedInstalled);
+            }
+            if (inspectionPreview != null) inspectionPreview.ModuleKind = kind;
+            if (modalPreview != null) modalPreview.ModuleKind = kind;
+            inspectButton?.SetEnabled(selectedInstalled);
+            inspectFooterButton?.SetEnabled(selectedInstalled);
+            if (photoExpand != null) photoExpand.style.display = selectedInstalled ? DisplayStyle.Flex : DisplayStyle.None;
+            if (noData != null) noData.style.display = selectedInstalled ? DisplayStyle.None : DisplayStyle.Flex;
+            if (modalNoData != null) modalNoData.style.display = selectedInstalled ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+
+        private string InstalledModuleName => SelectedSlotIndex == 0 ? "TRACKS" : "ZOOM 300";
+
+        private static bool IsInstalledModule(int slotIndex, int moduleIndex)
+            => moduleIndex == 0 && (slotIndex == 0 || slotIndex == 1);
+
+        private static void SetCardLabel(Button button, string className, string text, bool visible)
+        {
+            var label = button.Q<Label>(className: className);
+            if (label == null) return;
+            label.text = visible ? text : string.Empty;
+            label.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private void OnGeometryChanged(GeometryChangedEvent evt) => FitStage();

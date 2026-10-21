@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.Interaction;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         [SerializeField, Min(.1f)] private float interactionRadiusMeters = 2.75f;
         [Tooltip("Optional explicit same-scene player. Otherwise binds the map player or the scene's only active RobotMover.")]
         [SerializeField] private RobotMover playerOverride;
+        [SerializeField] private InteractionMarker interactionMarker;
 
         private RobotMover player;
         private MapTestSceneController map;
@@ -43,6 +45,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         public bool IsOpen { get; private set; }
         public bool IsNearby => PlayerPresent && DistanceToPlayer() <= interactionRadiusMeters;
         public float InteractionRadiusMeters => interactionRadiusMeters;
+        public InteractionMarker Marker => interactionMarker;
         private bool PlayerPresent => player != null && player.gameObject.activeInHierarchy
             && player.gameObject.scene == gameObject.scene;
 
@@ -62,6 +65,20 @@ namespace AnimalGame.Demos.CheckpointRefit
             SetPlayer(target != null && target.gameObject.scene == gameObject.scene ? target : null);
         }
 
+        public void ConfigureMarker(InteractionMarker marker)
+        {
+            interactionMarker = marker;
+            RefreshMarker();
+        }
+
+        private void LateUpdate() => RefreshMarker();
+
+        private void RefreshMarker()
+        {
+            // Closing input retains the gameplay lease after IsOpen becomes false.
+            interactionMarker?.SetSuppressed(!isActiveAndEnabled || IsOpen || lease != null || releasing);
+        }
+
         private void Start()
         {
             ResolvePlayer();
@@ -73,6 +90,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             inputArmed = false;
             nextSearch = nextPromptCheck = 0f;
             if (uiInstance != null) uiInstance.SetActive(true);
+            RefreshMarker();
         }
 
         private void Update()
@@ -123,7 +141,7 @@ namespace AnimalGame.Demos.CheckpointRefit
                 }
                 if (inspectionPressed) view.OpenInspection();
                 if (!view.IsInspectionOpen) Navigate();
-                // Every module is locked. A/Enter intentionally performs no equip action.
+                // The demo displays the initial configuration; A/Enter performs no equip action.
                 return;
             }
 
@@ -387,6 +405,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void OnDisable()
         {
+            interactionMarker?.SetSuppressed(true);
             ForceClose();
             if (uiInstance != null) uiInstance.SetActive(false);
         }

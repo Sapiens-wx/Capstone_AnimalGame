@@ -1,4 +1,6 @@
 using System;
+using AnimalGame.Interaction;
+using AnimalGame.Interaction.Editor;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
 using UnityEditor;
@@ -17,6 +19,10 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
         public const string TerminalPath = RootPath + "/Prefabs/CheckpointRefitTerminal.prefab";
         public const string UIPath = RootPath + "/Prefabs/CheckpointRefitUI.prefab";
         public const string ScenePath = RootPath + "/Scenes/CheckpointRefitDemo.unity";
+        public const string ArtworkPath = RootPath + "/Art/AssemblyStation.png";
+        // v12's 888px silhouette keeps the previous ~4.85-unit unscaled sprite width.
+        public const float ArtworkPixelsPerUnit = 183.1f;
+        public const int ArtworkSortingOrder = 20;
         private const string PanelPath = RootPath + "/UI/CheckpointRefitPanel.asset";
         private const string MaterialPath = RootPath + "/Materials/TerminalLine.mat";
 
@@ -65,11 +71,133 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 AssetDatabase.CreateAsset(material, MaterialPath);
             }
             BuildUi(tree, panel);
+            ImportStationArtwork();
             BuildTerminal(material);
             BuildScene(material);
             AssetDatabase.SaveAssetIfDirty(panel);
             AssetDatabase.SaveAssetIfDirty(material);
             Debug.Log("Checkpoint Refit UI-only demo created: " + ScenePath);
+        }
+
+        [MenuItem("Animal Game/Demos/Checkpoint Refit/Update Station Artwork")]
+        public static void UpdateStationArtwork()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode before updating station artwork.");
+            ImportStationArtwork();
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
+            if (material == null) throw new InvalidOperationException("The station's player-view clipped material is missing.");
+            GameObject root = PrefabUtility.LoadPrefabContents(TerminalPath);
+            try
+            {
+                // Replace only the demo-owned visuals; keep the root and interaction references intact.
+                string[] ownedNames = { "Chassis", "Service Display", "Service Port", "Service Port Vertical",
+                    "Antenna", "Foot Left", "Foot Right", "Station Artwork" };
+                foreach (string childName in ownedNames)
+                {
+                    Transform child = root.transform.Find(childName);
+                    if (child != null) Object.DestroyImmediate(child.gameObject);
+                }
+                DrawTerminal(root.transform, material);
+                EnsureInteractionMarker(root);
+                PrefabUtility.SaveAsPrefabAsset(root, TerminalPath, out bool saved);
+                if (!saved) throw new InvalidOperationException("Unable to save the station artwork replacement.");
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+            Debug.Log("Checkpoint Refit station artwork updated: " + TerminalPath);
+        }
+
+        public static void UpdateStationArtworkBatch()
+        {
+            try
+            {
+                UpdateStationArtwork();
+                CheckpointRefitValidation.Run();
+                if (Application.isBatchMode) EditorApplication.Exit(0);
+            }
+            catch (Exception error)
+            {
+                Debug.LogException(error);
+                if (Application.isBatchMode) EditorApplication.Exit(1); else throw;
+            }
+        }
+
+        [MenuItem("Animal Game/Demos/Checkpoint Refit/Add Shared Interaction Marker")]
+        public static void UpdateInteractionMarker()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode before updating the station marker.");
+            InteractionMarkerBuilder.EnsureAssets();
+            GameObject root = PrefabUtility.LoadPrefabContents(TerminalPath);
+            try
+            {
+                Vector3 scale = root.transform.localScale;
+                float radius = root.GetComponent<CheckpointRefitTerminal>().InteractionRadiusMeters;
+                EnsureInteractionMarker(root);
+                if (root.GetComponentsInChildren<InteractionMarker>(true).Length != 1
+                    || root.transform.localScale != scale
+                    || root.GetComponent<CheckpointRefitTerminal>().InteractionRadiusMeters != radius)
+                    throw new InvalidOperationException("The marker update must preserve station scale/range and produce exactly one marker.");
+                PrefabUtility.SaveAsPrefabAsset(root, TerminalPath, out bool saved);
+                if (!saved) throw new InvalidOperationException("Unable to save the station interaction marker.");
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
+        public static void UpdateInteractionMarkerBatch()
+        {
+            try
+            {
+                UpdateInteractionMarker();
+                // A second pass verifies that an existing nested marker is reused.
+                UpdateInteractionMarker();
+                CheckpointRefitValidation.Run();
+                Debug.Log("Reusable interaction marker installed without rebuilding the demo scene.");
+                if (Application.isBatchMode) EditorApplication.Exit(0);
+            }
+            catch (Exception error)
+            {
+                Debug.LogException(error);
+                if (Application.isBatchMode) EditorApplication.Exit(1); else throw;
+            }
+        }
+
+        private static void EnsureInteractionMarker(GameObject root)
+        {
+            InteractionMarker marker = root.GetComponentInChildren<InteractionMarker>(true);
+            if (marker == null)
+            {
+                GameObject markerPrefab = InteractionMarkerBuilder.EnsureAssets();
+                var child = (GameObject)PrefabUtility.InstantiatePrefab(markerPrefab, root.scene);
+                child.transform.SetParent(root.transform, false);
+                marker = child.GetComponent<InteractionMarker>();
+            }
+            root.GetComponent<CheckpointRefitTerminal>().ConfigureMarker(marker);
+        }
+
+        private static void ImportStationArtwork()
+        {
+            AssetDatabase.ImportAsset(ArtworkPath, ImportAssetOptions.ForceSynchronousImport);
+            var importer = AssetImporter.GetAtPath(ArtworkPath) as TextureImporter;
+            if (importer == null) throw new InvalidOperationException("The approved assembly station PNG is missing.");
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.textureType = TextureImporterType.Sprite;
+            settings.spriteMode = (int)SpriteImportMode.Single;
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            settings.spriteAlignment = (int)SpriteAlignment.Center;
+            settings.spritePivot = new Vector2(.5f, .5f);
+            settings.spritePixelsPerUnit = ArtworkPixelsPerUnit;
+            settings.mipmapEnabled = false;
+            settings.alphaIsTransparency = true;
+            importer.SetTextureSettings(settings);
+            importer.alphaSource = TextureImporterAlphaSource.FromInput;
+            importer.maxTextureSize = 2048;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.crunchedCompression = false;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.SaveAndReimport();
         }
 
         public static void BuildBatch()
@@ -125,6 +253,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 var terminal = root.AddComponent<CheckpointRefitTerminal>();
                 terminal.Configure(AssetDatabase.LoadAssetAtPath<GameObject>(UIPath));
                 DrawTerminal(root.transform, material);
+                EnsureInteractionMarker(root);
                 PrefabUtility.SaveAsPrefabAsset(root, TerminalPath, out bool saved);
                 if (!saved) throw new InvalidOperationException("Unable to save checkpoint terminal prefab.");
             }
@@ -137,17 +266,15 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
 
         private static void DrawTerminal(Transform parent, Material material)
         {
-            Color white = new Color(.8f, .8f, .8f), yellow = new Color(.83f, .72f, .33f);
-            CreateLine(parent, "Chassis", material, white, .045f, true,
-                new Vector2(-.65f, -.7f), new Vector2(.65f, -.7f), new Vector2(.65f, .65f),
-                new Vector2(.4f, .9f), new Vector2(-.65f, .9f));
-            CreateLine(parent, "Service Display", material, yellow, .045f, true,
-                new Vector2(-.4f, .1f), new Vector2(.4f, .1f), new Vector2(.4f, .55f), new Vector2(-.4f, .55f));
-            CreateLine(parent, "Service Port", material, yellow, .05f, false, new Vector2(-.2f, -.3f), new Vector2(.2f, -.3f));
-            CreateLine(parent, "Service Port Vertical", material, yellow, .05f, false, new Vector2(0, -.1f), new Vector2(0, -.5f));
-            CreateLine(parent, "Antenna", material, white, .035f, false, new Vector2(.3f, .85f), new Vector2(.3f, 1.35f));
-            CreateLine(parent, "Foot Left", material, white, .05f, false, new Vector2(-.8f, -.9f), new Vector2(-.35f, -.9f));
-            CreateLine(parent, "Foot Right", material, white, .05f, false, new Vector2(.35f, -.9f), new Vector2(.8f, -.9f));
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(ArtworkPath);
+            if (sprite == null) throw new InvalidOperationException("Import the approved station sprite before building its prefab.");
+            var child = new GameObject("Station Artwork");
+            child.transform.SetParent(parent, false);
+            var renderer = child.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.sharedMaterial = material;
+            renderer.color = Color.white;
+            renderer.sortingOrder = ArtworkSortingOrder;
         }
 
         private static void CreateLine(Transform parent, string name, Material material, Color color,

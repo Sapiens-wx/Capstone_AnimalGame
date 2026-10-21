@@ -85,7 +85,7 @@ namespace AnimalGame.Demos.WasteRobot
 
         private void LateUpdate()
         {
-            if (targetWasAutoBound && !IsScenePlayer(trackedRobot)) Bind(null);
+            if (targetWasAutoBound && !CanRetainScenePlayer(trackedRobot)) Bind(null);
             if (target == null && autoBindPlayer && Time.unscaledTime >= nextPlayerSearch)
             {
                 nextPlayerSearch = Time.unscaledTime + .25f;
@@ -96,6 +96,18 @@ namespace AnimalGame.Demos.WasteRobot
             {
                 hasSample = false;
                 pendingCrossing = false;
+                return;
+            }
+            // A modal menu can pause the world and temporarily disable locomotion.
+            // Preserve the interior without counting a paused reposition as a
+            // doorway crossing. Keep a stationary pending crossing intact and
+            // retain a sample for the first movement frame after resume.
+            if (Time.timeScale <= 0f)
+            {
+                Vector2 pausedLocal = WorldToPortal(target.position);
+                if (!hasSample || pausedLocal != previousLocal) pendingCrossing = false;
+                previousLocal = pausedLocal;
+                hasSample = true;
                 return;
             }
             ObserveWorldPosition(target.position);
@@ -112,7 +124,7 @@ namespace AnimalGame.Demos.WasteRobot
         // creation, terrain changes or dependency on the separate Demo bootstrap.
         public bool TryBindScenePlayer()
         {
-            if (targetWasAutoBound && !IsScenePlayer(trackedRobot)) Bind(null);
+            if (targetWasAutoBound && !CanRetainScenePlayer(trackedRobot)) Bind(null);
             if (target != null) return target.gameObject.scene == gameObject.scene;
             if (!autoBindPlayer || !gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
                 return false;
@@ -152,6 +164,13 @@ namespace AnimalGame.Demos.WasteRobot
 
         private bool IsScenePlayer(RobotMover robot) => robot != null && robot.isActiveAndEnabled
             && robot.gameObject.scene == gameObject.scene;
+
+        // Input leases disable RobotMover while Time.timeScale is zero. The
+        // player still occupies this interior. New candidates must remain enabled,
+        // and disabled players still expire normally once the world is running.
+        private bool CanRetainScenePlayer(RobotMover robot) => IsScenePlayer(robot)
+            || (Time.timeScale <= 0f && robot != null && robot.gameObject.activeInHierarchy
+                && robot.gameObject.scene == gameObject.scene);
 
         private HeightMapPlayerSceneBootstrap FindPlayerBootstrap(RobotMover robot)
         {

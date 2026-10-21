@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
@@ -40,6 +41,10 @@ namespace AnimalGame.Demos.WasteRobot.Editor
                 Check("explicit binding wins over candidates and bootstrap preference", CheckExplicitTarget);
                 Check("manual automatic-binding disable remains effective", CheckAutomaticBindingDisabled);
                 Check("destroyed, disabled and migrated automatic targets are resampled safely", CheckInvalidAutomaticTargets);
+                Check("paused locomotion retains the automatic interior target without admitting disabled candidates", CheckPausedAutomaticTarget);
+                Check("an unfinished doorway crossing survives a stationary pause", CheckPausedPendingCrossing);
+                Check("the first resumed frame can cross the doorway", CheckFirstResumedCrossing);
+                Check("paused teleportation is ignored without breaking later crossings", CheckPausedTeleport);
                 Check("the active same-scene map bootstrap player has priority", CheckBootstrapPriority);
                 Debug.Log("Waste Robot player binding validation PASS (" + Passed.Count + " groups):\n - "
                     + string.Join("\n - ", Passed));
@@ -246,6 +251,107 @@ namespace AnimalGame.Demos.WasteRobot.Editor
             }
         }
 
+        private static void CheckPausedAutomaticTarget()
+        {
+            WithAutomaticPlayer((fixture, player) =>
+            {
+                fixture.MoveAndObserve(player, new Vector2(0f, -.5f));
+                Time.timeScale = 0f;
+                player.enabled = false;
+                fixture.Tick();
+                Require(fixture.Machine.TryBindScenePlayer() && fixture.Machine.Target == player.transform,
+                    "Temporarily disabled locomotion discarded the paused automatic player.");
+                fixture.Tick();
+                Require(fixture.Machine.IsInside && fixture.Machine.TransitionCount == 1
+                    && fixture.Machine.InteriorRoot.activeSelf && !fixture.Machine.ExteriorRoot.activeSelf,
+                    "Pausing inside the machine reset its interior presentation or crossing count.");
+
+                fixture.Machine.Bind(null);
+                Require(!fixture.Machine.TryBindScenePlayer() && fixture.Machine.Target == null,
+                    "Paused retention incorrectly made a disabled new candidate eligible for discovery.");
+            });
+        }
+
+        private static void CheckPausedPendingCrossing()
+        {
+            WithAutomaticPlayer((fixture, player) =>
+            {
+                fixture.MoveAndObserve(player, new Vector2(0f, -fixture.Machine.CrossingHysteresis * .4f));
+                Require(!fixture.Machine.IsInside && fixture.Machine.TransitionCount == 0,
+                    "The paused pending-crossing fixture switched before reaching hysteresis.");
+                Time.timeScale = 0f;
+                player.enabled = false;
+                fixture.Tick();
+                fixture.Tick();
+                player.enabled = true;
+                Time.timeScale = 1f;
+                fixture.MoveAndTick(player, new Vector2(0f, -.5f));
+                Require(fixture.Machine.IsInside && fixture.Machine.TransitionCount == 1,
+                    "A stationary pause lost the pending doorway crossing before hysteresis was reached.");
+            });
+        }
+
+        private static void CheckFirstResumedCrossing()
+        {
+            WithAutomaticPlayer((fixture, player) =>
+            {
+                Time.timeScale = 0f;
+                player.enabled = false;
+                fixture.Tick();
+                player.enabled = true;
+                Time.timeScale = 1f;
+                fixture.MoveAndTick(player, new Vector2(0f, -.5f));
+                Require(fixture.Machine.IsInside && fixture.Machine.TransitionCount == 1,
+                    "Re-sampling after pause swallowed the first resumed frame's real doorway crossing.");
+            });
+        }
+
+        private static void CheckPausedTeleport()
+        {
+            WithAutomaticPlayer((fixture, player) =>
+            {
+                fixture.MoveAndObserve(player, new Vector2(0f, -fixture.Machine.CrossingHysteresis * .4f));
+                Time.timeScale = 0f;
+                player.enabled = false;
+                fixture.MoveAndTick(player, new Vector2(0f, -.5f));
+                Require(!fixture.Machine.IsInside && fixture.Machine.TransitionCount == 0,
+                    "Teleporting during pause counted as a doorway crossing.");
+                player.enabled = true;
+                Time.timeScale = 1f;
+                fixture.Tick();
+                Require(!fixture.Machine.IsInside && fixture.Machine.TransitionCount == 0,
+                    "Paused teleportation left a stale pending crossing to fire on resume.");
+                fixture.MoveAndTick(player, new Vector2(0f, 1f));
+                fixture.MoveAndTick(player, new Vector2(0f, -.5f));
+                Require(fixture.Machine.IsInside && fixture.Machine.TransitionCount == 1,
+                    "Ignoring paused teleportation prevented a subsequent real doorway crossing.");
+            });
+        }
+
+        private static void WithAutomaticPlayer(Action<BindingFixture, RobotMover> check)
+        {
+            using (var fixture = new BindingFixture())
+            {
+                float previousTimeScale = Time.timeScale;
+                RobotMover player = null;
+                bool previousEnabled = false;
+                try
+                {
+                    Time.timeScale = 1f;
+                    player = fixture.SpawnPlayer(new Vector2(0f, 1f));
+                    previousEnabled = player.enabled;
+                    Require(fixture.Machine.TryBindScenePlayer(),
+                        "Could not prepare the paused automatic player fixture.");
+                    check(fixture, player);
+                }
+                finally
+                {
+                    if (player != null) player.enabled = previousEnabled;
+                    Time.timeScale = previousTimeScale;
+                }
+            }
+        }
+
         private static GameObject MachineAsset()
         {
             GameObject asset = AssetDatabase.LoadAssetAtPath<GameObject>(WasteRobotDemoBuilder.PrefabPath);
@@ -324,6 +430,21 @@ namespace AnimalGame.Demos.WasteRobot.Editor
             {
                 player.transform.position = Machine.PortalToWorld(localPosition);
                 Machine.ObserveWorldPosition(player.transform.position);
+            }
+
+            public void MoveAndTick(RobotMover player, Vector2 localPosition)
+            {
+                player.transform.position = Machine.PortalToWorld(localPosition);
+                Tick();
+            }
+
+            public void Tick()
+            {
+                // Only the isolated Edit Mode fixture invokes a frame callback manually.
+                MethodInfo lateUpdate = typeof(WasteRobotBase).GetMethod("LateUpdate",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Require(lateUpdate != null, "The machine frame sampler is missing.");
+                lateUpdate.Invoke(Machine, null);
             }
 
             public void Dispose() => scene.Dispose();

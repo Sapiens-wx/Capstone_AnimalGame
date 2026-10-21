@@ -14,13 +14,16 @@ namespace AnimalGame.Demos.CheckpointRefit
     /// </summary>
     public sealed class RefitPlayerPreview : IDisposable
     {
-        private const int Resolution = 768;
+        private const int Resolution = 1536;
+        private const int CircleSegments = 512;
         private readonly List<DrawItem> items = new List<DrawItem>();
         private RenderTexture texture;
 
         public RenderTexture Texture => texture;
         public bool HasImage { get; private set; }
         public int CapturedRendererCount => items.Count;
+        public int ReconstructedBodyRendererCount { get; private set; }
+        public int ExcludedDirectionIndicatorCount { get; private set; }
 
         public bool Capture(RobotMover player)
         {
@@ -41,6 +44,11 @@ namespace AnimalGame.Demos.CheckpointRefit
             {
                 foreach (SpriteRenderer source in visualRoot.GetComponentsInChildren<SpriteRenderer>(false))
                 {
+                    if (IsDirectionIndicator(source.transform, visualRoot))
+                    {
+                        ExcludedDirectionIndicatorCount++;
+                        continue;
+                    }
                     if (!ShouldCapture(source) || source.sprite == null || source.color.a <= 0f) continue;
                     CaptureSprite(source, worldToPreview, shader);
                 }
@@ -48,6 +56,7 @@ namespace AnimalGame.Demos.CheckpointRefit
                 Camera bakeCamera = null;
                 foreach (LineRenderer source in visualRoot.GetComponentsInChildren<LineRenderer>(false))
                 {
+                    if (IsDirectionIndicator(source.transform, visualRoot)) continue;
                     if (!ShouldCapture(source) || source.positionCount < 2) continue;
                     if (bakeCamera == null)
                     {
@@ -93,9 +102,18 @@ namespace AnimalGame.Demos.CheckpointRefit
                 && source.GetComponentInParent<WorldInteraction>() == null;
         }
 
+        private static bool IsDirectionIndicator(Transform source, Transform visualRoot)
+        {
+            // Heading is a navigation overlay, not a fitted part of the unit.
+            for (Transform node = source; node != null && node != visualRoot; node = node.parent)
+                if (node.name == "Direction Indicator") return true;
+            return false;
+        }
+
         private void CaptureSprite(SpriteRenderer source, Matrix4x4 worldToPreview, Shader shader)
         {
             Sprite sprite = source.sprite;
+            if (TryCaptureCircularBody(source, worldToPreview, shader)) return;
             Vector2[] sourceVertices = sprite.vertices;
             if (sourceVertices.Length == 0) return;
             Vector3[] vertices = new Vector3[sourceVertices.Length];
@@ -131,6 +149,93 @@ namespace AnimalGame.Demos.CheckpointRefit
                 material.EnableKeyword("ETC1_EXTERNAL_ALPHA");
             }
             items.Add(new DrawItem(source, mesh, material));
+        }
+
+        private bool TryCaptureCircularBody(SpriteRenderer source, Matrix4x4 worldToPreview, Shader shader)
+        {
+            Sprite sprite = source.sprite;
+            if (source.transform.parent == null || source.transform.parent.name != "Body Visual") return false;
+
+            // The live chassis uses small circular bitmap assets (128 px canvas,
+            // 72.5 px visible ring). Enlarging those pixels loses the original
+            // circle. Rebuild only these known circles as smooth preview-owned
+            // geometry, retaining their authored diameter, stroke, tint and pose.
+            // Any other body art or attached real parts keep their actual sprite.
+            string artwork = sprite.texture.name;
+            float diameterPixels;
+            float strokePixels;
+            if (source.name == "Body Artwork" && (artwork == "robot_body_new" || artwork == "Test_Newbody"))
+            {
+                diameterPixels = 72.5f;
+                strokePixels = 1f;
+            }
+            else if (source.name == "Body Artwork" && artwork == "robot_body")
+            {
+                diameterPixels = 84f;
+                strokePixels = 1.4f;
+            }
+            else if (source.name == "Body Fill (robot_body_fill)" && artwork == "robot_body_fill")
+            {
+                diameterPixels = 82.5f;
+                strokePixels = 0f;
+            }
+            else return false;
+
+            float radius = diameterPixels * .5f / sprite.pixelsPerUnit;
+            float innerRadius = strokePixels > 0f ? radius - strokePixels / sprite.pixelsPerUnit : 0f;
+            // An explicit alpha fringe survives downsampling to the UI and avoids
+            // replacing source pixel steps with hard polygon edges.
+            float feather = radius * 1.5f / Resolution;
+            float[] radii = innerRadius > 0f
+                ? new[] { innerRadius - feather, innerRadius + feather, radius - feather, radius + feather }
+                : new[] { 0f, radius - feather, radius + feather };
+            float[] alphas = innerRadius > 0f ? new[] { 0f, 1f, 1f, 0f } : new[] { 1f, 1f, 0f };
+            Vector2 centre = (sprite.rect.size * .5f - sprite.pivot) / sprite.pixelsPerUnit;
+            Vector3[] vertices = new Vector3[radii.Length * CircleSegments];
+            Color[] colors = new Color[vertices.Length];
+            Vector2[] uv = new Vector2[vertices.Length];
+            int[] triangles = new int[(radii.Length - 1) * CircleSegments * 6];
+            Matrix4x4 matrix = worldToPreview * source.transform.localToWorldMatrix;
+            for (int band = 0; band < radii.Length; band++)
+            {
+                for (int segment = 0; segment < CircleSegments; segment++)
+                {
+                    int index = band * CircleSegments + segment;
+                    float angle = segment * Mathf.PI * 2f / CircleSegments;
+                    Vector2 point = centre + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radii[band];
+                    if (source.flipX) point.x = -point.x;
+                    if (source.flipY) point.y = -point.y;
+                    vertices[index] = Flatten(matrix.MultiplyPoint3x4(point));
+                    Color color = source.color;
+                    color.a *= alphas[band];
+                    colors[index] = color;
+                    uv[index] = new Vector2(.5f, .5f);
+                    if (band == radii.Length - 1) continue;
+                    int next = (segment + 1) % CircleSegments;
+                    int triangle = (band * CircleSegments + segment) * 6;
+                    int nextBand = (band + 1) * CircleSegments;
+                    triangles[triangle] = index;
+                    triangles[triangle + 1] = nextBand + segment;
+                    triangles[triangle + 2] = nextBand + next;
+                    triangles[triangle + 3] = index;
+                    triangles[triangle + 4] = nextBand + next;
+                    triangles[triangle + 5] = band * CircleSegments + next;
+                }
+            }
+
+            Mesh mesh = new Mesh
+            {
+                name = "Refit smooth source circle / " + source.name,
+                hideFlags = HideFlags.HideAndDontSave,
+                vertices = vertices,
+                uv = uv,
+                colors = colors,
+                triangles = triangles
+            };
+            mesh.RecalculateBounds();
+            items.Add(new DrawItem(source, mesh, CreateMaterial(source, shader, Texture2D.whiteTexture)));
+            ReconstructedBodyRendererCount++;
+            return true;
         }
 
         private void CaptureLine(LineRenderer source, Matrix4x4 worldToPreview, Shader shader, Camera camera)
@@ -195,11 +300,14 @@ namespace AnimalGame.Demos.CheckpointRefit
             Matrix4x4 projection = Matrix4x4.Ortho(centre.x - halfSize, centre.x + halfSize,
                 centre.y - halfSize, centre.y + halfSize, -1f, 1f);
             RenderTexture previousTarget = RenderTexture.active;
+            RenderTexture multisampledTarget = null;
             try
             {
+                multisampledTarget = RenderTexture.GetTemporary(Resolution, Resolution, 0,
+                    RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 4);
                 using (var command = new CommandBuffer { name = "Refit actual player artwork snapshot" })
                 {
-                    command.SetRenderTarget(texture);
+                    command.SetRenderTarget(multisampledTarget);
                     command.ClearRenderTarget(true, true, Color.clear);
                     command.SetViewport(new Rect(0f, 0f, Resolution, Resolution));
                     // This is a direct mesh draw into a texture sampled by a
@@ -210,10 +318,14 @@ namespace AnimalGame.Demos.CheckpointRefit
                         command.DrawMesh(item.Mesh, Matrix4x4.identity, item.Material, 0, 0);
                     Graphics.ExecuteCommandBuffer(command);
                 }
+                // Publish a resolved texture so both UI Toolkit and readback
+                // consumers receive the same image, without retaining MSAA memory.
+                Graphics.Blit(multisampledTarget, texture);
             }
             finally
             {
                 RenderTexture.active = previousTarget;
+                if (multisampledTarget != null) RenderTexture.ReleaseTemporary(multisampledTarget);
             }
         }
 
@@ -231,6 +343,8 @@ namespace AnimalGame.Demos.CheckpointRefit
         public void Clear()
         {
             HasImage = false;
+            ReconstructedBodyRendererCount = 0;
+            ExcludedDirectionIndicatorCount = 0;
             foreach (DrawItem item in items)
             {
                 DestroyOwned(item.Mesh);
