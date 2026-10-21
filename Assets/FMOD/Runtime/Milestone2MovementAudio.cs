@@ -9,13 +9,18 @@ namespace Capstone.Audio
         private readonly Milestone2ActionVoices voices;
         private RobotMover source;
         private RobotHeightMotionDetector height;
+        private RobotTumbleController tumble;
         private Vector2 previousPosition;
         private float previousAngle, engineRpm, engineDirection, forwardReference, linearStillElapsed, turnStillElapsed;
         private bool linearMotion, turnMotion, engineReleasing;
         private bool hasBaseline, wasMoving, slipEpisode, wasAirborne, groundTurnLooping;
+        private bool tumbleSlideActive;
+        private float tumbleSlideRemaining;
+        private int lastTumbleStartFrame = -1;
 
         internal RobotMover Source => source;
         internal RobotHeightMotionDetector HeightSource => height;
+        internal RobotTumbleController TumbleSource => tumble;
 
         internal Milestone2MovementAudio(Milestone2ActionSettings settings, Milestone2ActionVoices voices)
         {
@@ -24,15 +29,20 @@ namespace Capstone.Audio
             forwardReference = settings.DriveReferenceSpeed;
         }
 
-        internal void Bind(RobotMover next, RobotHeightMotionDetector nextHeight)
+        internal void Bind(RobotMover next, RobotHeightMotionDetector nextHeight,
+            RobotTumbleController nextTumble = null)
         {
-            if (ReferenceEquals(source, next) && ReferenceEquals(height, nextHeight)) return;
+            if (ReferenceEquals(source, next) && ReferenceEquals(height, nextHeight)
+                && ReferenceEquals(tumble, nextTumble)) return;
             if (!ReferenceEquals(height, null)) height.Landed -= OnLanded;
+            if (!ReferenceEquals(tumble, null)) tumble.Started -= OnTumbleStarted;
             StopAllImmediately();
             source = next;
             height = nextHeight;
+            tumble = nextTumble;
             forwardReference = settings.DriveReferenceSpeed;
             if (height != null) height.Landed += OnLanded;
+            if (tumble != null) tumble.Started += OnTumbleStarted;
             if (source != null) EstablishBaseline();
         }
 
@@ -73,6 +83,8 @@ namespace Capstone.Audio
                 || (source.IsLevelThreeUnstable
                     && (source.CurrentTerrainVelocity.sqrMagnitude > settings.MovementThreshold * settings.MovementThreshold
                         || Mathf.Abs(source.CurrentTerrainTurnSpeed) > settings.TurnThreshold)));
+
+            UpdateTumbleSlide(deltaTime, airborne, slip);
 
             if (airborne && !wasAirborne)
             {
@@ -138,13 +150,20 @@ namespace Capstone.Audio
                 { engineRpm = 0f; engineReleasing = false; }
             }
 
-            voices.SetLoop(Milestone2ActionCue.GroundMove, driven && !airborne && !slip && translating);
+            // Slipping does not remove terrain contact. Keep the delivered ground
+            // layer for actual sliding translation or uncontrolled ground rotation.
+            voices.SetLoop(Milestone2ActionCue.GroundMove, driven && !airborne
+                && (translating || (slip && turning)));
             UpdateGroundTurn(settings.StationaryTurnGroundAudioEnabled && driven && !airborne
                 && !slip && !translating && turning,
                 settings.StationaryTurnGroundAudioEnabled && driven && !airborne && !slip);
             if (slip)
             {
-                if (!slipEpisode) voices.Play(Milestone2ActionCue.Slide);
+                if (!slipEpisode)
+                {
+                    voices.SetPitch(Milestone2ActionCue.Slide, 1f);
+                    voices.Play(Milestone2ActionCue.Slide);
+                }
                 voices.SetPaused(Milestone2ActionCue.Slide, !groundMotion);
                 slipEpisode = true;
             }
@@ -154,7 +173,7 @@ namespace Capstone.Audio
                 else voices.Stop(Milestone2ActionCue.Slide, true);
                 slipEpisode = false;
             }
-            if (!driven) StopGroundImmediately();
+            if (!driven) StopGroundImmediately(tumbleSlideActive);
 
             previousPosition = position;
             previousAngle = angle;
@@ -171,6 +190,7 @@ namespace Capstone.Audio
             hasBaseline = wasMoving = wasAirborne = groundTurnLooping = false;
             linearMotion = turnMotion = engineReleasing = false;
             engineRpm = engineDirection = linearStillElapsed = turnStillElapsed = 0f;
+            lastTumbleStartFrame = -1;
         }
 
         private bool ObserveMotion(float speed, float enterThreshold, ref bool moving, ref float stillElapsed, float deltaTime)
@@ -218,13 +238,68 @@ namespace Capstone.Audio
             voices.SetLoopFrom(Milestone2ActionCue.Drive, true, 3500);
         }
 
-        private void StopGroundImmediately()
+        private void StopGroundImmediately(bool preserveTumbleSlide = false)
         {
             voices.Stop(Milestone2ActionCue.GroundMove, true);
             voices.Stop(Milestone2ActionCue.GroundTurn, true);
-            voices.Stop(Milestone2ActionCue.Slide, true);
+            if (!preserveTumbleSlide)
+            {
+                voices.Stop(Milestone2ActionCue.Slide, true);
+                voices.SetPitch(Milestone2ActionCue.Slide, 1f);
+                tumbleSlideActive = false;
+                tumbleSlideRemaining = 0f;
+            }
             slipEpisode = false;
             groundTurnLooping = false;
+        }
+
+        private void OnTumbleStarted(RobotTumbleStartedInfo info)
+        {
+            if (source == null || !source.isActiveAndEnabled || tumble == null || !tumble.isActiveAndEnabled
+                || !source.gameObject.scene.isLoaded || Time.timeScale <= 0f
+                || lastTumbleStartFrame == Time.frameCount
+                || (height != null && height.isActiveAndEnabled && height.HasData && height.IsAirborne)) return;
+            lastTumbleStartFrame = Time.frameCount;
+            bool continuingSlide = slipEpisode && voices.IsAlive(Milestone2ActionCue.Slide);
+            voices.SetPitch(Milestone2ActionCue.Slide, settings.TumbleSlidePitch);
+            if (continuingSlide)
+                // Preserve the preceding slip's handle and sample position, even
+                // if it was paused at a brief standstill. Never play its recovery tail.
+                voices.SetPaused(Milestone2ActionCue.Slide, false);
+            else
+                // A direct tip has no preceding slip to continue. Reuse the
+                // delivered M06 steady segment, without replaying its loss-of-grip intro.
+                voices.PlayFrom(Milestone2ActionCue.Slide, 1230);
+            tumbleSlideActive = voices.IsAlive(Milestone2ActionCue.Slide);
+            tumbleSlideRemaining = settings.TumbleSlideAccentSeconds;
+            slipEpisode = false;
+            StopGroundImmediately(tumbleSlideActive);
+        }
+
+        private void UpdateTumbleSlide(float deltaTime, bool airborne, bool slippingAgain)
+        {
+            if (!tumbleSlideActive) return;
+            if (airborne || slippingAgain || tumble == null || !tumble.isActiveAndEnabled)
+            {
+                voices.Stop(Milestone2ActionCue.Slide, true);
+                tumbleSlideActive = false;
+                voices.SetPitch(Milestone2ActionCue.Slide, 1f);
+                return;
+            }
+            if (!voices.IsAlive(Milestone2ActionCue.Slide))
+            {
+                tumbleSlideActive = false;
+                voices.SetPitch(Milestone2ActionCue.Slide, 1f);
+                return;
+            }
+            // Started occurs during Update: this frame's delta predates the
+            // accent and must not consume its whole lifetime on a slow frame.
+            if (Time.frameCount == lastTumbleStartFrame) return;
+            tumbleSlideRemaining -= deltaTime;
+            if (tumbleSlideRemaining <= 0f)
+                // Keep ownership through the fade so non-Driven cleanup does not
+                // cut it short. Lifecycle/airborne cleanup still releases immediately.
+                voices.FadeStop(Milestone2ActionCue.Slide, settings.FadeOutSeconds, true);
         }
 
         private void UpdateGroundTurn(bool turning, bool canPlayTail)
@@ -253,7 +328,8 @@ namespace Capstone.Audio
         private void OnLanded(RobotLandingImpact impact)
         {
             if (source == null || !source.isActiveAndEnabled || Time.timeScale <= 0f
-                || source.MovementMode != RobotMovementMode.Driven) return;
+                || source.MovementMode != RobotMovementMode.Driven
+                || Milestone3AudioRuntime.SuppressesOrdinaryLanding(source)) return;
             voices.PlayWithGain(Milestone2ActionCue.Land, Mathf.Clamp01(impact.Strength01));
             voices.Play(Milestone2ActionCue.LandParts);
         }

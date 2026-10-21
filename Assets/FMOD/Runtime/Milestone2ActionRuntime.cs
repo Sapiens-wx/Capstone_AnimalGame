@@ -71,7 +71,7 @@ namespace Capstone.Audio
             if (!initialized || shuttingDown || paused) return;
             if (Time.unscaledTime >= nextDiscoveryTime
                 && (!IsUsable(movement.Source) || !IsUsable(arm.Source)
-                    || !IsUsable(movement.HeightSource))) DiscoverSources();
+                    || !IsUsable(movement.HeightSource) || !IsUsable(movement.TumbleSource))) DiscoverSources();
         }
 
         private void LateUpdate()
@@ -99,12 +99,14 @@ namespace Capstone.Audio
             // unrelated global searches that could bind an NPC or outgoing scene.
             RobotArmController armSource = null;
             RobotHeightMotionDetector heightSource = null;
+            RobotTumbleController tumbleSource = null;
             if (mover != null)
             {
                 mover.TryGetComponent(out armSource);
                 mover.TryGetComponent(out heightSource);
+                mover.TryGetComponent(out tumbleSource);
             }
-            movement.Bind(mover, heightSource);
+            movement.Bind(mover, heightSource, tumbleSource);
             arm.Bind(armSource, mover);
         }
 

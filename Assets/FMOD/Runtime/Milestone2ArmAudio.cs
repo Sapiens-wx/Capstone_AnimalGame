@@ -121,10 +121,12 @@ namespace Capstone.Audio
                 source.State == RobotArmState.Retracting,
                 previousDeployment >= 1f - DeploymentEpsilon, ref retractionSession);
 
-            bool manualArmState = source.State == RobotArmState.OuterOperating
-                || source.State == RobotArmState.Docking;
+            // Automatic feeding uses the same observed joints and existing servo
+            // voice; the M3 intake source contains only hatch/suction details.
+            bool servoArmState = source.State == RobotArmState.OuterOperating
+                || source.State == RobotArmState.Docking || source.State == RobotArmState.Recycling;
             bool servoMoving = canObserveMotion && source.IsArmModeActive
-                && (mover == null || !mover.IsPhotoModeInputLocked) && manualArmState
+                && (mover == null || !mover.IsPhotoModeInputLocked) && servoArmState
                 && deployment >= 1f - DeploymentEpsilon
                 && !deploying && !retracting && !finishingDeployment && !finishingRetraction
                 && jointSpeed > settings.ArmJointMovementThresholdDegrees;

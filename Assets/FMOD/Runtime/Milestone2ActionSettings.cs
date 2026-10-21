@@ -9,6 +9,9 @@ namespace Capstone.Audio
         [SerializeField] private bool enablePlayerActions = true;
         [SerializeField] private AudioCueSettings[] cues = CreateCues();
         [SerializeField, Min(0f)] private float fadeOutSeconds = 0.05f;
+        [Tooltip("Brief M06 pitch accent at the authoritative tumble start; source WAV remains unchanged.")]
+        [SerializeField, Range(1f, 1.25f)] private float tumbleSlidePitch = 1.1f;
+        [SerializeField, Min(0.01f)] private float tumbleSlideAccentSeconds = 0.2f;
         [Tooltip("Audio-only actual-motion dead zone, in world units per second.")]
         [SerializeField, Min(0f)] private float movementThreshold = 0.01f;
         [SerializeField, Min(0f)] private float turnThreshold = 0.5f;
@@ -40,6 +43,8 @@ namespace Capstone.Audio
 
         internal bool Enabled => enablePlayerActions;
         internal float FadeOutSeconds => Mathf.Max(0f, fadeOutSeconds);
+        internal float TumbleSlidePitch => Mathf.Clamp(tumbleSlidePitch, 1f, 1.25f);
+        internal float TumbleSlideAccentSeconds => Mathf.Max(0.01f, tumbleSlideAccentSeconds);
         internal float MovementThreshold => Mathf.Max(0f, movementThreshold);
         internal float TurnThreshold => Mathf.Max(0f, turnThreshold);
         internal bool StationaryTurnGroundAudioEnabled => enableStationaryTurnGroundAudio;

@@ -72,14 +72,6 @@ MonoBehaviour:
         width: 0.4726262
         height: 0.74725276
       saturation: 1
-    - image: {fileID: 2800000, guid: 2042bf7c33ee5524bb02ffde5db80013, type: 3}
-      subjectRect:
-        serializedVersion: 2
-        x: 0.55111176
-        y: 0.26593405
-        width: 0.42349762
-        height: 0.5978022
-      saturation: 1
     - image: {fileID: 2800000, guid: 3aebb7b688d34d74e94b704055d780c1, type: 3}
       subjectRect:
         serializedVersion: 2

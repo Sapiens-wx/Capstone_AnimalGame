@@ -20,9 +20,9 @@
         { path: "event:/Robot/Move/Land", file: "Movement/M08_Land_Impact.wav" },
         { path: "event:/Robot/Move/LandParts", file: "Movement/M08_Land_shatter.wav" },
         { path: "event:/Robot/Move/Ground", file: "Movement/M_Move_Ground_Default.wav", loopStart: 1, crossfade: 0.04 },
-        // Retain the restored beat through 1.20 without a transition overlap.
-        // GroundTurn key-off in Milestone2ActionVoices starts its tail at 1200 ms.
-        { path: "event:/Robot/Move/GroundTurn", file: "Movement/M05_Move_Turn_Loop.wav", loopStart: 0.25, loopEnd: 1.20, holdName: "TurnHold", crossfade: 0 },
+        // Play the source's quiet opening once, then sustain its middle section.
+        // GroundTurn key-off continues the natural tail at 1250 ms without overlap.
+        { path: "event:/Robot/Move/GroundTurn", file: "Movement/M05_Move_Turn_Loop.wav", loopStart: 0.30, loopEnd: 1.15, holdName: "TurnHold", crossfade: 0 },
         { path: "event:/Robot/Arm/Deploy", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "DeployHold" },
         { path: "event:/Robot/Arm/Retract", file: "Arm/A01_Arm_Deploy_Loop.wav", loopStart: 0.35, loopEnd: 0.8, holdName: "RetractHold" },
         { path: "event:/Robot/Arm/Blocked", file: "Arm/A03_Arm_Blocked_01.wav" },
