@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 1b4c4e10c8b154c47914882283731aa7
+guid: f773f9e25ec12e24ba27e4a97044a7f6
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 6947536093223149297
-    second: Muskrat_11_0
+      213: 6349822296369134289
+    second: Muskrat_12_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Muskrat_11_0
+      name: Muskrat_12_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 2500
-        height: 2500
+        width: 3000
+        height: 2000
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 1fe55c4644b9a6060800000000000000
-      internalID: 6947536093223149297
+      spriteID: 1daffe95cb91f1850800000000000000
+      internalID: 6349822296369134289
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Muskrat_11_0: 6947536093223149297
+      Muskrat_12_0: 6349822296369134289
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
