@@ -19,12 +19,14 @@ namespace AnimalGame.Animals
             Agent != null ? Agent.Config : null;
 
         public virtual bool SupportsAggression => false;
+        public bool CanAcceptSocialAction => !HasConfiguredAction || configuredAction is IdleAction
+            || configuredAction is LookAroundAction || configuredAction is RestAtTerrainAction;
         public virtual AnimalAction CreateEscapeAction() => Config.EscapeAction != null
             ? Config.EscapeAction.CreateRuntime() : new RunAwayAction();
 
         protected bool BeginConfiguredAction(AnimalDailyBehaviourSettings settings)
         {
-            AnimalAction action = settings.Action != null ? settings.Action.CreateRuntime()
+            AnimalAction action = settings.Action != null ? settings.Action.CreateRuntime(settings)
                 : settings.Behaviour == AnimalDailyBehaviourKind.Hunt && Config.CanHunt && Agent.Runtime.Time >= Agent.Runtime.HuntCooldownUntil ? new HuntAction()
                 : settings.Behaviour == AnimalDailyBehaviourKind.Idle ? new IdleAction(settings.ChooseDuration()) : null;
             if (action == null) return false;
@@ -112,6 +114,8 @@ namespace AnimalGame.Animals
         public virtual void EnterCurious()
         {
         }
+
+        public virtual void MoveWhileCurious(float deltaTime) { Motor.Stop(); }
 
         public virtual void TickCurious(float deltaTime)
         {

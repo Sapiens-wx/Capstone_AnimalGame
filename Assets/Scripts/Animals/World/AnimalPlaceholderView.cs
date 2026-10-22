@@ -83,6 +83,12 @@ namespace AnimalGame.Animals
                 baseIndicatorColor = directionIndicator.color;
         }
 
+        public void ScaleVisuals(float factor)
+        {
+            baseVisualScale *= Mathf.Max(.01f, factor);
+            if (visualRoot != null) visualRoot.localScale = baseVisualScale;
+        }
+
         private static void ApplyAlpha(
             SpriteRenderer renderer,
             Color baseColour,

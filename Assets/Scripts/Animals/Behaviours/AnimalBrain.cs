@@ -18,9 +18,10 @@ namespace AnimalGame.Animals
         private bool updating;
         private AnimalAction overrideAction;
         private AnimalAction pendingAction;
-        public string CurrentActionName => overrideAction?.Name ?? behaviour?.CurrentActionName ?? "";
+        public string CurrentActionName => overrideAction?.Name ?? (current as ActionState)?.ActionName ?? behaviour?.CurrentActionName ?? "";
         public AnimalState PhotoState => overrideAction?.PhotoState ?? behaviour.PhotoState;
         public AnimalState State { get; private set; } = AnimalState.Despawned;
+        public bool HasOverrideAction => overrideAction != null || pendingAction != null;
 
         public AnimalBrain(AnimalContext context, AnimalBehaviourSet behaviour)
         {
@@ -30,6 +31,7 @@ namespace AnimalGame.Animals
 
         public void Request(AnimalState state)
         {
+            if (state == AnimalState.Aggressive && !behaviour.SupportsAggression) state = AnimalState.Fleeing;
             if (context.Runtime.IsDead && state != AnimalState.Dead && state != AnimalState.Despawned) return;
             if (!requested.HasValue || Priority(state) >= Priority(requested.Value)) requested = state;
             if (!updating) Flush();
@@ -93,6 +95,7 @@ namespace AnimalGame.Animals
                     overrideAction?.Exit(context);
                     overrideAction = null;
                     context.Motor.Stop();
+                    context.Motor.ClearMovementOverrides();
                     State = next;
                     pendingAction = null;
                     context.Agent.OnStateEntered(next);
@@ -128,6 +131,7 @@ namespace AnimalGame.Animals
                 current = null;
                 overrideAction = null;
                 context.Motor.Stop();
+                context.Motor.ClearMovementOverrides();
             }
             finally { updating = false; }
         }
@@ -145,6 +149,7 @@ namespace AnimalGame.Animals
         private sealed class ActionState : AnimalStateBase
         {
             private readonly AnimalAction action;
+            public string ActionName => action.Name;
             public ActionState(AnimalAction action) { this.action = action; }
             public override void Enter(AnimalContext context) { action.Enter(context); }
             public override void Tick(AnimalContext context, float dt)

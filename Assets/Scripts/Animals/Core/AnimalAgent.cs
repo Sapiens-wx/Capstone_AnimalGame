@@ -19,6 +19,9 @@ namespace AnimalGame.Animals
         [Tooltip("Animals with the same non-empty ID in this scene form a group, including mixed species.")]
         [SerializeField] private string groupId;
         public AnimalSpeciesConfig Config => config;
+        public bool SupportsAggression => behaviourSet != null && behaviourSet.SupportsAggression;
+        public bool CanAcceptSocialAction => CurrentState == AnimalState.Daily && behaviourSet != null
+            && behaviourSet.CanAcceptSocialAction && !Brain.HasOverrideAction;
         public static IEnumerable<AnimalAgent> ActiveAgents => activeAgents;
         public AnimalMotor Motor { get; private set; }
         public AnimalPerception Perception { get; private set; }
@@ -209,16 +212,17 @@ namespace AnimalGame.Animals
         {
             if (!CanAct) return;
             Perception.Remember(threat);
-            float flee = config.BaseFleeChancePerCheck, aggression = config.BaseAggressionChancePerCheck;
+            float flee = config.BaseFleeChancePerCheck, aggression = SupportsAggression ? config.BaseAggressionChancePerCheck : 0f;
             float total = flee + aggression;
-            bool angry = total <= 0f ? Random.value < .5f : Random.value * total < aggression;
+            bool angry = SupportsAggression && (total <= 0f ? Random.value < .5f : Random.value * total < aggression);
             Brain.Request(angry ? AnimalState.Aggressive : AnimalState.Fleeing);
         }
         internal void TickCurious(float deltaTime)
         {
-            Motor.Stop();
+            bool hasThreat = Perception.TryGetThreatProximity(out float proximity);
+            behaviourSet.MoveWhileCurious(deltaTime);
             behaviourSet.TickCurious(deltaTime);
-            if (!Perception.TryGetThreatProximity(out float proximity))
+            if (!hasThreat)
             {
                 outsideAlertTimer += deltaTime;
                 if (outsideAlertTimer >= config.CuriousLostPlayerDelaySeconds && (Runtime.Group == null || Runtime.Group.CanCalm())) ReturnToDaily();
@@ -229,17 +233,17 @@ namespace AnimalGame.Animals
             if (reactionCountdown > 0f) return;
             reactionCountdown = config.ReactionIntervalSeconds;
             float flee = config.BaseFleeChancePerCheck * Mathf.Lerp(1f, config.NearestFleeMultiplier, proximity);
-            float angry = config.BaseAggressionChancePerCheck * Mathf.Lerp(1f, config.NearestAggressionMultiplier, proximity);
+            float angry = SupportsAggression ? config.BaseAggressionChancePerCheck * Mathf.Lerp(1f, config.NearestAggressionMultiplier, proximity) : 0f;
             float normalization = Mathf.Max(1f, flee + angry);
             float roll = Random.value;
             if (roll < angry / normalization) Brain.Request(AnimalState.Aggressive);
             else if (roll < (angry + flee) / normalization) Brain.Request(AnimalState.Fleeing);
         }
-        public bool ReceiveDamage(float damage, Transform attacker)
+        public bool ReceiveDamage(float damage, Transform attacker, bool notifyThreat = true)
         {
             if (!CanAct) return false;
             bool applied = Health.Damage(damage);
-            if (applied && !Health.IsDead) NotifyThreat(attacker);
+            if (applied && !Health.IsDead && notifyThreat) NotifyThreat(attacker);
             return applied;
         }
         private void Die()

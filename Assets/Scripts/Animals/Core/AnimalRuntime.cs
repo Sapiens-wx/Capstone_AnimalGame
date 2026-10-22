@@ -13,6 +13,8 @@ namespace AnimalGame.Animals
         public AnimalGroup Group;
         public float HuntCooldownUntil;
         public float FeedCooldownUntil;
+        public SparringSession Sparring;
+        public float SparringCooldownUntil;
         public float Time;
         public float SeasonMultiplier = 1f;
         public float TimeOfDayMultiplier = 1f;

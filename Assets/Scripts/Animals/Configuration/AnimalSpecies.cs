@@ -4,6 +4,8 @@ namespace AnimalGame.Animals
     {
         Unknown = 0,
         Muskrat = 1,
-        PileatedWoodpecker = 2
+        PileatedWoodpecker = 2,
+        MountainGoat = 3,
+        Wolf = 4
     }
 }

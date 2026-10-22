@@ -19,7 +19,8 @@ namespace AnimalGame.Animals
         Takeoff,
         Landing,
         EnteringTree,
-        EmergingFromTree
+        EmergingFromTree,
+        Howling
     }
 
     [Serializable]

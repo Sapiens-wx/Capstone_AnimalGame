@@ -54,6 +54,10 @@ namespace AnimalGame.Animals
             Mathf.InverseLerp(knockbackDamageRange.x, Mathf.Max(knockbackDamageRange.x + .001f, knockbackDamageRange.y), damage));
 
         [Header("Activity And Movement")]
+        [SerializeField, Range(0f, 90f)] private float maximumWalkSlopeDegrees = 90f;
+        [SerializeField, Range(0f, 90f)] private float slideSlopeDegrees = 55f;
+        public float MaximumWalkSlopeDegrees => Mathf.Clamp(maximumWalkSlopeDegrees, 0f, 90f);
+        public float SlideSlopeDegrees => Mathf.Clamp(slideSlopeDegrees, 0f, 90f);
         [Tooltip("Local target-search distance, not a boundary around the spawn point. Legacy water searches retain their authored range.")]
         [SerializeField, Min(0.1f)] private float activityRadiusMeters = 10f;
         [SerializeField, Min(0f)] private float dailyMoveSpeedMetersPerSecond = 1.15f;

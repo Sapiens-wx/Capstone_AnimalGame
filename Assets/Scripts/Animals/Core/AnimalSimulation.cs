@@ -16,9 +16,10 @@ namespace AnimalGame.Animals
         {
             public Transform Target, Attacker;
             public float Damage, Due;
+            public bool Sparring;
         }
         private readonly List<PendingHit> hits = new();
-        public bool Hit(AnimalAgent attacker, Transform target, bool knockback)
+        public bool Hit(AnimalAgent attacker, Transform target, bool knockback, bool sparring = false)
         {
             if (target == null || attacker == null || !attacker.IsInitialized || attacker.Health.IsDead
                 || attacker.Runtime.Removed || target.gameObject.scene != gameObject.scene) return false;
@@ -27,8 +28,10 @@ namespace AnimalGame.Animals
             int id = target.GetInstanceID();
             if (attacker.Runtime.AttackReadyTimes.TryGetValue(id, out float ready) && Time < ready) return false;
             attacker.Runtime.AttackReadyTimes[id] = Time + 1f;
-            hits.Add(new PendingHit { Target = target, Attacker = attacker.transform, Damage = attacker.Config.AttackDamage, Due = Time + 1f });
-            if (animal != null) animal.NotifyThreat(attacker.transform);
+            bool paired = sparring && animal != null && attacker.Runtime.Sparring != null
+                && attacker.Runtime.Sparring == animal.Runtime.Sparring;
+            hits.Add(new PendingHit { Target = target, Attacker = attacker.transform, Damage = attacker.Config.AttackDamage, Due = Time + 1f, Sparring = paired });
+            if (animal != null && !paired) animal.NotifyThreat(attacker.transform);
             if (knockback)
             {
                 Vector2 direction = (Vector2)(target.position - attacker.transform.position);
@@ -89,7 +92,7 @@ namespace AnimalGame.Animals
                 if (Time < hit.Due) continue;
                 hits.RemoveAt(i);
                 if (hit.Target == null || !hit.Target.gameObject.activeInHierarchy) continue;
-                if (hit.Target.TryGetComponent(out AnimalAgent animal)) animal.ReceiveDamage(hit.Damage, hit.Attacker);
+                if (hit.Target.TryGetComponent(out AnimalAgent animal)) animal.ReceiveDamage(hit.Damage, hit.Attacker, !hit.Sparring);
                 else if (hit.Target.TryGetComponent(out AnimalGame.RobotMap.PlayerCombatReceiver player)) player.Damage(hit.Damage);
             }
             foreach (AnimalGroup group in groups.Values) group.Tick(Time);

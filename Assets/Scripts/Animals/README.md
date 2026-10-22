@@ -1,5 +1,16 @@
 # Animal AI 使用说明
 
+## 雪羊与狼
+
+- 手动摆放 `Prefabs/Animals/MountainGoat/MountainGoat_Placeholder.prefab`、`MountainGoat_Juvenile_Placeholder.prefab` 或 `Prefabs/Animals/Wolf/Wolf_Placeholder.prefab`。沿用现有占位图形，不自动生成动物，也不修改场景。同群个体在 AnimalAgent 中填写相同的非空 Group Id；幼羊请与成年羊同组摆放。
+- 物种参数位于 `Data/Animals/MountainGoatConfig.asset`、`WolfConfig.asset`。雪羊固定 10 血，最大可走坡度/滑落阈值 80°；狼为 38°，捕猎伤害 3，食谱为麝鼠和雪羊（含幼羊）。雪羊冲撞伤害暂配为 2，可在配置调整；打架与激怒共用此伤害、范围、击退和一秒延迟结算。
+- 日常动作引用 `Data/Animals/SpeciesActions/` 的动作资产，权重、持续 X 秒、冷却在物种配置的 Daily Behaviours 中调整。动作资产提供速度等参数；通过日常条目创建时，以条目的时长为准。灌木进食仍使用原 EatPlantAction，乔木/灌木目标分别使用 TreeHabitat、Bush 类型 AnimalFoodSource，草地接受 Grass/Grassland/GrassTest，岩石为 Rock。
+- 成年雪羊支持灌木/草地进食、观察、平坦岩石休息、岩石踱步、成对冲撞。幼体复用同一物种配置及战斗逻辑，仅缩小视觉并排除成年打架，可在 MountainGoatBehaviour 上指定幼体 Sprite。双方预期互撞不会触发普通惊扰；旁观者正常受伤并惊扰，外界威胁或死亡会取消双方会话。成员进入逃跑等状态时不会被取消操作拉回日常。
+- 雪羊逃跑优先避开近距离威胁，再选可通行上坡；无上坡后反向下坡，保持方向越过谷底再开始上坡，规划间隔默认 0.7–0.9 秒。参数在 MountainGoatBehaviour 调整。所有移动继续使用现有局部避障，受阻时有限重选，不包含全局寻路；一直保持逃离，直至通用移除条件生效。
+- 狼复用原日常调度、群体捕猎、逃跑、尸体预约和进食冷却。嗅探一个短段后寻找食谱内尸体，使用 CorpseOnly 捕猎策略靠近并进食，途中不会改追活猎物。惊扰时朝威胁慢退，所有激怒入口均被能力检查拦截。
+- 嚎叫通过现有 AnimalSoundEmitter 的 Howling 声波配置表现；本次未新增角色动画或音频素材，后续可根据当前动作名绑定趴下、嗅探、撒尿及打架动画。
+- 验证菜单：`Animal Game / Validation / Run Goat And Wolf AI Checks`。批处理入口 `AnimalGame.Editor.AnimalSpeciesRegressionChecks.RunBatch` 同时运行现有动物、空间索引和垃圾兼容检查。Brain.CurrentActionName 可查看雪羊逃跑子阶段与打架阶段。
+
 本次实现对应项目 `docs/animal_ai.md`，并采用对话中补充的规则：接触时登记攻击、冷却一秒，一秒后扣血；滑落后恢复行为且不造成摔落伤害。局部导航优化仍为后续工作，麝鼠找水算法保持原样。
 
 ## 配置与接入

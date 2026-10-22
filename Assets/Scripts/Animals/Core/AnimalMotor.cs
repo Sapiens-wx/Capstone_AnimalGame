@@ -51,6 +51,13 @@ namespace AnimalGame.Animals
         private Vector2 impactVelocity;
         private float blockedTime;
         private bool wasDisplaced;
+        private bool facingLocked;
+        // Optional constraints apply to the actual avoidance step as well as planned segments.
+        public System.Func<Vector2, Vector2, bool> SegmentFilter { get; set; }
+        public bool IsFacingLocked => facingLocked;
+        public float? FacingTurnSpeedDegreesPerSecond { get; set; }
+        public void LockFacing(Vector2 direction) { facingLocked = true; FaceMapDirection(direction); }
+        public void ClearMovementOverrides() { facingLocked = false; SegmentFilter = null; FacingTurnSpeedDegreesPerSecond = null; }
         public AnimalMovementResult Result { get; private set; }
         public bool IsDisplaced => impactVelocity.sqrMagnitude > .001f || wasDisplaced;
         public void Knockback(Vector2 direction, float distance)
@@ -173,7 +180,7 @@ namespace AnimalGame.Animals
                             step,
                             out Vector2 movementDirection))
                     {
-                        desiredFacingMapDirection = movementDirection;
+                        if (!facingLocked) desiredFacingMapDirection = movementDirection;
                         Vector2 nextMapPosition = currentMapPosition
                                                   + movementDirection * step;
                         ApplyMapPosition(nextMapPosition);
@@ -218,6 +225,7 @@ namespace AnimalGame.Animals
                 return false;
             }
 
+            if (!ignoreGround && !CanWalkAt(mapPositionMeters)) return false;
             return !WorldInteractionQuery.Query(
                 InteractionShape.Capsule(mapPositionMeters, mapPositionMeters, config.BodyRadiusMeters),
                 ignoreGround ? WorldInteractionKind.Actor : WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
@@ -237,10 +245,7 @@ namespace AnimalGame.Animals
                     avoidanceAngles[index]);
                 Vector2 candidatePosition = currentMapPosition
                                             + candidateDirection * step;
-                if (!map.TrySampleMapPosition(candidatePosition, out _)
-                    || IsObstacleSweepBlocked(
-                        currentMapPosition,
-                        candidatePosition))
+                if (!CanTraverseSegment(currentMapPosition, candidatePosition))
                 {
                     continue;
                 }
@@ -294,6 +299,30 @@ namespace AnimalGame.Animals
                 ignore: transform, previous: InteractionShape.Capsule(startMapPosition, startMapPosition, config.BodyRadiusMeters));
         }
 
+        private bool CanWalkAt(Vector2 position)
+        {
+            if (config.MaximumWalkSlopeDegrees >= 90f) return map.TrySampleMapPosition(position, out _);
+            return AnimalTerrainQuery.TrySample(map, position, out var sample)
+                && sample.SlopeDegrees <= config.MaximumWalkSlopeDegrees + .001f;
+        }
+
+        public bool CanTraverseSegment(Vector2 start, Vector2 end)
+        {
+            if (map == null || config == null || IsObstacleSweepBlocked(start, end)) return false;
+            if (SegmentFilter != null && !SegmentFilter(start, end)) return false;
+            Vector2 spacing = map.SampleSpacing(start);
+            float stride = Mathf.Clamp(Mathf.Min(spacing.x, spacing.y) * .5f, .05f, .25f);
+            int count = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(start, end) / stride));
+            Vector2 previous = start;
+            for (int i = 0; i <= count; i++)
+            {
+                Vector2 position = Vector2.Lerp(start, end, i / (float)count);
+                if (!CanWalkAt(position) || (i > 0 && SegmentFilter != null && !SegmentFilter(previous, position))) return false;
+                previous = position;
+            }
+            return true;
+        }
+
         private void ApplyMapPosition(Vector2 mapPositionMeters)
         {
             Vector3 worldPosition = map.MapPositionToWorld(mapPositionMeters);
@@ -317,7 +346,7 @@ namespace AnimalGame.Animals
             float nextAngle = Mathf.MoveTowardsAngle(
                 currentAngle,
                 targetAngle,
-                config.TurnSpeedDegreesPerSecond * deltaTime);
+                Mathf.Max(0f, FacingTurnSpeedDegreesPerSecond ?? config.TurnSpeedDegreesPerSecond) * deltaTime);
             transform.rotation = Quaternion.Euler(0f, 0f, nextAngle);
             WorldInteraction.MarkHierarchySpatialDirty(transform);
             FacingMapDirection = map.WorldDirectionToMapDirection(transform.up);
@@ -325,17 +354,17 @@ namespace AnimalGame.Animals
 
         private bool TickDisplacement(float deltaTime)
         {
-            if (!wasDisplaced && impactVelocity.sqrMagnitude <= .001f) return false;
             Vector2 position = CurrentMapPosition;
+            bool steep = !IsAerialMovement && config.MaximumWalkSlopeDegrees < 90f
+                && AnimalTerrainQuery.TrySample(map, position, out var ground)
+                && ground.SlopeDegrees > config.SlideSlopeDegrees + .001f;
+            if (!steep && !wasDisplaced && impactVelocity.sqrMagnitude <= .001f) return false;
+            wasDisplaced = true;
             // Passive movement uses solid sweeps, but may enter dangerous slopes/water.
-            if (map.TrySampleMapPosition(position, out float height))
+            if (AnimalTerrainQuery.TrySample(map, position, out var sampledGround))
             {
-                const float spacing = .2f;
-                float gx = map.TrySampleMapPosition(position + Vector2.right * spacing, out float hx) ? (hx - height) / spacing : 0f;
-                float gy = map.TrySampleMapPosition(position + Vector2.up * spacing, out float hy) ? (hy - height) / spacing : 0f;
-                Vector2 gradient = new Vector2(gx, gy);
-                if (gradient.magnitude > Mathf.Tan(55f * Mathf.Deg2Rad))
-                    impactVelocity += -gradient.normalized * 6f * deltaTime;
+                if (sampledGround.SlopeDegrees > config.SlideSlopeDegrees + .001f)
+                    impactVelocity += -sampledGround.Gradient.normalized * 6f * deltaTime;
             }
             float damping = Mathf.Exp(-5f * deltaTime);
             Vector2 delta = impactVelocity * ((1f - damping) / 5f);

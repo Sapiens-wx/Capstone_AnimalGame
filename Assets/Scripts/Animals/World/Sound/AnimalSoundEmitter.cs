@@ -39,6 +39,8 @@ namespace AnimalGame.Animals
             new AnimalSoundWaveSettings(0.55f, 0.68f, 5, 0.75f, 1.1f, 0.76f);
 
         [Header("Movement Sounds")]
+        [SerializeField] private AnimalSoundWaveSettings howlingSound =
+            new AnimalSoundWaveSettings(4f, 1.6f, 6, 3f, 5f, .9f);
         [SerializeField] private AnimalSoundWaveSettings landMovementSound =
             new AnimalSoundWaveSettings(0.78f, 0.62f, 5, 0.48f, 0.68f, 0.7f);
         [SerializeField] private AnimalSoundWaveSettings waterMovementSound =
@@ -195,6 +197,8 @@ namespace AnimalGame.Animals
         {
             switch (soundKind)
             {
+                case AnimalSoundKind.Howling:
+                    return howlingSound;
                 case AnimalSoundKind.Idle:
                     return idleSound;
                 case AnimalSoundKind.Looking:
@@ -288,6 +292,7 @@ namespace AnimalGame.Animals
                 0.1f,
                 2f);
             idleSound?.ClampValues();
+            howlingSound?.ClampValues();
             lookingSound?.ClampValues();
             curiousSound?.ClampValues();
             eatingSound?.ClampValues();

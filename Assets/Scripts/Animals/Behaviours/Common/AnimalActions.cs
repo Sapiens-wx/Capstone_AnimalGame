@@ -161,7 +161,6 @@ namespace AnimalGame.Animals
 
     public sealed class AggressiveAction : AnimalAction
     {
-        private readonly List<WorldInteraction> hits = new();
         private float recharge;
         private Transform target;
         public override void Enter(AnimalContext c) { target = c.Agent.Perception.PrimaryThreat; recharge = 0f; }
@@ -179,11 +178,7 @@ namespace AnimalGame.Animals
             if (distance <= c.Config.BodyRadiusMeters + targetRadius + c.Config.AttackPadding)
             {
                 c.Motor.Stop();
-                Vector2 center = c.Motor.CurrentMapPosition + (destination - c.Motor.CurrentMapPosition).normalized * c.Config.BodyRadiusMeters;
-                WorldInteractionQuery.Query(InteractionShape.Circle(center, c.Config.ImpactRadius), WorldInteractionKind.Collision,
-                    c.Agent.Map, c.Agent.gameObject.scene, hits, ignore: c.Agent.transform);
-                foreach (WorldInteraction hit in hits)
-                    if (hit is AnimalBody || hit is AnimalGame.RobotMap.PlayerWorldBody) c.Agent.Simulation.Hit(c.Agent, hit.transform, true);
+                AnimalImpact.Apply(c, destination - c.Motor.CurrentMapPosition);
                 recharge = 1f;
                 return Random.value < .6f ? AnimalActionStatus.Succeeded : AnimalActionStatus.Running;
             }
@@ -195,11 +190,11 @@ namespace AnimalGame.Animals
     public sealed class HuntAction : AnimalAction
     {
         private AnimalAgent target;
-        private readonly List<WorldInteraction> candidates = new();
+        private readonly bool corpseOnly;
         private float started, feedingSeconds, lastSelection;
         private bool feeding, reserved;
         public override AnimalState PhotoState => feeding ? AnimalState.Eating : AnimalState.Moving;
-        public HuntAction(AnimalAgent initialTarget = null) { target = initialTarget; }
+        public HuntAction(AnimalAgent initialTarget = null, bool corpseOnly = false) { target = initialTarget; this.corpseOnly = corpseOnly; }
         public override void Enter(AnimalContext c)
         {
             started = c.Runtime.Time;
@@ -211,13 +206,13 @@ namespace AnimalGame.Animals
         public override AnimalActionStatus Tick(AnimalContext c, float dt)
         {
             if (c.Runtime.Time - started >= c.Config.HuntTimeoutSeconds) return AnimalActionStatus.Failed;
-            if (target == null || !target.IsInitialized || target.Runtime.Removed || !c.Config.Eats(target.Config)
+            if (!AnimalHuntTargets.Eligible(c, target, corpseOnly)
                 || Vector2.Distance(c.Motor.CurrentMapPosition, target.Motor.CurrentMapPosition) > c.Config.ChaseRadiusMeters)
             { Release(c); target = null; }
             if (!feeding && c.Runtime.Time - lastSelection >= .5f)
             {
                 lastSelection = c.Runtime.Time;
-                AnimalAgent selected = SelectTarget(c);
+                AnimalAgent selected = AnimalHuntTargets.Select(c, target, corpseOnly);
                 if (selected != null && selected != target) { Release(c); target = selected; }
             }
             c.Runtime.Target = target;
@@ -262,24 +257,6 @@ namespace AnimalGame.Animals
             if (c.Motor.Result == AnimalMovementResult.NoProgress)
             { c.Runtime.FailedTargets[target] = c.Runtime.Time + 5f; return AnimalActionStatus.Failed; }
             return AnimalActionStatus.Running;
-        }
-        private AnimalAgent SelectTarget(AnimalContext c)
-        {
-            AnimalAgent selected = target;
-            float nearest = target != null ? Vector2.Distance(c.Motor.CurrentMapPosition, target.Motor.CurrentMapPosition) * .8f : float.PositiveInfinity;
-            WorldInteractionQuery.Query(InteractionShape.Circle(c.Motor.CurrentMapPosition, c.Config.HuntingRadiusMeters),
-                WorldInteractionKind.Collision, c.Agent.Map, c.Agent.gameObject.scene, candidates, ignore: c.Agent.transform);
-            foreach (WorldInteraction item in candidates)
-            {
-                AnimalAgent prey = item.GetComponent<AnimalAgent>();
-                if (prey == null || !prey.IsInitialized || prey.Runtime.Removed || !c.Config.Eats(prey.Config)
-                    || (c.Runtime.FailedTargets.TryGetValue(prey, out float retryAt) && c.Runtime.Time < retryAt)
-                    || (c.Runtime.Group != null && prey.Runtime.Group == c.Runtime.Group)
-                    || (prey.Health.IsDead && (c.Runtime.Time < c.Runtime.FeedCooldownUntil || !prey.Health.CanFeed(c.Agent)))) continue;
-                float distance = Vector2.Distance(c.Motor.CurrentMapPosition, prey.Motor.CurrentMapPosition);
-                if (distance < nearest) { nearest = distance; selected = prey; }
-            }
-            return selected;
         }
         private void Release(AnimalContext c)
         {

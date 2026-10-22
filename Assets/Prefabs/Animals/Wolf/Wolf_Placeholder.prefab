@@ -218,9 +218,18 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4641402971349804924}
+  - component: {fileID: 9010943531982006058}
+  - component: {fileID: 8546145185483136236}
+  - component: {fileID: 6688424352525102916}
+  - component: {fileID: 2442668759248348903}
+  - component: {fileID: 4511366766958947892}
+  - component: {fileID: 950923351353688800}
+  - component: {fileID: 7723140912345678901}
+  - component: {fileID: 4693375148983939860}
+  - component: {fileID: 4509910512206878976}
   - component: {fileID: 7339224301837501201}
   m_Layer: 0
-  m_Name: Static_Animal
+  m_Name: Wolf_Placeholder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -242,6 +251,248 @@ Transform:
   - {fileID: 3351961163244372313}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9010943531982006058
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96ee1c46ec8141fd970e39063a8ba4cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  map: {fileID: 0}
+  mapPositionMeters: {x: 0, y: 0}
+  sampledSurfaceHeightMeters: 0
+  footprintRadiusMeters: .25
+  clampInsideMap: 1
+--- !u!114 &8546145185483136236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2158aed473b09a54a963048b911b8184, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &6688424352525102916
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5686986a4b3f54b4397a7a9e3feeaf47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &2442668759248348903
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d2afeeaad8bce846ad89b924897f9fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  visualRoot: {fileID: 3351961163244372313}
+  bodyFill: {fileID: 6051157855037081251}
+  bodyOutline: {fileID: 1874912894510113343}
+  directionIndicator: {fileID: 6459853648258718936}
+  discoveryVisual: {fileID: 4509910512206878976}
+--- !u!114 &4511366766958947892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d6091ada3b14b5aa88ccb6667656ffe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &950923351353688800
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5ee3c99ba6f75f847ae3aec44f394a02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  config: {fileID: 11400000, guid: 49035b27c45042489393e1d8effff8f5, type: 2}
+  behaviourSet: {fileID: 4511366766958947892}
+  placeholderView: {fileID: 2442668759248348903}
+  soundEmitter: {fileID: 7723140912345678901}
+--- !u!114 &7723140912345678901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7d6e4f31c2b4a5f8e9d0c1b2a3f4e56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  soundWaveShader: {fileID: 4800000, guid: e6f2a8c1d4b7457e90a3c5b8f1d6e2a9, type: 3}
+  soundWaveColor: {r: 0.88, g: 0.88, b: 0.88, a: 0.9}
+  ringBreakup: 0.38
+  ringIrregularity: 0.28
+  soundOriginOffset: {x: 0, y: 0}
+  sortingOrder: 995
+  overallRadiusMultiplier: 0.5
+  overallRingCountMultiplier: 0.5
+  overallEmissionFrequencyMultiplier: 0.15
+  idleSound:
+    enabled: 1
+    maximumRadiusMeters: 0.28
+    durationSeconds: 0.5
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.55
+    repeatIntervalSeconds: {x: 1.6, y: 2.4}
+    radiusVariation: 0.08
+  lookingSound:
+    enabled: 1
+    maximumRadiusMeters: 0.4
+    durationSeconds: 0.58
+    ringCount: 4
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.68
+    repeatIntervalSeconds: {x: 0.8, y: 1.25}
+    radiusVariation: 0.08
+  curiousSound:
+    enabled: 1
+    maximumRadiusMeters: 0.58
+    durationSeconds: 0.68
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.72
+    repeatIntervalSeconds: {x: 1.1, y: 1.65}
+    radiusVariation: 0.08
+  eatingSound:
+    enabled: 1
+    maximumRadiusMeters: 0.55
+    durationSeconds: 0.68
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.76
+    repeatIntervalSeconds: {x: 0.75, y: 1.1}
+    radiusVariation: 0.08
+  landMovementSound:
+    enabled: 1
+    maximumRadiusMeters: 0.78
+    durationSeconds: 0.62
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.7
+    repeatIntervalSeconds: {x: 0.48, y: 0.68}
+    radiusVariation: 0.08
+  waterMovementSound:
+    enabled: 1
+    maximumRadiusMeters: 0.68
+    durationSeconds: 0.72
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.68
+    repeatIntervalSeconds: {x: 0.58, y: 0.82}
+    radiusVariation: 0.08
+  fleeingSound:
+    enabled: 1
+    maximumRadiusMeters: 1.35
+    durationSeconds: 0.78
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.84
+    repeatIntervalSeconds: {x: 0.22, y: 0.34}
+    radiusVariation: 0.08
+  submergingSound:
+    enabled: 1
+    maximumRadiusMeters: 1.8
+    durationSeconds: 1
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.9
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  surfacingSound:
+    enabled: 1
+    maximumRadiusMeters: 2.2
+    durationSeconds: 1.1
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.94
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  showSoundRangeGizmos: 1
+--- !u!114 &4693375148983939860
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25aa56a0b0dc4e04893d1e8827863a7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  discoverableKind: 0
+  discoveryId: muskrat
+  startDiscovered: 0
+  biologicalScanCollisionRadiusMeters: 0.25
+--- !u!114 &4509910512206878976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c47c9ea2a7683c84aa315a667b426765, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  discoverable: {fileID: 4693375148983939860}
+  knownRenderers:
+  - {fileID: 6051157855037081251}
+  - {fileID: 1874912894510113343}
+  - {fileID: 6459853648258718936}
+  unknownRenderer: {fileID: 9121644353624982551}
+  revealDuration: 0.4
+  rollSpeedRange: {x: 0.6, y: 2.5}
+  rollSpeedChangeInterval: {x: 0.3, y: 1.2}
+  rollSpeedResponse: 5.5
+  polygonMorphDuration: {x: 0.4, y: 0.9}
+  recognitionFieldScaleRange: {x: 1, y: 1.5}
+  fieldScaleHoldDuration: {x: 0.7, y: 1.8}
+  fieldScaleTransitionDuration: {x: 0.4, y: 0.9}
+  unknownPositionUpdateInterval: 0.01
+  unknownPositionRefreshAnimationDuration: 0.02
 --- !u!114 &7339224301837501201
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -254,12 +505,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d8c5ab2f1034e499f5d1c76a7b84320, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  species: 1
+  species: 4
   photoState: 0
-  speciesId: muskrat
-  displayName: "\u9E9D\u9F20"
-  englishName: Muskrat
-  scientificName: Ondatra zibethicus
+  speciesId: wolf
+  displayName: "狼"
+  englishName: Wolf
+  scientificName: Canis lupus
   regionName: Rocky Mountains
   accentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
   cognitionDegrees: 100
@@ -267,6 +518,7 @@ MonoBehaviour:
   cognitionReward: 0
   photoBoundsRenderers:
   - {fileID: 6051157855037081251}
+  - {fileID: 1874912894510113343}
 --- !u!1 &3470056907385243293
 GameObject:
   m_ObjectHideFlags: 0
