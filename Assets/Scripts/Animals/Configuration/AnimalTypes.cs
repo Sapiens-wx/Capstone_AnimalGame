@@ -11,7 +11,9 @@ namespace AnimalGame.Animals
         DiveAndResurface,
         PerchAtTree,
         FlyToTree,
-        PeckAtTree
+        PeckAtTree,
+        Idle,
+        Hunt
     }
 
     public enum AnimalFoodType
@@ -27,6 +29,25 @@ namespace AnimalGame.Animals
         [SerializeField] private AnimalDailyBehaviourKind behaviour;
         [SerializeField, Min(0f)] private float selectionWeight = 1f;
         [SerializeField] private Vector2 durationSeconds = new Vector2(3f, 6f);
+        [SerializeField] private AnimalActionDefinition action;
+        [SerializeField, Min(0f)] private float seasonMultiplier = 1f;
+        [SerializeField, Min(0f)] private float timeOfDayMultiplier = 1f;
+        [SerializeField, Min(0f)] private float cooldownSeconds;
+        [Tooltip("Spring, summer, autumn, winter weight multipliers.")]
+        [SerializeField] private Vector4 seasonalWeights = Vector4.one;
+        [Tooltip("00-06, 06-12, 12-18, 18-24 weight multipliers.")]
+        [SerializeField] private Vector4 timeOfDayWeights = Vector4.one;
+
+        public AnimalActionDefinition Action => action;
+        public float SeasonMultiplier => Mathf.Max(0f, seasonMultiplier);
+        public float TimeOfDayMultiplier => Mathf.Max(0f, timeOfDayMultiplier);
+        public float CooldownSeconds => Mathf.Max(0f, cooldownSeconds);
+        public float CalendarWeight(DateTime date)
+        {
+            int season = date.Month >= 3 && date.Month <= 5 ? 0 : date.Month <= 8 && date.Month >= 6 ? 1
+                : date.Month >= 9 && date.Month <= 11 ? 2 : 3;
+            return Mathf.Max(0f, seasonalWeights[season]) * Mathf.Max(0f, timeOfDayWeights[date.Hour / 6]);
+        }
 
         public AnimalDailyBehaviourKind Behaviour => behaviour;
         public float SelectionWeight => Mathf.Max(0f, selectionWeight);

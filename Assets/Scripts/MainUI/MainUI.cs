@@ -112,6 +112,7 @@ namespace AnimalGame.MainUI
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
         private DateTime lastCoordinateRefresh, gameTime;
+        public DateTime CurrentGameTime => gameTime;
         private double elapsedGameClockSeconds;
         private bool gameClockInitialized;
         private bool telemetryNeedsRefresh = true;

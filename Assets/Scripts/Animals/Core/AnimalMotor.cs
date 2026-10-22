@@ -48,6 +48,17 @@ namespace AnimalGame.Animals
         private AnimalSpeciesConfig config;
         private float targetSpeedMetersPerSecond;
         private Vector2 desiredFacingMapDirection = Vector2.up;
+        private Vector2 impactVelocity;
+        private float blockedTime;
+        private bool wasDisplaced;
+        public AnimalMovementResult Result { get; private set; }
+        public bool IsDisplaced => impactVelocity.sqrMagnitude > .001f || wasDisplaced;
+        public void Knockback(Vector2 direction, float distance)
+        {
+            if (direction.sqrMagnitude < .000001f || distance <= 0f) return;
+            impactVelocity += direction.normalized * distance * 5f;
+            wasDisplaced = true;
+        }
 
         public void Initialize(
             MapTestSceneController mapController,
@@ -101,6 +112,7 @@ namespace AnimalGame.Animals
             TargetMapPosition = mapPositionMeters;
             targetSpeedMetersPerSecond = Mathf.Max(0f, speedMetersPerSecond);
             IsAerialMovement = aerialMovement;
+            if (!HasTarget || HasArrived) { Result = AnimalMovementResult.Moving; blockedTime = 0f; }
             HasTarget = true;
             HasArrived = false;
             return true;
@@ -112,6 +124,8 @@ namespace AnimalGame.Animals
             HasArrived = false;
             CurrentSpeedMetersPerSecond = 0f;
             IsAerialMovement = false;
+            Result = AnimalMovementResult.Stopped;
+            blockedTime = 0f;
         }
 
         public void FaceMapPosition(Vector2 mapPositionMeters)
@@ -134,6 +148,7 @@ namespace AnimalGame.Animals
                 return;
 
             Vector2 currentMapPosition = CurrentMapPosition;
+            if (TickDisplacement(deltaTime)) return;
             if (HasTarget)
             {
                 Vector2 toTarget = TargetMapPosition - currentMapPosition;
@@ -144,6 +159,7 @@ namespace AnimalGame.Animals
                     HasArrived = true;
                     CurrentSpeedMetersPerSecond = 0f;
                     IsAerialMovement = false;
+                    Result = AnimalMovementResult.Reached;
                 }
                 else
                 {
@@ -162,10 +178,14 @@ namespace AnimalGame.Animals
                                                   + movementDirection * step;
                         ApplyMapPosition(nextMapPosition);
                         CurrentSpeedMetersPerSecond = step / deltaTime;
+                        blockedTime = 0f;
+                        Result = AnimalMovementResult.Moving;
                     }
                     else
                     {
                         CurrentSpeedMetersPerSecond = 0f;
+                        blockedTime += deltaTime;
+                        Result = blockedTime > 2f ? AnimalMovementResult.NoProgress : AnimalMovementResult.Blocked;
                     }
                 }
             }
@@ -190,7 +210,7 @@ namespace AnimalGame.Animals
             return true;
         }
 
-        public bool CanOccupyMapPosition(Vector2 mapPositionMeters)
+        public bool CanOccupyMapPosition(Vector2 mapPositionMeters, bool ignoreGround = false)
         {
             if (map == null || config == null
                 || !map.TrySampleMapPosition(mapPositionMeters, out _))
@@ -200,7 +220,8 @@ namespace AnimalGame.Animals
 
             return !WorldInteractionQuery.Query(
                 InteractionShape.Capsule(mapPositionMeters, mapPositionMeters, config.BodyRadiusMeters),
-                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, gameObject.scene);
+                ignoreGround ? WorldInteractionKind.Actor : WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
+                map, gameObject.scene, ignore: transform);
         }
 
         private bool TryChooseMovementDirection(
@@ -256,6 +277,10 @@ namespace AnimalGame.Animals
             }
 
             movementDirection = directDirection;
+            if (WorldInteractionQuery.Query(InteractionShape.Capsule(currentMapPosition, candidatePosition, config.BodyRadiusMeters),
+                WorldInteractionKind.Actor, map, gameObject.scene, ignore: transform,
+                previous: InteractionShape.Circle(currentMapPosition, config.BodyRadiusMeters)))
+            { movementDirection = Vector2.zero; return false; }
             return true;
         }
 
@@ -266,7 +291,7 @@ namespace AnimalGame.Animals
             return WorldInteractionQuery.Query(
                 InteractionShape.Capsule(startMapPosition, endMapPosition, config.BodyRadiusMeters),
                 WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, gameObject.scene,
-                previous: InteractionShape.Capsule(startMapPosition, startMapPosition, config.BodyRadiusMeters));
+                ignore: transform, previous: InteractionShape.Capsule(startMapPosition, startMapPosition, config.BodyRadiusMeters));
         }
 
         private void ApplyMapPosition(Vector2 mapPositionMeters)
@@ -274,6 +299,7 @@ namespace AnimalGame.Animals
             Vector3 worldPosition = map.MapPositionToWorld(mapPositionMeters);
             worldPosition.z = transform.position.z;
             transform.position = worldPosition;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
         }
 
         private void RotateTowardsDesiredFacing(float deltaTime)
@@ -293,7 +319,39 @@ namespace AnimalGame.Animals
                 targetAngle,
                 config.TurnSpeedDegreesPerSecond * deltaTime);
             transform.rotation = Quaternion.Euler(0f, 0f, nextAngle);
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
             FacingMapDirection = map.WorldDirectionToMapDirection(transform.up);
+        }
+
+        private bool TickDisplacement(float deltaTime)
+        {
+            if (!wasDisplaced && impactVelocity.sqrMagnitude <= .001f) return false;
+            Vector2 position = CurrentMapPosition;
+            // Passive movement uses solid sweeps, but may enter dangerous slopes/water.
+            if (map.TrySampleMapPosition(position, out float height))
+            {
+                const float spacing = .2f;
+                float gx = map.TrySampleMapPosition(position + Vector2.right * spacing, out float hx) ? (hx - height) / spacing : 0f;
+                float gy = map.TrySampleMapPosition(position + Vector2.up * spacing, out float hy) ? (hy - height) / spacing : 0f;
+                Vector2 gradient = new Vector2(gx, gy);
+                if (gradient.magnitude > Mathf.Tan(55f * Mathf.Deg2Rad))
+                    impactVelocity += -gradient.normalized * 6f * deltaTime;
+            }
+            float damping = Mathf.Exp(-5f * deltaTime);
+            Vector2 delta = impactVelocity * ((1f - damping) / 5f);
+            impactVelocity *= damping;
+            int steps = Mathf.Max(1, Mathf.CeilToInt(delta.magnitude / .1f));
+            for (int i = 0; i < steps; i++)
+            {
+                Vector2 next = position + delta / steps;
+                if (!map.TrySampleMapPosition(next, out _) || IsObstacleSweepBlocked(position, next))
+                { impactVelocity = Vector2.zero; wasDisplaced = false; CurrentSpeedMetersPerSecond = 0f; return true; }
+                ApplyMapPosition(next);
+                position = next;
+            }
+            CurrentSpeedMetersPerSecond = impactVelocity.magnitude;
+            if (impactVelocity.sqrMagnitude < .001f) { impactVelocity = Vector2.zero; wasDisplaced = false; }
+            return true;
         }
 
         private static Vector2 Rotate(Vector2 value, float degrees)

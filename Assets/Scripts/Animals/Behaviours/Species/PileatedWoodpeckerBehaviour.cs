@@ -97,6 +97,11 @@ namespace AnimalGame.Animals
         private bool missingBirthTreeWarningReported;
 
         public override bool SupportsAggression => false;
+        public override AnimalAction CreateEscapeAction() => Config.EscapeAction != null
+            ? base.CreateEscapeAction() : new ReturnToTreeEscapeAction(this);
+        public override AnimalState PhotoState => HasConfiguredAction ? ConfiguredPhotoState
+            : dailyPhase == DailyPhase.Pecking ? AnimalState.Eating
+            : dailyPhase == DailyPhase.Flying ? AnimalState.Moving : AnimalState.Resting;
         public TreeHabitat BirthTree => birthTree;
         public TreeHabitat CurrentTree => currentTree;
         public TreeHabitat TargetTree => targetTree;
@@ -150,6 +155,7 @@ namespace AnimalGame.Animals
 
         public override void TickDaily(float deltaTime)
         {
+            if (TickConfiguredAction(deltaTime)) return;
             switch (dailyPhase)
             {
                 case DailyPhase.Perched:
@@ -175,6 +181,7 @@ namespace AnimalGame.Animals
 
         public override void ExitDaily()
         {
+            CancelConfiguredAction();
             if (dailyPhase == DailyPhase.Flying && IsUsableTree(targetTree))
             {
                 interruptedTargetTree = targetTree;
@@ -392,11 +399,14 @@ namespace AnimalGame.Animals
 
         private void BeginNextDailyBehaviour()
         {
+            Agent.DailyScheduler.Complete(currentDailySettings);
             RestoreDailyVisualState();
             Motor.Stop();
             currentDailySettings = null;
             targetTree = null;
             availableBehaviours.Clear();
+            dailyPhase = DailyPhase.None;
+            if (BeginGroupAction()) return;
 
             IReadOnlyList<AnimalDailyBehaviourSettings> settingsList =
                 Config.DailyBehaviours;
@@ -406,8 +416,8 @@ namespace AnimalGame.Animals
                 {
                     AnimalDailyBehaviourSettings settings = settingsList[index];
                     if (settings != null
-                        && settings.SelectionWeight > 0f
-                        && IsDailyBehaviourAvailable(settings.Behaviour))
+                        && Agent.DailyScheduler.Weight(settings) > 0f
+                        && (IsSharedDaily(settings) || IsDailyBehaviourAvailable(settings.Behaviour)))
                     {
                         availableBehaviours.Add(settings);
                     }
@@ -450,29 +460,14 @@ namespace AnimalGame.Animals
 
         private AnimalDailyBehaviourSettings ChooseWeightedDailyBehaviour()
         {
-            float totalWeight = 0f;
-            for (int index = 0; index < availableBehaviours.Count; index++)
-                totalWeight += availableBehaviours[index].SelectionWeight;
-            if (totalWeight <= 0f)
-                return null;
-
-            float selection = Random.value * totalWeight;
-            for (int index = 0; index < availableBehaviours.Count; index++)
-            {
-                AnimalDailyBehaviourSettings settings =
-                    availableBehaviours[index];
-                selection -= settings.SelectionWeight;
-                if (selection <= 0f)
-                    return settings;
-            }
-
-            return availableBehaviours[availableBehaviours.Count - 1];
+            return Agent.DailyScheduler.Choose(availableBehaviours);
         }
 
         private bool TryBeginDailyBehaviour(
             AnimalDailyBehaviourSettings settings)
         {
             currentDailySettings = settings;
+            if (BeginConfiguredAction(settings)) { dailyPhase = DailyPhase.None; return true; }
             actionTimer = settings.ChooseDuration();
             travelTimer = 0f;
 
@@ -838,22 +833,11 @@ namespace AnimalGame.Animals
             if (map == null)
                 return;
 
-            Vector2 activityCentre = Agent != null
-                ? Agent.HomeMapPosition
-                : Vector2.zero;
-            if (IsUsableTree(birthTree))
-                birthTree.TryGetMapPosition(map, out activityCentre);
-            float radiusSquared = Config != null
-                ? Config.ActivityRadiusMeters * Config.ActivityRadiusMeters
-                : float.PositiveInfinity;
-
             foreach (TreeHabitat tree in TreeHabitat.ActiveTrees)
             {
                 if (!IsUsableTree(tree)
                     || !allowCurrent && tree == currentTree
-                    || !tree.TryGetMapPosition(map, out Vector2 treePosition)
-                    || (treePosition - activityCentre).sqrMagnitude
-                    > radiusSquared)
+                    || !tree.TryGetMapPosition(map, out Vector2 treePosition))
                 {
                     continue;
                 }
@@ -868,9 +852,7 @@ namespace AnimalGame.Animals
             if (!allowCurrent
                 && healthyCandidates.Count + deadCandidates.Count == 0
                 && IsUsableTree(currentTree)
-                && currentTree.TryGetMapPosition(map, out Vector2 currentPosition)
-                && (currentPosition - activityCentre).sqrMagnitude
-                <= radiusSquared)
+                && currentTree.TryGetMapPosition(map, out Vector2 currentPosition))
             {
                 if (currentTree.IsDead)
                     deadCandidates.Add(currentTree);

@@ -1,6 +1,7 @@
 using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using AnimalGame.RobotArm;
+using AnimalGame.World;
 using UnityEngine;
 
 namespace AnimalGame.MapTest
@@ -168,6 +169,7 @@ namespace AnimalGame.MapTest
             }
 
             robot.transform.position = map.MapPositionToWorld(playerSpawnMapPositionMeters);
+            WorldInteraction.MarkHierarchySpatialDirty(robot.transform);
             map.UseCamera(mapCamera);
             map.UseSurfaceRevealUi(scanChargeUi);
             map.UseElevationFilterTarget(robot.transform);
@@ -226,6 +228,7 @@ namespace AnimalGame.MapTest
             position.x = Mathf.Clamp(position.x, bounds.min.x, bounds.max.x);
             position.y = Mathf.Clamp(position.y, bounds.min.y, bounds.max.y);
             robot.transform.position = position;
+            WorldInteraction.MarkHierarchySpatialDirty(robot.transform);
         }
 
         private void UpdatePlayerHeight()

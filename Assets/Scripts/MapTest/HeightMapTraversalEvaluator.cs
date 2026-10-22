@@ -290,6 +290,7 @@ namespace AnimalGame.MapTest
         public float HardStopProbeDistanceMeters => hardStopProbeDistanceMeters;
         public float RobotObstacleCollisionRadiusMeters =>
             robotObstacleCollisionRadiusMeters;
+        public Transform CollisionQueryIgnore { get; set; }
         public float PathSampleSpacingMeters => pathEvaluationSpacingMeters;
         public bool IsInitialized => map != null && map.HasGeneratedMap;
         public MapTestSceneController Map => map;
@@ -792,7 +793,7 @@ namespace AnimalGame.MapTest
             pushContacts.Clear();
             WorldInteractionQuery.Query(InteractionShape.Capsule(start, end, radius),
                 WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
-                map, map.gameObject.scene, pushContacts, previous: before, ignoreHeld: ignoreHeld);
+                map, map.gameObject.scene, pushContacts, ignore: CollisionQueryIgnore, previous: before, ignoreHeld: ignoreHeld);
             foreach (WorldInteraction item in pushContacts)
             {
                 if ((item.Kind & WorldInteractionKind.Pushable) == 0 || item.Owner != null)
@@ -841,7 +842,7 @@ namespace AnimalGame.MapTest
             WorldInteractionQuery.Query(InteractionShape.Capsule(start, end, radius),
                 WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
                 map, map.gameObject.scene, pushContacts,
-                previous: InteractionShape.Capsule(start, start, radius), ignoreHeld: ignoreHeld);
+                ignore: CollisionQueryIgnore, previous: InteractionShape.Capsule(start, start, radius), ignoreHeld: ignoreHeld);
             float multiplier = 1f;
             foreach (WorldInteraction item in pushContacts)
                 if ((item.Kind & WorldInteractionKind.Pushable) != 0 && item.Owner == null)
@@ -860,7 +861,7 @@ namespace AnimalGame.MapTest
             return WorldInteractionQuery.Query(
                 InteractionShape.Capsule(startMapPosition, endMapPosition, radius),
                 WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, map.gameObject.scene,
-                previous: InteractionShape.Capsule(startMapPosition, startMapPosition, radius));
+                ignore: CollisionQueryIgnore, previous: InteractionShape.Capsule(startMapPosition, startMapPosition, radius));
         }
 
         public SlopeTraversalResult EvaluateMovement(

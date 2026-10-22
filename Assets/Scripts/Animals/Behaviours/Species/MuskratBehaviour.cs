@@ -57,6 +57,11 @@ namespace AnimalGame.Animals
         private bool emergingFromWater;
 
         public override bool SupportsAggression => false;
+        public override AnimalAction CreateEscapeAction() => Config.EscapeAction != null
+            ? base.CreateEscapeAction() : new DiveEscapeAction(this);
+        public override AnimalState PhotoState => HasConfiguredAction ? ConfiguredPhotoState
+            : dailyPhase == DailyPhase.Eating ? AnimalState.Eating
+            : Motor != null && Motor.HasTarget ? AnimalState.Moving : AnimalState.Resting;
 
         public override void EnterDaily()
         {
@@ -66,6 +71,7 @@ namespace AnimalGame.Animals
 
         public override void TickDaily(float deltaTime)
         {
+            if (TickConfiguredAction(deltaTime)) return;
             switch (dailyPhase)
             {
                 case DailyPhase.Eating:
@@ -109,6 +115,7 @@ namespace AnimalGame.Animals
 
         public override void ExitDaily()
         {
+            CancelConfiguredAction();
             CleanupDailyVisualState();
             dailyPhase = DailyPhase.None;
             currentDailySettings = null;
@@ -287,12 +294,15 @@ namespace AnimalGame.Animals
 
         private void BeginNextDailyBehaviour()
         {
+            Agent.DailyScheduler.Complete(currentDailySettings);
             CleanupDailyVisualState();
             Motor.Stop();
             currentDailySettings = null;
             currentFoodSource = null;
             activitySoundCountdown = 0f;
             availableBehaviours.Clear();
+            dailyPhase = DailyPhase.None;
+            if (BeginGroupAction()) return;
 
             IReadOnlyList<AnimalDailyBehaviourSettings> configuredBehaviours =
                 Config.DailyBehaviours;
@@ -305,8 +315,8 @@ namespace AnimalGame.Animals
                     AnimalDailyBehaviourSettings settings =
                         configuredBehaviours[index];
                     if (settings != null
-                        && settings.SelectionWeight > 0f
-                        && IsDailyBehaviourAvailable(settings.Behaviour))
+                        && Agent.DailyScheduler.Weight(settings) > 0f
+                        && (IsSharedDaily(settings) || IsDailyBehaviourAvailable(settings.Behaviour)))
                     {
                         availableBehaviours.Add(settings);
                     }
@@ -361,29 +371,14 @@ namespace AnimalGame.Animals
 
         private AnimalDailyBehaviourSettings ChooseWeightedDailyBehaviour()
         {
-            float totalWeight = 0f;
-            for (int index = 0; index < availableBehaviours.Count; index++)
-                totalWeight += availableBehaviours[index].SelectionWeight;
-            if (totalWeight <= 0f)
-                return null;
-
-            float selection = Random.value * totalWeight;
-            for (int index = 0; index < availableBehaviours.Count; index++)
-            {
-                AnimalDailyBehaviourSettings settings =
-                    availableBehaviours[index];
-                selection -= settings.SelectionWeight;
-                if (selection <= 0f)
-                    return settings;
-            }
-
-            return availableBehaviours[availableBehaviours.Count - 1];
+            return Agent.DailyScheduler.Choose(availableBehaviours);
         }
 
         private bool TryBeginDailyBehaviour(
             AnimalDailyBehaviourSettings settings)
         {
             currentDailySettings = settings;
+            if (BeginConfiguredAction(settings)) { dailyPhase = DailyPhase.None; return true; }
             actionTimer = settings.ChooseDuration();
             travelTimer = 0f;
 
@@ -618,10 +613,7 @@ namespace AnimalGame.Animals
                     || !source.isActiveAndEnabled
                     || !source.TryGetMapPosition(
                         Agent.Map,
-                        out Vector2 sourceMapPosition)
-                    || Vector2.Distance(
-                        Agent.HomeMapPosition,
-                        sourceMapPosition) > Config.ActivityRadiusMeters)
+                        out Vector2 sourceMapPosition))
                 {
                     continue;
                 }
@@ -678,9 +670,7 @@ namespace AnimalGame.Animals
             {
                 Vector2 direction = Rotate(outward.normalized, index * 30f);
                 Vector2 candidate = foodPosition + direction * approachDistance;
-                if (Vector2.Distance(candidate, Agent.HomeMapPosition)
-                    <= Config.ActivityRadiusMeters
-                    && Motor.CanOccupyMapPosition(candidate))
+                if (Motor.CanOccupyMapPosition(candidate))
                 {
                     approachPoint = candidate;
                     return true;
@@ -694,7 +684,7 @@ namespace AnimalGame.Animals
         {
             for (int attempt = 0; attempt < 40; attempt++)
             {
-                Vector2 candidate = Agent.HomeMapPosition
+                Vector2 candidate = Agent.ActivityCenter
                                     + Random.insideUnitCircle
                                     * Config.ActivityRadiusMeters;
                 if (Agent.Map.TrySampleMapPosition(candidate, out _)

@@ -11,6 +11,7 @@ namespace AnimalGame.Animals
         Resting = 6,
         Eating = 7,
         Moving = 8,
-        Sleeping = 9
+        Sleeping = 9,
+        Dead = 10
     }
 }

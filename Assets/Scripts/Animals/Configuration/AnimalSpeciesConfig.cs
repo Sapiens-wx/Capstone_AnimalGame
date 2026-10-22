@@ -11,7 +11,50 @@ namespace AnimalGame.Animals
         [Header("Identity")]
         [SerializeField] private string speciesName = "Muskrat";
 
+        [Header("Life And Corpse")]
+        [SerializeField, Min(1f)] private float maximumHealth = 100f;
+        [SerializeField] private Vector2 initialHealthRange = new Vector2(60f, 100f);
+        [SerializeField, Min(.01f)] private float corpseNutrition = 100f;
+        [SerializeField] private Sprite corpseSprite;
+
+        [Header("Hunting And Combat")]
+        [SerializeField] private AnimalActionDefinition escapeAction;
+        [SerializeField] private List<AnimalSpeciesConfig> preySpecies = new();
+        [SerializeField, Min(.1f)] private float huntingRadiusMeters = 20f;
+        [SerializeField, Min(.1f)] private float chaseRadiusMeters = 30f;
+        [SerializeField, Min(.1f)] private float huntTimeoutSeconds = 180f;
+        [SerializeField, Min(0f)] private float attackDamage = 15f;
+        [SerializeField, Min(0f)] private float aggressiveSpeedMetersPerSecond = 3f;
+        [SerializeField, Min(.1f)] private float aggressiveRadiusMeters = 15f;
+        [SerializeField, Min(0f)] private float attackPaddingMeters = .1f;
+        [SerializeField, Min(0f)] private float impactRadiusMeters = .5f;
+        [SerializeField] private Vector2 knockbackDamageRange = new Vector2(0f, 100f);
+        [SerializeField] private Vector2 knockbackDistanceRange = new Vector2(.1f, 2f);
+        [SerializeField, Min(.1f)] private float groupFollowRadiusMeters = 8f;
+
+        public float MaximumHealth => Mathf.Max(1f, maximumHealth);
+        public AnimalActionDefinition EscapeAction => escapeAction;
+        public float MinimumInitialHealth => Mathf.Clamp(Mathf.Min(initialHealthRange.x, initialHealthRange.y), .01f, MaximumHealth);
+        public float MaximumInitialHealth => Mathf.Clamp(Mathf.Max(initialHealthRange.x, initialHealthRange.y), MinimumInitialHealth, MaximumHealth);
+        public float CorpseNutrition => Mathf.Max(.01f, corpseNutrition);
+        public Sprite CorpseSprite => corpseSprite;
+        public float HuntingRadiusMeters => Mathf.Max(.1f, huntingRadiusMeters);
+        public float ChaseRadiusMeters => Mathf.Max(.1f, chaseRadiusMeters);
+        public float HuntTimeoutSeconds => Mathf.Max(.1f, huntTimeoutSeconds);
+        public float AttackDamage => Mathf.Max(0f, attackDamage);
+        public float AggressiveSpeed => Mathf.Max(0f, aggressiveSpeedMetersPerSecond);
+        public float AggressiveRadius => Mathf.Max(.1f, aggressiveRadiusMeters);
+        public float AttackPadding => Mathf.Max(0f, attackPaddingMeters);
+        public float ImpactRadius => Mathf.Max(0f, impactRadiusMeters);
+        public float GroupFollowRadius => Mathf.Max(.1f, groupFollowRadiusMeters);
+        public bool CanHunt => preySpecies != null && preySpecies.Count > 0;
+        public bool Eats(AnimalSpeciesConfig prey) => prey != null && preySpecies != null && preySpecies.Contains(prey);
+        public float KnockbackDistance(float damage) => Mathf.Lerp(
+            Mathf.Max(0f, knockbackDistanceRange.x), Mathf.Max(0f, knockbackDistanceRange.y),
+            Mathf.InverseLerp(knockbackDamageRange.x, Mathf.Max(knockbackDamageRange.x + .001f, knockbackDamageRange.y), damage));
+
         [Header("Activity And Movement")]
+        [Tooltip("Local target-search distance, not a boundary around the spawn point. Legacy water searches retain their authored range.")]
         [SerializeField, Min(0.1f)] private float activityRadiusMeters = 10f;
         [SerializeField, Min(0f)] private float dailyMoveSpeedMetersPerSecond = 1.15f;
         [SerializeField, Min(0f)] private float fleeSpeedMetersPerSecond = 2.8f;
@@ -69,7 +112,7 @@ namespace AnimalGame.Animals
 
         [Header("Alert Detection")]
         [SerializeField, Min(0.1f)] private float alertRadiusMeters = 8f;
-        [SerializeField, Min(0.05f)] private float detectionIntervalSeconds = 0.5f;
+        [SerializeField, Min(0.05f)] private float detectionIntervalSeconds = 0.3f;
         [SerializeField, Range(0f, 1f)] private float baseDetectionChancePerCheck = 0.08f;
         [SerializeField, Min(1f)] private float nearestDetectionMultiplier = 3f;
         [SerializeField, Min(0.01f)] private float playerSpeedForMaximumBonus = 3f;
@@ -80,7 +123,7 @@ namespace AnimalGame.Animals
         [SerializeField, Min(1f)] private float directLineOfSightDetectionMultiplier = 1.5f;
 
         [Header("Curious Reactions")]
-        [SerializeField, Min(0.02f)] private float reactionIntervalSeconds = 0.1f;
+        [SerializeField, Min(0.02f)] private float reactionIntervalSeconds = 0.15f;
         [SerializeField, Range(0f, 1f)] private float baseFleeChancePerCheck = 0.05f;
         [SerializeField, Min(1f)] private float nearestFleeMultiplier = 2.5f;
         [SerializeField, Range(0f, 1f)] private float baseAggressionChancePerCheck;

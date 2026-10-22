@@ -15,7 +15,8 @@ namespace AnimalGame.World
         Grabbable = 1 << 1,
         BodyCollision = 1 << 2, // Blocks bodies but not the mechanical arm.
         Pushable = 1 << 3,       // Add to Collision or BodyCollision on the same component.
-        Climbable = 1 << 4
+        Climbable = 1 << 4,
+        Actor = 1 << 5 // Bodies: flight ignores props while retaining actor separation.
     }
     public enum RecyclableSize { Small, Medium, Big }
     public enum WorldInteractionColliderShape { Box, Circle }

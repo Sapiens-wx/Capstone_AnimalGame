@@ -57,8 +57,6 @@ namespace AnimalGame.Animals
 
         [Header("Species Result Identity")]
         [SerializeField] private AnimalSpecies species = AnimalSpecies.Unknown;
-        [Tooltip("Manually authored capture state; not synchronized with AnimalAgent yet.")]
-        [SerializeField] private AnimalState photoState = AnimalState.Daily;
         [SerializeField] private string speciesId = "unknown";
         [SerializeField] private string displayName = "Unknown Animal";
         [SerializeField] private string englishName = "Unknown Animal";
@@ -88,7 +86,14 @@ namespace AnimalGame.Animals
             : speciesId;
         public string DisplayName => displayName;
         public AnimalSpecies Species => species;
-        public AnimalState PhotoState => photoState;
+        public AnimalState PhotoState
+        {
+            get
+            {
+                if (agent == null) agent = GetComponent<AnimalAgent>();
+                return agent != null ? agent.Snapshot.PhotoState : AnimalState.Daily;
+            }
+        }
         public string EnglishName => englishName;
         public string ScientificName => scientificName;
         public string RegionName => regionName;
