@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using AnimalGame.MapTest;
+using AnimalGame.World;
 using UnityEngine;
 
 namespace AnimalGame.Animals
@@ -731,10 +732,8 @@ namespace AnimalGame.Animals
                     continue;
                 }
 
-                if (Agent.Map.TrySampleStaticWaterMapPosition(
-                        candidate,
-                        out float depthMeters)
-                    && depthMeters >= Config.MinimumDiveWaterDepthMeters
+                if (WorldTerrainQuery.TrySampleWater(
+                        Agent.Map, candidate, out _, Config.MinimumDiveWaterDepthMeters)
                     && Motor.CanOccupyMapPosition(candidate)
                     && (!requireSafeEmergence
                         || IsEmergencePositionSafe(candidate)))
@@ -753,10 +752,8 @@ namespace AnimalGame.Animals
             out bool isWater)
         {
             Vector2 currentPosition = Motor.CurrentMapPosition;
-            if (Agent.Map.TrySampleStaticWaterMapPosition(
-                    currentPosition,
-                    out float currentDepthMeters)
-                && currentDepthMeters >= Config.MinimumDiveWaterDepthMeters
+            if (WorldTerrainQuery.TrySampleWater(
+                    Agent.Map, currentPosition, out _, Config.MinimumDiveWaterDepthMeters)
                 && Motor.CanOccupyMapPosition(currentPosition)
                 && IsEmergencePositionSafe(currentPosition))
             {
@@ -810,78 +807,22 @@ namespace AnimalGame.Animals
 
         private bool TryFindNearestWaterPoint(out Vector2 mapPosition)
         {
-            Vector2 currentPosition = Motor.CurrentMapPosition;
-            Vector2 mapSize = Agent.Map.MapSizeMeters;
-            float spacing = Mathf.Max(0.5f, Config.WaterSearchSpacingMeters);
-            float bestDistanceSquared = float.PositiveInfinity;
-            Vector2 bestPosition = Vector2.zero;
-            bool found = false;
-
-            for (float y = 0f; y <= mapSize.y; y += spacing)
-            {
-                for (float x = 0f; x <= mapSize.x; x += spacing)
-                {
-                    Vector2 candidate = new Vector2(x, y);
-                    float distanceSquared =
-                        (candidate - currentPosition).sqrMagnitude;
-                    if (distanceSquared >= bestDistanceSquared
-                        || !Agent.Map.TrySampleStaticWaterMapPosition(
-                            candidate,
-                            out float depthMeters)
-                        || depthMeters < Config.MinimumDiveWaterDepthMeters
-                        || !Motor.CanOccupyMapPosition(candidate))
-                    {
-                        continue;
-                    }
-
-                    found = true;
-                    bestDistanceSquared = distanceSquared;
-                    bestPosition = candidate;
-                }
-            }
-
-            if (!found)
-            {
-                mapPosition = Vector2.zero;
-                return false;
-            }
-
-            float refinementStep = spacing * 0.25f;
-            for (int y = -4; y <= 4; y++)
-            {
-                for (int x = -4; x <= 4; x++)
-                {
-                    Vector2 candidate = bestPosition
-                                        + new Vector2(
-                                            x * refinementStep,
-                                            y * refinementStep);
-                    float distanceSquared =
-                        (candidate - currentPosition).sqrMagnitude;
-                    if (distanceSquared >= bestDistanceSquared
-                        || !Agent.Map.TrySampleStaticWaterMapPosition(
-                            candidate,
-                            out float depthMeters)
-                        || depthMeters < Config.MinimumDiveWaterDepthMeters
-                        || !Motor.CanOccupyMapPosition(candidate))
-                    {
-                        continue;
-                    }
-
-                    bestDistanceSquared = distanceSquared;
-                    bestPosition = candidate;
-                }
-            }
-
-            mapPosition = bestPosition;
-            return true;
+            return WorldTerrainQuery.TryFindNearestWaterPoint(
+                Agent.Map,
+                Motor.CurrentMapPosition,
+                Config.MinimumDiveWaterDepthMeters,
+                Config.WaterSearchSpacingMeters,
+                out mapPosition,
+                candidate => Motor.CanOccupyMapPosition(candidate));
         }
 
         private bool IsStandingInWater()
         {
-            return Agent.Map.TrySampleStaticWaterMapPosition(
-                       Motor.CurrentMapPosition,
-                       out float depthMeters)
-                   && depthMeters >= Config.MinimumDiveWaterDepthMeters;
+            return WorldTerrainQuery.TrySampleWater(
+                Agent.Map,
+                Motor.CurrentMapPosition,
+                out _,
+                Config.MinimumDiveWaterDepthMeters);
         }
 
         private void BeginFleeSubmerge()
