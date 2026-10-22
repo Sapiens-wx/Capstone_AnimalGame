@@ -98,6 +98,26 @@ namespace AnimalGame.RobotMap
                 ConfigureCanvasSorting();
         }
 
+        /// <summary>Read the actual rendered marker and first-sight confirmation without changing discovery.</summary>
+        public bool TryGetScanStatus(DiscoverableEntity entity, out bool hasBeenSeen, out bool visible, out float remaining)
+        {
+            hasBeenSeen = visible = false;
+            remaining = 0f;
+            if (entity == null || !markers.TryGetValue(entity, out AnimalMarker marker)) return false;
+            hasBeenSeen = marker.HasBeenSeen;
+            remaining = marker.Remaining;
+            visible = remaining > 0f && marker.Root != null && marker.Root.gameObject.activeInHierarchy
+                && marker.Icon != null && marker.Icon.color.a > .001f;
+            return true;
+        }
+
+        /// <summary>Body visibility is independent of the temporary star's lifetime.</summary>
+        public bool IsAnimalBodyVisible(DiscoverableEntity entity) => entity != null && entity.IsScannable
+            && worldCamera != null && worldCamera.isActiveAndEnabled
+            && scanInput != null && scanInput.isActiveAndEnabled
+            && IsBodyInPlayerView(entity.GetComponent<AnimalPhotoSubject>(),
+                scanInput.GetUiCenterScreenPoint(), scanInput.GetUiRingScreenRadiusPixels());
+
         public void ShowScannedAnimal(DiscoverableEntity entity)
         {
             if (entity == null || entity.Kind != DiscoverableKind.Animal

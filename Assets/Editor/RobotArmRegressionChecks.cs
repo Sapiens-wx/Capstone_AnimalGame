@@ -176,7 +176,7 @@ namespace AnimalGame.Editor
             Check("Chest-zone A and L3 release starts recycling without a drop", CheckSimultaneousRecycleRelease);
             Check("Recycle cancels cleanly on falling, photo mode, external control or disable", CheckRecycleCancellation);
             Check("Recycle completion may disable the controller without restoring its input capture", CheckRecycleCompletionDisable);
-            Check("Release L3 drops before retracting", CheckRetracting);
+            Check("Release A drops before retracting and ignores a stale L3 hold", CheckRetracting);
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
             Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
             Check("Player-local rate input, boundary body following and fallen restrictions", CheckTurning);
@@ -549,6 +549,8 @@ namespace AnimalGame.Editor
                 Call(f.Arms, "Step", 0f, Vector2.up, true, false);
                 Require(f.Arms.HeldObject == null && item.Owner == null && item.gameObject.activeSelf, "Early A release did not drop");
                 item.gameObject.SetActive(false);
+                Call(f.Arms, "Step", 0f, Vector2.zero, false, false);
+                Call(f.Arms, "Step", 0f, Vector2.zero, true, false);
                 WorldInteraction single = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f, 1);
                 f.Tick(1, Vector2.up, true);
                 Require(f.Arms.HeldObject == single, "Single hand grab failed");
@@ -755,14 +757,15 @@ namespace AnimalGame.Editor
                     .InverseTransformPoint(item.WorldPosition), expectedEnd) < .0001f,
                     "Close medium garbage did not reach its full ingestion endpoint: " + location);
                 f.Tick(90, Vector2.zero, false, false);
-                Require(recycled == 1 && f.Arms.State == RobotArmState.Retracted,
-                    "Near-body recycling repeated completion or failed to retract: " + location);
+                Require(recycled == 1 && f.Arms.State == (armHeld ? RobotArmState.OuterOperating : RobotArmState.Retracted)
+                    && f.Arms.IsArmModeActive == armHeld,
+                    "Near-body recycling repeated completion or discarded the deployment request: " + location);
             }
 
-            // The new inner corridor belongs only to medium garbage. Small garbage retains
-            // its existing ellipse, including the narrowing inner corners and y > 0 limit.
+            // Both sizes retain their back and side limits. Small garbage now has its own
+            // single-hand-width inward corridor, while retaining the strict y > 0 boundary.
             foreach (bool medium in new[] { false, true })
-            foreach (string exclusion in new[] { "behind tolerance", "inner side", "small center", "small inner corner" })
+            foreach (string exclusion in new[] { "behind tolerance", "inner side", "small center" })
             using (var f = new Fixture(useProductionSettings: true))
             {
                 if (medium && exclusion.StartsWith("small")) continue;
@@ -770,12 +773,10 @@ namespace AnimalGame.Editor
                 WorldInteraction item = GrabProductionGarbage(f, medium);
                 Vector2 inlet = ChestInlet(f.Arms, medium);
                 float diameter = (float)Get(f.Arms, "diameter");
-                float halfWidth = diameter * (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter");
-                float halfDepth = diameter * (float)Get(f.Arms, "recycleZoneHalfDepthOfBodyDiameter");
+                float halfWidth = RecycleZone(f.Arms).x;
                 Vector2 position = new Vector2(inlet.x, -diameter * .06f);
                 if (exclusion == "inner side") position = new Vector2(inlet.x + halfWidth * 1.02f, 0f);
                 else if (exclusion == "small center") position = Vector2.zero;
-                else if (exclusion == "small inner corner") position = inlet + new Vector2(halfWidth * .9f, -halfDepth * .9f);
                 PlaceHeldAtLocal(f, item, position);
                 Call(f.Arms, "UpdateReady");
                 Require(!f.Arms.IsRecycleReady, "Inner recycling corridor accepted " + exclusion + ", medium=" + medium);
@@ -822,9 +823,7 @@ namespace AnimalGame.Editor
                 WorldInteraction item = GrabProductionGarbage(f, medium);
                 Vector2 inlet = (float)Get(f.Arms, "armLength")
                     * (Vector2)Get(f.Arms, medium ? "mediumDockPosition" : "smallDockPosition");
-                Vector2 zone = (float)Get(f.Arms, "diameter") * new Vector2(
-                    (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter"),
-                    (float)Get(f.Arms, "recycleZoneHalfDepthOfBodyDiameter"));
+                Vector2 zone = RecycleZone(f.Arms);
                 Vector2 position = inlet;
                 if (exclusion == "side") position += Vector2.right * zone.x * 1.02f;
                 else if (exclusion == "forward") position += Vector2.up * zone.y * 1.02f;
@@ -886,8 +885,8 @@ namespace AnimalGame.Editor
 
         private static void DriveHeldIntoChest(Fixture f)
         {
-            // Exercise both player-controlled axes: a single-hand grip is offset from the
-            // common centre, so straight retraction alone can miss the chest ellipse.
+            // Exercise deliberate two-axis delivery as well as the straight inward lanes
+            // covered by SmallRecycleRegressionChecks.
             Transform frame = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot;
             for (int i = 0; i < 600 && !f.Arms.IsRecycleReady; i++)
             {
@@ -1165,16 +1164,20 @@ namespace AnimalGame.Editor
                 Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
                     && item.LocalScale == originalScale && recycled == 1,
                     "Latched recycle did not finish exactly once and restore reusable garbage scale");
-                Require(f.Arms.State == (finalArmHeld ? RobotArmState.OuterOperating : RobotArmState.Retracting)
-                    && f.Arms.IsArmModeActive == finalArmHeld && mover.IsArmInputCaptured == finalArmHeld,
-                    "Recycle completion did not choose the state/capture matching current L3 input");
+                Require(f.Arms.State == RobotArmState.OuterOperating
+                    && f.Arms.IsArmModeActive && mover.IsArmInputCaptured,
+                    "Recycle completion discarded the pre-recycle deployment switch or input capture");
                 Require(Vector3.Distance(f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot
                     .InverseTransformPoint(item.WorldPosition), expectedEnd) < .0001f,
                     "Latched garbage did not finish at its ingestion endpoint");
                 f.Tick(90, Vector2.zero, false, finalArmHeld);
                 Require(recycled == 1 && f.Arms.HeldObject == null
-                    && f.Arms.State == (finalArmHeld ? RobotArmState.OuterOperating : RobotArmState.Retracted),
-                    "Post-recycle input repeated completion or failed to finish retraction");
+                    && f.Arms.State == RobotArmState.OuterOperating && mover.IsArmInputCaptured,
+                    "Post-recycle input repeated completion or lost retained deployment");
+                f.Tick(120, Vector2.zero, false, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsArmModeActive
+                    && mover.IsArmInputCaptured && recycled == 1,
+                    "Post-recycle open request lost deployment or repeated garbage completion");
             }
         }
 
@@ -1188,8 +1191,7 @@ namespace AnimalGame.Editor
                 Vector2 position = ChestInlet(f.Arms, medium);
                 bool accepts = release == "A and L3 inside";
                 if (release == "A and L3 outside")
-                    position.x += (float)Get(f.Arms, "diameter")
-                        * (float)Get(f.Arms, "recycleZoneHalfWidthOfBodyDiameter") * 1.02f;
+                    position.x += RecycleZone(f.Arms).x * 1.02f;
                 PlaceHeldAtLocal(f, item, position);
                 int recycled = 0;
                 Set(item, "onRecycled", (Action)(() => recycled++));
@@ -1208,6 +1210,24 @@ namespace AnimalGame.Editor
                         && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
                         "Simultaneous release failed to complete and retract automatically");
                 }
+                else if (release == "L3 only inside")
+                {
+                    Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.HeldObject == item
+                        && item.Owner == f.Arms && f.Arms.IsArmModeActive
+                        && f.Root.GetComponent<RobotMover>().IsArmInputCaptured && recycled == 0,
+                        "L3-only release dropped chest garbage despite A maintaining the grip");
+                    Require(Vector2.Distance(item.WorldPosition,
+                        f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot.TransformPoint(position)) < .0001f,
+                        "L3-only zero-time release moved garbage from the chest position");
+                    Call(f.Arms, "Step", 0f, Vector2.right, false, false);
+                    Require(f.Arms.State == RobotArmState.Recycling && item.Owner == f.Arms,
+                        "A release after L3-only release failed to retain chest recycling priority");
+                    f.Tick(RecycleFrames(f.Arms, medium), Vector2.right, false, false);
+                    Require(recycled == 1 && !item.gameObject.activeSelf && item.Owner == null
+                        && f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsArmModeActive
+                        && f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                        "A-maintained chest grip failed to recycle and retain deployment after A release");
+                }
                 else
                 {
                     Require(f.Arms.State == RobotArmState.Retracting && f.Arms.HeldObject == null
@@ -1224,7 +1244,7 @@ namespace AnimalGame.Editor
         {
             foreach (bool medium in new[] { false, true })
             foreach (string cancellation in new[] { "fallen", "photo mode", "external control", "disable",
-                "disabled item", "lost owner", "destroyed item" })
+                "disabled item", "lost owner", "destroyed item", "release held" })
             using (var f = new Fixture(useProductionSettings: true))
             {
                 WorldInteraction item = GrabProductionGarbage(f, medium);
@@ -1260,6 +1280,7 @@ namespace AnimalGame.Editor
                 else if (cancellation == "disabled item") item.enabled = false;
                 else if (cancellation == "lost owner") item.Release(f.Arms);
                 else if (cancellation == "destroyed item") Object.DestroyImmediate(item.gameObject);
+                else if (cancellation == "release held") f.Arms.ReleaseHeldObject(item);
 
                 if (cancellation == "disable") Call(f.Arms, "OnDisable");
                 else Call(f.Arms, "Step", .05f, Vector2.right, false, false);
@@ -1267,11 +1288,13 @@ namespace AnimalGame.Editor
                     && item.gameObject.activeSelf);
                 Require(f.Arms.State != RobotArmState.Recycling && f.Arms.HeldObject == null
                     && itemClean
-                    && recycled == 0 && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                    && recycled == 0 && !f.Arms.IsArmModeActive && !(bool)Get(f.Arms, "armToggleActive")
+                    && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
                     "Strong recycle cancellation failed to release/restore without completing: " + cancellation
                     + ", medium=" + medium);
                 f.Tick(120, Vector2.zero, false, false);
                 Require(recycled == 0 && f.Arms.State != RobotArmState.Recycling
+                    && !f.Arms.IsArmModeActive && !(bool)Get(f.Arms, "armToggleActive")
                     && !f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
                     "Cancelled operation resumed or left arm input captured: " + cancellation);
             }
@@ -1310,11 +1333,11 @@ namespace AnimalGame.Editor
                 f.Tick(90, Vector2.up, true);
                 WorldInteraction item = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f, 1);
                 f.Tick(1, Vector2.up, true);
-                f.Tick(1, Vector2.zero, true, false);
+                f.Tick(1, Vector2.zero, false, false);
                 Require(f.Arms.State == RobotArmState.Retracting && f.Arms.HeldObject == null && item.Owner == null,
-                    "L3 release failed to drop before retracting");
+                    "A/L3 release failed to drop before retracting");
                 Vector3 dropped = item.transform.position;
-                f.Tick(60, Vector2.zero, true, false);
+                f.Tick(60, Vector2.zero, false, false);
                 Require(f.Arms.State == RobotArmState.Retracted && item.transform.position == dropped, "Dropped object moved with retracting arm");
             }
         }
@@ -1337,7 +1360,9 @@ namespace AnimalGame.Editor
                 f.Tick(120, Vector2.up, true);
                 Require(f.Arms.HeldObject == item, "Removing obstacle did not resume deployment/grab: deployment="
                     + f.Arms.VisibleDeployment01 + ", left=" + f.Arms.LeftHandWorld + ", item=" + item.WorldPosition);
-                f.Tick(1, Vector2.up, false);
+                Call(f.Arms, "Step", 0f, Vector2.zero, true, false);
+                Call(f.Arms, "Step", 0f, Vector2.zero, false, false);
+                Call(f.Arms, "Step", 0f, Vector2.zero, true, false);
                 obstacle.enabled = true;
                 f.Tick(1, Vector2.up, true);
                 Require(f.Arms.HeldObject == item, "Post-deployment collision incorrectly disabled grab");
@@ -1535,6 +1560,10 @@ namespace AnimalGame.Editor
                 f.Tick(1, Vector2.up, true);
                 Require(f.Arms.HeldObject == oldItem && (int)Get(f.Arms, "heldHands") == 3,
                     "Fixture did not grab the two-hand source");
+                f.Tick(1, Vector2.zero, true, false);
+                Require(f.Arms.HeldObject == oldItem && f.Arms.IsArmModeActive
+                    && f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                    "L3 release lost the source before its fragment handoff");
                 WorldInteraction replacement = f.Item(oldItem.transform.position, Vector2.one * .05f, 1);
                 Set(replacement, "grabResistance", .5f);
                 Require(f.Arms.TryReplaceHeldObject(oldItem, replacement), "Direct handoff failed");
@@ -1543,7 +1572,12 @@ namespace AnimalGame.Editor
                 Require((int)Get(f.Arms, "heldHands") != 3
                     && Mathf.Approximately(f.Root.GetComponent<RobotMover>().GrabMovementMultiplier, .5f),
                     "Handoff kept the old hand count or resistance");
-                f.Tick(1, Vector2.zero, false);
+                Require(!f.Arms.ReleaseHeldObject(oldItem), "An old garbage release cleared the replacement grip");
+                f.Tick(1, Vector2.zero, true, false);
+                Require(f.Arms.HeldObject == replacement && replacement.Owner == f.Arms
+                    && f.Arms.IsArmModeActive && f.Root.GetComponent<RobotMover>().IsArmInputCaptured,
+                    "A-held input session did not survive replacing its held garbage");
+                f.Tick(1, Vector2.zero, false, false);
                 Require(f.Arms.HeldObject == null && replacement.Owner == null && oldItem.Owner == null,
                     "Release after handoff retained an owner");
             }
@@ -1645,12 +1679,40 @@ namespace AnimalGame.Editor
                 (float)Get(arms, "smallRecycleProcessingDuration"));
         private static int RecycleFrames(RobotArmController arms, bool medium) =>
             Mathf.CeilToInt((RecycleDuration(arms, medium) + .5f) * 60f);
+        private static Vector2 RecycleZone(RobotArmController arms) =>
+            (Vector2)typeof(RobotArmController).GetProperty("RecycleZoneHalfExtents",
+                BindingFlags.NonPublic | BindingFlags.Instance).GetValue(arms);
         private static void Set(object target, string name, object value) =>
             target.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance).SetValue(target, value);
         private static object Get(object target, string name) =>
             target.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance).GetValue(target);
-        private static void Call(object target, string name, params object[] args) =>
-            target.GetType().GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance).Invoke(target, args);
+        private static void Call(object target, string name, params object[] args)
+        {
+            if (target is RobotArmController arms && name == "Step")
+                StepForDesiredDeployment(arms, (float)args[0], (Vector2)args[1], (bool)args[2], (bool)args[3]);
+            else target.GetType().GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance).Invoke(target, args);
+        }
+
+        // Geometry/feedback fixtures express a desired deployment state. Convert changes to real
+        // button edges; the separate ArmToggleRegressionChecks suite exercises raw held input.
+        private sealed class DeploymentRequest { public bool Previous; }
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<RobotArmController,
+            DeploymentRequest> DeploymentRequests = new();
+        internal static object StepForDesiredDeployment(RobotArmController arms, float dt, Vector2 stick,
+            bool deploy, bool grab)
+        {
+            DeploymentRequest request = DeploymentRequests.GetValue(arms, _ => new DeploymentRequest());
+            bool changed = deploy != request.Previous;
+            request.Previous = deploy;
+            bool active = (bool)Get(arms, "armToggleActive");
+            bool maintainedGrab = grab && (bool)Get(arms, "grabArmSession") && arms.HeldObject != null;
+            bool press = changed && (deploy ? !active : active && !maintainedGrab)
+                && arms.State != RobotArmState.Recycling;
+            MethodInfo step = typeof(RobotArmController).GetMethod("Step", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (press && (bool)Get(arms, "previousArmButtonHeld"))
+                step.Invoke(arms, new object[] { 0f, Vector2.zero, false, grab });
+            return step.Invoke(arms, new object[] { dt, stick, press, grab });
+        }
 
         private static Sprite fixtureArmSprite;
         internal static void CreateFixtureArtwork(Transform frame, bool production = false)

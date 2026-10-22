@@ -101,6 +101,16 @@ namespace AnimalGame.RobotMap
                 target.Reveal();
         }
 
+        /// <summary>Whether a target's real hatch or outline is currently presented in the camera viewport.</summary>
+        public bool IsTargetVisible(ScannableInteractable target)
+        {
+            if (target == null || areaCanvas == null || !areaCanvas.isActiveAndEnabled) return false;
+            int id = target.GetInstanceID();
+            foreach (VisibleArea area in visibleAreas)
+                if (area.TargetId == id && (area.Tint.a > .001f || area.OutlineTint.a > .001f)) return true;
+            return false;
+        }
+
         private void LateUpdate()
         {
             TickAreas();

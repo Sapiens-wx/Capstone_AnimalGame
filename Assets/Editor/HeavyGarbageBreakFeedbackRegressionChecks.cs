@@ -401,7 +401,10 @@ namespace AnimalGame.Editor
         private static void Set(object target, string name, object value) => target.GetType().GetField(name, Instance).SetValue(target, value);
         private static object Get(object target, string name) => target.GetType().GetField(name, Instance).GetValue(target);
         private static void SetProperty(object target, string name, object value) => target.GetType().GetProperty(name, Instance).SetValue(target, value);
-        private static object Call(object target, string name, params object[] args) => target.GetType().GetMethod(name, Instance).Invoke(target, args);
+        private static object Call(object target, string name, params object[] args) =>
+            target is RobotArmController arms && name == "Step"
+                ? RobotArmRegressionChecks.StepForDesiredDeployment(arms, (float)args[0], (Vector2)args[1], (bool)args[2], (bool)args[3])
+                : target.GetType().GetMethod(name, Instance).Invoke(target, args);
         private static object CallStatic(Type type, string name, params object[] args) => type.GetMethod(name, Static).Invoke(null, args);
 
         private sealed class Fixture : IDisposable

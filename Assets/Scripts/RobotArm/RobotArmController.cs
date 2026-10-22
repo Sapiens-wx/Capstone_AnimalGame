@@ -58,6 +58,8 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.01f)] private float recycleZoneHalfWidthOfBodyDiameter = .35f;
         [Tooltip("Half-depth of the chest recycling area, measured in body diameters.")]
         [SerializeField, Min(.01f)] private float recycleZoneHalfDepthOfBodyDiameter = .3f;
+        [Tooltip("Small garbage has an inward receiving channel wide enough for either single-hand lane, plus this lateral margin in body diameters.")]
+        [SerializeField, Range(0f, .5f)] private float smallRecycleSideToleranceOfBodyDiameter = .15f;
         [Tooltip("Medium garbage can enter the chest recycling channel this far behind the body centre, measured in body diameters.")]
         [SerializeField, Min(0f)] private float mediumRecycleInnerToleranceOfBodyDiameter = .05f;
         [SerializeField, Min(.01f)] private float recycleDuration = .35f;
@@ -116,6 +118,7 @@ namespace AnimalGame.RobotArm
         private float armLength;
         private float recycleTime, stepDelta;
         private bool previousGrab, initialized;
+        private bool grabArmSession, armRequiresFreshPress, armToggleActive, previousArmButtonHeld;
         private Vector2 inputLocal, targetLocal;
         private Vector3 framePosition;
         private Quaternion frameRotation;
@@ -136,6 +139,7 @@ namespace AnimalGame.RobotArm
         private Vector2 garbageShakeOffset;
         private int mediumRecycleStopsPlayed;
         private bool mediumRecycleActive, mediumRecycleCompletionPlayed, recyclePresentationActive, recycleCompleting;
+        private bool recycleKeepArmsOpen;
         private readonly List<WorldInteraction> leftHits = new();
         private readonly List<WorldInteraction> rightHits = new();
         private readonly List<WorldInteraction> heldSolids = new();
@@ -215,41 +219,71 @@ namespace AnimalGame.RobotArm
 
         private void Update()
         {
-            if (AnimalGame.MainUI.MainUI.BlocksGameplay) { ResetNormalArmInput(); return; }
+            bool armButtonHeld = Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay)
+            {
+                // Menu presses must not become a new toggle when gameplay resumes.
+                previousArmButtonHeld = armButtonHeld;
+                armRequiresFreshPress = armButtonHeld;
+                ResetNormalArmInput();
+                return;
+            }
             EnsureVisuals();
             if (!initialized) return;
-            bool armHeld = CanOperate && (Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld());
             bool grab = Input.GetKey(keyboardGrabKey) || AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld();
-            Step(Time.deltaTime, ReadLocalInput(), armHeld, grab);
+            Step(Time.deltaTime, ReadLocalInput(), armButtonHeld, grab);
         }
 
         // Separate input sampling from simulation so the same transitions can be regression checked.
-        private void Step(float deltaTime, Vector2 localInput, bool armHeld, bool grab)
+        private void Step(float deltaTime, Vector2 localInput, bool armButtonHeld, bool grab)
         {
             stepDelta = Mathf.Max(0f, deltaTime);
             IsBlocked = false;
             if (!this || !isActiveAndEnabled) return;
             bool canOperate = CanOperate;
-            armHeld &= canOperate;
+            bool wasRecyclingAtInput = State == RobotArmState.Recycling;
+            bool armButtonPressed = armButtonHeld && !previousArmButtonHeld;
+            previousArmButtonHeld = armButtonHeld;
+            if (!armButtonHeld && !wasRecyclingAtInput) armRequiresFreshPress = false;
             if ((heldObject != null && (!heldObject.Available || heldObject.Owner != this))
+                || (grabArmSession && heldObject == null)
                 || (State == RobotArmState.Recycling && heldObject == null))
             {
                 bool wasRecycling = State == RobotArmState.Recycling;
                 ClearHeld();
-                if (wasRecycling) FinishArmAction(armHeld);
+                if (wasRecycling) FinishArmAction();
             }
             mover.SetGrabResistance(heldObject != null && !IsProcessingRecycle ? heldObject.GrabResistance : 0f);
 
-            if (!canOperate || !Upright) Drop();
+            if (!canOperate)
+            {
+                armToggleActive = false;
+                armRequiresFreshPress = true;
+            }
+            else if (armButtonPressed && !armRequiresFreshPress && !wasRecyclingAtInput)
+                armToggleActive = !armToggleActive;
+
+            bool armHeld = WantsArmMode(canOperate);
+            if (!canOperate) Drop();
+            else if (!Upright)
+            {
+                // Falling releases the grip, while the deployment switch continues to
+                // control the independent tumble layout.
+                bool keepToggle = armToggleActive;
+                Drop();
+                if (this && isActiveAndEnabled && CanOperate) armToggleActive = keepToggle;
+            }
             else if (State != RobotArmState.Recycling)
             {
-                // Accept A release at the visible chest position before L3 release, aim or body motion.
-                // Deployed hands, rather than the current button state, permit releasing A and L3 together.
+                // A release at the visible chest position wins over a simultaneous
+                // toggle-off command, aim or body motion.
                 if (!grab && HandsDeployed && IsHeldInRecycleZone()) BeginRecycle();
+                else if (grabArmSession && !grab) Drop();
                 else if (!armHeld) Drop();
             }
             if (!this || !isActiveAndEnabled) return;
 
+            armHeld = WantsArmMode(canOperate);
             bool recycling = State == RobotArmState.Recycling;
             IsArmModeActive = armHeld || recycling;
             mover.SetArmInputCaptured(IsArmModeActive && !IsProcessingRecycle);
@@ -277,7 +311,7 @@ namespace AnimalGame.RobotArm
             }
             FollowHeldObject();
             UpdateReady();
-            if (State == RobotArmState.Recycling) UpdateRecycle(armHeld);
+            if (State == RobotArmState.Recycling) UpdateRecycle();
             else if (armHeld && Upright && HandsReady && !IsTumbleArmLayoutActive)
             {
                 if (!grab && heldObject != null)
@@ -292,6 +326,24 @@ namespace AnimalGame.RobotArm
             if (State != RobotArmState.Recycling) SetHandGrip(HandsReady && Upright && !IsTumbleArmLayoutActive && grab);
             ApplyVisuals(left); ApplyVisuals(right);
             framePosition = transform.position; frameRotation = transform.rotation;
+            // A release ends the old hold, but a button already released is ready for a
+            // genuinely new press. Presses during recycling are deliberately not queued.
+            if (!armButtonHeld && State != RobotArmState.Recycling) armRequiresFreshPress = false;
+        }
+
+        private bool WantsArmMode(bool canOperate) => canOperate && armToggleActive;
+
+        private void EndGrabArmSession()
+        {
+            grabArmSession = false;
+            armToggleActive = false;
+            armRequiresFreshPress = true;
+            ResetNormalArmInput();
+            inputLocal = Vector2.zero; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
+            IsArmModeActive = false;
+            mover?.SetArmInputCaptured(false);
+            if (State != RobotArmState.Recycling)
+                State = deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;
         }
 
         private void LateUpdate()
@@ -642,6 +694,7 @@ namespace AnimalGame.RobotArm
                 return;
             }
             heldObject = best; heldHands = mask;
+            grabArmSession = true;
             mover.SetGrabResistance(best.GrabResistance);
             heldOffset = marker.MarkerVisualRoot.InverseTransformVector(HeldMotionRoot.position - (Vector3)HeldAnchor());
             heldRotation = Quaternion.Inverse(transform.rotation) * HeldMotionRoot.rotation;
@@ -692,6 +745,14 @@ namespace AnimalGame.RobotArm
             if (State == RobotArmState.Recycling || oldItem == null || replacement == null || heldObject != oldItem
                 || oldItem.Owner != this || (replacement.RequiredHands == 2 && heldHands != 3)
                 || !replacement.TryGrab(this)) return false;
+            // OnGrabbed may disable the controller or invalidate either side of the handoff.
+            // Never restore a grip/session after its cleanup has already run.
+            if (!this || !isActiveAndEnabled || replacement == null || !replacement.Available
+                || replacement.Owner != this || oldItem == null || heldObject != oldItem || oldItem.Owner != this)
+            {
+                if (replacement != null) replacement.Release(this);
+                return false;
+            }
             if (replacement.RequiredHands == 1 && heldHands == 3)
             {
                 float leftDistance = ((Vector2)replacement.transform.position - HandWorld(left)).sqrMagnitude;
@@ -717,8 +778,17 @@ namespace AnimalGame.RobotArm
         private bool RecyclableHeld => heldObject != null && heldObject.Available && heldObject.Owner == this
             && heldObject.Recyclable && heldObject.Size != RecyclableSize.Big
             && !heldObject.TryGetComponent<HeavyGarbagePull>(out _);
-        private Vector2 RecycleZoneHalfExtents => diameter * new Vector2(
-            Mathf.Max(.01f, recycleZoneHalfWidthOfBodyDiameter), Mathf.Max(.01f, recycleZoneHalfDepthOfBodyDiameter));
+        private Vector2 RecycleZoneHalfExtents
+        {
+            get
+            {
+                float width = diameter * Mathf.Max(.01f, recycleZoneHalfWidthOfBodyDiameter);
+                if (heldObject != null && heldObject.Size == RecyclableSize.Small)
+                    width = Mathf.Max(width, handSpacing * .5f
+                        + diameter * Mathf.Clamp(smallRecycleSideToleranceOfBodyDiameter, 0f, .5f));
+                return new Vector2(width, diameter * Mathf.Max(.01f, recycleZoneHalfDepthOfBodyDiameter));
+            }
+        }
         private void UpdateReady()
         {
             IsRecycleReady = State != RobotArmState.Recycling && CanOperate && Upright && HandsReady
@@ -737,14 +807,24 @@ namespace AnimalGame.RobotArm
                 // Moving waste closer to the body must not remove its recycling eligibility.
                 offset.y = Mathf.Max(0f, offset.y);
             }
-            else if (position.y <= 0f) return false;
+            else
+            {
+                if (position.y <= 0f) return false;
+                // A single hand naturally sits at either side of the chest. Once waste
+                // reaches the inlet, pulling closer must not leave a narrowing ellipse.
+                offset.y = Mathf.Max(0f, offset.y);
+            }
             Vector2 halfExtents = RecycleZoneHalfExtents;
             Vector2 normalized = new Vector2(offset.x / halfExtents.x, offset.y / halfExtents.y);
             return normalized.sqrMagnitude <= 1.00001f;
         }
         private void BeginRecycle()
         {
-            ResetNormalArmInput();
+            bool keepArmsOpen = armToggleActive;
+            EndGrabArmSession();
+            // Finish the grip without discarding the player's deployment switch.
+            // A simultaneous L3 close still takes effect after the full recycle animation.
+            recycleKeepArmsOpen = keepArmsOpen;
             State = RobotArmState.Recycling; recycleTime = 0f;
             recycleSafePosition = HeldMotionRoot.position; recycleSafeRotation = HeldMotionRoot.rotation;
             recycleStart = marker.MarkerVisualRoot.InverseTransformPoint(HeldMotionRoot.position);
@@ -785,9 +865,9 @@ namespace AnimalGame.RobotArm
             mover.SetArmInputCaptured(true);
             inputLocal = Vector2.zero; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
         }
-        private void UpdateRecycle(bool armHeld)
+        private void UpdateRecycle()
         {
-            if (heldObject == null) { ClearHeld(); FinishArmAction(armHeld); return; }
+            if (heldObject == null) { ClearHeld(); FinishArmAction(); return; }
             recycleTime += stepDelta;
             bool medium = mediumRecycleActive;
             float duration = medium ? MediumRecycleMotion.Duration(mediumRecycleClampDuration,
@@ -848,11 +928,15 @@ namespace AnimalGame.RobotArm
             AdvanceArms(true);
             if (recycleTime < duration) return;
             WorldInteraction item = heldObject;
+            bool keepArmsOpen = recycleKeepArmsOpen;
             recycleCompleting = true;
             ClearHeld();
             recycleCompleting = false;
-            FinishArmAction(armHeld);
+            FinishArmAction(keepArmsOpen);
             item.Recycle(this);
+            // Callbacks may change gameplay mode after the successful handoff. A disable
+            // already performs its own cleanup and must never be followed by a restore.
+            if (this && isActiveAndEnabled && (!CanOperate || !Upright)) FinishArmAction();
         }
 
         private void ResolveRecycleFeedback()
@@ -966,13 +1050,15 @@ namespace AnimalGame.RobotArm
             mediumRecycleActive = false;
             recyclePresentationActive = false;
         }
-        private void FinishArmAction(bool armHeld)
+        private void FinishArmAction(bool keepArmsOpen = false)
         {
-            ResetNormalArmInput();
-            State = armHeld ? RobotArmState.OuterOperating
+            EndGrabArmSession();
+            armToggleActive = keepArmsOpen && isActiveAndEnabled && CanOperate && Upright;
+            IsArmModeActive = armToggleActive;
+            State = armToggleActive ? RobotArmState.OuterOperating
                 : deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;
-            IsArmModeActive = armHeld;
-            mover.SetArmInputCaptured(armHeld);
+            if (armToggleActive) targetLocal = NormalHandCentre;
+            mover?.SetArmInputCaptured(armToggleActive);
         }
         private void Drop()
         {
@@ -1002,6 +1088,8 @@ namespace AnimalGame.RobotArm
                 HeldMotionRoot.localScale = recycleStartScale;
                 WorldInteraction.MarkHierarchySpatialDirty(HeldMotionRoot);
             }
+            if (grabArmSession) EndGrabArmSession();
+            recycleKeepArmsOpen = false;
             heldObject = null; heldHands = 0;
             IsRecycleReady = false; mover?.SetGrabResistance(0f);
         }
@@ -1142,6 +1230,8 @@ namespace AnimalGame.RobotArm
         {
             ResetNormalArmInput();
             Drop(); IsArmModeActive = false; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
+            armToggleActive = false;
+            armRequiresFreshPress = true;
             mover?.SetArmInputCaptured(false);
             deploymentTime = 0f; State = RobotArmState.Retracted; previousGrab = false;
             ResetTumbleArmLayout();
@@ -1194,6 +1284,7 @@ namespace AnimalGame.RobotArm
             mediumRecycleGarbageShakeFrequency = Mathf.Max(1f, mediumRecycleGarbageShakeFrequency);
             recycleZoneHalfWidthOfBodyDiameter = Mathf.Max(.01f, recycleZoneHalfWidthOfBodyDiameter);
             recycleZoneHalfDepthOfBodyDiameter = Mathf.Max(.01f, recycleZoneHalfDepthOfBodyDiameter);
+            smallRecycleSideToleranceOfBodyDiameter = Mathf.Clamp(smallRecycleSideToleranceOfBodyDiameter, 0f, .5f);
             mediumRecycleInnerToleranceOfBodyDiameter = Mathf.Max(0f, mediumRecycleInnerToleranceOfBodyDiameter);
             dockEnterMagnitude = Mathf.Clamp(dockEnterMagnitude, 0f, .9f);
             maximumMagnitude = Mathf.Clamp(maximumMagnitude, dockEnterMagnitude + .001f, 1f);

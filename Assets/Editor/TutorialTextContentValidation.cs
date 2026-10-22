@@ -127,8 +127,8 @@ namespace AnimalGame.Editor
         {
             string guid = AssetDatabase.AssetPathToGUID(ContentPath);
             string scene = File.ReadAllText(TutorialDrivingLesson.ScenePath);
-            Require(scene.Split(new[] { "guid: " + guid }, StringSplitOptions.None).Length - 1 == 2,
-                "The two tutorial lessons reference one shared content asset.");
+            Require(scene.Split(new[] { "guid: " + guid }, StringSplitOptions.None).Length - 1 == 5,
+                "The five tutorial lessons reference one shared content asset.");
             foreach (string sceneGuid in AssetDatabase.FindAssets("t:Scene", new[] { "Assets/Scenes" }))
             {
                 string path = AssetDatabase.GUIDToAssetPath(sceneGuid);

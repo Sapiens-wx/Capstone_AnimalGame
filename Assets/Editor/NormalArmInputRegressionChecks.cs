@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using AnimalGame.Garbage;
+using AnimalGame.MapTest;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
@@ -34,12 +35,17 @@ namespace AnimalGame.Editor
             CheckBoundaryBodyFollow();
             CheckBlockedMotionHasNoBacklog();
             CheckDeploymentAndSessionReset();
+            CheckGrabMaintainsControlWithoutL3();
+            CheckGrabReleaseClosesAndRearms();
+            CheckGrabSessionCancellation();
+            CheckEmptyArmRequiresL3();
             CheckManualDeliveryAndRecycle();
             CheckHeavyAnchorIsolation();
             CheckTumbleIsolation();
-            Debug.Log("Normal arm input checks PASS: 15 groups; production settings, actual-pose hold, radial rates, "
+            Debug.Log("Normal arm input checks PASS: 19 groups; production settings, actual-pose hold, radial rates, "
                 + "progressive speed, shared radial/tangential travel rates, duration scaling, turn-speed isolation/resistance, axis isolation, reach limits, "
-                + "boundary follow, collision backlog, deployment/session reset, manual recycling, heavy anchors and "
+                + "boundary follow, collision backlog, deployment/session reset, A-held control after L3 release, "
+                + "grab release/rearm, cancellation, empty-arm input, manual recycling, heavy anchors and "
                 + "tumble isolation; key cases at 30/60/120 FPS.");
         }
         public static void RunBatch()
@@ -369,6 +375,143 @@ namespace AnimalGame.Editor
                 f.RequireStopped("A new operation replayed previous input after " + reset);
             }
         }
+        private static void CheckGrabMaintainsControlWithoutL3()
+        {
+            foreach (int fps in FrameRates)
+            using (var f = new Fixture(fps))
+            {
+                f.Place(f.At(20f, .6f));
+                WorldInteraction item = f.GrabSmall();
+                float[] stopped = f.Snapshot(); Vector3 position = item.WorldPosition;
+                f.TickSeconds(.5f, Vector2.zero, false, true);
+                f.RequireSnapshot(stopped, "Releasing L3 changed a grab maintained by A at " + fps + " FPS");
+                Require(f.Arms.HeldObject == item && item.Owner == f.Arms && f.Arms.IsArmModeActive
+                    && f.Mover.IsArmInputCaptured && f.Arms.State == RobotArmState.OuterOperating
+                    && Vector3.Distance(position, item.WorldPosition) < f.Length * .0001f,
+                    "A failed to retain owned garbage, deployment or input capture after L3 release");
+
+                float radius = f.Centre.magnitude;
+                f.TickSeconds(.1f, Vector2.up, false, true); f.RequireRaw(Vector2.up);
+                Require(f.Centre.magnitude > radius + f.Length * .005f
+                    && Vector3.Distance(position, item.WorldPosition) > f.Length * .005f,
+                    "Left-stick extension stopped controlling held garbage without L3");
+                float angle = f.Angle;
+                f.TickSeconds(.1f, Vector2.left, false, true); f.RequireRaw(Vector2.left);
+                Require(f.Angle > angle + .1f && f.Arms.HeldObject == item && item.Owner == f.Arms,
+                    "Left-stick lateral control dropped the A-held session after L3 release");
+                stopped = f.Snapshot(); position = item.WorldPosition;
+                f.TickSeconds(.5f, new Vector2(.08f, -.08f), false, true);
+                f.RequireSnapshot(stopped, "A-held neutral input failed to preserve the actual arm pose");
+                Require(Vector3.Distance(position, item.WorldPosition) < f.Length * .0001f,
+                    "A-held neutral input moved garbage toward the body");
+            }
+        }
+        private static void CheckGrabReleaseClosesAndRearms()
+        {
+            foreach (int fps in FrameRates)
+            foreach (bool l3Held in new[] { false, true })
+            using (var f = new Fixture(fps))
+            {
+                f.Place(f.At(20f, .7f)); WorldInteraction item = f.GrabSmall();
+                f.Tick(1, Vector2.zero, l3Held, true);
+                Vector3 position = item.WorldPosition;
+                f.Tick(1, Vector2.right, l3Held, false);
+                Require(f.Arms.HeldObject == null && item.Owner == null && item.gameObject.activeSelf
+                    && f.Arms.State == RobotArmState.Retracting && !f.Arms.IsArmModeActive
+                    && !f.Mover.IsArmInputCaptured,
+                    "A release did not drop outside garbage and start retracting: FPS=" + fps + ", L3=" + l3Held);
+                f.TickSeconds(2f, Vector2.right, l3Held, false);
+                Require(f.Arms.State == RobotArmState.Retracted && !f.Arms.IsArmModeActive
+                    && !f.Mover.IsArmInputCaptured && Vector3.Distance(position, item.WorldPosition) < f.Length * .0001f,
+                    "Old L3 hold reopened the arms or moved the released garbage");
+                f.TickSeconds(.25f, Vector2.up, l3Held, true);
+                Require(f.Arms.State == RobotArmState.Retracted && f.Arms.HeldObject == null
+                    && !f.Mover.IsArmInputCaptured, "Re-pressing A bypassed the need for fresh L3 deployment");
+                if (l3Held) f.Tick(1, Vector2.zero, false, false);
+                f.TickSeconds(2f, Vector2.zero, true, false);
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsArmModeActive
+                    && f.Mover.IsArmInputCaptured && f.Arms.HeldObject == null,
+                    "Fresh L3 press could not deploy after the grab session closed");
+            }
+        }
+        private static void CheckGrabSessionCancellation()
+        {
+            foreach (int fps in FrameRates)
+            foreach (string cancellation in new[] { "lost owner", "disabled item", "destroyed item",
+                "photo mode", "external control", "disable" })
+            using (var f = new Fixture(fps))
+            {
+                f.Place(f.At(20f, .7f)); WorldInteraction item = f.GrabSmall();
+                f.Tick(1, Vector2.zero, false, true);
+                Require(f.Arms.HeldObject == item && f.Mover.IsArmInputCaptured,
+                    "Cancellation fixture never established A-only control");
+                PhotoModeController photo = null;
+                if (cancellation == "lost owner") item.Release(f.Arms);
+                else if (cancellation == "disabled item") item.enabled = false;
+                else if (cancellation == "destroyed item") Object.DestroyImmediate(item.gameObject);
+                else if (cancellation == "fall") f.Fall(Vector2.one.normalized);
+                else if (cancellation == "photo mode")
+                {
+                    photo = f.Root.AddComponent<PhotoModeController>();
+                    FieldInfo state = typeof(PhotoModeController).GetField("state", Instance);
+                    state.SetValue(photo, Enum.Parse(state.FieldType, "Active")); Set(f.Arms, "photoMode", photo);
+                }
+                else if (cancellation == "external control")
+                    SetProperty(f.Mover, "MovementMode", RobotMovementMode.ExternalTumble);
+                else { f.Arms.enabled = false; Call(f.Arms, "OnDisable"); }
+                f.Tick(1, Vector2.left, false, true);
+                Require(f.Arms.HeldObject == null && (item == null || item.Owner == null)
+                    && !f.Arms.IsArmModeActive && !f.Mover.IsArmInputCaptured,
+                    "Invalid grab retained an A-only control session: " + cancellation + ", FPS=" + fps);
+
+                if (cancellation == "fall") SetProperty(f.Tumble, "State", RobotTumbleState.Upright);
+                if (cancellation == "external control") SetProperty(f.Mover, "MovementMode", RobotMovementMode.Driven);
+                if (photo != null)
+                {
+                    FieldInfo state = typeof(PhotoModeController).GetField("state", Instance);
+                    state.SetValue(photo, Activator.CreateInstance(state.FieldType));
+                }
+                if (cancellation == "disable") f.Arms.enabled = true;
+                f.TickSeconds(2f, Vector2.left, false, true);
+                Require(f.Arms.HeldObject == null && !f.Arms.IsArmModeActive && !f.Mover.IsArmInputCaptured
+                    && f.Arms.State == RobotArmState.Retracted,
+                    "Holding A resumed a cancelled grab without a new L3 deployment: " + cancellation);
+            }
+            using (var f = new Fixture())
+            {
+                f.Place(f.At(20f, .7f));
+                WorldInteraction item = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f);
+                Set(item, "onGrabbed", (Action)(() => { f.Arms.enabled = false; Call(f.Arms, "OnDisable"); }));
+                f.Tick(1, Vector2.zero, true, true);
+                Require(f.Arms.HeldObject == null && item.Owner == null && !f.Arms.IsArmModeActive
+                    && !f.Mover.IsArmInputCaptured && f.Arms.State == RobotArmState.Retracted,
+                    "A grab callback that disabled the controller still established an A-held session");
+                f.Arms.enabled = true;
+                f.TickSeconds(2f, Vector2.left, false, true);
+                Require(f.Arms.State == RobotArmState.Retracted && f.Arms.HeldObject == null
+                    && !f.Mover.IsArmInputCaptured, "Failed grab callback left an A-only session after re-enable");
+            }
+        }
+        private static void CheckEmptyArmRequiresL3()
+        {
+            foreach (int fps in FrameRates)
+            using (var f = new Fixture(fps))
+            {
+                f.TickSeconds(2f, Vector2.up, false, true);
+                Require(f.Arms.State == RobotArmState.Retracted && !f.Arms.IsArmModeActive
+                    && !f.Mover.IsArmInputCaptured, "A alone deployed empty arms");
+                f.TickSeconds(2f, Vector2.zero, true, true);
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.HeldObject == null,
+                    "L3 failed to deploy empty arms while A was already held");
+                f.TickSeconds(.1f, Vector2.left, true, false);
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsArmModeActive
+                    && f.Mover.IsArmInputCaptured && f.Angle > .1f,
+                    "Releasing A without a successful grab cancelled the ordinary L3 session");
+                f.TickSeconds(2f, Vector2.zero, false, true);
+                Require(f.Arms.State == RobotArmState.Retracted && !f.Mover.IsArmInputCaptured,
+                    "An unsuccessful held A kept empty arms deployed after L3 release");
+            }
+        }
         private static void CheckManualDeliveryAndRecycle()
         {
             foreach (int fps in FrameRates)
@@ -376,11 +519,11 @@ namespace AnimalGame.Editor
             {
                 f.Place(f.At(50f, .7f));
                 WorldInteraction item = f.GrabSmall(); Vector3 start = item.WorldPosition;
-                f.TickSeconds(1f, Vector2.zero, true, true);
+                f.TickSeconds(1f, Vector2.zero, false, true);
                 Require(f.Arms.State == RobotArmState.OuterOperating
                     && Vector3.Distance(start, item.WorldPosition) < f.Length * .0001f,
                     "Recentring held garbage still triggered automatic docking");
-                f.TickSeconds(.5f, Vector2.left * .09f, true, true);
+                f.TickSeconds(.5f, Vector2.left * .09f, false, true);
                 Require(f.Arms.State != RobotArmState.Docking
                     && Vector3.Distance(start, item.WorldPosition) < f.Length * .0001f,
                     "Near-centre input still snapped held garbage to the inlet");
@@ -393,7 +536,7 @@ namespace AnimalGame.Editor
                     float radial = desired.magnitude - f.Centre.magnitude;
                     Vector2 command = new Vector2(Mathf.Abs(angle) > 1f ? -Mathf.Sign(angle) * .6f : 0f,
                         Mathf.Abs(radial) > f.Length * .005f ? Mathf.Sign(radial) * .6f : 0f);
-                    f.Tick(1, command, true, true);
+                    f.Tick(1, command, false, true);
                     Require(f.Arms.State != RobotArmState.Docking, "Manual delivery re-entered magnitude docking");
                 }
                 Require(f.Arms.IsRecycleReady && f.Arms.HeldObject == item,
@@ -403,8 +546,15 @@ namespace AnimalGame.Editor
                     "Releasing A at the actual chest position failed to start recycling");
                 for (int i = 0; i < fps * 8 && f.Arms.State == RobotArmState.Recycling; i++)
                     f.Tick(1, Vector2.right, true, false);
-                Require(f.Arms.State != RobotArmState.Recycling && f.Arms.HeldObject == null && !f.Following,
-                    "Normal input interfered with or survived automatic recycling");
+                Require(f.Arms.State != RobotArmState.Recycling && f.Arms.HeldObject == null && !f.Following
+                    && f.Arms.IsArmModeActive && f.Mover.IsArmInputCaptured
+                    && f.Arms.State == RobotArmState.OuterOperating,
+                    "Normal input interfered with recycling or completion lost deployment/input capture");
+                float[] completedPose = f.Snapshot();
+                f.TickSeconds(2f, Vector2.zero, true, false);
+                f.RequireSnapshot(completedPose, "Neutral input moved the hands after recycling");
+                Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsArmModeActive,
+                    "The deployment switch was cleared after successful recycling");
             }
         }
         private static void CheckHeavyAnchorIsolation()
@@ -458,7 +608,9 @@ namespace AnimalGame.Editor
         private static object Get(object target, string name) => target.GetType().GetField(name, Instance).GetValue(target);
         private static void Set(object target, string name, object value) => target.GetType().GetField(name, Instance).SetValue(target, value);
         private static object Call(object target, string name, params object[] args) =>
-            target.GetType().GetMethod(name, Instance).Invoke(target, args);
+            target is RobotArmController arms && name == "Step"
+                ? RobotArmRegressionChecks.StepForDesiredDeployment(arms, (float)args[0], (Vector2)args[1], (bool)args[2], (bool)args[3])
+                : target.GetType().GetMethod(name, Instance).Invoke(target, args);
         private static void SetProperty(object target, string name, object value) =>
             target.GetType().GetProperty(name, Instance).SetValue(target, value);
 
@@ -514,6 +666,7 @@ namespace AnimalGame.Editor
                 Set(Arms, "targetLocal", centre);
                 Set(Arms, "deploymentTime", (float)typeof(RobotArmController).GetProperty("TotalDeploymentTime", Instance).GetValue(Arms));
                 SetProperty(Arms, "State", RobotArmState.OuterOperating); SetProperty(Arms, "IsArmModeActive", true);
+                Set(Arms, "armToggleActive", true);
                 foreach (string side in new[] { "left", "right" })
                 {
                     object arm = Get(Arms, side), pose = Get(arm, "Pose"); float sign = (float)Get(arm, "Side");

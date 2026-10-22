@@ -777,7 +777,8 @@ namespace AnimalGame.Editor
                     "Small processing did not retain its reduced feedback strength throughout the shared final fade");
                 f.Step(ProcessingFade * .5f + .001f, false, false);
                 Require(f.Recycled == 1 && !item.gameObject.activeSelf && item.LocalScale == scale
-                    && f.Arms.HeldObject == null && item.Owner == null && !f.Mover.IsArmInputCaptured
+                    && f.Arms.HeldObject == null && item.Owner == null && f.Mover.IsArmInputCaptured
+                    && f.Arms.IsArmModeActive && f.Arms.State == RobotArmState.OuterOperating
                     && Get(f.Arms, "mediumRecycleClip") == null && !(bool)Get(f.Arms, "recyclePresentationActive")
                     && PulseCount(f.Shake) == 0 && CameraSample(f.Shake) == Vector3.zero
                     && Motors(f.Shake, Time.time) == Vector2.zero
@@ -1101,7 +1102,9 @@ namespace AnimalGame.Editor
                     "Screen/controller processing did not use the same final fade envelope as the body animation");
                 f.Step(ProcessingFade * .5f + .001f, false, false);
                 Require(f.Recycled == 1 && f.Arms.HeldObject == null && !item.gameObject.activeSelf
-                    && !f.Mover.IsArmInputCaptured && Near(f.Mover.GrabMovementMultiplier, 1f) && f.Mover.CurrentSpeed > 0f
+                    && f.Mover.IsArmInputCaptured && f.Arms.IsArmModeActive
+                    && f.Arms.State == RobotArmState.OuterOperating && Near(f.Mover.GrabMovementMultiplier, 1f)
+                    && f.Mover.CurrentSpeed > 0f
                     && PulseCount(f.Shake) == 0 && CameraSample(f.Shake) == Vector3.zero
                     && Motors(f.Shake, Time.time) == Vector2.zero
                     && f.Body.localPosition == Vector3.zero && f.Body.localRotation == Quaternion.identity,
@@ -1246,7 +1249,10 @@ namespace AnimalGame.Editor
         { object arm = Get(arms, side); return (SpriteRenderer)arm.GetType().GetField("HandSprite").GetValue(arm); }
         private static void Set(object target, string name, object value) => target.GetType().GetField(name, Instance).SetValue(target, value);
         private static object Get(object target, string name) => target.GetType().GetField(name, Instance).GetValue(target);
-        private static object Call(object target, string name, params object[] values) => target.GetType().GetMethod(name, Instance).Invoke(target, values);
+        private static object Call(object target, string name, params object[] values) =>
+            target is RobotArmController arms && name == "Step"
+                ? RobotArmRegressionChecks.StepForDesiredDeployment(arms, (float)values[0], (Vector2)values[1], (bool)values[2], (bool)values[3])
+                : target.GetType().GetMethod(name, Instance).Invoke(target, values);
 
         private sealed class Fixture : IDisposable
         {

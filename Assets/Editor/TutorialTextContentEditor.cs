@@ -14,8 +14,16 @@ namespace AnimalGame.Editor
         private bool panelExpanded;
         private bool drivingExpanded = true;
         private bool terrainExpanded = true;
+        private bool armsExpanded = true;
+        private bool discoveryExpanded = true;
+        private bool photographyExpanded = true;
         private bool drivingStatusesExpanded;
         private bool terrainStatusesExpanded;
+        private bool armsStatusesExpanded;
+        private bool armsRemindersExpanded = true;
+        private bool discoveryStatusesExpanded;
+        private bool photographyStatusesExpanded;
+        private bool photographyRemindersExpanded;
         private bool placeholdersExpanded;
         private readonly HashSet<string> initializedSteps = new HashSet<string>();
 
@@ -35,6 +43,15 @@ namespace AnimalGame.Editor
             EditorGUILayout.Space(5);
             terrainExpanded = EditorGUILayout.Foldout(terrainExpanded, "02 · 地形与坡度教程", true, EditorStyles.foldoutHeader);
             if (terrainExpanded) DrawTerrain(serializedObject.FindProperty("Terrain"));
+            EditorGUILayout.Space(5);
+            armsExpanded = EditorGUILayout.Foldout(armsExpanded, "03 · 机械臂基础操作", true, EditorStyles.foldoutHeader);
+            if (armsExpanded) DrawArms(serializedObject.FindProperty("Arms"));
+            EditorGUILayout.Space(5);
+            discoveryExpanded = EditorGUILayout.Foldout(discoveryExpanded, "04 · 探索扫描", true, EditorStyles.foldoutHeader);
+            if (discoveryExpanded) DrawDiscovery(serializedObject.FindProperty("Discovery"));
+            EditorGUILayout.Space(5);
+            photographyExpanded = EditorGUILayout.Foldout(photographyExpanded, "05 · 野生动物拍照", true, EditorStyles.foldoutHeader);
+            if (photographyExpanded) DrawPhotography(serializedObject.FindProperty("Photography"));
             EditorGUILayout.Space(7);
             placeholdersExpanded = EditorGUILayout.Foldout(placeholdersExpanded, "动态占位符与排版提示", true);
             if (placeholdersExpanded)
@@ -45,6 +62,9 @@ namespace AnimalGame.Editor
                 EditorGUILayout.LabelField("行进转向", "{movingDistance:F1}   {movingTarget:F1}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("地点与坡度", "{distance:F1}   {slope:F0}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("阅读时间", "{reading:F1}   {readingTarget:F0}", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("机械臂进度", "{value:F0} / {target:F0} cm 或 °；停留时间使用 F1 秒。", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("探索扫描", "{value:F0}% 充能；{value:F0} / {target:F0} 扫描次数。", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("拍照按键", "{photo} 拍照模式；{rb} 快门；{save} 保存；{cancel} 返回。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("手柄按键", "{rt}   {lt}   {lb}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.HelpBox("正文建议控制在 4 行左右，可按 Enter 换行。操作指令与底部提示尽量简短；这里不会截断或限制保存的文字。\n"
                     + "收起标签较窄，纵排标题可为每个字母单独换行。", MessageType.None);
@@ -141,10 +161,120 @@ namespace AnimalGame.Editor
             EditorGUILayout.Space(3);
         }
 
+        private void DrawArms(SerializedProperty arms)
+        {
+            if (arms == null) return;
+            using (new EditorGUI.IndentLevelScope())
+            {
+                Field(arms, "Title", "章节标题");
+                DrawStep(arms, "Deploy", "1 · 展开机械臂");
+                DrawStep(arms, "Extend", "2 · 向前伸出");
+                DrawStep(arms, "RetractReach", "3 · 向内收回");
+                DrawStep(arms, "SwingLeft", "4 · 向左摆动");
+                DrawStep(arms, "SwingRight", "5 · 向右摆动");
+                DrawStep(arms, "HoldStill", "6 · 松开摇杆并保持");
+                DrawStep(arms, "Stow", "7 · 收起机械臂");
+                DrawStep(arms, "Completed", "机械臂教学完成");
+                armsRemindersExpanded = EditorGUILayout.Foldout(armsRemindersExpanded, "展开 / 收起提示", true);
+                if (armsRemindersExpanded)
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        Field(arms, "ToggleHint", "持续操作提醒", "仅机械臂章节显示的顶部一行提醒；底部方向键提示保持不变。");
+                        Field(arms, "ReopenMessage", "中途收起后继续教学", "练习尚未结束时收起机械臂，使用此正文提示重新展开。");
+                        Field(arms, "InitialStowMessage", "进入教程时已经展开", "先收起再重新展开，确保玩家实际完成一次展开操作。");
+                        Field(arms, "InitialStowAction", "首次收起的操作指令");
+                        Field(arms, "StowRecoveryMessage", "自动收起后的恢复提示", "拍照或翻倒等系统行为自动收起机械臂时，提示玩家重新展开后亲自收起。");
+                    }
+                armsStatusesExpanded = EditorGUILayout.Foldout(armsStatusesExpanded, "通用状态反馈", true);
+                if (armsStatusesExpanded)
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        Field(arms, "WaitingStatus", "等待操作");
+                        Field(arms, "BlockedStatus", "暂时无法练习");
+                        Field(arms, "ReopenStatus", "请重新展开");
+                        Field(arms, "EmptyHandsStatus", "请保持空手");
+                        Field(arms, "CompleteStatus", "教学完成");
+                    }
+            }
+        }
+
         private static void Field(SerializedProperty parent, string name, string caption, string tooltip = null)
         {
             SerializedProperty property = parent.FindPropertyRelative(name);
             if (property != null) EditorGUILayout.PropertyField(property, new GUIContent(caption, tooltip), true);
+        }
+
+        private void DrawDiscovery(SerializedProperty discovery)
+        {
+            if (discovery == null) return;
+            using (new EditorGUI.IndentLevelScope())
+            {
+                Field(discovery, "Title", "章节标题");
+                DrawStep(discovery, "Charge", "1 · 长按充能");
+                DrawStep(discovery, "Release", "2 · 充满后松开发出扫描");
+                DrawStep(discovery, "FindAnimal", "3 · 寻找未见过的麝鼠");
+                DrawStep(discovery, "ApproachAnimal", "目标超出扫描范围时的指引");
+                DrawStep(discovery, "ConfirmAnimal", "4 · 亲眼确认并识别实心标记");
+                DrawStep(discovery, "ReadObject", "5 · 识别可交互物标记");
+                DrawStep(discovery, "Rescan", "6 · 重新扫描");
+                DrawStep(discovery, "Completed", "生物与交互物扫描完成");
+                Field(discovery, "ToggleHint", "持续操作提醒", "本章顶部的长按 / 松开说明，{lb} 会替换为当前手柄按键。");
+                Field(discovery, "NeedRescanMessage", "扫描结果过期的正文", "扫描标记消失后，提示玩家重新充能并扫描。");
+                Field(discovery, "NeedStowMessage", "请先收起机械臂的正文", "机械臂展开或持物时，提示先恢复扫描可用状态。");
+                discoveryStatusesExpanded = EditorGUILayout.Foldout(discoveryStatusesExpanded, "通用状态反馈", true);
+                if (discoveryStatusesExpanded)
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        Field(discovery, "WaitingStatus", "等待操作");
+                        Field(discovery, "PreparingStatus", "正在准备附近目标");
+                        Field(discovery, "CancelledStatus", "扫描已取消");
+                        Field(discovery, "WrongGestureStatus", "手势不正确");
+                        Field(discovery, "NeedRescanStatus", "请重新扫描");
+                        Field(discovery, "NeedEmptyHandsStatus", "请保持空手");
+                        Field(discovery, "BlockedStatus", "暂时无法练习");
+                        Field(discovery, "CompleteStatus", "教学完成");
+                    }
+            }
+        }
+
+        private void DrawPhotography(SerializedProperty photography)
+        {
+            if (photography == null) return;
+            using (new EditorGUI.IndentLevelScope())
+            {
+                Field(photography, "Title", "章节标题");
+                DrawStep(photography, "ObserveMovement", "1 · 观察麝鼠移动");
+                DrawStep(photography, "EnterPhoto", "2 · 进入拍照模式");
+                DrawStep(photography, "FrameSubject", "3 · 调整车辆位置与构图");
+                DrawStep(photography, "Capture", "4 · 长按快门完成拍摄");
+                DrawStep(photography, "SavePhoto", "5 · 保存照片后的返回提示", initiallyExpanded: false);
+                EditorGUILayout.HelpBox("照片结算界面中完全隐藏教学任务栏，使用照片系统本身的操作提示。保存步骤文案只用于离开结算界面后的恢复提示。", MessageType.None);
+                DrawStep(photography, "ExitPhoto", "6 · 返回驾驶");
+                DrawStep(photography, "Completed", "拍照教学完成");
+                Field(photography, "ToggleHint", "持续操作提醒", "本章顶部的一行提醒；手柄按键占位符会随当前手柄替换。");
+                photographyRemindersExpanded = EditorGUILayout.Foldout(photographyRemindersExpanded, "恢复与重试正文", true);
+                if (photographyRemindersExpanded)
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        Field(photography, "TargetMissingMessage", "寻找目标的正文");
+                        Field(photography, "NeedStowMessage", "请先收起机械臂的正文");
+                        Field(photography, "NeedRescanMessage", "重新扫描的正文");
+                        Field(photography, "RetryPhotoMessage", "未拍到教学麝鼠的正文");
+                    }
+                photographyStatusesExpanded = EditorGUILayout.Foldout(photographyStatusesExpanded, "通用状态反馈", true);
+                if (photographyStatusesExpanded)
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        Field(photography, "WaitingStatus", "等待操作");
+                        Field(photography, "BlockedStatus", "暂时无法练习");
+                        Field(photography, "TargetMissingStatus", "跟随麝鼠指引");
+                        Field(photography, "NeedStowStatus", "请先收起机械臂");
+                        Field(photography, "NeedRescanStatus", "请重新扫描");
+                        Field(photography, "RetryPhotoStatus", "请重拍教学麝鼠");
+                        Field(photography, "SavedStatus", "照片已保存");
+                        Field(photography, "CompleteStatus", "教学完成");
+                    }
+            }
         }
     }
 
@@ -203,4 +333,16 @@ namespace AnimalGame.Editor
     [CustomEditor(typeof(TutorialTerrainLesson))]
     [CanEditMultipleObjects]
     public sealed class TutorialTerrainLessonTextEditor : TutorialLessonTextInspector { }
+
+    [CustomEditor(typeof(TutorialArmLesson))]
+    [CanEditMultipleObjects]
+    public sealed class TutorialArmLessonTextEditor : TutorialLessonTextInspector { }
+
+    [CustomEditor(typeof(TutorialDiscoveryLesson))]
+    [CanEditMultipleObjects]
+    public sealed class TutorialDiscoveryLessonTextEditor : TutorialLessonTextInspector { }
+
+    [CustomEditor(typeof(TutorialPhotographyLesson))]
+    [CanEditMultipleObjects]
+    public sealed class TutorialPhotographyLessonTextEditor : TutorialLessonTextInspector { }
 }

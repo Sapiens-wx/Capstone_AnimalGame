@@ -31,13 +31,17 @@ namespace AnimalGame.Tutorial
         private Font runtimeFont;
         private VisualElement root, expanded, collapsedTab, progressFill;
         private PanelFrame frame;
+        private ScanStarGlyph controlStar;
         private Label titleLabel, messageLabel, controlLabel, actionLabel, detailLabel;
         private Label statusLabel, chapterLabel, tabProgressLabel, percentLabel;
         private Label headerLabel, currentLessonLabel, currentActionLabel, toggleHintLabel;
         private Label tabArrowsLabel, tabHintLabel, guideLabel;
+        private Label lessonHintLabel;
         private VisualElement collapseControl;
         private TutorialPanelText panelText = new TutorialPanelText();
+        private string lessonHint = string.Empty;
         private bool visible = true;
+        private bool showDuringPhotoMode;
         private bool collapsed;
         private bool successful;
         private float progress;
@@ -96,6 +100,13 @@ namespace AnimalGame.Tutorial
             RefreshPanelText();
         }
 
+        /// <summary>Show an optional chapter-specific reminder without changing the standard footer.</summary>
+        public void SetLessonHint(string text)
+        {
+            lessonHint = text ?? string.Empty;
+            RefreshLessonHint();
+        }
+
         public void SetSuccess(bool value)
         {
             successful = value;
@@ -106,6 +117,12 @@ namespace AnimalGame.Tutorial
         public void SetVisible(bool value)
         {
             visible = value;
+            RefreshVisibility();
+        }
+
+        public void SetPhotoModeVisible(bool value)
+        {
+            showDuringPhotoMode = value;
             RefreshVisibility();
         }
 
@@ -183,6 +200,10 @@ namespace AnimalGame.Tutorial
             headerLabel = AddLabel(header, panelText.Header, 11, 27, 244, 41, 27, Gold, true);
             headerLabel.name = "TutorialHeader";
             AddLabel(header, "›", 287, 16, 24, 46, 30, Gold);
+            // The existing space below the header fits a single optional reminder without moving
+            // the lesson body, input instructions, standard D-pad footer, or the outer frame.
+            lessonHintLabel = AddLabel(expanded, lessonHint, 27, 88, 301, 21, 14, Muted);
+            lessonHintLabel.name = "TutorialLessonHint";
 
             AddLine(expanded, 27, 112, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
             currentLessonLabel = AddLabel(expanded, panelText.CurrentLesson, 27, 128, 170, 26, 16, Muted);
@@ -205,6 +226,9 @@ namespace AnimalGame.Tutorial
             controlLabel = AddLabel(expanded, controlGlyph, 33, 422, 66, 65, 22, Color.white, true);
             controlLabel.name = "TutorialControl";
             controlLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            controlStar = new ScanStarGlyph { name = "TutorialControlStar" };
+            SetRect(controlStar, 47, 437, 38, 38);
+            expanded.Add(controlStar);
             actionLabel = AddLabel(expanded, action, 121, 421, 207, 34, 23, Color.white, true);
             actionLabel.name = "TutorialAction";
             detailLabel = AddLabel(expanded, detail, 121, 457, 207, 45, 16, Muted);
@@ -254,6 +278,7 @@ namespace AnimalGame.Tutorial
             tabProgressLabel = AddLabel(collapsedTab, "01\n/08", 10, 162, 38, 45, 16, Color.white);
             tabProgressLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
             RefreshPanelText();
+            RefreshLessonHint();
             RefreshContent();
             SetProgress(progress);
             SetSuccess(successful);
@@ -265,7 +290,14 @@ namespace AnimalGame.Tutorial
             if (titleLabel == null) return;
             titleLabel.text = title;
             messageLabel.text = message;
-            controlLabel.text = controlGlyph;
+            bool star = controlGlyph == "✧" || controlGlyph == "✦";
+            controlLabel.text = star ? string.Empty : controlGlyph;
+            if (controlStar != null)
+            {
+                controlStar.style.display = star ? DisplayStyle.Flex : DisplayStyle.None;
+                controlStar.Filled = controlGlyph == "✦";
+                controlStar.MarkDirtyRepaint();
+            }
             controlLabel.style.fontSize = controlGlyph.Length > 3 ? 17 : 22;
             actionLabel.text = action;
             detailLabel.text = detail;
@@ -286,6 +318,13 @@ namespace AnimalGame.Tutorial
             guideLabel.text = panelText.GuideLabel ?? string.Empty;
             collapseControl.tooltip = panelText.CollapseTooltip ?? string.Empty;
             collapsedTab.tooltip = panelText.ExpandTooltip ?? string.Empty;
+        }
+
+        private void RefreshLessonHint()
+        {
+            if (lessonHintLabel == null) return;
+            lessonHintLabel.text = lessonHint;
+            lessonHintLabel.style.display = string.IsNullOrWhiteSpace(lessonHint) ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
         private void LateUpdate()
@@ -314,7 +353,7 @@ namespace AnimalGame.Tutorial
             bool obscured = Time.timeScale <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay;
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap != null)
-                obscured |= (bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
+                obscured |= (!showDuringPhotoMode && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
                     || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
             root.style.display = visible && !obscured ? DisplayStyle.Flex : DisplayStyle.None;
             expanded.style.display = collapsed ? DisplayStyle.None : DisplayStyle.Flex;
@@ -418,6 +457,29 @@ namespace AnimalGame.Tutorial
                     p.lineWidth = 2;
                     Stroke(p, new Vector2(w - 36, 92), new Vector2(w - 30, 98), new Vector2(w - 19, 85));
                 }
+            }
+        }
+
+        // Native four-point stars match the scan legend without relying on OS dingbat fonts.
+        private sealed class ScanStarGlyph : VisualElement
+        {
+            public bool Filled;
+            public ScanStarGlyph()
+            {
+                pickingMode = PickingMode.Ignore;
+                generateVisualContent += context =>
+                {
+                    Painter2D p = context.painter2D;
+                    p.strokeColor = p.fillColor = Gold;
+                    p.lineWidth = 1.6f;
+                    p.BeginPath(); p.MoveTo(new Vector2(19, 2));
+                    p.BezierCurveTo(new Vector2(17, 14), new Vector2(14, 17), new Vector2(2, 19));
+                    p.BezierCurveTo(new Vector2(14, 21), new Vector2(17, 24), new Vector2(19, 36));
+                    p.BezierCurveTo(new Vector2(21, 24), new Vector2(24, 21), new Vector2(36, 19));
+                    p.BezierCurveTo(new Vector2(24, 17), new Vector2(21, 14), new Vector2(19, 2));
+                    p.ClosePath();
+                    if (Filled) p.Fill(); else p.Stroke();
+                };
             }
         }
 

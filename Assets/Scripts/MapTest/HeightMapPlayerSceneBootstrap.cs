@@ -25,6 +25,8 @@ namespace AnimalGame.MapTest
         [Header("Animal Photos")]
         [Tooltip("Passed to the PhotoResultUI created at runtime. Leave empty to use its prefab reference.")]
         [SerializeField] private PhotoLibrary photoLibrary;
+        [Tooltip("Camera equipped when this scene creates the player. Leave empty to keep the robot prefab's default camera.")]
+        [SerializeField] private PhotoCameraDefinition initialPhotoCamera;
 
         [Header("Performance Display")]
         [SerializeField] private bool showFrameRate = true;
@@ -114,6 +116,8 @@ namespace AnimalGame.MapTest
                 robotObject.GetComponent<PhotoModeController>();
             if (photoMode == null)
                 photoMode = robotObject.AddComponent<PhotoModeController>();
+            if (initialPhotoCamera != null)
+                photoMode.SetCamera(initialPhotoCamera);
             tumble =
                 robotObject.GetComponent<RobotTumbleController>();
             if (tumble == null)

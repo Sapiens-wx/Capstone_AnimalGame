@@ -154,6 +154,7 @@ namespace AnimalGame.Tutorial
                 : feedbackRemaining > 0f ? lastFeedback
                 : text.WaitingStatus;
             panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
+            panel.SetLessonHint(string.Empty);
             panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
                 tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
                 tokens.Format(stepText.Detail), tokens.Format(status), 1, 8);

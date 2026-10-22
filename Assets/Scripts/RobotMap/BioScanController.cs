@@ -125,9 +125,33 @@ namespace AnimalGame.RobotMap
         private float currentDeployment01;
         private float retractionStartDeployment01;
         private bool subscribed;
+        private int scanSequence;
 
         public bool IsScanning => phase != ScannerPhase.Hidden;
         public bool IsCharging => phase == ScannerPhase.Charging;
+        public int ScanSequence => scanSequence;
+        public bool HasActiveScanWave => scanWaveActive;
+        public float MaximumScanRadiusWorld => Mathf.Max(0.01f, formedRingRadius)
+            + Mathf.Max(0.1f, maximumSignalDistance);
+        public Vector2 FullyDeployedScanOriginWorld
+        {
+            get
+            {
+                float armPpu = mechanicalArmSprite != null ? Mathf.Max(1f, mechanicalArmSprite.pixelsPerUnit) : 100f;
+                float radarPpu = biologicalRadarSprite != null ? Mathf.Max(1f, biologicalRadarSprite.pixelsPerUnit) : 100f;
+                float offset = ArmVisibleLengthPixels / armPpu * mechanicalArmArtworkScale
+                    * Mathf.Clamp(mechanicalArmLengthMultiplier, .2f, 1.5f)
+                    + RadarVisibleHeightPixels / radarPpu * radarArtworkScale * .42f;
+                if (scannerRoot != null) return scannerRoot.TransformPoint(Vector3.up * offset);
+                // Placement can be queried before the first charge binds the inactive scanner rig.
+                if (markerView != null && markerView.MarkerVisualRoot != null)
+                    return markerView.MarkerVisualRoot.TransformPoint(Vector3.up
+                        * (markerView.VisualBodyDiameter * .48f + offset));
+                return transform.TransformPoint(Vector3.up * offset);
+            }
+        }
+        public event Action<int, DiscoverableEntity> AnimalDetected;
+        public event Action<int, ScannableInteractable> InteractableDetected;
 
         private void Awake()
         {
@@ -506,6 +530,7 @@ namespace AnimalGame.RobotMap
             scanWaveOrigin = center;
             scanWaveRadius = initialRadius;
             scanWaveActive = true;
+            scanSequence = scanSequence == int.MaxValue ? 1 : scanSequence + 1;
             revealedEntityIds.Clear();
             RevealTargetsCrossedByWave(0f, initialRadius);
             DeactivateFormingSignals();
@@ -606,6 +631,7 @@ namespace AnimalGame.RobotMap
                 {
                     entity.SetDiscovered(true);
                     animalMarkers?.ShowScannedAnimal(entity);
+                    AnimalDetected?.Invoke(scanSequence, entity);
                 }
                 else
                     entity.RevealTemporarily(temporaryRevealDuration);
@@ -627,6 +653,7 @@ namespace AnimalGame.RobotMap
                     continue;
                 revealedEntityIds.Add(targetId);
                 EnsureStaticAreaMarkers().ShowScannedInteractable(target);
+                InteractableDetected?.Invoke(scanSequence, target);
             }
         }
 

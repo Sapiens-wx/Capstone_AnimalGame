@@ -122,7 +122,10 @@ namespace AnimalGame.Editor
                 f.Tick(1, Vector2.up, false);
                 Require(item.Owner == null && f.Arms.HeldObject == null, "Release did not drop outer-held garbage");
                 Clear(f.Shake);
-                f.Tick(1, Vector2.up, true);
+                // A release closes the grab session. Release the old L3 hold before
+                // deliberately deploying again; the old hold must not perform a new grab.
+                Call(f.Arms, "Step", 0f, Vector2.zero, false, false);
+                f.Tick(2, Vector2.up, true);
                 Require(f.Arms.HeldObject == item && PulseCount(f.Shake) == 1, "A new grab after a drop did not emit feedback");
             }
         }
@@ -342,7 +345,10 @@ namespace AnimalGame.Editor
         private static Vector2 Motors(RobotCameraShake shake, float time) => (Vector2)Call(shake, "GetGarbageGrabMotorSpeeds", time);
         private static void Set(object target, string name, object value) => target.GetType().GetField(name, Instance).SetValue(target, value);
         private static object Get(object target, string name) => target.GetType().GetField(name, Instance).GetValue(target);
-        private static object Call(object target, string name, params object[] args) => target.GetType().GetMethod(name, Instance).Invoke(target, args);
+        private static object Call(object target, string name, params object[] args) =>
+            target is RobotArmController arms && name == "Step"
+                ? RobotArmRegressionChecks.StepForDesiredDeployment(arms, (float)args[0], (Vector2)args[1], (bool)args[2], (bool)args[3])
+                : target.GetType().GetMethod(name, Instance).Invoke(target, args);
         private static object CallStatic(Type type, string name, params object[] args) => type.GetMethod(name, Static).Invoke(null, args);
 
         private sealed class Fixture : IDisposable

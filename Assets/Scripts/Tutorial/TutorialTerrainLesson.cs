@@ -35,6 +35,7 @@ namespace AnimalGame.Tutorial
         private int displayedApproachIndex = -1;
         private Vector2 displayedTarget;
         private bool showingTarget;
+        private bool ownsPresentation = true;
         private readonly TerrainLessonText defaultText = new TerrainLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
 
@@ -43,6 +44,8 @@ namespace AnimalGame.Tutorial
         public TutorialWaypointIndicator Waypoint => waypoint;
         public bool HasStarted => hasStarted;
         public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+
+        public void SetPresentationOwned(bool value) => ownsPresentation = value;
 
         private void Start()
         {
@@ -65,6 +68,7 @@ namespace AnimalGame.Tutorial
                 completionDelay = 0f;
                 return;
             }
+            if (!ownsPresentation) return;
             bool modal = IsModal();
             if (!hasStarted)
             {
@@ -214,6 +218,7 @@ namespace AnimalGame.Tutorial
                 .Add("distance", progress.DistanceMeters).Add("slope", slope)
                 .Add("reading", progress.ReadingSeconds).Add("readingTarget", progress.ReadingDuration);
             driving.Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
+            driving.Panel.SetLessonHint(string.Empty);
             driving.Panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
                 tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
                 tokens.Format(stepText.Detail), tokens.Format(status), 2, 8);
@@ -235,6 +240,7 @@ namespace AnimalGame.Tutorial
             if (waypoint != null) waypoint.ClearTarget();
             showingTarget = false;
             hasStarted = false;
+            ownsPresentation = true;
             progress = null;
             if (driving != null) driving.SetPresentationOwned(true);
         }

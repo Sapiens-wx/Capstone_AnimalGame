@@ -279,7 +279,9 @@ namespace AnimalGame.Editor
         }
 
         private static object Call(object target, string method, params object[] args) =>
-            target.GetType().GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, args);
+            target is RobotArmController arms && method == "Step"
+                ? RobotArmRegressionChecks.StepForDesiredDeployment(arms, (float)args[0], (Vector2)args[1], (bool)args[2], (bool)args[3])
+                : target.GetType().GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, args);
         private static void Set(object target, string field, object value) =>
             target.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
         private static void Require(bool condition, string message) { if (!condition) throw new Exception(message); }

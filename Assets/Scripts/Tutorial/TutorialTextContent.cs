@@ -13,6 +13,9 @@ namespace AnimalGame.Tutorial
         public TutorialPanelText Panel = new TutorialPanelText();
         public DrivingLessonText Driving = new DrivingLessonText();
         public TerrainLessonText Terrain = new TerrainLessonText();
+        public ArmsLessonText Arms = new ArmsLessonText();
+        public DiscoveryLessonText Discovery = new DiscoveryLessonText();
+        public PhotographyLessonText Photography = new PhotographyLessonText();
     }
 
     [Serializable]
@@ -123,6 +126,161 @@ namespace AnimalGame.Tutorial
             TerrainTutorialStep.ScanTerrain => ScanTerrain,
             TerrainTutorialStep.ReadSigns => ReadSigns,
             TerrainTutorialStep.FollowRoute => FollowRoute,
+            _ => Completed
+        };
+    }
+
+    [Serializable]
+    public sealed class ArmsLessonText
+    {
+        public string Title = "Mechanical Arms";
+        public TutorialStepText Deploy = new TutorialStepText("L3", "Deploy arms",
+            "Click the left stick (L3)\nto deploy both arms.\nL3 also retracts them.",
+            "Press once, then release.");
+        public TutorialStepText Extend = new TutorialStepText("L ↑", "Extend reach",
+            "Push the left stick up.\nMove the empty hands\nfarther from the body.",
+            "Out {value:F0} / {target:F0} cm");
+        public TutorialStepText RetractReach = new TutorialStepText("L ↓", "Shorten reach",
+            "Push the left stick down.\nBring the empty hands\ncloser to the body.",
+            "In {value:F0} / {target:F0} cm");
+        public TutorialStepText SwingLeft = new TutorialStepText("L ←", "Swing left",
+            "Push the left stick left.\nSwing the empty hands\ntoward the left side.",
+            "Left {value:F0}° / {target:F0}°");
+        public TutorialStepText SwingRight = new TutorialStepText("L →", "Swing right",
+            "Push the left stick right.\nSwing the empty hands\ntoward the right side.",
+            "Right {value:F0}° / {target:F0}°");
+        public TutorialStepText HoldStill = new TutorialStepText("L", "Hold position",
+            "Center the left stick.\nThe hands stay where\nyou leave them.\nKeep them still.",
+            "Still {value:F1} / {target:F1} s");
+        public TutorialStepText Stow = new TutorialStepText("L3", "Retract arms",
+            "Click the left stick (L3)\nto retract both arms.\nThis restores driving.",
+            "Press once, then release.");
+        public TutorialStepText Completed = new TutorialStepText("✓", "Arms complete",
+            "Arm controls complete.\nYou are ready to scan\nwildlife and objects.",
+            "Arms safely retracted.");
+        public string WaitingStatus = "Waiting";
+        public string BlockedStatus = "Return to arm practice";
+        public string ReopenStatus = "Deploy arms to continue";
+        public string EmptyHandsStatus = "Put down held items";
+        public string CompleteStatus = "Lesson complete";
+        public string ToggleHint = "L3 · Deploy / Retract";
+        [TextArea(2, 4)] public string ReopenMessage = "Press L3 to deploy your\narms and continue.";
+        [TextArea(3, 5)] public string InitialStowMessage = "Press L3 to retract your\narms, then press again\nto deploy.";
+        public string InitialStowAction = "Retract first";
+        [TextArea(3, 5)] public string StowRecoveryMessage = "Press L3 to deploy your\narms, then press again\nto retract.";
+
+        public TutorialStepText GetStep(ArmTutorialStep step) => step switch
+        {
+            ArmTutorialStep.Deploy => Deploy,
+            ArmTutorialStep.Extend => Extend,
+            ArmTutorialStep.RetractReach => RetractReach,
+            ArmTutorialStep.SwingLeft => SwingLeft,
+            ArmTutorialStep.SwingRight => SwingRight,
+            ArmTutorialStep.HoldStill => HoldStill,
+            ArmTutorialStep.Stow => Stow,
+            _ => Completed
+        };
+    }
+
+    [Serializable]
+    public sealed class DiscoveryLessonText
+    {
+        public string Title = "Discovery Scan";
+        public TutorialStepText ApproachAnimal = new TutorialStepText("LS", "Follow marker",
+            "Follow the marker.\nScan again when nearby.\nObserve the muskrat\nfrom dry ground.",
+            "Stay on dry ground.");
+        public TutorialStepText Charge = new TutorialStepText("{lb}", "Charge scan",
+            "Hold the left bumper.\nKeep holding to charge\na discovery scan.",
+            "Charge {value:F0}%");
+        public TutorialStepText Release = new TutorialStepText("{lb}", "Release to scan",
+            "The scan is ready.\nRelease the left bumper\nto send the pulse.",
+            "Release {lb} to scan");
+        public TutorialStepText FindAnimal = new TutorialStepText("✧", "Find muskrat",
+            "A hollow star marks\nwildlife not yet seen.\nFind the muskrat.",
+            "Hollow star · Unseen");
+        public TutorialStepText ConfirmAnimal = new TutorialStepText("✦", "See muskrat",
+            "Drive until the muskrat\nis inside your view.\nIts star becomes solid\nwhen you see it.",
+            "Solid star · Seen");
+        public TutorialStepText ReadObject = new TutorialStepText("///", "Inspect object",
+            "Stripes and diamonds\nmark objects you can\ninteract with. Some need\nmore than recycling.",
+            "Striped mark · Interact");
+        public TutorialStepText Rescan = new TutorialStepText("{lb}", "Scan again",
+            "Marks fade over time.\nHold the left bumper.\nRelease at full charge\nto refresh nearby marks.",
+            "Scans {value:F0} / {target:F0}");
+        public TutorialStepText Completed = new TutorialStepText("✓", "Scan complete",
+            "Scan complete.\nYou can now find wildlife\nand useful objects.",
+            "Keep exploring freely.");
+        public string WaitingStatus = "Waiting";
+        public string CancelledStatus = "Scan cancelled";
+        public string WrongGestureStatus = "Hold for discovery scan";
+        public string NeedRescanStatus = "Scan again to continue";
+        public string NeedEmptyHandsStatus = "Retract arms to scan";
+        public string BlockedStatus = "Return to scan practice";
+        public string CompleteStatus = "Lesson complete";
+        public string PreparingStatus = "Preparing nearby targets";
+        public string ToggleHint = "Hold {lb} · Charge / Release";
+        [TextArea(3, 5)] public string NeedRescanMessage = "The scan marks faded.\nHold the left bumper,\nthen release when full\nto scan again.";
+        [TextArea(2, 4)] public string NeedStowMessage = "Press L3 to retract your\narms before scanning.";
+
+        public TutorialStepText GetStep(DiscoveryTutorialStep step) => step switch
+        {
+            DiscoveryTutorialStep.Charge => Charge,
+            DiscoveryTutorialStep.Release => Release,
+            DiscoveryTutorialStep.FindAnimal => FindAnimal,
+            DiscoveryTutorialStep.ConfirmAnimal => ConfirmAnimal,
+            DiscoveryTutorialStep.ReadObject => ReadObject,
+            DiscoveryTutorialStep.Rescan => Rescan,
+            _ => Completed
+        };
+    }
+
+    [Serializable]
+    public sealed class PhotographyLessonText
+    {
+        public string Title = "Photo Practice";
+        public TutorialStepText ObserveMovement = new TutorialStepText("✦", "Watch muskrat",
+            "The muskrat is moving.\nWatch it swim nearby.\nKeep it inside your view.",
+            "Watch from dry ground.");
+        public TutorialStepText EnterPhoto = new TutorialStepText("{photo}", "Enter photo",
+            "Press {photo} to enter\nphoto mode and open\nthe camera view.",
+            "Press once, then release.");
+        public TutorialStepText FrameSubject = new TutorialStepText("L", "Frame muskrat",
+            "Use the triggers to move.\nSteer with the left stick.\nBring the muskrat into\nthe camera frame.",
+            "{rt} / {lt} move · L steer");
+        public TutorialStepText Capture = new TutorialStepText("{rb}", "Hold to capture",
+            "Hold the right bumper.\nKeep the muskrat framed\nuntil the photo is taken.",
+            "Hold {rb} until captured.");
+        public TutorialStepText SavePhoto = new TutorialStepText("{save}", "Save photo",
+            "Save the muskrat photo.\nPress {save} on the result\nscreen to add it to\nyour album.",
+            "{save} · Save to album");
+        public TutorialStepText ExitPhoto = new TutorialStepText("{cancel}", "Resume driving",
+            "Photo saved.\nPress {cancel} to leave\nphoto mode and return\nto driving.",
+            "{cancel} · Back");
+        public TutorialStepText Completed = new TutorialStepText("✓", "Photo complete",
+            "Photo saved.\nYou can now photograph\nwildlife as you explore.",
+            "Keep exploring freely.");
+        public string WaitingStatus = "Waiting";
+        public string BlockedStatus = "Return to photo practice";
+        public string TargetMissingStatus = "Follow the muskrat marker";
+        public string NeedStowStatus = "Retract arms first";
+        public string NeedRescanStatus = "Scan again to find it";
+        public string RetryPhotoStatus = "Photograph the muskrat";
+        public string SavedStatus = "Photo saved to album";
+        public string CompleteStatus = "Lesson complete";
+        public string ToggleHint = "{photo} · Photo / {cancel} · Back";
+        [TextArea(3, 5)] public string TargetMissingMessage = "Follow the gold marker.\nStay on dry ground and\nlook for the muskrat\nnear the water's edge.";
+        [TextArea(2, 4)] public string NeedStowMessage = "Press L3 to retract\nyour arms before\nentering photo mode.";
+        [TextArea(3, 5)] public string NeedRescanMessage = "The star marker faded.\nHold the left bumper,\nthen release at full\ncharge to find it again.";
+        [TextArea(3, 5)] public string RetryPhotoMessage = "The muskrat was not\nrecorded in that photo.\nBring it into the frame\nand hold {rb} to try again.";
+
+        public TutorialStepText GetStep(PhotographyTutorialStep step) => step switch
+        {
+            PhotographyTutorialStep.ObserveMovement => ObserveMovement,
+            PhotographyTutorialStep.EnterPhoto => EnterPhoto,
+            PhotographyTutorialStep.FrameSubject => FrameSubject,
+            PhotographyTutorialStep.Capture => Capture,
+            PhotographyTutorialStep.SavePhoto => SavePhoto,
+            PhotographyTutorialStep.ExitPhoto => ExitPhoto,
             _ => Completed
         };
     }

@@ -389,6 +389,8 @@ namespace AnimalGame.Editor
                     && !f.Arms.IsTumbleArmSupportReady,
                     "Disabling the arm controller retained a tumble migration or support");
                 f.Arms.enabled = true;
+                // A disabled deployment switch needs a new release/press sequence.
+                f.Tick(1, Vector2.zero, false);
                 f.Tick(1, standBeforeDisable ? Vector2.up : direction);
                 if (standBeforeDisable)
                 {
@@ -416,7 +418,9 @@ namespace AnimalGame.Editor
         private static void Set(object target, string name, object value) =>
             target.GetType().GetField(name, InstancePrivate | BindingFlags.Public).SetValue(target, value);
         private static object Call(object target, string name, params object[] args) =>
-            target.GetType().GetMethod(name, InstancePrivate).Invoke(target, args);
+            target is RobotArmController arms && name == "Step"
+                ? RobotArmRegressionChecks.StepForDesiredDeployment(arms, (float)args[0], (Vector2)args[1], (bool)args[2], (bool)args[3])
+                : target.GetType().GetMethod(name, InstancePrivate).Invoke(target, args);
         private static void SetProperty(object target, string name, object value) =>
             target.GetType().GetProperty(name).SetValue(target, value);
 

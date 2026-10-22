@@ -50,12 +50,27 @@ namespace AnimalGame.RobotMap
         private readonly PhotoContourCapture contourCapture = new PhotoContourCapture();
         private PhotoResultSnapshot pendingResult;
         private PhotoResultSnapshot displayedResult;
+        private AnimalPhotoSubject pendingSubject;
+        private AnimalPhotoSubject displayedSubject;
         private bool visible;
         private bool saved;
         private PhotoResultView subscribedView;
 
         public bool IsVisible => visible;
+        public bool IsResultVisible => visible;
+        public PhotoResultSnapshot DisplayedResult => displayedResult;
+        public AnimalPhotoSubject DisplayedSubject => displayedSubject;
+        public bool HasSavedDisplayedResult => saved && displayedResult != null;
         public PhotoLibrary Library { get => photoLibrary; set => photoLibrary = value; }
+
+        public event Action<AnimalPhotoSubject, PhotoResultSnapshot> ResultShown;
+        public event Action<AnimalPhotoSubject, PhotoResultSnapshot> PhotoSaved;
+
+        /// <summary>Uses the shutter's actual coverage, size and main-subject selection rules.</summary>
+        public bool IsSubjectInCaptureFrame(AnimalPhotoSubject subject) =>
+            subject != null
+            && TrySelectMainSubject(out AnimalPhotoSubject selectedSubject, out _)
+            && ReferenceEquals(selectedSubject, subject);
 
         private void OnEnable() => BindResultView();
 
@@ -135,6 +150,7 @@ namespace AnimalGame.RobotMap
             if (!isActiveAndEnabled || (resultView != null && resultView.IsWarmingUp)) return;
             contourCapture.Dispose();
             pendingResult = null;
+            pendingSubject = null;
             if (!TrySelectMainSubject(
                     out AnimalPhotoSubject subject,
                     out float frameCoverage))
@@ -158,11 +174,13 @@ namespace AnimalGame.RobotMap
                 selectedPhoto.WithCaptureSettings(controller != null
                     ? controller.LastCaptureSettings : null),
                 frameCoverage);
+            pendingSubject = subject;
             if (resultView != null) resultView.HasPendingReview = true;
             if (resultView == null || controller == null || !controller.RequestPhotoReview())
             {
                 if (resultView != null) resultView.HasPendingReview = false;
                 pendingResult = null;
+                pendingSubject = null;
                 return;
             }
             // Freeze at the shutter event, before the review transition.
@@ -494,9 +512,12 @@ namespace AnimalGame.RobotMap
         {
             if (pendingResult == null) return;
             if (resultView == null) { HideResult(true); return; }
+            if (resultView.IsWarmingUp) return;
             BindResultView();
             displayedResult = pendingResult;
+            displayedSubject = pendingSubject;
             pendingResult = null;
+            pendingSubject = null;
             visible = true;
             saved = false;
             try { resultView.Show(displayedResult, contourCapture); }
@@ -504,7 +525,9 @@ namespace AnimalGame.RobotMap
             {
                 Debug.LogException(exception, this);
                 HideResult(true);
+                return;
             }
+            ResultShown?.Invoke(displayedSubject, displayedResult);
         }
 
         private void SaveDisplayedResult()
@@ -513,6 +536,7 @@ namespace AnimalGame.RobotMap
             PhotoAlbumService.Save(displayedResult);
             saved = true;
             resultView.SetSaved();
+            PhotoSaved?.Invoke(displayedSubject, displayedResult);
         }
 
         private void HandleViewClosed() => HideResult(true);
@@ -523,6 +547,8 @@ namespace AnimalGame.RobotMap
             visible = false;
             pendingResult = null;
             displayedResult = null;
+            pendingSubject = null;
+            displayedSubject = null;
             saved = false;
             if (resultView != null && !resultView.IsWarmingUp) resultView.HideImmediately();
             contourCapture.Dispose();
