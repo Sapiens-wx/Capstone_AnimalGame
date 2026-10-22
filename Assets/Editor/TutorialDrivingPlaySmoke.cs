@@ -19,6 +19,7 @@ namespace AnimalGame.Editor
     /// <summary>End-to-end virtual-gamepad smoke. Explicit batch entry, disposable project only.</summary>
     public sealed class TutorialDrivingPlaySmoke : ScriptableObject
     {
+        private const string RunSessionKey = "AnimalGame.TutorialDrivingPlaySmoke.CurrentRun";
         private enum Phase { Starting, Ready, Collapsed, Released, Expanded, RightCollapsed, RightReleased,
             RightExpanded, BeforeRightHold, RightHold, Paused, Resumed, Driving, Complete,
             TerrainStarting, TerrainRightCollapsed, TerrainRightReleased, TerrainRightExpanded,
@@ -33,10 +34,11 @@ namespace AnimalGame.Editor
             public List<string> errors = new List<string>();
             public string phase;
             public Vector2 robotMapPosition, destination;
-            public float speed, throttle;
+            public float speed, throttle, navigationAngle;
             public bool gameplayBlocked;
         }
         [SerializeField] private bool running;
+        [SerializeField] private string runId;
         [SerializeField] private Phase phase;
         [SerializeField] private Report report;
         [SerializeField] private int phaseFrame, lastFrame = -1, gamepadId;
@@ -46,6 +48,7 @@ namespace AnimalGame.Editor
         [SerializeField] private TutorialDrivingLesson lesson;
         [SerializeField] private DrivingTutorialStep lastStep;
         [SerializeField] private bool observedMovingTurn;
+        [SerializeField] private bool observedTurningWhileDriving;
         [SerializeField] private InputSettings originalInput, testInput;
         [SerializeField] private bool originalBackground;
         [SerializeField] private RenderTexture captureTexture, priorCaptureTarget;
@@ -57,6 +60,10 @@ namespace AnimalGame.Editor
         [SerializeField] private float frozenReading;
         [SerializeField] private TerrainTutorialStep lastTerrainStep;
         [SerializeField] private Phase lastShortRightTap;
+        [SerializeField] private bool passedApproachBend;
+        [SerializeField] private bool cameraFollowSuspended;
+        [SerializeField] private float navigationAngle, navigationLastMovedAt;
+        [SerializeField] private Vector2 navigationLastPosition;
 
         public static void RunBatch() => RunBatchInternal(false);
         public static void RunTerrainBatch() => RunBatchInternal(true);
@@ -66,7 +73,16 @@ namespace AnimalGame.Editor
             string project = Path.GetFullPath(Path.Combine(Application.dataPath, "..")).Replace('\\', '/');
             if (!Application.isBatchMode || !project.Contains("/output/validation/"))
                 throw new InvalidOperationException("Run the driving Play Mode smoke in a disposable output/validation project.");
+            SessionState.EraseString(RunSessionKey);
+            foreach (var previous in Resources.FindObjectsOfTypeAll<TutorialDrivingPlaySmoke>())
+            {
+                previous.running = false;
+                previous.Unsubscribe();
+                DestroyImmediate(previous);
+            }
             var test = CreateInstance<TutorialDrivingPlaySmoke>();
+            test.runId = Guid.NewGuid().ToString("N");
+            SessionState.SetString(RunSessionKey, test.runId);
             test.hideFlags = HideFlags.HideAndDontSave;
             test.includeTerrain = includeTerrain;
             test.outputDirectory = Path.Combine(project, includeTerrain ? "output/validation/tutorial-terrain" : "output/validation/tutorial-driving");
@@ -80,10 +96,12 @@ namespace AnimalGame.Editor
             EditorApplication.isPlaying = true;
         }
 
-        private void OnEnable() { if (running) Subscribe(); }
+        private bool IsCurrentRun => !string.IsNullOrEmpty(runId) && SessionState.GetString(RunSessionKey, "") == runId;
+        private void OnEnable() { if (running && IsCurrentRun) Subscribe(); }
         private void OnDisable() { Unsubscribe(); }
         private void Subscribe()
         {
+            if (!IsCurrentRun) return;
             EditorApplication.update -= Tick; EditorApplication.update += Tick;
             Application.logMessageReceived -= OnLog; Application.logMessageReceived += OnLog;
             InputSystem.onBeforeUpdate -= Drive; InputSystem.onBeforeUpdate += Drive;
@@ -96,7 +114,7 @@ namespace AnimalGame.Editor
         }
         private void Tick()
         {
-            if (!running) return;
+            if (!running || !IsCurrentRun) return;
             try
             {
                 if (phase == Phase.Finishing)
@@ -126,7 +144,7 @@ namespace AnimalGame.Editor
                         Begin(Phase.Ready); break;
                     case Phase.Ready:
                         if (!Settled(8)) return;
-                        Require(lesson.Progress.Step == DrivingTutorialStep.Forward && lesson.Progress.Value == 0f,
+                        Require(lesson.Progress.Step == DrivingTutorialStep.TurnLeft && lesson.Progress.Value == 0f,
                             "Idle robot advanced the lesson.");
                         Require(lesson.Panel.Root.Q<Label>("TutorialHeader")?.text == "TUTORIAL",
                             "The saved tutorial scene still displays its former support header.");
@@ -185,6 +203,10 @@ namespace AnimalGame.Editor
                         lesson.Panel.SetCollapsed(false);
                         lastStep = lesson.Progress.Step; Begin(Phase.Driving); break;
                     case Phase.Driving:
+                        if (lesson.Progress.Step == DrivingTutorialStep.TurnLeft && lesson.Progress.Value > 1f
+                            && bootstrap.robot.CurrentThrottleIntent > .12f && bootstrap.robot.CurrentSpeed > .05f
+                            && Mathf.Abs(bootstrap.robot.CurrentTurnSpeed) > 1f)
+                            observedTurningWhileDriving = true;
                         if (lesson.Progress.Step == DrivingTutorialStep.SteerWhileMoving
                             && lesson.Progress.MovingTurnDistanceMeters > .05f
                             && lesson.Progress.Value > 1f
@@ -193,6 +215,8 @@ namespace AnimalGame.Editor
                             observedMovingTurn = true;
                         if (lastStep != lesson.Progress.Step)
                         {
+                            if (lastStep == DrivingTutorialStep.TurnLeft)
+                                Require(observedTurningWhileDriving, "The first turning lesson did not accept actual forward driving plus steering.");
                             if (lastStep == DrivingTutorialStep.SteerWhileMoving)
                                 Require(observedMovingTurn, "Moving-turn lesson advanced without measured simultaneous driving and steering.");
                             Record("Actual virtual-gamepad motion completed " + lastStep + ".");
@@ -205,7 +229,8 @@ namespace AnimalGame.Editor
                         if (!Settled(8)) return;
                         Require(Time.timeScale == 1f && bootstrap.robot.enabled, "Completion changes gameplay ownership.");
                         Require(observedMovingTurn, "The real controller never demonstrated simultaneous driving and steering.");
-                        Record("RT forward, stationary left/right turns, RT plus left-stick moving turn, LT reverse and neutral stop finish only chapter 01/08.");
+                        Require(observedTurningWhileDriving, "Actual moving steering was not counted during the first turn lesson.");
+                        Record("Left/right steering comes first, then forward/reverse, moving steering and stop; the first turn accepts actual forward driving plus steering.");
                         BeginCapture("driving-complete.png", includeTerrain ? Phase.TerrainStarting : Phase.Removed); break;
                     case Phase.TerrainStarting:
                         terrain = lesson.GetComponent<TutorialTerrainLesson>();
@@ -235,6 +260,7 @@ namespace AnimalGame.Editor
                         Record("The terrain chapter also supports both D-pad directions without advancing its destination task.");
                         Begin(Phase.TerrainTravel); break;
                     case Phase.TerrainTravel:
+                        CheckNavigationProgress();
                         Require(!AnimalGame.MainUI.MainUI.BlocksGameplay, "Survey travel is unexpectedly paused by inventory.");
                         Require(!bootstrap.robot.IsMovementLocked && !bootstrap.robot.IsLevelThreeUnstable,
                             "Survey approach led the real robot onto unsafe ground.");
@@ -302,6 +328,7 @@ namespace AnimalGame.Editor
                         Record("Inventory pause hides terrain UI and freezes reading; reading or re-scanning resumes safely.");
                         Begin(terrain.Progress.Step == TerrainTutorialStep.ScanTerrain ? Phase.TerrainRescan : Phase.TerrainRead); break;
                     case Phase.TerrainRoute:
+                        CheckNavigationProgress();
                         Require(!AnimalGame.MainUI.MainUI.BlocksGameplay, "Slope travel is unexpectedly paused by inventory.");
                         Require(!bootstrap.robot.IsMovementLocked && !bootstrap.robot.IsLevelThreeUnstable,
                             "The point 1-to-2 slope route entered an unsafe state.");
@@ -335,7 +362,22 @@ namespace AnimalGame.Editor
 
         private void Drive()
         {
-            if (!running || phase == Phase.Finishing || InputState.currentUpdateType != InputUpdateType.Dynamic) return;
+            if (!running || !IsCurrentRun || phase == Phase.Finishing || InputState.currentUpdateType != InputUpdateType.Dynamic) return;
+            // Editor-driven zero-delta frames can poison SmoothDamp's velocity on the existing
+            // camera. Keep that unrelated smoothing out of the input/progress fixture at dt=0.
+            if (bootstrap != null && bootstrap.cameraFollow != null)
+            {
+                if (Time.deltaTime <= 0f && bootstrap.cameraFollow.enabled)
+                {
+                    bootstrap.cameraFollow.enabled = false;
+                    cameraFollowSuspended = true;
+                }
+                else if (Time.deltaTime > 0f && cameraFollowSuspended)
+                {
+                    bootstrap.cameraFollow.enabled = true;
+                    cameraFollowSuspended = false;
+                }
+            }
             var gamepad = InputSystem.GetDeviceById(gamepadId) as Gamepad;
             if (gamepad == null) return;
             var state = new GamepadState();
@@ -354,7 +396,8 @@ namespace AnimalGame.Editor
                 switch (lesson.Progress.Step)
                 {
                     case DrivingTutorialStep.Forward: state.rightTrigger = 1f; break;
-                    case DrivingTutorialStep.TurnLeft: state.leftStick = Vector2.left; break;
+                    case DrivingTutorialStep.TurnLeft:
+                        state.leftStick = new Vector2(-.65f, 0f); state.rightTrigger = .25f; break;
                     case DrivingTutorialStep.TurnRight: state.leftStick = Vector2.right; break;
                     case DrivingTutorialStep.SteerWhileMoving:
                         state.rightTrigger = .45f; state.leftStick = new Vector2(-.65f, 0f); break;
@@ -364,10 +407,24 @@ namespace AnimalGame.Editor
             {
                 Vector2 current = default;
                 bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out current, out _);
-                Vector2 direction = bootstrap.map.MapDirectionToWorldDirection(terrain.Progress.CurrentTarget - current);
+                Vector2 navigationTarget = terrain.Progress.CurrentTarget;
+                // A player can steer around existing trees. Keep this automated driver clear too;
+                // the visible lesson destination remains the user's point 1 throughout the approach.
+                if (phase == Phase.TerrainTravel && !passedApproachBend)
+                {
+                    Vector2 bend = new Vector2(181f, 151f);
+                    if (Vector2.Distance(current, bend) <= 2f) passedApproachBend = true;
+                    else navigationTarget = bend;
+                }
+                Vector2 direction = bootstrap.map.MapDirectionToWorldDirection(navigationTarget - current);
                 float angle = Vector2.SignedAngle(bootstrap.robot.Forward, direction);
-                state.leftStick = new Vector2(Mathf.Clamp(-angle / 35f, -1f, 1f), 0f);
-                if (Mathf.Abs(angle) < 16f) state.rightTrigger = .45f;
+                navigationAngle = angle;
+                float steering = Mathf.Clamp(-angle / 18f, -1f, 1f);
+                if (Mathf.Abs(angle) <= 1.5f) steering = 0f;
+                else if (Mathf.Abs(steering) < .4f) steering = Mathf.Sign(steering) * .4f;
+                // Clear both the Input System stick processor and the robot's steering dead zone.
+                state.leftStick = new Vector2(steering, 0f);
+                if (Mathf.Abs(angle) < 4f) state.rightTrigger = .45f;
             }
             if (phase == Phase.TerrainLongPress) state = state.WithButton(GamepadButton.LeftShoulder);
             if (phase == Phase.TerrainScan || phase == Phase.TerrainRescan)
@@ -418,18 +475,38 @@ namespace AnimalGame.Editor
             captureSettings = null; captureTexture = null; priorCaptureTarget = null;
         }
 
-        private void Begin(Phase next) { phase = next; phaseFrame = Time.frameCount; Save(); }
+        private void Begin(Phase next)
+        {
+            phase = next; phaseFrame = Time.frameCount;
+            navigationLastMovedAt = Time.unscaledTime;
+            if (bootstrap != null && bootstrap.map != null && bootstrap.robot != null)
+                bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out navigationLastPosition, out _);
+            Save();
+        }
+        private void CheckNavigationProgress()
+        {
+            bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 current, out _);
+            if (Vector2.Distance(current, navigationLastPosition) > .1f)
+            {
+                navigationLastPosition = current;
+                navigationLastMovedAt = Time.unscaledTime;
+            }
+            Require(Time.unscaledTime - navigationLastMovedAt < 10f,
+                $"Automated navigation stalled at {current}, heading error {navigationAngle:F1} degrees.");
+        }
         private bool Settled(int frames) => Time.frameCount - phaseFrame >= frames;
         private void Record(string text) { report.checks.Add(text); Save(); }
         private static void Require(bool condition, string text) { if (!condition) throw new InvalidOperationException(text); }
         private void OnLog(string text, string stack, LogType type)
         {
+            if (!IsCurrentRun) return;
             if (type == LogType.Exception || type == LogType.Error || type == LogType.Assert)
                 if (report != null && !report.errors.Contains(text)) { report.errors.Add(text); Save(); }
         }
         private void Save()
         {
             report.phase = phase.ToString();
+            report.navigationAngle = navigationAngle;
             report.gameplayBlocked = AnimalGame.MainUI.MainUI.BlocksGameplay;
             if (bootstrap != null && bootstrap.robot != null)
             {
@@ -447,6 +524,8 @@ namespace AnimalGame.Editor
             if (phase == Phase.Finishing) return;
             if (error != null) report.errors.Add(error.ToString());
             RestoreCapture();
+            if (cameraFollowSuspended && Time.deltaTime > 0f && bootstrap != null && bootstrap.cameraFollow != null)
+                bootstrap.cameraFollow.enabled = true;
             InputSystem.onBeforeUpdate -= Drive;
             var gamepad = InputSystem.GetDeviceById(gamepadId);
             if (gamepad != null) InputSystem.RemoveDevice(gamepad);

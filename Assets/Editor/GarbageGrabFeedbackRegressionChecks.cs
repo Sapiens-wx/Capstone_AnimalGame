@@ -92,7 +92,9 @@ namespace AnimalGame.Editor
             using (var f = new Fixture())
             {
                 WorldInteraction item = f.Garbage(RecyclableSize.Small);
-                item.WorldPosition = Vector3.zero; item.LocalSize = Vector2.one * 3f;
+                item.WorldPosition = Vector3.zero;
+                // Cover the deployed hand workspace without assuming a fixed authored reach.
+                item.LocalSize = Vector2.one * (float)Get(f.Arms, "armLength") * 3f;
                 WorldInteraction obstacle = f.Solid(new Vector2(-.3f, .1f), new Vector2(.5f, .12f));
                 f.Tick(120, Vector2.up, true);
                 Require(f.Arms.State == RobotArmState.Extending && f.Arms.IsBlocked && f.Arms.HeldObject == null,
@@ -371,15 +373,35 @@ namespace AnimalGame.Editor
                 GameObject settings = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Environment/Garbage/" + name + "_Garbage.prefab");
                 Require(settings != null && settings.GetComponent<GarbageItem>() != null, "Missing production garbage classification: " + name);
                 bool twoHands = size != RecyclableSize.Small;
-                Vector2 position = twoHands && !oneHandOnly ? (Arms.LeftHandWorld + Arms.RightHandWorld) * .5f : Arms.LeftHandWorld;
-                WorldInteraction item = Item(position, twoHands && !oneHandOnly ? new Vector2(.5f, .1f) : Vector2.one * .05f, twoHands ? 2 : 1);
+                Vector2 left = Arms.LeftHandWorld, right = Arms.RightHandWorld;
+                Vector2 span = right - left;
+                float margin = Mathf.Max(.001f, span.magnitude * .1f);
+                Vector2 position = twoHands && !oneHandOnly ? (left + right) * .5f : left;
+                Vector2 bounds = twoHands && !oneHandOnly
+                    ? new Vector2(Mathf.Abs(span.x), Mathf.Abs(span.y)) + Vector2.one * margin
+                    : Vector2.one * margin;
+                WorldInteraction item = Item(position, bounds, twoHands ? 2 : 1);
                 EditorUtility.CopySerialized(settings.GetComponent<WorldInteraction>(), item);
                 item.BoxSource = null; item.SpriteSource = null; item.ColliderCenter = Vector2.zero;
-                item.LocalSize = twoHands && !oneHandOnly ? new Vector2(.5f, .1f) : Vector2.one * .05f;
+                // Keep production grab rules/classification, but use the deliberately sized fixture
+                // box. Production circle radii do not respond to LocalSize and can cover both hands.
+                item.ColliderType = ColliderType.Custom;
+                item.ColliderShape = WorldInteractionColliderShape.Box;
+                item.LocalSize = bounds;
                 item.SetKind(WorldInteractionKind.Grabbable);
                 GarbageItem garbage = item.gameObject.AddComponent<GarbageItem>();
                 EditorUtility.CopySerialized(settings.GetComponent<GarbageItem>(), garbage);
                 Call(garbage, "Awake");
+                if (oneHandOnly)
+                {
+                    var leftHits = new List<WorldInteraction>();
+                    var rightHits = new List<WorldInteraction>();
+                    Call(Arms, "QueryHand", Get(Arms, "left"), leftHits);
+                    Call(Arms, "QueryHand", Get(Arms, "right"), rightHits);
+                    Require(leftHits.Contains(item) && !rightHits.Contains(item),
+                        "Insufficient-hand fixture must overlap only the actual left hand");
+                    Require(item.RequiredHands == 2, "Production medium garbage no longer requires two hands");
+                }
                 return item;
             }
             public void Dispose()

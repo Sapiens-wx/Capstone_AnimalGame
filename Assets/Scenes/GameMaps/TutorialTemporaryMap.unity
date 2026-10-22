@@ -8762,6 +8762,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
+  tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   forwardDistanceMeters: 5
   reverseDistanceMeters: 3
   turnAngleDegrees: 45
@@ -8781,6 +8782,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
+  tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
   approachPointsMeters:
   - {x: 163, y: 140}

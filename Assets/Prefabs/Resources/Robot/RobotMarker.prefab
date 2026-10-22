@@ -1042,24 +1042,10 @@ MonoBehaviour:
   handExtendDuration: 0.12
   retractDuration: 0.4
   dockEnterMagnitude: 0.4
-  dockExitMagnitude: 0.5
   maximumMagnitude: 0.95
   followAngle: 70
   maximumAimSpeedDegreesPerSecond: 240
   aimSmoothingTime: 0.37
-  normalAimInnerMagnitude: 0.14
-  normalAimFullMagnitude: 0.45
-  normalFollowEnterMagnitude: 0.55
-  normalFollowExitMagnitude: 0.45
-  normalFollowFullMagnitude: 0.85
-  normalRearEnterMagnitude: 0.65
-  normalRearExitMagnitude: 0.45
-  normalRearEnterBackward: 0.35
-  normalRearExitBackward: 0.2
-  normalRearConfirmDuration: 0.1
-  normalRearSideMagnitude: 0.18
-  normalRearSideSwitchDuration: 0.08
-  normalRearBlendDuration: 0.1
   smallDockPosition: {x: 0, y: 0.65}
   mediumDockPosition: {x: 0, y: 0.8}
   recycleZoneHalfWidthOfBodyDiameter: 0.35
@@ -1085,6 +1071,13 @@ MonoBehaviour:
   mediumRecycleGarbageShakeFrequency: 19
   mediumRecycleBodyRecoilOfBodyDiameter: 0.03
   mediumRecycleBodyRollDegrees: 0.6
+  normalControlDeadZone: 0.14
+  normalAxisDeadZone: 0.1
+  normalFullTravelDuration: 0.27
+  normalSpeedExponent: 1.5
+  normalFollowEnterMagnitude: 0.55
+  normalFollowExitMagnitude: 0.45
+  tumbleSocketQuarterTurnDuration: 0.35
 --- !u!114 &775533119844220011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1166,8 +1159,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6bdf84a972854d8fa00bd57702f4d63c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   areaShader: {fileID: 4800000, guid: 26c8e1b303004a2eb0a476d9b74c9c0b, type: 3}
   alignOnScan: 1
 --- !u!1 &4976596186778311389

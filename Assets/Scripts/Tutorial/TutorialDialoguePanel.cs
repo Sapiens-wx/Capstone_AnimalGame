@@ -33,6 +33,10 @@ namespace AnimalGame.Tutorial
         private PanelFrame frame;
         private Label titleLabel, messageLabel, controlLabel, actionLabel, detailLabel;
         private Label statusLabel, chapterLabel, tabProgressLabel, percentLabel;
+        private Label headerLabel, currentLessonLabel, currentActionLabel, toggleHintLabel;
+        private Label tabArrowsLabel, tabHintLabel, guideLabel;
+        private VisualElement collapseControl;
+        private TutorialPanelText panelText = new TutorialPanelText();
         private bool visible = true;
         private bool collapsed;
         private bool successful;
@@ -83,6 +87,13 @@ namespace AnimalGame.Tutorial
             progress = Mathf.Clamp01(normalized);
             if (progressFill != null) progressFill.style.width = Length.Percent(progress * 100f);
             if (percentLabel != null) percentLabel.text = Mathf.RoundToInt(progress * 100f) + "%";
+        }
+
+        /// <summary>Update fixed panel copy without replacing the document or any lesson/fold state.</summary>
+        public void SetPanelText(TutorialPanelText text)
+        {
+            panelText = text ?? new TutorialPanelText();
+            RefreshPanelText();
         }
 
         public void SetSuccess(bool value)
@@ -164,16 +175,18 @@ namespace AnimalGame.Tutorial
             expanded.Add(frame);
 
             var header = new VisualElement { name = "CollapseTutorial", pickingMode = PickingMode.Position,
-                tooltip = "Tap D-pad Left / Right to hide" };
+                tooltip = panelText.CollapseTooltip };
+            collapseControl = header;
             SetRect(header, 16, 16, PanelWidth - 32, 86);
             header.RegisterCallback<ClickEvent>(evt => { SetCollapsed(true); evt.StopPropagation(); });
             expanded.Add(header);
-            Label headerLabel = AddLabel(header, "TUTORIAL", 11, 27, 244, 41, 27, Gold, true);
+            headerLabel = AddLabel(header, panelText.Header, 11, 27, 244, 41, 27, Gold, true);
             headerLabel.name = "TutorialHeader";
             AddLabel(header, "›", 287, 16, 24, 46, 30, Gold);
 
             AddLine(expanded, 27, 112, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
-            AddLabel(expanded, "CURRENT LESSON", 27, 128, 170, 26, 16, Muted);
+            currentLessonLabel = AddLabel(expanded, panelText.CurrentLesson, 27, 128, 170, 26, 16, Muted);
+            currentLessonLabel.name = "TutorialCurrentLesson";
             chapterLabel = AddLabel(expanded, "01 / 08", 221, 128, 107, 27, 18, Color.white);
             chapterLabel.name = "TutorialChapter";
             chapterLabel.style.unityTextAlign = TextAnchor.MiddleRight;
@@ -183,7 +196,8 @@ namespace AnimalGame.Tutorial
             messageLabel.name = "TutorialMessage";
             messageLabel.style.whiteSpace = WhiteSpace.Normal;
             AddLine(expanded, 27, 376, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
-            AddLabel(expanded, "CURRENT ACTION", 27, 390, 220, 26, 16, Muted);
+            currentActionLabel = AddLabel(expanded, panelText.CurrentAction, 27, 390, 220, 26, 16, Muted);
+            currentActionLabel.name = "TutorialCurrentAction";
 
             var key = new ControlBadge();
             SetRect(key, 29, 420, 74, 70);
@@ -215,11 +229,11 @@ namespace AnimalGame.Tutorial
             progressFill.style.backgroundColor = Gold;
             progressTrack.Add(progressFill);
             // This help has its own persistent row; lesson status/feedback never replaces it.
-            Label toggleHint = AddLabel(expanded, "Tap D-pad ← / →  Hide", 27, 538, 301, 22, 15, Muted);
-            toggleHint.name = "TutorialToggleHint";
+            toggleHintLabel = AddLabel(expanded, panelText.CollapseHint, 27, 538, 301, 22, 15, Muted);
+            toggleHintLabel.name = "TutorialToggleHint";
 
             collapsedTab = new VisualElement { name = "ExpandTutorial", pickingMode = PickingMode.Position,
-                tooltip = "Tap D-pad Left / Right to show" };
+                tooltip = panelText.ExpandTooltip };
             SetRect(collapsedTab, 0, 0, 58, 218);
             collapsedTab.style.transformOrigin = new TransformOrigin(0, 0, 0);
             collapsedTab.RegisterCallback<ClickEvent>(evt => { SetCollapsed(false); evt.StopPropagation(); });
@@ -228,16 +242,18 @@ namespace AnimalGame.Tutorial
             var tabFrame = new PanelFrame { IsTab = true };
             FillParent(tabFrame);
             collapsedTab.Add(tabFrame);
-            Label tabArrows = AddLabel(collapsedTab, "← →", 7, 10, 44, 26, 16, Gold);
-            tabArrows.name = "TutorialTabToggleArrows";
-            tabArrows.style.unityTextAlign = TextAnchor.UpperCenter;
-            Label tabHint = AddLabel(collapsedTab, "Show", 9, 36, 40, 20, 12, Muted);
-            tabHint.name = "TutorialTabToggleHint";
-            tabHint.style.unityTextAlign = TextAnchor.UpperCenter;
-            Label tabTitle = AddLabel(collapsedTab, "G\nU\nI\nD\nE", 17, 58, 24, 93, 13, Gold, true);
-            tabTitle.style.unityTextAlign = TextAnchor.UpperCenter;
+            tabArrowsLabel = AddLabel(collapsedTab, panelText.ExpandArrows, 7, 10, 44, 26, 16, Gold);
+            tabArrowsLabel.name = "TutorialTabToggleArrows";
+            tabArrowsLabel.style.unityTextAlign = TextAnchor.UpperCenter;
+            tabHintLabel = AddLabel(collapsedTab, panelText.ExpandHint, 9, 36, 40, 20, 12, Muted);
+            tabHintLabel.name = "TutorialTabToggleHint";
+            tabHintLabel.style.unityTextAlign = TextAnchor.UpperCenter;
+            guideLabel = AddLabel(collapsedTab, panelText.GuideLabel, 17, 58, 24, 93, 13, Gold, true);
+            guideLabel.name = "TutorialGuideLabel";
+            guideLabel.style.unityTextAlign = TextAnchor.UpperCenter;
             tabProgressLabel = AddLabel(collapsedTab, "01\n/08", 10, 162, 38, 45, 16, Color.white);
             tabProgressLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            RefreshPanelText();
             RefreshContent();
             SetProgress(progress);
             SetSuccess(successful);
@@ -256,6 +272,20 @@ namespace AnimalGame.Tutorial
             statusLabel.text = status;
             chapterLabel.text = chapter.ToString("00") + " / " + chapters.ToString("00");
             tabProgressLabel.text = chapter.ToString("00") + "\n/" + chapters.ToString("00");
+        }
+
+        private void RefreshPanelText()
+        {
+            if (headerLabel == null) return;
+            headerLabel.text = panelText.Header ?? string.Empty;
+            currentLessonLabel.text = panelText.CurrentLesson ?? string.Empty;
+            currentActionLabel.text = panelText.CurrentAction ?? string.Empty;
+            toggleHintLabel.text = panelText.CollapseHint ?? string.Empty;
+            tabHintLabel.text = panelText.ExpandHint ?? string.Empty;
+            tabArrowsLabel.text = panelText.ExpandArrows ?? string.Empty;
+            guideLabel.text = panelText.GuideLabel ?? string.Empty;
+            collapseControl.tooltip = panelText.CollapseTooltip ?? string.Empty;
+            collapsedTab.tooltip = panelText.ExpandTooltip ?? string.Empty;
         }
 
         private void LateUpdate()

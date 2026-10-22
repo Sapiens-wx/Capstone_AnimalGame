@@ -1,0 +1,162 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00c8407e215b479fb5a26622663cc8a2, type: 3}
+  m_Name: TutorialText
+  m_EditorClassIdentifier: 
+  Panel:
+    Header: TUTORIAL
+    CurrentLesson: CURRENT LESSON
+    CurrentAction: CURRENT ACTION
+    CollapseHint: "Tap D-pad \u2190 / \u2192  Hide"
+    ExpandHint: Show
+    ExpandArrows: "\u2190 \u2192"
+    GuideLabel: 'G
+
+      U
+
+      I
+
+      D
+
+      E'
+    CollapseTooltip: Tap D-pad Left / Right to hide
+    ExpandTooltip: Tap D-pad Left / Right to show
+  Driving:
+    Title: Driving Practice
+    TurnLeft:
+      ControlGlyph: L
+      Action: Turn left
+      Message: 'Push the left stick left.
+
+        Turn on the spot or steer
+
+        while
+        driving. Both count.'
+      Detail: "Left {value:F0}\xB0 / {target:F0}\xB0"
+      CompleteFeedback: Left turn complete
+    TurnRight:
+      ControlGlyph: L
+      Action: Turn right
+      Message: 'Push the left stick right.
+
+        Turn on the spot or steer
+
+        while
+        driving. Both count.'
+      Detail: "Right {value:F0}\xB0 / {target:F0}\xB0"
+      CompleteFeedback: Right turn complete
+    Forward:
+      ControlGlyph: '{rt}'
+      Action: Drive forward
+      Message: Hold the right trigger to drive forward. Release it when you reach
+        the target distance.
+      Detail: Forward {value:F1} / {target:F1} m
+      CompleteFeedback: Forward complete
+    Reverse:
+      ControlGlyph: '{lt}'
+      Action: Reverse
+      Message: Center the left stick. Hold the left trigger to reverse, then release
+        it at the target distance.
+      Detail: Reverse {value:F1} / {target:F1} m
+      CompleteFeedback: Reverse complete
+    SteerWhileMoving:
+      ControlGlyph: '{rt}+L'
+      Action: Drive and steer
+      Message: Hold the right trigger and push the left stick left or right. Keep
+        driving as you turn.
+      Detail: "Turn {value:F0}\xB0 / {target:F0}\xB0\nDrive {movingDistance:F1} /
+        {movingTarget:F1} m"
+      CompleteFeedback: Moving turn complete
+    Stop:
+      ControlGlyph: "\xB7"
+      Action: Release inputs
+      Message: Release both triggers and center the left stick. Let the robot come
+        to a complete stop.
+      Detail: Stopped {value:F1} / {target:F1} s
+      CompleteFeedback: Stop complete
+    Completed:
+      ControlGlyph: "\u2713"
+      Action: Lesson complete
+      Message: Great work! You can now turn, drive forward, reverse, steer while
+        moving and stop.
+      Detail: Keep practicing freely.
+      CompleteFeedback: 
+    WaitingStatus: Waiting
+    BlockedStatus: Return to driving mode
+    CompleteStatus: Lesson complete
+  Terrain:
+    Title: Terrain & Slopes
+    ReachSurvey:
+      ControlGlyph: '{rt}+L'
+      Action: Follow target
+      Message: Follow the gold triangle to the practice area. Distant goals are marked
+        along the circular rim.
+      Detail: "Destination {distance:F1} m\n{rt} drive \xB7 L steer"
+      CompleteFeedback: 
+    ScanTerrain:
+      ControlGlyph: "{lb}\xD72"
+      Action: Scan terrain
+      Message: Stop here. Quickly press and release the left bumper twice to scan
+        the terrain around you.
+      Detail: 'Two short taps
+
+        Release between taps'
+      CompleteFeedback: 
+    ReadSigns:
+      ControlGlyph: "+/\xD7"
+      Action: Read signs
+      Message: '+ marks a safe approach.
+
+        X warns of danger.
+
+        Signs
+        change with your
+
+        position and approach.'
+      Detail: "+ Passable   \xD7 Unsafe\nReading {reading:F1} / {readingTarget:F0}
+        s"
+      CompleteFeedback: 
+    FollowRoute:
+      ControlGlyph: '{rt}+L'
+      Action: Climb the slope
+      Message: 'Follow the marker uphill.
+
+        Steeper slopes slow you
+
+        and
+        can make you slip.
+
+        Scan again as you move.'
+      Detail: "Ground slope {slope:F0}\xB0\nDestination {distance:F1} m"
+      CompleteFeedback: 
+    Completed:
+      ControlGlyph: "\u2713"
+      Action: Lesson complete
+      Message: 'Scan terrain to find a
+
+        safer approach. Choose
+
+        gentle
+        slopes and scan
+
+        again as you move.'
+      Detail: 'Destination reached
+
+        Keep exploring freely.'
+      CompleteFeedback: 
+    FollowMarkerStatus: Follow the gold marker
+    WaitingScanStatus: Waiting for terrain scan
+    WaitingMarkersStatus: Waiting for scan markers
+    StopToReadStatus: Stop to read the signs
+    ObserveStatus: Observe the scan signs
+    BlockedStatus: Return to driving mode
+    CompleteStatus: Lesson complete

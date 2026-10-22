@@ -62,7 +62,15 @@ namespace AnimalGame.Editor
         private static void CheckMeasuredDriving()
         {
             var p = new DrivingTutorialProgress();
-            Require(p.Step == DrivingTutorialStep.Forward && !p.Advance(), "A lesson cannot advance before driving.");
+            DrivingTutorialStep[] order = { DrivingTutorialStep.TurnLeft, DrivingTutorialStep.TurnRight,
+                DrivingTutorialStep.Forward, DrivingTutorialStep.Reverse, DrivingTutorialStep.SteerWhileMoving,
+                DrivingTutorialStep.Stop, DrivingTutorialStep.Completed };
+            Require(Enum.GetValues(typeof(DrivingTutorialStep)).Length == order.Length,
+                "The driving chapter has exactly six ordered exercises and one terminal state.");
+            for (int index = 0; index < order.Length; index++)
+                Require((int)order[index] == index, "Driving sequence places " + order[index] + " at position " + index);
+            Require(p.Step == DrivingTutorialStep.TurnLeft && !p.Advance(), "A new lesson begins with left turning and cannot advance early.");
+            ReachStep(p, DrivingTutorialStep.Forward);
             Feed(p, Vector2.zero, 0, 2, 1, 0, .5f);
             Feed(p, Vector2.up, 0, 2, 1, 0, .5f);
             Near(p.Value, 1, "One actual driven metre counts once.");
@@ -77,6 +85,7 @@ namespace AnimalGame.Editor
             Require(!p.Advance(), "Partial distance cannot advance the lesson.");
             p.Reset();
             Near(p.Value, 0, "Reset clears measured progress.");
+            Require(p.Step == DrivingTutorialStep.TurnLeft, "Restart returns to the initial left-turn exercise.");
             ReachStep(p, DrivingTutorialStep.Reverse);
             Feed(p, Vector2.zero, 0, -2, -1, 0, .5f);
             Feed(p, Vector2.down, 0, -2, -1, 0, .5f);
@@ -89,33 +98,61 @@ namespace AnimalGame.Editor
 
         private static void CheckTurning()
         {
-            var p = new DrivingTutorialProgress();
-            ReachStep(p, DrivingTutorialStep.TurnLeft);
-            Feed(p, Vector2.zero, 350, 0, 0, -30, 1);
-            Feed(p, Vector2.zero, 10, 0, 0, -30, 1);
-            Near(p.Value, 20, "Left turning crosses 360 degrees without a large-angle jump.");
-            Feed(p, Vector2.zero, 2, 0, 0, 30, 1);
-            Near(p.Value, 12, "Turning back the wrong way removes accumulated turn progress.");
-            Feed(p, Vector2.zero, 347, 0, 0, 30, 1);
-            Near(p.Value, 0, "Wrong-way turning cannot create negative progress.");
-            Feed(p, Vector2.zero, 17, 0, 0, -30, 1);
-            Near(p.Value, 30, "A real left turn adds positive progress after recovery.");
-            Feed(p, Vector2.zero, 37, 1, 1, -30, 1);
-            Near(p.Value, 30, "Steering under forward drive does not substitute for the stationary turn lesson.");
-            Feed(p, Vector2.zero, 57, 0, 0, 0, 1);
-            Near(p.Value, 30, "External rotation with no commanded turn does not count.");
-            Satisfy(p);
-            Require(p.Advance() && p.Step == DrivingTutorialStep.TurnRight, "Satisfied left turn advances to right turn.");
-            Feed(p, Vector2.zero, 10, 0, 0, 30, 1);
-            Feed(p, Vector2.zero, 350, 0, 0, 30, 1);
-            Near(p.Value, 20, "Right turning also crosses zero correctly.");
-            Feed(p, Vector2.zero, 355, 0, 0, -30, 1);
-            Near(p.Value, 15, "Left motion removes progress during the right-turn lesson.");
+            foreach (DrivingTutorialStep step in new[] { DrivingTutorialStep.TurnLeft, DrivingTutorialStep.TurnRight })
+                foreach (float speed in new[] { 0f, 2f, -2f })
+                {
+                    var p = new DrivingTutorialProgress();
+                    ReachStep(p, step);
+                    float sign = step == DrivingTutorialStep.TurnLeft ? 1f : -1f;
+                    float heading = sign > 0 ? 350 : 10;
+                    float throttle = speed == 0 ? 0 : Mathf.Sign(speed);
+                    float motionSign = speed < 0 ? -1f : 1f;
+                    Vector2 position = Vector2.zero;
+                    string mode = speed == 0 ? "stationary" : speed > 0 ? "forward arc" : "reverse arc";
+                    Feed(p, position, heading, speed, throttle, -30 * sign * motionSign, 1);
+                    position += Direction(heading + 10 * sign) * speed;
+                    heading = Mathf.Repeat(heading + 20 * sign, 360);
+                    Feed(p, position, heading, speed, throttle, -30 * sign * motionSign, 1);
+                    Near(p.Value, 20, step + " accepts real commanded " + mode + " rotation across zero.");
+
+                    position += Direction(heading - 4 * sign) * speed;
+                    heading = Mathf.Repeat(heading - 8 * sign, 360);
+                    Feed(p, position, heading, speed, throttle, 30 * sign * motionSign, 1);
+                    Near(p.Value, 12, step + " removes wrong-way motion during a genuine " + mode + ".");
+                    position += Direction(heading - 7.5f * sign) * speed;
+                    heading = Mathf.Repeat(heading - 15 * sign, 360);
+                    Feed(p, position, heading, speed, throttle, 30 * sign * motionSign, 1);
+                    Near(p.Value, 0, step + " never becomes negative after wrong-way " + mode + " rotation.");
+                    position += Direction(heading + 15 * sign) * speed;
+                    heading = Mathf.Repeat(heading + 30 * sign, 360);
+                    Feed(p, position, heading, speed, throttle, -30 * sign * motionSign, 1);
+                    Near(p.Value, 30, step + " can recover with another valid " + mode + " turn.");
+                }
+
+            foreach (DrivingTutorialStep step in new[] { DrivingTutorialStep.TurnLeft, DrivingTutorialStep.TurnRight })
+                foreach (string rejected in new[] { "no input", "wrong command", "reverse wrong command", "teleport", "snapped rotation", "paused", "blocked" })
+                {
+                    var p = new DrivingTutorialProgress();
+                    ReachStep(p, step);
+                    float sign = step == DrivingTutorialStep.TurnLeft ? 1f : -1f;
+                    float speed = rejected == "reverse wrong command" ? -2f : 2f;
+                    float motionSign = speed < 0 ? -1f : 1f;
+                    float throttle = Mathf.Sign(speed);
+                    Feed(p, Vector2.zero, 0, speed, throttle, -30 * sign * motionSign, 1);
+                    float angle = rejected == "no input" ? .2f * sign : rejected == "snapped rotation" ? 120 * sign : 20 * sign;
+                    float command = rejected == "no input" ? 0 : rejected.EndsWith("wrong command", StringComparison.Ordinal)
+                        ? 30 * sign * motionSign : -30 * sign * motionSign;
+                    Vector2 position = Direction(angle * .5f) * (rejected == "teleport" ? 100 : speed);
+                    Feed(p, position, angle, speed, throttle, command, rejected == "paused" ? 0 : 1, rejected != "blocked");
+                    Near(p.Value, 0, step + " rejects unearned ground rotation: " + rejected);
+                    Require(!p.Advance(), "Rejected " + step + " samples cannot advance the lesson: " + rejected);
+                }
         }
 
         private static void CheckInterruptions()
         {
             var p = new DrivingTutorialProgress();
+            ReachStep(p, DrivingTutorialStep.Forward);
             Feed(p, Vector2.zero, 0, 2, 1, 0, .5f);
             Feed(p, Vector2.up, 0, 2, 1, 0, .5f);
             Near(p.Value, 1, "Interruption fixture has real progress.");
@@ -134,6 +171,7 @@ namespace AnimalGame.Editor
             Near(p.Value, 2, "Teleport displacement cannot complete a driving lesson.");
             Feed(p, Vector2.up * 101, 0, 2, 1, 0, .5f);
             Near(p.Value, 3, "Rejected teleport becomes a fresh baseline for subsequent real driving.");
+            p = new DrivingTutorialProgress();
             ReachStep(p, DrivingTutorialStep.TurnLeft);
             Feed(p, Vector2.zero, 0, 0, 0, -30, .1f);
             Feed(p, Vector2.zero, 90, 0, 0, -30, .1f);
@@ -163,7 +201,7 @@ namespace AnimalGame.Editor
             position += Direction(37.5f) * 1.51f;
             Feed(p, position, 45, 1, 1, -10, 1.5f);
             Require(p.IsStepSatisfied && p.NormalizedProgress == 1 && p.Advance()
-                && p.Step == DrivingTutorialStep.Reverse, "Both arc targets unlock the following reverse lesson.");
+                && p.Step == DrivingTutorialStep.Stop, "Both arc targets unlock the following stop lesson.");
             Near(p.MovingTurnDistanceMeters, 0, "Advancing resets arc distance for subsequent lesson stages.");
 
             p = MovingTurnFixture();
@@ -251,25 +289,33 @@ namespace AnimalGame.Editor
 
         private static void CheckCourseAtFrameRate(int fps)
         {
+            foreach (float turningSpeed in new[] { 0f, 2f, -2f }) CheckCourseWithTurningSpeed(fps, turningSpeed);
+        }
+
+        private static void CheckCourseWithTurningSpeed(int fps, float turningSpeed)
+        {
             var p = new DrivingTutorialProgress(3, 2, 30, .6f);
             float dt = 1f / fps;
             Vector2 position = Vector2.zero;
             float heading = 350;
-            foreach (DrivingTutorialStep expected in new[] { DrivingTutorialStep.Forward, DrivingTutorialStep.TurnLeft,
-                DrivingTutorialStep.TurnRight, DrivingTutorialStep.SteerWhileMoving, DrivingTutorialStep.Reverse, DrivingTutorialStep.Stop })
+            foreach (DrivingTutorialStep expected in new[] { DrivingTutorialStep.TurnLeft, DrivingTutorialStep.TurnRight,
+                DrivingTutorialStep.Forward, DrivingTutorialStep.Reverse, DrivingTutorialStep.SteerWhileMoving, DrivingTutorialStep.Stop })
             {
                 Require(p.Step == expected && !p.Advance(), "An unsatisfied step stays pending at " + fps + " FPS: " + expected);
                 bool movingTurn = expected == DrivingTutorialStep.SteerWhileMoving;
-                float speed = expected == DrivingTutorialStep.Forward || movingTurn ? 2 : expected == DrivingTutorialStep.Reverse ? -2 : 0;
+                bool turning = expected == DrivingTutorialStep.TurnLeft || expected == DrivingTutorialStep.TurnRight;
+                float speed = turning ? turningSpeed : expected == DrivingTutorialStep.Forward || movingTurn
+                    ? 2 : expected == DrivingTutorialStep.Reverse ? -2 : 0;
                 float throttle = Mathf.Sign(speed) * (speed == 0 ? 0 : 1);
                 float angular = expected == DrivingTutorialStep.TurnLeft || movingTurn ? 30 : expected == DrivingTutorialStep.TurnRight ? -30 : 0;
-                Feed(p, position, heading, speed, throttle, -angular, dt);
+                float command = -angular * (speed < 0 ? -1f : 1f);
+                Feed(p, position, heading, speed, throttle, command, dt);
                 int frames = 0;
                 while (!p.IsStepSatisfied && frames < fps * 5)
                 {
                     position += Direction(heading + angular * dt * .5f) * speed * dt;
                     heading = Mathf.Repeat(heading + angular * dt, 360);
-                    Feed(p, position, heading, speed, throttle, -angular, dt);
+                    Feed(p, position, heading, speed, throttle, command, dt);
                     frames++;
                 }
                 float expectedSeconds = angular != 0 ? p.Target / Mathf.Abs(angular)
@@ -280,7 +326,8 @@ namespace AnimalGame.Editor
                     "Course timing remains consistent at " + fps + " FPS: " + expected);
                 Require(p.Advance(), "Satisfied course step advances at " + fps + " FPS: " + expected);
             }
-            Require(p.IsComplete, "All six measured steps complete at " + fps + " FPS.");
+            Require(p.IsComplete, "All six measured steps complete in order at " + fps
+                + " FPS with turn-driving speed " + turningSpeed + ".");
         }
 
         private static void CheckPanel()
@@ -373,9 +420,9 @@ namespace AnimalGame.Editor
                     Settle(panel, new Vector2(1920, 1080));
                     CheckVisibleEnglishText(root, "Blocked lesson " + progress.Step);
                     Set(lesson, "feedbackRemaining", .5f);
-                    string feedbackName = (string)typeof(TutorialDrivingLesson)
-                        .GetMethod("StepName", Flags | BindingFlags.Static).Invoke(null, new object[] { progress.Step });
-                    Set(lesson, "lastFeedback", feedbackName + " complete");
+                    string feedback = (string)typeof(TutorialDrivingLesson)
+                        .GetMethod("GetCompletionFeedback", Flags).Invoke(lesson, new object[] { progress.Step });
+                    Set(lesson, "lastFeedback", feedback);
                     Invoke(lesson, "RefreshPanel", true);
                     Settle(panel, new Vector2(1920, 1080));
                     CheckVisibleEnglishText(root, "Completion feedback " + progress.Step);

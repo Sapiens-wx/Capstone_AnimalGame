@@ -163,12 +163,12 @@ namespace AnimalGame.Editor
             Check("QuadTree matches exhaustive queries after movement, resizing, kind and scene changes", CheckQuadTree);
             Check("Dirty queue skips unchanged shapes and coalesces geometry edits", CheckSpatialDirty);
             Check("Held input retries, one/two-hand grabbing and early release", CheckGrabbing);
-            Check("Immediate docking, adjustable raw thresholds, hysteresis and recycle completion", CheckDocking);
-            Check("Production dock settings, raw drift, fixed inlet and wide hysteresis", CheckControllerDocking);
+            Check("Centred input holds waste; deliberate inward input reaches recycling", CheckDocking);
+            Check("Production chest settings, raw input and manual recycling", CheckControllerDocking);
             Check("Chest-zone A release starts recycling immediately without docking or alignment", CheckInstantRecycle);
             Check("Medium garbage remains ready through the chest interior and recycles on close release", CheckMediumNearBodyRecycle);
             Check("Chest-zone recycling excludes outside positions, big garbage and falling", CheckInstantRecycleExclusions);
-            Check("Medium edge grips dock after reachable adjustment without changing outer grip", CheckDockGripAdjustment);
+            Check("Manual medium edge grips retain their offset until recycling", CheckDockGripAdjustment);
             Check("Empty and heavy arm control remain outside automatic docking", CheckDockExclusions);
             Check("Garbage docking creates no runtime indicator", CheckNoDockIndicator);
             Check("Recycle hand tracking, inward limit, whole medium strokes and completion", CheckRecycleAnimation);
@@ -179,7 +179,7 @@ namespace AnimalGame.Editor
             Check("Release L3 drops before retracting", CheckRetracting);
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
             Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
-            Check("Player-local input, threshold turning and fallen control restrictions", CheckTurning);
+            Check("Player-local rate input, boundary body following and fallen restrictions", CheckTurning);
             Check("Stopped steering retains reverse only while steering continuously", CheckStoppedSteering);
             Check("Grab resistance scales movement and freezes held movement at one", CheckGrabResistance);
             Check("Held replacement updates owner, hand count and resistance", CheckHeldReplacement);
@@ -558,21 +558,19 @@ namespace AnimalGame.Editor
         {
             using (var f = new Fixture())
             {
-                // Keep checking that designers can still configure narrower entry/exit bands.
+                // The retained legacy reach band belongs only to the independent tumble path.
                 Set(f.Arms, "dockEnterMagnitude", .18f);
-                Set(f.Arms, "dockExitMagnitude", .26f);
                 f.Tick(90, Vector2.up, true);
                 WorldInteraction item = f.Item((f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f, new Vector2(.5f, .1f), 2);
                 f.Tick(1, Vector2.up, true);
                 Call(f.Arms, "Step", 0f, Vector2.up * .17f, true, true);
-                Require(f.Arms.State == RobotArmState.Docking,
-                    "Raw .17 failed to enter docking immediately with zero elapsed time");
-                f.Tick(5, Vector2.up * .22f, true);
-                Require(f.Arms.State == RobotArmState.Docking, "Hysteresis did not retain docking");
-                f.Tick(1, Vector2.up * .27f, true);
-                Require(f.Arms.State == RobotArmState.OuterOperating, ".27 did not leave docking");
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady,
+                    "A legacy input threshold still automatically docks waste");
+                Vector3 heldPosition = item.WorldPosition;
                 f.Tick(150, Vector2.zero, true);
-                Require(f.Arms.IsRecycleReady, "Held object never reached inlet");
+                Require(!f.Arms.IsRecycleReady && Vector3.Distance(item.WorldPosition, heldPosition) < .0001f,
+                    "Centred input moved held waste into the inlet");
+                DriveHeldIntoChest(f);
                 f.Tick(1, Vector2.zero, false);
                 Require(f.Arms.State == RobotArmState.Recycling && item.gameObject.activeSelf, "Ready release skipped recycle animation");
                 f.Tick(RecycleFrames(f.Arms, item.Size == RecyclableSize.Medium), Vector2.zero, false);
@@ -584,92 +582,52 @@ namespace AnimalGame.Editor
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
             RobotArmController settings = prefab != null ? prefab.GetComponent<RobotArmController>() : null;
-            Require(settings != null,
-                "Production robot prefab is missing its arm settings");
-            Require(typeof(RobotArmController).GetField("dockEnterDelay", BindingFlags.NonPublic | BindingFlags.Instance) == null
-                && typeof(RobotArmController).GetField("dockTimer", BindingFlags.NonPublic | BindingFlags.Instance) == null,
-                "Docking still exposes or accumulates a delay before chest-zone recycling");
+            Require(settings != null, "Production robot prefab is missing its arm settings");
             Require(Mathf.Approximately((float)Get(settings, "leftStickDeadZone"), .08f)
-                && Mathf.Approximately((float)Get(settings, "dockEnterMagnitude"), .4f)
-                && Mathf.Approximately((float)Get(settings, "dockExitMagnitude"), .5f)
-                && Mathf.Approximately((float)Get(settings, "aimSmoothingTime"), .37f)
                 && Mathf.Approximately((float)Get(settings, "recycleZoneHalfWidthOfBodyDiameter"), .35f)
                 && Mathf.Approximately((float)Get(settings, "recycleZoneHalfDepthOfBodyDiameter"), .3f)
                 && Mathf.Approximately((float)Get(settings, "mediumRecycleInnerToleranceOfBodyDiameter"), .05f),
-                "Production prefab did not retain smoothing and apply .08/.4/.5 docking settings");
+                "Production chest recycling geometry or independent tumble dead zone changed");
 
             foreach (bool medium in new[] { false, true })
-            foreach (float drift in new[] { .01f, .39f })
+            foreach (float drift in new[] { .01f, .10f })
             using (var f = new Fixture(useProductionSettings: true))
             {
                 f.Root.transform.rotation = Quaternion.Euler(0f, 0f, 37f);
-                f.Tick(90, Vector2.up, true);
-                string garbagePath = medium ? "Assets/Prefabs/Environment/Garbage/Medium_Garbage.prefab"
-                    : "Assets/Prefabs/Environment/Garbage/Small_Garbage.prefab";
-                WorldInteraction garbageSettings = AssetDatabase.LoadAssetAtPath<GameObject>(garbagePath)
-                    ?.GetComponent<WorldInteraction>();
-                Require(garbageSettings != null, "Production garbage prefab is missing its interaction");
-                Vector2 anchor = medium ? (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f
-                    : f.Arms.LeftHandWorld;
-                // A slightly off-center grip must place the object, rather than only the hands, at the inlet.
-                WorldInteraction item = f.Item(anchor + new Vector2(.012f, -.006f),
-                    medium ? new Vector2(.7f, .15f) : Vector2.one * .05f, medium ? 2 : 1);
-                // The medium fixture spans the hands along robot-local X, including the rotated heading.
-                item.WorldRotation = f.Root.transform.rotation;
-                Set(item, "size", garbageSettings.Size);
-                Set(item, "grabResistance", garbageSettings.GrabResistance);
+                WorldInteraction item = GrabProductionGarbage(f, medium);
                 int recycleCount = 0;
                 Set(item, "onRecycled", (Action)(() => recycleCount++));
-                f.Tick(1, Vector2.up, true);
-                Require(f.Arms.HeldObject == item,
-                    "Production-settings fixture failed to grab garbage: medium=" + medium + ", drift=" + drift);
                 Vector2 stick = Vector2.right * drift;
-                Call(f.Arms, "Step", 0f, Vector2.right * .4f, true, true);
-                Require(f.Arms.State == RobotArmState.Docking,
-                    "Production .4 input did not enter docking on the same zero-time frame");
-                Call(f.Arms, "Step", 0f, stick, true, true);
-                Require(f.Arms.State == RobotArmState.Docking && !f.Arms.IsRecycleReady,
-                    "Inner-circle input did not enter docking immediately or reported ready outside the chest zone");
+                Vector3 heldPosition = item.WorldPosition;
                 Quaternion heading = f.Root.transform.rotation;
+                // Crossing every old docking band without elapsed time must never choose a target.
+                foreach (float magnitude in new[] { .17f, .4f, .49f, .5f, .501f })
+                {
+                    Call(f.Arms, "Step", 0f, Vector2.right * magnitude, true, true);
+                    Require(f.Arms.State == RobotArmState.OuterOperating,
+                        "A legacy magnitude band still entered automatic docking");
+                }
                 f.Tick(240, stick, true);
-                Vector2 inlet = (float)Get(f.Arms, "armLength")
-                    * (Vector2)Get(f.Arms, medium ? "mediumDockPosition" : "smallDockPosition");
-                Vector2 actual = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot
-                    .InverseTransformPoint(item.WorldPosition);
-                Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
-                    && Vector2.Distance(actual, inlet) < .003f,
-                    "Raw side drift prevented garbage from automatically reaching the fixed inlet: actual=" + actual
-                    + ", inlet=" + inlet + ", ready=" + f.Arms.IsRecycleReady + ", medium=" + medium);
+                Require(!f.Arms.IsRecycleReady && Vector3.Distance(item.WorldPosition, heldPosition) < .0001f
+                    && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "Dead-zone drift moved waste or the body toward a preset inlet");
                 Require(Mathf.Approximately(f.Arms.CurrentInputMagnitude, drift)
                     && f.Arms.CurrentTargetLocal == stick,
-                    "Automatic docking rescaled or erased raw input used by other control states");
-                Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
-                    "Inner-circle side input kept rotating the body while docking");
+                    "Rate control changed the raw public input used by self-righting");
 
-                foreach (Vector2 bandInput in new[] { Vector2.left * .45f, Vector2.down * .49f,
-                    Vector2.right * .5f })
-                {
-                    f.Tick(30, bandInput, true);
-                    Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
-                        && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
-                        "Hysteresis band changed the inlet target, rotated the body or exited docking");
-                }
-                f.Tick(1, Vector2.right * .501f, true);
+                DriveHeldIntoChest(f);
+                Vector3 readyPosition = item.WorldPosition;
+                f.Tick(120, Vector2.zero, true);
                 Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsRecycleReady
-                    && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
-                    "Input above .5 did not restore outer control without prematurely starting body follow");
-                f.Tick(120, Vector2.right * .501f, true);
-                Require(!f.Arms.IsRecycleReady,
-                    "Garbage remained ready after outer arm control moved it outside the chest zone");
-                f.Tick(240, stick, true);
-                Require(f.Arms.IsRecycleReady, "Returning to the inner circle failed to dock again");
-                f.Tick(1, stick, false);
+                    && Vector3.Distance(item.WorldPosition, readyPosition) < .0001f,
+                    "Centred input did not retain the manually reached chest position");
+                f.Tick(1, Vector2.zero, false);
                 Require(f.Arms.State == RobotArmState.Recycling && !f.Arms.IsRecycleReady
                     && item.gameObject.activeSelf && item.Owner == f.Arms && recycleCount == 0,
-                    "Ready A release skipped recycling or cleared ownership before the animation");
+                    "Manual chest-zone A release skipped recycling or cleared ownership early");
                 f.Tick(RecycleFrames(f.Arms, medium), Vector2.right, false);
                 Require(f.Arms.HeldObject == null && item.Owner == null && !item.gameObject.activeSelf
-                    && recycleCount == 1, "Controller docking failed to finish one complete recycling operation");
+                    && recycleCount == 1, "Manual chest recycling failed to complete exactly once");
             }
         }
         private static void CheckInstantRecycle()
@@ -926,6 +884,46 @@ namespace AnimalGame.Editor
             Set(f.Arms, "heldOffset", (Vector2)frame.InverseTransformVector(item.WorldPosition - (Vector3)anchor));
         }
 
+        private static void DriveHeldIntoChest(Fixture f)
+        {
+            // Exercise both player-controlled axes: a single-hand grip is offset from the
+            // common centre, so straight retraction alone can miss the chest ellipse.
+            Transform frame = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot;
+            for (int i = 0; i < 600 && !f.Arms.IsRecycleReady; i++)
+            {
+                Vector2 centre = frame.InverseTransformPoint((f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f);
+                Vector2 anchor = (Vector2)typeof(RobotArmController).GetMethod("AnchorOffset",
+                    BindingFlags.NonPublic | BindingFlags.Instance).Invoke(f.Arms, null);
+                Vector2 desired = ChestInlet(f.Arms, f.Arms.HeldObject.Size == RecyclableSize.Medium)
+                    - (Vector2)Get(f.Arms, "heldOffset") - anchor;
+                float angle = Vector2.SignedAngle(centre, desired);
+                float radial = desired.magnitude - centre.magnitude;
+                Vector2 input = new Vector2(Mathf.Abs(angle) > 1f ? -Mathf.Sign(angle) * .6f : 0f,
+                    Mathf.Abs(radial) > (float)Get(f.Arms, "armLength") * .005f ? Mathf.Sign(radial) * .6f : 0f);
+                f.Tick(1, input, true);
+            }
+            if (!f.Arms.IsRecycleReady || f.Arms.State != RobotArmState.OuterOperating)
+            {
+                WorldInteraction item = f.Arms.HeldObject;
+                Vector2 centre = frame.InverseTransformPoint((f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f);
+                Vector2 offset = (Vector2)Get(f.Arms, "heldOffset");
+                Vector2 anchor = (Vector2)typeof(RobotArmController).GetMethod("AnchorOffset",
+                    BindingFlags.NonPublic | BindingFlags.Instance).Invoke(f.Arms, null);
+                Vector2 inlet = ChestInlet(f.Arms, item != null && item.Size == RecyclableSize.Medium);
+                throw new InvalidOperationException("Deliberate inward input never brought the held object into its chest recycling zone"
+                    + "; size=" + (item != null ? item.Size.ToString() : "none")
+                    + "; handCentre=" + centre.ToString("F6") + "; heldOffset=" + offset.ToString("F6")
+                    + "; anchorOffset=" + anchor.ToString("F6")
+                    + "; objectLocal=" + (item != null ? frame.InverseTransformPoint(item.WorldPosition).ToString("F6") : "none")
+                    + "; requestedCentre=" + ((Vector2)Get(f.Arms, "targetLocal")).ToString("F6")
+                    + "; inletCentre=" + (inlet - offset - anchor).ToString("F6")
+                    + "; radius=" + centre.magnitude + "; minimum=" + (float)Get(f.Arms, "armLength") * (float)Get(f.Arms, "staticArmLengthPercent")
+                    + "; maximum=" + typeof(RobotArmController).GetMethod("MaximumCommonReach",
+                        BindingFlags.NonPublic | BindingFlags.Instance).Invoke(f.Arms, null) + "; blocked=" + f.Arms.IsBlocked
+                    + "; state=" + f.Arms.State + "; movementMultiplier=" + f.Root.GetComponent<RobotMover>().GrabMovementMultiplier);
+            }
+        }
+
         private static void CheckDockExclusions()
         {
             using (var f = new Fixture(useProductionSettings: true))
@@ -977,10 +975,10 @@ namespace AnimalGame.Editor
                 WorldInteraction item = GrabProductionGarbage(f, medium);
                 RequireNoIndicator();
                 Call(f.Arms, "Step", 0f, Vector2.right * .39f, true, true);
-                Require(f.Arms.State == RobotArmState.Docking && !f.Arms.IsRecycleReady,
-                    "Indicator-removal fixture did not enter automatic docking");
+                Require(f.Arms.State == RobotArmState.OuterOperating && !f.Arms.IsRecycleReady,
+                    "Indicator-removal fixture entered automatic docking");
                 RequireNoIndicator();
-                f.Tick(240, Vector2.right * .39f, true);
+                DriveHeldIntoChest(f);
                 Require(f.Arms.IsRecycleReady, "Removing the indicator also removed chest-zone readiness");
                 RequireNoIndicator();
                 f.Tick(1, Vector2.zero, false);
@@ -1030,18 +1028,16 @@ namespace AnimalGame.Editor
                 Require(f.Arms.State == RobotArmState.OuterOperating
                     && Vector2.Distance((Vector2)Get(f.Arms, "heldOffset"), initialOffset) < .0001f,
                     "Reachable docking adjustment changed the object's outer-operation grip");
-                f.Tick(300, Vector2.right * .39f, true);
-                Vector2 inlet = (float)Get(f.Arms, "armLength") * (Vector2)Get(f.Arms, "mediumDockPosition");
-                Require(f.Arms.State == RobotArmState.Docking && f.Arms.IsRecycleReady
-                    && Vector2.Distance(frame.InverseTransformPoint(item.WorldPosition), inlet) < .003f,
-                    "Medium rear-edge grip remained outside the inlet because the hand target exceeded IK reach");
-                Require(Vector2.Distance((Vector2)Get(f.Arms, "heldOffset"), initialOffset) > .1f,
-                    "Impossible edge grip was reported ready without a reachable grip adjustment");
+                DriveHeldIntoChest(f);
+                Require(Vector2.Distance((Vector2)Get(f.Arms, "heldOffset"), initialOffset) < .0001f,
+                    "Manual inward motion slid the medium edge grip toward a preset inlet");
                 Quaternion heading = f.Root.transform.rotation;
-                f.Tick(30, Vector2.down * .49f, true);
-                Require(f.Arms.IsRecycleReady && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
-                    "Lateral/rearward adjusted grip lost ready alignment inside the hysteresis band");
-                f.Tick(1, Vector2.down * .49f, false);
+                Vector3 heldPosition = item.WorldPosition;
+                f.Tick(30, Vector2.zero, true);
+                Require(f.Arms.IsRecycleReady && Quaternion.Angle(heading, f.Root.transform.rotation) < .001f
+                    && Vector3.Distance(item.WorldPosition, heldPosition) < .0001f,
+                    "Centred input changed the manually positioned medium edge grip");
+                f.Tick(1, Vector2.zero, false);
                 Require(f.Arms.State == RobotArmState.Recycling, "Adjusted medium grip dropped on ready release");
                 f.Tick(RecycleFrames(f.Arms, true), Vector2.zero, false);
                 Require(!item.gameObject.activeSelf && item.Owner == null && f.Arms.HeldObject == null,
@@ -1060,8 +1056,10 @@ namespace AnimalGame.Editor
                 Vector3 originalScale = new Vector3(1.2f, .8f, 1f);
                 item.LocalScale = originalScale;
                 f.Tick(1, Vector2.up, true);
-                f.Tick(150, Vector2.zero, true);
-                Require(f.Arms.IsRecycleReady, "Recycle fixture failed to dock");
+                // This group isolates animation, so place the owned object at the chest directly.
+                PlaceHeldAtLocal(f, item, ChestInlet(f.Arms, medium));
+                Call(f.Arms, "UpdateReady");
+                Require(f.Arms.IsRecycleReady, "Recycle fixture failed to enter the chest zone");
                 f.Tick(1, Vector2.zero, false);
                 Vector3 start = item.WorldPosition;
                 Vector2 handStart = f.Arms.LeftHandWorld;
@@ -1377,17 +1375,24 @@ namespace AnimalGame.Editor
                     "Local forward input rotated an already-rotated player");
                 Require(Vector2.Angle((Vector2)Get(f.Arms, "targetLocal"), Vector2.up) < .1f
                     && f.Arms.CurrentTargetLocal == Vector2.up, "Forward input is not body-local");
+                f.Tick(15, Vector2.right, false);
+                Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
+                    "The body followed before the manually rotated arms reached their boundary");
+                f.Tick(480, Vector2.right, false);
+                heading = f.Root.transform.rotation;
                 f.Tick(60, Vector2.right, false);
                 Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 52.8f) < .1f,
-                    "Right local input did not use the scaled base turning speed");
+                    "Boundary follow did not use the scaled base turning speed");
                 heading = f.Root.transform.rotation;
                 f.Tick(60, Vector2.right, false);
                 Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 52.8f) < .1f,
                     "Sustained local input stopped turning after reaching a world heading");
                 heading = f.Root.transform.rotation;
-                f.Tick(60, Direction(-69f), false);
+                f.Tick(60, Vector2.up, false);
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
-                    "Body kept turning after local input returned below 70 degrees");
+                    "Radial input kept turning the body without a horizontal rate command");
+                f.Tick(480, Vector2.left, false);
+                heading = f.Root.transform.rotation;
                 f.Tick(60, Vector2.left, false);
                 Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) - 52.8f) < .1f,
                     "Left local input did not rotate counterclockwise");
@@ -1396,15 +1401,16 @@ namespace AnimalGame.Editor
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f, "Centred stick kept turning");
                 Set(mover, "turnSpeed", 90f);
                 Set(mover, "overallMotionScale", .5f);
+                f.Tick(480, Vector2.right, false);
                 heading = f.Root.transform.rotation;
                 f.Tick(60, Vector2.right, false);
                 Require(Mathf.Abs(Mathf.DeltaAngle(heading.eulerAngles.z, f.Root.transform.eulerAngles.z) + 45f) < .1f,
-                    "Arm turning did not follow updated base movement settings");
+                    "Boundary body-follow did not follow updated base movement settings");
                 Set(mover, "overallMotionScale", 0f);
                 heading = f.Root.transform.rotation;
                 f.Tick(60, Vector2.right, false);
                 Require(Quaternion.Angle(heading, f.Root.transform.rotation) < .001f,
-                    "Arm turning ignored zero overall motion scale");
+                    "Boundary body-follow ignored zero overall motion scale");
                 Set(mover, "turnSpeed", 60f);
                 Set(mover, "overallMotionScale", .88f);
                 float upper = (float)Get(f.Arms, "upperLength");

@@ -45,35 +45,12 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.01f)] private float handExtendDuration = .12f;
         [SerializeField, Min(.01f)] private float retractDuration = .4f;
         [Header("Control")]
+        [Tooltip("Only the tumble layout maps raw stick magnitude to reach; ordinary arms use incremental velocity.")]
         [SerializeField, Range(0f, 1f)] private float dockEnterMagnitude = .4f;
-        [SerializeField, Range(0f, 1f)] private float dockExitMagnitude = .5f;
         [SerializeField, Range(.3f, 1f)] private float maximumMagnitude = .95f;
         [SerializeField, Range(1f, 179f)] private float followAngle = 70f;
         [SerializeField, Min(1f)] private float maximumAimSpeedDegreesPerSecond = 240f;
         [SerializeField, Min(.01f)] private float aimSmoothingTime = .2f;
-        [Header("Normal Arm Input")]
-        [Tooltip("Raw stick magnitude below which normal manual aiming returns towards the front.")]
-        [SerializeField, Range(0f, 1f)] private float normalAimInnerMagnitude = .14f;
-        [Tooltip("Raw stick magnitude at which normal manual aiming has its full angle response.")]
-        [SerializeField, Range(0f, 1f)] private float normalAimFullMagnitude = .45f;
-        [Tooltip("Raw stick magnitude required to start following an arm direction beyond Follow Angle.")]
-        [SerializeField, Range(0f, 1f)] private float normalFollowEnterMagnitude = .55f;
-        [Tooltip("Following stops at or below this magnitude. Keep it below the enter magnitude.")]
-        [SerializeField, Range(0f, 1f)] private float normalFollowExitMagnitude = .45f;
-        [Tooltip("Raw stick magnitude at which body following reaches its original full turn speed.")]
-        [SerializeField, Range(0f, 1f)] private float normalFollowFullMagnitude = .85f;
-        [Header("Normal Rear Input")]
-        [Tooltip("Rear turning requires both this raw magnitude and the backward component for the confirmation duration.")]
-        [SerializeField, Range(0f, 1f)] private float normalRearEnterMagnitude = .65f;
-        [SerializeField, Range(0f, 1f)] private float normalRearExitMagnitude = .45f;
-        [SerializeField, Range(0f, 1f)] private float normalRearEnterBackward = .35f;
-        [SerializeField, Range(0f, 1f)] private float normalRearExitBackward = .20f;
-        [SerializeField, Min(.01f)] private float normalRearConfirmDuration = .10f;
-        [Tooltip("Raw horizontal input that expresses a clear turn side. Smaller rearward noise keeps the previous side.")]
-        [SerializeField, Range(.01f, 1f)] private float normalRearSideMagnitude = .18f;
-        [SerializeField, Min(.01f)] private float normalRearSideSwitchDuration = .08f;
-        [Tooltip("Gradual rear response after confirmation, also used to soften an intentional turn-side change.")]
-        [SerializeField, Min(.01f)] private float normalRearBlendDuration = .10f;
         [Header("Docking (robot-local, arm length fractions)")]
         [SerializeField] private Vector2 smallDockPosition = new Vector2(0f, .65f);
         [SerializeField] private Vector2 mediumDockPosition = new Vector2(0f, .8f);
@@ -138,11 +115,7 @@ namespace AnimalGame.RobotArm
         private float diameter, upperLength, lowerLength, handSpacing, armWidth, deploymentTime;
         private float armLength;
         private float recycleTime, stepDelta;
-        private bool docked, previousGrab, initialized, normalBodyFollowActive;
-        private bool normalRearIntentConfirmed, normalFollowAllowed;
-        private float normalRearConfirmTime, normalRearBlendTime, normalRearSideSwitchTime;
-        private float normalTurnSide = -1f, normalRearSideResponse = -1f;
-        private float normalControlAngle, normalFollowDirection;
+        private bool previousGrab, initialized;
         private Vector2 inputLocal, targetLocal;
         private Vector3 framePosition;
         private Quaternion frameRotation;
@@ -167,7 +140,6 @@ namespace AnimalGame.RobotArm
         private readonly List<WorldInteraction> rightHits = new();
         private readonly List<WorldInteraction> heldSolids = new();
         private readonly InteractionPushPlan contactPlan = new();
-        private Vector2? desiredGripOffset;
         public Transform HeldMotionRoot => heldObject != null ? heldObject.MotionRoot : null;
         private bool FollowsHands => heldObject != null && heldObject.Available && heldObject.Owner == this
             && State != RobotArmState.Recycling && mover.GrabMovementMultiplier > 0f
@@ -289,7 +261,6 @@ namespace AnimalGame.RobotArm
             {
                 if (!armHeld)
                 {
-                    docked = false;
                     State = deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;
                 }
                 else if (!HandsDeployed) State = RobotArmState.Extending;
@@ -297,12 +268,12 @@ namespace AnimalGame.RobotArm
             }
 
             PrepareNormalArmInput(armHeld);
-            if (armHeld && State != RobotArmState.Recycling) TurnBodyForLocalInput();
             if (State != RobotArmState.Recycling)
             {
-                desiredGripOffset = null;
                 UpdateTarget();
                 AdvanceArms(armHeld);
+                CompleteNormalArmMotion();
+                TurnBodyForLocalInput();
             }
             FollowHeldObject();
             UpdateReady();
@@ -354,143 +325,9 @@ namespace AnimalGame.RobotArm
             Vector2 stick = AdaptiveLegacyGamepadInput.ReadRawLeftStick();
             return keyboard.sqrMagnitude >= stick.sqrMagnitude ? keyboard : stick;
         }
-        private void UpdateDockState()
-        {
-            if (heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _))
-            {
-                docked = false;
-                State = RobotArmState.OuterOperating;
-                return;
-            }
-            if (heldObject == null) docked = false;
-            else if (docked)
-            {
-                if (CurrentInputMagnitude > dockExitMagnitude) docked = false;
-            }
-            else
-            {
-                docked = CurrentInputMagnitude <= dockEnterMagnitude;
-            }
-            State = docked ? RobotArmState.Docking : RobotArmState.OuterOperating;
-        }
-        private void ResetNormalArmInput()
-        {
-            normalBodyFollowActive = normalRearIntentConfirmed = normalFollowAllowed = false;
-            normalRearConfirmTime = normalRearBlendTime = normalRearSideSwitchTime = 0f;
-            normalTurnSide = normalRearSideResponse = -1f; // Deterministic right turn without lateral history.
-            normalControlAngle = normalFollowDirection = 0f;
-        }
-        private void PrepareNormalArmInput(bool armHeld)
-        {
-            if (!armHeld || !Upright || IsTumbleArmLayoutActive
-                || State == RobotArmState.Docking || State == RobotArmState.Recycling)
-            {
-                ResetNormalArmInput();
-                return;
-            }
-
-            float angle = CurrentInputMagnitude > leftStickDeadZone
-                ? Vector2.SignedAngle(Vector2.up, inputLocal) : 0f;
-            float absoluteAngle = Mathf.Abs(angle);
-            float backward = -inputLocal.y;
-            float rearBlendDelta = stepDelta;
-            if (normalRearIntentConfirmed
-                && (CurrentInputMagnitude <= normalRearExitMagnitude || backward <= normalRearExitBackward))
-            {
-                normalRearIntentConfirmed = false;
-                normalRearBlendTime = 0f;
-            }
-            bool rearWasConfirmed = normalRearIntentConfirmed;
-            if (!normalRearIntentConfirmed)
-            {
-                if (CurrentInputMagnitude >= normalRearEnterMagnitude && backward >= normalRearEnterBackward)
-                {
-                    normalRearConfirmTime += stepDelta;
-                    if (normalRearConfirmTime + .000001f >= normalRearConfirmDuration)
-                    {
-                        normalRearIntentConfirmed = true;
-                        // Only time beyond confirmation belongs to the response blend.
-                        rearBlendDelta = Mathf.Max(0f, normalRearConfirmTime - normalRearConfirmDuration);
-                    }
-                }
-                else normalRearConfirmTime = 0f;
-            }
-            if (normalRearIntentConfirmed) normalRearConfirmTime = 0f;
-
-            // SignedAngle changes sign at directly rearward. Only clear, sustained opposite
-            // input can change the remembered side there; normal side input remains immediate.
-            float rearSideBlendDelta = rearBlendDelta;
-            if (Mathf.Abs(inputLocal.x) >= normalRearSideMagnitude)
-            {
-                float side = -Mathf.Sign(inputLocal.x);
-                if (!rearWasConfirmed || absoluteAngle < 150f || side == normalTurnSide)
-                {
-                    normalTurnSide = side;
-                    normalRearSideSwitchTime = 0f;
-                }
-                else
-                {
-                    normalRearSideSwitchTime += stepDelta;
-                    if (normalRearSideSwitchTime + .000001f >= normalRearSideSwitchDuration)
-                    {
-                        rearSideBlendDelta = Mathf.Min(rearSideBlendDelta,
-                            Mathf.Max(0f, normalRearSideSwitchTime - normalRearSideSwitchDuration));
-                        normalTurnSide = side;
-                        normalRearSideSwitchTime = 0f;
-                    }
-                }
-            }
-            else normalRearSideSwitchTime = 0f;
-
-            if (normalRearIntentConfirmed)
-            {
-                if (!rearWasConfirmed) normalRearSideResponse = normalTurnSide;
-                normalRearBlendTime = Mathf.Min(normalRearBlendDuration, normalRearBlendTime + rearBlendDelta);
-                normalRearSideResponse = Mathf.MoveTowards(normalRearSideResponse, normalTurnSide,
-                    2f * rearSideBlendDelta / Mathf.Max(.01f, normalRearBlendDuration));
-            }
-            else
-            {
-                normalRearBlendTime = 0f;
-                normalRearSideResponse = normalTurnSide;
-            }
-
-            // Preserve sideways control across Y=0, then smoothly reject unconfirmed rear
-            // input between 90 and 110 degrees. Never modify raw input, reach or special modes.
-            float lateralResponse = 1f - Mathf.SmoothStep(0f, 1f,
-                Mathf.InverseLerp(90f, 110f, absoluteAngle));
-            float sideResponse = Mathf.Sign(angle) * lateralResponse;
-            float rearResponse = Mathf.SmoothStep(0f, 1f,
-                normalRearBlendTime / Mathf.Max(.01f, normalRearBlendDuration));
-            sideResponse = Mathf.Lerp(sideResponse, normalRearSideResponse, rearResponse);
-            normalControlAngle = Mathf.Min(absoluteAngle, followAngle) * sideResponse;
-            normalFollowAllowed = absoluteAngle > followAngle
-                && (lateralResponse > .000001f || normalRearIntentConfirmed);
-            normalFollowDirection = normalFollowAllowed ? sideResponse : 0f;
-        }
-        private void TurnBodyForLocalInput()
-        {
-            if (!Upright || IsTumbleArmLayoutActive || State == RobotArmState.Docking
-                || CurrentInputMagnitude <= leftStickDeadZone)
-            {
-                normalBodyFollowActive = false;
-                return;
-            }
-            if (!normalFollowAllowed || CurrentInputMagnitude <= normalFollowExitMagnitude)
-            {
-                normalBodyFollowActive = false;
-                return;
-            }
-            if (!normalBodyFollowActive && CurrentInputMagnitude < normalFollowEnterMagnitude) return;
-            normalBodyFollowActive = true;
-            float response = Mathf.SmoothStep(0f, 1f,
-                Mathf.InverseLerp(normalFollowExitMagnitude, normalFollowFullMagnitude, CurrentInputMagnitude));
-            // Input stays body-local: turning does not consume the stick's angle.
-            // Continue while held outside the limit, stop as soon as input returns inside it.
-            float step = normalFollowDirection * mover.BaseTurnSpeed * stepDelta * mover.GrabMovementMultiplier * response;
-            Quaternion requested = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + step);
-            ConstrainBodyPose(transform.position, transform.rotation, transform.position, requested);
-        }
+        // Kept as the deployment state transition for both layouts. Ordinary input no
+        // longer enters automatic docking when the stick returns to its inner circle.
+        private void UpdateDockState() => State = RobotArmState.OuterOperating;
         private Vector2 DockLocal => armLength * (heldObject != null && heldObject.Size == RecyclableSize.Medium
             ? mediumDockPosition : smallDockPosition);
         private void UpdateTarget()
@@ -502,43 +339,7 @@ namespace AnimalGame.RobotArm
                     targetLocal = marker.MarkerVisualRoot.InverseTransformPoint(pull.GripAnchorWorld);
                 return;
             }
-            Vector2 direction = Vector2.up;
-            if (CurrentInputMagnitude > leftStickDeadZone)
-            {
-                // Preserve raw magnitude for reach, docking and self-righting. Only normal manual
-                // direction gets the centre-to-outer response curve; special targets above bypass it.
-                float response = Mathf.SmoothStep(0f, 1f,
-                    Mathf.InverseLerp(normalAimInnerMagnitude, normalAimFullMagnitude, CurrentInputMagnitude));
-                direction = Direction(normalControlAngle * response);
-            }
-            float radius = Mathf.Lerp(armLength * staticArmLengthPercent, MaximumCommonReach(),
-                Mathf.InverseLerp(dockEnterMagnitude, maximumMagnitude, CurrentInputMagnitude));
-            Vector2 desired = direction * radius;
-            if (docked && heldObject != null)
-            {
-                // The whole inner circle means "bring it to the inlet", regardless of stick drift/direction.
-                AlignDockGrip();
-                desired = DockLocal - (desiredGripOffset ?? heldOffset) - AnchorOffset();
-            }
-            float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
-            targetLocal = Vector2.Lerp(targetLocal, desired, blend);
-        }
-        private void AlignDockGrip()
-        {
-            if (!heldObject.Recyclable) return;
-            Vector2 centred = DockLocal - AnchorOffset();
-            Vector2 desired = centred - heldOffset;
-            if (CommonTargetReachable(desired) || !CommonTargetReachable(centred)) return;
-            // An edge grip can require longer arms than exist. Slide the grip only as far as
-            // necessary while docking; outer operation still preserves the original grab offset.
-            float low = 0f, high = 1f;
-            for (int i = 0; i < 16; i++)
-            {
-                float t = (low + high) * .5f;
-                if (CommonTargetReachable(centred - heldOffset * t)) low = t; else high = t;
-            }
-            float blend = 1f - Mathf.Exp(-stepDelta * mover.GrabMovementMultiplier / Mathf.Max(.01f, aimSmoothingTime));
-            desiredGripOffset = Vector2.Lerp(heldOffset, heldOffset * low, blend);
+            UpdateNormalArmTarget();
         }
         private bool CommonTargetReachable(Vector2 target)
         {
@@ -566,20 +367,20 @@ namespace AnimalGame.RobotArm
         private void AdvanceArms(bool extending)
         {
             if (IsTumbleArmLayoutActive) { AdvanceTumbleArms(extending); return; }
+            if (normalManualActive && normalHoldPose) return;
             float next = extending ? Mathf.Min(TotalDeploymentTime, deploymentTime + stepDelta)
                 : Mathf.Max(0f, deploymentTime - stepDelta * TotalDeploymentTime / retractDuration);
             Pose lp = DesiredPose(left, next), rp = DesiredPose(right, next);
             Pose oldL = left.Pose, oldR = right.Pose;
-            Vector2 oldOffset = heldOffset, nextOffset = desiredGripOffset ?? heldOffset;
             int steps = Mathf.Max(MotionSteps(oldL, lp, oldR, rp),
-                Mathf.CeilToInt((PoseTravel(oldL, lp) + PoseTravel(oldR, rp) + (nextOffset - oldOffset).magnitude) / .005f));
+                Mathf.CeilToInt((PoseTravel(oldL, lp) + PoseTravel(oldR, rp)) / .005f));
             steps = Mathf.Clamp(steps, 1, 4096);
             float accepted = 0f;
             for (int i = 1; i <= steps; i++)
             {
                 float t = accepted + 1f / steps;
                 Pose nextL = Pose.Lerp(oldL, lp, t), nextR = Pose.Lerp(oldR, rp, t);
-                Vector2 offset = Vector2.Lerp(oldOffset, nextOffset, t);
+                Vector2 offset = heldOffset;
                 BuildArmPlan(nextL, nextR, offset);
                 bool legal = contactPlan.Evaluate();
                 float multiplier = contactPlan.SpeedMultiplier;
@@ -587,13 +388,11 @@ namespace AnimalGame.RobotArm
                 {
                     t = accepted + multiplier / steps;
                     nextL = Pose.Lerp(oldL, lp, t); nextR = Pose.Lerp(oldR, rp, t);
-                    offset = Vector2.Lerp(oldOffset, nextOffset, t);
                     BuildArmPlan(nextL, nextR, offset);
                     legal = contactPlan.Evaluate();
                 }
                 if (!legal || multiplier <= 0f || !contactPlan.Commit()) { IsBlocked = true; break; }
                 left.Pose = nextL; right.Pose = nextR; accepted = t;
-                heldOffset = offset;
                 FollowHeldObject();
             }
             deploymentTime = Mathf.Lerp(deploymentTime, next, accepted);
@@ -608,9 +407,10 @@ namespace AnimalGame.RobotArm
             // Lower Arm is the body-side segment; Upper Arm carries the hand.
             // Aim the full-size chain, then grow each segment from its attachment point.
             SolveIK(desired - arm.Socket, arm.LowerLength, arm.UpperLength, arm.Side, out float lower, out float upper);
-            // Recycling supplies an animated target already; extra aim smoothing would lag behind it.
+            // Recycling supplies an animation target, while normal rate input has already
+            // limited the hand-centre velocity. Neither should acquire a second joint-rate lag.
             bool heavyGrip = heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _);
-            float delta = State == RobotArmState.Recycling ? 360f
+            float delta = State == RobotArmState.Recycling || normalManualActive ? 360f
                 : heavyGrip ? maximumAimSpeedDegreesPerSecond * stepDelta
                 : maximumAimSpeedDegreesPerSecond * stepDelta * mover.GrabMovementMultiplier;
             return new Pose {
@@ -902,7 +702,6 @@ namespace AnimalGame.RobotArm
             heldOffset = marker.MarkerVisualRoot.InverseTransformVector(
                 HeldMotionRoot.position - (Vector3)HeldAnchor());
             heldRotation = Quaternion.Inverse(transform.rotation) * HeldMotionRoot.rotation;
-            docked = false;
             IsRecycleReady = false;
             mover.SetGrabResistance(replacement.GrabResistance);
             oldItem.Release(this);
@@ -1203,9 +1002,8 @@ namespace AnimalGame.RobotArm
                 HeldMotionRoot.localScale = recycleStartScale;
                 WorldInteraction.MarkHierarchySpatialDirty(HeldMotionRoot);
             }
-            heldObject = null; heldHands = 0; docked = false;
+            heldObject = null; heldHands = 0;
             IsRecycleReady = false; mover?.SetGrabResistance(0f);
-            desiredGripOffset = null;
         }
         private void SetHeldRootPose(Vector3 position, Quaternion rotation)
         {
@@ -1375,19 +1173,7 @@ namespace AnimalGame.RobotArm
         }
         private void OnValidate()
         {
-            normalAimInnerMagnitude = Mathf.Clamp(normalAimInnerMagnitude, 0f, .999f);
-            normalAimFullMagnitude = Mathf.Clamp(normalAimFullMagnitude, normalAimInnerMagnitude + .001f, 1f);
-            normalFollowExitMagnitude = Mathf.Clamp(normalFollowExitMagnitude, 0f, .998f);
-            normalFollowEnterMagnitude = Mathf.Clamp(normalFollowEnterMagnitude, normalFollowExitMagnitude + .001f, .999f);
-            normalFollowFullMagnitude = Mathf.Clamp(normalFollowFullMagnitude, normalFollowEnterMagnitude + .001f, 1f);
-            normalRearExitMagnitude = Mathf.Clamp(normalRearExitMagnitude, 0f, .999f);
-            normalRearEnterMagnitude = Mathf.Clamp(normalRearEnterMagnitude, normalRearExitMagnitude + .001f, 1f);
-            normalRearExitBackward = Mathf.Clamp(normalRearExitBackward, 0f, .999f);
-            normalRearEnterBackward = Mathf.Clamp(normalRearEnterBackward, normalRearExitBackward + .001f, 1f);
-            normalRearConfirmDuration = Mathf.Max(.01f, normalRearConfirmDuration);
-            normalRearSideMagnitude = Mathf.Clamp(normalRearSideMagnitude, .01f, 1f);
-            normalRearSideSwitchDuration = Mathf.Max(.01f, normalRearSideSwitchDuration);
-            normalRearBlendDuration = Mathf.Max(.01f, normalRearBlendDuration);
+            ValidateNormalArmInput();
             tumbleSocketQuarterTurnDuration = Mathf.Max(.01f, tumbleSocketQuarterTurnDuration);
             armScale = Mathf.Max(.01f, armScale);
             handScale = Mathf.Max(.01f, handScale);
@@ -1410,8 +1196,7 @@ namespace AnimalGame.RobotArm
             recycleZoneHalfDepthOfBodyDiameter = Mathf.Max(.01f, recycleZoneHalfDepthOfBodyDiameter);
             mediumRecycleInnerToleranceOfBodyDiameter = Mathf.Max(0f, mediumRecycleInnerToleranceOfBodyDiameter);
             dockEnterMagnitude = Mathf.Clamp(dockEnterMagnitude, 0f, .9f);
-            dockExitMagnitude = Mathf.Clamp(dockExitMagnitude, dockEnterMagnitude + .001f, .99f);
-            maximumMagnitude = Mathf.Clamp(maximumMagnitude, dockExitMagnitude + .001f, 1f);
+            maximumMagnitude = Mathf.Clamp(maximumMagnitude, dockEnterMagnitude + .001f, 1f);
             leftStickDeadZone = Mathf.Clamp(leftStickDeadZone, 0f, dockEnterMagnitude);
         }
     }

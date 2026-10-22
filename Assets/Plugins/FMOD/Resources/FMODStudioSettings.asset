@@ -417,8 +417,8 @@ MonoBehaviour:
   - Master
   Banks:
   - RobotActions
-  - RobotTools
   - RobotFoley
+  - RobotTools
   BanksToLoad: []
   LiveUpdatePort: 9264
   EnableMemoryTracking: 0

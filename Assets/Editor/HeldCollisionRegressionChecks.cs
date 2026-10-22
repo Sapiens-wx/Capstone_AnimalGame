@@ -316,13 +316,15 @@ namespace AnimalGame.Editor
                 }
                 Set(Root.GetComponent<RobotMarkerView>(), "markerVisualRoot", frame.transform);
                 Call(Mover, "Awake"); Call(Arms, "Awake"); Call(Arms, "EnsureVisuals");
-                for (int i = 0; i < 90; i++) Call(Arms, "Step", 1f / 60f, Vector2.up * .6f, true, false);
+                // Deploy at the resting reach and leave travel for the arm-pushing checks.
+                // Holding a positive rate here would already exhaust that travel.
+                for (int i = 0; i < 90; i++) Call(Arms, "Step", 1f / 60f, Vector2.zero, true, false);
             }
             public WorldInteraction Grab()
             {
                 WorldInteraction item = Item(Arms.LeftHandWorld, Vector2.one * .4f,
                     WorldInteractionKind.Grabbable | WorldInteractionKind.BodyCollision);
-                Call(Arms, "Step", 1f / 60f, Vector2.up * .6f, true, true);
+                Call(Arms, "Step", 1f / 60f, Vector2.zero, true, true);
                 Require(Arms.HeldObject == item, "Fixture failed to grab");
                 return item;
             }

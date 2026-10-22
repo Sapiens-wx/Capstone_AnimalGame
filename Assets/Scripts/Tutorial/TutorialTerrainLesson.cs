@@ -14,6 +14,8 @@ namespace AnimalGame.Tutorial
     public sealed class TutorialTerrainLesson : MonoBehaviour
     {
         [SerializeField] private HeightMapPlayerSceneBootstrap bootstrap;
+        [Tooltip("教程文案资源。选中资源或点击下方按钮，可在 Inspector 编辑每一步文字。")]
+        [SerializeField] private TutorialTextContent tutorialText;
         [SerializeField] private Sprite targetSprite;
         [Tooltip("Logical map metres. The last approach point is the terrain survey area.")]
         [SerializeField] private Vector2[] approachPointsMeters = { new Vector2(163f, 140f) };
@@ -33,7 +35,10 @@ namespace AnimalGame.Tutorial
         private int displayedApproachIndex = -1;
         private Vector2 displayedTarget;
         private bool showingTarget;
+        private readonly TerrainLessonText defaultText = new TerrainLessonText();
+        private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
 
+        public TutorialTextContent TextContent => tutorialText;
         public TerrainTutorialProgress Progress => progress;
         public TutorialWaypointIndicator Waypoint => waypoint;
         public bool HasStarted => hasStarted;
@@ -178,48 +183,40 @@ namespace AnimalGame.Tutorial
 
         private void RefreshPanel(bool canDrive = true, bool scanReady = false, bool stopped = true)
         {
-            string lb = "LB", rt = "RT";
+            if (progress == null || driving == null || driving.Panel == null) return;
+            TerrainLessonText text = tutorialText != null && tutorialText.Terrain != null ? tutorialText.Terrain : defaultText;
+            TutorialStepText stepText = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
+            string lb = "LB", rt = "RT", lt = "LT";
 #if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null && Gamepad.current.layout.Contains("Dual")) { lb = "L1"; rt = "R2"; }
+            if (Gamepad.current != null && Gamepad.current.layout.Contains("Dual"))
+            { lb = "L1"; rt = "R2"; lt = "L2"; }
 #endif
-            string glyph, action, message, detail;
-            string status = !canDrive ? "Return to driving mode" : "Follow the gold marker";
+            string status = text.FollowMarkerStatus;
+            float slope = 0f;
             switch (progress.Step)
             {
-                case TerrainTutorialStep.ReachSurvey:
-                    glyph = rt + "+L"; action = "Follow target";
-                    message = "Follow the gold triangle to the practice area. Distant goals are marked along the circular rim.";
-                    detail = $"Destination {progress.DistanceMeters:F1} m\n{rt} drive · L steer";
-                    break;
                 case TerrainTutorialStep.ScanTerrain:
-                    glyph = lb + "×2"; action = "Scan terrain";
-                    message = "Stop here. Quickly press and release the left bumper twice to scan the terrain around you.";
-                    detail = "Two short taps\nRelease between taps";
-                    status = "Waiting for terrain scan";
+                    status = text.WaitingScanStatus;
                     break;
                 case TerrainTutorialStep.ReadSigns:
-                    glyph = "+/×"; action = "Read signs";
-                    message = "+ marks a safe approach.\nX warns of danger.\nSigns change with your\nposition and approach.";
-                    detail = $"+ Passable   × Unsafe\nReading {progress.ReadingSeconds:F1} / {signsReadingSeconds:F0} s";
-                    status = !scanReady ? "Waiting for scan markers" : !stopped ? "Stop to read the signs"
-                        : "Observe the scan signs";
+                    status = !scanReady ? text.WaitingMarkersStatus : !stopped ? text.StopToReadStatus : text.ObserveStatus;
                     break;
                 case TerrainTutorialStep.FollowRoute:
-                    glyph = rt + "+L"; action = "Climb the slope";
-                    message = "Follow the marker uphill.\nSteeper slopes slow you\nand can make you slip.\nScan again as you move.";
-                    float slope = bootstrap.traversalEvaluator != null && bootstrap.robot != null
+                    slope = bootstrap != null && bootstrap.traversalEvaluator != null && bootstrap.robot != null
                         ? bootstrap.traversalEvaluator.EvaluateLocalSurface(bootstrap.robot.transform.position).MaximumSurfaceSlopeAngle : 0f;
-                    detail = $"Ground slope {slope:F0}°\nDestination {progress.DistanceMeters:F1} m";
                     break;
-                default:
-                    glyph = "✓"; action = "Lesson complete";
-                    message = "Scan terrain to find a\nsafer approach. Choose\ngentle slopes and scan\nagain as you move.";
-                    detail = "Destination reached\nKeep exploring freely.";
-                    status = "Lesson complete";
+                case TerrainTutorialStep.Completed:
+                    status = text.CompleteStatus;
                     break;
             }
-            if (!canDrive && !progress.IsComplete) status = "Return to driving mode";
-            driving.Panel.SetContent("Terrain & Slopes", message, glyph, action, detail, status, 2, 8);
+            if (!canDrive && !progress.IsComplete) status = text.BlockedStatus;
+            var tokens = new TutorialTextTokens().Add("rt", rt).Add("lt", lt).Add("lb", lb)
+                .Add("distance", progress.DistanceMeters).Add("slope", slope)
+                .Add("reading", progress.ReadingSeconds).Add("readingTarget", progress.ReadingDuration);
+            driving.Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
+            driving.Panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
+                tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
+                tokens.Format(stepText.Detail), tokens.Format(status), 2, 8);
             driving.Panel.SetProgress(progress.NormalizedProgress);
             driving.Panel.SetSuccess(progress.IsComplete);
             displayedStep = progress.Step;

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace AnimalGame.Tutorial
 {
-    public enum DrivingTutorialStep { Forward, TurnLeft, TurnRight, SteerWhileMoving, Reverse, Stop, Completed }
+    public enum DrivingTutorialStep { TurnLeft, TurnRight, Forward, Reverse, SteerWhileMoving, Stop, Completed }
 
     /// <summary>A measured driving frame, in logical map metres (not Unity world units).</summary>
     public readonly struct DrivingTutorialSample
@@ -68,7 +68,7 @@ namespace AnimalGame.Tutorial
 
         public void Reset()
         {
-            Step = DrivingTutorialStep.Forward; Value = 0f; MovingTurnDistanceMeters = 0f; hasPrevious = false;
+            Step = DrivingTutorialStep.TurnLeft; Value = 0f; MovingTurnDistanceMeters = 0f; hasPrevious = false;
         }
 
         public void Suspend()
@@ -136,10 +136,11 @@ namespace AnimalGame.Tutorial
                     break;
                 case DrivingTutorialStep.TurnLeft:
                 case DrivingTutorialStep.TurnRight:
-                    if (Mathf.Abs(sample.ThrottleIntent) <= .12f
-                        && Mathf.Abs(sample.SpeedMetersPerSecond) <= .15f
-                        && Mathf.Abs(sample.CommandedTurnSpeed) > 1f)
+                    float motionSign = sample.SpeedMetersPerSecond < 0f ? -1f : 1f;
+                    if (Mathf.Abs(sample.CommandedTurnSpeed) > 1f
+                        && angle * sample.CommandedTurnSpeed * motionSign < 0f)
                     {
+                        // Count actual steering both on the spot and while driving either way.
                         float expectedSign = Step == DrivingTutorialStep.TurnLeft ? 1f : -1f;
                         // Going back in the opposite direction removes the same amount of progress.
                         Value = Mathf.Max(0f, Value + angle * expectedSign);

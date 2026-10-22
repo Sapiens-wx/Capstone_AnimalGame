@@ -14,6 +14,8 @@ namespace AnimalGame.Tutorial
     {
         public const string ScenePath = "Assets/Scenes/GameMaps/TutorialTemporaryMap.unity";
         [SerializeField] private HeightMapPlayerSceneBootstrap bootstrap;
+        [Tooltip("教程文案资源。选中资源或点击下方按钮，可在 Inspector 编辑每一步文字。")]
+        [SerializeField] private TutorialTextContent tutorialText;
         [SerializeField, Min(.5f)] private float forwardDistanceMeters = 5f;
         [SerializeField, Min(.5f)] private float reverseDistanceMeters = 3f;
         [SerializeField, Range(10f, 180f)] private float turnAngleDegrees = 45f;
@@ -27,7 +29,10 @@ namespace AnimalGame.Tutorial
         private float refreshRemaining;
         private string lastFeedback;
         private bool ownsPresentation = true;
+        private readonly DrivingLessonText defaultText = new DrivingLessonText();
+        private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
 
+        public TutorialTextContent TextContent => tutorialText;
         public DrivingTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => panel;
         public bool IsComplete => progress != null && progress.IsComplete;
@@ -87,7 +92,7 @@ namespace AnimalGame.Tutorial
 
             if (progress.IsStepSatisfied)
             {
-                lastFeedback = StepName(progress.Step) + " complete";
+                lastFeedback = GetCompletionFeedback(progress.Step);
                 progress.Advance();
                 feedbackRemaining = .9f;
                 panel.SetCollapsed(false);
@@ -119,69 +124,39 @@ namespace AnimalGame.Tutorial
             RefreshPanel();
         }
 
-        private static string StepName(DrivingTutorialStep step) => step switch
+        private DrivingLessonText Text => tutorialText != null && tutorialText.Driving != null
+            ? tutorialText.Driving : defaultText;
+
+        private TutorialTextTokens CreateTextTokens()
         {
-            DrivingTutorialStep.Forward => "Forward",
-            DrivingTutorialStep.TurnLeft => "Left turn",
-            DrivingTutorialStep.TurnRight => "Right turn",
-            DrivingTutorialStep.SteerWhileMoving => "Moving turn",
-            DrivingTutorialStep.Reverse => "Reverse",
-            DrivingTutorialStep.Stop => "Stop",
-            _ => "Driving"
-        };
+            string rt = "RT", lt = "LT", lb = "LB";
+#if ENABLE_INPUT_SYSTEM
+            if (Gamepad.current != null && Gamepad.current.layout.Contains("Dual"))
+            { rt = "R2"; lt = "L2"; lb = "L1"; }
+#endif
+            return new TutorialTextTokens().Add("rt", rt).Add("lt", lt).Add("lb", lb)
+                .Add("value", progress.Value).Add("target", progress.Target)
+                .Add("movingDistance", progress.MovingTurnDistanceMeters)
+                .Add("movingTarget", progress.MovingTurnTargetMeters);
+        }
+
+        private string GetCompletionFeedback(DrivingTutorialStep step) =>
+            CreateTextTokens().Format((Text.GetStep(step) ?? defaultText.GetStep(step)).CompleteFeedback);
 
         private void RefreshPanel(bool canDrive = true)
         {
             if (panel == null || progress == null) return;
-            string glyph, action, message, detail;
-            string rt = "RT", lt = "LT";
-#if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null && Gamepad.current.layout.Contains("Dual")) { rt = "R2"; lt = "L2"; }
-#endif
-            switch (progress.Step)
-            {
-                case DrivingTutorialStep.Forward:
-                    glyph = rt; action = "Drive forward";
-                    message = "Hold the right trigger to drive forward. Release it when you reach the target distance.";
-                    detail = $"Forward {progress.Value:F1} / {progress.Target:F1} m";
-                    break;
-                case DrivingTutorialStep.TurnLeft:
-                    glyph = "L"; action = "Turn left";
-                    message = "Release both triggers and let the robot stop. Push the left stick left to turn in place.";
-                    detail = $"Left {progress.Value:F0}° / {progress.Target:F0}°";
-                    break;
-                case DrivingTutorialStep.TurnRight:
-                    glyph = "L"; action = "Turn right";
-                    message = "Keep both triggers released. Push the left stick right to turn the other way.";
-                    detail = $"Right {progress.Value:F0}° / {progress.Target:F0}°";
-                    break;
-                case DrivingTutorialStep.Reverse:
-                    glyph = lt; action = "Reverse";
-                    message = "Center the left stick. Hold the left trigger to reverse, then release it at the target distance.";
-                    detail = $"Reverse {progress.Value:F1} / {progress.Target:F1} m";
-                    break;
-                case DrivingTutorialStep.SteerWhileMoving:
-                    glyph = rt + "+L"; action = "Drive and steer";
-                    message = "Hold the right trigger and push the left stick left or right. Keep driving as you turn.";
-                    detail = $"Turn {progress.Value:F0}° / {progress.Target:F0}°\n"
-                        + $"Drive {progress.MovingTurnDistanceMeters:F1} / {progress.MovingTurnTargetMeters:F1} m";
-                    break;
-                case DrivingTutorialStep.Stop:
-                    glyph = "·"; action = "Release inputs";
-                    message = "Release both triggers and center the left stick. Let the robot come to a complete stop.";
-                    detail = $"Stopped {progress.Value:F1} / {progress.Target:F1} s";
-                    break;
-                default:
-                    glyph = "✓"; action = "Lesson complete";
-                    message = "Great work! You can now drive, turn in place, steer while moving, reverse and stop.";
-                    detail = "Keep practicing freely.";
-                    break;
-            }
-            string status = progress.IsComplete ? "Lesson complete"
-                : !canDrive ? "Return to driving mode"
+            DrivingLessonText text = Text;
+            TutorialStepText stepText = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
+            TutorialTextTokens tokens = CreateTextTokens();
+            string status = progress.IsComplete ? text.CompleteStatus
+                : !canDrive ? text.BlockedStatus
                 : feedbackRemaining > 0f ? lastFeedback
-                : "Waiting";
-            panel.SetContent("Driving Practice", message, glyph, action, detail, status, 1, 8);
+                : text.WaitingStatus;
+            panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
+            panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
+                tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
+                tokens.Format(stepText.Detail), tokens.Format(status), 1, 8);
             panel.SetProgress(progress.NormalizedProgress);
             panel.SetSuccess(progress.IsComplete || feedbackRemaining > 0f);
         }
