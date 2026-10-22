@@ -65,7 +65,7 @@ MonoBehaviour:
   staticWaterEditorTint: {r: 0.18, g: 0.72, b: 1, a: 1}
   staticWaterMaskBakeGeneratorVersion: 1
   surfacePalette:
-  - terrainId: 1
+  - terrain: 1
     displayName: Grid Test
     patternTexture: {fileID: 2800000, guid: c3897b4bc6474024aaf596e85a1eb144, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
@@ -74,7 +74,7 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
-  - terrainId: 2
+  - terrain: 2
     displayName: Grass Test
     patternTexture: {fileID: 2800000, guid: 73a13eb11e97f5d4bb1fd2ff59874c6f, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
@@ -83,7 +83,7 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
-  - terrainId: 3
+  - terrain: 3
     displayName: Grass
     patternTexture: {fileID: 2800000, guid: f3e1b95583b0e4b43a52c1f82cf37d56, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
@@ -92,7 +92,7 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
-  - terrainId: 4
+  - terrain: 4
     displayName: Grassland
     patternTexture: {fileID: 2800000, guid: e89ea0f9890e3384b814ee28a1526d30, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
@@ -101,7 +101,7 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
-  - terrainId: 5
+  - terrain: 5
     displayName: Gravel
     patternTexture: {fileID: 2800000, guid: 7851651abf342144cafae2b72630e501, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
@@ -110,7 +110,7 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
-  - terrainId: 6
+  - terrain: 6
     displayName: Rock
     patternTexture: {fileID: 2800000, guid: 82bd525b8ec8a3a4ca3bcfa24e7af959, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
@@ -119,7 +119,7 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
-  - terrainId: 7
+  - terrain: 7
     displayName: Water
     patternTexture: {fileID: 2800000, guid: f14cf7b4b026aad46abb88d4d128977a, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
@@ -128,7 +128,7 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
-  - terrainId: 8
+  - terrain: 8
     displayName: Web
     patternTexture: {fileID: 2800000, guid: 60656b14ece6dc2429bbfa58a73c3947, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}

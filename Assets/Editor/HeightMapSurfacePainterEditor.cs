@@ -11,6 +11,8 @@ public sealed class HeightMapLevelAssetEditor : Editor
     public override void OnInspectorGUI()
     {
         DrawDefaultInspector();
+        if (!((HeightMapLevelAsset)target).TryValidateSurfacePalette(out string paletteError))
+            EditorGUILayout.HelpBox(paletteError, MessageType.Error);
 
         EditorGUILayout.Space();
         if (GUILayout.Button("Open Terrain Surface Painter"))
@@ -37,10 +39,10 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private MapTestSceneController mapController;
     private Vector2 scrollPosition;
     private float brushRadiusMeters = DefaultBrushRadiusMeters;
-    private int selectedTerrainId = 1;
+    private TerrainKind selectedTerrain = TerrainKind.Grass;
     private bool paintInScene = true;
     private bool strokeActive;
-    private int strokeTerrainId;
+    private TerrainKind strokeTerrain;
     private bool strokeChanged;
     private bool hasLastStrokePosition;
     private Vector2 lastStrokeMapPosition;
@@ -109,7 +111,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             "Permanent Multi-Terrain Surface",
             EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
-            "Paints stable terrain IDs directly into the fixed map asset. " +
+            "Paints shared terrain kinds directly into the fixed map asset. " +
             "The Editor bakes every pattern and transition into one static PNG; " +
             "runtime only displays that finished image inside the robot UI range.",
             MessageType.Info);
@@ -145,6 +147,9 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
         DrawSurfaceSettings();
         DrawPaletteSelector();
+        bool validPalette = levelAsset.TryValidateSurfacePalette(out string paletteError);
+        if (!validPalette)
+            EditorGUILayout.HelpBox(paletteError, MessageType.Error);
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Brush", EditorStyles.boldLabel);
@@ -159,11 +164,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             "Button");
 
         TerrainSurfaceDefinition selectedDefinition =
-            levelAsset.GetSurfaceDefinition(selectedTerrainId);
+            levelAsset.GetSurfaceDefinition(selectedTerrain);
         bool canPaintSelected = selectedDefinition != null
                                 && selectedDefinition.IsUsable;
         using (new EditorGUI.DisabledScope(
-                   !levelAsset.HasUsableSurfaceDefinitions))
+                   !validPalette || !levelAsset.HasUsableSurfaceDefinitions))
         {
             if (GUILayout.Button("Bake Current Terrain Map"))
                 BakeAndObserve(true);
@@ -173,11 +178,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
                 using (new EditorGUI.DisabledScope(!canPaintSelected))
                 {
                     if (GUILayout.Button("Fill With Selected"))
-                        FillType(selectedTerrainId);
+                        FillType(selectedTerrain);
                 }
 
                 if (GUILayout.Button("Clear All Terrain"))
-                    FillType(0);
+                    FillType(TerrainKind.Unknown);
             }
         }
 
@@ -206,8 +211,8 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         EditorGUILayout.Space();
         EditorGUILayout.HelpBox(
             "Scene controls\n" +
-            "• Choose a terrain ID above, then left-drag to paint it\n" +
-            "• Shift + left-drag: erase to ID 0\n" +
+            "• Choose a terrain kind above, then left-drag to paint it\n" +
+            "• Shift + left-drag: erase to Unknown\n" +
             "• Alt + mouse: normal Scene camera navigation\n" +
             "• Ctrl+Z / Ctrl+Y: undo or redo and automatically rebake",
             MessageType.None);
@@ -311,7 +316,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             new GUIContent("Baked Texture Resolution"));
         EditorGUILayout.PropertyField(
             maskResolution,
-            new GUIContent("Terrain ID Map Resolution"));
+            new GUIContent("Terrain Map Resolution"));
         EditorGUILayout.PropertyField(
             patternAlphaNormalization,
             new GUIContent("Pattern Alpha Normalization"));
@@ -399,17 +404,17 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             Color buttonColor = definition.Tint;
             buttonColor.a = 1f;
             GUI.backgroundColor = buttonColor;
-            bool selected = definition.TerrainId == selectedTerrainId;
+            bool selected = definition.Terrain == selectedTerrain;
             string textureStatus = definition.PatternTexture != null
                 ? string.Empty
                 : " (texture missing)";
             if (GUILayout.Toggle(
                     selected,
-                    $"ID {definition.TerrainId}: {definition.DisplayName}" +
+                    $"{definition.Terrain}: {definition.DisplayName}" +
                     textureStatus,
                     "Button"))
             {
-                selectedTerrainId = definition.TerrainId;
+                selectedTerrain = definition.Terrain;
             }
 
             GUI.backgroundColor = previousBackground;
@@ -420,7 +425,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     {
         if (levelAsset == null)
             return;
-        if (levelAsset.GetSurfaceDefinition(selectedTerrainId) != null)
+        if (levelAsset.GetSurfaceDefinition(selectedTerrain) != null)
             return;
 
         IReadOnlyList<TerrainSurfaceDefinition> palette =
@@ -433,7 +438,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             if (definition == null)
                 continue;
 
-            selectedTerrainId = definition.TerrainId;
+            selectedTerrain = definition.Terrain;
             return;
         }
     }
@@ -441,13 +446,14 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private void HandleSceneGui(SceneView sceneView)
     {
         TerrainSurfaceDefinition selectedDefinition = levelAsset != null
-            ? levelAsset.GetSurfaceDefinition(selectedTerrainId)
+            ? levelAsset.GetSurfaceDefinition(selectedTerrain)
             : null;
         if (!paintInScene
             || levelAsset == null
             || mapController == null
             || selectedDefinition == null
             || !selectedDefinition.IsUsable
+            || !levelAsset.TryValidateSurfacePalette(out _)
             || !mapController.HasGeneratedMap)
         {
             return;
@@ -529,7 +535,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         else
         {
             TerrainSurfaceDefinition definition =
-                levelAsset.GetSurfaceDefinition(selectedTerrainId);
+                levelAsset.GetSurfaceDefinition(selectedTerrain);
             outlineColor = definition != null
                 ? definition.Tint
                 : new Color(1f, 0.84f, 0.22f, 1f);
@@ -542,11 +548,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void BeginStroke(Vector2 mapPosition, bool erase)
     {
-        strokeTerrainId = erase ? 0 : selectedTerrainId;
-        if (strokeTerrainId != 0)
+        strokeTerrain = erase ? TerrainKind.Unknown : selectedTerrain;
+        if (strokeTerrain != TerrainKind.Unknown)
         {
             TerrainSurfaceDefinition definition =
-                levelAsset.GetSurfaceDefinition(strokeTerrainId);
+                levelAsset.GetSurfaceDefinition(strokeTerrain);
             if (definition == null || !definition.IsUsable)
                 return;
         }
@@ -558,7 +564,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         strokeUndoGroup = Undo.GetCurrentGroup();
         string operationName = erase
             ? "Erase Terrain Surface"
-            : $"Paint {levelAsset.GetSurfaceDefinition(strokeTerrainId).DisplayName}";
+            : $"Paint {levelAsset.GetSurfaceDefinition(strokeTerrain).DisplayName}";
         Undo.SetCurrentGroupName(operationName);
         Undo.RegisterCompleteObjectUndo(levelAsset, operationName);
         PaintStrokeTo(mapPosition);
@@ -596,7 +602,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         if (!levelAsset.PaintSurfaceType(
                 mapPosition,
                 brushRadiusMeters,
-                strokeTerrainId))
+                strokeTerrain))
         {
             return;
         }
@@ -622,16 +628,16 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Repaint();
     }
 
-    private void FillType(int terrainId)
+    private void FillType(TerrainKind terrain)
     {
         Undo.IncrementCurrentGroup();
         int undoGroup = Undo.GetCurrentGroup();
-        string operationName = terrainId == 0
+        string operationName = terrain == TerrainKind.Unknown
             ? "Clear Terrain Surface"
             : "Fill Terrain Surface";
         Undo.SetCurrentGroupName(operationName);
         Undo.RegisterCompleteObjectUndo(levelAsset, operationName);
-        if (levelAsset.FillSurfaceType(terrainId))
+        if (levelAsset.FillSurfaceType(terrain))
         {
             EditorUtility.SetDirty(levelAsset);
             BakeAndObserve(false);
@@ -857,6 +863,11 @@ internal static class HeightMapSurfaceBaker
 
         if (level.EnsureSurfaceAuthoringData())
             EditorUtility.SetDirty(level);
+        if (!level.TryValidateSurfacePalette(out string paletteError))
+        {
+            Debug.LogError(paletteError, level);
+            return false;
+        }
         if (!level.HasUsableSurfaceDefinitions)
         {
             Debug.LogError(
@@ -1054,7 +1065,7 @@ internal static class HeightMapSurfaceBaker
                     CopyRepeatedPatternIntoAtlas(
                         readable,
                         atlasPixels,
-                        definition.TerrainId,
+                        definition.Terrain,
                         level.SurfacePatternAlphaNormalizationStrength);
                 }
                 finally
@@ -1083,11 +1094,11 @@ internal static class HeightMapSurfaceBaker
     private static void CopyRepeatedPatternIntoAtlas(
         Texture2D source,
         Color32[] atlasPixels,
-        int terrainId,
+        TerrainKind terrain,
         float alphaNormalizationStrength)
     {
-        int cellX = terrainId % AtlasGridSize;
-        int cellY = terrainId / AtlasGridSize;
+        int cellX = (int)terrain % AtlasGridSize;
+        int cellY = (int)terrain / AtlasGridSize;
         int cellOriginX = cellX * AtlasCellSize;
         int cellOriginY = cellY * AtlasCellSize;
         int interiorSize = AtlasCellSize - AtlasPadding * 2;
@@ -1213,13 +1224,13 @@ internal static class HeightMapSurfaceBaker
                 if (definition == null)
                     continue;
 
-                int id = Mathf.Clamp(definition.TerrainId, 1, 255);
+                int index = (byte)definition.Terrain;
                 Color tint = definition.Tint;
                 tint.a *= definition.Opacity;
                 if (!definition.IsUsable)
                     tint.a = 0f;
-                tints[id] = tint;
-                settings[id] = new Color(
+                tints[index] = tint;
+                settings[index] = new Color(
                     definition.TileSizeMeters,
                     (float)definition.TransitionMode,
                     definition.TransitionWidthMultiplier,
