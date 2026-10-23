@@ -105,11 +105,11 @@ namespace AnimalGame.Animals
         }
         public override AnimalActionStatus Tick(AnimalContext c, float dt)
         {
-            if (food == null || !food.isActiveAndEnabled) return AnimalActionStatus.Failed;
+            if (food == null || !food.isActiveAndEnabled) return Fail("No suitable plant or reachable eating position is available.");
             if (!eating)
             {
                 travelSeconds += dt;
-                if (travelSeconds >= c.Config.MaximumTravelTimeSeconds || c.Motor.Result == AnimalMovementResult.NoProgress) return AnimalActionStatus.Failed;
+                if (travelSeconds >= c.Config.MaximumTravelTimeSeconds || c.Motor.Result == AnimalMovementResult.NoProgress) return Fail("Could not reach the food before the travel limit.");
                 if (!c.Motor.HasArrived) return AnimalActionStatus.Running;
                 eating = true;
                 c.Motor.Stop();
@@ -191,13 +191,16 @@ namespace AnimalGame.Animals
     {
         private AnimalAgent target;
         private readonly bool corpseOnly;
+        private readonly bool startWithLivePrey;
         private float started, feedingSeconds, lastSelection;
         private bool feeding, reserved;
         public override AnimalState PhotoState => feeding ? AnimalState.Eating : AnimalState.Moving;
-        public HuntAction(AnimalAgent initialTarget = null, bool corpseOnly = false) { target = initialTarget; this.corpseOnly = corpseOnly; }
+        public HuntAction(AnimalAgent initialTarget = null, bool corpseOnly = false, bool startWithLivePrey = false)
+        { target = initialTarget; this.corpseOnly = corpseOnly; this.startWithLivePrey = startWithLivePrey; }
         public override void Enter(AnimalContext c)
         {
             started = c.Runtime.Time;
+            FailureReason = null;
             feedingSeconds = 0f;
             feeding = reserved = false;
             c.Runtime.Target = target;
@@ -205,34 +208,42 @@ namespace AnimalGame.Animals
         }
         public override AnimalActionStatus Tick(AnimalContext c, float dt)
         {
-            if (c.Runtime.Time - started >= c.Config.HuntTimeoutSeconds) return AnimalActionStatus.Failed;
+            if (c.Runtime.Time - started >= c.Config.HuntTimeoutSeconds) return Fail("The hunt timed out.");
             if (!AnimalHuntTargets.Eligible(c, target, corpseOnly)
                 || Vector2.Distance(c.Motor.CurrentMapPosition, target.Motor.CurrentMapPosition) > c.Config.ChaseRadiusMeters)
             { Release(c); target = null; }
             if (!feeding && c.Runtime.Time - lastSelection >= .5f)
             {
                 lastSelection = c.Runtime.Time;
-                AnimalAgent selected = AnimalHuntTargets.Select(c, target, corpseOnly);
+                // Once the hunted target dies, retain it and continue the normal feeding lifecycle.
+                AnimalAgent selected = AnimalHuntTargets.Select(c, target, corpseOnly,
+                    startWithLivePrey && (target == null || !target.Health.IsDead));
                 if (selected != null && selected != target) { Release(c); target = selected; }
             }
             c.Runtime.Target = target;
-            if (target == null) return AnimalActionStatus.Failed;
+            if (target == null) return Fail(FailureReason ?? (corpseOnly ? "No eligible corpse remains (diet, range, capacity or target availability)." : "No eligible prey remains in range."));
             Vector2 destination = target.Motor.CurrentMapPosition;
             float contact = c.Config.BodyRadiusMeters + target.Config.BodyRadiusMeters + c.Config.AttackPadding;
             float distance = Vector2.Distance(c.Motor.CurrentMapPosition, destination);
             if (target.Health.IsDead)
             {
-                if (c.Motor.IsDisplaced) return AnimalActionStatus.Failed;
-                if (c.Runtime.Time < c.Runtime.FeedCooldownUntil) return AnimalActionStatus.Failed;
+                if (c.Motor.IsDisplaced) return Fail("Feeding was interrupted by displacement.");
+                if (c.Runtime.Time < c.Runtime.FeedCooldownUntil) return Fail("Feeding is on cooldown.");
                 if (target.Health.CorpseRemaining <= 0f) return AnimalActionStatus.Succeeded;
                 if (distance > contact)
                 {
-                    if (feeding) return AnimalActionStatus.Failed;
+                    if (feeding) return Fail("The corpse moved out of feeding range.");
                     c.Motor.SetTarget(destination, c.Config.DailyMoveSpeedMetersPerSecond);
                     return AnimalActionStatus.Running;
                 }
                 if (!reserved) reserved = target.Health.Reserve(c.Agent);
-                if (!reserved) { target = null; return AnimalActionStatus.Running; }
+                if (!reserved)
+                {
+                    FailureReason = "All feeding positions on the corpse are occupied.";
+                    target = null;
+                    return AnimalActionStatus.Running;
+                }
+                FailureReason = null;
                 feeding = true;
                 c.Motor.Stop();
                 c.Motor.FaceMapPosition(destination);
@@ -255,7 +266,7 @@ namespace AnimalGame.Animals
                 c.Motor.SetTarget(destination, speed);
             }
             if (c.Motor.Result == AnimalMovementResult.NoProgress)
-            { c.Runtime.FailedTargets[target] = c.Runtime.Time + 5f; return AnimalActionStatus.Failed; }
+            { c.Runtime.FailedTargets[target] = c.Runtime.Time + 5f; return Fail("The animal cannot make progress towards its target."); }
             return AnimalActionStatus.Running;
         }
         private void Release(AnimalContext c)

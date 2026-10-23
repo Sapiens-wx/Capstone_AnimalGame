@@ -1,0 +1,39 @@
+.animal-panel {
+    position: absolute;
+    width: 33.333333%; height: 66.666667%; top: 16.666667%; right: 16px;
+    border-width: 2px; border-color: white;
+    background-color: rgba(0, 0, 0, 0.75);
+    padding: 18px; color: white; font-size: 18px;
+}
+.title { font-size: 24px; -unity-font-style: bold; margin-bottom: 6px; }
+.hint { font-size: 14px; color: rgb(210, 210, 210); white-space: normal; }
+.row { flex-direction: row; flex-shrink: 0; }
+.name-row { margin-top: 12px; margin-bottom: 16px; }
+Button {
+    background-color: rgba(0, 0, 0, 0.65); color: white;
+    border-width: 1px; border-color: white; border-radius: 0;
+    min-height: 38px; padding: 6px; margin: 2px; font-size: 16px;
+    white-space: normal;
+}
+Button:hover, Button:focus, Button.highlight { border-color: #D4B854; color: #D4B854; }
+Button:disabled { opacity: 0.4; }
+.grow { flex-grow: 1; flex-shrink: 1; width: 0; }
+.small-button { width: 85px; flex-shrink: 0; }
+.details { flex-grow: 1; flex-shrink: 1; min-height: 30px; margin-bottom: 16px; }
+.detail { margin-top: 12px; white-space: normal; }
+.health-bar { height: 23px; border-width: 1px; border-color: white; margin-top: 6px; flex-shrink: 0; }
+.health-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background-color: #D4B854; }
+.health-value { font-size: 15px; margin-top: 6px; }
+.wrap { white-space: normal; }
+.message { min-height: 58px; flex-shrink: 0; font-size: 15px; color: #D4B854; margin-top: 8px; }
+.animal-arrow { color: #D4B854; }
+.popup {
+    position: absolute; left: 18px; right: 18px;
+    border-width: 1px; border-color: white; background-color: rgb(12, 12, 12);
+    padding: 6px;
+}
+.animal-popup { top: 124px; height: 53%; }
+.command-popup { bottom: 118px; height: 56%; }
+.popup-title { font-size: 13px; margin: 4px; color: rgb(210, 210, 210); }
+.popup-list { flex-grow: 1; min-height: 0; }
+.animal-row { margin: 1px; padding: 4px; -unity-text-align: middle-left; font-size: 14px; flex-shrink: 0; }

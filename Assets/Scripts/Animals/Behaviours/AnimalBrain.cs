@@ -18,6 +18,7 @@ namespace AnimalGame.Animals
         private bool updating;
         private AnimalAction overrideAction;
         private AnimalAction pendingAction;
+        private Action debugRequest, cancelDebugRequest;
         public string CurrentActionName => overrideAction?.Name ?? (current as ActionState)?.ActionName ?? behaviour?.CurrentActionName ?? "";
         public AnimalState PhotoState => overrideAction?.PhotoState ?? behaviour.PhotoState;
         public AnimalState State { get; private set; } = AnimalState.Despawned;
@@ -65,6 +66,42 @@ namespace AnimalGame.Animals
                 pendingAction = null;
                 StartAction(next);
             }
+            Action debug = debugRequest;
+            debugRequest = cancelDebugRequest = null;
+            debug?.Invoke();
+        }
+
+        // Validation belongs to the command service and is repeated when a queued request commits.
+        public void ScheduleDebugCommand(Action execute, Action cancel)
+        {
+            if (!updating) { execute(); return; }
+            cancelDebugRequest?.Invoke();
+            debugRequest = execute;
+            cancelDebugRequest = cancel;
+        }
+
+        public bool ReplaceForDebug(AnimalState state, AnimalAction action, Action beforeEnter)
+        {
+            if (updating || context.Runtime.IsDead || context.Runtime.Removed) return false;
+            updating = true;
+            try
+            {
+                current?.Exit(context);
+                overrideAction?.Exit(context);
+                current = null;
+                overrideAction = pendingAction = null;
+                requested = null;
+                context.Motor.Stop();
+                context.Motor.ClearMovementOverrides();
+                beforeEnter?.Invoke();
+                State = state;
+                context.Agent.OnStateEntered(state);
+                if (action != null) { overrideAction = action; action.Enter(context); }
+                else { current = CreateState(state); current?.Enter(context); }
+            }
+            finally { updating = false; }
+            Flush();
+            return true;
         }
 
         public bool StartAction(AnimalAction action)
@@ -121,6 +158,8 @@ namespace AnimalGame.Animals
 
         public void Stop()
         {
+            cancelDebugRequest?.Invoke();
+            debugRequest = cancelDebugRequest = null;
             updating = true;
             try
             {

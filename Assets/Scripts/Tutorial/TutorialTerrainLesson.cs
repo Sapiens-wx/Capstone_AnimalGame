@@ -74,7 +74,7 @@ namespace AnimalGame.Tutorial
             waypoint.SetVisible(!modal);
             if (modal) return;
 #if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
+            if (!AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
                 || Gamepad.current.dpad.right.wasPressedThisFrame))
                 panel.ToggleCollapsed();
 #endif

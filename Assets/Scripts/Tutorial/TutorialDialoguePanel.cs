@@ -49,7 +49,7 @@ namespace AnimalGame.Tutorial
 
         private void Awake()
         {
-            collapsed = startCollapsed;
+            collapsed = startCollapsed || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels;
             BuildDocument();
         }
 
@@ -94,6 +94,7 @@ namespace AnimalGame.Tutorial
 
         public void SetVisible(bool value)
         {
+            if (value && !collapsed && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) SetCollapsed(true);
             visible = value;
             RefreshVisibility();
         }
@@ -102,6 +103,7 @@ namespace AnimalGame.Tutorial
 
         public void SetCollapsed(bool value)
         {
+            if (!value && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
             if (collapsed == value) return;
             collapsed = value;
             RefreshVisibility();

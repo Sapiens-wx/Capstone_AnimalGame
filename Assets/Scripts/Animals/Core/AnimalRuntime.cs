@@ -63,6 +63,9 @@ namespace AnimalGame.Animals
 
     public abstract class AnimalAction
     {
+        public string FailureReason { get; protected set; }
+        protected AnimalActionStatus Fail(string reason)
+        { FailureReason = reason; return AnimalActionStatus.Failed; }
         public virtual string Name => GetType().Name;
         public virtual AnimalState PhotoState => AnimalState.Daily;
         public virtual void Enter(AnimalContext context) { }
