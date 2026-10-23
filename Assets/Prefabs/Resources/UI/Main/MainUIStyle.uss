@@ -47,7 +47,8 @@ Label {
 }
 
 .level-degree {
-    font-size: 22px;
+    -unity-font-definition: resource('UI/Font/Orbitron-Regular');
+    font-size: 20px;
     color: white;
 }
 

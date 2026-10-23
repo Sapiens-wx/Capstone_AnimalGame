@@ -30,8 +30,8 @@ namespace AnimalGame.MainUI
             readout.style.marginTop = readout.style.marginBottom = 0;
             readout.style.paddingLeft = readout.style.paddingRight = 0;
             readout.style.paddingTop = readout.style.paddingBottom = 0;
-            readout.style.fontSize = 22;
-            readout.style.unityFontStyleAndWeight=FontStyle.Bold;
+            readout.style.fontSize = 20;
+            readout.style.unityFontStyleAndWeight = FontStyle.Normal;
             Add(readout);
             RegisterCallback<GeometryChangedEvent>(_ => CenterReadout());
             generateVisualContent += Draw;
@@ -43,7 +43,13 @@ namespace AnimalGame.MainUI
             value = Finite(value) ? Mathf.Clamp(value, -90, 90) : 0;
             if (degreeValue == value) return;
             degreeValue = value;
-            readout.text = Mathf.RoundToInt(value) + "\u00b0";
+            int displayedDegree = Mathf.RoundToInt(value);
+            readout.text = displayedDegree + "\u00b0";
+            Color indicatorColor = Mathf.Abs(displayedDegree) > 12
+                ? HudDrawing.Yellow
+                : Color.white;
+            style.color = indicatorColor;
+            readout.style.color = indicatorColor;
             MarkDirtyRepaint();
         }
 
