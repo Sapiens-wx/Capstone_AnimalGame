@@ -80,6 +80,7 @@ namespace AnimalGame.MainUI
     [UxmlElement]
     public partial class ViewRingElement : VisualElement
     {
+        private Color strokeColor = Color.white;
         private bool ticksValue;
         [UxmlAttribute]
         public bool ticks
@@ -153,10 +154,17 @@ namespace AnimalGame.MainUI
             generateVisualContent += Draw;
         }
 
+        public void SetStrokeColor(Color color)
+        {
+            if (strokeColor == color) return;
+            strokeColor = color;
+            MarkDirtyRepaint();
+        }
+
         private void Draw(MeshGenerationContext context)
         {
             Painter2D p = context.painter2D;
-            p.strokeColor = Color.white; p.lineWidth = lineWidth;
+            p.strokeColor = strokeColor; p.lineWidth = lineWidth;
             Vector2 center = contentRect.center;
             float radius = Radius;
             if (radius <= 0) return;
