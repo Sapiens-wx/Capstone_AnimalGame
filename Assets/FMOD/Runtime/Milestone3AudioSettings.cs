@@ -15,6 +15,17 @@ namespace Capstone.Audio
         [SerializeField, Min(0.01f)] private float tumbleImpactEnergyReference = 12f;
         [SerializeField, Min(0.01f)] private float effortReferenceFrequency = 3f;
         [SerializeField, Min(0.000001f)] private float progressEpsilon = 0.00001f;
+        [SerializeField, Min(0f)] private float worldMotionThreshold = 0.01f;
+        [SerializeField, Min(0.01f)] private float worldReferenceSpeed = 3f;
+        [SerializeField, Min(1f)] private float worldObservationRadius = 12f;
+        [SerializeField, Min(0.1f)] private float worldDiscoveryInterval = 0.25f;
+        [Tooltip("Audio-only threshold along the garbage's actual movement direction.")]
+        [SerializeField, Range(0f, 89f)] private float worldSlideSteepAngle = 35f;
+        [SerializeField, Min(0.05f)] private float worldSlideProbeMeters = 0.5f;
+        [SerializeField, Min(0f)] private float worldSlideMinimumDropMeters = 0.35f;
+        [SerializeField, Min(0.01f)] private float garbageImpactReferenceSpeed = 3f;
+        [SerializeField, Range(1f, 2f)] private float garbageImpactMaximumGain = 1.5f;
+        [SerializeField, Range(0f, 0.12f)] private float garbageImpactPitchVariation = 0.06f;
 
         internal bool Enabled => enableAudio;
         internal float FadeOutSeconds => Mathf.Max(0f, fadeOutSeconds);
@@ -24,6 +35,25 @@ namespace Capstone.Audio
         internal float TumbleImpactEnergyReference => Mathf.Max(0.01f, tumbleImpactEnergyReference);
         internal float EffortReferenceFrequency => Mathf.Max(0.01f, effortReferenceFrequency);
         internal float ProgressEpsilon => Mathf.Max(0.000001f, progressEpsilon);
+        internal float WorldMotionThreshold => Mathf.Max(0f, worldMotionThreshold);
+        internal float WorldReferenceSpeed => Mathf.Max(0.01f, worldReferenceSpeed);
+        internal float WorldObservationRadius => Mathf.Max(1f, worldObservationRadius);
+        internal float WorldDiscoveryInterval => Mathf.Max(0.1f, worldDiscoveryInterval);
+        internal float WorldSlideSteepAngle => Mathf.Clamp(worldSlideSteepAngle, 0f, 89f);
+        internal float WorldSlideProbeMeters => Mathf.Max(0.05f, worldSlideProbeMeters);
+        internal float WorldSlideMinimumDropMeters => Mathf.Max(0f, worldSlideMinimumDropMeters);
+        internal float GarbageImpactReferenceSpeed => Mathf.Max(0.01f, garbageImpactReferenceSpeed);
+        internal float GarbageImpactMaximumGain => Mathf.Clamp(garbageImpactMaximumGain, 1f, 2f);
+        internal float GarbageImpactPitchVariation => Mathf.Clamp(garbageImpactPitchVariation, 0f, .12f);
+        internal bool HasWorldEvents => HasEvents(Milestone3Cue.HeavyPullStart, Milestone3Cue.ClimbableLand)
+            || HasCue(Milestone3Cue.HeavyTearMiddle) || HasCue(Milestone3Cue.HeavyTearLate);
+        internal bool HasScanEvents => HasEvents(Milestone3Cue.ScanDeploy, Milestone3Cue.ScanReady);
+        private bool HasEvents(Milestone3Cue first, Milestone3Cue last)
+        {
+            for (int i = (int)first; i <= (int)last; i++)
+                if (Milestone3AudioCatalog.HasObservableTrigger(i) && HasDirectCue((Milestone3Cue)i)) return true;
+            return false;
+        }
         internal AudioCueSettings GetCue(Milestone3Cue cue) => cue != Milestone3Cue.TumbleImpact02
             && cue != Milestone3Cue.RecycleSmall
             && cues != null && (int)cue < cues.Length

@@ -8,7 +8,12 @@ namespace Capstone.Audio
         SettledFallen, SupportStart, SupportLoad, ForceAccepted, ForceRejected,
         PullBalance, SupportFailed, RightingChassis, RightingLand,
         PushStart, PushLoop, RecycleSmall, RecycleMediumStep, RecycleComplete,
-        TumbleImpact02, TumbleImpact03, Count
+        TumbleImpact02, TumbleImpact03,
+        // Append only: the first 21 slots are already serialized and delivered.
+        HeavyPullStart, HeavyPullLoop, HeavyPullBlocked, HeavyPullTension, HeavyPullCancel,
+        HeavyBreak, FragmentScatter, GarbageSlide, GarbageBreak, GarbageImpact,
+        BushRustle, SmallGarbageClimb, ClimbableLand, ScanDeploy, ScanReady, ScanHit,
+        RecycleCrush, RecycleCrushSmall, HeavyTearMiddle, HeavyTearLate, Count
     }
 
     internal enum Milestone3Parameter { Speed, Progress, Effort, Impact, Count }
@@ -33,7 +38,17 @@ namespace Capstone.Audio
             "event:/Robot/Recycle/PushStart", "event:/Robot/Recycle/PushLoop",
             "event:/Robot/Recycle/Small", "event:/Robot/Recycle/Intake",
             "event:/Robot/Recycle/Complete", "event:/Robot/Balance/TumbleImpact02",
-            "event:/Robot/Balance/TumbleImpact03"
+            "event:/Robot/Balance/TumbleImpact03",
+            "event:/Robot/Garbage/HeavyPullStart", "event:/Robot/Garbage/HeavyPullLoop",
+            "event:/Robot/Garbage/HeavyPullBlocked", "event:/Robot/Garbage/HeavyPullTension",
+            "event:/Robot/Garbage/HeavyPullCancel", "event:/Robot/Garbage/HeavyBreak",
+            "event:/Robot/Garbage/FragmentScatter", "event:/Robot/Garbage/GarbageSlide",
+            "event:/Robot/Garbage/GarbageBreak", "event:/Robot/Garbage/GarbageImpact",
+            "event:/Robot/Contact/BushRustle", "event:/Robot/Contact/SmallGarbageClimb",
+            "event:/Robot/Contact/ClimbableLand", "event:/Robot/Scan/Deploy",
+            "event:/Robot/Scan/Ready", "event:/Robot/Scan/Hit",
+            "event:/Robot/Recycle/Crush", "event:/Robot/Recycle/CrushSmall",
+            "event:/Robot/Garbage/HeavyTearMiddle", "event:/Robot/Garbage/HeavyTearLate"
         };
 
         private static readonly string[] Files =
@@ -48,12 +63,33 @@ namespace Capstone.Audio
             "Recycling/G01_Push_Start.wav", "Recycling/G01_Push_Loop.wav",
             "Recycling/G03_Recycle.wav", "Recycling/G03_Recycle.wav",
             "Recycling/G04_Recycle_Complete.wav", "Balance/B03_Tumble_Impact_02.wav",
-            "Balance/B03_Tumble_Impact_03.wav"
+            "Balance/B03_Tumble_Impact_03.wav",
+            "HeavyGarbage/G05_HeavyPull_Start.wav", "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
+            "HeavyGarbage/G07_HeavyPull_Blocked.wav", "HeavyGarbage/G07_HeavyPull_Tension_Loop.wav",
+            "HeavyGarbage/G08_HeavyPull_Cancel.wav", "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
+            null, "World/G11_Garbage_Slide_Loop.wav",
+            "World/G12_Garbage_Break.wav", "World/G13_Garbage_Impact.wav",
+            "World/G14_Bush_Rustle_Loop.wav", "World/G15_SmallGarbage_Climb_Loop.wav",
+            null, "Scan/S02_Scan_Deploy.wav", "Scan/S04_Scan_Ready.wav", "Scan/S07_Scan_Hit.wav",
+            "Recycling/G03_Recycle_Crush_Loop.wav", "Recycling/G03_Recycle_Crush_Loop.wav",
+            "HeavyGarbage/G05_G09_HeavyPull_Tear.wav", "HeavyGarbage/G05_G09_HeavyPull_Tear.wav"
         };
 
         private static readonly string[,] ParameterNames = CreateParameterNames();
 
         public static string EventPath(int index) => Paths[index];
+        public static float DefaultGainDb(int index)
+        {
+            switch ((Milestone3Cue)index)
+            {
+                case Milestone3Cue.ForceAccepted:
+                case Milestone3Cue.ForceRejected:
+                case Milestone3Cue.PullBalance:
+                case Milestone3Cue.SupportFailed: return -4.436975f;
+                case Milestone3Cue.ClimbableLand: return -6.0206f;
+                default: return 0f;
+            }
+        }
         // Shared source files remain in their existing M2 delivery folders.
         // B13 also layers M08_Land_shatter in the Studio authoring definition.
         public static string SourceFile(int index)
@@ -69,7 +105,10 @@ namespace Capstone.Audio
                     return Milestone2ActionCatalog.SourceFolder + "/Arm/A03_Arm_Blocked_01.wav";
                 case Milestone3Cue.SupportFailed:
                     return Milestone2ActionCatalog.SourceFolder + "/Arm/A01_Arm_Deploy_Loop.wav";
+                case Milestone3Cue.FragmentScatter:
+                    return Milestone2ActionCatalog.SourceFolder + "/Arm/A09_Drop_01.wav";
                 case Milestone3Cue.RightingLand:
+                case Milestone3Cue.ClimbableLand:
                     return Milestone2ActionCatalog.SourceFolder + "/Movement/M08_Land_Impact.wav";
                 default:
                     return SourceFolder + "/" + Files[index];
@@ -79,11 +118,18 @@ namespace Capstone.Audio
         public static bool HasSeparateEvent(int index) => index != (int)Milestone3Cue.TumbleStart
             && index != (int)Milestone3Cue.TumbleImpact02 && index != (int)Milestone3Cue.RecycleSmall;
         public static bool HasObservableTrigger(int index) => HasSeparateEvent(index) && index != (int)Milestone3Cue.PushStart
-            && index != (int)Milestone3Cue.PushLoop && index != (int)Milestone3Cue.RecycleComplete;
+            && index != (int)Milestone3Cue.PushLoop && index != (int)Milestone3Cue.RecycleComplete
+            // Heavy conversion is observed from the committed source/held-object state.
+            // These remaining methods have no reliable completion/hit signal.
+            && index != (int)Milestone3Cue.GarbageBreak && index != (int)Milestone3Cue.ScanHit;
         public static bool IsLoop(int index) => index == (int)Milestone3Cue.TumbleMove
             || index == (int)Milestone3Cue.SupportLoad || index == (int)Milestone3Cue.PullBalance
             || index == (int)Milestone3Cue.RightingChassis || index == (int)Milestone3Cue.PushLoop
-            || index == (int)Milestone3Cue.RecycleMediumStep;
+            || index == (int)Milestone3Cue.RecycleMediumStep
+            || index == (int)Milestone3Cue.HeavyPullLoop || index == (int)Milestone3Cue.HeavyPullTension
+            || index == (int)Milestone3Cue.GarbageSlide || index == (int)Milestone3Cue.BushRustle
+            || index == (int)Milestone3Cue.SmallGarbageClimb
+            || index == (int)Milestone3Cue.HeavyTearMiddle || index == (int)Milestone3Cue.HeavyTearLate;
 
         internal static string ParameterName(Milestone3Cue cue, Milestone3Parameter parameter) =>
             ParameterNames[(int)cue, (int)parameter];

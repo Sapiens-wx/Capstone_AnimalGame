@@ -1,3 +1,4 @@
+using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ namespace Capstone.Audio
         private PhotoModeController source;
         private Milestone1AudioVoice movement;
         private Milestone1AudioVoice focus;
+        private PhotoCameraDefinition previousCamera;
         private Vector2 previousAim;
         private float stationaryElapsed;
         private float movementParameterValue;
@@ -18,6 +20,7 @@ namespace Capstone.Audio
         private bool wasFocusing;
         private bool wasActive;
         private bool closeHandled;
+        private bool wasFixedPrime;
 
         internal PhotoModeController Source => source;
 
@@ -44,6 +47,8 @@ namespace Capstone.Audio
             source.ModeChanged += OnModeChanged;
             source.PhotoCaptured += OnPhotoCaptured;
             previousAim = source.AimLocalPosition;
+            previousCamera = source.CurrentCamera;
+            wasFixedPrime = source.UsesFixedPrimeHandling;
             wasActive = source.IsActive;
         }
 
@@ -56,10 +61,22 @@ namespace Capstone.Audio
             }
 
             Vector2 aim = source.AimLocalPosition;
-            float actualAimSpeed = deltaTime > 0f
+            bool fixedPrime = source.UsesFixedPrimeHandling;
+            bool cameraChanged = previousCamera != source.CurrentCamera || wasFixedPrime != fixedPrime;
+            // Equipping a camera can reset its aim immediately. A capture/review
+            // can defer the handling change, so observe both public properties.
+            float actualAimSpeed = !cameraChanged && deltaTime > 0f
                 ? Vector2.Distance(previousAim, aim) / deltaTime
                 : 0f;
             previousAim = aim;
+            previousCamera = source.CurrentCamera;
+            wasFixedPrime = fixedPrime;
+            if (cameraChanged)
+            {
+                StopMovement();
+                StopFocus();
+                wasFocusing = false;
+            }
 
             if (source.IsExiting && !closeHandled)
                 BeginClose();
@@ -69,6 +86,9 @@ namespace Capstone.Audio
             bool focusing = source.IsActive
                             && !source.IsEntering
                             && !source.IsExiting
+                            // The fixed prime's Focusing state is a shutter hold,
+                            // without physical focus travel.
+                            && !fixedPrime
                             && source.IsFocusing;
             if (focusing && !wasFocusing)
             {
@@ -92,6 +112,7 @@ namespace Capstone.Audio
             bool canMove = source.IsActive
                            && !source.IsEntering
                            && !source.IsExiting
+                           && !fixedPrime
                            && !source.IsInputLocked;
             if (canMove && actualAimSpeed > settings.CameraMoveThreshold)
             {
@@ -143,6 +164,8 @@ namespace Capstone.Audio
             wasFocusing = false;
             wasActive = false;
             closeHandled = false;
+            previousCamera = null;
+            wasFixedPrime = false;
             stationaryElapsed = 0f;
             movementParameterValue = 0f;
             focusParameterValue = 0f;
@@ -165,6 +188,8 @@ namespace Capstone.Audio
             }
 
             previousAim = source.AimLocalPosition;
+            previousCamera = source.CurrentCamera;
+            wasFixedPrime = source.UsesFixedPrimeHandling;
             stationaryElapsed = 0f;
             if (active)
             {
