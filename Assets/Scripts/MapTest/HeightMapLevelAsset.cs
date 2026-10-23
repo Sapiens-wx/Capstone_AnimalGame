@@ -175,7 +175,7 @@ namespace AnimalGame.MapTest
 
         [Tooltip("Tint applied to terrain above the player's current elevation.")]
         [SerializeField] private Color higherElevationFilterColor =
-            new Color(1f, 0.82f, 0.38f, 1f);
+            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
 
         [Tooltip("Maximum filter opacity at or beyond Relative Height Range.")]
         [SerializeField, Range(0f, 1f)]
@@ -195,7 +195,7 @@ namespace AnimalGame.MapTest
 
         [Tooltip("Color of the contour that crosses the player's exact current elevation.")]
         [SerializeField] private Color playerHeightReferenceColor =
-            new Color(1f, 0.96f, 0.7f, 1f);
+            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
 
         [Tooltip("Screen-space width of the player's current-height reference contour.")]
         [SerializeField, Range(0.25f, 8f)]

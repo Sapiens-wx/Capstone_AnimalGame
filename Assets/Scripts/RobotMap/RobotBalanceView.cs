@@ -75,7 +75,7 @@ namespace AnimalGame.RobotMap
         [Header("Self Righting")]
         [Tooltip("Colour of the solid centre-of-mass point after the arms establish enough self-righting support.")]
         [SerializeField] private Color selfRightingBalancePointColor =
-            new Color(1f, 0.78f, 0.12f, 1f);
+            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
 
         [Tooltip("Number of segments used to draw the range ring. Higher values make it rounder.")]
         [SerializeField, Range(12, 128)] private int circleSegments = 64;

@@ -512,7 +512,7 @@ MonoBehaviour:
   englishName: Muskrat
   scientificName: Ondatra zibethicus
   regionName: Rocky Mountains
-  accentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
+  accentColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
   cognitionDegrees: 100
   baseReward: 10
   cognitionReward: 0

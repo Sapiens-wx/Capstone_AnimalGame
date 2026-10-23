@@ -181,12 +181,12 @@ MonoBehaviour:
   elevationFilterKeyboardToggleKey: 104
   elevationFilterStartsEnabled: 0
   lowerElevationFilterColor: {r: 0.12, g: 0.54, b: 0.78, a: 1}
-  higherElevationFilterColor: {r: 1, g: 0.82, b: 0.38, a: 1}
+  higherElevationFilterColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
   elevationFilterMaximumOpacity: 0.44
   elevationFilterRelativeRangeMeters: 15
   elevationFilterNeutralBandMeters: 1.5
   elevationFilterResponseExponent: 1.15
-  playerHeightReferenceColor: {r: 1, g: 0.96, b: 0.7, a: 1}
+  playerHeightReferenceColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
   playerHeightReferenceLineWidth: 2.4
   playerHeightReferenceOpacity: 0.95
   elevationFilterHillshadeStrength: 0.16

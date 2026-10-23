@@ -1,5 +1,6 @@
 Label {
     color: white;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
     font-size: 22px;
     -unity-font-style: normal;
     margin: 0;
@@ -107,10 +108,12 @@ Label {
 }
 
 .date {
+    -unity-font-definition: resource('UI/Font/Orbitron-Regular');
     color: rgb(212, 184, 84);
-    font-size: 22px;
+    font-size: 18px;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
+    white-space: pre;
 }
 
 .inventory {
@@ -231,6 +234,11 @@ Label {
     white-space: nowrap;
     -unity-text-align: lower-center;
     -unity-font-style: bold;
+}
+
+.compass-degree {
+    -unity-font-definition: resource('UI/Font/Orbitron-Regular');
+    -unity-font-style: normal;
 }
 
 .compass-pointer {

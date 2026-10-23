@@ -167,7 +167,7 @@ namespace AnimalGame.Tutorial
             root.style.left = root.style.top = root.style.right = root.style.bottom = 0;
             root.style.overflow = Overflow.Hidden;
 
-            Font font = dialogueFont;
+            Font font = dialogueFont != null ? dialogueFont : Resources.Load<Font>("UI/Font/Orbitron-Regular");
             if (font == null)
             {
                 // This is scene-local and does not import or modify any project font resources.

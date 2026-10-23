@@ -27,7 +27,7 @@
             </ui:VisualElement>
             <ui:VisualElement name="Time" picking-mode="Ignore" class="time" style="position: absolute; right: 28px; top: 19px;">
                 <hud:TimeOrbitElement name="TimeOrbit" line-width="4" tick-length="12" radius="77" dash-gap="14" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
-                <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; font-size: 20px;" />
+                <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
             </ui:VisualElement>
             <hud:SoundElement name="Sound" line-width="4" line-length="45.2" class="sound" style="position: absolute; right: 278px; top: 67px; height: 136px; width: 162px;" />
             <ui:VisualElement name="Coordinates" picking-mode="Ignore" class="coordinates" style="position: absolute; right: 68px; bottom: 30px; width: 258px;">
@@ -39,7 +39,7 @@
                 </ui:VisualElement>
                 <AnimalGame.RobotMap.PhotoResultLineElement end-point="258.7,0" start-point="10.12,0" />
                 <ui:VisualElement class="altitude-row">
-                    <ui:Label text="Altitude" class="altitude-prefix" />
+                    <ui:Label text="ALTITUDE" class="altitude-prefix" />
                     <ui:Label name="Altitude" text="--m" class="coordinate-value" />
                 </ui:VisualElement>
                 <AnimalGame.RobotMap.PhotoResultLineElement end-point="0,15" style="left: auto; right: 0; top: 32px; height: 42px; width: 0; position: absolute;" />

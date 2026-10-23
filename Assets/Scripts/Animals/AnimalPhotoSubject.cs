@@ -65,7 +65,7 @@ namespace AnimalGame.Animals
         [SerializeField] private string scientificName = "Species unknown";
         [SerializeField] private string regionName = "Rocky Mountains";
         [SerializeField] private Color accentColor =
-            new Color(1f, 0.82f, 0.18f, 1f);
+            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
 
         [Header("Recognition And Rewards")]
         [SerializeField, Min(0)] private int cognitionDegrees = 100;

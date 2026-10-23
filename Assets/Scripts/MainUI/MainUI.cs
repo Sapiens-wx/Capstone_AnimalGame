@@ -448,7 +448,7 @@ namespace AnimalGame.MainUI
         /// <summary>Displays the supplied date using the HUD's date format.</summary>
         public void SetDate(DateTime date)
         {
-            if (dateLabel != null) dateLabel.text = date.ToString("yyyy_MM_dd", CultureInfo.InvariantCulture);
+            if (dateLabel != null) dateLabel.text = date.ToString("MM_dd\nyyyy", CultureInfo.InvariantCulture);
         }
         private void InitializeGameClock(DateTime now)
         {

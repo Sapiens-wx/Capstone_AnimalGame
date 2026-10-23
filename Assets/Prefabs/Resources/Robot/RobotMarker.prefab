@@ -910,7 +910,7 @@ MonoBehaviour:
   guideLineWidthPixels: 2.2
   guideFadeDuration: 0.14
   guideNeutralColor: {r: 1, g: 1, b: 1, a: 0.34}
-  guideReadyColor: {r: 1, g: 0.82, b: 0.18, a: 0.72}
+  guideReadyColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 0.72}
 --- !u!114 &6754498989903123457
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -943,7 +943,7 @@ MonoBehaviour:
   fallenPointCrossSizeOfPointDiameter: 1.6
   fallenPointCrossOutlinePixels: 1.25
   tumbleBalanceOpacityMultiplier: 1.2
-  selfRightingBalancePointColor: {r: 1, g: 0.78, b: 0.12, a: 1}
+  selfRightingBalancePointColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
   circleSegments: 64
   canvasSortingOrder: 40
   showTumbleBalanceTrail: 1
@@ -1117,7 +1117,7 @@ MonoBehaviour:
   signalHeadPulseFrequency: 4.5
   scanWaveHalfThickness: 0.14
   temporaryRevealDuration: 1.17
-  biologicalSignalColor: {r: 1, g: 0.78039217, b: 0.12156863, a: 1}
+  biologicalSignalColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
 --- !u!114 &775533119844220012
 MonoBehaviour:
   m_ObjectHideFlags: 0

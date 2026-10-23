@@ -83,7 +83,7 @@
             <ui:VisualElement name="snapshot-circle" style="height: 350px; width: 350px; top: 640px; left: 975px; opacity: 1;">
                 <ui:Image name="snapshot-image" class="fill" style="opacity: 0;" />
                 <AnimalGame.RobotMap.PhotoResultArcElement name="snapshot-outline" center="175,175" radius="173" start-degrees="180" sweep-degrees="360" color="#F0F5F0" width="2.5" class="fill" style="opacity: 0;" />
-                <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); opacity: 0;" />
+                <ui:Label name="close-badge" text="B" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); opacity: 0; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" />
             </ui:VisualElement>
             <ui:VisualElement name="arc-vectors" class="fill">
                 <AnimalGame.RobotMap.PhotoResultArcElement name="outer-orbit" center="1400,550" radius="370" start-degrees="139.4" sweep-degrees="271" color="#F0F5F0" width="1.5" exclusions="exclude-catalog,exclude-save,exclude-animal-name,exclude-scientific-name,exclude-snapshot,exclude-top" class="fill" />
@@ -108,7 +108,7 @@
                     <ui:VisualElement class="catalog-icon-line" />
                 </ui:VisualElement>
                 <ui:Label name="catalog-label" text="Catalog" style="rotate: 0.015rad; top: 423px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); -unity-font-style: normal; font-size: 40px;" />
-                <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); -unity-font-style: bold;" />
+                <ui:Label name="save-badge" text="Y" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); -unity-font-style: normal;" />
                 <ui:Label name="save-label" text="Save Photo" style="rotate: 0.015rad; left: 1069px; top: 545px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); font-size: 40px;" />
                 <ui:Label name="scientific-name" text="Ondatra zibethicus" style="rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); font-size: 40px; left: 1325px; top: 911px;" />
                 <ui:Label name="metadata" style="height: 55px; width: 323px; top: 185px; left: 115px; rotate: 90deg; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" />

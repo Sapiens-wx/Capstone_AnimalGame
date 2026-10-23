@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using AnimalGame.Animals;
@@ -65,6 +66,12 @@ namespace AnimalGame.RobotMap
         private Image photoImage, snapshotImage;
         private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
         private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
+        private readonly Dictionary<Label, string> revealTargets = new Dictionary<Label, string>();
+        private readonly Dictionary<Label, bool> revealRichTextStates = new Dictionary<Label, bool>();
+        private readonly HashSet<Label> revealingLabels = new HashSet<Label>();
+        private readonly List<Label> pendingTextRevealLabels = new List<Label>();
+        private Coroutine textRevealSequence;
+        private bool textRevealStarted;
         private Material cardMaterial, circleMaterial;
         private RenderTexture cardOutput, circleOutput;
         private RenderTexture processedPhoto;
@@ -202,6 +209,7 @@ namespace AnimalGame.RobotMap
         {
             if (compositeShader == null || !compositeShader.isSupported)
                 throw new InvalidOperationException("Photo result composite shader is missing or unsupported.");
+            StopTextReveal();
             ReleaseTextures();
             processedPhoto = result.Photo.Render(photoResolution);
             photoSource = processedPhoto;
@@ -212,6 +220,7 @@ namespace AnimalGame.RobotMap
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
             root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
             saveLabel.text = "Save Photo";
+            if (!IsWarmingUp) PrepareTextReveal();
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial.SetFloat("_Mode", 1);
@@ -226,6 +235,7 @@ namespace AnimalGame.RobotMap
             tilt = restingTiltDegrees;
             lastAnimationProgress = -1;
             animationSettings.Open();
+            textRevealStarted = false;
             showing = true;
             if (!IsWarmingUp && hiddenBalanceView == null)
             {
@@ -244,6 +254,77 @@ namespace AnimalGame.RobotMap
             ApplyAnimation();
         }
 
+        private void PrepareTextReveal()
+        {
+            // Authored top-to-bottom order; the animal name intentionally stays visible.
+            string[] labelNames = { "metadata", "location-title", "catalog-label", "region", "altitude",
+                "save-label", "coordinates", "longitude", "latitude", "scientific-name" };
+            pendingTextRevealLabels.Clear();
+            foreach (string name in labelNames)
+            {
+                Label label = root.Q<Label>(name);
+                if (label == null) continue;
+                revealTargets[label] = label.text ?? string.Empty;
+                revealRichTextStates[label] = label.enableRichText;
+                label.enableRichText = true;
+                label.text = HideUnrevealedTail(string.Empty, revealTargets[label]);
+                pendingTextRevealLabels.Add(label);
+            }
+        }
+
+        private IEnumerator RevealLabelsInOrder(List<Label> labels)
+        {
+            foreach (Label label in labels)
+            {
+                revealingLabels.Add(label);
+                StartCoroutine(RevealLabel(label));
+                yield return new WaitForSecondsRealtime(.1f);
+            }
+            textRevealSequence = null;
+        }
+
+        private IEnumerator RevealLabel(Label label)
+        {
+            int visibleCharacters = 0;
+            while (revealTargets.TryGetValue(label, out string target) && visibleCharacters < target.Length)
+            {
+                visibleCharacters++;
+                label.text = HideUnrevealedTail(target.Substring(0, visibleCharacters), target);
+                yield return new WaitForSecondsRealtime(.012f);
+            }
+            if (revealTargets.TryGetValue(label, out string finalText)) label.text = finalText;
+            RestoreRichTextState(label);
+            revealingLabels.Remove(label);
+        }
+
+        private static string HideUnrevealedTail(string visiblePrefix, string fullText)
+        {
+            if (visiblePrefix.Length >= fullText.Length) return fullText;
+            return visiblePrefix + "<color=#FFFFFF00>" + fullText.Substring(visiblePrefix.Length) + "</color>";
+        }
+
+        private void RestoreRichTextState(Label label)
+        {
+            if (revealRichTextStates.TryGetValue(label, out bool wasEnabled))
+                label.enableRichText = wasEnabled;
+        }
+
+        private void StopTextReveal()
+        {
+            if (textRevealSequence != null || revealingLabels.Count > 0) StopAllCoroutines();
+            textRevealSequence = null;
+            revealingLabels.Clear();
+            foreach (KeyValuePair<Label, string> target in revealTargets)
+                if (target.Key != null)
+                {
+                    target.Key.text = target.Value;
+                    RestoreRichTextState(target.Key);
+                }
+            revealTargets.Clear();
+            revealRichTextStates.Clear();
+            pendingTextRevealLabels.Clear();
+        }
+
         private void UpdateLocation(PhotoResultSnapshot result)
         {
             root.Q<Label>("region").text = result.RegionName;
@@ -257,13 +338,24 @@ namespace AnimalGame.RobotMap
                     + "\u00b0 " + (result.Latitude < 0 ? "S" : "N") : "Latitude --";
         }
 
-        public void SetSaved() => saveLabel.text = "Photo Saved";
+        public void SetSaved()
+        {
+            if (revealTargets.ContainsKey(saveLabel))
+            {
+                revealTargets[saveLabel] = "Photo Saved";
+                if (textRevealStarted && textRevealSequence == null && !revealingLabels.Contains(saveLabel))
+                    saveLabel.text = "Photo Saved";
+            }
+            else saveLabel.text = "Photo Saved";
+        }
         public void Close() { if (showing && !IsWarmingUp) animationSettings.Close(); }
 
         public void HideImmediately()
         {
+            StopTextReveal();
             RestoreBalanceDisplay();
             showing = false;
+            textRevealStarted = false;
             HasPendingReview = false;
             if (!IsWarmingUp && mainUIAnimation != null) mainUIAnimation.Restore();
             if (root != null) root.style.display = DisplayStyle.None;
@@ -287,6 +379,11 @@ namespace AnimalGame.RobotMap
             if (!showing || IsWarmingUp) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
             ApplyAnimation();
+            if (!animationSettings.IsClosing && animationSettings.Progress >= 1f && !textRevealStarted)
+            {
+                textRevealStarted = true;
+                textRevealSequence = StartCoroutine(RevealLabelsInOrder(pendingTextRevealLabels));
+            }
             // Keep the existing card texture throughout opening and closing.
             if (!animationSettings.IsClosing && animationSettings.Progress >= 1f) UpdateTilt();
             if (!animationSettings.IsClosed) return;

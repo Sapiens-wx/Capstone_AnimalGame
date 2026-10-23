@@ -384,7 +384,7 @@ namespace AnimalGame.MapTest
                     };
                     state.normal.textColor = surfaceLevel == UphillSlopeLevel.LevelOne
                         ? new Color(0.35f, 1f, 0.66f)
-                        : new Color(1f, 0.83f, 0.27f);
+                        : new Color(212f / 255f, 184f / 255f, 84f / 255f);
                 }
             }
             GUI.Label(
@@ -413,7 +413,7 @@ namespace AnimalGame.MapTest
             frameRateStyle.normal.textColor = displayedFramesPerSecond >= 55f
                 ? new Color(0.35f, 1f, 0.66f)
                 : displayedFramesPerSecond >= 30f
-                    ? new Color(1f, 0.83f, 0.27f)
+                    ? new Color(212f / 255f, 184f / 255f, 84f / 255f)
                     : new Color(1f, 0.35f, 0.28f);
 
             GUI.Label(

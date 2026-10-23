@@ -20,7 +20,7 @@ namespace AnimalGame.RobotMap
 
         [Tooltip("Interaction color applied to all three authored camera-frame sprites.")]
         [SerializeField] private Color cameraFrameColor =
-            new Color(1f, 0.82f, 0.18f, 1f);
+            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
 
         [Tooltip("Camera-frame scale at the nearest photo distance.")]
         [SerializeField, Min(0.01f)] private float nearestFrameScale = 0.44f;

@@ -387,6 +387,7 @@ namespace AnimalGame.MainUI
                 int normalized = Mathf.RoundToInt(Mathf.Repeat(degrees, 360));
                 bool isDirection = normalized % 90 == 0;
                 labels[i].text = normalized switch { 0 => "N", 90 => "E", 180 => "S", 270 => "W", _ => normalized + "°" };
+                labels[i].EnableInClassList("compass-degree", !isDirection);
                 labels[i].style.fontSize = isDirection ? directionFontSize : degreeFontSize;
                 labels[i].style.left = X(degrees);
                 AlignLabelBaseline(labels[i]);

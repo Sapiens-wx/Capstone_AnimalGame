@@ -55,6 +55,9 @@ namespace AnimalGame.MapTest
         [Tooltip("Seconds the completed scan snapshot remains visible. A new scan always replaces it immediately.")]
         [SerializeField, Min(0.1f)] private float markerLifetimeSeconds = 8f;
 
+        [Tooltip("Seconds the terrain scan signs fade out before the completed snapshot is cleared.")]
+        [SerializeField, Min(0f)] private float snapshotFadeOutSeconds = 0.6f;
+
         [Tooltip("Seconds between passability rechecks for the absolute marker positions.")]
         [SerializeField, Min(0.05f)] private float stateRefreshIntervalSeconds = 0.75f;
 
@@ -1137,11 +1140,28 @@ namespace AnimalGame.MapTest
                 float visibility = Mathf.Min(
                     periodicVisibility,
                     individualVisibility);
+                float snapshotVisibility = 1f;
+                // Expiry is assigned after the reveal wave finishes. Until then,
+                // keep streamed signs visible as the wave crosses their positions.
+                if (snapshotFadeOutSeconds > 0f && snapshotExpiresAt > 0f)
+                {
+                    float fadeStart = snapshotExpiresAt - snapshotFadeOutSeconds;
+                    if (Time.unscaledTime > fadeStart)
+                    {
+                        snapshotVisibility = Mathf.SmoothStep(
+                            0f,
+                            1f,
+                            Mathf.Clamp01((snapshotExpiresAt - Time.unscaledTime)
+                                          / snapshotFadeOutSeconds));
+                    }
+                }
+                Color signColor = GetRefreshColor(visibility);
+                signColor.a *= snapshotVisibility;
                 var renderData = new TraversalSignRenderData(
                     screenPosition,
                     iconSizePixels,
                     fixedIconScreenAngleDegrees,
-                    GetRefreshColor(visibility));
+                    signColor);
                 if (marker.IsPassable)
                     passableRenderData.Add(renderData);
                 else
@@ -1301,6 +1321,7 @@ namespace AnimalGame.MapTest
                 0f,
                 unpassableNeighborhoodRadiusMeters);
             markerLifetimeSeconds = Mathf.Max(0.1f, markerLifetimeSeconds);
+            snapshotFadeOutSeconds = Mathf.Max(0f, snapshotFadeOutSeconds);
             stateRefreshIntervalSeconds = Mathf.Max(
                 0.05f,
                 stateRefreshIntervalSeconds);

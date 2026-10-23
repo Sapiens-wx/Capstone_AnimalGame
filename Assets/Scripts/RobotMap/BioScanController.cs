@@ -96,7 +96,7 @@ namespace AnimalGame.RobotMap
 
         [Tooltip("Color used by every biological signal point.")]
         [SerializeField] private Color biologicalSignalColor =
-            new Color(0.055f, 0.2f, 0.72f, 1f);
+            new Color32(212, 184, 84, 255);
 
         private readonly HashSet<int> revealedEntityIds = new HashSet<int>();
         private readonly List<ScannableInteractable> scanTargetSnapshot = new List<ScannableInteractable>();

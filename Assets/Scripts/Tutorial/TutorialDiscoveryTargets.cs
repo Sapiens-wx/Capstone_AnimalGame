@@ -381,7 +381,7 @@ namespace AnimalGame.Tutorial
             Vector3 animal = map.MapPositionToWorld(fixedAnimalMapPositionMeters);
             Vector3 observation = map.MapPositionToWorld(animalObservationMapPositionMeters);
             float radius = Vector3.Distance(animal, map.MapPositionToWorld(fixedAnimalMapPositionMeters + Vector2.right));
-            Gizmos.color = new Color(.85f, .73f, .3f, 1f);
+            Gizmos.color = new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
             Gizmos.DrawWireSphere(animal, radius);
             Gizmos.DrawWireSphere(observation, radius);
             Gizmos.DrawLine(animal, observation);
