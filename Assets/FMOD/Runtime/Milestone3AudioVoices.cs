@@ -82,7 +82,15 @@ namespace Capstone.Audio
         internal void SetRecycleFeedPaused(bool paused)
         {
             Slot slot = slots[(int)Milestone3Cue.RecycleMediumStep];
-            if (!slot.Active || !slot.RecycleHolding || slot.Paused == paused) return;
+            if (!slot.RecycleHolding) return;
+            SetPaused(Milestone3Cue.RecycleMediumStep, paused);
+        }
+
+        // Pause the existing source cursor when observed gameplay progress stalls.
+        internal void SetPaused(Milestone3Cue cue, bool paused)
+        {
+            Slot slot = slots[(int)cue];
+            if (!slot.Active || slot.Paused == paused) return;
             try
             {
                 Check(slot.Instance.setPaused(paused));
@@ -118,7 +126,29 @@ namespace Capstone.Audio
             catch (Exception exception) { Fail(slot, exception.Message); return false; }
         }
 
-        private bool Start(Milestone3Cue cue, float intensity, bool recycleFeed = false)
+        // Select a source entry point only when a new slide voice is created.
+        // Continuous motion and short fade recoveries keep the original cursor.
+        internal void SetGarbageSlide(bool active, bool steep, float intensity = 1f)
+        {
+            if (!active) { Stop(Milestone3Cue.GarbageSlide); return; }
+            if (!slots[(int)Milestone3Cue.GarbageSlide].Active)
+                Start(Milestone3Cue.GarbageSlide, intensity, startPositionMs: steep ? 0 : 1000);
+            else SetLoop(Milestone3Cue.GarbageSlide, true, intensity);
+        }
+
+        internal bool PlayGarbageImpact(float speed)
+        {
+            if (float.IsNaN(speed) || float.IsInfinity(speed) || speed <= settings.WorldMotionThreshold) return false;
+            float relativeSpeed = speed / settings.GarbageImpactReferenceSpeed;
+            float gain = Mathf.Clamp(relativeSpeed, .08f, settings.GarbageImpactMaximumGain);
+            float pitch = 1f + settings.GarbageImpactPitchVariation * (Mathf.Clamp(relativeSpeed, 0f, 2f) - 1f);
+            SetParameter(Milestone3Cue.GarbageImpact, Milestone3Parameter.Impact, relativeSpeed);
+            return Start(Milestone3Cue.GarbageImpact, gain, pitch: pitch,
+                maximumIntensity: settings.GarbageImpactMaximumGain);
+        }
+
+        private bool Start(Milestone3Cue cue, float intensity, bool recycleFeed = false,
+            int startPositionMs = 0, float pitch = 1f, float maximumIntensity = 1f)
         {
             Slot slot = slots[(int)cue];
             AudioCueSettings config = settings.GetCue(cue);
@@ -127,10 +157,11 @@ namespace Capstone.Audio
             try
             {
                 slot.Instance = RuntimeManager.CreateInstance(config.EventReference);
-                slot.Gain = config.LinearGain * Mathf.Clamp01(intensity);
+                slot.Gain = config.LinearGain * Mathf.Clamp(intensity, 0f, maximumIntensity);
                 slot.Envelope = 1f;
                 Check(slot.Instance.setVolume(slot.Gain));
                 slot.LastVolume = slot.Gain;
+                if (pitch != 1f) Check(slot.Instance.setPitch(pitch));
                 Check(slot.Instance.getDescription(out slot.Description));
                 if (recycleFeed)
                 {
@@ -148,6 +179,7 @@ namespace Capstone.Audio
                     ApplyParameter(cue, (Milestone3Parameter)p);
                     if (!slot.Active) return false;
                 }
+                if (startPositionMs > 0) Check(slot.Instance.setTimelinePosition(startPositionMs));
                 Check(slot.Instance.start());
                 if (config.ReadBySoundUI)
                     slot.UIHandle = SoundUIPlayback.BeginSound(config.SoundUIStrength * Mathf.Clamp01(intensity));

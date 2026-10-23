@@ -224,6 +224,206 @@ MonoBehaviour:
     gainDb: 0
     readBySoundUI: 1
     soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Garbage/HeavyPullStart
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -566023490
+        Data2: 1324751347
+        Data3: -437414016
+        Data4: 1787079653
+      Path: event:/Robot/Garbage/HeavyPullLoop
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Garbage/HeavyPullBlocked
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Garbage/HeavyPullTension
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Garbage/HeavyPullCancel
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 1416044408
+        Data2: 1325312856
+        Data3: -916290130
+        Data4: 537679461
+      Path: event:/Robot/Garbage/HeavyBreak
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 121832414
+        Data2: 1268710189
+        Data3: -556134
+        Data4: -1788001791
+      Path: event:/Robot/Garbage/FragmentScatter
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 44868091
+        Data2: 1293696012
+        Data3: -526794840
+        Data4: 1898860088
+      Path: event:/Robot/Garbage/GarbageSlide
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Garbage/GarbageBreak
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 1859501434
+        Data2: 1308370991
+        Data3: -961120093
+        Data4: 2041058632
+      Path: event:/Robot/Garbage/GarbageImpact
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 483578289
+        Data2: 1186074359
+        Data3: 1053587591
+        Data4: -492779486
+      Path: event:/Robot/Contact/BushRustle
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -1682033604
+        Data2: 1150758994
+        Data3: -1674011767
+        Data4: -1009119332
+      Path: event:/Robot/Contact/SmallGarbageClimb
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -1197134743
+        Data2: 1284815611
+        Data3: -1041981311
+        Data4: -1691578230
+      Path: event:/Robot/Contact/ClimbableLand
+    gainDb: -6.020599913
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Scan/Deploy
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Scan/Ready
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path: event:/Robot/Scan/Hit
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 391292739
+        Data2: 1145678540
+        Data3: -270135877
+        Data4: 683135671
+      Path: event:/Robot/Recycle/Crush
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -522737431
+        Data2: 1091146906
+        Data3: -1282608996
+        Data4: -1247581501
+      Path: event:/Robot/Recycle/CrushSmall
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -22402404
+        Data2: 1263506302
+        Data3: 1984903562
+        Data4: 414943554
+      Path: event:/Robot/Garbage/HeavyTearMiddle
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 931373425
+        Data2: 1277547160
+        Data3: -493895264
+        Data4: 486424964
+      Path: event:/Robot/Garbage/HeavyTearLate
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
   fadeOutSeconds: 0.05
   parameterEpsilon: 0.005
   tumbleMotionThreshold: 0.01
@@ -231,3 +431,13 @@ MonoBehaviour:
   tumbleImpactEnergyReference: 12
   effortReferenceFrequency: 3
   progressEpsilon: 0.00001
+  worldMotionThreshold: 0.01
+  worldReferenceSpeed: 3
+  worldObservationRadius: 12
+  worldDiscoveryInterval: 0.25
+  worldSlideSteepAngle: 35
+  worldSlideProbeMeters: 0.5
+  worldSlideMinimumDropMeters: 0.35
+  garbageImpactReferenceSpeed: 3
+  garbageImpactMaximumGain: 1.5
+  garbageImpactPitchVariation: 0.06

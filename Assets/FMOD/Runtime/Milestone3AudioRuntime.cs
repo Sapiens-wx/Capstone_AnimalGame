@@ -14,10 +14,14 @@ namespace Capstone.Audio
         private Milestone3AudioVoices voices;
         private Milestone3BalanceAudio balance;
         private Milestone3GarbageAudio garbage;
+        private Milestone3WorldAudio world;
+        private Milestone3WorldMotionSampler worldMotionSampler;
+        private Milestone3ScanAudio scan;
         private RobotMover mover;
         private RobotArmController arm;
         private RobotTumbleController tumble;
         private RobotSelfRightingController righting;
+        private ScanChargeUI scanSource;
         private bool initialized, applicationPaused, timePaused, shuttingDown;
         private float nextDiscovery;
 
@@ -53,6 +57,15 @@ namespace Capstone.Audio
             voices = new Milestone3AudioVoices(config);
             balance = new Milestone3BalanceAudio(config, voices);
             garbage = new Milestone3GarbageAudio(config, voices);
+            // Unbound extensions do not discover world objects or scan UI.
+            world = config.HasWorldEvents ? new Milestone3WorldAudio(config, voices) : null;
+            if (world != null && world.NeedsMotionSampling)
+            {
+                if (worldMotionSampler == null)
+                    worldMotionSampler = gameObject.AddComponent<Milestone3WorldMotionSampler>();
+                worldMotionSampler.Bind(world);
+            }
+            scan = config.HasScanEvents ? new Milestone3ScanAudio(config, voices) : null;
             initialized = true;
             enabled = true;
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -71,13 +84,15 @@ namespace Capstone.Audio
             }
             if (timePaused) return;
             if (Time.unscaledTime >= nextDiscovery && (!Usable(mover) || !Usable(arm)
-                || !Usable(tumble) || !Usable(righting))) Discover();
+                || !Usable(tumble) || !Usable(righting) || (scan != null && !Usable(scanSource)))) Discover();
         }
         private void LateUpdate()
         {
             if (!initialized || shuttingDown || applicationPaused || timePaused || Time.timeScale <= 0f) return;
             balance.Tick(Time.deltaTime);
             garbage.Tick(Time.deltaTime);
+            world?.Tick(Time.deltaTime);
+            scan?.Tick(Time.deltaTime);
             voices.Tick(Time.unscaledDeltaTime);
         }
         private void Discover()
@@ -94,6 +109,25 @@ namespace Capstone.Audio
             }
             balance.Bind(mover, tumble, righting);
             garbage.Bind(mover, arm);
+            world?.Bind(mover, arm);
+            worldMotionSampler?.Bind(world);
+            if (scan != null)
+            {
+                if (!Usable(scanSource)) scanSource = FindScanSource();
+                scan.Bind(scanSource);
+            }
+        }
+        private ScanChargeUI FindScanSource()
+        {
+            Scene preferred = mover != null ? mover.gameObject.scene : SceneManager.GetActiveScene();
+            ScanChargeUI fallback = null;
+            foreach (var candidate in FindObjectsByType<ScanChargeUI>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (!Usable(candidate)) continue;
+                if (candidate.gameObject.scene == preferred) return candidate;
+                if (fallback == null) fallback = candidate;
+            }
+            return fallback;
         }
         private static RobotMover FindMover()
         {
@@ -116,8 +150,11 @@ namespace Capstone.Audio
         {
             balance?.Bind(null, null, null);
             garbage?.Bind(null, null);
+            world?.Bind(null, null);
+            worldMotionSampler?.Bind(null);
+            scan?.Bind(null);
             voices?.StopAllImmediately();
-            mover = null; arm = null; tumble = null; righting = null;
+            mover = null; arm = null; tumble = null; righting = null; scanSource = null;
             nextDiscovery = 0f;
         }
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -127,7 +164,8 @@ namespace Capstone.Audio
         }
         private void OnSceneUnloaded(Scene scene)
         {
-            if (mover == null || mover.gameObject.scene == scene) ReleaseBindings();
+            if (mover == null || mover.gameObject.scene == scene
+                || (scanSource != null && scanSource.gameObject.scene == scene)) ReleaseBindings();
         }
         private void OnApplicationPause(bool value)
         {

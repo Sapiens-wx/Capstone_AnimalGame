@@ -16,6 +16,7 @@ namespace Capstone.Audio
         private WorldInteraction inspectedItem, recyclingItem;
         private bool inspectedItemIsGarbage, hasBaseline, wasRecycling;
         private bool feedStarted, feedPaused, feedEnded, closeTailAllowed;
+        private bool crushRequested;
         private int observedStages, activeStage = -1;
 
         internal RobotMover Source => mover;
@@ -68,6 +69,7 @@ namespace Capstone.Audio
 
             if (!recycling)
             {
+                StopCrush(true);
                 // A close already justified by Processing may finish naturally after ClearHeld.
                 // Object disappearance itself must never start a close or complete sound.
                 if (!closeTailAllowed) AbortFeed();
@@ -88,6 +90,7 @@ namespace Capstone.Audio
                 recyclingItem = held;
             }
             wasRecycling = true;
+            UpdateCrush(began, held.Size, frame);
 
             if (IsPostFeed(frame.Phase))
             {
@@ -98,9 +101,9 @@ namespace Capstone.Audio
                     if (!began && feedStarted && frame.Phase == MediumRecyclePhase.Processing)
                     {
                         closeTailAllowed = voices.CloseRecycleFeed();
-                        if (!closeTailAllowed) AbortFeed();
+                        if (!closeTailAllowed) AbortFeed(stopCrush: false);
                     }
-                    else AbortFeed();
+                    else AbortFeed(stopCrush: false);
                     feedEnded = true;
                     feedStarted = feedPaused = false;
                     activeStage = -1;
@@ -149,6 +152,34 @@ namespace Capstone.Audio
             voices.SetParameter(Milestone3Cue.RecycleMediumStep, Milestone3Parameter.Effort, frame.Effort01);
         }
 
+        private void UpdateCrush(bool began, RecyclableSize size, MediumRecycleFrame frame)
+        {
+            // The last medium push has already swallowed the item before its final
+            // lock/processing wait. Small waste exposes its end through Processing.
+            bool swallowed = IsPostFeed(frame.Phase)
+                || (size == RecyclableSize.Medium && frame.Stage == 2
+                    && frame.Phase == MediumRecyclePhase.Lock);
+            if (swallowed)
+            {
+                if (crushRequested) StopCrush(false);
+                return;
+            }
+            // Play the progressive compaction once, including alignment and inter-stroke gaps.
+            // The short event uses ordered windows of the same source at original pitch,
+            // so a small item's brief feed still reaches the final compacted texture.
+            // Missing delivery/binding is a no-op; never retry or replay mid-feed.
+            if (!began) return;
+            crushRequested = voices.Play(size == RecyclableSize.Small
+                ? Milestone3Cue.RecycleCrushSmall : Milestone3Cue.RecycleCrush);
+        }
+
+        private void StopCrush(bool immediate)
+        {
+            voices.Stop(Milestone3Cue.RecycleCrush, immediate);
+            voices.Stop(Milestone3Cue.RecycleCrushSmall, immediate);
+            crushRequested = false;
+        }
+
         private static bool IsPostFeed(MediumRecyclePhase phase) =>
             phase == MediumRecyclePhase.Processing || phase == MediumRecyclePhase.Finish
             || phase == MediumRecyclePhase.Complete;
@@ -173,8 +204,9 @@ namespace Capstone.Audio
             feedPaused = true;
         }
 
-        private void AbortFeed()
+        private void AbortFeed(bool stopCrush = true)
         {
+            if (stopCrush) StopCrush(true);
             // Keep legacy small-slot cleanup while both sizes now share the intake slot.
             voices.Stop(Milestone3Cue.RecycleSmall, true);
             voices.Stop(Milestone3Cue.RecycleMediumStep, true);

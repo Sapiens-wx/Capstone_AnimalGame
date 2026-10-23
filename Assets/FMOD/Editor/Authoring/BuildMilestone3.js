@@ -9,6 +9,8 @@
  * can select an instrument window without changing the WAV. Reviewed loop markers
  * avoid exported silence and separate closing/impact tails. Parameter mix curves
  * remain unset. Save only; build Desktop and bind Unity GUIDs separately.
+ * To author a specific delivery, prepend a global M3_AUTHORING_PATHS array of
+ * exact event paths to an external execution copy. Omit it for all deliveries.
  */
 (function () {
     "use strict";
@@ -55,7 +57,61 @@
         // 0.58 s; runtime ends RecycleHold and seeks to the closing tail at 0.80 s.
         { path: "event:/Robot/Recycle/Intake", file: "Recycling/G03_Recycle.wav", loop: true,
             loopStart: 0.20, loopEnd: 0.54, crossfade: 0.04, holdName: "RecycleHold", tailStart: 0.80 },
-        { path: "event:/Robot/Recycle/Complete", file: "Recycling/G04_Recycle_Complete.wav", reserved: true }
+        { path: "event:/Robot/Recycle/Complete", file: "Recycling/G04_Recycle_Complete.wav", reserved: true },
+        // Progress selects original-rate tear stages. Loop markers are relative
+        // to each trimmed instrument, and crossfades cannot reach the 4.35 s snap.
+        { path: "event:/Robot/Garbage/HeavyPullStart", file: "HeavyGarbage/G05_HeavyPull_Start.wav" },
+        { path: "event:/Robot/Garbage/HeavyPullLoop", file: "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
+            trimStart: 0, trimEnd: 1.35, loop: true, loopStart: 0.10, loopEnd: 1.30, crossfade: 0.03 },
+        { path: "event:/Robot/Garbage/HeavyTearMiddle", file: "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
+            trimStart: 1.35, trimEnd: 2.90, loop: true, loopStart: 0.05, loopEnd: 1.50, crossfade: 0.03 },
+        { path: "event:/Robot/Garbage/HeavyTearLate", file: "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
+            trimStart: 2.90, trimEnd: 4.30, loop: true, loopStart: 0.05, loopEnd: 1.35, crossfade: 0.03 },
+        { path: "event:/Robot/Garbage/HeavyPullBlocked", file: "HeavyGarbage/G07_HeavyPull_Blocked.wav" },
+        { path: "event:/Robot/Garbage/HeavyPullTension", file: "HeavyGarbage/G07_HeavyPull_Tension_Loop.wav", loop: true },
+        { path: "event:/Robot/Garbage/HeavyPullCancel", file: "HeavyGarbage/G08_HeavyPull_Cancel.wav" },
+        // Completion alone triggers the isolated snap and the staggered scatter.
+        { path: "event:/Robot/Garbage/HeavyBreak", file: "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
+            trimStart: 4.35, trimEnd: 5.00, fadeIn: 0.001, fadeOut: 0.010 },
+        // Each drop is 70% of the delivered Drop cue's 0.6 gain: 0.42 linear.
+        { path: "event:/Robot/Garbage/FragmentScatter", sourceRoot: reusedSourceRoot, layers: [
+            { file: "Arm/A09_Drop_01.wav", track: "Left", trimStart: 0, trimEnd: 0.75,
+                timelineStart: 0, volumeDb: -7.53501419, stereoPan: -65 },
+            { file: "Arm/A09_Drop_01.wav", track: "Right", trimStart: 0, trimEnd: 0.75,
+                timelineStart: 0.30, volumeDb: -7.53501419, stereoPan: 60 },
+            { file: "Arm/A09_Drop_01.wav", track: "Center", trimStart: 0, trimEnd: 0.75,
+                timelineStart: 0.60, volumeDb: -7.53501419, stereoPan: -15 }
+        ] },
+        // Steep descents retain the 0..1 s hopping intro; gentle descents seek
+        // to 1 s before start. Only the sustained slide repeats, before silence.
+        { path: "event:/Robot/Garbage/GarbageSlide", file: "World/G11_Garbage_Slide_Loop.wav", loop: true,
+            loopStart: 1.00, loopEnd: 2.85, crossfade: 0.04 },
+        { path: "event:/Robot/Garbage/GarbageBreak", file: "World/G12_Garbage_Break.wav", reserved: true },
+        // The delivered five-second file has a complete impact in the first
+        // 0.4 s. The instrument omits its silent padding without editing audio.
+        { path: "event:/Robot/Garbage/GarbageImpact", file: "World/G13_Garbage_Impact.wav", trimEnd: 0.40 },
+        { path: "event:/Robot/Contact/BushRustle", file: "World/G14_Bush_Rustle_Loop.wav", loop: true,
+            loopStart: 0.10, loopEnd: 3.60, crossfade: 0.04 },
+        { path: "event:/Robot/Contact/SmallGarbageClimb", file: "World/G15_SmallGarbage_Climb_Loop.wav", loop: true,
+            loopStart: 0.03, loopEnd: 2.87, crossfade: 0.04 },
+        // G16 explicitly reuses the delivered landing impact at reduced Unity gain.
+        { path: "event:/Robot/Contact/ClimbableLand", file: "Movement/M08_Land_Impact.wav", sourceRoot: reusedSourceRoot },
+        { path: "event:/Robot/Scan/Deploy", file: "Scan/S02_Scan_Deploy.wav" },
+        { path: "event:/Robot/Scan/Ready", file: "Scan/S04_Scan_Ready.wav" },
+        { path: "event:/Robot/Scan/Hit", file: "Scan/S07_Scan_Hit.wav", reserved: true },
+        // Progressive compression is a single pass despite the delivery filename.
+        // Medium uses the full original. Small retains loose, dense and compacted
+        // stages in 350 ms using source windows and overlapping instrument fades.
+        { path: "event:/Robot/Recycle/Crush", file: "Recycling/G03_Recycle_Crush_Loop.wav",
+            fadeIn: 0.005, fadeOut: 0.010 },
+        { path: "event:/Robot/Recycle/CrushSmall", layers: [
+            { file: "Recycling/G03_Recycle_Crush_Loop.wav", track: "Loose",
+                trimStart: 0, trimEnd: 0.100, fadeIn: 0.005, fadeOut: 0.020 },
+            { file: "Recycling/G03_Recycle_Crush_Loop.wav", track: "Compressing",
+                trimStart: 1.900, trimEnd: 2.060, timelineStart: 0.080, fadeIn: 0.020, fadeOut: 0.020 },
+            { file: "Recycling/G03_Recycle_Crush_Loop.wav", track: "Compacted",
+                trimStart: 2.100, trimEnd: 2.230, timelineStart: 0.220, fadeIn: 0.020, fadeOut: 0.010 }
+        ] }
     ];
     var workspace = studio.project.workspace;
     var preserved = [];
@@ -69,6 +125,22 @@
     function leafName(path) { return path.substring(path.lastIndexOf("/") + 1); }
     function layersFor(definition) { return definition.layers || [definition]; }
     function sourcePath(definition, layer) { return (definition.sourceRoot || sourceRoot) + layer.file; }
+    function timelineStart(layer) {
+        var start = layer.timelineStart === undefined ? 0 : layer.timelineStart;
+        requireCondition(typeof start === "number" && isFinite(start) && start >= 0,
+            "Invalid timeline start for " + layer.file);
+        return start;
+    }
+    function validateLayerMix(layer) {
+        if (layer.volumeDb !== undefined)
+            requireCondition(typeof layer.volumeDb === "number" && isFinite(layer.volumeDb)
+                && layer.volumeDb >= -80 && layer.volumeDb <= 10,
+                "Invalid layer volume for " + layer.file);
+        if (layer.stereoPan !== undefined)
+            requireCondition(typeof layer.stereoPan === "number" && isFinite(layer.stereoPan)
+                && layer.stereoPan >= -100 && layer.stereoPan <= 100,
+                "Invalid layer stereo pan for " + layer.file);
+    }
     function parameterName(definition, kind) { return "M3_" + leafName(definition.path) + "_" + kind; }
     function normalizeParameter(parameter) {
         if (exactType(parameter, "ParameterProxy")) return parameter.preset;
@@ -275,9 +347,25 @@
     studio.project.model.Event.findInstances().forEach(function (event) {
         preserved.push({ path: event.getPath(), id: event.id });
     });
-    var active = definitions.filter(function (definition) {
+    var selected = definitions;
+    if (typeof M3_AUTHORING_PATHS !== "undefined") {
+        requireCondition(Array.isArray(M3_AUTHORING_PATHS) && M3_AUTHORING_PATHS.length > 0,
+            "M3_AUTHORING_PATHS must be a non-empty array of exact event paths");
+        var requested = {};
+        M3_AUTHORING_PATHS.forEach(function (path) {
+            requireCondition(typeof path === "string" && definitions.some(function (definition) {
+                return definition.path === path;
+            }), "Unknown event path in M3_AUTHORING_PATHS: " + path);
+            requireCondition(!requested[path], "Duplicate event path in M3_AUTHORING_PATHS: " + path);
+            requested[path] = true;
+        });
+        selected = definitions.filter(function (definition) { return requested[definition.path]; });
+    }
+    var active = selected.filter(function (definition) {
         var ready = true;
         layersFor(definition).forEach(function (layer) {
+            timelineStart(layer);
+            validateLayerMix(layer);
             var path = sourcePath(definition, layer);
             if (!studio.system.getFile(path).exists()) {
                 console.log((definition.reserved ? "M3_RESERVED_NOT_DELIVERED " : "M3_NOT_DELIVERED ") + path);
@@ -310,7 +398,7 @@
 
     // All no-delivery and conflicting-existing-event checks above are read-only.
     var robot = findFolder("Robot", workspace.masterEventFolder);
-    var folders = { Balance: findFolder("Balance", robot), Recycle: findFolder("Recycle", robot) };
+    var folders = {};
     if (!bank) {
         bank = studio.project.create("Bank");
         bank.name = bankName;
@@ -321,28 +409,39 @@
         var previousId = event ? event.id : null;
         if (!event) event = workspace.addEvent(leafName(definition.path), false);
         requireCondition(event && event.isValid, "Invalid event " + definition.path);
-        event.folder = definition.path.indexOf("/Balance/") !== -1 ? folders.Balance : folders.Recycle;
+        var folderName = definition.path.split("/")[2];
+        if (!folders[folderName]) folders[folderName] = findFolder(folderName, robot);
+        event.folder = folders[folderName];
         if (!event.banks.length) event.relationships.banks.add(bank);
         var layers = layersFor(definition);
         var authored = layers.map(function (layer, index) {
             var asset = deliveredAsset(definition, layer);
             var window = sourceWindow(layer, asset);
+            var start = timelineStart(layer);
             var track = event.groupTracks.length > index ? event.groupTracks[index] : event.addGroupTrack(layer.track || "Audio");
             var sounds = event.timeline.modules.filter(function (module) {
                 return module.audioTrack && module.audioTrack.id === track.id;
             });
             requireCondition(sounds.length <= 1, "Unexpected extra layer sounds in " + definition.path);
-            var sound = sounds.length ? sounds[0] : track.addSound(event.timeline, "SingleSound", 0, window.length);
+            var sound = sounds.length ? sounds[0] : track.addSound(event.timeline, "SingleSound", start, window.length);
             sound.audioFile = asset;
-            sound.start = 0;
+            sound.start = start;
             sound.length = window.length;
             sound.isAsync = false;
             sound.looping = false;
             sound.startOffset = 100 * window.start / asset.length;
+            // Omitted fields preserve existing authored gains and panning.
+            if (layer.volumeDb !== undefined) sound.volume = layer.volumeDb;
+            if (layer.stereoPan !== undefined) {
+                requireCondition(track.mixerGroup && exactType(track.mixerGroup.panner, "MixerBusPanner"),
+                    "Missing track output panner in " + definition.path);
+                track.mixerGroup.panner.stereoPan = layer.stereoPan;
+            }
             if (layer.fadeIn) configureFade(sound, layer.fadeIn, true);
             if (layer.fadeOut) configureFade(sound, layer.fadeOut, false);
             requireCondition(sound.isValid, "Invalid source sound in " + definition.path);
-            return { sound: sound, sourceSeconds: asset.length, file: sourcePath(definition, layer), window: window };
+            return { sound: sound, sourceSeconds: asset.length, file: sourcePath(definition, layer), window: window,
+                volumeDb: layer.volumeDb, stereoPan: layer.stereoPan };
         });
         var sound = authored[0].sound;
         if (definition.loop) {
@@ -371,7 +470,8 @@
         requireCondition(!previousId || previousId === event.id, "Existing M3 event GUID changed");
         console.log("M3_EVENT " + JSON.stringify({ path: definition.path, guid: event.id,
             sources: authored.map(function (layer) { return { file: layer.file, sourceSeconds: layer.sourceSeconds,
-                trimStart: layer.window.start, trimEnd: layer.window.end, soundSeconds: layer.sound.length }; }), loop: !!definition.loop,
+                trimStart: layer.window.start, trimEnd: layer.window.end, timelineStart: layer.sound.start,
+                soundSeconds: layer.sound.length, volumeDb: layer.volumeDb, stereoPan: layer.stereoPan }; }), loop: !!definition.loop,
             loopStart: definition.loopStart, loopEnd: definition.loopEnd, crossfade: definition.crossfade || 0,
             hold: definition.holdName || null, tailStart: definition.tailStart,
             parameters: parameters, reserved: !!definition.reserved }));
