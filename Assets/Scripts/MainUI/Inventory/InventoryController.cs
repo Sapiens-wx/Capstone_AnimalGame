@@ -192,7 +192,7 @@ namespace AnimalGame.MainUI.Inventory
                     { position = Position.Absolute, left = 12, right = 12, top = 12, bottom = 38 } });
                 content.Add(new Label { name = "ItemName", style =
                     { position = Position.Absolute, left = 8, right = 8, bottom = 8, height = 24,
-                      unityTextAlign = TextAnchor.MiddleCenter, color = Color.white, fontSize = 18 } });
+                      unityTextAlign = TextAnchor.LowerLeft, color = Color.white, fontSize = 18 } });
                 content.Add(new Label("*") { name = "ItemAStar", style =
                     { position = Position.Absolute, right = 8, top = 8, width = 35, height = 29, fontSize = 47,
                       color = HudDrawing.Yellow, unityTextAlign = TextAnchor.MiddleCenter } });

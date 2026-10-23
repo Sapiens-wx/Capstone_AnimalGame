@@ -2,7 +2,7 @@
     <ui:VisualElement name="ItemContent" picking-mode="Ignore" style="flex-grow: 1; width: 100%; height: 100%;">
         <inventory:EmptyInventoryElement name="EmptyItem" picking-mode="Ignore" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
         <ui:Image name="ItemImage" picking-mode="Ignore" style="display: none; position: absolute; left: 12px; top: 12px; right: 12px; bottom: 38px;" />
-        <ui:Label name="ItemName" picking-mode="Ignore" style="display: none; position: absolute; left: 8px; right: 8px; bottom: 8px; height: 24px; -unity-text-align: middle-center; color: white; font-size: 18px; overflow: hidden;" />
+        <ui:Label name="ItemName" picking-mode="Ignore" style="display: none; position: absolute; left: 8px; right: 8px; bottom: 8px; height: 24px; -unity-text-align: lower-left; color: white; font-size: 18px; overflow: hidden;" />
         <ui:Label text="*" name="ItemAStar" picking-mode="Ignore" style="display: none; position: absolute; right: 8px; top: 8px; width: 35px; height: 29px; font-size: 47px; -unity-font-style: normal; -unity-text-align: middle-center; color: rgb(212, 184, 84);" />
     </ui:VisualElement>
 </ui:UXML>
