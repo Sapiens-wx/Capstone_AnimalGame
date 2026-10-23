@@ -235,14 +235,14 @@ MonoBehaviour:
     min: 0.01
     max: 0.07
   animationDuration: 0.5
-  easing:
+  inventoryEasing:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
       time: 0
       value: 0
       inSlope: 0
-      outSlope: 0
+      outSlope: 3
       tangentMode: 0
       weightedMode: 0
       inWeight: 0

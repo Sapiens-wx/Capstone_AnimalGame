@@ -33,7 +33,9 @@ namespace AnimalGame.MainUI
         [Header("Level indicator")]
         [Header("Inventory animation")]
         [SerializeField, Min(.05f)] private float animationDuration = .5f;
-        [SerializeField] private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
+        [SerializeField] private AnimationCurve inventoryEasing = new AnimationCurve(
+            new Keyframe(0f, 0f, 0f, 3f),
+            new Keyframe(1f, 1f, 0f, 0f));
         [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .4f;
 
         [Header("Inventory interactions")]
@@ -283,7 +285,16 @@ namespace AnimalGame.MainUI
             if (!inventoryOpen && progress == 0) ReleasePause();
         }
 
-        private float Ease(float value) => Mathf.Clamp01(easing == null ? value : easing.Evaluate(Mathf.Clamp01(value)));
+        private float EaseInventory(float value)
+        {
+            float normalized = Mathf.Clamp01(value);
+            if (inventoryEasing == null)
+                return normalized;
+
+            return inventoryOpen
+                ? Mathf.Clamp01(inventoryEasing.Evaluate(normalized))
+                : Mathf.Clamp01(1f - inventoryEasing.Evaluate(1f - normalized));
+        }
 
         private void ApplyLayout()
         {
@@ -297,23 +308,26 @@ namespace AnimalGame.MainUI
             view.style.translate = new Translate(viewOffset.x, viewOffset.y);
             view.style.scale = new Scale(new Vector3(fit, fit, 1));
 
-            float motion = Ease(progress), horizontal = Ease(progress * 2 - 1);
+            float motion = EaseInventory(progress);
             float openCircleX = (size.x * (2f / 3) - viewportOffset.x) / fit;
             if (!Positive(ring.layout.width) || !Positive(inventory.layout.width)) return;
             float authoredRingX = view.layout.x + ring.layout.x + innerRing.layout.x + innerRing.contentRect.center.x;
-            ringDisplacement = new Vector2((openCircleX - authoredRingX) * horizontal, 0);
+            ringDisplacement = new Vector2((openCircleX - authoredRingX) * motion, 0);
             ring.style.translate = new Translate(ringDisplacement.x, ringDisplacement.y);
             // Scale each element around its own screen corner, including its authored edge offsets.
             MoveTopHudOffscreen(status, false, motion);
             MoveTopHudOffscreen(time, true, motion);
             MoveTopHudOffscreen(sound, true, motion);
             FitScreenElement(coordinates, true, true);
-            // Keep the authored closed position relative to the screen's left edge, including on ultrawide displays.
+            // Keep the authored closed position offscreen and place the open panel
+            // near its original quarter-screen target, nudged slightly left.
             // Only X changes: the UI Builder's top value controls the complete horizontal slide path.
             float inventoryStartX = -viewportOffset.x / fit;
-            float inventoryEndX = (size.x * .25f - viewportOffset.x) / fit
+            const float inventoryOpenLeftNudgePixels = 36f;
+            float inventoryEndX = (size.x * .25f - inventoryOpenLeftNudgePixels - viewportOffset.x) / fit
                 - view.layout.x - inventory.layout.center.x;
-            inventory.style.translate = new Translate(Mathf.Lerp(inventoryStartX, inventoryEndX, motion), 0);
+            inventory.style.translate = new Translate(
+                Mathf.Lerp(inventoryStartX, inventoryEndX, motion), 0);
             coordinates.style.opacity = 1;
             frame.MarkDirtyRepaint();
             // Position and centering belong to UXML/USS; only size follows the screen fit.
