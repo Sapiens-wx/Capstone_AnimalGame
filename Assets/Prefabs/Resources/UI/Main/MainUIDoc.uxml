@@ -12,7 +12,7 @@
                 <inventory:InventorySelectionElement name="InventorySelection" class="inventory-selection" style="position: absolute; left: 27px; top: 50px;" />
                 <ui:VisualElement style="flex-grow: 0; height: 254px; width: 52px; position: absolute; top: 82px; left: 514px; border-right-width: 2px; border-right-color: rgb(212, 184, 84); border-bottom-right-radius: 2px; border-top-right-radius: 2px;">
                     <ui:Label text="CARGO" name="Label-Cargo" class="inventory-title" style="rotate: 90deg; top: 86px; left: -34px; -unity-font-definition: resource('UI/Font/Orbitron-Regular'); -unity-font-style: bold; font-size: 26px; height: 29px; width: 134px;" />
-                    <ui:VisualElement picking-mode="Ignore" name="Square" class="cargo-mark" style="height: 18px; width: 20px; top: 15px; left: 23px;" />
+                    <ui:VisualElement picking-mode="Ignore" name="Square" class="cargo-mark" style="height: 18px; width: 20px; top: 15px; left: 22px;" />
                     <ui:Label text="*" name="Label-AStar" class="inventory-title" style="rotate: 0; top: 168px; left: 16px; -unity-font-style: normal; font-size: 47px; height: 29px; width: 35px;" />
                 </ui:VisualElement>
             </ui:VisualElement>
@@ -26,7 +26,7 @@
                 <ui:Label name="IntegrityPercent" text="100%" class="integrity-percent" style="position: absolute; left: 27px; top: 27px;" />
             </ui:VisualElement>
             <ui:VisualElement name="Time" picking-mode="Ignore" class="time" style="position: absolute; right: 28px; top: 19px;">
-                <hud:TimeOrbitElement name="TimeOrbit" line-width="4" tick-length="12" radius="77" dash-gap="14" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
+                <hud:TimeOrbitElement name="TimeOrbit" line-width="4" tick-length="12" radius="77" dash-gap="18" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
                 <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
             </ui:VisualElement>
             <hud:SoundElement name="Sound" line-width="4" line-length="45.2" class="sound" style="position: absolute; right: 278px; top: 67px; height: 136px; width: 162px;" />

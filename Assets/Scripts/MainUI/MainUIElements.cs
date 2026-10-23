@@ -463,6 +463,8 @@ namespace AnimalGame.MainUI
     {
         private float dayProgress = .25f;
         private float radiusValue;
+        private const float SunPulsePeriodSeconds = 1.8f;
+        private float sunPulse = 1f;
         /// <summary>Orbit radius in UI units. Zero sizes the orbit automatically.</summary>
         [UxmlAttribute]
         public float radius
@@ -524,6 +526,14 @@ namespace AnimalGame.MainUI
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += Draw;
+            schedule.Execute(UpdateSunPulse).Every(33);
+        }
+
+        private void UpdateSunPulse()
+        {
+            float phase = Mathf.Repeat(Time.unscaledTime / SunPulsePeriodSeconds, 1f);
+            sunPulse = .5f - .5f * Mathf.Cos(phase * Mathf.PI * 2f);
+            MarkDirtyRepaint();
         }
         public void SetDayProgress(float normalized)
         {
@@ -554,12 +564,15 @@ namespace AnimalGame.MainUI
             Vector2 d = HudDrawing.Radial(90 + dayProgress * 360);
             Vector2 sun = c + d * orbitRadius;
             //float sunRadius = Mathf.Min(16, orbitRadius * .18f);
-            float sunRadius=orbitRadius*.14f;
+            float sunRadius = orbitRadius * .14f * Mathf.Lerp(.9f, 1.1f, sunPulse);
             float sunMaskRadius = sunRadius + 4;
             p.fillColor = Color.black; HudDrawing.Arc(p, sun, sunMaskRadius, sunMaskRadius, 0, 360, true);
             p.lineWidth = 2;
             //p.strokeColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360);
-            p.fillColor = HudDrawing.Yellow; HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360, true);
+            Color sunColor = HudDrawing.Yellow;
+            sunColor.a *= Mathf.Lerp(.75f, 1f, sunPulse);
+            p.fillColor = sunColor;
+            HudDrawing.Arc(p, sun, sunRadius, sunRadius, 0, 360, true);
         }
     }
 
