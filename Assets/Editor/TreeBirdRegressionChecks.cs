@@ -270,12 +270,18 @@ namespace AnimalGame.Editor
             using var f = new Fixture(true);
             f.Tree(new Vector2(70f, 50f), TreeHealthState.Dead);
             f.Tree(new Vector2(30f, 30f), TreeHealthState.Healthy);
-            Set(f.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>
+            var shipped = AssetDatabase.LoadAssetAtPath<AnimalSpeciesConfig>("Assets/Data/Animals/PileatedWoodpeckerConfig.asset");
+            Require(shipped != null && shipped.DailyBehaviours.Count == 3, "Shipped woodpecker config must have three daily entries");
+            Set(f.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>(shipped.DailyBehaviours));
+            foreach (var entry in shipped.DailyBehaviours)
             {
-                DailySettings(AnimalDailyBehaviourKind.PerchAtTree, 6f, 5f, 10f),
-                DailySettings(AnimalDailyBehaviourKind.FlyToTree, 1f, .5f, 1f),
-                DailySettings(AnimalDailyBehaviourKind.PeckAtTree, 2f, 3f, 6f)
-            });
+                Require(entry.Action is TreeBirdActionDefinition && f.Agent.DailyScheduler.Weight(entry) > 0f,
+                    "Shipped daily entry is missing its Action or has zero scheduling weight: " + entry.Behaviour);
+                foreach (int month in new[] { 1, 4, 7, 10 })
+                    foreach (int hour in new[] { 0, 6, 12, 18 })
+                        Require(entry.SeasonMultiplier * entry.TimeOfDayMultiplier * entry.CalendarWeight(new DateTime(2026, month, 1, hour, 0, 0)) > 0f,
+                            "Shipped daily entry is disabled by calendar weights: " + entry.Behaviour);
+            }
             f.Agent.ReturnToDaily();
             float treeTime = 0f, activityTime = 0f, flightTime = 0f, perchTime = 0f, peckTime = 0f;
             for (int i = 0; i < 6000; i++)

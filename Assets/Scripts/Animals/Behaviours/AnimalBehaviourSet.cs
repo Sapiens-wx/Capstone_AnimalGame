@@ -11,7 +11,7 @@ namespace AnimalGame.Animals
         private float retryAfter;
         public virtual AnimalState PhotoState => configuredAction?.PhotoState
             ?? (Motor != null && Motor.CurrentSpeedMetersPerSecond > .001f ? AnimalState.Moving : AnimalState.Resting);
-        public virtual string CurrentActionName => configuredAction?.Name ?? GetType().Name;
+        public virtual string CurrentActionName => configuredAction?.Name ?? "";
 
         protected AnimalAgent Agent { get; private set; }
         protected AnimalMotor Motor => Agent != null ? Agent.Motor : null;

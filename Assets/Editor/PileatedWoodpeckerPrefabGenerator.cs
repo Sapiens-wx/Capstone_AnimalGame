@@ -226,6 +226,10 @@ namespace AnimalGame.Editor
                 weight;
             property.FindPropertyRelative("durationSeconds").vector2Value =
                 duration;
+            property.FindPropertyRelative("seasonMultiplier").floatValue = 1f;
+            property.FindPropertyRelative("timeOfDayMultiplier").floatValue = 1f;
+            property.FindPropertyRelative("seasonalWeights").vector4Value = Vector4.one;
+            property.FindPropertyRelative("timeOfDayWeights").vector4Value = Vector4.one;
         }
 
         private static void CreatePrefab(

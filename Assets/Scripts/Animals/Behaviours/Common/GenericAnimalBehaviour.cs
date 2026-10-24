@@ -11,6 +11,7 @@ namespace AnimalGame.Animals
         private RunAwayAction fleeing;
         public override bool SupportsAggression => true;
         public override AnimalState PhotoState => HasConfiguredAction ? ConfiguredPhotoState : daily?.PhotoState ?? base.PhotoState;
+        public override string CurrentActionName => HasConfiguredAction ? base.CurrentActionName : daily?.Name ?? "";
         public override void EnterDaily() { daily = null; }
         public override bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)
         {

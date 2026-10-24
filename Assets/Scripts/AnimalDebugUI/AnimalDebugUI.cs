@@ -397,7 +397,8 @@ namespace AnimalGame.AnimalDebug
             leader.text = "Leader: " + (!valid ? "—" : team == null ? "No (ungrouped)" : team.Leader == selected ? "Yes" : "No");
             group.text = "Group size: " + (valid ? count.ToString() : "—");
             state.text = "State: " + (valid ? selected.CurrentState.ToString() : "—");
-            action.text = "Action: " + (valid ? selected.Brain.CurrentActionName : "—");
+            string actionName = valid ? selected.Brain.CurrentActionName : null;
+            action.text = "Action: " + (valid ? string.IsNullOrEmpty(actionName) ? "no action" : actionName : "—");
             if (result != null && result.Agent == selected)
             {
                 bool error = result.Status == AnimalDebugCommandStatus.Rejected || result.Status == AnimalDebugCommandStatus.Failed;
