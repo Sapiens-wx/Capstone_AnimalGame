@@ -42,11 +42,11 @@ namespace AnimalGame.Editor
             try
             {
                 Random.InitState(94631);
-                CheckActivityPaths(); CheckStationaryWoodpecker(); CheckCategoryWeights();
+                CheckActionAssets(); CheckActivityPaths(); CheckStationaryWoodpecker(); CheckCategoryWeights();
                 CheckFlight(); CheckEscape(); CheckRecoveryAndCooldown(); CheckEnableLifecycle(); CheckCadence();
                 Debug.Log("Tree bird checks PASS: crown/ring crawl, stationary woodpecker, global category weights, variable-speed arcs, threat interruption, bounded escape/despawn, cooldown/recovery and five-minute occupancy.");
             }
-            finally { Random.state = random; }
+            finally { Random.state = random; CleanupActionCopies(); }
         }
         private static void Require(bool condition, string message) { if (!condition) throw new Exception(message); }
         private static void Set(object target, string name, object value)
@@ -197,7 +197,7 @@ namespace AnimalGame.Editor
         private static void CheckRecoveryAndCooldown()
         {
             using var f = new Fixture(true);
-            var fly = new AnimalDailyBehaviourSettings(AnimalDailyBehaviourKind.FlyToTree, 1f, 1f, 1f);
+            var fly = DailySettings(AnimalDailyBehaviourKind.FlyToTree, 1f, 1f, 1f);
             Require(f.Bird.CreateDailyAction(fly) == null, "Initial minimum stay was bypassed");
             f.Tree(new Vector2(70f, 50f), TreeHealthState.Dead);
             f.Agent.Runtime.Time = 16f;
@@ -209,6 +209,62 @@ namespace AnimalGame.Editor
             Require(!f.Agent.Brain.HasOverrideAction && f.Agent.CurrentState == AnimalState.Daily, "Removed flight target did not fail safely");
             Require(f.Bird.CreateDailyAction(fly) == null, "Failed flight did not establish retry cooldown");
         }
+        public static AnimalDailyBehaviourSettings DailySettings(AnimalDailyBehaviourKind kind, float weight, float min, float max)
+        {
+            var settings = new AnimalDailyBehaviourSettings(kind, weight, min, max);
+            var action = AssetDatabase.LoadAssetAtPath<TreeBirdActionDefinition>("Assets/Data/Animals/SpeciesActions/" + kind + ".asset");
+            Require(action != null, "Missing tree bird action asset: " + kind);
+            var copy = Object.Instantiate(action);
+            copy.hideFlags = HideFlags.HideAndDontSave;
+            actionCopies.Add(copy);
+            var serialized = new SerializedObject(copy);
+            var duration = serialized.FindProperty("durationSeconds");
+            if (duration != null) duration.vector2Value = new Vector2(min, max);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            Set(settings, "action", copy);
+            return settings;
+        }
+        private static readonly List<Object> actionCopies = new();
+        public static void CleanupActionCopies()
+        {
+            foreach (var copy in actionCopies) if (copy != null) Object.DestroyImmediate(copy);
+            actionCopies.Clear();
+        }
+        private static void CheckActionAssets()
+        {
+            using var f = new Fixture(true);
+            var perch = DailySettings(AnimalDailyBehaviourKind.PerchAtTree, 1f, .2f, .2f);
+            Set(perch, "behaviour", AnimalDailyBehaviourKind.Idle);
+            Set(perch, "durationSeconds", new Vector2(100f, 100f));
+            var rest = f.Bird.CreateDailyAction(perch);
+            Require(rest is PerchAtTreeAction && perch.Action is PerchAtTreeActionDefinition, "Perch asset did not select its own action type");
+            rest.Enter(f.Agent.Context);
+            Require(rest.Tick(f.Agent.Context, .21f) == AnimalActionStatus.Succeeded, "Perch asset duration was ignored");
+            rest.Exit(f.Agent.Context);
+
+            var peck = DailySettings(AnimalDailyBehaviourKind.PeckAtTree, 1f, .3f, .3f);
+            Require(peck.Action is PeckAtTreeActionDefinition, "Peck asset has the wrong type");
+            Set(peck.Action, "amplitudeMeters", 0f);
+            var pecking = f.Bird.CreateDailyAction(peck);
+            pecking.Enter(f.Agent.Context); pecking.Tick(f.Agent.Context, .1f);
+            Require(f.Visual.localPosition.sqrMagnitude < .000001f, "Peck asset amplitude was ignored");
+            pecking.Exit(f.Agent.Context);
+
+            var fly = DailySettings(AnimalDailyBehaviourKind.FlyToTree, 1f, 1f, 1f);
+            var flightDefinition = fly.Action as FlyToTreeActionDefinition;
+            Require(flightDefinition != null, "Flight asset has the wrong type");
+            flightDefinition.SpeedMetersPerSecond = 2f; flightDefinition.FlightSpeedVariation = 0f;
+            flightDefinition.ArcProbability = 0f; flightDefinition.HealthyTreeWeight = 1f; flightDefinition.DeadTreeWeight = 0f;
+            var healthy = f.Tree(new Vector2(70f, 50f), TreeHealthState.Healthy);
+            f.Tree(new Vector2(30f, 50f), TreeHealthState.Dead);
+            var flight = f.Bird.CreateDailyAction(fly, true) as FlyToTreeAction;
+            Require(flight != null, "Flight asset failed to create an action");
+            flight.Enter(f.Agent.Context);
+            Require(f.Bird.TargetTree == healthy && !flight.IsCurved, "Flight asset weights or arc probability were ignored");
+            f.Agent.Motor.Tick(.1f);
+            Require(Mathf.Abs(f.Agent.Motor.CurrentSpeedMetersPerSecond - 2f) < .001f, "Flight asset speed was ignored");
+            flight.Exit(f.Agent.Context);
+        }
         private static void CheckCadence()
         {
             using var f = new Fixture(true);
@@ -216,10 +272,9 @@ namespace AnimalGame.Editor
             f.Tree(new Vector2(30f, 30f), TreeHealthState.Healthy);
             Set(f.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>
             {
-                new(AnimalDailyBehaviourKind.TreeActivity, 6f, 12f, 24f),
-                new(AnimalDailyBehaviourKind.PerchAtTree, 2f, 4f, 8f),
-                new(AnimalDailyBehaviourKind.FlyToTree, 1f, .5f, 1f),
-                new(AnimalDailyBehaviourKind.PeckAtTree, 2f, 3f, 6f)
+                DailySettings(AnimalDailyBehaviourKind.PerchAtTree, 6f, 5f, 10f),
+                DailySettings(AnimalDailyBehaviourKind.FlyToTree, 1f, .5f, 1f),
+                DailySettings(AnimalDailyBehaviourKind.PeckAtTree, 2f, 3f, 6f)
             });
             f.Agent.ReturnToDaily();
             float treeTime = 0f, activityTime = 0f, flightTime = 0f, perchTime = 0f, peckTime = 0f;
@@ -233,7 +288,7 @@ namespace AnimalGame.Editor
                 else if (name == nameof(WoodpeckerPeckAction)) peckTime += .05f;
                 else if (name == nameof(PerchAtTreeAction)) perchTime += .05f;
             }
-            Require(treeTime >= 240f && activityTime > flightTime && activityTime > perchTime && activityTime > peckTime,
+            Require(treeTime >= 240f && perchTime > flightTime && perchTime > peckTime && flightTime > 0f && peckTime > 0f,
                 $"Daily occupancy target missed: tree {treeTime}, activity {activityTime}, fly {flightTime}, perch {perchTime}, peck {peckTime}");
         }
         private static void CheckEnableLifecycle()
@@ -276,7 +331,7 @@ namespace AnimalGame.Editor
                 Config = ScriptableObject.CreateInstance<AnimalSpeciesConfig>();
                 Set(Config, "dailyMoveSpeedMetersPerSecond", 9f); Set(Config, "fleeSpeedMetersPerSecond", 14f);
                 Set(Config, "baseDetectionChancePerCheck", 0f);
-                Set(Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings> { new(AnimalDailyBehaviourKind.PerchAtTree, 1f, 1000f, 1000f) });
+                Set(Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings> { DailySettings(AnimalDailyBehaviourKind.PerchAtTree, 1f, 1000f, 1000f) });
                 GameObject actor = New("Bird"); actor.transform.position = Map.MapPositionToWorld(new Vector2(50f, 48f));
                 Bird = (TreeBirdBehaviour)actor.AddComponent(woodpecker ? typeof(PileatedWoodpeckerBehaviour) : typeof(TreeBirdBehaviour));
                 Agent = actor.AddComponent<AnimalAgent>();

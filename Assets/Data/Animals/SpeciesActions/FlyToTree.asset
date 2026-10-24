@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23e02ffc88174310a3857c89059f3021, type: 3}
+  m_Name: FlyToTree
+  m_EditorClassIdentifier: 
+  SpeedMetersPerSecond: 9
+  MinimumTreeStaySeconds: 15
+  FlightCooldownSeconds: 20
+  FlightSpeedVariation: 0.1
+  FlightSpeedPeriodSeconds: {x: 1, y: 2}
+  ArcProbability: 0.35
+  ArcOffsetRatio: 0.08
+  MaximumArcOffsetMeters: 2
+  HealthyTreeWeight: 0.15
+  DeadTreeWeight: 0.5

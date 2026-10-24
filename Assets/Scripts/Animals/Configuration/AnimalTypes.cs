@@ -29,6 +29,7 @@ namespace AnimalGame.Animals
     {
         [SerializeField] private AnimalDailyBehaviourKind behaviour;
         [SerializeField, Min(0f)] private float selectionWeight = 1f;
+        [Tooltip("Used by actions that read the daily entry duration. Tree bird actions use the duration in their Action asset.")]
         [SerializeField] private Vector2 durationSeconds = new Vector2(3f, 6f);
         [SerializeField] private AnimalActionDefinition action;
         [SerializeField, Min(0f)] private float seasonMultiplier = 1f;

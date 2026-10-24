@@ -21,19 +21,18 @@ MonoBehaviour:
   bodyRadiusMeters: 0.12
   maximumTravelTimeSeconds: 20
   dailyBehaviours:
-  - behaviour: 9
-    selectionWeight: 6
-    durationSeconds: {x: 12, y: 24}
-    cooldownSeconds: 0
   - behaviour: 4
-    selectionWeight: 2
-    durationSeconds: {x: 4, y: 8}
+    action: {fileID: 11400000, guid: fadb8f03507548fa9dbb046020e5531d, type: 2}
+    selectionWeight: 6
+    durationSeconds: {x: 5, y: 10}
     cooldownSeconds: 0
   - behaviour: 5
+    action: {fileID: 11400000, guid: 12eebf83cd104ba5af9f7d2ecfd5c6f7, type: 2}
     selectionWeight: 1
     durationSeconds: {x: 0.5, y: 1}
     cooldownSeconds: 0
   - behaviour: 6
+    action: {fileID: 11400000, guid: 37de4a053cac4319bbb1bd49caade78f, type: 2}
     selectionWeight: 2
     durationSeconds: {x: 3, y: 6}
     cooldownSeconds: 5

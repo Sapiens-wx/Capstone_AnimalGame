@@ -57,7 +57,7 @@ namespace AnimalGame.Editor
                 Check(CheckWaveFadeLifetimeAndPool);
                 Debug.Log($"Woodpecker sound checks PASS: {passed} groups; shipped/factory profiles, Muskrat compatibility, world origins, aerial classification, state pulses, contact-synchronized pecking, direct escape, pause and pooled wave lifetime");
             }
-            finally { Random.state = originalRandom; }
+            finally { Random.state = originalRandom; TreeBirdRegressionChecks.CleanupActionCopies(); }
         }
 
         public static void RunBatch()
@@ -123,8 +123,10 @@ namespace AnimalGame.Editor
                 Require(!Profile(f.Emitter, name).Enabled, "Bird acquired an unrelated land/water/eating profile: " + name);
             Near((float)Get(f.Emitter, "overallEmissionFrequencyMultiplier"), 1f, "Bird cadence multiplier");
             Require(!f.Behaviour.SupportsAggression, "Sound integration changed woodpecker aggression support");
-            Near(f.Behaviour.Settings.MinimumTreeStaySeconds, 15f, "Minimum tree stay");
-            Require((int)Get(f.Behaviour, "pecksPerSoundWave") == 3, "Default peck grouping is not three contacts");
+            var flight = AssetDatabase.LoadAssetAtPath<FlyToTreeActionDefinition>("Assets/Data/Animals/SpeciesActions/FlyToTree.asset");
+            var peck = AssetDatabase.LoadAssetAtPath<PeckAtTreeActionDefinition>("Assets/Data/Animals/SpeciesActions/PeckAtTree.asset");
+            Near(flight.MinimumTreeStaySeconds, 15f, "Minimum tree stay");
+            Require((int)Get(peck, "pecksPerSoundWave") == 3, "Default peck grouping is not three contacts");
         }
 
         private static void CheckMuskratCompatibility()
@@ -394,7 +396,7 @@ namespace AnimalGame.Editor
                 AnimalSpeciesConfig shippedConfig = AssetDatabase.LoadAssetAtPath<AnimalSpeciesConfig>(WoodConfig);
                 Require(shippedConfig != null, "Missing woodpecker species configuration");
                 Config = Own(Object.Instantiate(shippedConfig));
-                Set(Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings> { new AnimalDailyBehaviourSettings(AnimalDailyBehaviourKind.PerchAtTree, 1f, 1000f, 1000f) });
+                Set(Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings> { TreeBirdRegressionChecks.DailySettings(AnimalDailyBehaviourKind.PerchAtTree, 1f, 1000f, 1000f) });
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(WoodPrefab);
                 Require(prefab != null, "Missing shipped woodpecker prefab");
                 GameObject actor = (GameObject)PrefabUtility.InstantiatePrefab(prefab, Scene);

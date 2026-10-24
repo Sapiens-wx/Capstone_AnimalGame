@@ -38,7 +38,7 @@ namespace AnimalGame.Animals
             return false;
         }
         public virtual AnimalAction CreateDailyActionForDebug(AnimalDailyBehaviourSettings settings)
-            => settings.Action != null ? settings.Action.CreateRuntime(settings)
+            => settings.Action != null ? settings.Action.CreateRuntime(settings, Agent.Context)
                 : settings.Behaviour == AnimalDailyBehaviourKind.Hunt ? new HuntAction()
                 : settings.Behaviour == AnimalDailyBehaviourKind.Idle ? new IdleAction(settings.ChooseDuration()) : null;
         public bool CanAcceptSocialAction => !HasConfiguredAction || configuredAction is IdleAction
@@ -48,7 +48,7 @@ namespace AnimalGame.Animals
 
         protected bool BeginConfiguredAction(AnimalDailyBehaviourSettings settings)
         {
-            AnimalAction action = settings.Action != null ? settings.Action.CreateRuntime(settings)
+            AnimalAction action = settings.Action != null ? settings.Action.CreateRuntime(settings, Agent.Context)
                 : settings.Behaviour == AnimalDailyBehaviourKind.Hunt && Config.CanHunt && Agent.Runtime.Time >= Agent.Runtime.HuntCooldownUntil ? new HuntAction()
                 : settings.Behaviour == AnimalDailyBehaviourKind.Idle ? new IdleAction(settings.ChooseDuration()) : null;
             if (action == null) return false;

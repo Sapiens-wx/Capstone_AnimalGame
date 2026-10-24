@@ -32,6 +32,7 @@ namespace AnimalGame.Editor
             CheckSpecificDailyDeferredValidation();
             CheckMuskratDailyCommand();
             CheckExpandableCommands();
+            TreeBirdRegressionChecks.CleanupActionCopies();
             Debug.Log("Animal inspector checks PASS: rejection without interruption, species escape, forced cooldown reset, live-only hunt, deferred validation, circular sampling, edge arrows, UXML/prefab bindings menu ownership, expandable daily entries and one-shot species actions.");
         }
         public static void RunBatch()
@@ -161,6 +162,12 @@ namespace AnimalGame.Editor
         private static AnimalDailyBehaviourSettings DailyEntry(AnimalDailyBehaviourKind kind)
         {
             var settings = new AnimalDailyBehaviourSettings(kind, 0f, .1f, .1f);
+            if (kind == AnimalDailyBehaviourKind.TreeActivity || kind == AnimalDailyBehaviourKind.PerchAtTree
+                || kind == AnimalDailyBehaviourKind.FlyToTree || kind == AnimalDailyBehaviourKind.PeckAtTree)
+            {
+                var assetKind = kind == AnimalDailyBehaviourKind.TreeActivity ? AnimalDailyBehaviourKind.PerchAtTree : kind;
+                Set(settings, "action", TreeBirdRegressionChecks.DailySettings(assetKind, 0f, .1f, .1f).Action);
+            }
             Set(settings, "cooldownSeconds", 999f);
             Set(settings, "seasonMultiplier", 0f); Set(settings, "timeOfDayMultiplier", 0f);
             return settings;

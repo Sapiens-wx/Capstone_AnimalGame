@@ -29,6 +29,7 @@ namespace AnimalGame.Animals
         [Header("Initial Tree (not an activity boundary or escape destination)")]
         [SerializeField] protected TreeHabitat birthTree;
         [SerializeField, Min(0f)] protected float perchClearanceMeters = .04f;
+        [Tooltip("Defaults for recovery/direct actions and escape. Configured daily Action assets own their movement parameters.")]
         [SerializeField] private TreeBirdSettings birdSettings = new TreeBirdSettings();
         private readonly List<AnimalDailyBehaviourSettings> available = new();
         private readonly List<TreeHabitat> healthy = new(), dead = new();
@@ -38,6 +39,18 @@ namespace AnimalGame.Animals
         public TreeHabitat BirthTree => birthTree;
         public TreeHabitat CurrentTree { get; internal set; }
         public TreeHabitat TargetTree { get; internal set; }
+        internal FlyToTreeActionDefinition DailyFlightDefinition
+        {
+            get
+            {
+                if (Config != null)
+                    foreach (var entry in Config.DailyBehaviours)
+                        if (entry?.Action is FlyToTreeActionDefinition flight) return flight;
+                return null;
+            }
+        }
+        private float MinimumTreeStay => DailyFlightDefinition != null ? DailyFlightDefinition.MinimumTreeStaySeconds : Settings.MinimumTreeStaySeconds;
+        private float FlightCooldown => DailyFlightDefinition != null ? DailyFlightDefinition.FlightCooldownSeconds : Settings.FlightCooldownSeconds;
         public override AnimalState ThreatResponse => AnimalState.Fleeing;
         public override bool UsesCustomFleeDespawn => true;
         public override bool SupportsAggression => false;
@@ -52,7 +65,7 @@ namespace AnimalGame.Animals
             quietCountdown = Agent.SoundEmitter != null ? Agent.SoundEmitter.ChooseRepeatInterval(AnimalSoundKind.Idle) : 5f;
             if (!IsUsableTree(birthTree)) birthTree = FindNearestTree();
             SnapToBirthPerch();
-            nextFlightTime = Agent.Runtime.Time + Mathf.Max(0f, Settings.MinimumTreeStaySeconds);
+            nextFlightTime = Agent.Runtime.Time + Mathf.Max(0f, MinimumTreeStay);
         }
 
         public override void EnterDaily() { disposed = false; nextSearchTime = 0f; }
@@ -60,12 +73,16 @@ namespace AnimalGame.Animals
         public override void TickDaily(float dt)
         {
             if (TickConfiguredAction(dt)) return;
-            if (Agent.Runtime.Time < nextSearchTime) return;
+            if (Agent.Runtime.Time < nextSearchTime)
+            {
+                if (IsUsableTree(CurrentTree)) TickTreeActivitySound(dt);
+                return;
+            }
             if (!IsUsableTree(CurrentTree) || !CurrentTree.ContainsActivityPoint(Agent.Map, Motor.CurrentMapPosition, Config.BodyRadiusMeters))
             {
                 CurrentTree = null;
                 TreeHabitat tree = FindNearestTree();
-                if (tree != null) BeginRuntimeAction(new FlyToTreeAction(this, tree));
+                if (tree != null) BeginRuntimeAction(new FlyToTreeAction(this, tree, DailyFlightDefinition));
                 else { Motor.Stop(); Motor.SetPerchedMode(true); nextSearchTime = Agent.Runtime.Time + 1f; }
                 return;
             }
@@ -73,66 +90,33 @@ namespace AnimalGame.Animals
             foreach (AnimalDailyBehaviourSettings settings in Config.DailyBehaviours)
                 if (settings != null && Agent.DailyScheduler.Weight(settings) > 0f && CanRunDaily(settings)) available.Add(settings);
             AnimalDailyBehaviourSettings selected = Agent.DailyScheduler.Choose(available);
-            AnimalAction action = selected != null ? CreateDailyAction(selected) : new PerchAtTreeAction(this, 1f);
+            AnimalAction action = selected != null ? CreateDailyAction(selected) : null;
             if (action != null) BeginRuntimeAction(action, selected);
-            else { Agent.DailyScheduler.Failed(selected); nextSearchTime = Agent.Runtime.Time + 1f; }
+            else
+            {
+                Motor.Stop(); TickTreeActivitySound(dt);
+                Agent.DailyScheduler.Failed(selected); nextSearchTime = Agent.Runtime.Time + 1f;
+            }
         }
 
+        internal bool CanStartDailyFlight => Agent.Runtime.Time >= nextFlightTime;
         private bool CanRunDaily(AnimalDailyBehaviourSettings settings)
-        {
-            switch (settings.Behaviour)
-            {
-                case AnimalDailyBehaviourKind.TreeActivity:
-                case AnimalDailyBehaviourKind.PerchAtTree: return true;
-                case AnimalDailyBehaviourKind.FlyToTree:
-                    return Agent.Runtime.Time >= nextFlightTime && HasOtherTree();
-                default: return CanRunSpeciesDaily(settings);
-            }
-        }
-        protected virtual bool CanRunSpeciesDaily(AnimalDailyBehaviourSettings settings) => false;
-        protected virtual AnimalAction TryCreateSpeciesDailyAction(AnimalDailyBehaviourSettings settings) => null;
-        public override bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)
-        {
-            reason = null;
-            if (settings == null) return base.CanRunDailyForDebug(settings, out reason);
-            if (settings.Behaviour == AnimalDailyBehaviourKind.FlyToTree)
-            {
-                if (HasOtherTree()) return true;
-                reason = "No other valid tree is available."; return false;
-            }
-            if (settings.Behaviour == AnimalDailyBehaviourKind.PerchAtTree || settings.Behaviour == AnimalDailyBehaviourKind.TreeActivity)
-            {
-                if (IsUsableTree(CurrentTree) && CurrentTree.ContainsActivityPoint(Agent.Map, Motor.CurrentMapPosition, Config.BodyRadiusMeters)) return true;
-                reason = "The bird must be perched on a valid tree."; return false;
-            }
-            return base.CanRunDailyForDebug(settings, out reason);
-        }
-        public override AnimalAction CreateDailyActionForDebug(AnimalDailyBehaviourSettings settings)
-            => settings.Behaviour == AnimalDailyBehaviourKind.TreeActivity || settings.Behaviour == AnimalDailyBehaviourKind.PerchAtTree
-                || settings.Behaviour == AnimalDailyBehaviourKind.FlyToTree || settings.Behaviour == AnimalDailyBehaviourKind.PeckAtTree
-                    ? CreateDailyAction(settings, true) : base.CreateDailyActionForDebug(settings);
+            => settings.Action is TreeBirdActionDefinition action ? action.CanRun(Agent.Context)
+                : settings.Action != null && settings.Action.CanRunForDebug(Agent.Context, out _);
         public AnimalAction CreateDailyAction(AnimalDailyBehaviourSettings settings, bool ignoreScheduling = false)
-        {
-            switch (settings.Behaviour)
-            {
-                case AnimalDailyBehaviourKind.TreeActivity: return new TreeActivityAction(this, settings.ChooseDuration());
-                case AnimalDailyBehaviourKind.PerchAtTree: return new PerchAtTreeAction(this, settings.ChooseDuration());
-                case AnimalDailyBehaviourKind.FlyToTree:
-                    return (ignoreScheduling || Agent.Runtime.Time >= nextFlightTime) && TryChooseTree(out TreeHabitat tree) ? new FlyToTreeAction(this, tree) : null;
-                default: return TryCreateSpeciesDailyAction(settings);
-            }
-        }
+            => settings?.Action != null && (ignoreScheduling || CanRunDaily(settings))
+                ? settings.Action.CreateRuntime(settings, Agent.Context) : null;
         internal void ArrivedAt(TreeHabitat tree)
         {
             CurrentTree = tree;
             TargetTree = null;
-            nextFlightTime = Agent.Runtime.Time + Mathf.Max(Settings.MinimumTreeStaySeconds, Settings.FlightCooldownSeconds);
+            nextFlightTime = Agent.Runtime.Time + Mathf.Max(0f, Mathf.Max(MinimumTreeStay, FlightCooldown));
             Motor.SetPerchedMode(true);
         }
         internal void FlightFailed()
         {
             TargetTree = null;
-            nextFlightTime = Agent.Runtime.Time + Mathf.Max(1f, Settings.FlightCooldownSeconds);
+            nextFlightTime = Agent.Runtime.Time + Mathf.Max(1f, FlightCooldown);
             // A failed or interrupted flight may have left the bird between trees.
             if (!IsUsableTree(CurrentTree) || !CurrentTree.ContainsActivityPoint(Agent.Map, Motor.CurrentMapPosition, Config.BodyRadiusMeters))
                 CurrentTree = null;
@@ -160,12 +144,13 @@ namespace AnimalGame.Animals
                 if (tree != CurrentTree && IsUsableTree(tree) && TryGetPerch(tree, out _))
                     (tree.IsDead ? dead : healthy).Add(tree);
         }
-        private bool HasOtherTree() { GatherTrees(); return healthy.Count + dead.Count > 0; }
-        public bool TryChooseTree(out TreeHabitat tree)
+        internal bool HasOtherTree(float healthyWeight = 1f, float deadWeight = 1f)
+        { GatherTrees(); return healthyWeight > 0f && healthy.Count > 0 || deadWeight > 0f && dead.Count > 0; }
+        public bool TryChooseTree(out TreeHabitat tree, float? healthyWeight = null, float? deadWeight = null)
         {
             GatherTrees();
-            float h = healthy.Count > 0 ? Mathf.Max(0f, GetTreeSelectionWeight(TreeHealthState.Healthy)) : 0f;
-            float d = dead.Count > 0 ? Mathf.Max(0f, GetTreeSelectionWeight(TreeHealthState.Dead)) : 0f;
+            float h = healthy.Count > 0 ? Mathf.Max(0f, healthyWeight ?? GetTreeSelectionWeight(TreeHealthState.Healthy)) : 0f;
+            float d = dead.Count > 0 ? Mathf.Max(0f, deadWeight ?? GetTreeSelectionWeight(TreeHealthState.Dead)) : 0f;
             tree = null;
             if (h + d <= 0f) return false;
             List<TreeHabitat> list = UnityEngine.Random.value * (h + d) < d ? dead : healthy;

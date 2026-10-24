@@ -9,10 +9,17 @@ namespace AnimalGame.Animals
         protected readonly TreeBirdBehaviour bird;
         protected TreeHabitat tree;
         private readonly float duration;
+        private readonly float approachSpeed;
+        private readonly bool faceTrunk, playIdleSound;
         private float elapsed, approachElapsed;
         private bool valid, approaching;
         public override AnimalState PhotoState => approaching ? AnimalState.Moving : AnimalState.Resting;
-        public PerchAtTreeAction(TreeBirdBehaviour bird, float duration) { this.bird = bird; this.duration = duration; }
+        public PerchAtTreeAction(TreeBirdBehaviour bird, float duration, float? approachSpeed = null, bool? faceTrunk = null, bool playIdleSound = true)
+        {
+            this.bird = bird; this.duration = duration;
+            this.approachSpeed = Mathf.Max(.05f, approachSpeed ?? bird.Settings.CrawlSpeedMetersPerSecond);
+            this.faceTrunk = faceTrunk ?? bird.FaceTrunkWhilePerched; this.playIdleSound = playIdleSound;
+        }
         public override void Enter(AnimalContext c)
         {
             tree = bird.CurrentTree;
@@ -27,14 +34,14 @@ namespace AnimalGame.Animals
             {
                 var path = new List<Vector2>();
                 valid = tree.TryBuildActivityPath(c.Agent.Map, c.Motor.CurrentMapPosition, target, c.Config.BodyRadiusMeters, path)
-                    && c.Motor.SetAerialPath(path, bird.Settings.CrawlSpeedMetersPerSecond);
+                    && c.Motor.SetAerialPath(path, approachSpeed);
                 approaching = valid;
             }
             FaceTree(c);
         }
         protected void FaceTree(AnimalContext c)
         {
-            if (bird.FaceTrunkWhilePerched && tree != null && tree.TryGetMapPosition(c.Agent.Map, out Vector2 centre))
+            if (faceTrunk && tree != null && tree.TryGetMapPosition(c.Agent.Map, out Vector2 centre))
                 c.Motor.LockFacing(centre - c.Motor.CurrentMapPosition);
         }
         protected virtual bool IsTreeValid() => bird.IsUsableTree(tree);
@@ -54,7 +61,7 @@ namespace AnimalGame.Animals
             TickPerched(c, dt);
             return elapsed >= duration ? AnimalActionStatus.Succeeded : AnimalActionStatus.Running;
         }
-        protected virtual void TickPerched(AnimalContext c, float dt) => bird.TickTreeActivitySound(dt);
+        protected virtual void TickPerched(AnimalContext c, float dt) { if (playIdleSound) bird.TickTreeActivitySound(dt); }
         public override void Exit(AnimalContext c) { base.Exit(c); c.Motor.ClearMovementOverrides(); }
     }
 
@@ -122,11 +129,15 @@ namespace AnimalGame.Animals
     {
         private readonly TreeBirdBehaviour bird;
         private readonly TreeHabitat target;
+        private readonly FlyToTreeActionDefinition definition;
+        private float BaseSpeed(AnimalContext c) => Mathf.Max(.1f, definition != null ? definition.SpeedMetersPerSecond : c.Config.DailyMoveSpeedMetersPerSecond);
+        private float SpeedVariation => Mathf.Clamp(definition != null ? definition.FlightSpeedVariation : bird.Settings.FlightSpeedVariation, 0f, .5f);
         private float elapsed, period, phase, travelLimit;
         private bool valid, started, arrived;
         public bool IsCurved { get; private set; }
         public override AnimalState PhotoState => AnimalState.Moving;
-        public FlyToTreeAction(TreeBirdBehaviour bird, TreeHabitat target) { this.bird = bird; this.target = target; }
+        public FlyToTreeAction(TreeBirdBehaviour bird, TreeHabitat target, FlyToTreeActionDefinition definition = null)
+        { this.bird = bird; this.target = target; this.definition = definition; }
         public override void Enter(AnimalContext c)
         {
             c.Motor.Stop(); c.Motor.ClearMovementOverrides();
@@ -136,9 +147,9 @@ namespace AnimalGame.Animals
             { valid = true; arrived = true; bird.ArrivedAt(target); return; }
             Vector2 start = c.Motor.CurrentMapPosition;
             var path = new List<Vector2>();
-            bool curved = Random.value < bird.Settings.ArcProbability;
-            float offset = curved ? Mathf.Min(Vector2.Distance(start, end) * bird.Settings.ArcOffsetRatio,
-                Mathf.Max(0f, bird.Settings.MaximumArcOffsetMeters)) * (Random.value < .5f ? -1f : 1f) : 0f;
+            bool curved = Random.value < (definition != null ? definition.ArcProbability : bird.Settings.ArcProbability);
+            float offset = curved ? Mathf.Min(Vector2.Distance(start, end) * (definition != null ? definition.ArcOffsetRatio : bird.Settings.ArcOffsetRatio),
+                Mathf.Max(0f, definition != null ? definition.MaximumArcOffsetMeters : bird.Settings.MaximumArcOffsetMeters)) * (Random.value < .5f ? -1f : 1f) : 0f;
             Vector2 delta = end - start;
             Vector2 normal = new Vector2(-delta.y, delta.x).normalized;
             for (int attempt = 0; attempt < 3; attempt++)
@@ -151,7 +162,7 @@ namespace AnimalGame.Animals
                     float t = i / (float)count;
                     path.Add((1f - t) * (1f - t) * start + 2f * (1f - t) * t * control + t * t * end);
                 }
-                if (c.Motor.SetAerialPath(path, c.Config.DailyMoveSpeedMetersPerSecond))
+                if (c.Motor.SetAerialPath(path, BaseSpeed(c)))
                 { valid = true; IsCurved = Mathf.Abs(offset) > .0001f; break; }
                 offset = attempt == 0 ? offset * .5f : 0f;
             }
@@ -161,11 +172,11 @@ namespace AnimalGame.Animals
             foreach (Vector2 point in path) { length += Vector2.Distance(previous, point); previous = point; }
             travelLimit = Mathf.Max(c.Config.MaximumTravelTimeSeconds,
                 length / Mathf.Max(.1f, Mathf.Min(c.Config.FleeSpeedMetersPerSecond,
-                    c.Config.DailyMoveSpeedMetersPerSecond * (1f - bird.Settings.FlightSpeedVariation))) * 1.5f);
+                    BaseSpeed(c) * (1f - SpeedVariation))) * 1.5f);
             bird.CurrentTree = null;
             started = true;
-            period = Random.Range(Mathf.Max(.1f, bird.Settings.FlightSpeedPeriodSeconds.x),
-                Mathf.Max(.1f, bird.Settings.FlightSpeedPeriodSeconds.y));
+            Vector2 periods = definition != null ? definition.FlightSpeedPeriodSeconds : bird.Settings.FlightSpeedPeriodSeconds;
+            period = Random.Range(Mathf.Max(.1f, periods.x), Mathf.Max(.1f, Mathf.Max(periods.x, periods.y)));
             phase = Random.Range(0f, Mathf.PI * 2f);
             c.Agent.SoundEmitter?.Emit(AnimalSoundKind.Takeoff);
             c.Agent.SoundEmitter?.BeginMovementSound(AnimalSoundKind.Flying);
@@ -173,8 +184,8 @@ namespace AnimalGame.Animals
         }
         private void UpdateSpeed(AnimalContext c)
         {
-            float speed = c.Config.DailyMoveSpeedMetersPerSecond
-                * (1f + Mathf.Clamp(bird.Settings.FlightSpeedVariation, 0f, .5f) * Mathf.Sin(phase + elapsed * 2f * Mathf.PI / period));
+            float speed = BaseSpeed(c)
+                * (1f + SpeedVariation * Mathf.Sin(phase + elapsed * 2f * Mathf.PI / period));
             c.Motor.SetMovementSpeed(Mathf.Min(c.Config.FleeSpeedMetersPerSecond, speed));
         }
         public override AnimalActionStatus Tick(AnimalContext c, float dt)
