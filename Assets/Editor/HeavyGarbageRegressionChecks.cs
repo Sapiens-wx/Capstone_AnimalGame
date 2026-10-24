@@ -24,11 +24,45 @@ namespace AnimalGame.Editor
             CheckInteriorLayoutVariationAndOutline();
             CheckUnavailablePreviewKeepsSourceVisible();
             CheckPullProgressAndCancellation();
+            CheckAnchoredDropKeepsDeployment();
             CheckPullMovementAndRelease();
             CheckFragmentSeparationMotion();
             CheckSeparationStillRespectsObstacles();
             CheckSeparationCleanup();
-            Debug.Log("Heavy garbage checks PASS: local deformation, distributed interior visual-only previews, stable extraction/handoff, bounded sibling separation, collision safety, cancellation and 30/60/120 fps retreat/release");
+            Debug.Log("Heavy garbage checks PASS: local deformation, distributed interior visual-only previews, stable extraction/handoff, bounded sibling separation, collision safety, anchored A-release deployment retention, cancellation and 30/60/120 fps retreat/release");
+        }
+
+        private static void CheckAnchoredDropKeepsDeployment()
+        {
+            foreach (float dt in new[] { 1f / 30f, 1f / 60f, 1f / 120f })
+            using (var f = new Fixture())
+            {
+                WorldInteraction source = PrepareSource(f, out _, out _);
+                HeavyGarbagePull pull = source.gameObject.AddComponent<HeavyGarbagePull>(); Call(pull, "Awake");
+                Vector2 away = ((Vector2)f.Robot.transform.position - (Vector2)source.WorldPosition).normalized;
+                SetProperty(f.Mover, "CurrentThrottleIntent", -1f);
+                SetProperty(f.Mover, "UnresistedMovementIntentWorld", away * 3f);
+                Call(pull, "Step", .3f); f.TickArms(dt, Vector2.zero, true);
+                Require(pull.HasGripAnchor && f.Arms.HeldObject == source,
+                    "Anchored-drop fixture never entered a real heavy pull");
+                Vector2 left = f.Arms.LeftHandWorld, right = f.Arms.RightHandWorld;
+                Vector3 sourcePosition = source.WorldPosition;
+                f.TickArms(dt, Vector2.zero, false); Call(pull, "Step", dt);
+                Require(source.Owner == null && f.Arms.HeldObject == null && !pull.HasGripAnchor
+                    && f.Arms.IsArmModeActive && f.Mover.IsArmInputCaptured
+                    && f.Arms.State == RobotArmState.OuterOperating && f.Mover.GrabMovementMultiplier == 1f,
+                    "A release of anchored heavy garbage lost deployment or retained the grip/resistance");
+                for (int i = 0; i < Mathf.RoundToInt(.5f / dt); i++)
+                { f.TickArms(dt, Vector2.zero, false); Call(pull, "Step", dt); }
+                Require(Vector2.Distance(left, f.Arms.LeftHandWorld) < .0001f
+                    && Vector2.Distance(right, f.Arms.RightHandWorld) < .0001f && source.WorldPosition == sourcePosition,
+                    "Neutral input moved hands or heavy garbage after releasing its anchor");
+                Vector2 centre = (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f;
+                f.TickArms(dt, Vector2.down, false);
+                Require(Vector2.Distance(centre, (f.Arms.LeftHandWorld + f.Arms.RightHandWorld) * .5f) > .0001f
+                    && source.WorldPosition == sourcePosition,
+                    "An old heavy grip anchor prevented post-drop empty-arm control");
+            }
         }
 
         private static void CheckUnavailablePreviewKeepsSourceVisible()

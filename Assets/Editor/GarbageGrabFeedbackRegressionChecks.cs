@@ -122,9 +122,8 @@ namespace AnimalGame.Editor
                 f.Tick(1, Vector2.up, false);
                 Require(item.Owner == null && f.Arms.HeldObject == null, "Release did not drop outer-held garbage");
                 Clear(f.Shake);
-                // A release closes the grab session. Release the old L3 hold before
-                // deliberately deploying again; the old hold must not perform a new grab.
-                Call(f.Arms, "Step", 0f, Vector2.zero, false, false);
+                // A release ends the grip while keeping the deployment switch on.
+                // A new A press can grab again without another deployment command.
                 f.Tick(2, Vector2.up, true);
                 Require(f.Arms.HeldObject == item && PulseCount(f.Shake) == 1, "A new grab after a drop did not emit feedback");
             }

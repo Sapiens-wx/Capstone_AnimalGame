@@ -1,5 +1,6 @@
 using System;
 using AnimalGame.Animals;
+using AnimalGame.RobotArm;
 using UnityEngine;
 
 namespace AnimalGame.RobotMap
@@ -299,6 +300,8 @@ namespace AnimalGame.RobotMap
         private bool fixedHoldRequiresRelease;
         private PhotoCameraDefinition captureCamera;
         private bool cameraHandlingChangePending;
+        private bool entryInProgress;
+        private uint entryCancellationVersion;
 
         private void Awake()
         {
@@ -323,7 +326,8 @@ namespace AnimalGame.RobotMap
             bool shoulderHeld = Input.GetKey(keyboardFocusAndShutterKey)
                                 || AdaptiveLegacyGamepadInput
                                     .IsRightShoulderHeld();
-            bool shoulderPressed = Input.GetKeyDown(keyboardFocusAndShutterKey)
+            bool shoulderPressed = (Input.GetKeyDown(keyboardFocusAndShutterKey)
+                                    && CanUseKeyboardShutterForEntry())
                                    || AdaptiveLegacyGamepadInput
                                        .WasRightShoulderPressedThisFrame();
             HandleModeInput(shoulderPressed);
@@ -414,31 +418,45 @@ namespace AnimalGame.RobotMap
 
         public void SetPhotoModeActive(bool active)
         {
+            if (!this) return;
+            if (!active && entryInProgress) entryCancellationVersion++;
             if (active)
             {
-                if (state != PhotoModeState.Inactive
-                    || !CanEnterPhotoMode())
+                if (entryInProgress || !isActiveAndEnabled || state != PhotoModeState.Inactive
+                    || !CanRemainInPhotoMode())
                 {
                     return;
                 }
 
-                ResetAimToNearest();
-                UpdateAimFollowTarget();
-                ResolveCameraReferences();
-                state = PhotoModeState.Entering;
-                entryElapsed = 0f;
-                exitElapsed = 0f;
-                ResetCaptureState(true);
-                mover?.SetPhotoModeInputLocked(true);
-                cameraFollow?.FollowTarget(
-                    AimFollowTarget,
-                    photoCameraPositionDamping);
-                cameraShake?.SetPhotoModeRevealShake(
-                    0f,
-                    entryShakePositionAmplitude,
-                    entryShakeRotationAmplitude,
-                    entryShakeFrequency);
-                ModeChanged?.Invoke(true);
+                uint cancellationVersion = entryCancellationVersion;
+                entryInProgress = true;
+                try
+                {
+                    GetComponent<RobotArmController>()?.CancelArmControl();
+                    // Releasing held waste can invoke gameplay callbacks. Respect any
+                    // cancellation, disable or control-mode change before entering.
+                    if (!this || !isActiveAndEnabled || cancellationVersion != entryCancellationVersion
+                        || state != PhotoModeState.Inactive || !CanEnterPhotoMode()) return;
+
+                    ResetAimToNearest();
+                    UpdateAimFollowTarget();
+                    ResolveCameraReferences();
+                    state = PhotoModeState.Entering;
+                    entryElapsed = 0f;
+                    exitElapsed = 0f;
+                    ResetCaptureState(true);
+                    mover?.SetPhotoModeInputLocked(true);
+                    cameraFollow?.FollowTarget(
+                        AimFollowTarget,
+                        photoCameraPositionDamping);
+                    cameraShake?.SetPhotoModeRevealShake(
+                        0f,
+                        entryShakePositionAmplitude,
+                        entryShakeRotationAmplitude,
+                        entryShakeFrequency);
+                    ModeChanged?.Invoke(true);
+                }
+                finally { entryInProgress = false; }
             }
             else
             {
@@ -994,6 +1012,13 @@ namespace AnimalGame.RobotMap
                    && (balance == null || !balance.IsTippedOver);
         }
 
+        private bool CanUseKeyboardShutterForEntry()
+        {
+            if (IsActive) return true;
+            RobotArmController arms = GetComponent<RobotArmController>();
+            return arms == null || !arms.UsesActiveGrabKey(keyboardFocusAndShutterKey);
+        }
+
         private bool CanRemainInPhotoMode()
         {
             return mover != null
@@ -1030,6 +1055,7 @@ namespace AnimalGame.RobotMap
 
         private void OnDisable()
         {
+            entryCancellationVersion++;
             if (balance != null)
                 balance.TippedOver -= OnRobotTippedOver;
             ExitPhotoModeImmediately();

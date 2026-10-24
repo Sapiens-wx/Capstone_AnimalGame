@@ -1,8 +1,15 @@
 using System;
 using System.IO;
+using System.Reflection;
+using AnimalGame.Discovery;
+using AnimalGame.MapTest;
+using AnimalGame.RobotArm;
+using AnimalGame.RobotMap;
 using AnimalGame.Tutorial;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace AnimalGame.Editor
 {
@@ -23,6 +30,7 @@ namespace AnimalGame.Editor
             CheckDiscardAndEarlyCapture();
             CheckOldResultsAndReset();
             CheckInvalidSettings();
+            CheckArmIndependentLessonAvailability();
             foreach (int fps in new[] { 30, 60, 120 }) CheckFullLesson(fps);
             string output = Path.GetFullPath("output/validation/tutorial-photography");
             Directory.CreateDirectory(output);
@@ -228,6 +236,66 @@ namespace AnimalGame.Editor
             Feed(progress, 1f / fps, photo: true, result: false);
             Feed(progress, 1f / fps, photo: false);
             Require(progress.IsComplete, fps + " FPS: full actual outcome sequence completes.");
+        }
+
+        private static void CheckArmIndependentLessonAvailability()
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var scene = EditorSceneManager.NewPreviewScene();
+            try
+            {
+                // Keep the bootstrap inactive so the fixture cannot create a map or player.
+                var owner = new GameObject("Photography availability lesson");
+                owner.SetActive(false); SceneManager.MoveGameObjectToScene(owner, scene);
+                var bootstrap = owner.AddComponent<HeightMapPlayerSceneBootstrap>();
+                var lesson = owner.AddComponent<TutorialPhotographyLesson>();
+                var targets = owner.GetComponent<TutorialDiscoveryTargets>();
+                typeof(TutorialPhotographyLesson).GetField("bootstrap", flags).SetValue(lesson, bootstrap);
+                typeof(TutorialPhotographyLesson).GetField("targets", flags).SetValue(lesson, targets);
+
+                var player = new GameObject("Photography availability player");
+                SceneManager.MoveGameObjectToScene(player, scene);
+                var arm = player.AddComponent<RobotArmController>();
+                var mover = player.GetComponent<RobotMover>();
+                var photo = player.AddComponent<PhotoModeController>();
+                bootstrap.robot = mover; bootstrap.armController = arm;
+                typeof(TutorialPhotographyLesson).GetField("camera", flags).SetValue(lesson, photo);
+                Func<bool> valid = () => (bool)typeof(TutorialPhotographyLesson)
+                    .GetMethod("CanPractice", flags).Invoke(lesson, null);
+                Require(!valid(), "A missing teaching animal still blocks unsaved photography practice.");
+
+                var animalObject = new GameObject("Ready photography teaching animal");
+                SceneManager.MoveGameObjectToScene(animalObject, scene);
+                var animal = animalObject.AddComponent<DiscoverableEntity>();
+                typeof(TutorialDiscoveryTargets).GetProperty("Animal", flags).SetValue(targets, animal);
+                typeof(TutorialDiscoveryTargets).GetField("animalFrozen", flags).SetValue(targets, true);
+                Require(valid(), "A ready animal enables the real photography lesson availability check.");
+                foreach (RobotArmState state in Enum.GetValues(typeof(RobotArmState)))
+                {
+                    typeof(RobotArmController).GetProperty("State", flags).SetValue(arm, state);
+                    typeof(RobotArmController).GetProperty("IsArmModeActive", flags)
+                        .SetValue(arm, state != RobotArmState.Retracted);
+                    Require(valid(), "The photography lesson permits camera entry during arm " + state + ".");
+                }
+                var itemObject = new GameObject("Held photography availability garbage");
+                SceneManager.MoveGameObjectToScene(itemObject, scene);
+                var item = itemObject.AddComponent<AnimalGame.World.WorldInteraction>();
+                typeof(RobotArmController).GetField("heldObject", flags).SetValue(arm, item);
+                Require(valid(), "A held item does not demand a separate manual stow before photography.");
+                typeof(RobotArmController).GetField("heldObject", flags).SetValue(arm, null);
+                arm.enabled = false;
+                Require(!valid(), "A disabled arm component remains an unavailable player configuration.");
+                arm.enabled = true; photo.enabled = false;
+                Require(!valid(), "A disabled camera still blocks photography practice.");
+                photo.enabled = true;
+                typeof(RobotMover).GetProperty("MovementMode", flags).SetValue(mover, RobotMovementMode.Fallen);
+                Require(!valid(), "A fallen player still cannot perform photography practice.");
+                typeof(RobotMover).GetProperty("MovementMode", flags).SetValue(mover, RobotMovementMode.Driven);
+                var tumble = player.AddComponent<RobotTumbleController>(); bootstrap.tumble = tumble;
+                typeof(RobotTumbleController).GetProperty("State", flags).SetValue(tumble, RobotTumbleState.Tumbling);
+                Require(!valid(), "A player who is tumbling still cannot perform photography practice.");
+            }
+            finally { EditorSceneManager.ClosePreviewScene(scene); }
         }
 
         private static void Require(bool condition, string message)

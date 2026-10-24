@@ -207,7 +207,7 @@ namespace AnimalGame.Garbage
             if (visual != null) visual.ResetVisual();
         }
 
-        private void OnDisable()
+        public void CancelPullImmediately()
         {
             pulling = false;
             gripSession = false;
@@ -216,6 +216,8 @@ namespace AnimalGame.Garbage
             if (cameraShake != null) cameraShake.SetGarbagePullRumble(0f);
             FinishReturn();
         }
+
+        private void OnDisable() => CancelPullImmediately();
 
         private void OnDestroy() => OnDisable();
     }

@@ -36,7 +36,7 @@ namespace AnimalGame.Editor
             CheckBlockedMotionHasNoBacklog();
             CheckDeploymentAndSessionReset();
             CheckGrabMaintainsControlWithoutL3();
-            CheckGrabReleaseClosesAndRearms();
+            CheckGrabReleaseKeepsDeployment();
             CheckGrabSessionCancellation();
             CheckEmptyArmRequiresL3();
             CheckManualDeliveryAndRecycle();
@@ -45,7 +45,7 @@ namespace AnimalGame.Editor
             Debug.Log("Normal arm input checks PASS: 19 groups; production settings, actual-pose hold, radial rates, "
                 + "progressive speed, shared radial/tangential travel rates, duration scaling, turn-speed isolation/resistance, axis isolation, reach limits, "
                 + "boundary follow, collision backlog, deployment/session reset, A-held control after L3 release, "
-                + "grab release/rearm, cancellation, empty-arm input, manual recycling, heavy anchors and "
+                + "grab release deployment/actual-pose retention, cancellation, empty-arm input, manual recycling, heavy anchors and "
                 + "tumble isolation; key cases at 30/60/120 FPS.");
         }
         public static void RunBatch()
@@ -406,7 +406,7 @@ namespace AnimalGame.Editor
                     "A-held neutral input moved garbage toward the body");
             }
         }
-        private static void CheckGrabReleaseClosesAndRearms()
+        private static void CheckGrabReleaseKeepsDeployment()
         {
             foreach (int fps in FrameRates)
             foreach (bool l3Held in new[] { false, true })
@@ -414,24 +414,22 @@ namespace AnimalGame.Editor
             {
                 f.Place(f.At(20f, .7f)); WorldInteraction item = f.GrabSmall();
                 f.Tick(1, Vector2.zero, l3Held, true);
-                Vector3 position = item.WorldPosition;
-                f.Tick(1, Vector2.right, l3Held, false);
+                Vector3 position = item.WorldPosition; float[] pose = f.Snapshot(); float radius = f.Centre.magnitude;
+                f.Tick(1, Vector2.zero, l3Held, false);
                 Require(f.Arms.HeldObject == null && item.Owner == null && item.gameObject.activeSelf
-                    && f.Arms.State == RobotArmState.Retracting && !f.Arms.IsArmModeActive
-                    && !f.Mover.IsArmInputCaptured,
-                    "A release did not drop outside garbage and start retracting: FPS=" + fps + ", L3=" + l3Held);
-                f.TickSeconds(2f, Vector2.right, l3Held, false);
-                Require(f.Arms.State == RobotArmState.Retracted && !f.Arms.IsArmModeActive
-                    && !f.Mover.IsArmInputCaptured && Vector3.Distance(position, item.WorldPosition) < f.Length * .0001f,
-                    "Old L3 hold reopened the arms or moved the released garbage");
-                f.TickSeconds(.25f, Vector2.up, l3Held, true);
-                Require(f.Arms.State == RobotArmState.Retracted && f.Arms.HeldObject == null
-                    && !f.Mover.IsArmInputCaptured, "Re-pressing A bypassed the need for fresh L3 deployment");
-                if (l3Held) f.Tick(1, Vector2.zero, false, false);
-                f.TickSeconds(2f, Vector2.zero, true, false);
+                    && f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsArmModeActive
+                    && f.Mover.IsArmInputCaptured && !(bool)Get(f.Arms, "grabArmSession")
+                    && (bool)Get(f.Arms, "armToggleActive") && f.Mover.GrabMovementMultiplier == 1f,
+                    "A release did not retain deployment after dropping outside garbage: FPS=" + fps + ", L3=" + l3Held);
+                f.RequireSnapshot(pose, "A release changed the actual arm pose");
+                f.TickSeconds(.5f, Vector2.zero, l3Held, false);
+                f.RequireSnapshot(pose, "Neutral input moved empty hands after dropping garbage");
+                f.TickSeconds(.1f, Vector2.down, l3Held, false);
                 Require(f.Arms.State == RobotArmState.OuterOperating && f.Arms.IsArmModeActive
-                    && f.Mover.IsArmInputCaptured && f.Arms.HeldObject == null,
-                    "Fresh L3 press could not deploy after the grab session closed");
+                    && f.Mover.IsArmInputCaptured && f.Arms.HeldObject == null
+                    && f.Centre.magnitude < radius - .001f
+                    && Vector3.Distance(position, item.WorldPosition) < f.Length * .0001f,
+                    "Post-drop normal input did not move only the empty arms");
             }
         }
         private static void CheckGrabSessionCancellation()

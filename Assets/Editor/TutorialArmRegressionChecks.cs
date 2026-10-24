@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using AnimalGame.Tutorial;
 using UnityEditor;
 using UnityEngine;
@@ -21,6 +22,7 @@ namespace AnimalGame.Editor
             CheckActualMotionAndDirection();
             CheckInterruptedMotion();
             CheckContinuousHoldAndFreshStow();
+            foreach (int fps in new[] { 30, 60, 120 }) CheckAlternateManualStow(fps);
             CheckBadSamples();
             foreach (int fps in new[] { 30, 60, 120 }) CheckFullLesson(fps);
             string output = Path.GetFullPath("output/validation/tutorial-arm");
@@ -208,6 +210,42 @@ namespace AnimalGame.Editor
                 "A manually requested close survives a paused animation and completes only after actual stowing.");
             Feed(hold, Pose(99f), Vector2.one);
             Require(hold.IsComplete && !hold.Advance() && hold.NormalizedProgress == 1f, "Completion remains stable after unrelated later inputs.");
+        }
+
+        private static void CheckAlternateManualStow(int fps)
+        {
+            MethodInfo inputMethod = typeof(TutorialArmLesson).GetMethod("ManualActionPressed",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Require(inputMethod != null, "The lesson exposes its real manual-action input boundary to regression checks.");
+            var manualAction = (Func<ArmTutorialStep, bool, bool, bool>)inputMethod.CreateDelegate(
+                typeof(Func<ArmTutorialStep, bool, bool, bool>));
+            float dt = 1f / fps;
+            var deploy = Fixture();
+            Feed(deploy, Pose(), dt: dt, toggle: manualAction(deploy.Step, false, true));
+            Require(!deploy.IsStepSatisfied, fps + " FPS: B cannot masquerade as the requested fresh L3 deployment.");
+            Require(manualAction(ArmTutorialStep.Deploy, true, false),
+                fps + " FPS: L3 remains eligible to start a genuine deployment from hidden arms.");
+
+            var stow = At(ArmTutorialStep.Stow);
+            Feed(stow, Pose(), dt: dt, mode: false, deployment: 0f, operating: false, retracted: true,
+                toggle: manualAction(stow.Step, false, false));
+            Require(!stow.IsStepSatisfied, fps + " FPS: B on already hidden arms cannot turn an automatic stow into a manual one.");
+            Feed(stow, Pose(), dt: dt);
+            Feed(stow, Pose(), dt: dt, mode: false, deployment: .8f, operating: false,
+                toggle: manualAction(stow.Step, false, true));
+            Require(!stow.IsStepSatisfied, fps + " FPS: B's closing request still waits for the real retraction animation.");
+            stow.Suspend();
+            Feed(stow, Pose(), dt: dt, mode: false, deployment: .3f, operating: false);
+            Require(!stow.IsStepSatisfied, fps + " FPS: a paused B close cannot finish while arms are still visible.");
+            Feed(stow, Pose(), dt: dt, mode: false, deployment: 0f, operating: false, retracted: true);
+            Require(stow.IsStepSatisfied && stow.Advance() && stow.IsComplete,
+                fps + " FPS: B completes the final manual stow once both arms are actually hidden.");
+
+            var instantStow = At(ArmTutorialStep.Stow);
+            Feed(instantStow, Pose(), dt: dt, mode: false, deployment: 0f, operating: false, retracted: true,
+                toggle: manualAction(instantStow.Step, false, true));
+            Require(instantStow.IsStepSatisfied,
+                fps + " FPS: an accepted B close can complete Stow even if the arms became fully hidden on its command frame.");
         }
 
         private static void CheckBadSamples()

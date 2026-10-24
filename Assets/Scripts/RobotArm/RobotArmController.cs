@@ -19,6 +19,7 @@ namespace AnimalGame.RobotArm
         [Header("Input")]
         [SerializeField] private KeyCode keyboardArmKey = KeyCode.CapsLock;
         [SerializeField] private KeyCode keyboardGrabKey = KeyCode.Space;
+        [SerializeField] private KeyCode keyboardRetractKey = KeyCode.B;
         [SerializeField, Range(0f, .17f)] private float leftStickDeadZone = .08f;
         [Header("Artwork")]
         [FormerlySerializedAs("robotHandSprite")]
@@ -93,6 +94,8 @@ namespace AnimalGame.RobotArm
 
         public RobotArmState State { get; private set; }
         public bool IsArmModeActive { get; private set; }
+        // Accepted dedicated close command for tutorial observers.
+        public bool ManualRetractRequestedThisFrame { get; private set; }
         // Kept for self-righting: input direction remains robot-local, using raw magnitude.
         public Vector2 CurrentTargetLocal { get; private set; }
         public float CurrentInputMagnitude { get; private set; }
@@ -219,6 +222,7 @@ namespace AnimalGame.RobotArm
 
         private void Update()
         {
+            ManualRetractRequestedThisFrame = false;
             bool armButtonHeld = Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
             if (AnimalGame.MainUI.MainUI.BlocksGameplay)
             {
@@ -231,12 +235,18 @@ namespace AnimalGame.RobotArm
             EnsureVisuals();
             if (!initialized) return;
             bool grab = Input.GetKey(keyboardGrabKey) || AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld();
-            Step(Time.deltaTime, ReadLocalInput(), armButtonHeld, grab);
+            bool retractPressed = Input.GetKeyDown(keyboardRetractKey)
+                || AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame();
+            StepInput(Time.deltaTime, ReadLocalInput(), armButtonHeld, grab, retractPressed);
         }
 
         // Separate input sampling from simulation so the same transitions can be regression checked.
         private void Step(float deltaTime, Vector2 localInput, bool armButtonHeld, bool grab)
+            => StepInput(deltaTime, localInput, armButtonHeld, grab, false);
+
+        private void StepInput(float deltaTime, Vector2 localInput, bool armButtonHeld, bool grab, bool retractPressed)
         {
+            ManualRetractRequestedThisFrame = false;
             stepDelta = Mathf.Max(0f, deltaTime);
             IsBlocked = false;
             if (!this || !isActiveAndEnabled) return;
@@ -260,6 +270,15 @@ namespace AnimalGame.RobotArm
                 armToggleActive = false;
                 armRequiresFreshPress = true;
             }
+            else if (retractPressed && (armToggleActive || wasRecyclingAtInput || deploymentTime > .00001f))
+            {
+                // B only closes an existing deployment. Feeding already committed waste
+                // must finish first; its completion then honours this manual close.
+                ManualRetractRequestedThisFrame = true;
+                armToggleActive = false;
+                armRequiresFreshPress = true;
+                if (wasRecyclingAtInput) recycleKeepArmsOpen = false;
+            }
             else if (armButtonPressed && !armRequiresFreshPress && !wasRecyclingAtInput)
                 armToggleActive = !armToggleActive;
 
@@ -278,7 +297,7 @@ namespace AnimalGame.RobotArm
                 // A release at the visible chest position wins over a simultaneous
                 // toggle-off command, aim or body motion.
                 if (!grab && HandsDeployed && IsHeldInRecycleZone()) BeginRecycle();
-                else if (grabArmSession && !grab) Drop();
+                else if (grabArmSession && !grab) Drop(armHeld);
                 else if (!armHeld) Drop();
             }
             if (!this || !isActiveAndEnabled) return;
@@ -316,7 +335,7 @@ namespace AnimalGame.RobotArm
             {
                 if (!grab && heldObject != null)
                 {
-                    if (IsRecycleReady) BeginRecycle(); else Drop();
+                    if (IsRecycleReady) BeginRecycle(); else Drop(armHeld);
                 }
                 else if (grab && heldObject == null) TryGrab();
             }
@@ -332,6 +351,9 @@ namespace AnimalGame.RobotArm
         }
 
         private bool WantsArmMode(bool canOperate) => canOperate && armToggleActive;
+
+        internal bool UsesActiveGrabKey(KeyCode key) => keyboardGrabKey == key
+            && (armToggleActive || deploymentTime > 0f || heldObject != null || State == RobotArmState.Recycling);
 
         private void EndGrabArmSession()
         {
@@ -1060,7 +1082,7 @@ namespace AnimalGame.RobotArm
             if (armToggleActive) targetLocal = NormalHandCentre;
             mover?.SetArmInputCaptured(armToggleActive);
         }
-        private void Drop()
+        private void Drop(bool keepArmsOpen = false)
         {
             WorldInteraction item = heldObject;
             // Cancellation restores the physical pose before removing the inlet clip.
@@ -1068,9 +1090,14 @@ namespace AnimalGame.RobotArm
                 SetHeldRootPose(recycleSafePosition, recycleSafeRotation);
             // Unity's destroyed-object null must still release the presentation session.
             ClearHeld();
+            // Releasing A ends the grip while retaining the deployment switch. Restore
+            // before callbacks so a disable/re-enable cannot revive the old controls.
+            if (keepArmsOpen) FinishArmAction(true);
             if (item != null) item.Release(this);
+            if (!this) return;
             SetHandGrip(false);
             if (State == RobotArmState.Recycling) State = RobotArmState.OuterOperating;
+            if (keepArmsOpen && this && isActiveAndEnabled && (!CanOperate || !Upright)) FinishArmAction();
         }
         private void SetHandGrip(bool closed)
         {
@@ -1226,18 +1253,24 @@ namespace AnimalGame.RobotArm
             float radians = angle * Mathf.Deg2Rad, c = Mathf.Cos(radians), s = Mathf.Sin(radians);
             return new Vector2(c * vector.x - s * vector.y, s * vector.x + c * vector.y);
         }
-        private void OnDisable()
+        public void CancelArmControl()
         {
+            ManualRetractRequestedThisFrame = false;
             ResetNormalArmInput();
-            Drop(); IsArmModeActive = false; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
+            if (heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out var pull))
+                pull.CancelPullImmediately();
+            Drop();
+            if (!this) return;
+            IsArmModeActive = false; CurrentInputMagnitude = 0f; CurrentTargetLocal = Vector2.zero;
             armToggleActive = false;
             armRequiresFreshPress = true;
             mover?.SetArmInputCaptured(false);
             deploymentTime = 0f; State = RobotArmState.Retracted; previousGrab = false;
             ResetTumbleArmLayout();
-            if (left != null) { left.Pose = default; left.Root.gameObject.SetActive(false); }
-            if (right != null) { right.Pose = default; right.Root.gameObject.SetActive(false); }
+            if (left != null) { left.Pose = default; if (left.Root != null) left.Root.gameObject.SetActive(false); }
+            if (right != null) { right.Pose = default; if (right.Root != null) right.Root.gameObject.SetActive(false); }
         }
+        private void OnDisable() => CancelArmControl();
         private void OnDrawGizmosSelected()
         {
             if (!initialized || marker == null || marker.MarkerVisualRoot == null) return;

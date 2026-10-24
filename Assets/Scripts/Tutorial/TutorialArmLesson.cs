@@ -101,7 +101,8 @@ namespace AnimalGame.Tutorial
                 arm.IsArmModeActive, arm.State == RobotArmState.OuterOperating && !arm.IsTumbleArmLayoutActive,
                 arm.State == RobotArmState.Retracted, arm.HeldObject == null && arm.State != RobotArmState.Recycling,
                 bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright,
-                valid, Time.deltaTime, !justStarted && togglePressed, arm.IsBlocked));
+                valid, Time.deltaTime, !justStarted && ManualActionPressed(progress.Step,
+                    togglePressed, arm.ManualRetractRequestedThisFrame), arm.IsBlocked));
             if (progress.IsStepSatisfied) progress.Advance();
             if (progress.Step != previousStep)
             {
@@ -131,6 +132,10 @@ namespace AnimalGame.Tutorial
         private bool IsModal() => Time.deltaTime <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay
             || (bootstrap.photoMode != null && (bootstrap.photoMode.IsActive || bootstrap.photoMode.IsInputLocked))
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
+
+        // Observe an accepted close command so menu input and B on hidden arms cannot satisfy Stow.
+        private static bool ManualActionPressed(ArmTutorialStep step, bool togglePressed, bool closeAccepted) =>
+            togglePressed || (step == ArmTutorialStep.Stow && closeAccepted);
 
         private bool CanPractice()
         {

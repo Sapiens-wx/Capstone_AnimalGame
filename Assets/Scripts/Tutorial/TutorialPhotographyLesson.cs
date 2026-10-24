@@ -137,8 +137,8 @@ namespace AnimalGame.Tutorial
                 || bootstrap.robot.IsLevelThreeUnstable || bootstrap.robot.IsAutoAligningDownhill
                 || (bootstrap.tumble != null && bootstrap.tumble.State != RobotTumbleState.Upright)) return false;
             RobotArmController arm = bootstrap.armController;
-            return arm != null && arm.isActiveAndEnabled && !arm.IsArmModeActive && arm.HeldObject == null
-                && arm.State == RobotArmState.Retracted
+            // Entering photo mode cancels the arms itself, including an active grip.
+            return arm != null && arm.isActiveAndEnabled
                 && ((progress != null && progress.HasSavedPhoto) || (targets != null && targets.IsAnimalReady));
         }
 
@@ -216,10 +216,7 @@ namespace AnimalGame.Tutorial
                 .Add("value", progress.Value).Add("target", progress.Target);
             string message = item.Message, action = item.Action, glyph = item.ControlGlyph, detail = item.Detail;
             string status = progress.HasSavedPhoto ? text.SavedStatus : text.WaitingStatus;
-            bool armsOpen = bootstrap != null && bootstrap.armController != null
-                && (bootstrap.armController.IsArmModeActive || bootstrap.armController.HeldObject != null);
             if (progress.IsComplete) status = text.CompleteStatus;
-            else if (armsOpen) { message = text.NeedStowMessage; glyph = "L3"; status = text.NeedStowStatus; }
             else if (!valid) status = text.BlockedStatus;
             else if (targets != null && targets.Animal == null) { message = text.TargetMissingMessage; status = text.TargetMissingStatus; }
             else if (targets != null && targets.Animal != null && !targets.Animal.IsPermanentlyDiscovered)
