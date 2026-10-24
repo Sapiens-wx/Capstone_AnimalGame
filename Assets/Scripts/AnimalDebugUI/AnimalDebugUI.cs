@@ -34,6 +34,18 @@ namespace AnimalGame.AnimalDebug
         private readonly List<Button> controls = new();
         private AnimalAgent selected, highlighted;
         private AnimalDebugCommand command;
+        private AnimalDailyBehaviourSettings selectedDaily;
+        private int selectedDailyIndex = -1;
+        private readonly HashSet<AnimalDebugCommand> expandedCommands = new();
+        private readonly List<CommandEntry> commandEntries = new();
+        private sealed class CommandEntry
+        {
+            public AnimalDebugCommand Command;
+            public bool IsGroup, IsDailyEntry, IsChild;
+            public AnimalDailyBehaviourSettings Daily;
+            public int DailyIndex = -1;
+            public string Label;
+        }
         private AnimalDebugCommandResult result;
         private bool open, sampling, savedCursorVisible;
         private CursorLockMode savedCursorLock;
@@ -143,27 +155,113 @@ namespace AnimalGame.AnimalDebug
 
         private void SetupCommands()
         {
-            commandList.itemsSource = AnimalDebugCommandService.Commands;
+            commandList.itemsSource = commandEntries;
             commandList.fixedItemHeight = 48;
             commandList.selectionType = SelectionType.None;
+            ScrollView scroll = commandList.Q<ScrollView>();
+            if (scroll != null)
+            {
+                scroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
+                scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            }
             commandList.makeItem = () =>
             {
                 var row = new Button { focusable = false }; row.AddToClassList("animal-row");
-                row.clicked += () => { if (row.userData is AnimalDebugCommand next) ChooseCommand(next); };
+                row.clicked += () => { if (row.userData is CommandEntry entry) ActivateCommand(entry); };
                 row.RegisterCallback<PointerEnterEvent>(_ =>
-                { if (row.userData is AnimalDebugCommand next) { commandIndex = (int)next; commandList.RefreshItems(); } });
+                {
+                    if (row.userData is CommandEntry entry)
+                    { commandIndex = commandEntries.IndexOf(entry); RefreshCommandHighlight(); }
+                });
                 return row;
             };
-            commandList.bindItem = (element, index) =>
+            commandList.bindItem = (element, index) => BindCommandRow((Button)element, index);
+            commandList.unbindItem = (element, _) =>
             {
-                var row = (Button)element; var next = AnimalDebugCommandService.Commands[index]; row.userData = next;
-                bool available = AnimalDebugCommandService.Validate(selected, next, out string reason);
-                row.text = AnimalDebugCommandService.Label(next) + (available ? "" : " — unavailable");
-                row.tooltip = available ? "" : reason;
-                row.EnableInClassList("highlight", index == commandIndex);
+                element.userData = null;
+                element.SetEnabled(true);
+                element.RemoveFromClassList("command-child");
+                element.RemoveFromClassList("command-group");
+                element.RemoveFromClassList("highlight");
             };
-            commandList.unbindItem = (element, _) => element.userData = null;
+            RebuildCommands();
         }
+        private bool CommandAvailable(CommandEntry entry, out string reason)
+        {
+            if (entry.IsGroup) { reason = null; return true; }
+            return entry.IsDailyEntry ? AnimalDebugCommandService.ValidateDaily(selected, entry.Daily, out reason)
+                : AnimalDebugCommandService.Validate(selected, entry.Command, out reason);
+        }
+        private void BindCommandRow(Button row, int index)
+        {
+            CommandEntry entry = commandEntries[index];
+            row.userData = entry;
+            bool available = CommandAvailable(entry, out string reason);
+            row.text = entry.Label + (available ? "" : " — unavailable");
+            row.tooltip = available ? "" : reason;
+            row.SetEnabled(available);
+            row.EnableInClassList("command-child", entry.IsChild);
+            row.EnableInClassList("command-group", entry.IsGroup);
+            row.EnableInClassList("highlight", index == commandIndex);
+        }
+        private void RebuildCommands()
+        {
+            commandEntries.Clear();
+            foreach (AnimalDebugCommand parent in AnimalDebugCommandService.Commands)
+            {
+                bool hasChildren = parent == AnimalDebugCommand.Daily && IsValid(selected) && selected.Config.DailyBehaviours.Count > 0;
+                if (!hasChildren) expandedCommands.Remove(parent);
+                bool expanded = hasChildren && expandedCommands.Contains(parent);
+                commandEntries.Add(new CommandEntry { Command = parent, IsGroup = hasChildren,
+                    Label = hasChildren ? (expanded ? "▼ " : "▶ ") + "Daily" : AnimalDebugCommandService.Label(parent) });
+                if (!expanded) continue;
+                commandEntries.Add(new CommandEntry { Command = parent, IsChild = true, Label = AnimalDebugCommandService.Label(parent) });
+                if (parent != AnimalDebugCommand.Daily || !IsValid(selected)) continue;
+                for (int i = 0; i < selected.Config.DailyBehaviours.Count; i++)
+                {
+                    AnimalDailyBehaviourSettings settings = selected.Config.DailyBehaviours[i];
+                    commandEntries.Add(new CommandEntry { Command = parent, IsChild = true, IsDailyEntry = true, Daily = settings, DailyIndex = i,
+                        Label = AnimalDebugCommandService.DailyLabel(settings, i) });
+                }
+            }
+            commandIndex = Mathf.Clamp(commandIndex, 0, Mathf.Max(0, commandEntries.Count - 1));
+            commandList.Rebuild();
+        }
+        private void RefreshCommandHighlight()
+        {
+            foreach (Button row in commandList.Query<Button>().ToList())
+                if (row.userData is CommandEntry entry)
+                    row.EnableInClassList("highlight", commandEntries.IndexOf(entry) == commandIndex);
+            RefreshDetails();
+        }
+        private void ActivateCommand(CommandEntry entry)
+        {
+            if (entry.IsGroup)
+            {
+                if (!expandedCommands.Add(entry.Command)) expandedCommands.Remove(entry.Command);
+                RebuildCommands();
+                commandIndex = commandEntries.FindIndex(item => item.IsGroup && item.Command == entry.Command);
+                commandList.RefreshItems(); commandList.ScrollToItem(commandIndex);
+                return;
+            }
+            if (!CommandAvailable(entry, out string reason)) { message.text = "Unavailable: " + reason; return; }
+            command = entry.Command;
+            selectedDaily = entry.IsDailyEntry ? entry.Daily : null;
+            selectedDailyIndex = entry.IsDailyEntry ? entry.DailyIndex : -1;
+            result = null; message.text = "";
+            SetPopup(null); RefreshDetails();
+        }
+        private void ResetCommandSelection()
+        {
+            command = AnimalDebugCommand.Daily; selectedDaily = null; selectedDailyIndex = -1;
+            expandedCommands.Clear(); commandIndex = 0;
+            if (commandList != null) RebuildCommands();
+        }
+        private string SelectedCommandLabel => selectedDailyIndex >= 0
+            ? AnimalDebugCommandService.DailyLabel(selectedDaily, selectedDailyIndex) : AnimalDebugCommandService.Label(command);
+        private bool SelectedCommandAvailable(out string reason) => selectedDailyIndex >= 0
+            ? AnimalDebugCommandService.ValidateDaily(selected, selectedDaily, out reason)
+            : AnimalDebugCommandService.Validate(selected, command, out reason);
 
         private bool IsValid(AnimalAgent animal) => AnimalDebugSelection.IsSelectable(animal, gameObject.scene);
         private bool OtherPanelOpen()
@@ -207,6 +305,7 @@ namespace AnimalGame.AnimalDebug
         {
             if (!IsValid(animal)) return;
             selected = animal; result = null; sampling = false; message.text = "";
+            ResetCommandSelection();
             SetPopup(null); RefreshDetails();
         }
 
@@ -229,20 +328,25 @@ namespace AnimalGame.AnimalDebug
         {
             sampling = false;
             bool show = !Visible(commandPopup); SetPopup(show ? commandPopup : null);
-            if (show) { commandIndex = (int)command; commandList.RefreshItems(); }
+            if (show)
+            {
+                expandedCommands.Clear(); RebuildCommands();
+                commandIndex = commandEntries.FindIndex(entry => !entry.IsChild && entry.Command == command);
+                commandList.RefreshItems(); commandList.ScrollToItem(commandIndex);
+            }
         }
         private void ToggleSampling()
         {
             sampling = !sampling; SetPopup(null); sampleFrame = Time.frameCount; result = null;
             message.text = sampling ? "Click an animal. B / Esc cancels." : "Sampling cancelled.";
         }
-        private void ChooseCommand(AnimalDebugCommand next)
-        { command = next; SetPopup(null); commandButton.text = AnimalDebugCommandService.Label(command) + "  ▼"; }
         private void Execute()
         {
             if (lastActionFrame == Time.frameCount) return;
             lastActionFrame = Time.frameCount;
-            result = AnimalDebugCommandService.Execute(selected, command); RefreshDetails();
+            result = selectedDailyIndex >= 0 ? AnimalDebugCommandService.ExecuteDaily(selected, selectedDaily)
+                : AnimalDebugCommandService.Execute(selected, command);
+            RefreshDetails();
         }
         private void Back()
         {
@@ -262,6 +366,7 @@ namespace AnimalGame.AnimalDebug
             if (!IsValid(selected))
             {
                 if (!ReferenceEquals(selected, null) && !sampling) message.text = "";
+                if (!ReferenceEquals(selected, null)) ResetCommandSelection();
                 selected = null; result = null;
             }
             if (!IsValid(highlighted)) highlighted = null;
@@ -274,8 +379,10 @@ namespace AnimalGame.AnimalDebug
             bool valid = IsValid(selected);
             animalButton.text = (valid ? AnimalDebugSelection.DisplayName(selected) : "Select an animal") + "  ▼";
             sampleButton.text = sampling ? "Cancel pick" : "Pick";
-            commandButton.text = AnimalDebugCommandService.Label(command) + "  ▼";
-            executeButton.SetEnabled(valid);
+            if (selectedDailyIndex >= 0 && (!valid || selectedDailyIndex >= selected.Config.DailyBehaviours.Count
+                || !ReferenceEquals(selected.Config.DailyBehaviours[selectedDailyIndex], selectedDaily))) ResetCommandSelection();
+            commandButton.text = SelectedCommandLabel + "  ▼";
+            executeButton.SetEnabled(valid && SelectedCommandAvailable(out _));
             float ratio = valid && selected.Health.MaximumHealth > 0 ? Mathf.Clamp01(selected.Health.CurrentHealth / selected.Health.MaximumHealth) : 0;
             healthFill.style.width = Length.Percent(ratio * 100);
             health.text = valid ? $"{selected.Health.CurrentHealth:0.#} / {selected.Health.MaximumHealth:0.#}  ({ratio:P0})" : "—";
@@ -295,6 +402,13 @@ namespace AnimalGame.AnimalDebug
             {
                 bool error = result.Status == AnimalDebugCommandStatus.Rejected || result.Status == AnimalDebugCommandStatus.Failed;
                 message.text = (error ? "Error: " : "") + result.Message;
+            }
+            if (Visible(commandPopup) && commandIndex >= 0 && commandIndex < commandEntries.Count)
+            {
+                CommandEntry entry = commandEntries[commandIndex];
+                message.text = CommandAvailable(entry, out string reason)
+                    ? entry.IsGroup ? "Select to expand or collapse this group." : "Select this behaviour, then press Execute."
+                    : "Unavailable: " + reason;
             }
         }
 
@@ -363,8 +477,12 @@ namespace AnimalGame.AnimalDebug
                 }
                 else if (Visible(commandPopup))
                 {
-                    if (move != 0) { commandIndex = (commandIndex + move + AnimalDebugCommandService.Commands.Length) % AnimalDebugCommandService.Commands.Length; commandList.RefreshItems(); commandList.ScrollToItem(commandIndex); }
-                    if (submit) ChooseCommand(AnimalDebugCommandService.Commands[commandIndex]);
+                    if (move != 0 && commandEntries.Count > 0)
+                    {
+                        commandIndex = (commandIndex + move + commandEntries.Count) % commandEntries.Count;
+                        RefreshCommandHighlight(); commandList.ScrollToItem(commandIndex);
+                    }
+                    if (submit && commandEntries.Count > 0) ActivateCommand(commandEntries[commandIndex]);
                 }
                 else
                 {
@@ -379,7 +497,27 @@ namespace AnimalGame.AnimalDebug
                 if (picked != null && IsValid(picked)) Select(picked); else message.text = "No animal at this point. Try again.";
             }
             if (Time.unscaledTime >= refreshAt)
-            { refreshAt = Time.unscaledTime + .1f; RefreshAnimals(); RefreshDetails(); }
+            {
+                refreshAt = Time.unscaledTime + .1f; RefreshAnimals();
+                if (Visible(commandPopup))
+                {
+                    int entries = IsValid(selected) ? selected.Config.DailyBehaviours.Count : 0;
+                    bool changed = false;
+                    int shown = 0;
+                    foreach (CommandEntry entry in commandEntries)
+                    {
+                        if (!entry.IsChild && entry.Command == AnimalDebugCommand.Daily)
+                            changed |= entry.IsGroup != (entries > 0);
+                        if (!entry.IsDailyEntry) continue;
+                        shown++;
+                        changed |= entry.DailyIndex >= entries || !ReferenceEquals(entry.Daily, selected.Config.DailyBehaviours[entry.DailyIndex])
+                            || entry.Label != AnimalDebugCommandService.DailyLabel(entry.Daily, entry.DailyIndex);
+                    }
+                    if (expandedCommands.Contains(AnimalDebugCommand.Daily) && shown != entries) changed = true;
+                    if (changed) RebuildCommands(); else commandList.RefreshItems();
+                }
+                RefreshDetails();
+            }
         }
 
         private bool PointerOverUI(Vector2 screen)

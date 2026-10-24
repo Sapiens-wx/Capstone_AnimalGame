@@ -18,7 +18,7 @@
             <ui:Label name="State" text="State: —" class="detail" />
             <ui:Label name="Action" text="Action: —" class="detail wrap" />
         </ui:ScrollView>
-        <ui:Label text="Force a general behavior" class="hint" />
+        <ui:Label text="Choose a behavior, then press Execute" class="hint" />
         <ui:VisualElement name="CommandRow" class="row command-row">
             <ui:Button name="Command" text="Daily (autonomous)  ▼" class="grow" />
             <ui:Button name="Execute" text="Execute" class="small-button" />
@@ -29,7 +29,7 @@
             <ui:ListView name="AnimalList" class="popup-list" />
         </ui:VisualElement>
         <ui:VisualElement name="CommandPopup" class="popup command-popup" style="display: none;">
-            <ui:Label text="GENERAL BEHAVIORS" class="popup-title" />
+            <ui:Label text="BEHAVIORS · select a group to expand" class="popup-title" />
             <ui:ListView name="CommandList" class="popup-list" />
         </ui:VisualElement>
     </ui:VisualElement>

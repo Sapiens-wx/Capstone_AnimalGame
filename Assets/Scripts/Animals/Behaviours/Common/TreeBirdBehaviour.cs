@@ -91,14 +91,34 @@ namespace AnimalGame.Animals
         }
         protected virtual bool CanRunSpeciesDaily(AnimalDailyBehaviourSettings settings) => false;
         protected virtual AnimalAction TryCreateSpeciesDailyAction(AnimalDailyBehaviourSettings settings) => null;
-        public AnimalAction CreateDailyAction(AnimalDailyBehaviourSettings settings)
+        public override bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)
+        {
+            reason = null;
+            if (settings == null) return base.CanRunDailyForDebug(settings, out reason);
+            if (settings.Behaviour == AnimalDailyBehaviourKind.FlyToTree)
+            {
+                if (HasOtherTree()) return true;
+                reason = "No other valid tree is available."; return false;
+            }
+            if (settings.Behaviour == AnimalDailyBehaviourKind.PerchAtTree || settings.Behaviour == AnimalDailyBehaviourKind.TreeActivity)
+            {
+                if (IsUsableTree(CurrentTree) && CurrentTree.ContainsActivityPoint(Agent.Map, Motor.CurrentMapPosition, Config.BodyRadiusMeters)) return true;
+                reason = "The bird must be perched on a valid tree."; return false;
+            }
+            return base.CanRunDailyForDebug(settings, out reason);
+        }
+        public override AnimalAction CreateDailyActionForDebug(AnimalDailyBehaviourSettings settings)
+            => settings.Behaviour == AnimalDailyBehaviourKind.TreeActivity || settings.Behaviour == AnimalDailyBehaviourKind.PerchAtTree
+                || settings.Behaviour == AnimalDailyBehaviourKind.FlyToTree || settings.Behaviour == AnimalDailyBehaviourKind.PeckAtTree
+                    ? CreateDailyAction(settings, true) : base.CreateDailyActionForDebug(settings);
+        public AnimalAction CreateDailyAction(AnimalDailyBehaviourSettings settings, bool ignoreScheduling = false)
         {
             switch (settings.Behaviour)
             {
                 case AnimalDailyBehaviourKind.TreeActivity: return new TreeActivityAction(this, settings.ChooseDuration());
                 case AnimalDailyBehaviourKind.PerchAtTree: return new PerchAtTreeAction(this, settings.ChooseDuration());
                 case AnimalDailyBehaviourKind.FlyToTree:
-                    return Agent.Runtime.Time >= nextFlightTime && TryChooseTree(out TreeHabitat tree) ? new FlyToTreeAction(this, tree) : null;
+                    return (ignoreScheduling || Agent.Runtime.Time >= nextFlightTime) && TryChooseTree(out TreeHabitat tree) ? new FlyToTreeAction(this, tree) : null;
                 default: return TryCreateSpeciesDailyAction(settings);
             }
         }

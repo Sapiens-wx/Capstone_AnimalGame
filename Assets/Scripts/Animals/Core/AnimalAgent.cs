@@ -19,6 +19,7 @@ namespace AnimalGame.Animals
         [Tooltip("Animals with the same non-empty ID in this scene form a group, including mixed species.")]
         [SerializeField] private string groupId;
         public AnimalSpeciesConfig Config => config;
+        public AnimalBehaviourSet Behaviour => behaviourSet;
         public bool SupportsAggression => behaviourSet != null && behaviourSet.SupportsAggression;
         public AnimalState ThreatResponse => behaviourSet != null ? behaviourSet.ThreatResponse : AnimalState.Curious;
         public bool CanAcceptSocialAction => CurrentState == AnimalState.Daily && behaviourSet != null

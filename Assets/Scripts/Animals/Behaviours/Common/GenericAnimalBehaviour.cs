@@ -12,6 +12,25 @@ namespace AnimalGame.Animals
         public override bool SupportsAggression => true;
         public override AnimalState PhotoState => HasConfiguredAction ? ConfiguredPhotoState : daily?.PhotoState ?? base.PhotoState;
         public override void EnterDaily() { daily = null; }
+        public override bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)
+        {
+            if (settings == null || settings.Action != null) return base.CanRunDailyForDebug(settings, out reason);
+            reason = null;
+            if (settings.Behaviour == AnimalDailyBehaviourKind.RoamAndLook)
+                return AnimalDailyTargets.CanRoam(Agent.Context, out reason);
+            if (settings.Behaviour == AnimalDailyBehaviourKind.EatAtNearbyPlant
+                || settings.Behaviour == AnimalDailyBehaviourKind.TravelToPlantAndEat)
+                return AnimalDailyTargets.CanEatPlant(Agent.Context, settings.Behaviour == AnimalDailyBehaviourKind.EatAtNearbyPlant, out reason);
+            return base.CanRunDailyForDebug(settings, out reason);
+        }
+        public override AnimalAction CreateDailyActionForDebug(AnimalDailyBehaviourSettings settings)
+        {
+            if (settings.Action != null) return base.CreateDailyActionForDebug(settings);
+            if (settings.Behaviour == AnimalDailyBehaviourKind.RoamAndLook) return new RoamAction(settings.ChooseDuration());
+            if (settings.Behaviour == AnimalDailyBehaviourKind.EatAtNearbyPlant || settings.Behaviour == AnimalDailyBehaviourKind.TravelToPlantAndEat)
+                return new EatPlantAction(settings.ChooseDuration(), settings.Behaviour == AnimalDailyBehaviourKind.EatAtNearbyPlant);
+            return base.CreateDailyActionForDebug(settings);
+        }
         public override void TickDaily(float dt)
         {
             if (TickConfiguredAction(dt)) return;

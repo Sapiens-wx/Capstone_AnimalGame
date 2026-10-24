@@ -21,6 +21,26 @@ namespace AnimalGame.Animals
         public virtual bool SupportsAggression => false;
         public virtual AnimalState ThreatResponse => AnimalState.Curious;
         public virtual bool UsesCustomFleeDespawn => false;
+        // Debug commands bypass scheduling, but validate physical/species prerequisites
+        // before interrupting the current action. Factories must not enter the action.
+        public virtual bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)
+        {
+            reason = null;
+            if (settings == null) { reason = "The daily entry is missing."; return false; }
+            if (settings.Action != null) return settings.Action.CanRunForDebug(Agent.Context, out reason);
+            if (settings.Behaviour == AnimalDailyBehaviourKind.Idle) return true;
+            if (settings.Behaviour == AnimalDailyBehaviourKind.Hunt)
+            {
+                if (Config.CanHunt && AnimalHuntTargets.Select(Agent.Context, ignoreCooldown: true) != null) return true;
+                reason = "No eligible prey or corpse is available for this animal."; return false;
+            }
+            reason = "This animal does not implement this daily behaviour.";
+            return false;
+        }
+        public virtual AnimalAction CreateDailyActionForDebug(AnimalDailyBehaviourSettings settings)
+            => settings.Action != null ? settings.Action.CreateRuntime(settings)
+                : settings.Behaviour == AnimalDailyBehaviourKind.Hunt ? new HuntAction()
+                : settings.Behaviour == AnimalDailyBehaviourKind.Idle ? new IdleAction(settings.ChooseDuration()) : null;
         public bool CanAcceptSocialAction => !HasConfiguredAction || configuredAction is IdleAction
             || configuredAction is LookAroundAction || configuredAction is RestAtTerrainAction;
         public virtual AnimalAction CreateEscapeAction() => Config.EscapeAction != null

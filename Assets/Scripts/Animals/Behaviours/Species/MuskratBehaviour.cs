@@ -56,6 +56,48 @@ namespace AnimalGame.Animals
         private Vector2 lookBaseDirection = Vector2.up;
         private bool hidingPrefersWater;
         private bool emergingFromWater;
+        private bool debugDailyRunning;
+        private AnimalActionStatus debugDailyStatus;
+
+        public override bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)
+        {
+            if (settings == null || settings.Action != null || settings.Behaviour == AnimalDailyBehaviourKind.Idle
+                || settings.Behaviour == AnimalDailyBehaviourKind.Hunt)
+                return base.CanRunDailyForDebug(settings, out reason);
+            bool valid = IsDailyBehaviourAvailable(settings.Behaviour);
+            reason = valid ? null : settings.Behaviour == AnimalDailyBehaviourKind.DiveAndResurface
+                ? "No reachable water deep enough for diving is available." : "No suitable food or activity position is available.";
+            return valid;
+        }
+        public override AnimalAction CreateDailyActionForDebug(AnimalDailyBehaviourSettings settings)
+            => settings.Action != null || settings.Behaviour == AnimalDailyBehaviourKind.Idle || settings.Behaviour == AnimalDailyBehaviourKind.Hunt
+                ? base.CreateDailyActionForDebug(settings) : new DebugDailyAction(this, settings);
+
+        // Reuse the native eating/roaming/diving phases, stopping at their first
+        // completion instead of allowing BeginNextDailyBehaviour to schedule again.
+        private sealed class DebugDailyAction : AnimalAction
+        {
+            private readonly MuskratBehaviour behaviour;
+            private readonly AnimalDailyBehaviourSettings settings;
+            public DebugDailyAction(MuskratBehaviour behaviour, AnimalDailyBehaviourSettings settings)
+            { this.behaviour = behaviour; this.settings = settings; }
+            public override string Name => settings.Behaviour.ToString();
+            public override AnimalState PhotoState => behaviour.PhotoState;
+            public override void Enter(AnimalContext c)
+            {
+                behaviour.debugDailyRunning = true;
+                behaviour.debugDailyStatus = AnimalActionStatus.Running;
+                if (!behaviour.TryBeginDailyBehaviour(settings)) behaviour.debugDailyStatus = AnimalActionStatus.Failed;
+            }
+            public override AnimalActionStatus Tick(AnimalContext c, float dt)
+            {
+                if (behaviour.debugDailyStatus == AnimalActionStatus.Running) behaviour.TickDaily(dt);
+                if (behaviour.debugDailyStatus == AnimalActionStatus.Failed) return Fail("The selected daily behaviour lost its target or could not finish.");
+                return behaviour.debugDailyStatus;
+            }
+            public override void Exit(AnimalContext c)
+            { behaviour.debugDailyRunning = false; behaviour.ExitDaily(); base.Exit(c); }
+        }
 
         public override bool SupportsAggression => false;
         public override AnimalAction CreateEscapeAction() => Config.EscapeAction != null
@@ -295,6 +337,13 @@ namespace AnimalGame.Animals
 
         private void BeginNextDailyBehaviour()
         {
+            if (debugDailyRunning)
+            {
+                debugDailyStatus = dailyPhase == DailyPhase.Eating || dailyPhase == DailyPhase.LookingAround || dailyPhase == DailyPhase.Surfacing
+                    ? AnimalActionStatus.Succeeded : AnimalActionStatus.Failed;
+                CleanupDailyVisualState(); Motor.Stop(); dailyPhase = DailyPhase.None;
+                return;
+            }
             Agent.DailyScheduler.Complete(currentDailySettings);
             CleanupDailyVisualState();
             Motor.Stop();

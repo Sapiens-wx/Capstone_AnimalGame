@@ -25,6 +25,15 @@ namespace AnimalGame.Animals
             => settings.Behaviour == AnimalDailyBehaviourKind.PeckAtTree && IsUsableTree(CurrentTree) && CurrentTree.IsDead;
         protected override AnimalAction TryCreateSpeciesDailyAction(AnimalDailyBehaviourSettings settings)
             => CanRunSpeciesDaily(settings) ? new WoodpeckerPeckAction(this, settings.ChooseDuration()) : null;
+        public override bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)
+        {
+            if (settings == null || settings.Behaviour != AnimalDailyBehaviourKind.PeckAtTree)
+                return base.CanRunDailyForDebug(settings, out reason);
+            bool valid = IsUsableTree(CurrentTree) && CurrentTree.IsDead
+                && CurrentTree.ContainsActivityPoint(Agent.Map, Motor.CurrentMapPosition, Config.BodyRadiusMeters);
+            reason = valid ? null : "Pecking requires the bird to be perched on a dead tree.";
+            return valid;
+        }
         internal float PeckFrequency => Mathf.Max(.1f, peckFrequencyHz);
         internal int PecksPerSoundWave => Mathf.Max(1, pecksPerSoundWave);
 

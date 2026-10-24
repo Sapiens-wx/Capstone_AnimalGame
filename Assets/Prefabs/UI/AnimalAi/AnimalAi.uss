@@ -37,3 +37,6 @@ Button:disabled { opacity: 0.4; }
 .popup-title { font-size: 13px; margin: 4px; color: rgb(210, 210, 210); }
 .popup-list { flex-grow: 1; min-height: 0; }
 .animal-row { margin: 1px; padding: 4px; -unity-text-align: middle-left; font-size: 14px; flex-shrink: 0; }
+.command-group { -unity-font-style: bold; }
+.command-child { margin-left: 22px; padding-left: 10px; }
+.command-popup .unity-scroll-view__vertical-scroller { min-width: 12px; }

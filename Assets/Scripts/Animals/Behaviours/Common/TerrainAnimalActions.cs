@@ -6,6 +6,24 @@ namespace AnimalGame.Animals
 {
     internal static class AnimalDailyTargets
     {
+        public static bool CanRoam(AnimalContext c, out string reason)
+        {
+            reason = null;
+            for (int i = 0; i < 40; i++)
+                if (c.Motor.CanOccupyMapPosition(c.Agent.ActivityCenter + Random.insideUnitCircle * c.Config.ActivityRadiusMeters)) return true;
+            reason = "No playable roaming position is available."; return false;
+        }
+        public static bool CanEatPlant(AnimalContext c, bool nearby, out string reason)
+        {
+            foreach (AnimalFoodSource source in AnimalFoodSource.ActiveSources)
+                if (source != null && source.isActiveAndEnabled && source.gameObject.scene == c.Agent.gameObject.scene
+                    && source.SelectionWeight * c.Config.GetFoodSelectionWeight(source.FoodType) > 0f
+                    && source.TryGetMapPosition(c.Agent.Map, out Vector2 point)
+                    && Vector2.Distance(point, c.Motor.CurrentMapPosition) <= (nearby ? c.Config.NearbyFoodDistanceMeters : c.Config.ActivityRadiusMeters))
+                { reason = null; return true; }
+            reason = nearby ? "No suitable nearby plant is available." : "No suitable plant is within the activity radius.";
+            return false;
+        }
         public static bool Matches(TerrainKind actual, TerrainKind desired) => actual == desired
             || (desired == TerrainKind.Grass && (actual == TerrainKind.Grassland || actual == TerrainKind.GrassTest));
         public static bool Terrain(AnimalContext c, TerrainKind kind, float maxSlope, out Vector2 target)

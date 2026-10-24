@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using AnimalGame.AnimalDebug;
@@ -27,7 +28,11 @@ namespace AnimalGame.Editor
             CheckLiveHuntAndDeferredValidation();
             CheckSamplingAndProjection();
             CheckDocumentAndModalOwnership();
-            Debug.Log("Animal inspector checks PASS: rejection without interruption, species escape, forced cooldown reset, live-only hunt, deferred validation, circular sampling, edge arrows, UXML/prefab bindings and menu ownership.");
+            CheckSpecificDailyCommands();
+            CheckSpecificDailyDeferredValidation();
+            CheckMuskratDailyCommand();
+            CheckExpandableCommands();
+            Debug.Log("Animal inspector checks PASS: rejection without interruption, species escape, forced cooldown reset, live-only hunt, deferred validation, circular sampling, edge arrows, UXML/prefab bindings menu ownership, expandable daily entries and one-shot species actions.");
         }
         public static void RunBatch()
         {
@@ -153,6 +158,173 @@ namespace AnimalGame.Editor
             Require(ui.Document.rootVisualElement.Q<Button>("Execute").enabledSelf, "Selected animal cannot execute");
             ui.Close(); Require(!AnimalDebugUI.IsOpen, "Closing left modal ownership active");
         }
+        private static AnimalDailyBehaviourSettings DailyEntry(AnimalDailyBehaviourKind kind)
+        {
+            var settings = new AnimalDailyBehaviourSettings(kind, 0f, .1f, .1f);
+            Set(settings, "cooldownSeconds", 999f);
+            Set(settings, "seasonMultiplier", 0f); Set(settings, "timeOfDayMultiplier", 0f);
+            return settings;
+        }
+        private static TreeHabitat Tree(Fixture f, Vector2 position, TreeHealthState health)
+        {
+            GameObject go = f.New("Daily command tree", f.Map.MapPositionToWorld(position));
+            var placed = go.AddComponent<HeightMapPlacedObject>(); Set(placed, "map", f.Map);
+            var tree = go.AddComponent<TreeHabitat>(); tree.ConfigureEditorDefaults(health, null, .6f);
+            return tree;
+        }
+        private static void CheckSpecificDailyCommands()
+        {
+            using var f = new Fixture();
+            TreeHabitat home = Tree(f, new Vector2(10, 10), TreeHealthState.Dead);
+            AnimalAgent bird = f.Animal("Daily bird", new Vector2(10, 8), typeof(PileatedWoodpeckerBehaviour));
+            var entries = new List<AnimalDailyBehaviourSettings>
+            {
+                DailyEntry(AnimalDailyBehaviourKind.TreeActivity), DailyEntry(AnimalDailyBehaviourKind.PerchAtTree),
+                DailyEntry(AnimalDailyBehaviourKind.FlyToTree), DailyEntry(AnimalDailyBehaviourKind.PeckAtTree)
+            };
+            Set(bird.Config, "dailyBehaviours", entries);
+            var behaviour = bird.GetComponent<PileatedWoodpeckerBehaviour>();
+            for (int i = 0; i < entries.Count; i++) bird.DailyScheduler.Complete(entries[i]);
+            // Read-only menu validation must preserve both RNG and the running action.
+            var original = new ProbeAction(); bird.Brain.StartAction(original);
+            UnityEngine.Random.State random = UnityEngine.Random.state;
+            for (int i = 0; i < 5; i++) AnimalDebugCommandService.ValidateDaily(bird, entries[2], out _);
+            Require(JsonUtility.ToJson(random) == JsonUtility.ToJson(UnityEngine.Random.state) && original.Exits == 0,
+                "Menu validation consumed random values or interrupted the action");
+            Require(!AnimalDebugCommandService.ValidateDaily(bird, entries[2], out string missing) && missing.Contains("tree"),
+                "Single-tree flight was not unavailable");
+            Tree(f, new Vector2(20, 20), TreeHealthState.Dead);
+            for (int i = 0; i < 2; i++)
+            {
+                var result = AnimalDebugCommandService.ExecuteDaily(bird, entries[i]);
+                Require(result.Status == AnimalDebugCommandStatus.Started, "Forced daily entry obeyed scheduler weight/cooldown");
+                bird.Brain.Tick(.2f);
+                Require(result.Status == AnimalDebugCommandStatus.Succeeded && bird.CurrentState == AnimalState.Daily
+                    && !bird.Brain.HasOverrideAction, "Specific daily entry did not run exactly once");
+            }
+            var peck = AnimalDebugCommandService.ExecuteDaily(bird, entries[3]); bird.Brain.Tick(.2f);
+            Require(peck.Status == AnimalDebugCommandStatus.Succeeded, "Forced pecking did not finish");
+            home.ConfigureEditorDefaults(TreeHealthState.Healthy, null, .6f);
+            original = new ProbeAction(); bird.Brain.StartAction(original);
+            var rejected = AnimalDebugCommandService.ExecuteDaily(bird, entries[3]);
+            Require(rejected.Status == AnimalDebugCommandStatus.Rejected && rejected.Message.Contains("dead tree") && original.Exits == 0,
+                "Pecking on a healthy tree interrupted the current action");
+            var flight = AnimalDebugCommandService.ExecuteDaily(bird, entries[2]);
+            Require(flight.Status == AnimalDebugCommandStatus.Started && original.Exits == 1, "Forced flight did not bypass minimum tree stay");
+            for (int i = 0; i < 1000 && flight.Status == AnimalDebugCommandStatus.Started; i++)
+            { bird.Runtime.Time += .05f; bird.Brain.Tick(.05f); bird.Motor.Tick(.05f); }
+            Require(flight.Status == AnimalDebugCommandStatus.Succeeded && !bird.Brain.HasOverrideAction, "Forced flight did not land and resume daily");
+            Require(behaviour.CreateDailyAction(entries[2]) == null, "Normal flight lost its minimum stay constraint");
+            Require(AnimalDebugCommandService.ExecuteDaily(bird, entries[2]).Status == AnimalDebugCommandStatus.Started,
+                "A second forced flight incorrectly obeyed scheduler cooldown");
+            bird.NotifyThreat(f.New("Specific-action threat", f.Map.MapPositionToWorld(new Vector2(18, 18))).transform);
+            Require(bird.CurrentState == AnimalState.Fleeing, "Specific daily command prevented threat interruption");
+        }
+        private static void CheckSpecificDailyDeferredValidation()
+        {
+            using var f = new Fixture();
+            TreeHabitat home = Tree(f, new Vector2(10, 10), TreeHealthState.Dead);
+            AnimalAgent bird = f.Animal("Deferred daily bird", new Vector2(10, 8), typeof(PileatedWoodpeckerBehaviour));
+            var setting = DailyEntry(AnimalDailyBehaviourKind.PeckAtTree);
+            Set(bird.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings> { setting });
+            AnimalDebugCommandResult queued = null;
+            var action = new ProbeAction();
+            action.OnTick = () =>
+            {
+                queued = AnimalDebugCommandService.ExecuteDaily(bird, setting);
+                Require(queued.Status == AnimalDebugCommandStatus.Queued, "Specific command was not queued during Tick");
+                home.ConfigureEditorDefaults(TreeHealthState.Healthy, null, .6f);
+                action.OnTick = null;
+            };
+            bird.Brain.StartAction(action); bird.Brain.Tick(.01f);
+            Require(queued.Status == AnimalDebugCommandStatus.Rejected && action.Exits == 0,
+                "Queued daily command was not revalidated after the tree changed");
+            Set(bird.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>());
+            Require(!AnimalDebugCommandService.ValidateDaily(bird, setting, out _), "Removed daily entry remained executable");
+        }
+        private static void CheckMuskratDailyCommand()
+        {
+            using var f = new Fixture();
+            AnimalAgent muskrat = f.Animal("Daily muskrat", new Vector2(8, 8), typeof(MuskratBehaviour));
+            var roam = DailyEntry(AnimalDailyBehaviourKind.RoamAndLook);
+            var dive = DailyEntry(AnimalDailyBehaviourKind.DiveAndResurface);
+            Set(muskrat.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings> { roam, dive });
+            UnityEngine.Random.State random = UnityEngine.Random.state;
+            float expectedNext = UnityEngine.Random.value; UnityEngine.Random.state = random;
+            for (int i = 0; i < 5; i++) AnimalDebugCommandService.ValidateDaily(muskrat, roam, out _);
+            Require(UnityEngine.Random.value == expectedNext, "Availability checks changed simulation randomness");
+            UnityEngine.Random.state = random;
+            Require(!AnimalDebugCommandService.ValidateDaily(muskrat, dive, out string reason) && reason.Contains("water"),
+                "Dry-map diving was available");
+            var result = AnimalDebugCommandService.ExecuteDaily(muskrat, roam);
+            for (int i = 0; i < 1200 && result.Status == AnimalDebugCommandStatus.Started; i++)
+            { muskrat.Runtime.Time += .05f; muskrat.Brain.Tick(.05f); muskrat.Motor.Tick(.05f); }
+            Require(result.Status == AnimalDebugCommandStatus.Succeeded && !muskrat.Brain.HasOverrideAction,
+                "Muskrat native daily phases did not finish once: " + result.Message);
+            Set(f.Map.Presentation, "staticWaterDepthMap", new byte[] { 255, 255, 255, 255 });
+            Require(AnimalDebugCommandService.ValidateDaily(muskrat, dive, out _), "Valid water did not enable the diving entry");
+            result = AnimalDebugCommandService.ExecuteDaily(muskrat, dive);
+            bool submerged = false;
+            for (int i = 0; i < 1200 && result.Status == AnimalDebugCommandStatus.Started; i++)
+            {
+                muskrat.Runtime.Time += .05f; muskrat.Brain.Tick(.05f); muskrat.Motor.Tick(.05f);
+                submerged |= muskrat.PerceptionSuppressed;
+            }
+            Require(result.Status == AnimalDebugCommandStatus.Succeeded && submerged && !muskrat.PerceptionSuppressed
+                && !muskrat.Brain.HasOverrideAction, "One-shot diving did not surface and restore normal perception");
+        }
+        private static void CheckExpandableCommands()
+        {
+            using var f = new Fixture();
+            Tree(f, new Vector2(10, 10), TreeHealthState.Dead); Tree(f, new Vector2(20, 20), TreeHealthState.Dead);
+            AnimalAgent bird = f.Animal("Menu bird", new Vector2(10, 8), typeof(PileatedWoodpeckerBehaviour));
+            var entries = new List<AnimalDailyBehaviourSettings>
+            {
+                DailyEntry(AnimalDailyBehaviourKind.TreeActivity), DailyEntry(AnimalDailyBehaviourKind.PerchAtTree),
+                DailyEntry(AnimalDailyBehaviourKind.FlyToTree), DailyEntry(AnimalDailyBehaviourKind.PeckAtTree)
+            };
+            Set(bird.Config, "dailyBehaviours", entries);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/AnimalAi/AnimalAi.prefab");
+            var ui = ((GameObject)PrefabUtility.InstantiatePrefab(prefab, f.Scene)).GetComponent<AnimalDebugUI>();
+            Invoke(ui, "Awake"); Invoke(ui, "OnEnable"); Require(ui.Open(), "Menu test could not open inspector"); ui.Select(bird);
+            ListView list = ui.Document.rootVisualElement.Q<ListView>("CommandList");
+            Require(list.itemsSource.Count == 6, "Initial command menu did not contain only groups");
+            var probe = new ProbeAction(); bird.Brain.StartAction(probe);
+            Invoke(ui, "ToggleCommands"); Invoke(ui, "ActivateCommand", list.itemsSource[0]);
+            Require(list.itemsSource.Count == 11 && probe.Exits == 0, "Daily group did not expand four entries plus automatic mode");
+            Require(list.Q<ScrollView>().verticalScrollerVisibility == ScrollerVisibility.Auto, "Menu has no vertical scrollbar");
+            object fly = list.itemsSource[4]; Invoke(ui, "ActivateCommand", fly);
+            Require(probe.Exits == 0 && ui.Document.rootVisualElement.Q("CommandPopup").style.display.value == DisplayStyle.None,
+                "Selecting a daily item executed it immediately or left the menu open");
+            Require(ui.Document.rootVisualElement.Q<Button>("Command").text.Contains("FlyToTree"), "Specific selection label is missing");
+            Set(ui, "lastActionFrame", -1); Invoke(ui, "Execute");
+            Require(probe.Exits == 1 && bird.Brain.CurrentActionName == nameof(FlyToTreeAction), "Execute did not dispatch the selected daily item");
+            AnimalAgent other = f.Animal("Other menu animal", new Vector2(4, 4)); ui.Select(other);
+            Require(list.itemsSource.Count == 6 && ui.Document.rootVisualElement.Q<Button>("Command").text.Contains("autonomous"),
+                "Switching animal retained the old daily selection or expansion");
+            other.Perception.Remember(f.New("Menu threat", f.Map.MapPositionToWorld(new Vector2(6, 4))).transform);
+            var otherProbe = new ProbeAction(); other.Brain.StartAction(otherProbe);
+            Invoke(ui, "ToggleCommands");
+            var leaf = new Button(); Invoke(ui, "BindCommandRow", leaf, 2);
+            Require(!leaf.ClassListContains("command-child") && !leaf.ClassListContains("command-group")
+                && leaf.text == "Fleeing", "A standalone command retained an arrow or indentation");
+            Invoke(ui, "ActivateCommand", list.itemsSource[2]);
+            Require(list.itemsSource.Count == 6 && otherProbe.Exits == 0
+                && ui.Document.rootVisualElement.Q("CommandPopup").style.display.value == DisplayStyle.None
+                && ui.Document.rootVisualElement.Q<Button>("Command").text.Contains("Fleeing"),
+                "A standalone command expanded or executed instead of being selected");
+            Set(ui, "lastActionFrame", -1); Invoke(ui, "Execute");
+            Require(other.CurrentState == AnimalState.Fleeing && otherProbe.Exits == 1, "Standalone command did not execute on Execute");
+            Set(other.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>());
+            ui.Select(other); Invoke(ui, "ToggleCommands");
+            Invoke(ui, "BindCommandRow", leaf, 0);
+            Require(leaf.text == "Daily (autonomous)" && !leaf.ClassListContains("command-child")
+                && !leaf.ClassListContains("command-group"), "Empty Daily configuration was not a standalone option");
+            Invoke(ui, "ActivateCommand", list.itemsSource[0]);
+            Require(list.itemsSource.Count == 6 && ui.Document.rootVisualElement.Q("CommandPopup").style.display.value == DisplayStyle.None,
+                "Standalone Daily expanded unnecessarily");
+            ui.Close();
+        }
         private sealed class ProbeAction : AnimalAction
         {
             public int Exits; public Action OnTick;
@@ -195,7 +367,7 @@ namespace AnimalGame.Editor
                 Object.DestroyImmediate(texture); WorldInteractionQuery.InvalidateSpatialIndex();
             }
         }
-        private static void Invoke(object target, string method) => target.GetType().GetMethod(method, Flags).Invoke(target, null);
+        private static void Invoke(object target, string method, params object[] args) => target.GetType().GetMethod(method, Flags).Invoke(target, args);
         private static void Set(object target, string field, object value) => target.GetType().GetField(field, Flags).SetValue(target, value);
         private static void Require(bool condition, string reason) { if (!condition) throw new Exception(reason); }
         private static void Near(float value, float expected, string reason) => Require(Mathf.Abs(value - expected) < .002f, reason + ": " + value + " != " + expected);

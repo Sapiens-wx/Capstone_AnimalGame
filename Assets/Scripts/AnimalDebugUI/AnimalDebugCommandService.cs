@@ -28,6 +28,50 @@ namespace AnimalGame.AnimalDebug
         public static bool Validate(AnimalAgent agent, AnimalDebugCommand command, out string reason)
             => Prepare(agent, command, out _, out _, out reason);
 
+        public static string DailyLabel(AnimalDailyBehaviourSettings settings, int index)
+            => (settings == null ? "Missing entry" : settings.Action != null ? settings.Action.name : settings.Behaviour.ToString())
+                + " (Element " + index + ")";
+
+        public static bool ValidateDaily(AnimalAgent agent, AnimalDailyBehaviourSettings settings, out string reason)
+        {
+            if (!Validate(agent, AnimalDebugCommand.Daily, out reason)) return false;
+            bool found = false;
+            foreach (AnimalDailyBehaviourSettings entry in agent.Config.DailyBehaviours)
+                if (settings != null && ReferenceEquals(settings, entry)) { found = true; break; }
+            if (!found) { reason = "This daily entry no longer belongs to the selected animal."; return false; }
+            // Availability refreshes must not consume the simulation's random sequence
+            // or instantiate/enter actions just to draw a menu.
+            UnityEngine.Random.State random = UnityEngine.Random.state;
+            try { return agent.Behaviour.CanRunDailyForDebug(settings, out reason); }
+            finally { UnityEngine.Random.state = random; }
+        }
+
+        public static AnimalDebugCommandResult ExecuteDaily(AnimalAgent agent, AnimalDailyBehaviourSettings settings)
+        {
+            var result = new AnimalDebugCommandResult { Id = ++nextId, Agent = agent };
+            if (!ValidateDaily(agent, settings, out string reason))
+            { Set(result, AnimalDebugCommandStatus.Rejected, reason); return result; }
+            Set(result, AnimalDebugCommandStatus.Queued, "Command queued.");
+            agent.Brain.ScheduleDebugCommand(() =>
+            {
+                if (!ValidateDaily(agent, settings, out string failure))
+                { Set(result, AnimalDebugCommandStatus.Rejected, failure); return; }
+                AnimalAction action = agent.Behaviour.CreateDailyActionForDebug(settings);
+                if (action == null)
+                { Set(result, AnimalDebugCommandStatus.Rejected, "The selected daily behaviour could not create an action."); return; }
+                bool accepted = agent.Brain.ReplaceForDebug(AnimalState.Daily,
+                    new TrackedAction(action, result, AnimalDebugCommand.Daily, settings), () =>
+                    {
+                        agent.Perception.ResetDetection();
+                        agent.Runtime.HuntCooldownUntil = agent.Runtime.FeedCooldownUntil = agent.Runtime.SparringCooldownUntil = agent.Runtime.Time;
+                    });
+                if (!accepted) Set(result, AnimalDebugCommandStatus.Rejected, "The animal can no longer accept this command.");
+                else if (result.Status == AnimalDebugCommandStatus.Queued)
+                    Set(result, AnimalDebugCommandStatus.Started, "Started: " + action.Name + " (once).");
+            }, () => Set(result, AnimalDebugCommandStatus.Interrupted, "The queued command was cancelled or replaced."));
+            return result;
+        }
+
         private static Transform Threat(AnimalAgent agent)
         {
             Transform current = agent.Perception.PrimaryThreat;
@@ -142,9 +186,11 @@ namespace AnimalGame.AnimalDebug
             private readonly AnimalAction inner;
             private readonly AnimalDebugCommandResult result;
             private readonly AnimalDebugCommand command;
+            private readonly AnimalDailyBehaviourSettings dailySettings;
             private bool finished;
-            public TrackedAction(AnimalAction inner, AnimalDebugCommandResult result, AnimalDebugCommand command)
-            { this.inner = inner; this.result = result; this.command = command; }
+            public TrackedAction(AnimalAction inner, AnimalDebugCommandResult result, AnimalDebugCommand command,
+                AnimalDailyBehaviourSettings dailySettings = null)
+            { this.inner = inner; this.result = result; this.command = command; this.dailySettings = dailySettings; }
             public override string Name => inner.Name;
             public override AnimalState PhotoState => inner.PhotoState;
             public override void Enter(AnimalContext c) { inner.Enter(c); }
@@ -155,7 +201,7 @@ namespace AnimalGame.AnimalDebug
                 {
                     finished = true;
                     Set(result, status == AnimalActionStatus.Succeeded ? AnimalDebugCommandStatus.Succeeded : AnimalDebugCommandStatus.Failed,
-                        status == AnimalActionStatus.Succeeded ? "Completed: " + Label(command) + "."
+                        status == AnimalActionStatus.Succeeded ? "Completed: " + (dailySettings != null ? inner.Name : Label(command)) + "."
                         : inner.FailureReason ?? "The action could not continue.");
                 }
                 return status;
@@ -164,6 +210,12 @@ namespace AnimalGame.AnimalDebug
             {
                 inner.Exit(c);
                 if (!finished) Set(result, AnimalDebugCommandStatus.Interrupted, "The animal changed state before the action completed.");
+                if (dailySettings != null)
+                {
+                    if (finished && result.Status == AnimalDebugCommandStatus.Failed) c.Agent.DailyScheduler.Failed(dailySettings);
+                    else if (finished) c.Agent.DailyScheduler.Complete(dailySettings);
+                    return;
+                }
                 // Establish the same per-entry scheduling cooldown as a naturally completed daily action.
                 foreach (AnimalDailyBehaviourSettings settings in c.Config.DailyBehaviours)
                     if (finished && settings != null && (command == AnimalDebugCommand.Hunt && settings.Behaviour == AnimalDailyBehaviourKind.Hunt

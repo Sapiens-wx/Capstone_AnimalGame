@@ -68,7 +68,7 @@ namespace AnimalGame.Editor
                 catch (Exception error) { Debug.LogException(error); EditorApplication.Exit(1); yield break; }
                 yield return wait;
             }
-            Debug.Log("Animal inspector PlayMode checks PASS: M/Up opening, open-panel Up navigation, A/B list selection, circular world sampling, live details, proportional layout, late arrow, UI mutual exclusion and unpaused simulation.");
+            Debug.Log("Animal inspector PlayMode checks PASS: M/Up opening, open-panel Up navigation, A/B list selection, circular world sampling, live details, proportional layout, late arrow, UI mutual exclusion unpaused simulation, indented daily commands, scrolling and one-shot execution.");
             EditorApplication.Exit(0);
         }
         private IEnumerator Checks()
@@ -149,6 +149,42 @@ namespace AnimalGame.Editor
             Require(AnimalDebugUI.IsOpen && root.Q("AnimalPopup").resolvedStyle.display == DisplayStyle.None, "B did not close only the list");
             Require(root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.Flex
                 && root.Q("AnimalPreviewArrow").resolvedStyle.display == DisplayStyle.None, "Closing the list removed the selected marker or retained its preview");
+            // Expand/select through real gamepad input and force a long virtualized
+            // list so navigation must scroll to the selected specific daily entry.
+            ui.Select(first);
+            var dailyEntries = new List<AnimalDailyBehaviourSettings>();
+            for (int i = 0; i < 24; i++) dailyEntries.Add(new AnimalDailyBehaviourSettings(AnimalDailyBehaviourKind.Idle, 0, .1f, .1f));
+            Set(first.Config, "dailyBehaviours", dailyEntries);
+            Invoke("ToggleCommands"); yield return null;
+            ListView commands = root.Q<ListView>("CommandList");
+            Require(commands.itemsSource.Count == 6, "Closed groups did not show only general behaviours");
+            heldPad = new GamepadState().WithButton(GamepadButton.South); yield return null;
+            heldPad = new GamepadState(); yield return null;
+            Require(commands.itemsSource.Count == 31, "Daily expansion lost automatic mode or configured entries");
+            for (int i = 0; i < 25; i++)
+            {
+                heldPad = new GamepadState().WithButton(GamepadButton.DpadDown); yield return null;
+                heldPad = new GamepadState(); yield return null;
+            }
+            yield return new WaitForSecondsRealtime(.1f);
+            ScrollView commandScroll = commands.Q<ScrollView>();
+            Require(commandScroll.scrollOffset.y > 0 && commandScroll.verticalScroller.resolvedStyle.display == DisplayStyle.Flex,
+                "Long behaviour list did not expose its scrollbar or scroll with D-pad navigation");
+            heldPad = new GamepadState().WithButton(GamepadButton.South); yield return null;
+            heldPad = new GamepadState(); yield return null;
+            Require(root.Q("CommandPopup").resolvedStyle.display == DisplayStyle.None
+                && root.Q<Button>("Command").text.Contains("Element 23"), "A did not select the indented daily item");
+            Require(!first.Brain.HasOverrideAction, "Selecting a child immediately executed it");
+            Invoke("Execute");
+            Require(first.Brain.HasOverrideAction, "Execute did not start the specific daily behaviour");
+            yield return new WaitForSecondsRealtime(.3f);
+            Require(!first.Brain.HasOverrideAction && root.Q<Label>("Message").text.Contains("Completed"),
+                "Specific behaviour did not complete once and return to autonomous Daily");
+            ui.Select(second); Invoke("ToggleCommands"); yield return null;
+            Require(commands.itemsSource.Count == 6 && root.Q<Button>("Command").text.Contains("autonomous"),
+                "Switching animals retained stale daily actions");
+            heldPad = new GamepadState().WithButton(GamepadButton.East); yield return null;
+            heldPad = new GamepadState(); yield return null;
             Invoke("ToggleSampling"); yield return null;
             AnimalDebugSelection.TryBounds(first, out Bounds bounds);
             Vector2 point = camera.WorldToScreenPoint(bounds.center);
