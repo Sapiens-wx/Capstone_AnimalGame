@@ -107,7 +107,7 @@ namespace AnimalGame.AnimalDebug
             {
                 if (!Prepare(agent, command, out AnimalAction action, out Transform threat, out string failure))
                 { Set(result, AnimalDebugCommandStatus.Rejected, failure); return; }
-                AnimalState state = command == AnimalDebugCommand.Curious ? AnimalState.Curious
+                AnimalState state = command == AnimalDebugCommand.Curious ? agent.ThreatResponse
                     : command == AnimalDebugCommand.Fleeing ? AnimalState.Fleeing
                     : command == AnimalDebugCommand.Aggressive ? AnimalState.Aggressive : AnimalState.Daily;
                 AnimalAction tracked = action == null ? null : new TrackedAction(action, result, command);
@@ -125,7 +125,9 @@ namespace AnimalGame.AnimalDebug
                 if (!accepted) Set(result, AnimalDebugCommandStatus.Rejected, "The animal can no longer accept this command.");
                 else if (result.Status == AnimalDebugCommandStatus.Queued)
                 {
-                    Set(result, AnimalDebugCommandStatus.Started, "Started: " + Label(command) + ".");
+                    Set(result, AnimalDebugCommandStatus.Started,
+                        command == AnimalDebugCommand.Curious && state == AnimalState.Fleeing
+                            ? "Started: Fleeing (this species reacts immediately)." : "Started: " + Label(command) + ".");
                     if (command == AnimalDebugCommand.Curious) agent.Runtime.Group?.Alert(agent, threat);
                 }
             }, () => Set(result, AnimalDebugCommandStatus.Interrupted, "The queued command was cancelled or replaced."));

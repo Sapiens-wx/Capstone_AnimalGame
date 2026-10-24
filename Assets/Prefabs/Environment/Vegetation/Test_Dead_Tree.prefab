@@ -84,6 +84,9 @@ MonoBehaviour:
   health: 1
   trunkCenter: {fileID: 400001}
   perchRadiusMeters: 0.6
+  crownRadiiMeters: {x: 0, y: 0}
+  crownOffsetMeters: {x: 0, y: 0}
+  trunkActivityWidthMeters: 0.6
 --- !u!1 &100001
 GameObject:
   m_ObjectHideFlags: 0

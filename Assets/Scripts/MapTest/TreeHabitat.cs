@@ -49,6 +49,97 @@ namespace AnimalGame.MapTest
         [Tooltip("Logical map-space distance from the trunk centre to a bird's base perch point. Animal body clearance is added by the caller.")]
         [SerializeField, Min(0f)] private float perchRadiusMeters = 0.6f;
 
+        [Header("Bird Activity Area (map metres)")]
+        [Tooltip("Zero keeps legacy trees on the safe trunk ring until a crown is authored.")]
+        [SerializeField] private Vector2 crownRadiiMeters;
+        [SerializeField] private Vector2 crownOffsetMeters;
+        [SerializeField, Min(.1f)] private float trunkActivityWidthMeters = .6f;
+        public Vector2 CrownRadiiMeters => crownRadiiMeters;
+
+        private bool UsesCrown => !IsDead && crownRadiiMeters.x > 0f && crownRadiiMeters.y > 0f;
+
+        public bool ContainsActivityPoint(MapTestSceneController map, Vector2 point, float bodyRadius)
+        {
+            if (!TryGetMapPosition(map, out Vector2 centre) || !map.TrySampleMapPosition(point, out _)) return false;
+            float distance = Vector2.Distance(point, centre);
+            if (distance < perchRadiusMeters + bodyRadius + .01f) return false;
+            if (!UsesCrown) return distance <= perchRadiusMeters + trunkActivityWidthMeters - bodyRadius;
+            Vector2 radii = crownRadiiMeters - Vector2.one * bodyRadius;
+            if (radii.x <= 0f || radii.y <= 0f) return false;
+            Vector2 offset = point - centre - crownOffsetMeters;
+            return offset.x * offset.x / (radii.x * radii.x) + offset.y * offset.y / (radii.y * radii.y) <= 1f;
+        }
+
+        public bool ContainsActivitySegment(MapTestSceneController map, Vector2 start, Vector2 end, float bodyRadius)
+        {
+            int steps = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(start, end) / .025f));
+            for (int i = 0; i <= steps; i++)
+                if (!ContainsActivityPoint(map, Vector2.Lerp(start, end, i / (float)steps), bodyRadius)) return false;
+            return true;
+        }
+
+        public bool TrySampleActivityPoint(MapTestSceneController map, float bodyRadius, out Vector2 point)
+        {
+            point = default;
+            if (!TryGetMapPosition(map, out Vector2 centre)) return false;
+            for (int i = 0; i < 32; i++)
+            {
+                if (UsesCrown)
+                    point = centre + crownOffsetMeters + Vector2.Scale(Random.insideUnitCircle, crownRadiiMeters);
+                else
+                {
+                    float inner = perchRadiusMeters + bodyRadius + .03f;
+                    float outer = perchRadiusMeters + trunkActivityWidthMeters - bodyRadius - .02f;
+                    if (outer < inner) return false;
+                    point = centre + Rotate(Vector2.up, Random.Range(0f, 360f)) * Random.Range(inner, outer);
+                }
+                if (ContainsActivityPoint(map, point, bodyRadius)) return true;
+            }
+            return false;
+        }
+
+        // Radial legs and a sampled circular arc avoid chords through the solid trunk.
+        public bool TryBuildActivityPath(MapTestSceneController map, Vector2 start, Vector2 end,
+            float bodyRadius, List<Vector2> path)
+        {
+            path.Clear();
+            if (!ContainsActivityPoint(map, start, bodyRadius) || !ContainsActivityPoint(map, end, bodyRadius)
+                || !TryGetMapPosition(map, out Vector2 centre)) return false;
+            if (ContainsActivitySegment(map, start, end, bodyRadius)) { path.Add(end); return true; }
+            Vector2 from = start - centre, to = end - centre;
+            float angle = Vector2.SignedAngle(from, to);
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                path.Clear();
+                float radius = Mathf.Max(perchRadiusMeters + bodyRadius + .05f, Mathf.Min(from.magnitude, to.magnitude));
+                Vector2 first = centre + from.normalized * radius;
+                path.Add(first);
+                float sweep = attempt == 0 ? angle : angle >= 0f ? angle - 360f : angle + 360f;
+                int count = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(sweep) / 5f));
+                for (int i = 1; i <= count; i++)
+                    path.Add(centre + Rotate(from.normalized, sweep * i / count) * radius);
+                path.Add(end);
+                Vector2 previous = start;
+                bool valid = true;
+                foreach (Vector2 next in path)
+                {
+                    if (!ContainsActivitySegment(map, previous, next, bodyRadius)) { valid = false; break; }
+                    previous = next;
+                }
+                if (valid) return true;
+            }
+            path.Clear();
+            return false;
+        }
+
+        public bool TryGetTrunkPerchPoint(MapTestSceneController map, Vector2 approach, float bodyRadius,
+            float clearance, out Vector2 point)
+        {
+            if (TryGetPerchMapPosition(map, approach, bodyRadius + Mathf.Max(.02f, clearance), out point)
+                && ContainsActivityPoint(map, point, bodyRadius)) return true;
+            return false;
+        }
+
         [System.NonSerialized] private HeightMapPlacedObject placedObject;
 
         public static IReadOnlyCollection<TreeHabitat> ActiveTrees =>
@@ -299,6 +390,8 @@ namespace AnimalGame.MapTest
         private void OnValidate()
         {
             perchRadiusMeters = Mathf.Max(0f, perchRadiusMeters);
+            crownRadiiMeters = new Vector2(Mathf.Max(0f, crownRadiiMeters.x), Mathf.Max(0f, crownRadiiMeters.y));
+            trunkActivityWidthMeters = Mathf.Max(.1f, trunkActivityWidthMeters);
             placedObject = GetComponent<HeightMapPlacedObject>();
         }
 
@@ -333,6 +426,21 @@ namespace AnimalGame.MapTest
             Gizmos.matrix = previousMatrix;
             Gizmos.color = previousColor;
 
+            if (UsesCrown && map != null)
+            {
+                Gizmos.color = Color.cyan;
+                Vector3 previous = default;
+                for (int i = 0; i <= 72; i++)
+                {
+                    Vector2 offset = crownOffsetMeters + Vector2.Scale(
+                        new Vector2(Mathf.Cos(i * Mathf.PI / 36f), Mathf.Sin(i * Mathf.PI / 36f)), crownRadiiMeters);
+                    Vector3 next = map.MapPositionToWorld(MapPositionMeters + offset);
+                    if (i > 0) Gizmos.DrawLine(previous, next);
+                    previous = next;
+                }
+                Gizmos.color = previousColor;
+            }
+
 #if UNITY_EDITOR
             Color previousHandlesColor = Handles.color;
             Handles.color = stateColor;
@@ -344,6 +452,16 @@ namespace AnimalGame.MapTest
         }
 
 #if UNITY_EDITOR
+        public bool ConfigureActivityArea(Vector2 crownRadii, Vector2 crownOffset, float ringWidth = .6f)
+        {
+            if (crownRadiiMeters == crownRadii && crownOffsetMeters == crownOffset
+                && Mathf.Approximately(trunkActivityWidthMeters, ringWidth)) return false;
+            crownRadiiMeters = crownRadii;
+            crownOffsetMeters = crownOffset;
+            trunkActivityWidthMeters = Mathf.Max(.1f, ringWidth);
+            return true;
+        }
+
         public bool ConfigureEditorDefaults(
             TreeHealthState healthState,
             Transform treeTrunkCenter,

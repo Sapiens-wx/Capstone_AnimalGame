@@ -21,15 +21,22 @@ MonoBehaviour:
   bodyRadiusMeters: 0.12
   maximumTravelTimeSeconds: 20
   dailyBehaviours:
+  - behaviour: 9
+    selectionWeight: 6
+    durationSeconds: {x: 12, y: 24}
+    cooldownSeconds: 0
   - behaviour: 4
-    selectionWeight: 1.15
+    selectionWeight: 2
     durationSeconds: {x: 4, y: 8}
+    cooldownSeconds: 0
   - behaviour: 5
-    selectionWeight: 1.15
+    selectionWeight: 1
     durationSeconds: {x: 0.5, y: 1}
+    cooldownSeconds: 0
   - behaviour: 6
-    selectionWeight: 1.35
-    durationSeconds: {x: 2.5, y: 5}
+    selectionWeight: 2
+    durationSeconds: {x: 3, y: 6}
+    cooldownSeconds: 5
   foodPreferences: []
   nearbyFoodDistanceMeters: 1.6
   foodApproachPaddingMeters: 0.08

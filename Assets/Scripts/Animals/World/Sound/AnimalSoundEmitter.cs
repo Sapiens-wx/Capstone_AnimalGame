@@ -89,7 +89,7 @@ namespace AnimalGame.Animals
             if (agent == null || agent.Motor == null)
                 return;
 
-            if (agent.Motor.CurrentSpeedMetersPerSecond <= 0.03f)
+            if (agent.Motor.IsPerchedMovement || agent.Motor.CurrentSpeedMetersPerSecond <= 0.03f)
             {
                 movementSoundCountdown = 0f;
                 hasMovementSoundKind = false;

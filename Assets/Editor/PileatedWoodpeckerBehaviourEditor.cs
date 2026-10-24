@@ -25,8 +25,7 @@ namespace AnimalGame.Editor
                 EditorGUILayout.HelpBox(
                     "No birth tree is bound. At runtime the woodpecker will "
                     + "fall back to the nearest valid tree, but binding a "
-                    + "scene tree makes its activity centre and escape "
-                    + "destination deterministic.",
+                    + "scene tree chooses its initial perch. Daily travel uses the whole map.",
                     MessageType.Warning);
             }
             else
@@ -34,7 +33,7 @@ namespace AnimalGame.Editor
                 EditorGUILayout.HelpBox(
                     $"Birth tree: {behaviour.BirthTree.name} "
                     + $"({behaviour.BirthTree.HealthState})\n"
-                    + "The bird returns to this tree when it flees.",
+                    + "Initial perch only. Flight targets may be anywhere on the map; escape is away from threats.",
                     MessageType.Info);
             }
 
@@ -65,7 +64,7 @@ namespace AnimalGame.Editor
             EditorGUILayout.Space();
             EditorGUILayout.HelpBox(
                 "Scene gizmos\n"
-                + "Green: fixed activity range around the birth tree\n"
+                + "Daily tree selection uses the whole map.\n"
                 + "White dotted line: bird-to-birth-tree binding\n"
                 + "Cyan: current perch; orange: active flight target",
                 MessageType.None);
@@ -120,11 +119,6 @@ namespace AnimalGame.Editor
 
     public static class PileatedWoodpeckerBehaviourGizmoDrawer
     {
-        private const int CircleSegments = 72;
-        private const float PreviewWorldUnitsPerMapMeter = 0.1f;
-
-        private static readonly Color ActivityColour =
-            new Color(0.25f, 0.95f, 0.5f, 0.95f);
         private static readonly Color BindingColour =
             new Color(0.92f, 0.98f, 1f, 0.82f);
         private static readonly Color CurrentTreeColour =
@@ -140,10 +134,7 @@ namespace AnimalGame.Editor
             if (behaviour == null)
                 return;
 
-            AnimalAgent agent = behaviour.GetComponent<AnimalAgent>();
             TreeHabitat birthTree = behaviour.BirthTree;
-            MapTestSceneController map = ResolveMap(behaviour, birthTree);
-            bool hasMap = map != null && map.HasGeneratedMap;
 
             if (birthTree != null)
             {
@@ -154,25 +145,6 @@ namespace AnimalGame.Editor
                     behaviour.transform.position,
                     centre,
                     6f);
-
-                if (agent != null && agent.Config != null)
-                {
-                    DrawMapCircle(
-                        centre,
-                        agent.Config.ActivityRadiusMeters,
-                        map,
-                        hasMap);
-                    Vector3 labelPosition = MapOffsetToWorld(
-                        centre,
-                        Vector2.up * agent.Config.ActivityRadiusMeters,
-                        map,
-                        hasMap);
-                    Handles.Label(
-                        labelPosition,
-                        $"  Woodpecker home / "
-                        + $"{agent.Config.ActivityRadiusMeters:0.##} m",
-                        CreateLabelStyle(ActivityColour));
-                }
 
                 Handles.Label(
                     centre,
@@ -209,75 +181,6 @@ namespace AnimalGame.Editor
                 behaviour.transform.position,
                 target);
             Handles.Label(target, $"  {label}", CreateLabelStyle(colour));
-        }
-
-        private static void DrawMapCircle(
-            Vector3 centre,
-            float radiusMeters,
-            MapTestSceneController map,
-            bool hasMap)
-        {
-            if (radiusMeters <= 0f)
-                return;
-
-            var points = new Vector3[CircleSegments + 1];
-            for (int index = 0; index <= CircleSegments; index++)
-            {
-                float angle = index * Mathf.PI * 2f / CircleSegments;
-                Vector2 offset = new Vector2(
-                    Mathf.Cos(angle),
-                    Mathf.Sin(angle)) * radiusMeters;
-                points[index] = MapOffsetToWorld(
-                    centre,
-                    offset,
-                    map,
-                    hasMap);
-            }
-
-            Handles.color = ActivityColour;
-            Handles.DrawAAPolyLine(3f, points);
-        }
-
-        private static MapTestSceneController ResolveMap(
-            PileatedWoodpeckerBehaviour behaviour,
-            TreeHabitat birthTree)
-        {
-            HeightMapPlacedObject placedObject =
-                behaviour.GetComponent<HeightMapPlacedObject>();
-            if (placedObject != null && placedObject.Map != null)
-                return placedObject.Map;
-            if (birthTree != null && birthTree.Map != null)
-                return birthTree.Map;
-            return Object.FindAnyObjectByType<MapTestSceneController>();
-        }
-
-        private static Vector3 MapOffsetToWorld(
-            Vector3 centre,
-            Vector2 mapOffset,
-            MapTestSceneController map,
-            bool hasMap)
-        {
-            if (!hasMap)
-            {
-                return centre + new Vector3(
-                    mapOffset.x,
-                    mapOffset.y,
-                    0f) * PreviewWorldUnitsPerMapMeter;
-            }
-
-            float distanceMeters = mapOffset.magnitude;
-            if (distanceMeters <= 0.000001f)
-                return centre;
-
-            Vector2 worldDirection = map.MapDirectionToWorldDirection(
-                mapOffset / distanceMeters);
-            float worldDistance = map.MapMetersToWorldDistance(
-                worldDirection,
-                distanceMeters);
-            return centre + new Vector3(
-                worldDirection.x,
-                worldDirection.y,
-                0f) * worldDistance;
         }
 
         private static GUIStyle CreateLabelStyle(Color colour)

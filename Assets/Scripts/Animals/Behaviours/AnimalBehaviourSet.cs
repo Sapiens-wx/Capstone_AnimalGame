@@ -19,6 +19,8 @@ namespace AnimalGame.Animals
             Agent != null ? Agent.Config : null;
 
         public virtual bool SupportsAggression => false;
+        public virtual AnimalState ThreatResponse => AnimalState.Curious;
+        public virtual bool UsesCustomFleeDespawn => false;
         public bool CanAcceptSocialAction => !HasConfiguredAction || configuredAction is IdleAction
             || configuredAction is LookAroundAction || configuredAction is RestAtTerrainAction;
         public virtual AnimalAction CreateEscapeAction() => Config.EscapeAction != null

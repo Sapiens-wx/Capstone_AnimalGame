@@ -130,16 +130,6 @@ namespace AnimalGame.Animals
         { behaviour.TickFleeing(dt); return AnimalActionStatus.Running; }
         public override void Exit(AnimalContext context) { behaviour.ExitFleeing(); base.Exit(context); }
     }
-    public class ReturnToTreeEscapeAction : RunAwayAction
-    {
-        private readonly PileatedWoodpeckerBehaviour behaviour;
-        public ReturnToTreeEscapeAction(PileatedWoodpeckerBehaviour behaviour) { this.behaviour = behaviour; }
-        public override void Enter(AnimalContext context) { behaviour.EnterFleeing(); }
-        public override AnimalActionStatus Tick(AnimalContext context, float dt)
-        { behaviour.TickFleeing(dt); return AnimalActionStatus.Running; }
-        public override void Exit(AnimalContext context) { behaviour.ExitFleeing(); base.Exit(context); }
-    }
-
     public sealed class FollowLeaderAction : AnimalAction
     {
         private float elapsed;

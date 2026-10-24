@@ -13,6 +13,8 @@ namespace AnimalGame.Editor
     public static class AnimalAIPlayModeSmoke
     {
         private static AnimalAgent first, second;
+        private static AnimalAgent bird;
+        private static Vector2 birdStart, birdPausedAt;
         private static AnimalSimulation simulation;
         private static TiledMapTestFixture tile;
         private static Texture2D texture;
@@ -48,6 +50,24 @@ namespace AnimalGame.Editor
                 settings.ApplyModifiedPropertiesWithoutUndo();
                 first = Spawn(map, new Vector2(3f, 3f));
                 second = Spawn(map, new Vector2(8f, 3f));
+                GameObject treeObject = new GameObject("Smoke bird tree");
+                treeObject.transform.position = map.MapPositionToWorld(new Vector2(20f, 20f));
+                treeObject.AddComponent<HeightMapPlacedObject>();
+                var treePlacement = new SerializedObject(treeObject.GetComponent<HeightMapPlacedObject>());
+                treePlacement.FindProperty("map").objectReferenceValue = map;
+                treePlacement.ApplyModifiedPropertiesWithoutUndo();
+                TreeHabitat tree = treeObject.AddComponent<TreeHabitat>();
+                tree.ConfigureEditorDefaults(TreeHealthState.Dead, null, .6f);
+                GameObject birdObject = new GameObject("Smoke woodpecker");
+                birdObject.transform.position = map.MapPositionToWorld(new Vector2(20f, 18f));
+                var behaviour = birdObject.AddComponent<PileatedWoodpeckerBehaviour>();
+                behaviour.Settings.FleeSafeDistanceMultiplier = 1000f;
+                bird = birdObject.AddComponent<AnimalAgent>();
+                behaviour.BindBirthTree(tree, false);
+                bird.ConfigureEditorDefaults(config, behaviour, null);
+                var birdPlacement = new SerializedObject(birdObject.GetComponent<HeightMapPlacedObject>());
+                birdPlacement.FindProperty("map").objectReferenceValue = map;
+                birdPlacement.ApplyModifiedPropertiesWithoutUndo();
                 simulation = AnimalSimulation.ForScene(first.gameObject.scene);
                 started = EditorApplication.timeSinceStartup;
                 paused = resumed = hit = false;
@@ -71,17 +91,21 @@ namespace AnimalGame.Editor
             {
                 double elapsed = EditorApplication.timeSinceStartup - started;
                 if (elapsed > 20d) throw new Exception("Animal PlayMode dispatch timed out.");
-                if (!first.IsInitialized || !second.IsInitialized) return;
+                if (!first.IsInitialized || !second.IsInitialized || !bird.IsInitialized) return;
                 if (!hit)
                 {
                     initialHealth = second.Health.CurrentHealth;
                     Require(simulation.Hit(first, second.transform, false), "PlayMode attack not registered");
                     hit = true;
+                    birdStart = bird.Motor.CurrentMapPosition;
+                    bird.NotifyThreat(first.transform);
+                    Require(bird.CurrentState == AnimalState.Fleeing, "PlayMode bird did not escape directly");
                 }
                 if (!paused && simulation.Time > .4f)
                 {
                     Time.timeScale = 0f;
                     pausedAt = simulation.Time;
+                    birdPausedAt = bird.Motor.CurrentMapPosition;
                     paused = true;
                     started = EditorApplication.timeSinceStartup;
                     return;
@@ -91,6 +115,7 @@ namespace AnimalGame.Editor
                     if (elapsed < .25d) return;
                     Require(Mathf.Abs(simulation.Time - pausedAt) < .0001f, "Real Update dispatch advanced while paused");
                     Require(Mathf.Abs(second.Health.CurrentHealth - initialHealth) < .0001f, "Delayed damage resolved while paused");
+                    Require(Vector2.Distance(birdPausedAt, bird.Motor.CurrentMapPosition) < .0001f, "Bird moved during scaled pause");
                     Time.timeScale = 1f;
                     resumed = true;
                 }
@@ -98,8 +123,10 @@ namespace AnimalGame.Editor
                 {
                     Require(Mathf.Abs(second.Health.CurrentHealth - (initialHealth - config.AttackDamage)) < .001f, "PlayMode delayed damage did not resolve once");
                     Require(first.Runtime != second.Runtime, "Real spawned agents share runtime state");
+                    Require(Vector2.Distance(birdStart, bird.Motor.CurrentMapPosition) > .1f
+                        && bird.Map.TrySampleMapPosition(bird.Motor.CurrentMapPosition, out _), "PlayMode escape did not move within map bounds");
                     Require(UnityEngine.Object.FindObjectsByType<AnimalSimulation>(FindObjectsSortMode.None).Length == 1, "More than one automatic simulation was created");
-                    Debug.Log("Animal AI PlayMode smoke PASS: automatic registration/update, one scene simulation, scaled pause and delayed damage.");
+                    Debug.Log("Animal AI PlayMode smoke PASS: automatic registration/update, one scene simulation, scaled pause, delayed damage and bounded bird escape.");
                     Finish(null);
                 }
             }

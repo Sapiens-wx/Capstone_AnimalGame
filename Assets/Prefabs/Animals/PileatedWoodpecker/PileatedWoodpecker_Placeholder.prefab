@@ -287,13 +287,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   birthTree: {fileID: 0}
-  healthyTreeWeight: 0.4
-  deadTreeWeight: 0.6
+  healthyTreeWeight: 0.15
+  deadTreeWeight: 0.5
   perchClearanceMeters: 0.04
+  birdSettings:
+    MinimumTreeStaySeconds: 15
+    FlightCooldownSeconds: 20
+    FlightSpeedVariation: 0.1
+    FlightSpeedPeriodSeconds: {x: 1, y: 2}
+    ArcProbability: 0.35
+    ArcOffsetRatio: 0.08
+    MaximumArcOffsetMeters: 2
+    CrawlSpeedMetersPerSecond: 0.35
+    CrawlPauseSeconds: {x: 0.7, y: 2}
+    FleeSafeDistanceMultiplier: 2
+    FleeOffscreenDelaySeconds: 2
   visualRoot: {fileID: 4124710611500769805}
   peckAmplitudeMeters: 0.08
   peckFrequencyHz: 5.5
-  enterTreeDurationSeconds: 0.45
+  pecksPerSoundWave: 3
 --- !u!114 &2815272410721087732
 MonoBehaviour:
   m_ObjectHideFlags: 0

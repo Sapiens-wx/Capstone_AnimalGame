@@ -20,6 +20,7 @@ namespace AnimalGame.Animals
         [SerializeField] private string groupId;
         public AnimalSpeciesConfig Config => config;
         public bool SupportsAggression => behaviourSet != null && behaviourSet.SupportsAggression;
+        public AnimalState ThreatResponse => behaviourSet != null ? behaviourSet.ThreatResponse : AnimalState.Curious;
         public bool CanAcceptSocialAction => CurrentState == AnimalState.Daily && behaviourSet != null
             && behaviourSet.CanAcceptSocialAction && !Brain.HasOverrideAction;
         public static IEnumerable<AnimalAgent> ActiveAgents => activeAgents;
@@ -91,7 +92,8 @@ namespace AnimalGame.Animals
                 if (Health.CorpseRemaining <= .00001f) Despawn();
                 return;
             }
-            if (Simulation.World.IsBeyondView(this)) { Despawn(); return; }
+            if (!(CurrentState == AnimalState.Fleeing && behaviourSet.UsesCustomFleeDespawn)
+                && Simulation.World.IsBeyondView(this)) { Despawn(); return; }
             detectionGraceRemaining = Mathf.Max(0f, detectionGraceRemaining - deltaTime);
             if (!PerceptionSuppressed && detectionGraceRemaining <= 0f && Perception.TickDetection(deltaTime))
                 NotifyThreat(Perception.PrimaryThreat, true);
@@ -160,7 +162,7 @@ namespace AnimalGame.Animals
             HomeMapPosition = home;
             Motor.Initialize(Map, config);
             body.Initialize(this);
-            if (!Motor.CanOccupyMapPosition(home, behaviourSet is PileatedWoodpeckerBehaviour))
+            if (!Motor.CanOccupyMapPosition(home, behaviourSet is TreeBirdBehaviour))
                 return Reject("Animal spawn overlaps an obstacle or another actor.");
             Perception.Initialize(Map, config);
             behaviourSet.Initialize(this);
@@ -205,7 +207,7 @@ namespace AnimalGame.Animals
             if (!CanAct) return;
             Perception.Remember(threat);
             if (CurrentState != AnimalState.Fleeing && CurrentState != AnimalState.Aggressive && CurrentState != AnimalState.Curious)
-                Brain.Request(AnimalState.Curious);
+                Brain.Request(ThreatResponse);
             if (broadcast) Runtime.Group?.Alert(this, threat);
         }
         public void ForceGroupReaction(Transform threat)

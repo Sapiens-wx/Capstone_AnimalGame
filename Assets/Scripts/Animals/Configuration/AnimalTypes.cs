@@ -13,7 +13,8 @@ namespace AnimalGame.Animals
         FlyToTree,
         PeckAtTree,
         Idle,
-        Hunt
+        Hunt,
+        TreeActivity
     }
 
     public enum AnimalFoodType

@@ -210,13 +210,13 @@ namespace AnimalGame.Editor
             AnimalAgent muskrat = f.Animal("Muskrat adapter", new Vector2(4f, 4f), typeof(MuskratBehaviour));
             AnimalAgent bird = f.Animal("Woodpecker adapter", new Vector2(10f, 10f), typeof(PileatedWoodpeckerBehaviour));
             Require(muskrat.GetComponent<MuskratBehaviour>().CreateEscapeAction() is DiveEscapeAction, "Muskrat lost dive escape adapter");
-            Require(bird.GetComponent<PileatedWoodpeckerBehaviour>().CreateEscapeAction() is ReturnToTreeEscapeAction, "Woodpecker lost tree escape adapter");
+            Require(bird.GetComponent<PileatedWoodpeckerBehaviour>().CreateEscapeAction() is BirdFleeAction, "Woodpecker lost aerial escape");
             AnimalHealth identity = muskrat.Health;
             muskrat.Brain.Request(AnimalState.Fleeing);
             muskrat.BeginHiding(); muskrat.CompleteHiding();
             Require(ReferenceEquals(identity, muskrat.Health) && muskrat.CurrentState == AnimalState.Daily, "Special species failed hide/return lifecycle");
             bird.Brain.Request(AnimalState.Fleeing); bird.BeginHiding(); bird.CompleteHiding();
-            Require(bird.CurrentState == AnimalState.Daily, "Bird failed hide/return lifecycle");
+            Require(bird.CurrentState == AnimalState.Fleeing, "Bird must not re-enter tree hiding");
         }
         private static void CheckViewLifecycle()
         {

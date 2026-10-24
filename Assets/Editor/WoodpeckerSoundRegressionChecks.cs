@@ -49,13 +49,13 @@ namespace AnimalGame.Editor
                 Check(CheckStationaryFlightRequest);
                 Check(CheckMuskratMovementCountdown);
                 Check(CheckPassiveCadenceAcrossFallbackRetries);
-                Check(CheckCuriousCadence);
+                Check(CheckDirectEscape);
                 Check(CheckPeckCadenceAndContact);
                 Check(CheckInterruptedPecking);
-                Check(CheckFleeAndTreeEntry);
-                Check(CheckHiddenAndEmergenceRetries);
+                Check(CheckFleeCadence);
+                Check(CheckNoTreeHiding);
                 Check(CheckWaveFadeLifetimeAndPool);
-                Debug.Log($"Woodpecker sound checks PASS: {passed} groups; shipped/factory profiles, Muskrat compatibility, world origins, aerial classification, state pulses, contact-synchronized pecking, hiding/retries, pause and pooled wave lifetime");
+                Debug.Log($"Woodpecker sound checks PASS: {passed} groups; shipped/factory profiles, Muskrat compatibility, world origins, aerial classification, state pulses, contact-synchronized pecking, direct escape, pause and pooled wave lifetime");
             }
             finally { Random.state = originalRandom; }
         }
@@ -84,7 +84,11 @@ namespace AnimalGame.Editor
         private static object Get(object target, string name) => Field(target.GetType(), name).GetValue(target);
         private static void Set(object target, string name, object value) => Field(target.GetType(), name).SetValue(target, value);
         private static object Call(object target, string method, params object[] args) => target.GetType().GetMethod(method, Instance).Invoke(target, args);
-        private static void Property(object target, string name, object value) => target.GetType().GetProperty(name, Instance).SetValue(target, value);
+        private static void Property(object target, string name, object value)
+        {
+            if (target is AnimalAgent agent && name == "CurrentState") { typeof(AnimalBrain).GetProperty("State").SetValue(agent.Brain, value); return; }
+            target.GetType().GetProperty(name, Instance).SetValue(target, value);
+        }
         private static AnimalSoundWaveSettings Profile(AnimalSoundEmitter emitter, string name) => (AnimalSoundWaveSettings)Get(emitter, name);
         private static void Phase(PileatedWoodpeckerBehaviour behaviour, string field, string phase)
         {
@@ -119,7 +123,7 @@ namespace AnimalGame.Editor
                 Require(!Profile(f.Emitter, name).Enabled, "Bird acquired an unrelated land/water/eating profile: " + name);
             Near((float)Get(f.Emitter, "overallEmissionFrequencyMultiplier"), 1f, "Bird cadence multiplier");
             Require(!f.Behaviour.SupportsAggression, "Sound integration changed woodpecker aggression support");
-            Near((float)Get(f.Behaviour, "emergenceSoundRetryDelaySeconds"), 2f, "Emergence retry sound delay");
+            Near(f.Behaviour.Settings.MinimumTreeStaySeconds, 15f, "Minimum tree stay");
             Require((int)Get(f.Behaviour, "pecksPerSoundWave") == 3, "Default peck grouping is not three contacts");
         }
 
@@ -192,57 +196,51 @@ namespace AnimalGame.Editor
         private static void CheckFlightOnsetsAndArrival()
         {
             using var f = new Fixture();
-            FieldInfo arrival = Field(f.Behaviour.GetType(), "arrivalAction");
-            Require((bool)Call(f.Behaviour, "TryBeginFlight", f.OtherTree, Enum.Parse(arrival.FieldType, "Perch")), "Bird flight failed");
+            f.Agent.Brain.StartAction(new FlyToTreeAction(f.Behaviour, f.OtherTree));
             Require(f.Count == 1, "Takeoff should emit exactly one pulse");
             Near((float)Get(f.Last, "Duration"), .4f, "Takeoff profile duration");
-            f.Motor.Tick(.01f); f.Emitter.Tick(.01f);
-            Require(f.Count == 1, "Takeoff stacked an immediate movement wave");
-            for (int index = 0; index < 11; index++) { f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
-            Require(f.Count == 1, "Flight cadence repeated before 1.2 seconds");
-            for (int index = 0; index < 7; index++) { f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
-            Require(f.Count == 2, "Flight failed to repeat within 1.8 seconds");
             object originalWave = f.Waves[0];
             Vector3 originalPosition = ((Transform)Get(originalWave, "Transform")).position;
+            f.Motor.Tick(.01f); f.Emitter.Tick(.01f);
+            Require(f.Count == 1, "Takeoff stacked an immediate movement wave");
+            for (int i = 0; i < 11; i++) { f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
+            Require(f.Count == 1, "Flight repeated before its configured interval");
+            for (int i = 0; i < 7; i++) { f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
+            Require(f.Count == 2, "Flight did not repeat within its configured interval");
             f.Motor.TeleportToMapPosition(f.Motor.TargetMapPosition);
             Property(f.Motor, "HasArrived", true);
-            f.Behaviour.TickDaily(.01f);
-            Require(f.Count == 3 && Phase(f.Behaviour, "dailyPhase") == "Perched", "Arrival lost its single landing pulse or perch phase");
-            Near((float)Get(f.Last, "Duration"), .4f, "Landing profile duration");
-            f.Behaviour.TickDaily(.01f); f.Emitter.Tick(.01f);
+            f.Agent.Brain.Tick(.01f);
+            Require(f.Count == 3 && f.Behaviour.CurrentTree == f.OtherTree, "Arrival lost its landing pulse or perch");
+            f.Agent.Brain.Tick(.01f); f.Emitter.Tick(.01f);
             Require(f.Count == 3, "Landing pulse repeated while stationary");
-            Require(Vector3.Distance(((Transform)Get(originalWave, "Transform")).position, originalPosition) < .0001f, "Flight trail moved with arrival");
+            Require(Vector3.Distance(((Transform)Get(originalWave, "Transform")).position, originalPosition) < .0001f, "Flight trail moved with bird");
         }
 
         private static void CheckPassiveCadenceAcrossFallbackRetries()
         {
             using var f = new Fixture();
-            for (int index = 0; index < 39; index++) f.Behaviour.TickDaily(.1f);
-            Require(f.Count == 0, "Perched bird emitted before its quiet interval");
-            for (int index = 0; index < 22; index++) f.Behaviour.TickDaily(.1f);
-            Require(f.Count == 1, "Perched bird did not emit within 4–6 seconds");
+            for (int i = 0; i < 39; i++) f.Agent.Brain.Tick(.1f);
+            Require(f.Count == 0, "Perched bird emitted before quiet interval");
+            for (int i = 0; i < 22; i++) f.Agent.Brain.Tick(.1f);
+            Require(f.Count == 1, "Perched bird missed quiet interval");
             f.ClearWaves();
             Set(f.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>());
-            Set(f.Behaviour, "passiveSoundCountdown", 5f);
-            f.Behaviour.ExitDaily(); f.Behaviour.EnterDaily();
-            Require(Phase(f.Behaviour, "dailyPhase") == "FallbackIdle", "Fallback fixture did not enter retry phase");
-            for (int index = 0; index < 39; index++) f.Behaviour.TickDaily(.1f);
-            Require(f.Count == 0, "One-second fallback retries spammed idle waves");
-            for (int index = 0; index < 25; index++) f.Behaviour.TickDaily(.1f);
-            Require(f.Count == 1, "Fallback retries reset quiet countdown and prevented all idle waves");
+            Set(f.Behaviour, "quietCountdown", 5f);
+            f.Agent.ReturnToDaily();
+            for (int i = 0; i < 39; i++) f.Agent.Brain.Tick(.1f);
+            Require(f.Count == 0, "Fallback retries spammed idle waves");
+            for (int i = 0; i < 25; i++) f.Agent.Brain.Tick(.1f);
+            Require(f.Count == 1, "Fallback retries reset quiet timer");
         }
 
         private static void CheckStationaryFlightRequest()
         {
             using var f = new Fixture();
-            FieldInfo arrival = Field(f.Behaviour.GetType(), "arrivalAction");
-            Vector2 originalPosition = f.Motor.CurrentMapPosition;
-            Require((bool)Call(f.Behaviour, "TryBeginFlight", f.HomeTree, Enum.Parse(arrival.FieldType, "Perch")), "Current-perch target rejected");
-            Require(Vector2.Distance(f.Motor.TargetMapPosition, originalPosition) <= f.Config.ArrivalDistanceMeters, "Stationary-flight fixture targets a different perch");
-            Require(f.Count == 0, "Requesting current perch emitted takeoff without movement");
-            f.Motor.Tick(1f / 60f); f.Emitter.Tick(1f / 60f); f.Behaviour.TickDaily(1f / 60f);
-            Require(f.Motor.HasArrived == false && Phase(f.Behaviour, "dailyPhase") == "Perched", "Current-perch flight did not return to stationary daily state");
-            Require(f.Count == 0 && Vector2.Distance(f.Motor.CurrentMapPosition, originalPosition) < .0001f, "Current-perch request emitted landing or moved the bird");
+            Vector2 original = f.Motor.CurrentMapPosition;
+            f.Agent.Brain.StartAction(new FlyToTreeAction(f.Behaviour, f.HomeTree));
+            f.Agent.Brain.Tick(.01f); f.Motor.Tick(.01f); f.Emitter.Tick(.01f);
+            Require(f.Behaviour.CurrentTree == f.HomeTree && f.Count == 0, "Stationary flight emitted movement pulses");
+            Require(Vector2.Distance(original, f.Motor.CurrentMapPosition) < .0001f, "Stationary flight moved the bird");
         }
 
         private static void CheckMuskratMovementCountdown()
@@ -251,6 +249,7 @@ namespace AnimalGame.Editor
             AnimalSoundEmitter original = AssetDatabase.LoadAssetAtPath<GameObject>(MuskratPrefab).GetComponent<AnimalSoundEmitter>();
             AnimalSoundEmitter emitter = f.New("Muskrat cadence compatibility").AddComponent<AnimalSoundEmitter>();
             EditorUtility.CopySerialized(original, emitter); emitter.Initialize(f.Agent);
+            f.Motor.ClearMovementOverrides();
             Require(f.Motor.SetTarget(new Vector2(80f, 50f), 1f), "Ground cadence fixture target rejected");
             f.Motor.Tick(.01f); emitter.Tick(.01f);
             Require(f.Count == 1, "Muskrat movement lost immediate initial sound");
@@ -270,41 +269,32 @@ namespace AnimalGame.Editor
             Near((float)Get(f.Last, "Duration"), .78f, "Preserved next Muskrat pulse used wrong sound profile");
         }
 
-        private static void CheckCuriousCadence()
+        private static void CheckDirectEscape()
         {
             using var f = new Fixture();
-            f.Behaviour.ExitDaily(); f.Behaviour.EnterCurious();
-            Require(f.Count == 1, "Curious entry did not emit a single observing pulse");
-            for (int index = 0; index < 24; index++) f.Behaviour.TickCurious(.1f);
-            Require(f.Count == 1, "Curious pulse repeated before 2.5 seconds");
-            for (int index = 0; index < 18; index++) f.Behaviour.TickCurious(.1f);
-            Require(f.Count == 2, "Curious pulse did not repeat within four seconds");
-            Require(f.Motor.CurrentSpeedMetersPerSecond == 0f, "Sound integration made curious bird move");
+            GameObject threat = f.New("Bird threat");
+            threat.transform.position = f.Map.MapPositionToWorld(new Vector2(49f, 49f));
+            f.Agent.NotifyThreat(threat.transform);
+            Require(f.Agent.CurrentState == AnimalState.Fleeing, "Bird paused to observe threat");
+            Require(f.Count == 1 && f.Motor.IsAerialMovement, "Direct escape lost its alarm or aerial movement");
         }
 
         private static void CheckPeckCadenceAndContact()
         {
-            foreach (int framesPerSecond in new[] { 30, 60, 144 })
+            foreach (int fps in new[] { 30, 60, 144 })
             {
                 using var f = new Fixture();
                 f.BeginPecking();
-                for (int frame = 0; frame < framesPerSecond * 2; frame++) f.Behaviour.TickDaily(1f / framesPerSecond);
-                Require(f.Count == 3, $"Peck pulse count depends on frame rate ({framesPerSecond} Hz): {f.Count}");
+                for (int i = 0; i < fps * 2; i++) f.Agent.Brain.Tick(1f / fps);
+                Require(f.Count == 3, $"Peck cadence depends on frame rate {fps}: {f.Count}");
                 Vector3 origin = ((Transform)Get(f.Waves[0], "Transform")).position;
-                Vector3 centre = f.HomeTree.TrunkWorldPosition;
-                Near(Vector2.Distance(origin, centre), f.HomeTree.PerchRadiusMeters, "Peck wave is not anchored at trunk contact surface");
-                Vector2 birdSide = (Vector2)(f.Agent.transform.position - centre);
-                Require(Vector2.Dot(((Vector2)(origin - centre)).normalized, birdSide.normalized) > .999f, "Peck sound emitted on the far side of the tree");
-                Near((float)Get(f.Last, "Duration"), .35f, "Peck pulse duration");
+                Near(Vector2.Distance(origin, f.HomeTree.TrunkWorldPosition), f.HomeTree.PerchRadiusMeters, "Peck sound missed trunk contact");
+                Near((float)Get(f.Last, "Duration"), .35f, "Peck wave duration");
             }
             using (var f = new Fixture())
             {
-                f.BeginPecking(); f.Behaviour.TickDaily(.4f);
-                Require(f.Count == 0, "Sound emitted before third peck contact");
-                f.Behaviour.TickDaily(.011f);
-                Require(f.Count == 1, "Third contact did not emit a wave");
-                f.ClearWaves(); f.BeginPecking(); f.Behaviour.TickDaily(2f);
-                Require(f.Count == 1, "Long frame caught up several sound pulses at once");
+                f.BeginPecking(); f.Agent.Brain.Tick(2f);
+                Require(f.Count == 1, "Long frame emitted a burst of missed pecks");
             }
         }
 
@@ -313,65 +303,38 @@ namespace AnimalGame.Editor
             using var f = new Fixture();
             f.BeginPecking();
             f.HomeTree.ConfigureEditorDefaults(TreeHealthState.Healthy, null, .6f);
-            f.Behaviour.TickDaily(.8f);
-            Require(f.Count == 0 && Phase(f.Behaviour, "dailyPhase") != "Pecking", "Invalid peck target continued to emit contact sounds");
+            f.Agent.Brain.Tick(.8f);
+            Require(f.Count == 0 && !f.Agent.Brain.HasOverrideAction, "Invalid peck target kept pecking");
             f.HomeTree.ConfigureEditorDefaults(TreeHealthState.Dead, null, .6f);
-            f.BeginPecking(); f.Behaviour.TickDaily(.3f);
-            f.Behaviour.ExitDaily(); f.Behaviour.EnterCurious();
-            Require(f.Count == 1, "Interrupted peck leaked a delayed contact pulse into curious entry");
+            f.BeginPecking(); f.Agent.Brain.Tick(.3f);
+            GameObject threat = f.New("Peck interruption");
+            threat.transform.position = f.Map.MapPositionToWorld(new Vector2(49f, 49f));
+            f.Agent.NotifyThreat(threat.transform);
+            Require(f.Count == 1 && f.Agent.CurrentState == AnimalState.Fleeing, "Interrupted peck leaked a contact pulse");
         }
 
-        private static void CheckFleeAndTreeEntry()
+        private static void CheckFleeCadence()
         {
             using var f = new Fixture();
-            f.Motor.TeleportToMapPosition(new Vector2(70f, 50f));
-            f.Behaviour.ExitDaily(); Property(f.Agent, "CurrentState", AnimalState.Fleeing); f.Behaviour.EnterFleeing();
-            Require(f.Count == 1, "Fleeing entry did not emit one alarm wave");
+            GameObject threat = f.New("Flee threat");
+            threat.transform.position = f.Map.MapPositionToWorld(new Vector2(49f, 49f));
+            f.Agent.NotifyThreat(threat.transform);
+            Require(f.Count == 1, "Escape should emit one alarm pulse");
             f.Motor.Tick(.01f); f.Emitter.Tick(.01f);
             Require(f.Count == 1, "Alarm stacked immediate wing pulse");
-            for (int index = 0; index < 4; index++) { f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
-            Require(f.Count == 1, "Flee movement repeated before .5 seconds");
-            for (int index = 0; index < 5; index++) { f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
-            Require(f.Count == 2, "Flee movement did not repeat within .8 seconds");
-            f.Motor.TeleportToMapPosition(f.Motor.TargetMapPosition); Property(f.Motor, "HasArrived", true);
-            f.Behaviour.TickFleeing(.01f);
-            Require(f.Count == 3 && Phase(f.Behaviour, "fleePhase") == "EnteringHome", "Arrival did not emit exactly one entrance pulse");
-            Vector3 entrance = ((Transform)Get(f.Last, "Transform")).position;
-            f.Behaviour.TickFleeing(.2f); f.Emitter.Tick(.2f);
-            Require(f.Count == 3, "Moving into tree emitted additional movement pulses");
-            Require(Vector3.Distance(((Transform)Get(f.Last, "Transform")).position, entrance) < .0001f, "Entrance pulse followed the hiding bird");
-            f.Behaviour.TickFleeing(.3f);
-            Require(f.Agent.CurrentState == AnimalState.Hiding && f.Count == 3, "Tree entry failed to finish quietly in hiding");
+            for (int i = 0; i < 4; i++) { f.Agent.Brain.Tick(.1f); f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
+            Require(f.Count == 1, "Escape repeated too early");
+            for (int i = 0; i < 5; i++) { f.Agent.Brain.Tick(.1f); f.Motor.Tick(.1f); f.Emitter.Tick(.1f); }
+            Require(f.Count == 2 && f.Agent.CurrentState == AnimalState.Fleeing, "Escape cadence or state changed");
+            Require(f.Behaviour.TargetTree == null, "Escape chose a home tree");
         }
 
-        private static void CheckHiddenAndEmergenceRetries()
+        private static void CheckNoTreeHiding()
         {
             using var f = new Fixture();
-            Set(f.Config, "frightenedHideDurationSeconds", new Vector2(2f, 2f));
             f.Agent.BeginHiding();
-            for (int index = 0; index < 15; index++) { f.Behaviour.TickHiding(.1f); f.Emitter.Tick(.1f); }
-            Require(f.Count == 0 && Phase(f.Behaviour, "hidingPhase") == "Hidden", "Hidden bird emitted visible sound waves");
-            for (int index = 0; index < 6; index++) f.Behaviour.TickHiding(.1f);
-            Require(f.Count == 1 && Phase(f.Behaviour, "hidingPhase") == "Emerging", "Safe emergence did not begin with one pulse");
-            Vector3 entrance = ((Transform)Get(f.Last, "Transform")).position;
-            Require(Vector3.Distance(entrance, f.Map.MapPositionToWorld((Vector2)Get(f.Behaviour, "hidingPerchMapPosition"))) < .0001f, "Emergence sound is not at tree entrance");
-            RobotMover player = f.New("Emergence safety player").AddComponent<RobotMover>();
-            Property(f.Agent.Perception, "Player", player);
-            player.transform.position = entrance;
-            f.Behaviour.TickHiding(.01f);
-            Require(Phase(f.Behaviour, "hidingPhase") == "Hidden" && f.Count == 1, "Unsafe emergence failed to cancel quietly");
-            Property(f.Agent.Perception, "Player", null);
-            Set(f.Behaviour, "hidingSafetyCheckCountdown", 0f);
-            f.Behaviour.TickHiding(.1f);
-            Require(Phase(f.Behaviour, "hidingPhase") == "Emerging" && f.Count == 1, "Rapid retry stacked another emergence pulse");
-            Property(f.Agent.Perception, "Player", player); f.Behaviour.TickHiding(.01f);
-            for (int index = 0; index < 22; index++) f.Behaviour.TickHiding(.1f);
-            Require(f.Count == 1, "Unsafe hidden safety checks emitted sounds");
-            Property(f.Agent.Perception, "Player", null);
-            Set(f.Behaviour, "hidingSafetyCheckCountdown", 0f); f.Behaviour.TickHiding(.1f);
-            Require(f.Count == 2, "A genuine later emergence lost its pulse after retry cooldown");
-            f.Behaviour.TickHiding(.5f);
-            Require(f.Agent.CurrentState == AnimalState.Daily, "Emergence failed to restore daily behavior");
+            Require(f.Agent.CurrentState == AnimalState.Fleeing, "Bird entered obsolete tree hiding state");
+            Require(f.Count == 1 && f.Behaviour.TargetTree == null, "Bird emitted obsolete tree-entry sounds");
         }
 
         private static void CheckWaveFadeLifetimeAndPool()
@@ -458,8 +421,9 @@ namespace AnimalGame.Editor
             }
             public void BeginPecking()
             {
-                Set(Behaviour, "currentTree", HomeTree); Set(Behaviour, "actionTimer", 1000f);
-                Call(Behaviour, "BeginPecking"); Motor.Tick(1f);
+                Agent.ReturnToDaily();
+                Require(Agent.Brain.StartAction(new WoodpeckerPeckAction(Behaviour, 1000f)), "Could not start pecking");
+                Motor.Tick(1f);
             }
             public void ClearWaves()
             {

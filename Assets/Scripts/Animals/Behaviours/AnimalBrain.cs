@@ -32,6 +32,7 @@ namespace AnimalGame.Animals
 
         public void Request(AnimalState state)
         {
+            if (state == AnimalState.Curious) state = behaviour.ThreatResponse;
             if (state == AnimalState.Aggressive && !behaviour.SupportsAggression) state = AnimalState.Fleeing;
             if (context.Runtime.IsDead && state != AnimalState.Dead && state != AnimalState.Despawned) return;
             if (!requested.HasValue || Priority(state) >= Priority(requested.Value)) requested = state;

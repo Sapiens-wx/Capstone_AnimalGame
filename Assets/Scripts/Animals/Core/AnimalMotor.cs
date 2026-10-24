@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AnimalGame.MapTest;
 using AnimalGame.World;
 using UnityEngine;
@@ -27,6 +28,11 @@ namespace AnimalGame.Animals
         public Vector2 TargetMapPosition { get; private set; }
         public Vector2 FacingMapDirection { get; private set; } = Vector2.up;
         public bool IsAerialMovement { get; private set; }
+        public bool IsPerchedMovement { get; private set; }
+        private List<Vector2> aerialPath;
+        private int pathIndex;
+        public void SetPerchedMode(bool perched) { IsPerchedMovement = perched; }
+        public void SetMovementSpeed(float speed) { targetSpeedMetersPerSecond = Mathf.Max(0f, speed); }
         public Vector2 CurrentMapPosition
         {
             get
@@ -57,7 +63,7 @@ namespace AnimalGame.Animals
         public bool IsFacingLocked => facingLocked;
         public float? FacingTurnSpeedDegreesPerSecond { get; set; }
         public void LockFacing(Vector2 direction) { facingLocked = true; FaceMapDirection(direction); }
-        public void ClearMovementOverrides() { facingLocked = false; SegmentFilter = null; FacingTurnSpeedDegreesPerSecond = null; }
+        public void ClearMovementOverrides() { facingLocked = false; SegmentFilter = null; FacingTurnSpeedDegreesPerSecond = null; IsPerchedMovement = false; }
         public AnimalMovementResult Result { get; private set; }
         public bool IsDisplaced => impactVelocity.sqrMagnitude > .001f || wasDisplaced;
         public void Knockback(Vector2 direction, float distance)
@@ -108,6 +114,46 @@ namespace AnimalGame.Animals
                 true);
         }
 
+        // A distance budget may cross several samples in one frame. Never skip a
+        // collision check, or consume path distance while the motor is blocked.
+        public bool SetAerialPath(IReadOnlyList<Vector2> points, float speed)
+        {
+            if (points == null || points.Count == 0) return false;
+            Vector2 previous = CurrentMapPosition;
+            foreach (Vector2 point in points)
+            {
+                if (!CanFlySegment(previous, point)) return false;
+                previous = point;
+            }
+            if (!SetAerialTarget(points[points.Count - 1], speed)) return false;
+            aerialPath = new List<Vector2>(points);
+            pathIndex = 0;
+            return true;
+        }
+
+        public bool CanFlySegment(Vector2 start, Vector2 end)
+        {
+            if (map == null || config == null || !map.TrySampleMapPosition(start, out _)
+                || !map.TrySampleMapPosition(end, out _)) return false;
+            float radius = config.BodyRadiusMeters;
+            if (!map.TrySampleMapPosition(end + Vector2.right * radius, out _)
+                || !map.TrySampleMapPosition(end - Vector2.right * radius, out _)
+                || !map.TrySampleMapPosition(end + Vector2.up * radius, out _)
+                || !map.TrySampleMapPosition(end - Vector2.up * radius, out _)) return false;
+            int count = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(start, end) / .1f));
+            Vector2 previous = start;
+            for (int i = 1; i <= count; i++)
+            {
+                Vector2 next = Vector2.Lerp(start, end, i / (float)count);
+                if (!map.TrySampleMapPosition(next, out _)
+                    || (SegmentFilter != null && !SegmentFilter(previous, next))) return false;
+                previous = next;
+            }
+            return !WorldInteractionQuery.Query(InteractionShape.Capsule(start, end, config.BodyRadiusMeters),
+                WorldInteractionKind.Actor, map, gameObject.scene, ignore: transform,
+                previous: InteractionShape.Circle(start, config.BodyRadiusMeters));
+        }
+
         private bool SetTargetInternal(
             Vector2 mapPositionMeters,
             float speedMetersPerSecond,
@@ -117,6 +163,7 @@ namespace AnimalGame.Animals
                 return false;
 
             TargetMapPosition = mapPositionMeters;
+            aerialPath = null;
             targetSpeedMetersPerSecond = Mathf.Max(0f, speedMetersPerSecond);
             IsAerialMovement = aerialMovement;
             if (!HasTarget || HasArrived) { Result = AnimalMovementResult.Moving; blockedTime = 0f; }
@@ -127,6 +174,7 @@ namespace AnimalGame.Animals
 
         public void Stop()
         {
+            aerialPath = null;
             HasTarget = false;
             HasArrived = false;
             CurrentSpeedMetersPerSecond = 0f;
@@ -156,6 +204,12 @@ namespace AnimalGame.Animals
 
             Vector2 currentMapPosition = CurrentMapPosition;
             if (TickDisplacement(deltaTime)) return;
+            if (HasTarget && aerialPath != null)
+            {
+                TickAerialPath(deltaTime);
+                RotateTowardsDesiredFacing(deltaTime);
+                return;
+            }
             if (HasTarget)
             {
                 Vector2 toTarget = TargetMapPosition - currentMapPosition;
@@ -210,6 +264,7 @@ namespace AnimalGame.Animals
                 return false;
 
             ApplyMapPosition(mapPositionMeters);
+            aerialPath = null;
             HasTarget = false;
             HasArrived = true;
             CurrentSpeedMetersPerSecond = 0f;
@@ -273,20 +328,47 @@ namespace AnimalGame.Animals
                     out movementDirection);
             }
 
-            Vector2 candidatePosition = currentMapPosition
-                                        + directDirection * step;
-            if (!map.TrySampleMapPosition(candidatePosition, out _))
-            {
-                movementDirection = Vector2.zero;
-                return false;
-            }
-
             movementDirection = directDirection;
-            if (WorldInteractionQuery.Query(InteractionShape.Capsule(currentMapPosition, candidatePosition, config.BodyRadiusMeters),
-                WorldInteractionKind.Actor, map, gameObject.scene, ignore: transform,
-                previous: InteractionShape.Circle(currentMapPosition, config.BodyRadiusMeters)))
-            { movementDirection = Vector2.zero; return false; }
-            return true;
+            return CanFlySegment(currentMapPosition, currentMapPosition + directDirection * step);
+        }
+
+        private void TickAerialPath(float dt)
+        {
+            float remaining = targetSpeedMetersPerSecond * dt, moved = 0f;
+            while (aerialPath != null && pathIndex < aerialPath.Count)
+            {
+                Vector2 current = CurrentMapPosition;
+                Vector2 delta = aerialPath[pathIndex] - current;
+                float distance = delta.magnitude;
+                if (distance < .00001f) { pathIndex++; continue; }
+                if (remaining <= 0f) break;
+                float step = Mathf.Min(distance, remaining);
+                Vector2 next = current + delta / distance * step;
+                if (!CanFlySegment(current, next))
+                {
+                    blockedTime += dt;
+                    Result = blockedTime > 2f ? AnimalMovementResult.NoProgress : AnimalMovementResult.Blocked;
+                    CurrentSpeedMetersPerSecond = moved / dt;
+                    return;
+                }
+                if (!facingLocked) desiredFacingMapDirection = delta / distance;
+                ApplyMapPosition(next);
+                remaining -= step;
+                moved += step;
+                if (step >= distance - .00001f) pathIndex++;
+            }
+            blockedTime = 0f;
+            CurrentSpeedMetersPerSecond = moved / dt;
+            Result = AnimalMovementResult.Moving;
+            if (aerialPath != null && pathIndex >= aerialPath.Count)
+            {
+                aerialPath = null;
+                HasTarget = false;
+                HasArrived = true;
+                IsAerialMovement = false;
+                CurrentSpeedMetersPerSecond = 0f;
+                Result = AnimalMovementResult.Reached;
+            }
         }
 
         private bool IsObstacleSweepBlocked(
@@ -355,13 +437,13 @@ namespace AnimalGame.Animals
         private bool TickDisplacement(float deltaTime)
         {
             Vector2 position = CurrentMapPosition;
-            bool steep = !IsAerialMovement && config.MaximumWalkSlopeDegrees < 90f
+            bool steep = !IsAerialMovement && !IsPerchedMovement && config.MaximumWalkSlopeDegrees < 90f
                 && AnimalTerrainQuery.TrySample(map, position, out var ground)
                 && ground.SlopeDegrees > config.SlideSlopeDegrees + .001f;
             if (!steep && !wasDisplaced && impactVelocity.sqrMagnitude <= .001f) return false;
             wasDisplaced = true;
             // Passive movement uses solid sweeps, but may enter dangerous slopes/water.
-            if (AnimalTerrainQuery.TrySample(map, position, out var sampledGround))
+            if (!IsAerialMovement && !IsPerchedMovement && AnimalTerrainQuery.TrySample(map, position, out var sampledGround))
             {
                 if (sampledGround.SlopeDegrees > config.SlideSlopeDegrees + .001f)
                     impactVelocity += -sampledGround.Gradient.normalized * 6f * deltaTime;
