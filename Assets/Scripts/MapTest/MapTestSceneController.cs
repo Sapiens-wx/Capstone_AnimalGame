@@ -189,6 +189,9 @@ namespace AnimalGame.MapTest
         {
             if (Application.isPlaying)
             {
+#if !UNITY_EDITOR
+                Cursor.visible = false;
+#endif
                 elevationFilterRequested = elevationFilterStartsEnabled;
                 elevationFilterProgress = elevationFilterStartsEnabled
                     ? 1f
