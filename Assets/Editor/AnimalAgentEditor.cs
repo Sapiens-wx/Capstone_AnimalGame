@@ -16,7 +16,7 @@ namespace AnimalGame.Editor
             EditorGUILayout.Space();
             EditorGUILayout.HelpBox(
                 "Scene Gizmos\n"
-                + "Green: fixed daily activity range\n"
+                + "Green: local activity search distance (no birth-position boundary)\n"
                 + "Orange: hearing / alert range around the animal\n"
                 + "Cyan: direct-vision bonus angle (hearing still works outside it)",
                 MessageType.Info);
@@ -109,7 +109,7 @@ namespace AnimalGame.Editor
             if (!Application.isPlaying || agent.Map == null || !hasMap)
                 return agent.transform.position;
 
-            Vector3 centre = map.MapPositionToWorld(agent.HomeMapPosition);
+            Vector3 centre = map.MapPositionToWorld(agent.ActivityCenter);
             centre.z = agent.transform.position.z;
             return centre;
         }
@@ -247,7 +247,7 @@ namespace AnimalGame.Editor
 
             Handles.Label(
                 activityLabelPosition,
-                $"  Daily / {config.ActivityRadiusMeters:0.##} m",
+                $"  Local search / {config.ActivityRadiusMeters:0.##} m",
                 CreateLabelStyle(ActivityColour));
             Handles.Label(
                 alertLabelPosition,

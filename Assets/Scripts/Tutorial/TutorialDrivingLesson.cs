@@ -72,7 +72,7 @@ namespace AnimalGame.Tutorial
 
 #if ENABLE_INPUT_SYSTEM
             // The D-pad is only used here while the inventory is closed; A keeps its world interaction role.
-            if (Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
+            if (!AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
                 || Gamepad.current.dpad.right.wasPressedThisFrame))
                 panel.ToggleCollapsed();
 #endif

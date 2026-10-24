@@ -17,6 +17,16 @@ namespace AnimalGame.Editor
     public static class RobotArmRegressionChecks
     {
         private static readonly List<string> passed = new();
+        public static void RunSpatialIndexChecks()
+        {
+            CheckGeometry();
+            CheckColliderShapes();
+            CheckRegistry();
+            CheckInteractionKinds();
+            CheckQuadTree();
+            CheckSpatialDirty();
+            Debug.Log("Spatial compatibility checks PASS: geometry, registration, kind masks, quadtree equivalence and dirty updates.");
+        }
         [MenuItem("Animal Game/Validation/Run Collider Shape Checks")]
         public static void RunColliderShapeChecks()
         {
@@ -1769,7 +1779,8 @@ namespace AnimalGame.Editor
                 RobotMarkerView marker = Root.GetComponent<RobotMarkerView>();
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                     "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
-                Require(prefab != null, "Production robot visual hierarchy is unavailable to regression fixtures");
+                Require(!useProductionSettings || prefab != null,
+                    "Production robot visual hierarchy is unavailable to regression fixtures");
                 if (useProductionSettings)
                 {
                     EditorUtility.CopySerialized(prefab.GetComponent<RobotArmController>(), Arms);

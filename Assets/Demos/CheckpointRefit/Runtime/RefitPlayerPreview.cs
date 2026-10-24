@@ -97,9 +97,10 @@ namespace AnimalGame.Demos.CheckpointRefit
         private static bool ShouldCapture(Renderer source)
         {
             // Held or nested world objects are never part of the unit artwork.
+            WorldInteraction interaction = source != null ? source.GetComponentInParent<WorldInteraction>() : null;
             return source != null && source.enabled && !source.forceRenderingOff
                 && source.gameObject.activeInHierarchy
-                && source.GetComponentInParent<WorldInteraction>() == null;
+                && (interaction == null || interaction is PlayerWorldBody);
         }
 
         private static bool IsDirectionIndicator(Transform source, Transform visualRoot)

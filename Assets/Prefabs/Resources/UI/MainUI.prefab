@@ -223,6 +223,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   document: {fileID: 5078151001591562568}
+  animalDebugPrefab: {fileID: 100000, guid: e528ef4d20ad4a8aa9e91076e6b25a41, type: 3}
   emptyItemTemplate: {fileID: 9197481963319205126, guid: d2094fa53a1bef84ea7da428b2a3b604, type: 3}
   defaultItems:
   - {fileID: 11400000, guid: f033bc3a57d7e6848a20706ce75cfbf1, type: 2}

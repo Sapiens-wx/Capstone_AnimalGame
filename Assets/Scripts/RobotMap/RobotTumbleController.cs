@@ -1,5 +1,6 @@
 using System;
 using AnimalGame.MapTest;
+using AnimalGame.World;
 using UnityEngine;
 
 namespace AnimalGame.RobotMap
@@ -503,6 +504,7 @@ namespace AnimalGame.RobotMap
                 easedProgress);
             nextPosition.z = stepStartWorld.z;
             transform.position = nextPosition;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
             UpdateTumbleBalanceState(StepProgress01);
 
             if (StepProgress01 >= 1f)
@@ -760,6 +762,7 @@ namespace AnimalGame.RobotMap
             activeStep = false;
             StepProgress01 = 1f;
             transform.position = stepEndWorld;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
 
             float terrainHeightDelta = activeTerrain.EndSurfaceHeightMeters
                                        - activeTerrain.StartSurfaceHeightMeters;

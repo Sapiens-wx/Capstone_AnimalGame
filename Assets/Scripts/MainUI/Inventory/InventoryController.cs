@@ -427,6 +427,8 @@ namespace AnimalGame.MainUI.Inventory
 
         private void HandleInput()
         {
+            if (AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels)
+            { openHoldElapsed = 0f; openHoldLatched = true; return; }
             bool toggle = false, close = false, heldOpen = false, confirm = false, rightClick = false;
             Vector2Int navigation = Vector2Int.zero;
             Vector2 stick = Vector2.zero;

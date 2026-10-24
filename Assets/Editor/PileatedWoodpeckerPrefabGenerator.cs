@@ -152,8 +152,8 @@ namespace AnimalGame.Editor
             ConfigureDailyBehaviour(
                 dailyBehaviours.GetArrayElementAtIndex(0),
                 AnimalDailyBehaviourKind.PerchAtTree,
-                1.15f,
-                new Vector2(4f, 8f));
+                6f,
+                new Vector2(5f, 10f));
             ConfigureDailyBehaviour(
                 dailyBehaviours.GetArrayElementAtIndex(1),
                 AnimalDailyBehaviourKind.FlyToTree,
@@ -162,8 +162,12 @@ namespace AnimalGame.Editor
             ConfigureDailyBehaviour(
                 dailyBehaviours.GetArrayElementAtIndex(2),
                 AnimalDailyBehaviourKind.PeckAtTree,
-                1.35f,
-                new Vector2(2.5f, 5f));
+                2f,
+                new Vector2(3f, 6f));
+
+            // Bird Settings owns the flight interval; avoid a second hidden cooldown.
+            dailyBehaviours.GetArrayElementAtIndex(1).FindPropertyRelative("cooldownSeconds").floatValue = 0f;
+            dailyBehaviours.GetArrayElementAtIndex(2).FindPropertyRelative("cooldownSeconds").floatValue = 5f;
 
             serialized.FindProperty("foodPreferences").arraySize = 0;
             serialized.FindProperty("alertRadiusMeters").floatValue = 18f;
@@ -215,6 +219,9 @@ namespace AnimalGame.Editor
         {
             property.FindPropertyRelative("behaviour").enumValueIndex =
                 (int)behaviour;
+            property.FindPropertyRelative("action").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<AnimalActionDefinition>(
+                    "Assets/Data/Animals/SpeciesActions/" + behaviour + ".asset");
             property.FindPropertyRelative("selectionWeight").floatValue =
                 weight;
             property.FindPropertyRelative("durationSeconds").vector2Value =

@@ -78,7 +78,10 @@ namespace AnimalGame.Editor
                 TreeHabitat habitat = root.GetComponent<TreeHabitat>();
                 bool changed = habitat == null;
                 if (habitat == null)
+                {
                     habitat = root.AddComponent<TreeHabitat>();
+                    habitat.ConfigureActivityArea(health == TreeHealthState.Healthy ? new Vector2(3f, 3f) : Vector2.zero, Vector2.zero);
+                }
 
                 Transform trunkCenter = root.transform.Find("Solid Core");
                 if (trunkCenter == null)

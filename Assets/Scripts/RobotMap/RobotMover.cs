@@ -24,6 +24,7 @@ namespace AnimalGame.RobotMap
 
     public sealed class RobotMover : MonoBehaviour
     {
+        private PlayerCombatReceiver animalCombat;
         [Header("Base Movement")]
         [Tooltip("Global scale applied once to every absolute movement speed, linear/angular acceleration, terrain slide rate and recovery rate. Relative slope multipliers and phase durations are intentionally unchanged. Set to 0.85 for an overall 15 percent reduction.")]
         [SerializeField, Range(0f, 2f)] private float overallMotionScale = 1f;
@@ -265,6 +266,9 @@ namespace AnimalGame.RobotMap
 
         private void Awake()
         {
+            if (GetComponent<PlayerWorldBody>() == null) gameObject.AddComponent<PlayerWorldBody>();
+            if (GetComponent<PlayerCombatReceiver>() == null) gameObject.AddComponent<PlayerCombatReceiver>();
+            animalCombat = GetComponent<PlayerCombatReceiver>();
             armController = GetComponent<RobotArmController>();
             balanceController = GetComponent<RobotBalanceController>();
         }
@@ -275,6 +279,8 @@ namespace AnimalGame.RobotMap
             ClearHeavyPullMotion();
             HeavyPullMovementBlocked = false;
             traversalEvaluator = evaluator;
+            if (evaluator != null) evaluator.CollisionQueryIgnore = transform;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
             if (balanceController == null)
                 balanceController = GetComponent<RobotBalanceController>();
             balanceController?.SetTraversalEvaluator(evaluator);
@@ -302,6 +308,8 @@ namespace AnimalGame.RobotMap
             climbableNormalSpeedLimit = float.PositiveInfinity;
             HeavyPullMovementBlocked = false;
             if (Time.deltaTime <= 0f) return;
+            if (animalCombat != null && animalCombat.IsDisplaced)
+            { ClearMotionForExternalControl(); return; }
             if (MovementMode != RobotMovementMode.Driven)
             {
                 ClearMotionForExternalControl();
@@ -309,7 +317,10 @@ namespace AnimalGame.RobotMap
             }
 
             if (hasCommittedPosition && ((Vector2)transform.position - lastCommittedPosition).sqrMagnitude > 0.000001f)
+            {
                 ResetClimbableContact(); // External relocation is not a driven landing.
+                WorldInteraction.MarkHierarchySpatialDirty(transform);
+            }
             RefreshClimbableSurface();
             lastCommittedPosition = transform.position;
             hasCommittedPosition = true;
@@ -604,6 +615,7 @@ namespace AnimalGame.RobotMap
             }
 
             transform.position += (Vector3)desiredDisplacement;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
             armController?.ConfirmBodyMotion();
             climbableResistance.Commit();
             // Camera motion observes drive and terrain velocity, excluding the
@@ -651,6 +663,17 @@ namespace AnimalGame.RobotMap
             float radius = GetClimbableBodyRadius(sceneMap) + .02f;
             Vector2 a = InteractionShape.ToQuery(start, sceneMap), b = InteractionShape.ToQuery(end, sceneMap);
             plan.Add(InteractionShape.Capsule(a, a, radius), InteractionShape.Capsule(b, b, radius), true);
+        }
+        public float BodyRadiusInQuery(MapTestSceneController map) => GetClimbableBodyRadius(map);
+
+        public bool ApplyAnimalImpact(Vector2 displacement)
+        {
+            PrepareMovementPlan(displacement, armController != null && armController.HeldObject != null ? armController.HeldObject.transform : null);
+            if (!movementPlan.Evaluate() || !movementPlan.Commit()) return false;
+            transform.position += (Vector3)displacement;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
+            armController?.ConfirmBodyMotion();
+            return true;
         }
 
         private void RotateSafely(float angle)

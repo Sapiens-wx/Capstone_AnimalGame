@@ -1,0 +1,114 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e42ea6af259ac874fabc89fccca67a0b, type: 3}
+  m_Name: MountainGoatConfig
+  m_EditorClassIdentifier: 
+  speciesName: MountainGoat
+  activityRadiusMeters: 20
+  dailyMoveSpeedMetersPerSecond: 1.2
+  fleeSpeedMetersPerSecond: 4
+  turnSpeedDegreesPerSecond: 420
+  arrivalDistanceMeters: 0.18
+  bodyRadiusMeters: 0.22
+  maximumTravelTimeSeconds: 18
+  dailyBehaviours:
+  - behaviour: 7
+    selectionWeight: 0.7
+    durationSeconds: {x: 4, y: 8}
+    action: {fileID: 11400000, guid: 45bcaebe8010439db96cf880b2d70cfa, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 4
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 1
+    durationSeconds: {x: 3, y: 6}
+    action: {fileID: 11400000, guid: 0f0080337e5c45d9b6402d738e431a48, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 4
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 1
+    durationSeconds: {x: 12, y: 25}
+    action: {fileID: 11400000, guid: 97ae861fb2ad4b199db005c01a4a2560, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 4
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 1
+    durationSeconds: {x: 5, y: 10}
+    action: {fileID: 11400000, guid: 16946869fe6944d09298c79a8526d55e, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 4
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 0.45
+    durationSeconds: {x: 6, y: 12}
+    action: {fileID: 11400000, guid: 6422823c4e534c7993a396362fe87643, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 15
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 2
+    selectionWeight: 0.7
+    durationSeconds: {x: 4, y: 8}
+    action: {fileID: 0}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 4
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  foodPreferences:
+  - foodType: 0
+    selectionWeight: 1
+  nearbyFoodDistanceMeters: 1.6
+  foodApproachPaddingMeters: 0.08
+  lookIntervalSeconds: {x: 0.65, y: 1.4}
+  lookAngleDegrees: 75
+  minimumDiveWaterDepthMeters: 0.2
+  resurfaceRadiusMeters: 10
+  submergeTransitionSeconds: 0.35
+  waterSearchSpacingMeters: 1.5
+  alertRadiusMeters: 14
+  detectionIntervalSeconds: 0.1
+  baseDetectionChancePerCheck: 0.3
+  nearestDetectionMultiplier: 3
+  playerSpeedForMaximumBonus: 3
+  maximumPlayerSpeedDetectionMultiplier: 2
+  directVisionAngleDegrees: 75
+  directLineOfSightDetectionMultiplier: 1.5
+  reactionIntervalSeconds: 0.15
+  baseFleeChancePerCheck: 0.05
+  nearestFleeMultiplier: 2.5
+  baseAggressionChancePerCheck: 0.035
+  nearestAggressionMultiplier: 1
+  curiousLostPlayerDelaySeconds: 2.5
+  frightenedHideDurationSeconds: {x: 6, y: 10}
+  hideSafetyCheckIntervalSeconds: 0.75
+  reappearSafeDistanceMultiplier: 1.1
+  postReappearGraceDurationSeconds: 1.5
+  maximumHealth: 10
+  initialHealthRange: {x: 10, y: 10}
+  maximumWalkSlopeDegrees: 80
+  slideSlopeDegrees: 80
+  attackDamage: 2
+  aggressiveSpeedMetersPerSecond: 3
+  impactRadiusMeters: 0.5
+  attackPaddingMeters: 0.1

@@ -18,6 +18,8 @@ namespace AnimalGame.MainUI
     public sealed class MainUI : MonoBehaviour, IInventoryHost
     {
         [SerializeField] private UIDocument document;
+        [SerializeField] private GameObject animalDebugPrefab;
+        private GameObject animalDebugInstance;
         [SerializeField] private VisualTreeAsset emptyItemTemplate;
         [Header("Initial inventory")]
         [Tooltip("Initial slot contents, in order. Only the first eight entries are used; null entries leave empty slots.")]
@@ -119,6 +121,7 @@ namespace AnimalGame.MainUI
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
         private DateTime lastCoordinateRefresh, gameTime;
+        public DateTime CurrentGameTime => gameTime;
         private double elapsedGameClockSeconds;
         private bool gameClockInitialized;
         private bool telemetryNeedsRefresh = true;
@@ -144,9 +147,16 @@ namespace AnimalGame.MainUI
         private void Awake()
         {
             if (document == null) document = GetComponent<UIDocument>();
+            if (animalDebugPrefab != null && Application.isPlaying)
+            {
+                // A separate root prevents UIDocument nesting from merging this panel into the HUD.
+                animalDebugInstance = Instantiate(animalDebugPrefab);
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(animalDebugInstance, gameObject.scene);
+            }
         }
         private void OnEnable()
         {
+            if (animalDebugInstance != null) animalDebugInstance.SetActive(true);
             Active = this;
             telemetryNeedsRefresh = true;
             ResetPowerRingFlicker();
@@ -208,6 +218,7 @@ namespace AnimalGame.MainUI
         public void ToggleInventory() { if (inventoryOpen) InventoryController.BackInventory(); else OpenInventory(); }
         public void OpenInventory()
         {
+            if (AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap != null && bootstrap.photoMode != null && bootstrap.photoMode.IsActive) return;
@@ -576,12 +587,17 @@ namespace AnimalGame.MainUI
 
         private void OnDisable()
         {
+            if (animalDebugInstance != null) animalDebugInstance.SetActive(false);
             inventoryController?.Suspend();
             if (powerRing != null) powerRing.visible = true;
             inventoryOpen = false; progress = 0;
             ReleasePause();
             if (Active == this) Active = null;
         }
-        private void OnDestroy() => inventoryController?.Dispose();
+        private void OnDestroy()
+        {
+            inventoryController?.Dispose();
+            if (animalDebugInstance != null) Destroy(animalDebugInstance);
+        }
     }
 }

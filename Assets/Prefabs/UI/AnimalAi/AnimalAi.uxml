@@ -1,0 +1,36 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="AnimalAi.uss" />
+    <ui:VisualElement name="AnimalPanel" class="animal-panel" style="display: none;">
+        <ui:Label text="ANIMAL INSPECTOR" class="title" />
+        <ui:Label text="M: close  ·  B / Esc: back  ·  D-pad / arrow keys: navigate" class="hint" />
+        <ui:VisualElement name="NameRow" class="row name-row">
+            <ui:Button name="AnimalName" text="Select an animal  ▼" class="grow" />
+            <ui:Button name="Sample" text="Pick" class="small-button" />
+        </ui:VisualElement>
+        <ui:ScrollView name="Details" class="details">
+            <ui:Label text="Health" />
+            <ui:VisualElement name="HealthBar" class="health-bar" picking-mode="Ignore">
+                <ui:VisualElement name="HealthFill" class="health-fill" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:Label name="HealthValue" text="—" class="health-value" />
+            <ui:Label name="Leader" text="Leader: —" class="detail" />
+            <ui:Label name="Group" text="Group size: —" class="detail" />
+            <ui:Label name="State" text="State: —" class="detail" />
+            <ui:Label name="Action" text="Action: —" class="detail wrap" />
+        </ui:ScrollView>
+        <ui:Label text="Choose a behavior, then press Execute" class="hint" />
+        <ui:VisualElement name="CommandRow" class="row command-row">
+            <ui:Button name="Command" text="Daily (autonomous)  ▼" class="grow" />
+            <ui:Button name="Execute" text="Execute" class="small-button" />
+        </ui:VisualElement>
+        <ui:Label name="Message" text="" class="message wrap" />
+        <ui:VisualElement name="AnimalPopup" class="popup animal-popup" style="display: none;">
+            <ui:Label text="SCENE ANIMALS" class="popup-title" />
+            <ui:ListView name="AnimalList" class="popup-list" />
+        </ui:VisualElement>
+        <ui:VisualElement name="CommandPopup" class="popup command-popup" style="display: none;">
+            <ui:Label text="BEHAVIORS · select a group to expand" class="popup-title" />
+            <ui:ListView name="CommandList" class="popup-list" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
