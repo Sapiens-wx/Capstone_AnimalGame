@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using AnimalGame.Animals;
 using AnimalGame.RobotMap;
+using AnimalGame.Tutorial;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -104,6 +105,19 @@ namespace AnimalGame.Editor
                 Call(ui, "OnDisable");
                 Require(Get(ui, "pendingSubject") == null && ui.DisplayedSubject == null
                     && !ui.HasSavedDisplayedResult, "Disabling the presenter clears all result identity state.");
+
+                var lesson = root.AddComponent<TutorialPhotographyLesson>();
+                Set(lesson, "subject", first); Set(lesson, "acceptedSnapshot", firstResult);
+                Object.DestroyImmediate(first.gameObject);
+                Require(first == null && !ReferenceEquals(first, null),
+                    "The departed bird has Unity's destroyed identity while its captured photo remains valid.");
+                Call(lesson, "OnPhotoSaved", first, firstResult);
+                Require((bool)Get(lesson, "acceptedSaved"),
+                    "Native saving still recognizes the exact captured bird after its actor is removed.");
+                Set(lesson, "acceptedSaved", false);
+                Call(lesson, "OnPhotoSaved", second, firstResult);
+                Require(!(bool)Get(lesson, "acceptedSaved"),
+                    "A different woodpecker cannot satisfy the departed subject's retained photo save.");
             }
             finally
             {

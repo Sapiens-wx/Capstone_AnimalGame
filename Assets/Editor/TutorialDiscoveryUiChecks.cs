@@ -101,10 +101,14 @@ namespace AnimalGame.Editor
                     new Vector2(1440, 1080), new Vector2(2560, 1080) })
                     foreach (DiscoveryTutorialStep step in Enum.GetValues(typeof(DiscoveryTutorialStep)))
                     {
+                        if (step == DiscoveryTutorialStep.Rescan) continue; // Removed from the displayed tutorial.
                         typeof(DiscoveryTutorialProgress).GetProperty("Step", Flags).SetValue(progress, step);
                         // Keep stage-specific copy visible; the pure suite checks how real hits earn it.
-                        Set(progress, "animalHit", true); Set(progress, "animalVisible", true);
-                        Set(progress, "objectHit", true); Set(progress, "objectVisible", true);
+                        Set(progress, "animalHit", true); Set(progress, "animalObserved", true);
+                        Set(progress, "animalSeen", true); Set(progress, "animalReading", 1.2f);
+                        Set(progress, "objectHit", true); Set(progress, "objectObserved", true);
+                        Set(progress, "objectReading", 1.5f);
+                        Set(progress, "chargeAchieved", true); Set(progress, "scanReleased", true);
                         Set(progress, "chargeStarted", true); Set(progress, "chargeReady", true);
                         foreach (bool valid in new[] { true, false })
                         {
@@ -112,6 +116,11 @@ namespace AnimalGame.Editor
                             panel.SetCollapsed(false); DrivingHelper("Settle", panel, size);
                             string context = "Discovery " + step + " / " + size + " / " + valid;
                             CheckVisibleText(panel.Root, context);
+                            Label prompt = panel.Root.Q<Label>("TutorialContinuePrompt");
+                            Require((prompt.resolvedStyle.display != DisplayStyle.None) == valid,
+                                "Only completed available scan actions expose A confirmation.");
+                            if (valid) Require(prompt.text == text.Panel.ContinuePrompt,
+                                "The manual scan continuation uses editable English copy.");
                             Require(panel.Root.Q<Label>("TutorialChapter").text == "05 / 09", "Discovery teaching is chapter five of nine.");
                             string actualControl = (string)typeof(TutorialDialoguePanel).GetField("controlGlyph", Flags).GetValue(panel);
                             CheckStar(panel.Root, actualControl);
@@ -130,12 +139,23 @@ namespace AnimalGame.Editor
                             || step == DiscoveryTutorialStep.ReadObject)
                         {
                             Set(progress, "animalHit", false); Set(progress, "objectHit", false);
-                            Set(progress, "animalVisible", false); Set(progress, "objectVisible", false);
+                            Set(progress, "animalObserved", false); Set(progress, "animalSeen", false);
+                            Set(progress, "objectObserved", false);
                             Invoke(lesson, "RefreshPanel", true);
                             panel.SetCollapsed(false); DrivingHelper("Settle", panel, size);
                             CheckVisibleText(panel.Root, "Expired discovery marks / " + step + " / " + size);
                         }
                     }
+
+                typeof(DiscoveryTutorialProgress).GetProperty("Step", Flags).SetValue(progress, DiscoveryTutorialStep.Completed);
+                Set(lesson, "chapterConfirmed", false); Invoke(lesson, "RefreshPanel", true);
+                panel.SetVisible(true); panel.SetCollapsed(false);
+                DrivingHelper("Settle", panel, new Vector2(1920, 1080));
+                Require(panel.CanContinue, "The scan completion card waits for its chapter confirmation.");
+                Set(lesson, "chapterConfirmed", true); Invoke(lesson, "RefreshPanel", true);
+                DrivingHelper("Settle", panel, new Vector2(1920, 1080));
+                Require(!panel.CanContinue && panel.Root.Q("TutorialContinuePrompt").resolvedStyle.display == DisplayStyle.None,
+                    "A confirmed scan chapter releases A ownership and hides its continuation hint.");
 
                 foreach (string glyph in new[] { "✧", "✦" })
                 {

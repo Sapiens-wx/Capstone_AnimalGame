@@ -31,6 +31,8 @@ namespace AnimalGame.Tutorial
         [TextArea(2, 6)] public string GuideLabel = "G\nU\nI\nD\nE";
         public string CollapseTooltip = "Tap D-pad Left / Right to hide";
         public string ExpandTooltip = "Tap D-pad Left / Right to show";
+        public string ContinuePrompt = "Press A to continue";
+        public string ContinueWaitingPrompt = "Complete this step to continue";
     }
 
     [Serializable]
@@ -225,7 +227,7 @@ namespace AnimalGame.Tutorial
     {
         public string Title = "Discovery Scan";
         public TutorialStepText ApproachAnimal = new TutorialStepText("LS", "Follow marker",
-            "Follow the marker.\nScan again when nearby.\nLook for the woodpecker\non dry ground.",
+            "Follow the marker.\nLook for the woodpecker\non the tree trunk.",
             "Stay on dry ground.");
         public TutorialStepText Charge = new TutorialStepText("{lb}", "Charge scan",
             "Hold the left bumper.\nKeep holding to charge\na discovery scan.",
@@ -242,22 +244,22 @@ namespace AnimalGame.Tutorial
         public TutorialStepText ReadObject = new TutorialStepText("///", "Inspect object",
             "Stripes and diamonds\nmark objects you can\ninteract with. Some need\nmore than recycling.",
             "Striped mark · Interact");
-        public TutorialStepText Rescan = new TutorialStepText("{lb}", "Scan again",
-            "Marks fade over time.\nHold the left bumper.\nRelease at full charge\nto refresh nearby marks.",
-            "Scans {value:F0} / {target:F0}");
+        // Retained for old serialized text assets; this step is no longer part of the lesson.
+        [HideInInspector] public TutorialStepText Rescan = new TutorialStepText("{lb}", "Charge scan",
+            "Hold the left bumper.\nRelease at full charge\nto locate nearby targets.", "Release {lb} to scan");
         public TutorialStepText Completed = new TutorialStepText("✓", "Scan complete",
             "Scan complete.\nYou can now find wildlife\nand useful objects.",
             "Keep exploring freely.");
         public string WaitingStatus = "Waiting";
         public string CancelledStatus = "Scan cancelled";
         public string WrongGestureStatus = "Hold for discovery scan";
-        public string NeedRescanStatus = "Scan again to continue";
+        public string NeedRescanStatus = "Locate the target";
         public string NeedEmptyHandsStatus = "Retract arms to scan";
         public string BlockedStatus = "Return to scan practice";
         public string CompleteStatus = "Lesson complete";
         public string PreparingStatus = "Preparing nearby targets";
         public string ToggleHint = "Hold {lb} · Charge / Release";
-        [TextArea(3, 5)] public string NeedRescanMessage = "The scan marks faded.\nHold the left bumper,\nthen release when full\nto scan again.";
+        [TextArea(3, 5)] public string NeedRescanMessage = "Hold the left bumper.\nRelease at full charge\nto locate the target.";
         [TextArea(2, 4)] public string NeedStowMessage = "Press L3 to retract your\narms before scanning.";
 
         public TutorialStepText GetStep(DiscoveryTutorialStep step) => step switch
@@ -277,7 +279,7 @@ namespace AnimalGame.Tutorial
     {
         public string Title = "Photo Practice";
         public TutorialStepText ObserveMovement = new TutorialStepText("✦", "Observe bird",
-            "Keep the woodpecker\ninside your view.\nPrepare to take a photo.",
+            "Watch the woodpecker\npecking the tree trunk.\nPrepare to take a photo.",
             "Keep the bird in view.");
         public TutorialStepText EnterPhoto = new TutorialStepText("{photo}", "Enter photo",
             "Press {photo} to enter\nphoto mode and open\nthe camera view.",
@@ -301,14 +303,17 @@ namespace AnimalGame.Tutorial
         public string BlockedStatus = "Return to photo practice";
         public string TargetMissingStatus = "Follow the bird marker";
         public string NeedStowStatus = "Retract arms first";
-        public string NeedRescanStatus = "Scan again to find it";
+        public string NeedRescanStatus = "Locate the bird";
         public string RetryPhotoStatus = "Photograph the bird";
         public string SavedStatus = "Photo saved to album";
         public string CompleteStatus = "Lesson complete";
         public string ToggleHint = "{photo} · Photo / {cancel} · Back";
-        [TextArea(3, 5)] public string TargetMissingMessage = "Follow the gold marker.\nLook for the woodpecker\nnearby on dry ground.";
+        public string CapturedStatus = "Woodpecker photographed";
+        [TextArea(3, 5)] public string TargetMissingMessage = "Follow the gold marker.\nLook for the woodpecker\non the tree trunk.";
         [TextArea(2, 4)] public string NeedStowMessage = "Press L3 to retract\nyour arms before\nentering photo mode.";
-        [TextArea(3, 5)] public string NeedRescanMessage = "The star marker faded.\nHold the left bumper,\nthen release at full\ncharge to find it again.";
+        [TextArea(3, 5)] public string NeedRescanMessage = "Hold the left bumper.\nRelease at full charge\nto locate the bird.";
+        [TextArea(3, 5)] public string CapturedMessage = "Woodpecker photographed.\nThe bird is flying away.\nContinue to save your photo.";
+        [TextArea(3, 5)] public string RecoverySaveMessage = "Your captured photo\nis ready. Press {save}\nto save it to your album.";
         [TextArea(3, 5)] public string RetryPhotoMessage = "The woodpecker was not\nrecorded in that photo.\nBring it into the frame\nand hold {rb} to try again.";
 
         public TutorialStepText GetStep(PhotographyTutorialStep step) => step switch

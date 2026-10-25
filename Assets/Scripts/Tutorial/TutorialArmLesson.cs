@@ -34,12 +34,13 @@ namespace AnimalGame.Tutorial
         private float completionDelay, refreshRemaining;
         private bool previousToggleHeld, hasStarted;
         private bool ownsPresentation = true;
+        private bool chapterConfirmed;
 
         public TutorialTextContent TextContent => tutorialText;
         public ArmTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => driving != null ? driving.Panel : null;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
         private ArmsLessonText Text => tutorialText != null && tutorialText.Arms != null ? tutorialText.Arms : defaultText;
 
@@ -88,6 +89,7 @@ namespace AnimalGame.Tutorial
             if (modal)
             {
                 progress.Suspend();
+                Panel.SetContinuePrompt(false);
                 SetDirectionCueVisible(false);
                 return;
             }
@@ -105,7 +107,15 @@ namespace AnimalGame.Tutorial
                 bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright,
                 valid, Time.deltaTime, !justStarted && ManualActionPressed(progress.Step,
                     togglePressed, arm.ManualRetractRequestedThisFrame), arm.IsBlocked));
-            if (progress.IsStepSatisfied) progress.Advance();
+            Panel.SetContinuePrompt(valid && progress.CanContinue && !chapterConfirmed
+                && arm.HeldObject == null && arm.State != RobotArmState.Recycling,
+                (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
+            if (TutorialContinueInput.TryConsume(Panel, bootstrap))
+            {
+                if (progress.IsComplete) chapterConfirmed = true;
+                else progress.Continue();
+                Panel.SetContinuePrompt(false); refreshRemaining = 0f;
+            }
             if (progress.Step != previousStep)
             {
                 Panel.SetCollapsed(false);
@@ -128,6 +138,7 @@ namespace AnimalGame.Tutorial
             if (balanceLesson != null && balanceLesson.isActiveAndEnabled) balanceLesson.SetPresentationOwned(false);
             else terrain.SetPresentationOwned(false);
             hasStarted = true;
+            chapterConfirmed = false; Panel.SetContinuePrompt(false);
             Panel.SetCollapsed(false);
             refreshRemaining = 0f;
         }
@@ -196,12 +207,12 @@ namespace AnimalGame.Tutorial
             Panel.SetContent(tokens.Format(text.Title), tokens.Format(message), tokens.Format(control),
                 tokens.Format(action), tokens.Format(step.Detail), tokens.Format(status), 4, 9);
             Panel.SetProgress(progress.NormalizedProgress);
-            Panel.SetSuccess(progress.IsComplete);
+            Panel.SetSuccess(progress.CanContinue);
         }
 
         private void UpdateDirectionCue(bool valid)
         {
-            bool show = valid && arm.HeldObject == null && arm.IsArmModeActive && arm.VisibleDeployment01 >= .999f
+            bool show = valid && !progress.CanContinue && arm.HeldObject == null && arm.IsArmModeActive && arm.VisibleDeployment01 >= .999f
                 && !arm.IsBlocked && !Panel.IsCollapsed && progress.Step >= ArmTutorialStep.Extend
                 && progress.Step <= ArmTutorialStep.SwingRight && Panel.Root?.panel != null && bootstrap.mapCamera != null;
             if (!show) { SetDirectionCueVisible(false); return; }
@@ -252,6 +263,7 @@ namespace AnimalGame.Tutorial
         {
             if (!hasStarted || progress == null) return;
             progress.Reset();
+            chapterConfirmed = false; Panel.SetContinuePrompt(false);
             previousToggleHeld = AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
             Panel.SetCollapsed(false);
             refreshRemaining = 0f;
@@ -261,6 +273,7 @@ namespace AnimalGame.Tutorial
         {
             directionCue?.RemoveFromHierarchy(); directionCue = null;
             if (Panel != null) Panel.SetLessonHint(string.Empty);
+            Panel?.SetContinuePrompt(false); chapterConfirmed = false;
             hasStarted = false; progress = null;
             ownsPresentation = true;
             if (balanceLesson != null && balanceLesson.isActiveAndEnabled) balanceLesson.SetPresentationOwned(true);

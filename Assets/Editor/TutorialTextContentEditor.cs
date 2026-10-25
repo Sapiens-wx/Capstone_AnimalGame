@@ -69,7 +69,7 @@ namespace AnimalGame.Editor
                 EditorGUILayout.LabelField("阅读时间", "{reading:F1}   {readingTarget:F0}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("重心阅读进度", "{value:F1} / {target:F0} s；调整步骤按实际重心变化完成。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("机械臂进度", "{value:F0} / {target:F0} cm 或 °；停留时间使用 F1 秒。", EditorStyles.wordWrappedLabel);
-                EditorGUILayout.LabelField("探索扫描", "{value:F0}% 充能；{value:F0} / {target:F0} 扫描次数。", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("探索扫描", "{value:F0}% 充能。完成操作后按 A 逐条继续。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("拍照按键", "{photo} 拍照模式；{rb} 快门；{save} 保存；{cancel} 返回。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("手柄按键", "{rt}   {lt}   {lb}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.HelpBox("正文建议控制在 4 行左右，可按 Enter 换行。操作指令与底部提示尽量简短；这里不会截断或限制保存的文字。\n"
@@ -93,6 +93,8 @@ namespace AnimalGame.Editor
                 Field(panel, "ExpandArrows", "收起时的方向符号");
                 Field(panel, "GuideLabel", "收起标签纵排标题", "可按 Enter 换行，例如每个字母各占一行。");
                 Field(panel, "ExpandTooltip", "展开按钮悬停说明");
+                Field(panel, "ContinuePrompt", "步骤完成后的继续提示", "完成当前操作后显示；按 A 才进入下一条教学。");
+                Field(panel, "ContinueWaitingPrompt", "步骤尚未完成时的提示");
             }
         }
 
@@ -251,10 +253,9 @@ namespace AnimalGame.Editor
                 DrawStep(discovery, "ApproachAnimal", "目标超出扫描范围时的指引");
                 DrawStep(discovery, "ConfirmAnimal", "4 · 亲眼确认并识别实心标记");
                 DrawStep(discovery, "ReadObject", "5 · 识别可交互物标记");
-                DrawStep(discovery, "Rescan", "6 · 重新扫描");
                 DrawStep(discovery, "Completed", "生物与交互物扫描完成");
                 Field(discovery, "ToggleHint", "持续操作提醒", "本章顶部的长按 / 松开说明，{lb} 会替换为当前手柄按键。");
-                Field(discovery, "NeedRescanMessage", "扫描结果过期的正文", "扫描标记消失后，提示玩家重新充能并扫描。");
+                Field(discovery, "NeedRescanMessage", "尚未找到目标时的恢复正文", "只在尚未观察到教学目标时提供恢复操作，不包含刷新标记教学。");
                 Field(discovery, "NeedStowMessage", "请先收起机械臂的正文", "机械臂展开或持物时，提示先恢复扫描可用状态。");
                 discoveryStatusesExpanded = EditorGUILayout.Foldout(discoveryStatusesExpanded, "通用状态反馈", true);
                 if (discoveryStatusesExpanded)
@@ -295,6 +296,8 @@ namespace AnimalGame.Editor
                         Field(photography, "NeedStowMessage", "请先收起机械臂的正文");
                         Field(photography, "NeedRescanMessage", "重新扫描的正文");
                         Field(photography, "RetryPhotoMessage", "未拍到教学啄木鸟的正文");
+                        Field(photography, "CapturedMessage", "拍摄成功与鸟飞走的正文");
+                        Field(photography, "RecoverySaveMessage", "关闭结算界面后补存照片的正文");
                     }
                 photographyStatusesExpanded = EditorGUILayout.Foldout(photographyStatusesExpanded, "通用状态反馈", true);
                 if (photographyStatusesExpanded)
@@ -307,6 +310,7 @@ namespace AnimalGame.Editor
                         Field(photography, "NeedRescanStatus", "请重新扫描");
                         Field(photography, "RetryPhotoStatus", "请重拍教学啄木鸟");
                         Field(photography, "SavedStatus", "照片已保存");
+                        Field(photography, "CapturedStatus", "已拍到啄木鸟");
                         Field(photography, "CompleteStatus", "教学完成");
                     }
             }

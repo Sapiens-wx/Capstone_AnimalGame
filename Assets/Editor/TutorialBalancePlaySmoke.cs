@@ -40,7 +40,7 @@ namespace AnimalGame.Editor
             public float readingSeconds, value, target, maximumPositionDriftMeters, maximumManualChange, maximumPointChange;
             public float maximumGraphicChange, pausedReading, hiddenReading, timeScale, rawRightMagnitude;
             public float currentSpeed, terrainSpeed, turnSpeed, terrainTurnSpeed;
-            public int screenWidth, screenHeight, knownSceneHeaders, knownMissingPrefabMessages;
+            public int screenWidth, screenHeight, knownSceneHeaders, knownMissingPrefabMessages, balanceConfirmations;
             public Vector2 initialMapPosition, playerMapPosition, nativeCounterbalance, nativeBalancePoint, nativeGraphicPoint;
             public Vector2 originalAuthoredSpawn, endpointFixturePosition;
             public Vector2 baselineCounterbalance, baselineBalancePoint, baselineGraphicPoint, actualRawRightStick;
@@ -144,6 +144,7 @@ namespace AnimalGame.Editor
                                 "The native bootstrap must spawn directly at the authored terrain endpoint for this opt-in fixture.");
                         poseRecorded = true;
                         typeof(DrivingTutorialProgress).GetProperty("Step", Flags).SetValue(driving.Progress, DrivingTutorialStep.Completed);
+                        typeof(TutorialDrivingLesson).GetField("chapterConfirmed", Flags).SetValue(driving, true);
                         terrain = driving.GetComponent<TutorialTerrainLesson>();
                         Require(terrain != null, "The authored terrain lesson must precede balance.");
                         Record("Fixture skips driving/terrain counters only and retains the actual player pose, native balance physics and existing point display.");
@@ -151,6 +152,7 @@ namespace AnimalGame.Editor
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
                         typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
+                        typeof(TutorialTerrainLesson).GetField("chapterConfirmed", Flags).SetValue(terrain, true);
                         Require(!arms.HasStarted, "The arms chapter must not start when only terrain has completed.");
                         Begin(Phase.BalanceStarting); break;
                     case Phase.BalanceStarting:
@@ -232,6 +234,10 @@ namespace AnimalGame.Editor
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
                         if (!arms.HasStarted || arms.Progress == null) return;
+                        report.balanceConfirmations = TutorialContinueSmokeInput.ConfirmationCount(lesson.Panel);
+                        Require(report.balanceConfirmations == 4,
+                            "The three balance instructions and completion card each require a separate A confirmation after twelve ready frames.");
+                        Record("Four separate real A confirmations complete the three balance cards and its chapter before arms can start.");
                         Require(lesson.IsComplete && arms.Progress.Step == ArmTutorialStep.Deploy
                             && bootstrap.armController.State == RobotArmState.Retracted,
                             "The ordinary in-place arms lesson starts only after all balance steps complete.");
@@ -240,7 +246,8 @@ namespace AnimalGame.Editor
                         report.armsStartedAfterBalance = true;
                         Begin(Phase.DeployArms); break;
                     case Phase.DeployArms:
-                        if (bootstrap.armController.State != RobotArmState.OuterOperating || !bootstrap.armController.IsArmModeActive) return;
+                        if (bootstrap.armController.State != RobotArmState.OuterOperating || !bootstrap.armController.IsArmModeActive
+                            || arms.Progress.Step != ArmTutorialStep.Extend) return;
                         Require(arms.Progress.Step == ArmTutorialStep.Extend, "A real ordinary L3 tap must satisfy the arm deployment step.");
                         report.ordinaryL3Deploy = true; Begin(Phase.ArmNeutral); break;
                     case Phase.ArmNeutral:
@@ -353,6 +360,10 @@ namespace AnimalGame.Editor
                     state = state.WithButton(phase == Phase.HidePanel ? GamepadButton.DpadRight
                         : phase == Phase.ShowPanel ? GamepadButton.DpadLeft : GamepadButton.LeftStick);
             }
+            if ((phase == Phase.FinishIndicator || phase == Phase.Adjust || phase == Phase.FinishRisk) && lesson?.Progress != null)
+                TutorialContinueSmokeInput.Apply(ref state, lesson.Panel, "Balance:" + lesson.Progress.Step);
+            if (phase == Phase.DeployArms && arms?.Progress != null)
+                TutorialContinueSmokeInput.Apply(ref state, arms.Panel, "Arm:" + arms.Progress.Step);
             gamepad.MakeCurrent(); InputSystem.QueueStateEvent(gamepad, state);
         }
         private Vector2 GraphicPoint() => graphic != null

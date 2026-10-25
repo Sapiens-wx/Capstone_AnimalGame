@@ -292,10 +292,12 @@ MonoBehaviour:
   scanZoomReferenceOrthographicSize: 9
   holdTargetOrthographicSize: 8.5
   releasePeakOrthographicSize: 9.5
-  discoveryObservationOrthographicSize: 15.5
+  discoveryObservationOrthographicSize: 13.5
   releaseZoomOutDuration: 0.45
-  discoveryCameraArrivalLeadTime: 0.5
-  releaseZoomReturnDuration: 0.55
+  discoveryObservationZoomOutDuration: 0.541
+  discoveryObservationReboundRatio: 0
+  discoveryObservationReboundDuration: 0.01
+  releaseZoomReturnDuration: 0.7857143
   cancelledChargeZoomReturnDuration: 0.2
   enableFullyChargedCameraShake: 1
   fullyChargedShakeBuildUpDuration: 0.4

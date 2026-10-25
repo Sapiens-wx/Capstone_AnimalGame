@@ -177,6 +177,14 @@ namespace AnimalGame.Editor
                             DrivingHelper("Settle", panel, size);
                             string context = "Photography " + step + " / " + size + " / " + valid;
                             CheckVisibleText(panel.Root, context);
+                            panel.SetContinuePrompt(valid, text.Panel.ContinuePrompt);
+                            DrivingHelper("Settle", panel, size);
+                            CheckVisibleText(panel.Root, context + " / ready A prompt");
+                            Label prompt = panel.Root.Q<Label>("TutorialContinuePrompt");
+                            Require((prompt.resolvedStyle.display != DisplayStyle.None) == valid,
+                                "Available photo confirmations expose the A hint within the existing card.");
+                            if (valid) Require(prompt.text == text.Panel.ContinuePrompt,
+                                "The photo continuation uses the Inspector-editable prompt.");
                             Require(panel.Root.Q<Label>("TutorialChapter").text == "06 / 09", "Photography teaching is chapter six of nine.");
                             Require(panel.Root.Q<Label>("TutorialTitle").text == text.Photography.Title,
                                 "Photography uses the editable chapter title.");
@@ -198,6 +206,15 @@ namespace AnimalGame.Editor
                     CheckRecoveryCopy(panel, text, size);
                     CheckResultVisibility(lesson, panel, size);
                 }
+                typeof(PhotographyTutorialProgress).GetProperty("Step", Flags).SetValue(progress, PhotographyTutorialStep.Completed);
+                Set(lesson, "chapterConfirmed", false); Invoke(lesson, "RefreshPanel", true);
+                panel.SetVisible(true); panel.SetCollapsed(false);
+                DrivingHelper("Settle", panel, new Vector2(1920, 1080));
+                Require(panel.CanContinue, "The final photo completion card waits for A.");
+                Set(lesson, "chapterConfirmed", true); Invoke(lesson, "RefreshPanel", true);
+                DrivingHelper("Settle", panel, new Vector2(1920, 1080));
+                Require(!panel.CanContinue && panel.Root.Q("TutorialContinuePrompt").resolvedStyle.display == DisplayStyle.None,
+                    "After final chapter confirmation the photo tutorial cannot claim future gameplay A presses.");
                 CheckNativePhotoVisibility(fixture, bootstrap, panel);
             }
             finally
@@ -212,8 +229,10 @@ namespace AnimalGame.Editor
         private static void CheckRecoveryCopy(TutorialDialoguePanel panel, TutorialTextContent text, Vector2 size)
         {
             PhotographyLessonText copy = text.Photography;
-            string[] messages = { copy.TargetMissingMessage, copy.NeedStowMessage, copy.NeedRescanMessage, copy.RetryPhotoMessage };
-            string[] statuses = { copy.TargetMissingStatus, copy.NeedStowStatus, copy.NeedRescanStatus, copy.RetryPhotoStatus };
+            string[] messages = { copy.TargetMissingMessage, copy.NeedStowMessage, copy.NeedRescanMessage,
+                copy.RetryPhotoMessage, copy.CapturedMessage, copy.RecoverySaveMessage };
+            string[] statuses = { copy.TargetMissingStatus, copy.NeedStowStatus, copy.NeedRescanStatus,
+                copy.RetryPhotoStatus, copy.CapturedStatus, copy.CapturedStatus };
             TutorialTextTokens tokens = Tokens();
             for (int index = 0; index < messages.Length; index++)
             {

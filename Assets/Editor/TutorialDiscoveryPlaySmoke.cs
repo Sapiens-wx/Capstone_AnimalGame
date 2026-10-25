@@ -35,6 +35,7 @@ namespace AnimalGame.Editor
             public bool prechargeFixture, fullyChargedBeforeChapter;
             public bool usesFixedAnimalPosition, animalWithinScanReach, observationReached, observationPathHasData, observationPathPassable, observationPathHardStop;
             public bool animalMotionRequested, animalMovedAfterScan, checkedAnimalFrozenBeforeScan;
+            public bool deadTrunkPresent, nativePecking, waitedForA, confirmedWithA, animalCardConfirmedWithA, noRescanStep;
             public string project, phase, step, species, targetFailure, screenshotStatus, movementMode;
             public float value, charge, animalRemaining, objectRemaining, targetDistanceWorld, cameraSize, baseCameraSize, heading;
             public float targetDistanceFromNativeOrigin, currentTurnSpeed, currentThrottleIntent, steeringAuthority;
@@ -67,6 +68,8 @@ namespace AnimalGame.Editor
         [SerializeField] private Vector2 lastQueuedLeftStick;
         [SerializeField] private bool animalAnchorCaptured, observationReached;
         [SerializeField] private Vector2 initialAnimalMapPosition;
+        private string continueStep;
+        private int continueReadyFrame = -1, lastContinueFrame = -10;
 
         public static void RunBatch()
         {
@@ -145,20 +148,20 @@ namespace AnimalGame.Editor
                         bootstrap.scanChargeUi.TerrainScanRequested += CountTerrain;
                         ApplyFixtureStartPosition();
                         bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out report.initialMapPosition, out _);
-                        typeof(DrivingTutorialProgress).GetProperty("Step", Flags).SetValue(driving.Progress, DrivingTutorialStep.Completed);
+                        CompleteFixture(driving, driving.Progress, DrivingTutorialStep.Completed);
                         terrain = driving.GetComponent<TutorialTerrainLesson>(); arms = driving.GetComponent<TutorialArmLesson>();
                         Require(terrain != null && arms != null, "All preceding scene-owned lesson components must exist.");
                         Begin(Phase.TerrainStarting); break;
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
-                        typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
+                        CompleteFixture(terrain, terrain.Progress, TerrainTutorialStep.Completed);
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
                         var precedingBalance = arms.GetComponent<TutorialBalanceLesson>();
                         if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
-                            && !precedingBalance.Progress.IsComplete)
+                            && !precedingBalance.IsComplete)
                         {
-                            typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            CompleteFixture(precedingBalance, precedingBalance.Progress, BalanceTutorialStep.Completed);
                             return;
                         }
                         if (!arms.HasStarted || arms.Progress == null) return;
@@ -168,7 +171,7 @@ namespace AnimalGame.Editor
                             if (!report.fullyChargedBeforeChapter) return;
                             Record("A real held LB charge reaches full charge in the preceding arm chapter before discovery begins.");
                         }
-                        typeof(ArmTutorialProgress).GetProperty("Step", Flags).SetValue(arms.Progress, ArmTutorialStep.Completed);
+                        CompleteFixture(arms, arms.Progress, ArmTutorialStep.Completed);
                         if (earlyChargeFixture)
                         {
                             fixtureAnimalPrefab = (GameObject)typeof(TutorialDiscoveryLesson).GetField("animalPrefab", Flags).GetValue(lesson);
@@ -212,6 +215,10 @@ namespace AnimalGame.Editor
                             && lesson.Targets.GetComponentsInChildren<AnimalGame.World.ScannableInteractable>(true).Length == 1,
                             "The tutorial owner must contain exactly one animal and one object, without duplicate runtime clones.");
                         Require(!lesson.Targets.Animal.IsPermanentlyDiscovered, "The tutorial animal must begin unknown before real scanning.");
+                        Require(lesson.Targets.Trunk != null && lesson.Targets.Trunk.IsDead
+                            && lesson.Targets.AnimalActor != null && lesson.Targets.AnimalActor.IsPecking,
+                            "The unknown teaching woodpecker must use the real native pecking action beside its owned dead trunk.");
+                        report.deadTrunkPresent = report.nativePecking = true;
                         Require(lesson.Targets.Item.RevealRemaining <= 0f, "The tutorial object must begin without a synthetic reveal.");
                         bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 current, out _);
                         Require(Vector2.Distance(current, report.initialMapPosition) < .2f,
@@ -309,6 +316,8 @@ namespace AnimalGame.Editor
                             return;
                         }
                         Require(lesson.Progress.Step == DiscoveryTutorialStep.ConfirmAnimal, "Expanded legend reading must advance to first sight, not skip it.");
+                        Require(report.animalCardConfirmedWithA,
+                            "The ready animal legend card must stay unchanged for five neutral frames until an actual A press.");
                         Record("The live animal marker and expanded legend finish the 1.2-second observation.");
                         Begin(Phase.ApproachAnimal); break;
                     case Phase.ApproachAnimal:
@@ -324,9 +333,18 @@ namespace AnimalGame.Editor
                         if (report.animalRemaining <= .1f) Refresh(Phase.ApproachAnimal);
                         break;
                     case Phase.ReadObject:
-                        if (lesson.Progress.Step == DiscoveryTutorialStep.Rescan)
-                        { rescanBeforeSequence = bootstrap.bioScan.ScanSequence; Record("The actual object highlight and expanded panel complete the 1.5-second reading."); Begin(Phase.RescanCharge); break; }
-                        if (lesson.Targets.Item.RevealRemaining <= .1f) Refresh(Phase.ReadObject);
+                        Require(lesson.Progress.Step != DiscoveryTutorialStep.Rescan,
+                            "The removed rescan/refresh lesson must never be presented.");
+                        if (lesson.IsComplete)
+                        {
+                            Require(report.waitedForA && report.confirmedWithA,
+                                "Native observations must wait on their ready cards until real A confirmation.");
+                            report.noRescanStep = true;
+                            Record("Reading the actual object highlight then confirming its card and final card with A completes discovery without a rescan lesson.", "discovery-completed.png");
+                            Begin(Phase.Complete); break;
+                        }
+                        if (!lesson.Progress.CanContinue && !lesson.Progress.IsComplete
+                            && lesson.Targets.Item.RevealRemaining <= .1f) Refresh(Phase.ReadObject);
                         break;
                     case Phase.RefreshCharge:
                         if (bootstrap.scanChargeUi.IsFullyCharged) Begin(Phase.RefreshRelease);
@@ -404,6 +422,12 @@ namespace AnimalGame.Editor
                 bootstrap.robot.transform.rotation = Quaternion.Euler(0f, 0f, -heading);
             }
             bootstrap.cameraFollow.SnapToTarget();
+        }
+
+        private static void CompleteFixture(MonoBehaviour controller, object progress, object completed)
+        {
+            progress.GetType().GetProperty("Step", Flags).SetValue(progress, completed);
+            controller.GetType().GetField("chapterConfirmed", Flags).SetValue(controller, true);
         }
 
         private void ApplyFixtureGameViewSize()
@@ -498,6 +522,20 @@ namespace AnimalGame.Editor
                     state.rightTrigger = .3f;
             }
             lastQueuedLeftStick = state.leftStick;
+            bool confirmPhase = phase == Phase.DiscoveryStarting || phase == Phase.FirstCharge
+                || phase == Phase.ObserveAnimal || phase == Phase.ApproachAnimal || phase == Phase.ReadObject
+                || (phase == Phase.FirstRelease && lesson?.Progress?.Step == DiscoveryTutorialStep.Release);
+            if (confirmPhase && lesson?.Progress != null && lesson.Panel != null && lesson.Panel.ContinueWasPresented)
+            {
+                string step = lesson.Progress.Step.ToString();
+                if (continueStep != step) { continueStep = step; continueReadyFrame = Time.frameCount; }
+                if (Time.frameCount - continueReadyFrame >= 5 && Time.frameCount - lastContinueFrame >= 5)
+                {
+                    report.waitedForA = report.confirmedWithA = true;
+                    if (lesson.Progress.Step == DiscoveryTutorialStep.FindAnimal) report.animalCardConfirmedWithA = true;
+                    state = state.WithButton(GamepadButton.South); lastContinueFrame = Time.frameCount;
+                }
+            }
             gamepad.MakeCurrent(); InputSystem.QueueStateEvent(gamepad, state);
         }
 

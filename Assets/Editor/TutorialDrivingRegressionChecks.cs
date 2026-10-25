@@ -36,6 +36,7 @@ namespace AnimalGame.Editor
             try
             {
                 CheckMeasuredDriving();
+                CheckManualContinueGates();
                 CheckTurning();
                 CheckMovingTurns();
                 CheckInterruptions();
@@ -287,6 +288,24 @@ namespace AnimalGame.Editor
             Require(p.IsComplete && p.NormalizedProgress == 1, "Completion remains stable after further world movement.");
         }
 
+        private static void CheckManualContinueGates()
+        {
+            foreach (DrivingTutorialStep step in Enum.GetValues(typeof(DrivingTutorialStep)))
+            {
+                if (step == DrivingTutorialStep.Completed) continue;
+                var progress = new DrivingTutorialProgress();
+                ReachStep(progress, step);
+                Require(!progress.CanContinue && !progress.Continue(), "An unfinished driving action cannot be skipped by A: " + step);
+                Satisfy(progress);
+                progress.Suspend();
+                Feed(progress, Vector2.one * 1000f, 180f, 20f, 1f, 90f, 1f, false);
+                Require(progress.Step == step && progress.CanContinue,
+                    "A finished driving action remains latched on its own card while waiting or paused: " + step);
+                Require(progress.Continue() && (int)progress.Step == (int)step + 1,
+                    "One driving confirmation reveals exactly one next card: " + step);
+            }
+        }
+
         private static void CheckCourseAtFrameRate(int fps)
         {
             foreach (float turningSpeed in new[] { 0f, 2f, -2f }) CheckCourseWithTurningSpeed(fps, turningSpeed);
@@ -392,6 +411,14 @@ namespace AnimalGame.Editor
                     Require(!Within(root, root.panel.Pick(size * .5f)),
                         "The central game view is not intercepted at " + size);
                     CheckVisibleEnglishText(root, "Expanded panel at " + size);
+                    panel.SetContinuePrompt(true);
+                    Settle(panel, size);
+                    Require(root.Q<Label>("TutorialContinuePrompt").text == "Press A to continue"
+                        && root.Q<Label>("TutorialContinuePrompt").resolvedStyle.display == DisplayStyle.Flex
+                        && root.Q<Label>("TutorialStatus").resolvedStyle.display == DisplayStyle.None,
+                        "An achieved step shows a readable A confirmation in the existing status row at " + size);
+                    CheckVisibleEnglishText(root, "A confirmation at " + size);
+                    panel.SetContinuePrompt(false);
                     panel.SetCollapsed(true);
                     Settle(panel, size);
                     Rect tab = root.Q("ExpandTutorial").worldBound;

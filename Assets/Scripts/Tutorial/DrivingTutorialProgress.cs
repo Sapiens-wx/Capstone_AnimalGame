@@ -41,6 +41,7 @@ namespace AnimalGame.Tutorial
         public bool IsComplete => Step == DrivingTutorialStep.Completed;
         public bool IsStepSatisfied => !IsComplete && Value >= Target
             && (Step != DrivingTutorialStep.SteerWhileMoving || MovingTurnDistanceMeters >= movingTurnMeters);
+        public bool CanContinue => IsComplete || IsStepSatisfied;
         public float NormalizedProgress => IsComplete ? 1f : Step == DrivingTutorialStep.SteerWhileMoving
             ? Mathf.Min(Mathf.Clamp01(Value / Target), Mathf.Clamp01(MovingTurnDistanceMeters / movingTurnMeters))
             : Mathf.Clamp01(Value / Target);
@@ -74,7 +75,7 @@ namespace AnimalGame.Tutorial
         public void Suspend()
         {
             hasPrevious = false;
-            if (Step == DrivingTutorialStep.Stop) Value = 0f;
+            if (Step == DrivingTutorialStep.Stop && !IsStepSatisfied) Value = 0f;
         }
 
         public bool Advance()
@@ -83,6 +84,8 @@ namespace AnimalGame.Tutorial
             Step++; Value = 0f; MovingTurnDistanceMeters = 0f; hasPrevious = false;
             return true;
         }
+
+        public bool Continue() => Advance();
 
         public void Sample(in DrivingTutorialSample sample)
         {

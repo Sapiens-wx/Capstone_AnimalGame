@@ -44,6 +44,7 @@ namespace AnimalGame.RobotMap
         {
             None,
             Expanding,
+            Rebounding,
             Holding,
             Returning
         }
@@ -96,16 +97,22 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(0.01f)] private float releasePeakOrthographicSize = 11f;
 
         [Tooltip("Wide view held while released discovery waves remain visible. This is an absolute Size, with the normal camera Size as its lower limit.")]
-        [SerializeField, Min(0.01f)] private float discoveryObservationOrthographicSize = 15.5f;
+        [SerializeField, Min(0.01f)] private float discoveryObservationOrthographicSize = 13.5f;
 
-        [Tooltip("Seconds used to pull back when no released discovery wave is available. Discovery observation instead follows the emitted wave's travel time minus its camera arrival lead.")]
+        [Tooltip("Seconds used to pull back when no released discovery wave is available. Discovery observation uses its independent zoom-out duration.")]
         [SerializeField, Min(0.05f)] private float releaseZoomOutDuration = 0.45f;
 
-        [Tooltip("Seconds before the released discovery wave reaches its outer range that the camera reaches its wide observation Size. Captured once per observation transition.")]
-        [SerializeField, Min(0f)] private float discoveryCameraArrivalLeadTime = 0.5f;
+        [Tooltip("Seconds to reach the wide discovery view, independently of scan wave speed. Captured once per observation transition; a brief rebound follows before holding until all released waves disappear.")]
+        [SerializeField, Min(0.05f)] private float discoveryObservationZoomOutDuration = 0.541f;
+
+        [Tooltip("One outward rebound after reaching the discovery view, as a fraction of its Size. Zero disables it. Captured once per observation transition.")]
+        [SerializeField, Range(0f, 0.1f)] private float discoveryObservationReboundRatio = 0.03f;
+
+        [Tooltip("Seconds for the discovery view's brief outward rebound and return to its observation Size. Captured once per observation transition.")]
+        [SerializeField, Min(0.01f)] private float discoveryObservationReboundDuration = 0.32f;
 
         [Tooltip("Independent seconds used to move from the large release view back to the normal camera size.")]
-        [SerializeField, Min(0.05f)] private float releaseZoomReturnDuration = 0.55f;
+        [SerializeField, Min(0.05f)] private float releaseZoomReturnDuration = 0.7857143f;
 
         [Tooltip("Seconds used to return to the original size when charging is cancelled before completion.")]
         [SerializeField, Min(0.01f)] private float cancelledChargeZoomReturnDuration = 0.2f;
@@ -180,6 +187,8 @@ namespace AnimalGame.RobotMap
         private float discoveryObservationElapsed;
         private float discoveryObservationStartSize;
         private float discoveryObservationExpansionDuration;
+        private float discoveryObservationReboundAmplitude;
+        private float discoveryObservationReboundTime;
 
         private Camera mapCamera;
         private PhotoModeController photoMode;
@@ -675,11 +684,16 @@ namespace AnimalGame.RobotMap
                 discoveryObservationPhase = DiscoveryObservationPhase.Expanding;
                 discoveryObservationElapsed = 0f;
                 discoveryObservationStartSize = currentScanOrthographicSize;
-                float waveTravelDuration = discoveryScanController.LastReleasedWaveTravelDuration;
                 discoveryObservationExpansionDuration = Mathf.Max(0.05f,
-                    waveTravelDuration > 0f
-                        ? waveTravelDuration - Mathf.Max(0f, discoveryCameraArrivalLeadTime)
-                        : releaseZoomOutDuration);
+                    discoveryObservationZoomOutDuration);
+                float observationSize = Mathf.Max(baseCameraOrthographicSize,
+                    discoveryObservationOrthographicSize);
+                discoveryObservationReboundAmplitude = observationSize > baseCameraOrthographicSize
+                    && observationSize > discoveryObservationStartSize
+                    ? observationSize * Mathf.Clamp(discoveryObservationReboundRatio, 0f, 0.1f)
+                    : 0f;
+                discoveryObservationReboundTime = Mathf.Max(0.01f,
+                    discoveryObservationReboundDuration);
             }
 
             if (discoveryObservationPhase == DiscoveryObservationPhase.None)
@@ -710,6 +724,21 @@ namespace AnimalGame.RobotMap
                     discoveryObservationStartSize,
                     Mathf.Max(baseCameraOrthographicSize, discoveryObservationOrthographicSize),
                     EvaluateDiscoveryPullback(progress));
+                if (progress < 1f)
+                    return true;
+                discoveryObservationPhase = discoveryObservationReboundAmplitude > 0f
+                    ? DiscoveryObservationPhase.Rebounding
+                    : DiscoveryObservationPhase.Holding;
+            }
+            if (discoveryObservationPhase == DiscoveryObservationPhase.Rebounding)
+            {
+                // Keep time beyond the arrival frame so a low frame rate does
+                // not lengthen the rebound or delay the final observation pose.
+                float progress = Mathf.Clamp01((discoveryObservationElapsed
+                    - discoveryObservationExpansionDuration) / discoveryObservationReboundTime);
+                currentScanOrthographicSize = Mathf.Max(baseCameraOrthographicSize,
+                    discoveryObservationOrthographicSize)
+                    + discoveryObservationReboundAmplitude * EvaluateDiscoveryRebound(progress);
                 if (progress >= 1f)
                     discoveryObservationPhase = DiscoveryObservationPhase.Holding;
             }
@@ -741,10 +770,10 @@ namespace AnimalGame.RobotMap
         private static float EvaluateDiscoveryPullback(float progress)
         {
             float t = Mathf.Clamp01(progress);
-            // Integrate a short acceleration, sustained drive and short brake.
-            // At the current 1.16-second pullback these occupy 0.08 / 0.90 / 0.18 seconds.
-            const float acceleration = 0.08f / 1.16f;
-            const float braking = 0.18f / 1.16f;
+            // Build speed quickly, then spend the latter half braking gently.
+            // The timing remains independent of wave speed and arrival duration.
+            const float acceleration = 0.04f;
+            const float braking = 0.55f;
             const float speed = 1f / (1f - (acceleration + braking) * 0.5f);
             if (t < acceleration)
                 return speed * t * t / (2f * acceleration);
@@ -752,6 +781,16 @@ namespace AnimalGame.RobotMap
                 return speed * (t - acceleration * 0.5f);
             float remaining = 1f - t;
             return 1f - speed * remaining * remaining / (2f * braking);
+        }
+
+        private static float EvaluateDiscoveryRebound(float progress)
+        {
+            float t = Mathf.Clamp01(progress);
+            // A short outward nudge followed by a longer, single recovery.
+            const float peak = 0.32f;
+            return t < peak
+                ? Mathf.SmoothStep(0f, 1f, t / peak)
+                : 1f - Mathf.SmoothStep(0f, 1f, (t - peak) / (1f - peak));
         }
 
         private float GetHoldTargetOrthographicSize()
@@ -1085,7 +1124,11 @@ namespace AnimalGame.RobotMap
             releaseZoomOutDuration = Mathf.Max(
                 0.05f,
                 releaseZoomOutDuration);
-            discoveryCameraArrivalLeadTime = Mathf.Max(0f, discoveryCameraArrivalLeadTime);
+            discoveryObservationZoomOutDuration = Mathf.Max(
+                0.05f,
+                discoveryObservationZoomOutDuration);
+            discoveryObservationReboundRatio = Mathf.Clamp(discoveryObservationReboundRatio, 0f, 0.1f);
+            discoveryObservationReboundDuration = Mathf.Max(0.01f, discoveryObservationReboundDuration);
             releaseZoomReturnDuration = Mathf.Max(
                 0.05f,
                 releaseZoomReturnDuration);

@@ -37,6 +37,7 @@ namespace AnimalGame.Tutorial
         public bool NeedsInitialStow { get; private set; }
         public bool IsComplete => Step == ArmTutorialStep.Completed;
         public bool IsStepSatisfied => !IsComplete && Value >= Target;
+        public bool CanContinue => IsComplete || IsStepSatisfied;
         public float Target => Step switch
         {
             ArmTutorialStep.Extend or ArmTutorialStep.RetractReach => radialDistance,
@@ -63,6 +64,7 @@ namespace AnimalGame.Tutorial
         public void Suspend()
         {
             hasPrevious = false;
+            if (IsStepSatisfied) return;
             if (Step == ArmTutorialStep.HoldStill) Value = 0f;
             if (Step == ArmTutorialStep.Deploy)
             {
@@ -83,9 +85,11 @@ namespace AnimalGame.Tutorial
             return true;
         }
 
+        public bool Continue() => Advance();
+
         public void Sample(in ArmTutorialSample sample)
         {
-            if (IsComplete) return;
+            if (IsComplete || IsStepSatisfied) return;
             bool valid = sample.Valid && sample.Empty && sample.Upright
                 && sample.DeltaTime > 0f && sample.DeltaTime <= .25f && float.IsFinite(sample.DeltaTime)
                 && float.IsFinite(sample.Deployment01)

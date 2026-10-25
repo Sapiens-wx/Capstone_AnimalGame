@@ -11,6 +11,7 @@ namespace AnimalGame.Tutorial
         private readonly Vector2 destination;
         private readonly float arrivalRadius, surveyRadius, readingDuration;
         private float startingDistance;
+        private bool satisfied;
 
         public TerrainTutorialStep Step { get; private set; }
         public int ApproachIndex { get; private set; }
@@ -18,10 +19,11 @@ namespace AnimalGame.Tutorial
         public float DistanceMeters { get; private set; }
         public float ReadingDuration => readingDuration;
         public bool IsComplete => Step == TerrainTutorialStep.Completed;
-        public bool HasTarget => Step == TerrainTutorialStep.ReachSurvey || Step == TerrainTutorialStep.FollowRoute;
+        public bool CanContinue => IsComplete || satisfied;
+        public bool HasTarget => !satisfied && (Step == TerrainTutorialStep.ReachSurvey || Step == TerrainTutorialStep.FollowRoute);
         public Vector2 SurveyPosition => approach[approach.Length - 1];
         public Vector2 CurrentTarget => Step == TerrainTutorialStep.FollowRoute ? destination : approach[ApproachIndex];
-        public float NormalizedProgress => IsComplete ? 1f : Step == TerrainTutorialStep.ReadSigns
+        public float NormalizedProgress => CanContinue ? 1f : Step == TerrainTutorialStep.ReadSigns
             ? Mathf.Clamp01(ReadingSeconds / readingDuration) : HasTarget && startingDistance > .001f
                 ? Mathf.Clamp01(1f - Mathf.Max(0f, DistanceMeters - arrivalRadius) / startingDistance) : 0f;
 
@@ -40,16 +42,16 @@ namespace AnimalGame.Tutorial
             bool panelExpanded, bool scanHasMarkers, bool stopped)
         {
             if (!canDrive || deltaTime <= 0f || !float.IsFinite(deltaTime)
-                || !float.IsFinite(positionMeters.x) || !float.IsFinite(positionMeters.y) || IsComplete) return;
+                || !float.IsFinite(positionMeters.x) || !float.IsFinite(positionMeters.y) || CanContinue) return;
             DistanceMeters = Vector2.Distance(positionMeters, CurrentTarget);
             if (HasTarget)
             {
                 if (startingDistance <= 0f) startingDistance = Mathf.Max(.001f, DistanceMeters - arrivalRadius);
                 if (DistanceMeters > arrivalRadius) return;
                 startingDistance = 0f;
-                if (Step == TerrainTutorialStep.FollowRoute) Step = TerrainTutorialStep.Completed;
+                if (Step == TerrainTutorialStep.FollowRoute) satisfied = true;
                 else if (ApproachIndex < approach.Length - 1) ApproachIndex++;
-                else Step = TerrainTutorialStep.ScanTerrain;
+                else satisfied = true;
                 return;
             }
 
@@ -60,9 +62,7 @@ namespace AnimalGame.Tutorial
                 ReadingSeconds = Mathf.Min(readingDuration, ReadingSeconds + deltaTime);
                 if (ReadingSeconds >= readingDuration)
                 {
-                    Step = TerrainTutorialStep.FollowRoute;
-                    DistanceMeters = Vector2.Distance(positionMeters, destination);
-                    startingDistance = Mathf.Max(.001f, DistanceMeters - arrivalRadius);
+                    satisfied = true;
                 }
             }
         }
@@ -74,14 +74,22 @@ namespace AnimalGame.Tutorial
         {
             if (!canDrive || !IsInSurveyArea(positionMeters)
                 || (Step != TerrainTutorialStep.ScanTerrain && Step != TerrainTutorialStep.ReadSigns)) return false;
-            Step = TerrainTutorialStep.ReadSigns;
+            if (Step == TerrainTutorialStep.ScanTerrain) satisfied = true;
+            return true;
+        }
+
+        public bool Continue()
+        {
+            if (!satisfied || IsComplete) return false;
+            Step++; satisfied = false; startingDistance = 0f;
             return true;
         }
 
         /// <summary>Expired snapshots can be scanned again without losing time already spent reading.</summary>
         public void RequireFreshScan()
         {
-            if (Step == TerrainTutorialStep.ReadSigns) Step = TerrainTutorialStep.ScanTerrain;
+            if (Step == TerrainTutorialStep.ReadSigns && !satisfied)
+            { Step = TerrainTutorialStep.ScanTerrain; satisfied = false; }
         }
     }
 }

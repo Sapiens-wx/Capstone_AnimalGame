@@ -20,6 +20,8 @@ namespace AnimalGame.Editor
     public sealed class TutorialDrivingPlaySmoke : ScriptableObject
     {
         private const string RunSessionKey = "AnimalGame.TutorialDrivingPlaySmoke.CurrentRun";
+        private const string KnownMissingStaticAnimal = "Prefab instance problem: 'Static_Animal (Missing Prefab with guid: 2645e53e76c8ec846b09ee78b13275be)'. 2 instances are missing the same Prefab Asset with guid 2645e53e76c8ec846b09ee78b13275be.";
+        private const string KnownSceneHeader = "Problem detected while opening the Scene file: 'Assets/Scenes/GameMaps/TutorialTemporaryMap.unity'.\nCheck the following logs for more details.";
         private enum Phase { Starting, Ready, Collapsed, Released, Expanded, RightCollapsed, RightReleased,
             RightExpanded, BeforeRightHold, RightHold, Paused, Resumed, Driving, Complete,
             TerrainStarting, TerrainRightCollapsed, TerrainRightReleased, TerrainRightExpanded,
@@ -32,6 +34,8 @@ namespace AnimalGame.Editor
             public string project, scene = TutorialDrivingLesson.ScenePath;
             public List<string> checks = new List<string>();
             public List<string> errors = new List<string>();
+            public List<string> knownSceneDiagnostics = new List<string>();
+            public int knownSceneHeaders, knownMissingPrefabMessages, drivingConfirmations;
             public string phase;
             public Vector2 robotMapPosition, destination;
             public float speed, throttle, navigationAngle;
@@ -227,6 +231,10 @@ namespace AnimalGame.Editor
                         Begin(Phase.Complete); break;
                     case Phase.Complete:
                         if (!Settled(8)) return;
+                        report.drivingConfirmations = TutorialContinueSmokeInput.ConfirmationCount(lesson.Panel);
+                        Require(report.drivingConfirmations == 7,
+                            "All six driving goals and the completion card require a separate physical A confirmation after at least twelve ready frames.");
+                        Record("Seven separate real A confirmations advance the six measured actions and the completed chapter; every ready card waited twelve frames before A.");
                         Require(Time.timeScale == 1f && bootstrap.robot.enabled, "Completion changes gameplay ownership.");
                         Require(observedMovingTurn, "The real controller never demonstrated simultaneous driving and steering.");
                         Require(observedTurningWhileDriving, "Actual moving steering was not counted during the first turn lesson.");
@@ -433,6 +441,11 @@ namespace AnimalGame.Editor
                 int frame = Time.frameCount - phaseFrame;
                 if (frame % 30 == 0 || frame % 30 == 4) state = state.WithButton(GamepadButton.LeftShoulder);
             }
+            if (phase == Phase.Driving && lesson?.Progress != null)
+                TutorialContinueSmokeInput.Apply(ref state, lesson.Panel, "Driving:" + lesson.Progress.Step);
+            if ((phase == Phase.TerrainTravel || phase == Phase.TerrainScan || phase == Phase.TerrainRescan
+                || phase == Phase.TerrainRead || phase == Phase.TerrainRoute) && terrain?.Progress != null)
+                TutorialContinueSmokeInput.Apply(ref state, lesson.Panel, "Terrain:" + terrain.Progress.Step);
             gamepad.MakeCurrent(); InputSystem.QueueStateEvent(gamepad, state);
         }
 
@@ -499,7 +512,15 @@ namespace AnimalGame.Editor
         private static void Require(bool condition, string text) { if (!condition) throw new InvalidOperationException(text); }
         private void OnLog(string text, string stack, LogType type)
         {
-            if (!IsCurrentRun) return;
+            if (!IsCurrentRun || report == null) return;
+            string normalized = text.Replace("\r\n", "\n").Trim();
+            if (type == LogType.Error && (phase == Phase.Starting || phase == Phase.Finishing)
+                && (normalized == KnownMissingStaticAnimal || normalized == KnownSceneHeader))
+            {
+                if (normalized == KnownMissingStaticAnimal) report.knownMissingPrefabMessages++; else report.knownSceneHeaders++;
+                if (!report.knownSceneDiagnostics.Contains(normalized)) report.knownSceneDiagnostics.Add(normalized);
+                Save(); return;
+            }
             if (type == LogType.Exception || type == LogType.Error || type == LogType.Assert)
                 if (report != null && !report.errors.Contains(text)) { report.errors.Add(text); Save(); }
         }
@@ -537,6 +558,8 @@ namespace AnimalGame.Editor
         }
         private void Exit()
         {
+            if (report.knownSceneHeaders > 0 && report.knownMissingPrefabMessages == 0)
+                report.errors.Add("A scene-load failure lacked the exact known two-Static_Animal missing-prefab diagnostic.");
             report.passed = report.errors.Count == 0;
             Save(); running = false; Unsubscribe();
             EditorApplication.Exit(report.passed ? 0 : 1);

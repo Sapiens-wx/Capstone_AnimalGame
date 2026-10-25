@@ -38,6 +38,11 @@ namespace AnimalGame.Tutorial
         private Label headerLabel, currentLessonLabel, currentActionLabel, toggleHintLabel;
         private Label tabArrowsLabel, tabHintLabel, guideLabel;
         private Label lessonHintLabel;
+        private Label continueLabel;
+        private bool continueReady;
+        private int continueReadyFrame;
+        private int reopenedFrame;
+        private string continuePrompt = "Press A to continue";
         private VisualElement collapseControl;
         private TutorialPanelText panelText = new TutorialPanelText();
         private string lessonHint = string.Empty;
@@ -54,6 +59,9 @@ namespace AnimalGame.Tutorial
         public bool IsVisible => visible;
         public UIDocument Document => document;
         public VisualElement Root => root;
+        public bool CanContinue => continueReady && visible && !collapsed && isActiveAndEnabled;
+        public bool ContinueWasPresented => CanContinue && Time.frameCount > continueReadyFrame && Time.frameCount > reopenedFrame;
+        public bool ShowDuringPhotoMode => showDuringPhotoMode;
         public event Action<bool> CollapsedChanged;
 
         private void Awake()
@@ -65,11 +73,22 @@ namespace AnimalGame.Tutorial
         private void OnEnable()
         {
             if (documentObject != null) documentObject.SetActive(true);
+            TutorialContinueInput.Register(this);
         }
 
         private void OnDisable()
         {
             if (documentObject != null) documentObject.SetActive(false);
+            TutorialContinueInput.Unregister(this);
+        }
+
+        /// <summary>A completed action stays on its own card until the player confirms it.</summary>
+        public void SetContinuePrompt(bool ready, string text = null)
+        {
+            if (ready && !continueReady) continueReadyFrame = Time.frameCount;
+            continueReady = ready;
+            continuePrompt = text ?? "Press A to continue";
+            RefreshContinuePrompt();
         }
 
         /// <summary>Replace the current instruction. New content keeps the player's collapsed preference.</summary>
@@ -118,6 +137,7 @@ namespace AnimalGame.Tutorial
         public void SetVisible(bool value)
         {
             if (value && !collapsed && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) SetCollapsed(true);
+            if (value && !visible) reopenedFrame = Time.frameCount;
             visible = value;
             RefreshVisibility();
         }
@@ -135,6 +155,7 @@ namespace AnimalGame.Tutorial
             if (!value && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
             if (collapsed == value) return;
             collapsed = value;
+            if (!value) reopenedFrame = Time.frameCount;
             RefreshVisibility();
             CollapsedChanged?.Invoke(value);
         }
@@ -245,6 +266,8 @@ namespace AnimalGame.Tutorial
             expanded.Add(statusDot);
             statusLabel = AddLabel(expanded, status, 47, 505, 231, 25, 17, Muted);
             statusLabel.name = "TutorialStatus";
+            continueLabel = AddLabel(expanded, continuePrompt, 47, 505, 231, 25, 17, Gold, true);
+            continueLabel.name = "TutorialContinuePrompt";
             percentLabel = AddLabel(expanded, "0%", 280, 505, 47, 25, 16, Gold);
             percentLabel.style.unityTextAlign = TextAnchor.MiddleRight;
             var progressTrack = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -283,6 +306,7 @@ namespace AnimalGame.Tutorial
             RefreshPanelText();
             RefreshLessonHint();
             RefreshContent();
+            RefreshContinuePrompt();
             SetProgress(progress);
             SetSuccess(successful);
             RefreshVisibility();
@@ -307,6 +331,15 @@ namespace AnimalGame.Tutorial
             statusLabel.text = status;
             chapterLabel.text = chapter.ToString("00") + " / " + chapters.ToString("00");
             tabProgressLabel.text = chapter.ToString("00") + "\n/" + chapters.ToString("00");
+            RefreshContinuePrompt();
+        }
+
+        private void RefreshContinuePrompt()
+        {
+            if (continueLabel == null || statusLabel == null) return;
+            continueLabel.text = continuePrompt;
+            continueLabel.style.display = continueReady ? DisplayStyle.Flex : DisplayStyle.None;
+            statusLabel.style.display = continueReady ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
         private void RefreshPanelText()
@@ -368,6 +401,7 @@ namespace AnimalGame.Tutorial
             FitText(actionLabel, 23, 16);
             FitText(detailLabel, 16, 13);
             FitText(statusLabel, 17, 12);
+            FitText(continueLabel, 17, 12);
             float fit = Mathf.Min(size.x / DesignWidth, size.y / DesignHeight);
             // Same fit as MainUI: on ultrawide displays the card stays close to the right edge;
             // on narrow displays it remains outside the central 960-unit ring.
@@ -394,6 +428,7 @@ namespace AnimalGame.Tutorial
 
         private void OnDestroy()
         {
+            TutorialContinueInput.Unregister(this);
             // PreviewScene checks also dispose this component outside Play mode. These three
             // objects are exclusively created by this component; template/font assets are not owned.
             DestroyOwned(documentObject);

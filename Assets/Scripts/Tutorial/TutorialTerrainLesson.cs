@@ -36,6 +36,7 @@ namespace AnimalGame.Tutorial
         private Vector2 displayedTarget;
         private bool showingTarget;
         private bool ownsPresentation = true;
+        private bool chapterConfirmed;
         private readonly TerrainLessonText defaultText = new TerrainLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
 
@@ -43,7 +44,7 @@ namespace AnimalGame.Tutorial
         public TerrainTutorialProgress Progress => progress;
         public TutorialWaypointIndicator Waypoint => waypoint;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
 
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
 
@@ -81,7 +82,7 @@ namespace AnimalGame.Tutorial
             TutorialDialoguePanel panel = driving.Panel;
             panel.SetVisible(!modal);
             waypoint.SetVisible(!modal);
-            if (modal) return;
+            if (modal) { panel.SetContinuePrompt(false); return; }
 #if ENABLE_INPUT_SYSTEM
             if (!AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
                 || Gamepad.current.dpad.right.wasPressedThisFrame))
@@ -101,6 +102,15 @@ namespace AnimalGame.Tutorial
                 && Mathf.Abs(bootstrap.robot.CurrentTurnSpeed) <= 2f
                 && Mathf.Abs(bootstrap.robot.CurrentTerrainTurnSpeed) <= 2f;
             progress.Sample(position, Time.deltaTime, valid, !panel.IsCollapsed, scanReady, stopped);
+            panel.SetContinuePrompt(valid && progress.CanContinue && !chapterConfirmed,
+                (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
+            if (TutorialContinueInput.TryConsume(panel, bootstrap))
+            {
+                if (progress.IsComplete) chapterConfirmed = true;
+                else progress.Continue();
+                panel.SetContinuePrompt(false);
+                refreshRemaining = 0f;
+            }
             if (progress.Step != displayedStep || progress.ApproachIndex != displayedApproachIndex)
             {
                 panel.SetCollapsed(false);
@@ -124,6 +134,8 @@ namespace AnimalGame.Tutorial
             }
             waypoint.Configure(bootstrap, targetSprite);
             driving.Panel.SetCollapsed(false);
+            driving.Panel.SetContinuePrompt(false);
+            chapterConfirmed = false;
             hasStarted = true;
             if (TryGetPosition(out Vector2 position))
                 progress.Sample(position, Time.deltaTime, CanDrive(), true, false, false);
@@ -223,7 +235,7 @@ namespace AnimalGame.Tutorial
                 tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
                 tokens.Format(stepText.Detail), tokens.Format(status), 2, 9);
             driving.Panel.SetProgress(progress.NormalizedProgress);
-            driving.Panel.SetSuccess(progress.IsComplete);
+            driving.Panel.SetSuccess(progress.CanContinue);
             displayedStep = progress.Step;
             displayedApproachIndex = progress.ApproachIndex;
         }
@@ -239,7 +251,9 @@ namespace AnimalGame.Tutorial
             Unsubscribe();
             if (waypoint != null) waypoint.ClearTarget();
             showingTarget = false;
+            driving?.Panel?.SetContinuePrompt(false);
             hasStarted = false;
+            chapterConfirmed = false;
             ownsPresentation = true;
             progress = null;
             if (driving != null) driving.SetPresentationOwned(true);

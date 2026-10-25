@@ -24,22 +24,35 @@ namespace AnimalGame.Tutorial
     public sealed class DiscoveryTutorialProgress
     {
         private readonly float animalReadSeconds, objectReadSeconds;
-        private bool chargeStarted, chargeReady, animalHit, objectHit, animalVisible, objectVisible;
-        private int waveSequence, chargeSequence, rescanAfterCharge, rescanWave;
+        private bool chargeStarted, chargeReady, chargeAchieved, scanReleased, animalHit, objectHit;
+        private bool animalObserved, animalSeen, objectObserved;
+        private float animalReading, objectReading;
+        private int waveSequence;
 
         public DiscoveryTutorialStep Step { get; private set; }
         public float ReadingSeconds { get; private set; }
         public int LatestWaveId { get; private set; }
         public bool IsComplete => Step == DiscoveryTutorialStep.Completed;
         public bool IsChargeReady => chargeStarted && chargeReady;
-        public bool NeedsFreshScan => Step switch
+        public bool HasReleasedScan => scanReleased;
+        public bool CanContinue => Step switch
         {
-            DiscoveryTutorialStep.Release => !chargeStarted,
-            DiscoveryTutorialStep.FindAnimal or DiscoveryTutorialStep.ConfirmAnimal => !animalHit || !animalVisible,
-            DiscoveryTutorialStep.ReadObject => !objectHit || !objectVisible,
+            DiscoveryTutorialStep.Charge => chargeAchieved,
+            DiscoveryTutorialStep.Release => scanReleased,
+            DiscoveryTutorialStep.FindAnimal => animalObserved && IsRead(animalReading, animalReadSeconds),
+            DiscoveryTutorialStep.ConfirmAnimal => animalSeen,
+            DiscoveryTutorialStep.ReadObject => objectObserved && IsRead(objectReading, objectReadSeconds),
+            DiscoveryTutorialStep.Completed => true,
             _ => false
         };
-        public float Value => IsComplete ? 1f : ReadingSeconds;
+        public bool NeedsFreshScan => Step switch
+        {
+            DiscoveryTutorialStep.Release => !scanReleased && !chargeStarted,
+            DiscoveryTutorialStep.FindAnimal or DiscoveryTutorialStep.ConfirmAnimal => !animalObserved,
+            DiscoveryTutorialStep.ReadObject => !objectObserved,
+            _ => false
+        };
+        public float Value => CanContinue ? Target : ReadingSeconds;
         public float Target => Step switch
         {
             DiscoveryTutorialStep.FindAnimal => animalReadSeconds,
@@ -57,14 +70,14 @@ namespace AnimalGame.Tutorial
         public void Reset()
         {
             Step = DiscoveryTutorialStep.Charge; ReadingSeconds = 0f; LatestWaveId = 0;
-            chargeStarted = chargeReady = animalHit = objectHit = animalVisible = objectVisible = false;
-            rescanWave = 0; rescanAfterCharge = chargeSequence;
+            chargeStarted = chargeReady = chargeAchieved = scanReleased = animalHit = objectHit = false;
+            animalObserved = animalSeen = objectObserved = false;
+            animalReading = objectReading = 0f;
             // Keep event identifiers monotonic so callbacks from a pre-reset wave stay invalid.
         }
 
         public void Suspend()
         {
-            ReadingSeconds = 0f;
             chargeStarted = chargeReady = false;
         }
 
@@ -72,7 +85,7 @@ namespace AnimalGame.Tutorial
         {
             if (IsComplete) return;
             if (!valid) { Suspend(); return; }
-            chargeSequence++; chargeStarted = true; chargeReady = false;
+            chargeStarted = true; chargeReady = false;
         }
 
         public void RegisterChargeCancelled(bool valid)
@@ -89,9 +102,7 @@ namespace AnimalGame.Tutorial
             chargeStarted = chargeReady = false;
             if (!accepted) return 0;
             LatestWaveId = ++waveSequence;
-            if (Step == DiscoveryTutorialStep.Release) MoveTo(DiscoveryTutorialStep.FindAnimal);
-            else if (Step == DiscoveryTutorialStep.Rescan && chargeSequence > rescanAfterCharge)
-                rescanWave = LatestWaveId;
+            scanReleased = true;
             return LatestWaveId;
         }
 
@@ -102,8 +113,6 @@ namespace AnimalGame.Tutorial
         {
             if (!valid || IsComplete || waveId <= 0 || waveId != LatestWaveId) return false;
             if (isAnimal) animalHit = true; else objectHit = true;
-            if (Step == DiscoveryTutorialStep.Rescan && waveId == rescanWave)
-                MoveTo(DiscoveryTutorialStep.Completed);
             return true;
         }
 
@@ -112,39 +121,49 @@ namespace AnimalGame.Tutorial
             if (IsComplete) return;
             if (!sample.Valid || !float.IsFinite(sample.DeltaTime) || sample.DeltaTime <= 0f || sample.DeltaTime > .25f)
             { Suspend(); return; }
-            animalVisible = sample.AnimalMarkerVisible;
-            objectVisible = sample.ObjectHighlightVisible;
-            if (chargeStarted && sample.FullyCharged) chargeReady = true;
+            if (chargeStarted && sample.FullyCharged) chargeReady = chargeAchieved = true;
+            // A scan may finish while the player is reading an earlier card. Preserve its real
+            // observations so confirming that card cannot lose the wave, seen state or object reveal.
+            animalObserved |= animalHit && sample.AnimalMarkerVisible;
+            animalSeen |= animalHit && sample.AnimalHasBeenSeen;
+            objectObserved |= objectHit && sample.ObjectHighlightVisible;
+            if (sample.PanelExpanded)
+            {
+                if (animalObserved)
+                    animalReading = Mathf.Min(animalReadSeconds, animalReading + sample.DeltaTime);
+                if (objectObserved)
+                    objectReading = Mathf.Min(objectReadSeconds, objectReading + sample.DeltaTime);
+            }
             switch (Step)
             {
-                case DiscoveryTutorialStep.Charge:
-                    if (IsChargeReady) MoveTo(DiscoveryTutorialStep.Release);
-                    break;
                 case DiscoveryTutorialStep.FindAnimal:
-                    Read(animalHit && animalVisible && sample.PanelExpanded, sample.DeltaTime,
-                        animalReadSeconds, DiscoveryTutorialStep.ConfirmAnimal);
-                    break;
-                case DiscoveryTutorialStep.ConfirmAnimal:
-                    if (animalHit && animalVisible && sample.AnimalHasBeenSeen)
-                        MoveTo(DiscoveryTutorialStep.ReadObject);
+                    ReadingSeconds = animalReading;
                     break;
                 case DiscoveryTutorialStep.ReadObject:
-                    Read(objectHit && objectVisible && sample.PanelExpanded, sample.DeltaTime,
-                        objectReadSeconds, DiscoveryTutorialStep.Rescan);
+                    ReadingSeconds = objectReading;
                     break;
             }
         }
 
-        private void Read(bool eligible, float deltaTime, float duration, DiscoveryTutorialStep next)
+        /// <summary>Only an explicit tutorial confirmation changes the displayed instruction.</summary>
+        public bool Continue()
         {
-            ReadingSeconds = eligible ? Mathf.Min(duration, ReadingSeconds + deltaTime) : 0f;
-            if (duration - ReadingSeconds <= duration * .00001f) MoveTo(next);
+            if (!CanContinue || IsComplete) return false;
+            MoveTo(Step switch
+            {
+                DiscoveryTutorialStep.Charge => DiscoveryTutorialStep.Release,
+                DiscoveryTutorialStep.Release => DiscoveryTutorialStep.FindAnimal,
+                DiscoveryTutorialStep.FindAnimal => DiscoveryTutorialStep.ConfirmAnimal,
+                DiscoveryTutorialStep.ConfirmAnimal => DiscoveryTutorialStep.ReadObject,
+                _ => DiscoveryTutorialStep.Completed
+            });
+            return true;
         }
 
         private void MoveTo(DiscoveryTutorialStep next)
         {
             Step = next; ReadingSeconds = 0f;
-            if (next == DiscoveryTutorialStep.Rescan) { rescanAfterCharge = chargeSequence; rescanWave = 0; }
         }
+        private static bool IsRead(float value, float duration) => duration - value <= duration * .00001f;
     }
 }

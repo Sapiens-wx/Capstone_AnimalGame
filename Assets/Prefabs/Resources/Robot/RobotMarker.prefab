@@ -1108,11 +1108,11 @@ MonoBehaviour:
   maximumPointCount: 360
   pointCoverageOverlap: 0.1
   formedRingRadius: 0.2
-  signalSpeed: 8.7
-  maximumSignalDistance: 14.44
-  signalFadeOutDuration: 0.35
-  signalPointDiameter: 0.1
-  signalHeadCoreRatio: 0.377
+  signalSpeed: 13.92
+  maximumSignalDistance: 12.550968
+  signalFadeOutDuration: 0.12
+  signalPointDiameter: 0.12
+  signalHeadCoreRatio: 0.5
   signalHeadPulseAmount: 0.06
   signalHeadPulseFrequency: 4.5
   scanWaveHalfThickness: 0.14

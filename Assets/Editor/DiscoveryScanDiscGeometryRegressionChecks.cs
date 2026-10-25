@@ -39,7 +39,7 @@ namespace AnimalGame.Editor
                 checks = 0;
                 Check("Toolkit disc changes only its radius across aspect ratios and poses", CheckToolkitGeometry);
                 Check("Rebuilt documents retain the current scan disc pose", CheckRebuiltDocument);
-                Check("Released scan preserves normal world coverage throughout expansion and return", CheckReleasedLifecycle);
+                Check("Released scan preserves normal world coverage throughout expansion, rebound and return", CheckReleasedLifecycle);
                 Check("Organic and terrain clipping share the current disc", CheckClipping);
                 Check("Shake and photo focus do not pump disc compensation", CheckCameraComposition);
                 Check("Disabled or missing camera effects restore the normal disc", CheckCleanup);
@@ -82,7 +82,7 @@ namespace AnimalGame.Editor
                     f.Hud.TryGetRingScreenGeometry(out Vector2 originalCenter, out float originalRadius);
                     float outerRadius = RenderedRadius(f.Root.Q<ViewRingElement>("OuterRing"));
                     Rect[] edgeBounds = f.EdgeBounds();
-                    const float scale = 11f / 15.5f;
+                    float scale = f.View.BaseCameraOrthographicSize / f.TargetSize;
                     f.Hud.SetDiscoveryScanDiscScale(scale);
                     // Geometry must be authoritative immediately, even before deferred Toolkit layout resolves.
                     Require(f.Hud.TryGetRingScreenGeometry(out Vector2 immediateCenter, out float immediateRadius)
@@ -133,7 +133,7 @@ namespace AnimalGame.Editor
 
         private static void CheckReleasedLifecycle()
         {
-            using (var f = new Fixture())
+            using (var f = new Fixture(11f, true, true))
             {
                 float normalRadius = f.Radius;
                 f.Capture("Normal");
@@ -143,8 +143,8 @@ namespace AnimalGame.Editor
                 f.Release();
                 float previousRadius = f.Radius;
                 float arrival = f.ArrivalDuration;
-                int expansionFrames = Mathf.CeilToInt((arrival + .001f) / .01f);
-                float expansionStep = (arrival + .001f) / expansionFrames;
+                int expansionFrames = Mathf.CeilToInt(arrival / .01f);
+                float expansionStep = arrival / expansionFrames;
                 for (int frame = 0; frame < expansionFrames; frame++)
                 {
                     f.Advance(expansionStep);
@@ -153,13 +153,33 @@ namespace AnimalGame.Editor
                         "The disc radius reversed direction while the released camera was expanding.");
                     previousRadius = f.Radius;
                 }
-                Require(Near(f.Size, 15.5f) && Near(f.Radius / normalRadius, 11f / 15.5f)
+                Require(Near(f.Size, f.TargetSize)
+                    && Near(f.Radius / normalRadius, f.View.BaseCameraOrthographicSize / f.TargetSize)
                     && f.Source.HasActiveReleasedScanWaves,
-                    "The released disc does not occupy the expected 71 percent diameter during observation.");
-                f.Advance(.1f);
-                Require(Near(f.Size, 15.5f) && f.Source.HasActiveReleasedScanWaves,
+                    "The released disc does not match the authored 13.5 observation size and normal world coverage.");
+                float settledRadius = f.Radius;
+                f.Advance(f.ReboundDuration * .16f);
+                f.RequireWorldCoverage(normalRadius);
+                Require(f.Size > f.TargetSize && f.Radius < settledRadius,
+                    "The disc did not compensate the outward start of the camera rebound.");
+                f.Advance(f.ReboundDuration * .16f);
+                f.RequireWorldCoverage(normalRadius);
+                Require(Near(f.Size, f.TargetSize * (1f + f.ReboundRatio)),
+                    "The real camera and Toolkit disc did not reach the authored rebound peak together.");
+                f.Advance(f.ReboundDuration * .34f);
+                f.RequireWorldCoverage(normalRadius);
+                Require(f.Size > f.TargetSize && f.Radius < settledRadius,
+                    "The disc lost world coverage during rebound recovery.");
+                f.Advance(f.ReboundDuration * .34f + .001f);
+                f.RequireWorldCoverage(normalRadius);
+                Require(Near(f.Size, f.TargetSize) && Near(f.Radius, settledRadius),
+                    "The rebound did not restore the observation disc before holding.");
+                float lead = f.Source.LastReleasedWaveTravelDuration - f.SettledDuration;
+                f.Advance(lead * .5f);
+                Require(Near(f.Size, f.TargetSize) && f.Source.HasActiveReleasedScanWaves,
                     "The disc recovered before the real released particles finished.");
-                for (int frame = 0; frame < 120; frame++)
+                int recoveryFrames = Mathf.CeilToInt((lead + f.ReturnDuration + .03f) / .01f);
+                for (int frame = 0; frame < recoveryFrames; frame++)
                 {
                     f.Advance(.01f);
                     f.RequireWorldCoverage(normalRadius);
@@ -170,20 +190,29 @@ namespace AnimalGame.Editor
             using (var f = new Fixture(11f, false))
             {
                 float normalRadius = f.Radius;
-                f.Charge(); f.Release(); f.Advance(f.ArrivalDuration + .001f);
+                f.Charge(); f.Release(); f.Advance(f.SettledDuration + .001f);
                 f.RequireWorldCoverage(normalRadius);
-                Require(Near(f.Size, 15.5f), "The camera without RobotCameraShake did not enter observation.");
+                Require(Near(f.Size, f.TargetSize), "The camera without RobotCameraShake did not enter observation.");
                 // This is a new panel's first render. Repeated manual panel renders in one editor frame
                 // can reuse native UI batches and omit unchanged HUD artwork after a target clear.
                 f.Capture("Observation");
+            }
+            using (var f = new Fixture(11f, false, true))
+            {
+                float normalRadius = f.Radius;
+                f.Charge(); f.Release(); f.Advance(f.ArrivalDuration + f.ReboundDuration * .32f);
+                f.RequireWorldCoverage(normalRadius);
+                Require(Near(f.Size, f.TargetSize * (1f + f.ReboundRatio)),
+                    "The no-shake camera did not reach the actual rebound peak.");
+                f.Capture("Rebound");
             }
         }
 
         private static void CheckClipping()
         {
-            using (var f = new Fixture())
+            using (var f = new Fixture(11f, true, true))
             {
-                f.Charge(); f.Release(); f.Advance(.7f);
+                f.Charge(); f.Release(); f.Advance(f.ArrivalDuration * .45f);
                 f.Layout();
                 Call(f.View, "UpdateOrganicVisibilityClip");
                 Vector2 center = f.View.GetUiCenterScreenPoint();
@@ -206,12 +235,22 @@ namespace AnimalGame.Editor
                         && Vector2.Distance((Vector2)material.GetVector("_SurfaceRevealCenterPixels"), center) < .01f,
                         "Terrain surface reveal uses a different boundary from organic sprites and the white circle.");
                     float previousRadius = f.Radius;
-                    f.Advance(.1f);
+                    f.Advance(f.ArrivalDuration * .15f);
                     Require(!Near(previousRadius, f.Radius), "The fixture did not advance the live scan disc.");
                     Set(map, "lastViewportUpdateFrame", -1);
                     Call(map, "HandleCameraPreCull", f.Camera);
                     Require(Near(material.GetFloat("_SurfaceRevealRadiusPixels"), f.Radius),
                         "The map camera's before-render callback left the surface mask at an earlier Update radius.");
+                    f.Advance(f.ArrivalDuration * .4f + f.ReboundDuration * .32f);
+                    f.Layout();
+                    f.CompareRenderedGeometry();
+                    Call(f.View, "UpdateOrganicVisibilityClip");
+                    Set(map, "lastViewportUpdateFrame", -1);
+                    Call(map, "HandleCameraPreCull", f.Camera);
+                    Require(f.Size > f.TargetSize
+                        && Near(Shader.GetGlobalFloat("_PlayerUiClipRadiusPixels"), f.Radius)
+                        && Near(material.GetFloat("_SurfaceRevealRadiusPixels"), f.Radius),
+                        "The camera rebound separated terrain or organic clipping from the rendered disc.");
                 }
                 finally
                 {
@@ -225,20 +264,20 @@ namespace AnimalGame.Editor
         {
             using (var f = new Fixture())
             {
-                f.Charge(); f.Release(); f.Advance(f.ArrivalDuration + .001f);
+                f.Charge(); f.Release(); f.Advance(f.SettledDuration + .001f);
                 float radius = f.Radius;
                 f.Shake.SetPhotoFocusMagnification(2f);
                 Set(f.Shake, "springZoom", .02f);
                 Set(f.Shake, "globalIntensity", 1f);
                 f.TickCamera(0f);
                 Require(Near(f.Shake.CurrentZoomOffsetFraction, .02f)
-                    && f.Shake.CurrentZoomOffsetFraction > 0f && Near(f.Size, 15.5f / 2f * 1.02f),
+                    && f.Shake.CurrentZoomOffsetFraction > 0f && Near(f.Size, f.TargetSize / 2f * 1.02f),
                     "The fixture did not compose photo focus with a legal nonzero impact zoom.");
                 Require(Near(f.Radius, radius),
                     "Photo focus or impact shake contaminated the scan-only disc compensation.");
                 Set(f.Shake, "springZoom", -.02f);
                 f.TickCamera(0f);
-                Require(f.Shake.CurrentZoomOffsetFraction < 0f && Near(f.Size, 15.5f / 2f * .98f),
+                Require(f.Shake.CurrentZoomOffsetFraction < 0f && Near(f.Size, f.TargetSize / 2f * .98f),
                     "The fixture did not apply the opposite legal impact zoom.");
                 Require(Near(f.Radius, radius), "Changing instantaneous camera shake pumps the white circle.");
             }
@@ -249,7 +288,7 @@ namespace AnimalGame.Editor
             using (var f = new Fixture())
             {
                 float radius = f.Radius;
-                f.Charge(); f.Release(); f.Advance(.8f);
+                f.Charge(); f.Release(); f.Advance(f.SettledDuration + .001f);
                 Require(f.Radius < radius, "The zoom cleanup fixture never entered the reduced-disc pose.");
                 Set(f.View, "enableScanCameraZoom", false);
                 f.TickCamera(0f);
@@ -262,13 +301,13 @@ namespace AnimalGame.Editor
                 f.TickCamera(.5f);
                 f.Source.enabled = false;
                 Call(f.Source, "OnDisable");
-                f.TickCamera(.7f); f.TickCamera(.7f);
+                f.TickCamera(0f); f.TickCamera(f.ReturnDuration + .01f);
                 Require(Near(f.Radius, radius), "Losing the scan source retained a reduced disc.");
             }
             using (var f = new Fixture())
             {
                 float radius = f.Radius;
-                f.Charge(); f.Release(); f.Advance(.8f);
+                f.Charge(); f.Release(); f.Advance(f.SettledDuration + .001f);
                 Require(f.Radius < radius, "The camera-loss fixture never entered the reduced-disc pose.");
                 f.Camera.enabled = false;
                 f.TickCamera(0f);
@@ -281,7 +320,7 @@ namespace AnimalGame.Editor
             using (var f = new Fixture(18f))
             {
                 float radius = f.Radius;
-                f.Charge(); f.Release(); f.Advance(f.ArrivalDuration + .001f);
+                f.Charge(); f.Release(); f.Advance(f.SettledDuration + .001f);
                 Require(Near(f.Size, 18f) && Near(f.Radius, radius),
                     "A normal camera already wider than observation was narrowed or shrank its disc.");
             }
@@ -327,12 +366,16 @@ namespace AnimalGame.Editor
             public VisualElement Root => Document.rootVisualElement;
             public float Size => Camera.orthographicSize;
             public float Radius { get { Hud.TryGetRingScreenGeometry(out _, out float radius); return radius; } }
-            public float ArrivalDuration => Mathf.Max(.05f, Source.LastReleasedWaveTravelDuration
-                - (float)Get(View, "discoveryCameraArrivalLeadTime"));
+            public float TargetSize => (float)Get(View, "discoveryObservationOrthographicSize");
+            public float ReturnDuration => (float)Get(View, "releaseZoomReturnDuration");
+            public float ArrivalDuration => Mathf.Max(.05f, (float)Get(View, "discoveryObservationZoomOutDuration"));
+            public float ReboundRatio => (float)Get(View, "discoveryObservationReboundRatio");
+            public float ReboundDuration => Mathf.Max(.01f, (float)Get(View, "discoveryObservationReboundDuration"));
+            public float SettledDuration => ArrivalDuration + (TargetSize > View.BaseCameraOrthographicSize && ReboundRatio > 0f ? ReboundDuration : 0f);
             private ParticleSystem Emitted => (ParticleSystem)Get(Source, "emittedPointSystem");
             private static readonly string[] EdgeNames = { "Status", "Time", "Sound", "Coordinates", "CompassHost", "LevelIndicator", "Inventory" };
 
-            public Fixture(float baseSize = 11f, bool withShake = true)
+            public Fixture(float baseSize = 11f, bool withShake = true, bool enableReboundForChecks = false)
             {
                 scene = EditorSceneManager.NewPreviewScene();
                 GameObject go = Create("Discovery disc actual Toolkit fixture");
@@ -360,8 +403,15 @@ namespace AnimalGame.Editor
                 var profile = AssetDatabase.LoadAssetAtPath<GameObject>(UiPath).GetComponentInChildren<ScanChargeUI>(true);
                 foreach (string field in new[] { "scanZoomReferenceOrthographicSize", "holdTargetOrthographicSize",
                     "releasePeakOrthographicSize", "maximumChargeDuration", "releaseZoomOutDuration", "releaseZoomReturnDuration",
-                    "cancelledChargeZoomReturnDuration", "discoveryObservationOrthographicSize", "discoveryCameraArrivalLeadTime" })
+                    "cancelledChargeZoomReturnDuration", "discoveryObservationOrthographicSize", "discoveryObservationZoomOutDuration",
+                    "discoveryObservationReboundRatio", "discoveryObservationReboundDuration" })
                     Set(View, field, Get(profile, field));
+                if (enableReboundForChecks)
+                {
+                    // Exercise the optional pulse without changing the user's authored setting.
+                    Set(View, "discoveryObservationReboundRatio", .03f);
+                    Set(View, "discoveryObservationReboundDuration", .32f);
+                }
                 Set(View, "showScanRing", false); Set(View, "mainUI", Hud); Set(View, "mapCamera", Camera);
                 Set(View, "cameraZoomInitialized", false); Call(View, "ResolveTrackingReferences");
                 Source = Create("Discovery disc real scan wave").AddComponent<BioScanController>();
@@ -369,7 +419,7 @@ namespace AnimalGame.Editor
                 var sourceProfile = AssetDatabase.LoadAssetAtPath<GameObject>(RobotPath).GetComponentInChildren<BioScanController>(true);
                 foreach (string field in new[] { "biologicalSignalClipShader", "signalPointCount", "maximumPointCount",
                     "automaticAngularCoverage", "pointCoverageOverlap", "formedRingRadius", "signalSpeed", "maximumSignalDistance",
-                    "signalFadeOutDuration", "signalPointDiameter", "scanWaveHalfThickness" })
+                    "signalFadeOutDuration", "signalPointDiameter", "signalHeadCoreRatio", "scanWaveHalfThickness" })
                     Set(Source, field, Get(sourceProfile, field));
                 Call(Source, "CreateSignalResources");
                 Transform particleRoot = (Transform)Get(Source, "signalParticleRoot");

@@ -17,6 +17,7 @@ namespace AnimalGame.Editor
         {
             checks = 0;
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Run balance lesson checks in Edit Mode.");
+            CheckManualContinueGates();
             CheckReadVisibilityAndPause();
             CheckFreshNeutralAndOldHeldInput();
             CheckActualManualAndPointMovement();
@@ -40,8 +41,36 @@ namespace AnimalGame.Editor
         }
 
         private static void Feed(BalanceTutorialProgress progress, float dt = Dt, bool valid = true, bool expanded = true,
-            Vector2 raw = default, Vector2 manual = default, Vector2 point = default) =>
+            Vector2 raw = default, Vector2 manual = default, Vector2 point = default)
+        {
             progress.Sample(new BalanceTutorialSample(dt, valid, expanded, raw, manual, point));
+            if (progress.CanContinue && !progress.IsComplete) progress.Continue();
+        }
+
+        private static void CheckManualContinueGates()
+        {
+            var progress = new BalanceTutorialProgress(.1f, .1f, .05f);
+            Require(!progress.CanContinue && !progress.Continue(), "A cannot skip an unread indicator instruction.");
+            progress.Sample(new BalanceTutorialSample(.1f, true, true, Vector2.zero, Vector2.zero, Vector2.zero));
+            Require(progress.Step == BalanceTutorialStep.ReadIndicator && progress.CanContinue,
+                "Finished indicator reading stays on its own card until A.");
+            progress.Suspend();
+            Require(progress.CanContinue && progress.Continue() && progress.Step == BalanceTutorialStep.AdjustWeight,
+                "Pausing retains completed reading, and one confirmation starts adjustment.");
+            Require(!progress.Continue(), "Another A cannot skip the actual balance adjustment.");
+            progress.Sample(new BalanceTutorialSample(.1f, true, true, Vector2.zero, Vector2.zero, Vector2.zero));
+            progress.Sample(new BalanceTutorialSample(.1f, true, true, Vector2.right, Vector2.right * .08f, Vector2.right * .07f));
+            Require(progress.Step == BalanceTutorialStep.AdjustWeight && progress.CanContinue,
+                "An effective native adjustment waits for A on the adjustment card.");
+            progress.Suspend();
+            Require(progress.CanContinue && progress.Continue() && progress.Step == BalanceTutorialStep.ReadRisk,
+                "Completed manual movement is retained through pause and confirms exactly one step.");
+            progress.Sample(new BalanceTutorialSample(.1f, true, true, Vector2.zero, Vector2.zero, Vector2.zero));
+            Require(progress.Step == BalanceTutorialStep.ReadRisk && progress.CanContinue && !progress.IsComplete,
+                "Finished rollover-risk reading waits for A rather than completing automatically.");
+            Require(progress.Continue() && progress.IsComplete && !progress.Continue(),
+                "The terminal completion card cannot advance without its separate controller confirmation.");
+        }
         private static void Read(BalanceTutorialProgress progress, float seconds, int fps = 30, bool expanded = true, bool valid = true)
         {
             for (int frame = 0; frame < Mathf.CeilToInt(seconds * fps); frame++)

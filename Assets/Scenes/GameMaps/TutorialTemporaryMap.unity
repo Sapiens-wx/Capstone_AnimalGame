@@ -8612,6 +8612,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   bootstrap: {fileID: 11400000}
   animalPrefab: {fileID: 0}
+  trunkPrefab: {fileID: 100000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
   smallGarbagePrefab: {fileID: 0}
   useFixedAnimalMapPosition: 0
   fixedAnimalMapPositionMeters: {x: 124, y: 79}
@@ -8619,12 +8620,6 @@ MonoBehaviour:
   releaseZoomMultiplier: 1.2222222
   maximumSpawnDistanceWorld: 12
   placementClearanceMeters: 1.25
-  animalAmbientRadiusMeters: 0
-  animalAmbientPeriodSeconds: 8
-  movementDelaySeconds: 2
-  movementSpeedMetersPerSecond: 0.5
-  movementEndpointPauseSeconds: 2.5
-  movementOffsetMeters: {x: 3, y: 1.5}
 --- !u!114 &9100000000000000037
 MonoBehaviour:
   m_ObjectHideFlags: 0

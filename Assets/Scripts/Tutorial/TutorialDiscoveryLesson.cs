@@ -37,7 +37,7 @@ namespace AnimalGame.Tutorial
         private BioScanController scanner;
         private BioScanAnimalMarkerUI animalMarkers;
         private BioScanStaticAreaUI objectMarkers;
-        private bool hasStarted;
+        private bool hasStarted, chapterConfirmed;
         private bool ownsPresentation = true;
         private float completionDelay, refreshRemaining, feedbackRemaining;
         private bool cancelledFeedback;
@@ -49,7 +49,7 @@ namespace AnimalGame.Tutorial
         public DiscoveryTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => arms != null ? arms.Panel : null;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
         private DiscoveryLessonText Text => tutorialText != null && tutorialText.Discovery != null
             ? tutorialText.Discovery : defaultText;
@@ -104,6 +104,16 @@ namespace AnimalGame.Tutorial
             bool objectVisible = objectMarkers != null && objectMarkers.IsTargetVisible(targets.Item);
             progress.Sample(new DiscoveryTutorialSample(Time.deltaTime, validInput, !Panel.IsCollapsed,
                 scanInput != null && scanInput.IsFullyCharged, animalVisible, seen, objectVisible));
+            TutorialPanelText continueText = tutorialText != null ? tutorialText.Panel : defaultPanelText;
+            Panel.SetContinuePrompt(!chapterConfirmed && progress.CanContinue && validInput,
+                !chapterConfirmed && progress.CanContinue && validInput ? continueText.ContinuePrompt : continueText.ContinueWaitingPrompt);
+            if (!justStarted && !chapterConfirmed && validInput && progress.CanContinue && TutorialContinueInput.TryConsume(Panel, bootstrap))
+            {
+                if (progress.IsComplete) chapterConfirmed = true;
+                else progress.Continue();
+                Panel.SetContinuePrompt(false);
+                refreshRemaining = 0f;
+            }
             if (progress.Step != displayedStep)
             {
                 Panel.SetCollapsed(false);
@@ -119,6 +129,7 @@ namespace AnimalGame.Tutorial
         private void BeginLesson()
         {
             progress = new DiscoveryTutorialProgress(animalReadingSeconds, objectReadingSeconds);
+            chapterConfirmed = false;
             targets.Configure(bootstrap, animalPrefab, smallGarbagePrefab);
             arms.SetPresentationOwned(false);
             hasStarted = true;
@@ -230,9 +241,8 @@ namespace AnimalGame.Tutorial
             DiscoveryLessonText text = Text;
             TutorialStepText step = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             bool chargingStep = progress.Step == DiscoveryTutorialStep.Charge;
-            float value = chargingStep ? (scanInput != null ? scanInput.Charge01 * 100f : 0f) : progress.Value;
+            float value = chargingStep ? (progress.CanContinue ? 100f : scanInput != null ? scanInput.Charge01 * 100f : 0f) : progress.Value;
             float target = chargingStep ? 100f : progress.Target;
-            if (progress.Step == DiscoveryTutorialStep.Rescan) { value = 0f; target = 1f; }
             string lb = "LB", rt = "RT", lt = "LT";
 #if ENABLE_INPUT_SYSTEM
             if (Gamepad.current != null && Gamepad.current.layout.Contains("Dual")) { lb = "L1"; rt = "R2"; lt = "L2"; }
@@ -264,7 +274,7 @@ namespace AnimalGame.Tutorial
             }
             else if (!ready) status = text.PreparingStatus;
             else if (!canScan) status = text.BlockedStatus;
-            else if (progress.Step == DiscoveryTutorialStep.Release && !progress.IsChargeReady)
+            else if (progress.Step == DiscoveryTutorialStep.Release && !progress.IsChargeReady && !progress.HasReleasedScan)
             {
                 message = text.Charge.Message; action = text.Charge.Action; control = text.Charge.ControlGlyph;
                 detail = text.Charge.Detail; status = text.NeedRescanStatus;
@@ -280,7 +290,7 @@ namespace AnimalGame.Tutorial
             else if (progress.NeedsFreshScan && !targetMarkAlive && !waveInFlight && (scanInput == null || !scanInput.IsCharging))
             {
                 message = text.NeedRescanMessage; control = text.Charge.ControlGlyph;
-                action = text.Rescan.Action; status = text.NeedRescanStatus;
+                action = text.Charge.Action; status = text.NeedRescanStatus;
             }
             if (!progress.IsComplete && canScan && feedbackRemaining > 0f)
                 status = cancelledFeedback ? text.CancelledStatus : text.WrongGestureStatus;
@@ -290,6 +300,9 @@ namespace AnimalGame.Tutorial
                 tokens.Format(action), tokens.Format(detail), tokens.Format(status), 5, 9);
             Panel.SetProgress(chargingStep ? value / 100f : progress.NormalizedProgress);
             Panel.SetSuccess(progress.IsComplete);
+            TutorialPanelText panelText = tutorialText != null ? tutorialText.Panel : defaultPanelText;
+            Panel.SetContinuePrompt(!chapterConfirmed && progress.CanContinue && canScan,
+                !chapterConfirmed && progress.CanContinue && canScan ? panelText.ContinuePrompt : panelText.ContinueWaitingPrompt);
             displayedStep = progress.Step;
         }
 
@@ -315,7 +328,7 @@ namespace AnimalGame.Tutorial
         public void RestartLesson()
         {
             if (!hasStarted || progress == null) return;
-            progress.Reset(); targets.ResetTargets();
+            progress.Reset(); chapterConfirmed = false; targets.ResetTargets();
             nativeWaveSequence = scanner != null ? scanner.ScanSequence : 0;
             modelWaveId = pendingAnimalSequence = pendingObjectSequence = 0;
             Panel.SetCollapsed(false); refreshRemaining = 0f;
@@ -344,7 +357,7 @@ namespace AnimalGame.Tutorial
             if (recoveryWaypoint != null) recoveryWaypoint.ClearTarget();
             if (targets != null) targets.Cleanup();
             if (Panel != null) Panel.SetLessonHint(string.Empty);
-            hasStarted = false; progress = null;
+            hasStarted = chapterConfirmed = false; progress = null;
             ownsPresentation = true;
             if (arms != null) arms.SetPresentationOwned(true);
         }

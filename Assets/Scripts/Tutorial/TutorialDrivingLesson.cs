@@ -29,13 +29,14 @@ namespace AnimalGame.Tutorial
         private float refreshRemaining;
         private string lastFeedback;
         private bool ownsPresentation = true;
+        private bool chapterConfirmed;
         private readonly DrivingLessonText defaultText = new DrivingLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
 
         public TutorialTextContent TextContent => tutorialText;
         public DrivingTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => panel;
-        public bool IsComplete => progress != null && progress.IsComplete;
+        public bool IsComplete => progress != null && progress.IsComplete && chapterConfirmed;
 
         // The next scene-owned lesson reuses this card after driving is complete.
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
@@ -61,17 +62,20 @@ namespace AnimalGame.Tutorial
         {
             if (panel == null || progress == null || !ownsPresentation) return;
             bool modal = AnimalGame.MainUI.MainUI.BlocksGameplay
-                || (bootstrap != null && bootstrap.photoMode != null && bootstrap.photoMode.IsActive);
+                || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+                || (bootstrap != null && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
+                || (bootstrap != null && bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
             panel.SetVisible(!modal);
             if (modal || Time.deltaTime <= 0f || bootstrap == null || bootstrap.robot == null
                 || bootstrap.map == null || !bootstrap.map.HasGeneratedMap)
             {
                 progress.Suspend();
+                panel.SetContinuePrompt(false);
                 return;
             }
 
 #if ENABLE_INPUT_SYSTEM
-            // The D-pad is only used here while the inventory is closed; A keeps its world interaction role.
+            // The D-pad remains available while an achieved step waits for A confirmation.
             if (!AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
                 || Gamepad.current.dpad.right.wasPressedThisFrame))
                 panel.ToggleCollapsed();
@@ -90,11 +94,18 @@ namespace AnimalGame.Tutorial
                 speedMeters, robot.CurrentThrottleIntent, robot.CurrentTurnSpeed, Time.deltaTime,
                 valid && onMap));
 
-            if (progress.IsStepSatisfied)
+            panel.SetContinuePrompt(valid && onMap && progress.CanContinue && !chapterConfirmed,
+                (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
+            if (TutorialContinueInput.TryConsume(panel, bootstrap))
             {
-                lastFeedback = GetCompletionFeedback(progress.Step);
-                progress.Advance();
-                feedbackRemaining = .9f;
+                if (progress.IsComplete) chapterConfirmed = true;
+                else
+                {
+                    lastFeedback = GetCompletionFeedback(progress.Step);
+                    progress.Continue();
+                    feedbackRemaining = .9f;
+                }
+                panel.SetContinuePrompt(false);
                 panel.SetCollapsed(false);
                 refreshRemaining = 0f;
             }
@@ -110,6 +121,7 @@ namespace AnimalGame.Tutorial
         private void OnDisable()
         {
             progress?.Suspend();
+            panel?.SetContinuePrompt(false);
             if (panel != null && ownsPresentation) panel.SetVisible(false);
         }
 
@@ -119,6 +131,7 @@ namespace AnimalGame.Tutorial
             if (progress == null) return;
             ownsPresentation = true;
             progress.Reset();
+            chapterConfirmed = false;
             feedbackRemaining = 0f;
             if (panel != null) panel.SetCollapsed(false);
             RefreshPanel();
@@ -159,7 +172,7 @@ namespace AnimalGame.Tutorial
                 tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
                 tokens.Format(stepText.Detail), tokens.Format(status), 1, 9);
             panel.SetProgress(progress.NormalizedProgress);
-            panel.SetSuccess(progress.IsComplete || feedbackRemaining > 0f);
+            panel.SetSuccess(progress.CanContinue || feedbackRemaining > 0f);
         }
     }
 }

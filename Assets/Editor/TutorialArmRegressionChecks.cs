@@ -19,6 +19,7 @@ namespace AnimalGame.Editor
             checks = 0;
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Run arm lesson checks in Edit Mode.");
             CheckFreshDeployment();
+            CheckManualContinueGates();
             CheckActualMotionAndDirection();
             CheckInterruptedMotion();
             CheckContinuousHoldAndFreshStow();
@@ -57,6 +58,23 @@ namespace AnimalGame.Editor
                 Require(progress.IsStepSatisfied && progress.Advance(), "Fixture completes each prerequisite with actual eligible samples.");
             }
             return progress;
+        }
+
+        private static void CheckManualContinueGates()
+        {
+            foreach (ArmTutorialStep step in Enum.GetValues(typeof(ArmTutorialStep)))
+            {
+                if (step == ArmTutorialStep.Completed) continue;
+                var progress = At(step);
+                Require(!progress.CanContinue && !progress.Continue(), "A cannot skip an unfinished arm action: " + step);
+                FinishCurrent(progress, 60);
+                progress.Suspend();
+                Feed(progress, Pose(99f), Vector2.one, valid: false);
+                Require(progress.Step == step && progress.CanContinue,
+                    "A completed arm action remains latched on its original card through pause: " + step);
+                Require(progress.Continue() && (int)progress.Step == (int)step + 1,
+                    "One A confirmation reveals exactly one next arm instruction: " + step);
+            }
         }
 
         private static void FinishCurrent(ArmTutorialProgress progress, int fps)

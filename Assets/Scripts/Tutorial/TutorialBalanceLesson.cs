@@ -27,6 +27,7 @@ namespace AnimalGame.Tutorial
         private TutorialDrivingLesson driving;
         private BalanceTutorialProgress progress;
         private bool hasStarted, ownsPresentation = true;
+        private bool chapterConfirmed;
         private float completionDelay, refreshRemaining;
         private BalanceTutorialStep displayedStep = (BalanceTutorialStep)(-1);
 
@@ -34,7 +35,7 @@ namespace AnimalGame.Tutorial
         public BalanceTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => driving != null ? driving.Panel : null;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
         private BalanceLessonText Text => tutorialText != null && tutorialText.Balance != null
             ? tutorialText.Balance : defaultText;
 
@@ -69,7 +70,7 @@ namespace AnimalGame.Tutorial
                 BeginLesson(); justStarted = true;
             }
             Panel.SetVisible(!modal);
-            if (modal) { progress.Suspend(); return; }
+            if (modal) { progress.Suspend(); Panel.SetContinuePrompt(false); return; }
 #if ENABLE_INPUT_SYSTEM
             if (!justStarted && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
                 || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
@@ -78,6 +79,14 @@ namespace AnimalGame.Tutorial
             RobotBalanceState state = bootstrap.balance != null ? bootstrap.balance.CurrentState : default;
             progress.Sample(new BalanceTutorialSample(Time.deltaTime, valid, !Panel.IsCollapsed,
                 AdaptiveLegacyGamepadInput.ReadRightStick(), state.PlayerCounterbalanceLocal, state.NormalizedLocalOffset));
+            Panel.SetContinuePrompt(valid && progress.CanContinue && !chapterConfirmed,
+                (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
+            if (TutorialContinueInput.TryConsume(Panel, bootstrap))
+            {
+                if (progress.IsComplete) chapterConfirmed = true;
+                else progress.Continue();
+                Panel.SetContinuePrompt(false); refreshRemaining = 0f;
+            }
             if (progress.Step != displayedStep) { Panel.SetCollapsed(false); refreshRemaining = 0f; }
             refreshRemaining -= Time.unscaledDeltaTime;
             if (refreshRemaining <= 0f) { RefreshPanel(valid); refreshRemaining = .08f; }
@@ -87,6 +96,7 @@ namespace AnimalGame.Tutorial
         {
             progress = new BalanceTutorialProgress(indicatorReadingSeconds, riskReadingSeconds, requiredPointMovement);
             hasStarted = true; terrain.SetPresentationOwned(false);
+            chapterConfirmed = false; Panel.SetContinuePrompt(false);
             Panel.SetCollapsed(false); Panel.SetLessonHint(string.Empty);
             displayedStep = (BalanceTutorialStep)(-1); refreshRemaining = 0f;
         }
@@ -140,7 +150,7 @@ namespace AnimalGame.Tutorial
             Panel.SetLessonHint(progress.IsComplete ? string.Empty : text.ToggleHint);
             Panel.SetContent(tokens.Format(text.Title), tokens.Format(message), tokens.Format(glyph), tokens.Format(action),
                 tokens.Format(step.Detail), tokens.Format(status), 3, 9);
-            Panel.SetProgress(progress.NormalizedProgress); Panel.SetSuccess(progress.IsComplete);
+            Panel.SetProgress(progress.NormalizedProgress); Panel.SetSuccess(progress.CanContinue);
             displayedStep = progress.Step;
         }
 
@@ -148,12 +158,14 @@ namespace AnimalGame.Tutorial
         public void RestartLesson()
         {
             if (!hasStarted || progress == null) return;
-            progress.Reset(); Panel.SetCollapsed(false); refreshRemaining = 0f;
+            progress.Reset(); chapterConfirmed = false; Panel.SetContinuePrompt(false);
+            Panel.SetCollapsed(false); refreshRemaining = 0f;
         }
 
         private void ReleasePresentation()
         {
             if (Panel != null) Panel.SetLessonHint(string.Empty);
+            Panel?.SetContinuePrompt(false); chapterConfirmed = false;
             hasStarted = false; progress = null; ownsPresentation = true;
             if (terrain != null) terrain.SetPresentationOwned(true);
         }

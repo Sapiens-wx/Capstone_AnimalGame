@@ -42,6 +42,7 @@ namespace AnimalGame.Editor
             try
             {
                 Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Run terrain checks in Edit Mode.");
+                CheckManualContinueGates();
                 CheckOrderAndApproach();
                 CheckPositionAndScanGates();
                 CheckReadingGates();
@@ -66,8 +67,49 @@ namespace AnimalGame.Editor
             new TerrainTutorialProgress(new[] { new Vector2(10, 10), Survey }, Destination, 2, 6, 4);
 
         private static void Feed(TerrainTutorialProgress progress, Vector2 position, float dt = 1,
-            bool valid = true, bool expanded = true, bool markers = true, bool stopped = true) =>
+            bool valid = true, bool expanded = true, bool markers = true, bool stopped = true)
+        {
             progress.Sample(position, dt, valid, expanded, markers, stopped);
+            if (progress.CanContinue && !progress.IsComplete) progress.Continue();
+        }
+
+        // Outcome fixtures explicitly confirm each goal; the dedicated check below never does.
+        private static bool Scan(TerrainTutorialProgress progress, Vector2 position, bool valid)
+        {
+            bool accepted = progress.RegisterTerrainScan(position, valid);
+            if (accepted && progress.CanContinue && !progress.IsComplete) progress.Continue();
+            return accepted;
+        }
+
+        private static void CheckManualContinueGates()
+        {
+            var progress = new TerrainTutorialProgress(new[] { Survey }, Destination, 2, 6, 4);
+            Require(!progress.CanContinue && !progress.Continue(), "A cannot skip an unvisited destination.");
+            progress.Sample(Survey, 1f, true, true, true, true);
+            Require(progress.Step == TerrainTutorialStep.ReachSurvey && progress.CanContinue && !progress.HasTarget,
+                "Arrival hides the reached marker but waits on the same instruction for A.");
+            progress.Sample(Survey, 20f, true, true, true, true);
+            Require(progress.Step == TerrainTutorialStep.ReachSurvey && progress.Continue(),
+                "Waiting cannot advance arrival; a confirmation advances exactly one instruction.");
+            Require(progress.Step == TerrainTutorialStep.ScanTerrain && !progress.Continue(), "A cannot skip scanning.");
+            Require(progress.RegisterTerrainScan(Survey, true) && progress.Step == TerrainTutorialStep.ScanTerrain
+                && progress.CanContinue, "A native terrain scan is latched without replacing its instruction.");
+            Require(progress.Continue() && progress.Step == TerrainTutorialStep.ReadSigns,
+                "Only confirming the accepted scan reveals its legend.");
+            progress.Sample(Survey, 4f, true, true, true, true);
+            Require(progress.Step == TerrainTutorialStep.ReadSigns && progress.CanContinue,
+                "Finished legend reading waits for A instead of automatically showing the route.");
+            progress.RequireFreshScan();
+            Require(progress.Step == TerrainTutorialStep.ReadSigns && progress.CanContinue,
+                "A completed reading stays latched while waiting for confirmation.");
+            Require(progress.Continue() && progress.Step == TerrainTutorialStep.FollowRoute,
+                "Confirming reading starts the route instruction.");
+            progress.Sample(Destination, 1f, true, true, true, true);
+            Require(progress.Step == TerrainTutorialStep.FollowRoute && progress.CanContinue && !progress.IsComplete,
+                "The final arrival also waits for A.");
+            Require(progress.Continue() && progress.IsComplete && progress.CanContinue && !progress.Continue(),
+                "The completion card is terminal and leaves chapter confirmation to its controller.");
+        }
 
         private static TerrainTutorialProgress At(TerrainTutorialStep step)
         {
@@ -75,7 +117,7 @@ namespace AnimalGame.Editor
             if (step == TerrainTutorialStep.ReachSurvey) return progress;
             Feed(progress, new Vector2(10, 10)); Feed(progress, Survey);
             if (step == TerrainTutorialStep.ScanTerrain) return progress;
-            Require(progress.RegisterTerrainScan(Survey, true), "Fixture requests a real eligible terrain scan.");
+            Require(Scan(progress, Survey, true), "Fixture requests a real eligible terrain scan.");
             if (step == TerrainTutorialStep.ReadSigns) return progress;
             Feed(progress, Survey, 4);
             if (step == TerrainTutorialStep.FollowRoute) return progress;
@@ -96,7 +138,7 @@ namespace AnimalGame.Editor
                 "Driving directly to the final destination cannot skip the approach or scan lessons.");
             Feed(progress, Survey);
             Require(progress.ApproachIndex == 0, "The survey point cannot skip an earlier approach point.");
-            Require(!progress.RegisterTerrainScan(Survey, true), "Scanning early cannot skip the approach sequence.");
+            Require(!Scan(progress, Survey, true), "Scanning early cannot skip the approach sequence.");
             Feed(progress, new Vector2(10, 10));
             Require(progress.ApproachIndex == 1 && progress.CurrentTarget == Survey && progress.HasTarget,
                 "Reaching one approach point selects the next one.");
@@ -109,7 +151,7 @@ namespace AnimalGame.Editor
             Feed(progress, Survey, 100);
             Require(progress.Step == TerrainTutorialStep.ScanTerrain && progress.ReadingSeconds == 0,
                 "Waiting without an eligible scan cannot start reading.");
-            Require(progress.RegisterTerrainScan(Survey, true), "A scan at the survey starts sign reading.");
+            Require(Scan(progress, Survey, true), "A scan at the survey starts sign reading.");
             Require(!progress.HasTarget && progress.Step == TerrainTutorialStep.ReadSigns,
                 "No destination triangle obscures the sign-reading stage.");
             Feed(progress, Destination, 1, false);
@@ -123,7 +165,7 @@ namespace AnimalGame.Editor
             Require(progress.IsComplete && !progress.HasTarget && progress.NormalizedProgress == 1,
                 "Reaching the final destination completes the chapter and removes the marker.");
             Feed(progress, Vector2.one * 1000, 100);
-            Require(progress.IsComplete && !progress.RegisterTerrainScan(Survey, true),
+            Require(progress.IsComplete && !Scan(progress, Survey, true),
                 "Completion is stable and cannot be reopened by later scans.");
 
             Vector2[] points = { new Vector2(5, 5), Survey };
@@ -154,11 +196,11 @@ namespace AnimalGame.Editor
             Feed(p, new Vector2(10, 10), 1, false);
             Require(p.ApproachIndex == 0, "Invalid driving frames cannot accept a location.");
             p = At(TerrainTutorialStep.ScanTerrain);
-            Require(!p.RegisterTerrainScan(Survey, false), "Paused/modal/invalid driving scans are rejected.");
-            Require(!p.RegisterTerrainScan(Survey + Vector2.right * 6.1f, true), "Scans outside the survey radius are rejected.");
-            Require(!p.RegisterTerrainScan(new Vector2(float.NaN, 0), true), "Invalid scan positions are rejected.");
+            Require(!Scan(p, Survey, false), "Paused/modal/invalid driving scans are rejected.");
+            Require(!Scan(p, Survey + Vector2.right * 6.1f, true), "Scans outside the survey radius are rejected.");
+            Require(!Scan(p, new Vector2(float.NaN, 0), true), "Invalid scan positions are rejected.");
             Require(p.Step == TerrainTutorialStep.ScanTerrain, "Rejected scans leave the lesson pending.");
-            Require(p.RegisterTerrainScan(Survey + Vector2.right * 6f, true), "A valid scan on the survey boundary is accepted.");
+            Require(Scan(p, Survey + Vector2.right * 6f, true), "A valid scan on the survey boundary is accepted.");
         }
 
         private static void CheckReadingGates()
@@ -182,7 +224,7 @@ namespace AnimalGame.Editor
             Feed(progress, Survey, 3);
             Require(progress.Step == TerrainTutorialStep.FollowRoute, "Enough eligible reading time unlocks the route.");
             Near(progress.ReadingSeconds, 4, "Reading credit is clamped to its configured duration.");
-            Require(!progress.RegisterTerrainScan(Survey, true), "Later scans cannot force route progress back into reading.");
+            Require(!Scan(progress, Survey, true), "Later scans cannot force route progress back into reading.");
         }
 
         private static void CheckExpiredSnapshotAndReturn()
@@ -195,17 +237,17 @@ namespace AnimalGame.Editor
             Near(progress.ReadingSeconds, 1.5f, "Snapshot expiry preserves time already spent reading.");
             Feed(progress, Survey, 100);
             Near(progress.ReadingSeconds, 1.5f, "Waiting for a fresh scan cannot add reading credit.");
-            Require(progress.RegisterTerrainScan(Survey, true), "A fresh scan resumes sign reading.");
+            Require(Scan(progress, Survey, true), "A fresh scan resumes sign reading.");
             Near(progress.ReadingSeconds, 1.5f, "Rescanning does not reset sign-reading credit.");
             Feed(progress, Survey + Vector2.right * 7);
             Require(progress.Step == TerrainTutorialStep.ReachSurvey && progress.HasTarget
                 && progress.CurrentTarget == Survey && progress.ApproachIndex == 1,
                 "Leaving the survey restores its marker and retains completed approach points.");
-            Require(!progress.RegisterTerrainScan(Survey + Vector2.right * 7, true), "Outside scans cannot bypass returning.");
+            Require(!Scan(progress, Survey + Vector2.right * 7, true), "Outside scans cannot bypass returning.");
             Feed(progress, Survey);
             Require(progress.Step == TerrainTutorialStep.ScanTerrain && !progress.HasTarget,
                 "Returning removes the marker and asks for a local scan again.");
-            Require(progress.RegisterTerrainScan(Survey, true), "A scan after returning is accepted.");
+            Require(Scan(progress, Survey, true), "A scan after returning is accepted.");
             Feed(progress, Survey, 2.5f);
             Require(progress.Step == TerrainTutorialStep.FollowRoute, "Saved reading time survives expiry and a survey return.");
             progress.RequireFreshScan();

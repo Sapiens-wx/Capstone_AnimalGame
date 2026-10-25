@@ -30,7 +30,7 @@ namespace AnimalGame.Editor
         {
             Starting, TerrainStarting, ArmStarting, DiscoveryStarting, ScanCharge, ScanRelease,
             ConfirmAnimal, RefreshCharge, RefreshRelease, PhotographyStarting, ObserveMovement,
-            EnterPhoto, Compose, Collapse, Capture, Result, SavePhoto, CloseResult, NeutralAfterResult, ExitPhoto, Complete, Finishing
+            EnterPhoto, Compose, Collapse, Capture, Result, SavePhoto, CloseResult, NeutralAfterResult, ExitPhoto, Departure, Complete, Finishing
         }
         [Serializable] private sealed class Report
         {
@@ -45,6 +45,8 @@ namespace AnimalGame.Editor
             public bool nativePhotoActive, nativeReviewing, nativeFocusing, nativeCapturing;
             public bool nativeResultUiVisible, nativeResultShowing, nativeResultClosing, resultAnimationClosing;
             public bool neutralBetweenBackPresses, resultFullyOpened;
+            public bool deadTrunkPresent, nativePecking, departureQueued, birdFlewAfterPhoto, birdDespawned, trunkRetained, noBirdRespawn;
+            public bool waitedForA, confirmedWithA, observationConfirmedWithA;
             public string project, phase, step, targetFailure, cameraId, screenshotStatus;
             public string movementMode, traversalReason, nativeSelectedSubject, bodyRendererState;
             public string nativePhotoState, nativeCaptureState, species, subjectPhotoState;
@@ -90,6 +92,9 @@ namespace AnimalGame.Editor
         [SerializeField] private Vector2 holdAnimalPosition;
         private AnimalPhotoSubject acceptedSubject;
         private PhotoResultSnapshot acceptedResult;
+        private DiscoverableEntity capturedEntity;
+        private string continueStep;
+        private int continueReadyFrame = -1, lastContinueFrame = -10;
 
         public static void RunBatch()
         {
@@ -173,24 +178,24 @@ namespace AnimalGame.Editor
                         bootstrap.photoMode.PhotoCaptured += OnShutter;
                         bootstrap.photoResultUi.ResultShown += OnResultShown;
                         bootstrap.photoResultUi.PhotoSaved += OnPhotoSaved;
-                        typeof(DrivingTutorialProgress).GetProperty("Step", Flags).SetValue(driving.Progress, DrivingTutorialStep.Completed);
+                        CompleteFixture(driving, driving.Progress, DrivingTutorialStep.Completed);
                         terrain = driving.GetComponent<TutorialTerrainLesson>(); arms = driving.GetComponent<TutorialArmLesson>();
                         Require(terrain != null && arms != null, "The preceding scene-owned lessons must exist.");
                         Begin(Phase.TerrainStarting); break;
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
-                        typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
+                        CompleteFixture(terrain, terrain.Progress, TerrainTutorialStep.Completed);
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
                         var precedingBalance = arms.GetComponent<TutorialBalanceLesson>();
                         if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
-                            && !precedingBalance.Progress.IsComplete)
+                            && !precedingBalance.IsComplete)
                         {
-                            typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            CompleteFixture(precedingBalance, precedingBalance.Progress, BalanceTutorialStep.Completed);
                             return;
                         }
                         if (!arms.HasStarted || arms.Progress == null) return;
-                        typeof(ArmTutorialProgress).GetProperty("Step", Flags).SetValue(arms.Progress, ArmTutorialStep.Completed);
+                        CompleteFixture(arms, arms.Progress, ArmTutorialStep.Completed);
                         Begin(Phase.DiscoveryStarting); break;
                     case Phase.DiscoveryStarting:
                         if (!discovery.HasStarted || discovery.Progress == null || Targets == null || !Targets.IsReady) return;
@@ -205,6 +210,11 @@ namespace AnimalGame.Editor
                             "The actual photo subject must be the same owned tutorial woodpecker.");
                         Require(!Targets.Animal.IsPermanentlyDiscovered && !Targets.HasAnimalMotionStarted,
                             "The animal must begin unknown and remain stationary throughout scanning and photography.");
+                        Require(Targets.Trunk != null && Targets.Trunk.IsDead && Targets.AnimalActor != null
+                            && Targets.AnimalActor.IsPecking && Targets.AnimalActor.Agent.enabled,
+                            "The teaching woodpecker must use a real dead trunk and its native peck action.");
+                        report.deadTrunkPresent = report.nativePecking = true;
+                        capturedEntity = Targets.Animal;
                         // Spawn the existing discovery object at its authored dry approach first; that
                         // object's ground-placement rules are unrelated to photographing from this dry approach.
                         // Only this guarded disposable fixture changes pose, before any actual scan.
@@ -232,7 +242,7 @@ namespace AnimalGame.Editor
                             "The scan must leave the teaching woodpecker stationary.");
                         Require(PlayerDepth() <= .01f, "Native seen confirmation must be observed from dry ground.");
                         Record("The same native woodpecker marker becomes seen while the scanned actor remains at its original anchor.");
-                        typeof(DiscoveryTutorialProgress).GetProperty("Step", Flags).SetValue(discovery.Progress, DiscoveryTutorialStep.Completed);
+                        CompleteFixture(discovery, discovery.Progress, DiscoveryTutorialStep.Completed);
                         Begin(Phase.PhotographyStarting); break;
                     case Phase.RefreshCharge:
                         if (bootstrap.scanChargeUi.IsFullyCharged) Begin(Phase.RefreshRelease);
@@ -253,6 +263,8 @@ namespace AnimalGame.Editor
                         }
                         Require(lesson.Progress.Step == PhotographyTutorialStep.EnterPhoto && report.travelledMeters <= .001f,
                             "Visible observation of the stationary seen subject advances to the native photo-mode entry action.");
+                        Require(report.observationConfirmedWithA,
+                            "The ready observation card must remain unchanged for five neutral frames and advance only after actual A.");
                         Record("The photo chapter follows discovery and recognizes the same stationary subject.");
                         Begin(Phase.EnterPhoto); break;
                     case Phase.EnterPhoto:
@@ -303,8 +315,14 @@ namespace AnimalGame.Editor
                         report.resultFullyOpened = true;
                         Require(report.hiddenResultFrames >= 5 && report.resultHiddenAllFrames,
                             "Both expanded card and collapsed tab must stay hidden throughout the real result screen.");
-                        Require(lesson.Progress.Step == PhotographyTutorialStep.SavePhoto && !lesson.Progress.HasSavedPhoto,
-                            "The actual result must wait for a real save rather than advancing on capture alone.");
+                        Require(lesson.Progress.Step == PhotographyTutorialStep.Capture && lesson.Progress.HasCapturedPhoto
+                            && !lesson.Progress.CanContinue && !lesson.Progress.HasSavedPhoto,
+                            "The accepted real shot must latch while the unchanged Capture card and its A confirmation are hidden during results.");
+                        Require(Targets.AnimalActor != null && Targets.AnimalActor.IsDeparting,
+                            "The accepted shot must immediately queue the teaching bird's departure.");
+                        Require(!Targets.AnimalActor.HasStartedDepartureFlight,
+                            "The queued native flight must wait until the result screen closes so it remains visible to the player.");
+                        report.departureQueued = true;
                         Record("The entire tutorial root, including the collapsed tab, is hidden on the native photo result screen.",
                             "photography-result-no-tutorial.png");
                         Begin(Phase.SavePhoto); break;
@@ -317,8 +335,8 @@ namespace AnimalGame.Editor
                             && ReferenceEquals(PhotoAlbumService.Photos[report.albumAfter - 1].Snapshot, acceptedResult),
                             "The real Y save must add this exact result once to the native album.");
                         report.albumRecordAdded = true;
-                        Require(lesson.Progress.HasSavedPhoto && lesson.Progress.Step == PhotographyTutorialStep.ExitPhoto,
-                            "Only saving the accepted actual result advances the tutorial to returning to driving.");
+                        Require(lesson.Progress.HasSavedPhoto && lesson.Progress.Step == PhotographyTutorialStep.Capture,
+                            "Saving the actual result must be remembered while the unchanged Capture card waits for A.");
                         Record("A real controller Y press saves the same woodpecker snapshot to the album.");
                         Begin(Phase.CloseResult); break;
                     case Phase.CloseResult:
@@ -336,6 +354,7 @@ namespace AnimalGame.Editor
                             && !bootstrap.photoResultUi.IsResultVisible && !bootstrap.photoMode.IsReviewing,
                             "Several real neutral input frames must separate closing results and the next B press.");
                         report.neutralBetweenBackPresses = true;
+                        if (lesson.Progress.Step != PhotographyTutorialStep.ExitPhoto) return;
                         Begin(Phase.ExitPhoto); break;
                     case Phase.ExitPhoto:
                         if (bootstrap.photoMode.IsActive || !lesson.IsComplete) return;
@@ -343,9 +362,22 @@ namespace AnimalGame.Editor
                             && !bootstrap.robot.IsPhotoModeInputLocked && Time.timeScale == 1f,
                             "The second B must finish native photo exit and restore normal player control.");
                         Require(report.holdMovementPaused && report.playerStayedDry && report.animalOnDryGround
-                            && report.neutralBetweenBackPresses && report.resultFullyOpened,
+                            && report.neutralBetweenBackPresses && report.resultFullyOpened
+                            && report.waitedForA && report.confirmedWithA,
                             "This exercise must prove a stationary woodpecker, exposure stability and a dry-land player throughout.");
                         Record("A second real B exits photo mode and completes the lesson with normal driving restored.", "photography-completed.png");
+                        Begin(Phase.Departure); break;
+                    case Phase.Departure:
+                        if (!Targets.AnimalActor.HasDeparted) return;
+                        Require(report.birdFlewAfterPhoto && Targets.Animal == null
+                            && Targets.Trunk != null && Targets.Trunk.IsDead,
+                            "After the accepted shot the native bird must visibly fly, despawn, and leave its trunk behind.");
+                        report.birdDespawned = report.trunkRetained = true;
+                        Targets.EnsureTargets();
+                        Require(Targets.Animal == null && Targets.AnimalActor.HasDeparted,
+                            "An explicitly departed teaching woodpecker must never be respawned by target recovery.");
+                        report.noBirdRespawn = true;
+                        Record("The photographed woodpecker flies away after results close, despawns once, and leaves its owned dead trunk.");
                         Begin(Phase.Complete); break;
                     case Phase.Complete:
                         if (!Settled(10)) return;
@@ -367,6 +399,12 @@ namespace AnimalGame.Editor
             // Removes device wrappers in this disposable Unity process only, without sending OS input.
             foreach (Gamepad other in new List<Gamepad>(Gamepad.all)) InputSystem.RemoveDevice(other);
             gamepadId = InputSystem.AddDevice<Gamepad>("Photography tutorial validation gamepad").deviceId;
+        }
+
+        private static void CompleteFixture(MonoBehaviour controller, object progress, object completed)
+        {
+            progress.GetType().GetProperty("Step", Flags).SetValue(progress, completed);
+            controller.GetType().GetField("chapterConfirmed", Flags).SetValue(controller, true);
         }
 
         private void ApplyFixtureStartPosition(bool prepareDiscoveryTargets)
@@ -512,7 +550,7 @@ namespace AnimalGame.Editor
             var state = new GamepadState();
             if (phase == Phase.ScanCharge || phase == Phase.RefreshCharge) state = state.WithButton(GamepadButton.LeftShoulder);
             if ((phase == Phase.EnterPhoto || phase == Phase.Collapse || phase == Phase.SavePhoto
-                || phase == Phase.CloseResult || phase == Phase.ExitPhoto))
+                || phase == Phase.CloseResult || phase == Phase.NeutralAfterResult || phase == Phase.ExitPhoto))
             {
                 if (lastTapPhase != (int)phase)
                 { lastTapPhase = (int)phase; tapFirstFrame = Time.frameCount; }
@@ -520,6 +558,7 @@ namespace AnimalGame.Editor
                 {
                     GamepadButton button = phase == Phase.EnterPhoto ? GamepadButton.West
                         : phase == Phase.Collapse ? GamepadButton.DpadRight
+                        : phase == Phase.NeutralAfterResult ? GamepadButton.DpadLeft
                         : phase == Phase.SavePhoto ? GamepadButton.North : GamepadButton.East;
                     state = state.WithButton(button);
                 }
@@ -545,6 +584,21 @@ namespace AnimalGame.Editor
                 {
                     if (offset.magnitude > desired + .2f && NextPoseIsDry(1f)) state.rightTrigger = .18f;
                     if (offset.magnitude < desired - .2f && NextPoseIsDry(-1f)) state.leftTrigger = .18f;
+                }
+            }
+            if ((phase == Phase.ObserveMovement || phase == Phase.EnterPhoto || phase == Phase.Compose
+                || phase == Phase.NeutralAfterResult || phase == Phase.ExitPhoto)
+                && lesson?.Progress != null && lesson.Panel != null && lesson.Panel.ContinueWasPresented
+                && bootstrap.photoResultUi != null && !bootstrap.photoResultUi.IsResultVisible
+                && !bootstrap.photoMode.IsCapturing && !bootstrap.photoMode.IsReviewing)
+            {
+                string step = lesson.Progress.Step.ToString();
+                if (continueStep != step) { continueStep = step; continueReadyFrame = Time.frameCount; }
+                if (Time.frameCount - continueReadyFrame >= 5 && Time.frameCount - lastContinueFrame >= 5)
+                {
+                    report.waitedForA = true; report.confirmedWithA = true;
+                    if (lesson.Progress.Step == PhotographyTutorialStep.ObserveMovement) report.observationConfirmedWithA = true;
+                    state = state.WithButton(GamepadButton.South); lastContinueFrame = Time.frameCount;
                 }
             }
             report.queuedLeftStick = state.leftStick;
@@ -588,7 +642,11 @@ namespace AnimalGame.Editor
                 var animation = (PhotoResultAnimation)typeof(PhotoResultView).GetField("animationSettings", Flags).GetValue(bootstrap.photoResultView);
                 report.resultAnimationProgress = animation.Progress; report.resultAnimationClosing = animation.IsClosing;
             }
-            if (Targets?.Animal == null || bootstrap?.robot == null) return;
+            if (bootstrap?.robot == null) return;
+            report.playerWaterDepth = PlayerDepth(); report.playerStayedDry &= report.playerWaterDepth <= .01f;
+            if (Targets?.AnimalActor != null && Targets.AnimalActor.HasStartedDepartureFlight)
+                report.birdFlewAfterPhoto |= Vector2.Distance(Targets.AnimalActor.LastMapPosition, report.initialAnchor) > .5f;
+            if (Targets?.Animal == null) return;
             bootstrap.robot.GetComponent<BioScanAnimalMarkerUI>()?.TryGetScanStatus(Targets.Animal,
                 out report.nativeSeen, out report.nativeMarkerVisible, out _);
             report.motionStarted = Targets.HasAnimalMotionStarted;
@@ -597,7 +655,8 @@ namespace AnimalGame.Editor
             if (Subject != null)
             { report.species = Subject.SpeciesId; report.subjectPhotoState = Subject.PhotoState.ToString(); }
             bootstrap.map.TrySampleStaticWaterMapPosition(report.animalMapPosition, out report.animalWaterDepth);
-            report.animalOnDryGround = report.animalWaterDepth <= .01f;
+            if (Targets.AnimalActor == null || !Targets.AnimalActor.HasStartedDepartureFlight)
+                report.animalOnDryGround = report.animalWaterDepth <= .01f;
             if ((int)phase >= (int)Phase.ScanCharge)
             {
                 report.movementFromAnchor = Vector2.Distance(report.animalMapPosition, report.initialAnchor);
@@ -689,12 +748,13 @@ namespace AnimalGame.Editor
             if (originalCamera != null && bootstrap?.photoMode != null)
                 Require(ReferenceEquals(bootstrap.photoMode.CurrentCamera, originalCamera), "Tutorial must not replace or modify the equipped camera.");
             if (Targets?.Animal == null || (int)phase < (int)Phase.ScanCharge) return;
+            Require(report.playerStayedDry, "The actual controller-driven photographer must remain on dry land.");
+            if (Targets.AnimalActor != null && Targets.AnimalActor.HasStartedDepartureFlight) return;
             Require(report.animalOnDryGround, "The teaching woodpecker must remain on actual dry ground throughout the lesson.");
             Require(!Targets.HasAnimalMotionStarted && Targets.AnimalTravelledMeters <= .001f,
                 "Scanning and photography must never request teaching woodpecker movement.");
             Require(report.maximumMovementFromAnchor <= .05f,
                 "The teaching woodpecker must remain at its original anchor throughout scanning, observation, capture and results.");
-            Require(report.playerStayedDry, "The actual controller-driven photographer must remain on dry land.");
         }
 
         private void CheckResultPanelHidden()
@@ -723,7 +783,7 @@ namespace AnimalGame.Editor
         {
             if (!Current) return;
             report.resultEvents++;
-            if (!ReferenceEquals(subject, Subject)) return;
+            if (capturedEntity == null || !ReferenceEquals(subject, capturedEntity.GetComponent<AnimalPhotoSubject>())) return;
             acceptedSubject = subject; acceptedResult = snapshot; report.exactSubjectResult = snapshot != null;
         }
         private void OnPhotoSaved(AnimalPhotoSubject subject, PhotoResultSnapshot snapshot)

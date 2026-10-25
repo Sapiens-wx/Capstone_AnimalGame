@@ -30,6 +30,8 @@ MonoBehaviour:
       E'
     CollapseTooltip: Tap D-pad Left / Right to hide
     ExpandTooltip: Tap D-pad Left / Right to show
+    ContinuePrompt: Press A to continue
+    ContinueWaitingPrompt: Complete this step to continue
   Driving:
     Title: Driving Practice
     TurnLeft:
@@ -316,7 +318,7 @@ MonoBehaviour:
     ApproachAnimal:
       ControlGlyph: LS
       Action: Follow marker
-      Message: "Follow the marker.\nScan again when nearby.\nLook for the woodpecker\non dry ground."
+      Message: "Follow the marker.\nLook for the woodpecker\non the tree trunk."
       Detail: Stay on dry ground.
       CompleteFeedback:
     Charge:
@@ -361,16 +363,9 @@ MonoBehaviour:
       CompleteFeedback:
     Rescan:
       ControlGlyph: '{lb}'
-      Action: Scan again
-      Message: 'Marks fade over time.
-
-        Hold the left bumper.
-
-        Release
-        at full charge
-
-        to refresh nearby marks.'
-      Detail: Scans {value:F0} / {target:F0}
+      Action: Charge scan
+      Message: "Hold the left bumper.\nRelease at full charge\nto locate nearby targets."
+      Detail: Release {lb} to scan
       CompleteFeedback:
     Completed:
       ControlGlyph: "\u2713"
@@ -386,20 +381,13 @@ MonoBehaviour:
     WaitingStatus: Waiting
     CancelledStatus: Scan cancelled
     WrongGestureStatus: Hold for discovery scan
-    NeedRescanStatus: Scan again to continue
+    NeedRescanStatus: Locate the target
     NeedEmptyHandsStatus: Retract arms to scan
     BlockedStatus: Return to scan practice
     CompleteStatus: Lesson complete
     PreparingStatus: Preparing nearby targets
     ToggleHint: "Hold {lb} \xB7 Charge / Release"
-    NeedRescanMessage: 'The scan marks faded.
-
-      Hold the left bumper,
-
-      then
-      release when full
-
-      to scan again.'
+    NeedRescanMessage: "Hold the left bumper.\nRelease at full charge\nto locate the target."
     NeedStowMessage: 'Press L3 to retract your
 
       arms before scanning.'
@@ -408,7 +396,7 @@ MonoBehaviour:
     ObserveMovement:
       ControlGlyph: "\u2726"
       Action: Observe bird
-      Message: "Keep the woodpecker\ninside your view.\nPrepare to take a photo."
+      Message: "Watch the woodpecker\npecking the tree trunk.\nPrepare to take a photo."
       Detail: Keep the bird in view.
       CompleteFeedback:
     EnterPhoto:
@@ -451,12 +439,15 @@ MonoBehaviour:
     BlockedStatus: Return to photo practice
     TargetMissingStatus: Follow the bird marker
     NeedStowStatus: Retract arms first
-    NeedRescanStatus: Scan again to find it
+    NeedRescanStatus: Locate the bird
     RetryPhotoStatus: Photograph the bird
     SavedStatus: Photo saved to album
     CompleteStatus: Lesson complete
     ToggleHint: "{photo} \xB7 Photo / {cancel} \xB7 Back"
-    TargetMissingMessage: "Follow the gold marker.\nLook for the woodpecker\nnearby on dry ground."
+    CapturedStatus: Woodpecker photographed
+    TargetMissingMessage: "Follow the gold marker.\nLook for the woodpecker\non the tree trunk."
     NeedStowMessage: "Press L3 to retract\nyour arms before\nentering photo mode."
-    NeedRescanMessage: "The star marker faded.\nHold the left bumper,\nthen release at full\ncharge to find it again."
+    NeedRescanMessage: "Hold the left bumper.\nRelease at full charge\nto locate the bird."
+    CapturedMessage: "Woodpecker photographed.\nThe bird is flying away.\nContinue to save your photo."
+    RecoverySaveMessage: "Your captured photo\nis ready. Press {save}\nto save it to your album."
     RetryPhotoMessage: "The woodpecker was not\nrecorded in that photo.\nBring it into the frame\nand hold {rb} to try again."

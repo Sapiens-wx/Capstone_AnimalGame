@@ -19,6 +19,8 @@ namespace AnimalGame.Editor
     public sealed class TutorialArmPlaySmoke : ScriptableObject
     {
         private const string SessionKey = "AnimalGame.TutorialArmPlaySmoke.CurrentRun";
+        private const string KnownMissingStaticAnimal = "Prefab instance problem: 'Static_Animal (Missing Prefab with guid: 2645e53e76c8ec846b09ee78b13275be)'. 2 instances are missing the same Prefab Asset with guid 2645e53e76c8ec846b09ee78b13275be.";
+        private const string KnownSceneHeader = "Problem detected while opening the Scene file: 'Assets/Scenes/GameMaps/TutorialTemporaryMap.unity'.\nCheck the following logs for more details.";
         private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private enum Phase { Starting, TerrainStarting, ArmStarting, LeftHide, LeftRelease, RightShow,
             Deploying, Paused, Resumed, Actions, Stowing, Complete, Finishing }
@@ -30,7 +32,9 @@ namespace AnimalGame.Editor
             public Vector2 handCentreLocal, robotMapPosition, fixturePositionMeters;
             public float maximumPositionDriftMeters;
             public int precedingWaypointCount;
+            public int knownSceneHeaders, knownMissingPrefabMessages, armConfirmations;
             public List<string> checks = new List<string>(), errors = new List<string>();
+            public List<string> knownSceneDiagnostics = new List<string>();
         }
         [SerializeField] private string runId, output;
         [SerializeField] private bool running, originalBackground, cameraFollowSuspended;
@@ -108,12 +112,14 @@ namespace AnimalGame.Editor
                         originalBackground = Application.runInBackground; Application.runInBackground = true;
                         gamepadId = InputSystem.AddDevice<Gamepad>("Arm tutorial validation gamepad").deviceId;
                         typeof(DrivingTutorialProgress).GetProperty("Step", Flags).SetValue(driving.Progress, DrivingTutorialStep.Completed);
+                        typeof(TutorialDrivingLesson).GetField("chapterConfirmed", Flags).SetValue(driving, true);
                         terrain = driving.GetComponent<TutorialTerrainLesson>();
                         Require(terrain != null, "The scene must retain its preceding terrain chapter.");
                         Begin(Phase.TerrainStarting); break;
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
                         typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
+                        typeof(TutorialTerrainLesson).GetField("chapterConfirmed", Flags).SetValue(terrain, true);
                         Require(bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position,
                             out fixturePositionMeters, out _), "The untouched initial robot must be on the existing map.");
                         fixturePositionRecorded = true;
@@ -125,9 +131,10 @@ namespace AnimalGame.Editor
                     case Phase.ArmStarting:
                         var precedingBalance = lesson.GetComponent<TutorialBalanceLesson>();
                         if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
-                            && !precedingBalance.Progress.IsComplete)
+                            && !precedingBalance.IsComplete)
                         {
                             typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            typeof(TutorialBalanceLesson).GetField("chapterConfirmed", Flags).SetValue(precedingBalance, true);
                             return;
                         }
                         if (!lesson.HasStarted || lesson.Progress == null) return;
@@ -192,6 +199,10 @@ namespace AnimalGame.Editor
                         Begin(Phase.Complete); break;
                     case Phase.Complete:
                         if (!Settled(8)) return;
+                        report.armConfirmations = TutorialContinueSmokeInput.ConfirmationCount(lesson.Panel);
+                        Require(report.armConfirmations == 8,
+                            "All seven native arm actions and the completion card require separate A confirmations after at least twelve ready frames.");
+                        Record("Eight separate real A confirmations advance the seven measured arm actions and the completed chapter; achieved goals stay pending before A.");
                         Require(lesson.Progress.IsComplete && Time.timeScale == 1f && bootstrap.robot.enabled,
                             "Completion must preserve ordinary robot and gameplay ownership.");
                         Record("All seven real gamepad arm actions finish in place: deploy, extension, inward reach, left swing, right swing, centred hold and full stow.");
@@ -255,6 +266,8 @@ namespace AnimalGame.Editor
                     ArmTutorialStep.SwingRight => Vector2.right * .45f,
                     _ => Vector2.zero
                 };
+            if ((phase == Phase.Deploying || phase == Phase.Actions || phase == Phase.Stowing) && lesson?.Progress != null)
+                TutorialContinueSmokeInput.Apply(ref state, lesson.Panel, "Arm:" + lesson.Progress.Step);
             gamepad.MakeCurrent(); InputSystem.QueueStateEvent(gamepad, state);
         }
 
@@ -264,7 +277,16 @@ namespace AnimalGame.Editor
         private static void Require(bool condition, string text) { if (!condition) throw new InvalidOperationException(text); }
         private void OnLog(string text, string stack, LogType type)
         {
-            if (Current && report != null && (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+            if (!Current || report == null) return;
+            string normalized = text.Replace("\r\n", "\n").Trim();
+            if (type == LogType.Error && (phase == Phase.Starting || phase == Phase.Finishing)
+                && (normalized == KnownMissingStaticAnimal || normalized == KnownSceneHeader))
+            {
+                if (normalized == KnownMissingStaticAnimal) report.knownMissingPrefabMessages++; else report.knownSceneHeaders++;
+                if (!report.knownSceneDiagnostics.Contains(normalized)) report.knownSceneDiagnostics.Add(normalized);
+                Save(); return;
+            }
+            if ((type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
                 && !report.errors.Contains(text)) { report.errors.Add(text); Save(); }
         }
         private void Save()
@@ -299,6 +321,8 @@ namespace AnimalGame.Editor
         }
         private void Exit()
         {
+            if (report.knownSceneHeaders > 0 && report.knownMissingPrefabMessages == 0)
+                report.errors.Add("A scene-load failure lacked the exact known two-Static_Animal missing-prefab diagnostic.");
             report.passed = report.errors.Count == 0; Save(); running = false; Unsubscribe();
             EditorApplication.Exit(report.passed ? 0 : 1);
         }

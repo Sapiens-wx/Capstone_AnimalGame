@@ -36,7 +36,7 @@ namespace AnimalGame.Tutorial
         private AnimalPhotoSubject subject;
         private PhotoResultSnapshot acceptedSnapshot;
         private long resultSequence, acceptedResultId;
-        private bool acceptedSaved, hasStarted, wasResultVisible, retryFeedback, shutterPending;
+        private bool acceptedSaved, hasStarted, chapterConfirmed, wasResultVisible, retryFeedback, shutterPending;
         private float completionDelay, refreshRemaining;
         private PhotographyTutorialStep displayedStep = (PhotographyTutorialStep)(-1);
 
@@ -45,7 +45,7 @@ namespace AnimalGame.Tutorial
         public PhotographyTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => discovery != null ? discovery.Panel : null;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
         private PhotographyLessonText Text => tutorialText != null && tutorialText.Photography != null
             ? tutorialText.Photography : defaultText;
 
@@ -79,10 +79,16 @@ namespace AnimalGame.Tutorial
             bool resultVisible = ResultVisible();
             UpdatePanelVisibility(modal, resultVisible);
             if (modal) { progress.Suspend(); return; }
-            if (!resultVisible && !progress.HasSavedPhoto && !progress.IsComplete && !targets.IsAnimalReady)
+#if ENABLE_INPUT_SYSTEM
+            if (!justStarted && !resultVisible && Gamepad.current != null
+                && (Gamepad.current.dpad.left.wasPressedThisFrame || Gamepad.current.dpad.right.wasPressedThisFrame))
+                Panel.ToggleCollapsed();
+#endif
+            if (!resultVisible && acceptedSnapshot == null && !progress.IsComplete && !targets.IsAnimalReady
+                && !targets.IsAnimalDeparting && !targets.HasAnimalDeparted)
             { targets.EnsureTargets(); BindCamera(); }
             bool valid = CanPractice();
-            if (acceptedSnapshot != null && (acceptedSaved || (results != null && results.DisplayedResult == acceptedSnapshot)))
+            if (acceptedSnapshot != null)
             {
                 progress.RegisterValidPhoto(acceptedResultId, valid);
                 if (acceptedSaved) progress.RegisterPhotoSaved(acceptedResultId, valid);
@@ -92,10 +98,10 @@ namespace AnimalGame.Tutorial
             bool bodyVisible = markers != null && markers.IsAnimalBodyVisible(targets.Animal);
             bool photoActive = camera != null && camera.IsActive && !camera.IsEntering && !camera.IsExiting;
             bool framed = photoActive && results != null && results.IsSubjectInCaptureFrame(subject);
-            if (wasResultVisible && !resultVisible && progress.ActiveResultId > 0)
+            bool resultWasVisible = wasResultVisible;
+            if (resultWasVisible && !resultVisible && progress.ActiveResultId > 0)
             {
                 progress.RegisterResultClosed(progress.ActiveResultId, valid);
-                if (!acceptedSaved) { retryFeedback = true; acceptedSnapshot = null; acceptedResultId = 0; }
             }
             wasResultVisible = resultVisible;
             if (shutterPending && camera != null && !camera.IsCapturing && !camera.IsReviewing && !resultVisible)
@@ -104,14 +110,31 @@ namespace AnimalGame.Tutorial
             progress.Sample(new PhotographyTutorialSample(Time.deltaTime, valid && !cameraTransition, !Panel.IsCollapsed,
                 camera != null && camera.IsActive, resultVisible, bodyVisible, seen,
                 framed, targets.AnimalTravelledMeters));
-#if ENABLE_INPUT_SYSTEM
-            if (!justStarted && !resultVisible && Gamepad.current != null
-                && (Gamepad.current.dpad.left.wasPressedThisFrame || Gamepad.current.dpad.right.wasPressedThisFrame))
-                Panel.ToggleCollapsed();
-#endif
+            // The owned bird has already flown away after a valid shot. Keep its exact snapshot
+            // recoverable if the result was closed unsaved; Y still performs an explicit album save.
+            if (valid && !resultVisible && !resultWasVisible && acceptedSnapshot != null && !acceptedSaved
+                && progress.Step == PhotographyTutorialStep.SavePhoto && !Panel.IsCollapsed
+                && AdaptiveLegacyGamepadInput.WasNorthFaceButtonPressedThisFrame())
+            {
+                PhotoAlbumService.Save(acceptedSnapshot);
+                acceptedSaved = true;
+                progress.RegisterPhotoSaved(acceptedResultId, true);
+                refreshRemaining = 0f;
+            }
+            TutorialPanelText continueText = tutorialText != null ? tutorialText.Panel : defaultPanelText;
+            Panel.SetContinuePrompt(!chapterConfirmed && progress.CanContinue && valid,
+                !chapterConfirmed && progress.CanContinue && valid ? continueText.ContinuePrompt : continueText.ContinueWaitingPrompt);
+            if (!justStarted && !chapterConfirmed && !resultVisible && !resultWasVisible && valid && progress.CanContinue
+                && TutorialContinueInput.TryConsume(Panel, bootstrap))
+            {
+                if (progress.IsComplete) chapterConfirmed = true;
+                else progress.Continue();
+                Panel.SetContinuePrompt(false);
+                refreshRemaining = 0f;
+            }
             if (progress.Step != displayedStep)
             { Panel.SetCollapsed(false); refreshRemaining = 0f; }
-            if (!resultVisible && !progress.IsComplete && !bodyVisible && !photoActive) UpdateWaypoint();
+            if (!resultVisible && acceptedSnapshot == null && !progress.IsComplete && !bodyVisible && !photoActive) UpdateWaypoint();
             else if (waypoint != null) waypoint.ClearTarget();
             refreshRemaining -= Time.unscaledDeltaTime;
             if (refreshRemaining <= 0f) { RefreshPanel(valid); refreshRemaining = .08f; }
@@ -120,12 +143,14 @@ namespace AnimalGame.Tutorial
         private void BeginLesson()
         {
             progress = new PhotographyTutorialProgress(observationSeconds, framingSeconds, requiredMovementMeters);
+            chapterConfirmed = false;
             hasStarted = true; discovery.SetPresentationOwned(false);
             Panel.SetPhotoModeVisible(true); Panel.SetCollapsed(false);
-            if (acceptedSnapshot != null && (acceptedSaved || (results != null && results.DisplayedResult == acceptedSnapshot)))
+            if (acceptedSnapshot != null)
             {
                 progress.RegisterValidPhoto(acceptedResultId, true);
                 if (acceptedSaved) progress.RegisterPhotoSaved(acceptedResultId, true);
+                targets.BeginAnimalDeparture();
             }
             wasResultVisible = ResultVisible(); refreshRemaining = 0f;
         }
@@ -140,7 +165,8 @@ namespace AnimalGame.Tutorial
             RobotArmController arm = bootstrap.armController;
             // Entering photo mode cancels the arms itself, including an active grip.
             return arm != null && arm.isActiveAndEnabled
-                && ((progress != null && progress.HasSavedPhoto) || (targets != null && targets.IsAnimalReady));
+                && (acceptedSnapshot != null || (progress != null && progress.HasSavedPhoto)
+                    || (targets != null && targets.IsAnimalReady));
         }
 
         private bool ResultVisible() => (bootstrap != null && bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing)
@@ -167,12 +193,14 @@ namespace AnimalGame.Tutorial
             }
             markers = bootstrap.robot != null ? bootstrap.robot.GetComponent<BioScanAnimalMarkerUI>() : null;
             AnimalPhotoSubject next = targets.Animal != null ? targets.Animal.GetComponent<AnimalPhotoSubject>() : null;
-            if (!ReferenceEquals(subject, null) && !ReferenceEquals(subject, next) && !acceptedSaved)
+            if (!ReferenceEquals(subject, null) && !ReferenceEquals(subject, next) && acceptedSnapshot == null)
             {
                 acceptedSnapshot = null; acceptedSaved = false; acceptedResultId = 0;
                 if (progress != null && !progress.IsComplete) progress.Reset(resultSequence);
             }
-            subject = next;
+            // Unity's destroyed-object equality must not replace the identity attached to an
+            // accepted photo while its native result and save callbacks still refer to that bird.
+            if (acceptedSnapshot == null) subject = next;
         }
 
         private void OnShutter()
@@ -186,17 +214,21 @@ namespace AnimalGame.Tutorial
         {
             if (hasStarted && Panel != null) Panel.SetVisible(false);
             shutterPending = false;
-            if (captured == null || captured != subject || snapshot == null)
-            { retryFeedback = true; return; }
+            if (ReferenceEquals(captured, null) || !ReferenceEquals(captured, subject) || snapshot == null)
+            { retryFeedback = acceptedSnapshot == null; return; }
             acceptedSnapshot = snapshot; acceptedResultId = ++resultSequence;
             acceptedSaved = false; retryFeedback = false;
-            if (hasStarted && !IsModal()) progress.RegisterValidPhoto(acceptedResultId, true);
+            if (hasStarted && !IsModal())
+            {
+                progress.RegisterValidPhoto(acceptedResultId, true);
+                targets.BeginAnimalDeparture();
+            }
             refreshRemaining = 0f;
         }
 
         private void OnPhotoSaved(AnimalPhotoSubject captured, PhotoResultSnapshot snapshot)
         {
-            if (captured != subject || snapshot == null || snapshot != acceptedSnapshot) return;
+            if (!ReferenceEquals(captured, subject) || snapshot == null || snapshot != acceptedSnapshot) return;
             acceptedSaved = true;
             if (hasStarted && !IsModal()) progress.RegisterPhotoSaved(acceptedResultId, true);
             refreshRemaining = 0f;
@@ -219,15 +251,28 @@ namespace AnimalGame.Tutorial
             string status = progress.HasSavedPhoto ? text.SavedStatus : text.WaitingStatus;
             if (progress.IsComplete) status = text.CompleteStatus;
             else if (!valid) status = text.BlockedStatus;
-            else if (targets != null && targets.Animal == null) { message = text.TargetMissingMessage; status = text.TargetMissingStatus; }
-            else if (targets != null && targets.Animal != null && !targets.Animal.IsPermanentlyDiscovered)
+            else if (acceptedSnapshot == null && targets != null && targets.Animal == null) { message = text.TargetMissingMessage; status = text.TargetMissingStatus; }
+            else if (acceptedSnapshot == null && targets != null && targets.Animal != null && !targets.Animal.IsPermanentlyDiscovered)
             { message = text.NeedRescanMessage; glyph = "{lb}"; status = text.NeedRescanStatus; }
+            else if (progress.Step == PhotographyTutorialStep.Capture && progress.HasCapturedPhoto)
+            { message = text.CapturedMessage; status = text.CapturedStatus; }
+            else if (progress.Step == PhotographyTutorialStep.SavePhoto && acceptedSnapshot != null && !acceptedSaved)
+            { message = text.RecoverySaveMessage; status = text.CapturedStatus; }
+            else if (!progress.HasCapturedPhoto && camera != null && !camera.IsActive
+                && (progress.Step == PhotographyTutorialStep.FrameSubject || progress.Step == PhotographyTutorialStep.Capture))
+            {
+                message = text.EnterPhoto.Message; action = text.EnterPhoto.Action;
+                glyph = text.EnterPhoto.ControlGlyph; detail = text.EnterPhoto.Detail;
+            }
             else if (retryFeedback && !progress.HasSavedPhoto) { message = text.RetryPhotoMessage; status = text.RetryPhotoStatus; }
             Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
             Panel.SetLessonHint(progress.IsComplete ? string.Empty : tokens.Format(text.ToggleHint));
             Panel.SetContent(tokens.Format(text.Title), tokens.Format(message), tokens.Format(glyph),
                 tokens.Format(action), tokens.Format(detail), tokens.Format(status), 6, 9);
             Panel.SetProgress(progress.NormalizedProgress); Panel.SetSuccess(progress.IsComplete);
+            TutorialPanelText panelText = tutorialText != null ? tutorialText.Panel : defaultPanelText;
+            Panel.SetContinuePrompt(!chapterConfirmed && progress.CanContinue && valid,
+                !chapterConfirmed && progress.CanContinue && valid ? panelText.ContinuePrompt : panelText.ContinueWaitingPrompt);
             displayedStep = progress.Step;
         }
 
@@ -247,6 +292,8 @@ namespace AnimalGame.Tutorial
         {
             if (progress == null) return;
             progress.Reset(resultSequence); acceptedSnapshot = null; acceptedSaved = false; acceptedResultId = 0;
+            chapterConfirmed = false;
+            if (targets.HasAnimalDeparted || targets.IsAnimalDeparting) targets.ResetTargets();
             retryFeedback = shutterPending = false; Panel.SetCollapsed(false); refreshRemaining = 0f;
         }
 
@@ -262,7 +309,7 @@ namespace AnimalGame.Tutorial
             if (waypoint != null) waypoint.ClearTarget();
             if (Panel != null) { Panel.SetPhotoModeVisible(false); Panel.SetLessonHint(string.Empty); }
             if (discovery != null) discovery.SetPresentationOwned(true);
-            hasStarted = false; progress = null;
+            hasStarted = chapterConfirmed = false; progress = null;
         }
         private void OnDisable() { if (hasStarted) ReleasePresentation(); Unsubscribe(); }
     }

@@ -74,13 +74,13 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(0f, 0.75f)]
         private float pointCoverageOverlap = 0.1f;
         [SerializeField, Min(0.01f)] private float formedRingRadius = 0.2f;
-        [SerializeField, Min(0.1f)] private float signalSpeed = 10f;
-        [SerializeField, Min(0.1f)] private float maximumSignalDistance = 14.44f;
+        [SerializeField, Min(0.1f)] private float signalSpeed = 13.92f;
+        [SerializeField, Min(0.1f)] private float maximumSignalDistance = 12.550968f;
         [Tooltip("Seconds at the end of the outgoing wave used to fade its points to transparent. Detection still reaches the full scan range.")]
-        [SerializeField, Min(0f)] private float signalFadeOutDuration = 0.35f;
+        [SerializeField, Min(0f)] private float signalFadeOutDuration = 0.12f;
         [Tooltip("Diameter of the solid leading point at the front of each biological signal.")]
         [InspectorName("Signal Head Diameter")]
-        [SerializeField, Min(0.01f)] private float signalPointDiameter = 0.09f;
+        [SerializeField, Min(0.01f)] private float signalPointDiameter = 0.12f;
         [Tooltip("Fraction of the leading point occupied by its bright solid core.")]
         [SerializeField, Range(0.2f, 0.9f)]
         private float signalHeadCoreRatio = 0.5f;

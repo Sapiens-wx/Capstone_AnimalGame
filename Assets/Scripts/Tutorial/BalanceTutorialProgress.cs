@@ -26,9 +26,11 @@ namespace AnimalGame.Tutorial
         private Vector2 baselineCounterbalance, baselineOffset;
         private bool armed;
         private float movement;
+        private bool satisfied;
 
         public BalanceTutorialStep Step { get; private set; }
         public bool IsComplete => Step == BalanceTutorialStep.Completed;
+        public bool CanContinue => IsComplete || satisfied;
         public float ReadingSeconds { get; private set; }
         public bool NeedsNeutral => Step == BalanceTutorialStep.AdjustWeight && !armed;
         public float Value => Step switch
@@ -58,15 +60,23 @@ namespace AnimalGame.Tutorial
         public void Reset()
         {
             Step = BalanceTutorialStep.ReadIndicator; ReadingSeconds = 0f;
+            satisfied = false;
             Disarm();
         }
 
         /// <summary>Reading time is retained; fresh neutral is required before a resumed manual action.</summary>
-        public void Suspend() => Disarm();
+        public void Suspend() { if (!satisfied) Disarm(); }
+
+        public bool Continue()
+        {
+            if (!satisfied || IsComplete) return false;
+            MoveTo(Step + 1);
+            return true;
+        }
 
         public void Sample(in BalanceTutorialSample sample)
         {
-            if (IsComplete) return;
+            if (IsComplete || satisfied) return;
             if (!sample.Valid || !sample.PanelExpanded || !float.IsFinite(sample.DeltaTime)
                 || sample.DeltaTime <= 0f || sample.DeltaTime > .25f
                 || !Finite(sample.RawRightStick) || !Finite(sample.PlayerCounterbalance) || !Finite(sample.BalanceOffset))
@@ -75,13 +85,13 @@ namespace AnimalGame.Tutorial
             switch (Step)
             {
                 case BalanceTutorialStep.ReadIndicator:
-                    Read(sample.DeltaTime, indicatorReadingSeconds, BalanceTutorialStep.AdjustWeight);
+                    Read(sample.DeltaTime, indicatorReadingSeconds);
                     break;
                 case BalanceTutorialStep.AdjustWeight:
                     Adjust(sample);
                     break;
                 case BalanceTutorialStep.ReadRisk:
-                    Read(sample.DeltaTime, riskReadingSeconds, BalanceTutorialStep.Completed);
+                    Read(sample.DeltaTime, riskReadingSeconds);
                     break;
             }
         }
@@ -105,16 +115,16 @@ namespace AnimalGame.Tutorial
             if (manualChange.magnitude < .04f || !manualMatchesInput || !pointMatchesManual)
             { movement = 0f; return; }
             movement = Mathf.Min(requiredPointMovement, pointChange.magnitude);
-            if (pointChange.magnitude + .000001f >= requiredPointMovement) MoveTo(BalanceTutorialStep.ReadRisk);
+            if (pointChange.magnitude + .000001f >= requiredPointMovement) satisfied = true;
         }
 
-        private void Read(float deltaTime, float duration, BalanceTutorialStep next)
+        private void Read(float deltaTime, float duration)
         {
             ReadingSeconds = Mathf.Min(duration, ReadingSeconds + deltaTime);
-            if (duration - ReadingSeconds <= duration * .00001f) MoveTo(next);
+            if (duration - ReadingSeconds <= duration * .00001f) satisfied = true;
         }
         private void MoveTo(BalanceTutorialStep step)
-        { Step = step; ReadingSeconds = 0f; Disarm(); }
+        { Step = step; ReadingSeconds = 0f; satisfied = false; Disarm(); }
         private void Disarm()
         { armed = false; movement = 0f; baselineCounterbalance = baselineOffset = Vector2.zero; }
         private static bool Finite(Vector2 vector) => float.IsFinite(vector.x) && float.IsFinite(vector.y);

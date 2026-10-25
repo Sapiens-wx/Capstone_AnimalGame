@@ -10,7 +10,7 @@ using UnityEngine.UIElements;
 
 namespace AnimalGame.Tutorial
 {
-    /// <summary>Owns only the two runtime tutorial clones. Creation is explicitly requested by the lesson.</summary>
+    /// <summary>Owns the teaching bird, its dead trunk and the scan object in the tutorial scene only.</summary>
     [DefaultExecutionOrder(1400)]
     [DisallowMultipleComponent]
     public sealed class TutorialDiscoveryTargets : MonoBehaviour
@@ -18,6 +18,7 @@ namespace AnimalGame.Tutorial
         [SerializeField] private HeightMapPlayerSceneBootstrap bootstrap;
         [FormerlySerializedAs("muskratPrefab")]
         [SerializeField] private GameObject animalPrefab;
+        [SerializeField] private GameObject trunkPrefab;
         [SerializeField] private GameObject smallGarbagePrefab;
         [Header("Tutorial Animal Placement")]
         [SerializeField] private bool useFixedAnimalMapPosition;
@@ -30,38 +31,31 @@ namespace AnimalGame.Tutorial
         [Tooltip("Maximum target distance in world units, also capped to the actual scanner radius minus a safety margin.")]
         [SerializeField, Min(.5f)] private float maximumSpawnDistanceWorld = 12f;
         [SerializeField, Min(.25f)] private float placementClearanceMeters = 1.25f;
-        [SerializeField, Min(0f)] private float animalAmbientRadiusMeters;
-        [SerializeField, Min(.1f)] private float animalAmbientPeriodSeconds = 8f;
-        [Header("Scanned Animal Movement")]
-        [SerializeField, Min(0f)] private float movementDelaySeconds = 2f;
-        [SerializeField, Min(.05f)] private float movementSpeedMetersPerSecond = .5f;
-        [SerializeField, Min(0f)] private float movementEndpointPauseSeconds = 2.5f;
-        [SerializeField] private Vector2 movementOffsetMeters = new Vector2(3f, 1.5f);
-
-        private GameObject ownedRoot, animalContainer, itemContainer;
+        private GameObject ownedRoot, animalContainer, itemContainer, trunkContainer, actorContainer;
         private AnimalAgent animalAgent;
         private Vector2 animalAnchor;
-        private bool requested, animalFrozen;
-        private float ambientStartedAt;
-        private bool motionRequested, motionPaused, motionRouteReady, movingToEnd = true;
-        private float motionWait;
-        private Vector2 motionEnd;
-        public float AnimalTravelledMeters { get; private set; }
-        public bool HasAnimalMotionStarted => motionRequested;
-        public string MotionFailure { get; private set; }
-
-        public void StartAnimalMotion()
+        private bool departureRequested;
+        public TutorialWoodpeckerActor AnimalActor { get; private set; }
+        public TreeHabitat Trunk { get; private set; }
+        public bool IsAnimalDeparting => AnimalActor != null && AnimalActor.IsDeparting;
+        public bool HasAnimalDeparted => departureRequested && (AnimalActor == null || AnimalActor.HasDeparted);
+        public float AnimalTravelledMeters => AnimalActor != null && AnimalActor.HasStartedDepartureFlight
+            ? Vector2.Distance(AnimalActor.PerchMapPosition, AnimalActor.LastMapPosition) : 0f;
+        public bool HasAnimalMotionStarted => AnimalActor != null && AnimalActor.HasStartedDepartureFlight;
+        public bool BeginAnimalDeparture()
         {
-            if (motionRequested || Animal == null) return;
-            motionRequested = true; motionWait = movementDelaySeconds;
+            if (departureRequested) return true;
+            if (AnimalActor == null || !AnimalActor.BeginDeparture()) return false;
+            departureRequested = true;
+            return true;
         }
-        public void SetAnimalMotionPaused(bool value) => motionPaused = value;
 
         public DiscoverableEntity Animal { get; private set; }
         public ScannableInteractable Item { get; private set; }
-        public bool IsAnimalReady => Animal != null && Animal.IsScannable && animalFrozen;
-        public bool IsReady => IsAnimalReady && Item != null && Item.CanScan;
-        public Vector2 AnimalMapPosition => MapPosition(Animal != null ? Animal.transform : null);
+        public bool IsAnimalReady => Animal != null && Animal.IsScannable && AnimalActor != null && AnimalActor.IsReady;
+        public bool IsReady => (IsAnimalReady || IsAnimalDeparting || HasAnimalDeparted) && Item != null && Item.CanScan;
+        public Vector2 AnimalMapPosition => Animal != null ? MapPosition(Animal.transform)
+            : AnimalActor != null ? AnimalActor.LastMapPosition : animalAnchor;
         public Vector2 ItemMapPosition => MapPosition(Item != null ? Item.transform : null);
         public string LastFailure { get; private set; }
         public bool UsesFixedAnimalPosition => useFixedAnimalMapPosition;
@@ -87,12 +81,15 @@ namespace AnimalGame.Tutorial
         public bool EnsureTargets()
         {
             if (!CanCreate()) return false;
-            requested = true;
             LastFailure = null;
+            if (departureRequested) return IsReady;
             if (Animal == null || !Animal.gameObject.activeInHierarchy || (animalAgent != null && animalAgent.IsHidden))
             {
                 DestroyOwned(animalContainer);
-                animalContainer = null; Animal = null; animalAgent = null; animalFrozen = false;
+                DestroyOwned(trunkContainer);
+                DestroyOwned(actorContainer);
+                animalContainer = trunkContainer = actorContainer = null;
+                Animal = null; animalAgent = null; Trunk = null; AnimalActor = null;
                 Vector2 position = fixedAnimalMapPositionMeters;
                 bool found = useFixedAnimalMapPosition
                     ? float.IsFinite(position.x) && float.IsFinite(position.y) && ValidMapPosition(position, true)
@@ -100,18 +97,29 @@ namespace AnimalGame.Tutorial
                 if (!found)
                 { LastFailure = useFixedAnimalMapPosition ? "The authored teaching animal position needs safe, reachable dry ground."
                     : "No safe animal position within scan range and outside the release circle is available."; return false; }
+                if (!TryFindTrunkPosition(position, out Vector2 trunkPosition))
+                { LastFailure = "The teaching bird needs a clear spot for its trunk."; return false; }
+                trunkContainer = InstantiateTarget(trunkPrefab, "Tutorial Woodpecker Trunk", trunkPosition);
+                Trunk = trunkContainer.GetComponentInChildren<TreeHabitat>(true);
+                if (Trunk == null || !Trunk.IsDead)
+                { LastFailure = "The tutorial trunk must supply a dead TreeHabitat."; DestroyOwned(trunkContainer); trunkContainer = null; return false; }
                 animalContainer = InstantiateTarget(animalPrefab, "Tutorial Woodpecker", position);
                 Animal = animalContainer.GetComponentInChildren<DiscoverableEntity>(true);
                 animalAgent = animalContainer.GetComponentInChildren<AnimalAgent>(true);
                 if (Animal == null || Animal.Kind != DiscoverableKind.Animal || animalAgent == null)
                 { LastFailure = "The teaching animal prefab requires its real AnimalAgent and animal DiscoverableEntity."; DestroyOwned(animalContainer); animalContainer = null; Animal = null; return false; }
                 animalAnchor = position;
-                motionRequested = motionRouteReady = false; movingToEnd = true;
-                AnimalTravelledMeters = 0f; MotionFailure = null;
                 animalAgent.SetPerceptionSuppressed(true);
                 Animal.ResetToUnknown();
-                ambientStartedAt = Time.time;
+                actorContainer = new GameObject("Tutorial Woodpecker Behaviour");
+                actorContainer.transform.SetParent(ownedRoot.transform, false);
+                AnimalActor = actorContainer.AddComponent<TutorialWoodpeckerActor>();
+                if (!AnimalActor.Configure(bootstrap, animalAgent, Trunk))
+                { LastFailure = AnimalActor.LastFailure; return false; }
+                animalAnchor = AnimalActor.PerchMapPosition;
             }
+            if (!IsAnimalReady && AnimalActor != null && !AnimalActor.Configure(bootstrap, animalAgent, Trunk))
+            { LastFailure = AnimalActor.LastFailure; return false; }
             if (Item == null || !Item.gameObject.activeInHierarchy || !Item.CanScan)
             {
                 DestroyOwned(itemContainer);
@@ -125,7 +133,6 @@ namespace AnimalGame.Tutorial
                 { LastFailure = "The small-garbage prefab requires its real scan and grabbable interaction components."; DestroyOwned(itemContainer); itemContainer = null; Item = null; return false; }
                 Item.EnableSmallAreaFill();
             }
-            FreezeInitializedAnimal();
             return IsReady;
         }
 
@@ -138,13 +145,11 @@ namespace AnimalGame.Tutorial
 
         public void Cleanup()
         {
-            requested = false;
-            Animal = null; Item = null; animalAgent = null; animalFrozen = false;
+            Animal = null; Item = null; animalAgent = null; Trunk = null; AnimalActor = null;
             DestroyOwned(ownedRoot);
-            ownedRoot = animalContainer = itemContainer = null;
+            ownedRoot = animalContainer = itemContainer = trunkContainer = actorContainer = null;
             LastFailure = null;
-            motionRequested = motionPaused = motionRouteReady = false;
-            AnimalTravelledMeters = 0f; MotionFailure = null; movingToEnd = true;
+            departureRequested = false;
         }
 
         private bool CanCreate()
@@ -153,7 +158,7 @@ namespace AnimalGame.Tutorial
                 || bootstrap == null || bootstrap.gameObject.scene != gameObject.scene || bootstrap.map == null
                 || !bootstrap.map.HasGeneratedMap || bootstrap.robot == null || bootstrap.mapCamera == null
                 || bootstrap.traversalEvaluator == null || !bootstrap.traversalEvaluator.IsInitialized
-                || bootstrap.scanChargeUi == null || animalPrefab == null || smallGarbagePrefab == null)
+                || bootstrap.scanChargeUi == null || animalPrefab == null || trunkPrefab == null || smallGarbagePrefab == null)
             { LastFailure = "Tutorial targets are waiting for this scene's map, camera, scanner and prefab references."; return false; }
             return true;
         }
@@ -177,110 +182,6 @@ namespace AnimalGame.Tutorial
             clone.SetActive(true);
             container.SetActive(true);
             return container;
-        }
-
-        private void LateUpdate()
-        {
-            if (!requested || !Application.isPlaying) return;
-            FreezeInitializedAnimal();
-            if (motionRequested) { TickScannedAnimalMotion(); return; }
-            if (!animalFrozen || useFixedAnimalMapPosition || animalAmbientRadiusMeters <= 0f || Animal == null || Time.deltaTime <= 0f
-                || !CanCreate() || AnimalGame.MainUI.MainUI.BlocksGameplay) return;
-            float phase = (Time.time - ambientStartedAt) / Mathf.Max(.1f, animalAmbientPeriodSeconds) * Mathf.PI * 2f;
-            Vector2 candidate = animalAnchor + new Vector2(Mathf.Sin(phase), Mathf.Sin(phase * 2f) * .35f)
-                * Mathf.Min(1f, animalAmbientRadiusMeters);
-            if (ValidMapPosition(candidate, true) && FitsPresentation(candidate, true))
-            {
-                Animal.transform.position = bootstrap.map.MapPositionToWorld(candidate);
-                Animal.GetComponent<HeightMapPlacedObject>()?.CaptureCurrentTransform();
-            }
-        }
-
-        private void TickScannedAnimalMotion()
-        {
-            if (!animalFrozen || Animal == null || motionPaused || Time.deltaTime <= 0f
-                || AnimalGame.MainUI.MainUI.BlocksGameplay) return;
-            PhotoModeController camera = bootstrap != null ? bootstrap.photoMode : null;
-            if ((camera != null && (camera.IsFocusing || camera.IsCapturing || camera.IsReviewing))
-                || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing)) return;
-            if (!motionRouteReady)
-            {
-                Vector2 offset = movementOffsetMeters;
-                if (offset.magnitude < 2.5f) offset = new Vector2(3f, 1.5f);
-                for (int attempt = 0; attempt < 13; attempt++)
-                {
-                    Vector2 delta = attempt == 0 ? offset
-                        : new Vector2(Mathf.Cos((attempt - 1) * Mathf.PI / 6f), Mathf.Sin((attempt - 1) * Mathf.PI / 6f)) * 3f;
-                    if (!IsDryAnimalRoute(animalAnchor, animalAnchor + delta)) continue;
-                    motionEnd = animalAnchor + delta; motionRouteReady = true; MotionFailure = null; break;
-                }
-                if (!motionRouteReady) { MotionFailure = "No short dry route is available around the teaching woodpecker."; return; }
-            }
-            if (motionWait > 0f) { motionWait = Mathf.Max(0f, motionWait - Time.deltaTime); return; }
-            Vector2 current = AnimalMapPosition;
-            Vector2 target = movingToEnd ? motionEnd : animalAnchor;
-            Vector2 next = Vector2.MoveTowards(current, target, movementSpeedMetersPerSecond * Time.deltaTime);
-            if (!IsDryAnimalRoute(current, next)) { movingToEnd = !movingToEnd; motionWait = movementEndpointPauseSeconds; return; }
-            AnimalTravelledMeters += Vector2.Distance(current, next);
-            Vector2 direction = next - current;
-            Animal.transform.position = bootstrap.map.MapPositionToWorld(next);
-            if (direction.sqrMagnitude > .0000001f)
-                Animal.transform.rotation = Quaternion.FromToRotation(Vector3.up, new Vector3(direction.x, direction.y, 0f));
-            Animal.GetComponent<HeightMapPlacedObject>()?.CaptureCurrentTransform();
-            if (Vector2.Distance(next, target) <= .001f)
-            { movingToEnd = !movingToEnd; motionWait = movementEndpointPauseSeconds; }
-        }
-
-        private bool IsDryAnimalRoute(Vector2 from, Vector2 to)
-        {
-            if (bootstrap == null || bootstrap.map == null) return false;
-            int samples = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(from, to) / .25f));
-            for (int index = 0; index <= samples; index++)
-            {
-                Vector2 point = Vector2.Lerp(from, to, index / (float)samples);
-                if (!bootstrap.map.TrySampleMapPosition(point, out _)
-                    || (bootstrap.map.TrySampleStaticWaterMapPosition(point, out float depth) && depth > .01f)) return false;
-                var evaluator = bootstrap.traversalEvaluator;
-                SlopeTraversalResult surface = evaluator.EvaluateLocalSurface(bootstrap.map.MapPositionToWorld(point));
-                if (!surface.HasData || !surface.IsPassable || surface.RequiresHardStop
-                    || surface.MaximumSurfaceSlopeAngle > evaluator.LevelOneMaximumUphillAngle) return false;
-                var kinds = WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision
-                    | WorldInteractionKind.Grabbable | WorldInteractionKind.Climbable;
-                if (WorldInteractionQuery.Query(InteractionShape.Circle(point, placementClearanceMeters), kinds,
-                    bootstrap.map, gameObject.scene, ignore: ownedRoot != null ? ownedRoot.transform : null)) return false;
-            }
-            return true;
-        }
-
-        private void FreezeInitializedAnimal()
-        {
-            if (animalFrozen || animalAgent == null || !animalAgent.IsPresent) return;
-            // Disabling the behaviour alone is insufficient: AnimalAgent directly calls its Tick methods.
-            // IsPresent stays true after disabling this initialized clone, so production discovery/photo checks remain valid.
-            animalAgent.Motor?.Stop();
-            // The woodpecker normally snaps to a tree while initializing. Restore only this owned
-            // teaching clone to its chosen safe anchor before freezing its ordinary AI.
-            if (Animal != null)
-            {
-                Animal.transform.position = bootstrap.map.MapPositionToWorld(animalAnchor);
-                Animal.GetComponent<HeightMapPlacedObject>()?.CaptureCurrentTransform();
-            }
-            animalAgent.SetPerceptionSuppressed(true);
-            // Its catalog supplies Daily photos. Keep this owned observation actor on that native
-            // photo state without changing the shared prefab, species AI or photo library.
-            if (animalAgent.Snapshot.PhotoState != AnimalState.Daily
-                && (animalAgent.Brain == null || !animalAgent.Brain.StartAction(new TutorialObservationAction())))
-            { LastFailure = "The teaching animal is preparing its observation pose."; return; }
-            animalAgent.PlaceholderView?.RestoreVisibleAppearance();
-            animalAgent.enabled = false;
-            animalFrozen = true;
-        }
-
-        private sealed class TutorialObservationAction : AnimalAction
-        {
-            public override string Name => "Tutorial observation";
-            public override AnimalState PhotoState => AnimalState.Daily;
-            public override AnimalActionStatus Tick(AnimalContext context, float deltaTime) => AnimalActionStatus.Running;
         }
 
         /// <summary>Samples actual camera/HUD geometry and checks existing ground, path and interaction APIs.</summary>
@@ -313,10 +214,43 @@ namespace AnimalGame.Tutorial
                     Vector3 world = ray.GetPoint(enter);
                     if (!bootstrap.map.TrySampleWorldPosition(world, out Vector2 candidate, out _)
                         || !FitsPresentation(candidate, outsideCircle, presentation == 0)
-                        || !ValidMapPosition(candidate, outsideCircle)) continue;
+                        || !ValidMapPosition(candidate, outsideCircle)
+                        || (outsideCircle && !TryFindTrunkPosition(candidate, out _))) continue;
                     mapPosition = candidate;
                     return true;
                 }
+            }
+            return false;
+        }
+
+        private bool TryFindTrunkPosition(Vector2 birdPosition, out Vector2 position)
+        {
+            position = default;
+            if (bootstrap == null || bootstrap.map == null || trunkPrefab == null || animalPrefab == null) return false;
+            AnimalAgent prefabAgent = animalPrefab.GetComponentInChildren<AnimalAgent>(true);
+            TreeHabitat prefabTrunk = trunkPrefab.GetComponentInChildren<TreeHabitat>(true);
+            float bodyRadius = prefabAgent != null && prefabAgent.Config != null ? prefabAgent.Config.BodyRadiusMeters : .12f;
+            float trunkRadius = prefabTrunk != null ? prefabTrunk.PerchRadiusMeters : .6f;
+            float offset = trunkRadius + bodyRadius + .04f;
+            bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 player, out _);
+            Vector2 away = (birdPosition - player).normalized;
+            if (away.sqrMagnitude < .1f) away = Vector2.up;
+            var kinds = WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision
+                | WorldInteractionKind.Grabbable | WorldInteractionKind.Climbable;
+            for (int i = 0; i < 12; i++)
+            {
+                float angle = i * 30f * Mathf.Deg2Rad;
+                Vector2 direction = new Vector2(away.x * Mathf.Cos(angle) - away.y * Mathf.Sin(angle),
+                    away.x * Mathf.Sin(angle) + away.y * Mathf.Cos(angle));
+                Vector2 candidate = birdPosition + direction * offset;
+                if (!bootstrap.map.TrySampleMapPosition(candidate, out _)
+                    || (bootstrap.map.TrySampleStaticWaterMapPosition(candidate, out float depth) && depth > .01f)) continue;
+                var surface = bootstrap.traversalEvaluator.EvaluateLocalSurface(bootstrap.map.MapPositionToWorld(candidate));
+                if (!surface.HasData || !surface.IsPassable || surface.RequiresHardStop) continue;
+                if (WorldInteractionQuery.Query(InteractionShape.Circle(candidate, trunkRadius + .15f), kinds,
+                    bootstrap.map, gameObject.scene, ignore: ownedRoot != null ? ownedRoot.transform : null,
+                    ignoreHeld: bootstrap.robot.transform)) continue;
+                position = candidate; return true;
             }
             return false;
         }

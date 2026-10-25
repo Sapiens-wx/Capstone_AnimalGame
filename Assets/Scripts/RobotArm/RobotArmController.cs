@@ -234,7 +234,8 @@ namespace AnimalGame.RobotArm
             }
             EnsureVisuals();
             if (!initialized) return;
-            bool grab = Input.GetKey(keyboardGrabKey) || AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld();
+            bool grab = (Input.GetKey(keyboardGrabKey) || AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld())
+                && !AnimalGame.Tutorial.TutorialContinueInput.BlocksWorldSouth(gameObject.scene);
             bool retractPressed = Input.GetKeyDown(keyboardRetractKey)
                 || AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame();
             StepInput(Time.deltaTime, ReadLocalInput(), armButtonHeld, grab, retractPressed);
