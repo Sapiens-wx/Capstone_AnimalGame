@@ -415,6 +415,7 @@ namespace AnimalGame.MapTest
         {
             get
             {
+                if (prebakedHeightField != null) return prebakedHeightField;
 #if UNITY_EDITOR
                 string localPath = LocalPrebakeCachePath;
                 if (localPath != null)
@@ -431,7 +432,7 @@ namespace AnimalGame.MapTest
             get
             {
                 string path = UnityEditor.AssetDatabase.GetAssetPath(this);
-                // These test caches are regenerated locally and have no serialized GUID reference.
+                // Discover older local caches that predate serialized references.
                 return path.StartsWith("Assets/Maps/TerrainGridV1/", StringComparison.Ordinal)
                     && path.EndsWith(".asset", StringComparison.Ordinal)
                     ? HeightMapAssetPaths.PrebakePath(path)
@@ -638,11 +639,6 @@ namespace AnimalGame.MapTest
 #if UNITY_EDITOR
         public void SetPrebakedHeightField(HeightMapPrebakedData data)
         {
-            if (UsesLocalPrebakeCache)
-            {
-                prebakedHeightField = null;
-                return;
-            }
             prebakedHeightField = data;
         }
 
