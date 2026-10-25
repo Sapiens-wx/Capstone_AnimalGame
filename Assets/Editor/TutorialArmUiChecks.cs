@@ -143,7 +143,7 @@ namespace AnimalGame.Editor
                             panel.SetCollapsed(false);
                             DrivingHelper("Settle", panel, size);
                             DrivingHelper("CheckVisibleEnglishText", panel.Root, "Arms " + step + " / " + size + " / " + valid);
-                            Require(panel.Root.Q<Label>("TutorialChapter").text == "03 / 08", "Arm teaching is chapter three.");
+                            Require(panel.Root.Q<Label>("TutorialChapter").text == "04 / 09", "Arm teaching is chapter four of nine.");
                             Label hint = panel.Root.Q<Label>("TutorialLessonHint");
                             bool expectsHint = step != ArmTutorialStep.Completed;
                             Require((hint.resolvedStyle.display != DisplayStyle.None) == expectsHint,

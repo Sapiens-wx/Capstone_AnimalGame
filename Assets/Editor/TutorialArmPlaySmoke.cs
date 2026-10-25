@@ -120,15 +120,22 @@ namespace AnimalGame.Editor
                         precedingWaypointCount = lesson.GetComponentsInChildren<TutorialWaypointIndicator>(true).Length;
                         report.fixturePositionMeters = fixturePositionMeters;
                         report.precedingWaypointCount = precedingWaypointCount;
-                        Record("Fixture skips only the two preceding chapters and records the current robot position without relocating the robot or camera.");
+                        Record("Fixture skips only the three preceding chapter counters and records the current robot position without relocating the robot or camera.");
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
+                        var precedingBalance = lesson.GetComponent<TutorialBalanceLesson>();
+                        if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
+                            && !precedingBalance.Progress.IsComplete)
+                        {
+                            typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            return;
+                        }
                         if (!lesson.HasStarted || lesson.Progress == null) return;
                         Require(lesson.Progress.Step == ArmTutorialStep.Deploy, "The arm lesson must start with deployment at the current player position.");
                         Require(bootstrap.armController.State == RobotArmState.Retracted, "The empty-hand fixture must begin with actual stowed arms.");
                         Require(lesson.Panel.Root.Q<Label>("TutorialTitle")?.text == lesson.TextContent.Arms.Title,
-                            "The terrain chapter still owns the shared task panel.");
-                        Record("Chapter 03 starts directly at the recorded player position in Deploy, within 0.1 m drift, and creates no arm waypoint.");
+                            "A preceding chapter still owns the shared task panel.");
+                        Record("Chapter 04 starts directly at the recorded player position in Deploy, within 0.1 m drift, and creates no arm waypoint.");
                         Begin(Phase.LeftHide); break;
                     case Phase.LeftHide:
                         if (!Settled(5)) return;

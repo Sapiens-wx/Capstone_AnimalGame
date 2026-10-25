@@ -5,6 +5,7 @@ using AnimalGame.RobotMap;
 using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 
 namespace AnimalGame.Tutorial
@@ -15,13 +16,14 @@ namespace AnimalGame.Tutorial
     public sealed class TutorialDiscoveryTargets : MonoBehaviour
     {
         [SerializeField] private HeightMapPlayerSceneBootstrap bootstrap;
-        [SerializeField] private GameObject muskratPrefab;
+        [FormerlySerializedAs("muskratPrefab")]
+        [SerializeField] private GameObject animalPrefab;
         [SerializeField] private GameObject smallGarbagePrefab;
-        [Header("Fixed Tutorial Muskrat")]
+        [Header("Tutorial Animal Placement")]
         [SerializeField] private bool useFixedAnimalMapPosition;
-        [Tooltip("Logical map coordinates of the teaching muskrat. This point may be in water.")]
-        [SerializeField] private Vector2 fixedAnimalMapPositionMeters = new Vector2(140f, 62.5f);
-        [Tooltip("Dry approach point used when the muskrat is beyond scan range. The player never needs to enter the water.")]
+        [Tooltip("Optional fixed map coordinates of the teaching animal. Use dry, reachable ground.")]
+        [SerializeField] private Vector2 fixedAnimalMapPositionMeters = new Vector2(124f, 79f);
+        [Tooltip("Approach point used when a fixed teaching animal is beyond scan range.")]
         [SerializeField] private Vector2 animalObservationMapPositionMeters = new Vector2(140f, 107f);
         [Tooltip("The authored scan release zoom is 11 / 9 of its base size. Keep the animal outside this largest circle.")]
         [SerializeField, Min(1f)] private float releaseZoomMultiplier = 11f / 9f;
@@ -30,7 +32,7 @@ namespace AnimalGame.Tutorial
         [SerializeField, Min(.25f)] private float placementClearanceMeters = 1.25f;
         [SerializeField, Min(0f)] private float animalAmbientRadiusMeters;
         [SerializeField, Min(.1f)] private float animalAmbientPeriodSeconds = 8f;
-        [Header("Scanned Muskrat Movement")]
+        [Header("Scanned Animal Movement")]
         [SerializeField, Min(0f)] private float movementDelaySeconds = 2f;
         [SerializeField, Min(.05f)] private float movementSpeedMetersPerSecond = .5f;
         [SerializeField, Min(0f)] private float movementEndpointPauseSeconds = 2.5f;
@@ -72,9 +74,9 @@ namespace AnimalGame.Tutorial
 
         public void Configure(HeightMapPlayerSceneBootstrap sceneBootstrap, GameObject animalPrefab, GameObject itemPrefab)
         {
-            if (bootstrap != sceneBootstrap || muskratPrefab != animalPrefab || smallGarbagePrefab != itemPrefab) Cleanup();
+            if (bootstrap != sceneBootstrap || this.animalPrefab != animalPrefab || smallGarbagePrefab != itemPrefab) Cleanup();
             bootstrap = sceneBootstrap;
-            muskratPrefab = animalPrefab;
+            this.animalPrefab = animalPrefab;
             smallGarbagePrefab = itemPrefab;
         }
 
@@ -93,16 +95,16 @@ namespace AnimalGame.Tutorial
                 animalContainer = null; Animal = null; animalAgent = null; animalFrozen = false;
                 Vector2 position = fixedAnimalMapPositionMeters;
                 bool found = useFixedAnimalMapPosition
-                    ? float.IsFinite(position.x) && float.IsFinite(position.y) && bootstrap.map.TrySampleMapPosition(position, out _)
+                    ? float.IsFinite(position.x) && float.IsFinite(position.y) && ValidMapPosition(position, true)
                     : TryFindTargetPosition(true, out position);
                 if (!found)
-                { LastFailure = useFixedAnimalMapPosition ? "The authored muskrat position is outside the map."
+                { LastFailure = useFixedAnimalMapPosition ? "The authored teaching animal position needs safe, reachable dry ground."
                     : "No safe animal position within scan range and outside the release circle is available."; return false; }
-                animalContainer = InstantiateTarget(muskratPrefab, "Tutorial Muskrat", position);
+                animalContainer = InstantiateTarget(animalPrefab, "Tutorial Woodpecker", position);
                 Animal = animalContainer.GetComponentInChildren<DiscoverableEntity>(true);
                 animalAgent = animalContainer.GetComponentInChildren<AnimalAgent>(true);
                 if (Animal == null || Animal.Kind != DiscoverableKind.Animal || animalAgent == null)
-                { LastFailure = "The muskrat prefab requires its real AnimalAgent and animal DiscoverableEntity."; DestroyOwned(animalContainer); animalContainer = null; Animal = null; return false; }
+                { LastFailure = "The teaching animal prefab requires its real AnimalAgent and animal DiscoverableEntity."; DestroyOwned(animalContainer); animalContainer = null; Animal = null; return false; }
                 animalAnchor = position;
                 motionRequested = motionRouteReady = false; movingToEnd = true;
                 AnimalTravelledMeters = 0f; MotionFailure = null;
@@ -151,7 +153,7 @@ namespace AnimalGame.Tutorial
                 || bootstrap == null || bootstrap.gameObject.scene != gameObject.scene || bootstrap.map == null
                 || !bootstrap.map.HasGeneratedMap || bootstrap.robot == null || bootstrap.mapCamera == null
                 || bootstrap.traversalEvaluator == null || !bootstrap.traversalEvaluator.IsInitialized
-                || bootstrap.scanChargeUi == null || muskratPrefab == null || smallGarbagePrefab == null)
+                || bootstrap.scanChargeUi == null || animalPrefab == null || smallGarbagePrefab == null)
             { LastFailure = "Tutorial targets are waiting for this scene's map, camera, scanner and prefab references."; return false; }
             return true;
         }
@@ -209,16 +211,16 @@ namespace AnimalGame.Tutorial
                 {
                     Vector2 delta = attempt == 0 ? offset
                         : new Vector2(Mathf.Cos((attempt - 1) * Mathf.PI / 6f), Mathf.Sin((attempt - 1) * Mathf.PI / 6f)) * 3f;
-                    if (!IsWaterRoute(animalAnchor, animalAnchor + delta)) continue;
+                    if (!IsDryAnimalRoute(animalAnchor, animalAnchor + delta)) continue;
                     motionEnd = animalAnchor + delta; motionRouteReady = true; MotionFailure = null; break;
                 }
-                if (!motionRouteReady) { MotionFailure = "No short water route is available around the teaching muskrat."; return; }
+                if (!motionRouteReady) { MotionFailure = "No short dry route is available around the teaching woodpecker."; return; }
             }
             if (motionWait > 0f) { motionWait = Mathf.Max(0f, motionWait - Time.deltaTime); return; }
             Vector2 current = AnimalMapPosition;
             Vector2 target = movingToEnd ? motionEnd : animalAnchor;
             Vector2 next = Vector2.MoveTowards(current, target, movementSpeedMetersPerSecond * Time.deltaTime);
-            if (!IsWaterRoute(current, next)) { movingToEnd = !movingToEnd; motionWait = movementEndpointPauseSeconds; return; }
+            if (!IsDryAnimalRoute(current, next)) { movingToEnd = !movingToEnd; motionWait = movementEndpointPauseSeconds; return; }
             AnimalTravelledMeters += Vector2.Distance(current, next);
             Vector2 direction = next - current;
             Animal.transform.position = bootstrap.map.MapPositionToWorld(next);
@@ -229,7 +231,7 @@ namespace AnimalGame.Tutorial
             { movingToEnd = !movingToEnd; motionWait = movementEndpointPauseSeconds; }
         }
 
-        private bool IsWaterRoute(Vector2 from, Vector2 to)
+        private bool IsDryAnimalRoute(Vector2 from, Vector2 to)
         {
             if (bootstrap == null || bootstrap.map == null) return false;
             int samples = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(from, to) / .25f));
@@ -237,7 +239,15 @@ namespace AnimalGame.Tutorial
             {
                 Vector2 point = Vector2.Lerp(from, to, index / (float)samples);
                 if (!bootstrap.map.TrySampleMapPosition(point, out _)
-                    || !bootstrap.map.TrySampleStaticWaterMapPosition(point, out float depth) || depth <= .01f) return false;
+                    || (bootstrap.map.TrySampleStaticWaterMapPosition(point, out float depth) && depth > .01f)) return false;
+                var evaluator = bootstrap.traversalEvaluator;
+                SlopeTraversalResult surface = evaluator.EvaluateLocalSurface(bootstrap.map.MapPositionToWorld(point));
+                if (!surface.HasData || !surface.IsPassable || surface.RequiresHardStop
+                    || surface.MaximumSurfaceSlopeAngle > evaluator.LevelOneMaximumUphillAngle) return false;
+                var kinds = WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision
+                    | WorldInteractionKind.Grabbable | WorldInteractionKind.Climbable;
+                if (WorldInteractionQuery.Query(InteractionShape.Circle(point, placementClearanceMeters), kinds,
+                    bootstrap.map, gameObject.scene, ignore: ownedRoot != null ? ownedRoot.transform : null)) return false;
             }
             return true;
         }
@@ -248,15 +258,29 @@ namespace AnimalGame.Tutorial
             // Disabling the behaviour alone is insufficient: AnimalAgent directly calls its Tick methods.
             // IsPresent stays true after disabling this initialized clone, so production discovery/photo checks remain valid.
             animalAgent.Motor?.Stop();
-            if (useFixedAnimalMapPosition && Animal != null)
+            // The woodpecker normally snaps to a tree while initializing. Restore only this owned
+            // teaching clone to its chosen safe anchor before freezing its ordinary AI.
+            if (Animal != null)
             {
                 Animal.transform.position = bootstrap.map.MapPositionToWorld(animalAnchor);
                 Animal.GetComponent<HeightMapPlacedObject>()?.CaptureCurrentTransform();
             }
             animalAgent.SetPerceptionSuppressed(true);
+            // Its catalog supplies Daily photos. Keep this owned observation actor on that native
+            // photo state without changing the shared prefab, species AI or photo library.
+            if (animalAgent.Snapshot.PhotoState != AnimalState.Daily
+                && (animalAgent.Brain == null || !animalAgent.Brain.StartAction(new TutorialObservationAction())))
+            { LastFailure = "The teaching animal is preparing its observation pose."; return; }
             animalAgent.PlaceholderView?.RestoreVisibleAppearance();
             animalAgent.enabled = false;
             animalFrozen = true;
+        }
+
+        private sealed class TutorialObservationAction : AnimalAction
+        {
+            public override string Name => "Tutorial observation";
+            public override AnimalState PhotoState => AnimalState.Daily;
+            public override AnimalActionStatus Tick(AnimalContext context, float deltaTime) => AnimalActionStatus.Running;
         }
 
         /// <summary>Samples actual camera/HUD geometry and checks existing ground, path and interaction APIs.</summary>
@@ -350,7 +374,8 @@ namespace AnimalGame.Tutorial
             if (WorldInteractionQuery.Query(InteractionShape.Circle(position, placementClearanceMeters), kinds,
                 map, gameObject.scene, ignore: ignore)) return false;
             return !WorldInteractionQuery.Query(InteractionShape.Capsule(player, position, .8f),
-                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, gameObject.scene, ignore: ignore);
+                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, gameObject.scene,
+                ignore: ignore, ignoreHeld: bootstrap.robot.transform);
         }
 
         private Vector2 MapPosition(Transform target) => target != null && bootstrap != null && bootstrap.map != null
@@ -385,8 +410,8 @@ namespace AnimalGame.Tutorial
             Gizmos.DrawWireSphere(animal, radius);
             Gizmos.DrawWireSphere(observation, radius);
             Gizmos.DrawLine(animal, observation);
-            UnityEditor.Handles.Label(animal, "Tutorial Muskrat (Water)");
-            UnityEditor.Handles.Label(observation, "Dry Scan Approach");
+            UnityEditor.Handles.Label(animal, "Tutorial Woodpecker");
+            UnityEditor.Handles.Label(observation, "Scan Approach");
         }
 #endif
     }

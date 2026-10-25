@@ -112,7 +112,7 @@ namespace AnimalGame.Editor
                             panel.SetCollapsed(false); DrivingHelper("Settle", panel, size);
                             string context = "Discovery " + step + " / " + size + " / " + valid;
                             CheckVisibleText(panel.Root, context);
-                            Require(panel.Root.Q<Label>("TutorialChapter").text == "04 / 08", "Discovery teaching is chapter four.");
+                            Require(panel.Root.Q<Label>("TutorialChapter").text == "05 / 09", "Discovery teaching is chapter five of nine.");
                             string actualControl = (string)typeof(TutorialDialoguePanel).GetField("controlGlyph", Flags).GetValue(panel);
                             CheckStar(panel.Root, actualControl);
                             CheckReminders(panel.Root, step != DiscoveryTutorialStep.Completed);
@@ -141,7 +141,7 @@ namespace AnimalGame.Editor
                 {
                     TutorialStepText instruction = glyph == "✧" ? text.Discovery.FindAnimal : text.Discovery.ConfirmAnimal;
                     panel.SetContent(text.Discovery.Title, instruction.Message, glyph, instruction.Action,
-                        instruction.Detail, text.Discovery.WaitingStatus, 4, 8);
+                        instruction.Detail, text.Discovery.WaitingStatus, 5, 9);
                     panel.SetCollapsed(false); DrivingHelper("Settle", panel, new Vector2(1920, 1080));
                     CheckVisibleText(panel.Root, "Native star badge " + glyph);
                     CheckStar(panel.Root, glyph);

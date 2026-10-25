@@ -157,7 +157,7 @@ namespace AnimalGame.Tutorial
             panel.SetLessonHint(string.Empty);
             panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
                 tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
-                tokens.Format(stepText.Detail), tokens.Format(status), 1, 8);
+                tokens.Format(stepText.Detail), tokens.Format(status), 1, 9);
             panel.SetProgress(progress.NormalizedProgress);
             panel.SetSuccess(progress.IsComplete || feedbackRemaining > 0f);
         }

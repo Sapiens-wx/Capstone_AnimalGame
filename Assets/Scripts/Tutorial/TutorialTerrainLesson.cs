@@ -221,7 +221,7 @@ namespace AnimalGame.Tutorial
             driving.Panel.SetLessonHint(string.Empty);
             driving.Panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
                 tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
-                tokens.Format(stepText.Detail), tokens.Format(status), 2, 8);
+                tokens.Format(stepText.Detail), tokens.Format(status), 2, 9);
             driving.Panel.SetProgress(progress.NormalizedProgress);
             driving.Panel.SetSuccess(progress.IsComplete);
             displayedStep = progress.Step;

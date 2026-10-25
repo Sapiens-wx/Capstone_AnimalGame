@@ -8495,8 +8495,9 @@ GameObject:
   - component: {fileID: 9100000000000000035}
   - component: {fileID: 9100000000000000036}
   - component: {fileID: 9100000000000000037}
+  - component: {fileID: 9100000000000000038}
   m_Layer: 0
-  m_Name: Tutorial - Driving, Terrain, Arms, Discovery and Photography
+  m_Name: Tutorial - Driving, Terrain, Balance, Arms, Discovery and Photography
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8591,7 +8592,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
-  muskratPrefab: {fileID: 3409958733117504358, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
+  animalPrefab: {fileID: 4118156342335042637, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
   smallGarbagePrefab: {fileID: 8098866755847926482, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
   targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
   armCompletionDelay: 1.5
@@ -8610,10 +8611,10 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   bootstrap: {fileID: 11400000}
-  muskratPrefab: {fileID: 0}
+  animalPrefab: {fileID: 0}
   smallGarbagePrefab: {fileID: 0}
-  useFixedAnimalMapPosition: 1
-  fixedAnimalMapPositionMeters: {x: 140, y: 62.5}
+  useFixedAnimalMapPosition: 0
+  fixedAnimalMapPositionMeters: {x: 124, y: 79}
   animalObservationMapPositionMeters: {x: 140, y: 107}
   releaseZoomMultiplier: 1.2222222
   maximumSpawnDistanceWorld: 12
@@ -8642,7 +8643,25 @@ MonoBehaviour:
   discoveryCompletionDelay: 1.5
   observationSeconds: 0.8
   framingSeconds: 0.5
-  requiredMovementMeters: 2
+  requiredMovementMeters: 0
+--- !u!114 &9100000000000000038
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000000000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2bd27c4c2b4f8aa6f54c78dcd1af51, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bootstrap: {fileID: 11400000}
+  tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
+  terrainCompletionDelay: 1.5
+  indicatorReadingSeconds: 3
+  riskReadingSeconds: 3
+  requiredPointMovement: 0.05
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

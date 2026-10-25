@@ -1,0 +1,163 @@
+using AnimalGame.MapTest;
+using AnimalGame.RobotArm;
+using AnimalGame.RobotMap;
+using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+namespace AnimalGame.Tutorial
+{
+    /// <summary>Scene-only balance introduction. Observes the existing controls without changing their physics.</summary>
+    [DefaultExecutionOrder(1100)]
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(TutorialTerrainLesson))]
+    public sealed class TutorialBalanceLesson : MonoBehaviour
+    {
+        [SerializeField] private HeightMapPlayerSceneBootstrap bootstrap;
+        [SerializeField] private TutorialTextContent tutorialText;
+        [SerializeField, Min(0f)] private float terrainCompletionDelay = 1.5f;
+        [SerializeField, Min(1f)] private float indicatorReadingSeconds = 3f;
+        [SerializeField, Min(1f)] private float riskReadingSeconds = 3f;
+        [SerializeField, Range(.02f, .2f)] private float requiredPointMovement = .05f;
+
+        private readonly BalanceLessonText defaultText = new BalanceLessonText();
+        private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
+        private TutorialTerrainLesson terrain;
+        private TutorialDrivingLesson driving;
+        private BalanceTutorialProgress progress;
+        private bool hasStarted, ownsPresentation = true;
+        private float completionDelay, refreshRemaining;
+        private BalanceTutorialStep displayedStep = (BalanceTutorialStep)(-1);
+
+        public TutorialTextContent TextContent => tutorialText;
+        public BalanceTutorialProgress Progress => progress;
+        public TutorialDialoguePanel Panel => driving != null ? driving.Panel : null;
+        public bool HasStarted => hasStarted;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        private BalanceLessonText Text => tutorialText != null && tutorialText.Balance != null
+            ? tutorialText.Balance : defaultText;
+
+        private void Start()
+        {
+            if (gameObject.scene.path != TutorialDrivingLesson.ScenePath) { enabled = false; return; }
+            terrain = GetComponent<TutorialTerrainLesson>();
+            driving = GetComponent<TutorialDrivingLesson>();
+            if (bootstrap == null)
+                foreach (GameObject root in gameObject.scene.GetRootGameObjects())
+                { bootstrap = root.GetComponentInChildren<HeightMapPlayerSceneBootstrap>(); if (bootstrap != null) break; }
+        }
+
+        public void SetPresentationOwned(bool value) => ownsPresentation = value;
+
+        private void LateUpdate()
+        {
+            if (terrain == null || Panel == null || bootstrap == null) return;
+            if (!terrain.IsComplete)
+            {
+                if (hasStarted) ReleasePresentation();
+                completionDelay = 0f; return;
+            }
+            if (!ownsPresentation) return;
+            bool modal = IsModal();
+            bool justStarted = false;
+            if (!hasStarted)
+            {
+                if (modal || !ReadyToPresent()) return;
+                completionDelay += Time.deltaTime;
+                if (completionDelay < terrainCompletionDelay) return;
+                BeginLesson(); justStarted = true;
+            }
+            Panel.SetVisible(!modal);
+            if (modal) { progress.Suspend(); return; }
+#if ENABLE_INPUT_SYSTEM
+            if (!justStarted && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
+                || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
+#endif
+            bool valid = CanPractice();
+            RobotBalanceState state = bootstrap.balance != null ? bootstrap.balance.CurrentState : default;
+            progress.Sample(new BalanceTutorialSample(Time.deltaTime, valid, !Panel.IsCollapsed,
+                AdaptiveLegacyGamepadInput.ReadRightStick(), state.PlayerCounterbalanceLocal, state.NormalizedLocalOffset));
+            if (progress.Step != displayedStep) { Panel.SetCollapsed(false); refreshRemaining = 0f; }
+            refreshRemaining -= Time.unscaledDeltaTime;
+            if (refreshRemaining <= 0f) { RefreshPanel(valid); refreshRemaining = .08f; }
+        }
+
+        private void BeginLesson()
+        {
+            progress = new BalanceTutorialProgress(indicatorReadingSeconds, riskReadingSeconds, requiredPointMovement);
+            hasStarted = true; terrain.SetPresentationOwned(false);
+            Panel.SetCollapsed(false); Panel.SetLessonHint(string.Empty);
+            displayedStep = (BalanceTutorialStep)(-1); refreshRemaining = 0f;
+        }
+
+        private bool IsModal() => Time.deltaTime <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay
+            || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+            || (bootstrap.photoMode != null && (bootstrap.photoMode.IsActive || bootstrap.photoMode.IsInputLocked))
+            || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
+
+        private bool ReadyToPresent() => bootstrap.robot != null && bootstrap.robot.isActiveAndEnabled
+            && bootstrap.balance != null && bootstrap.balance.isActiveAndEnabled && !bootstrap.balance.IsTippedOver
+            && bootstrap.balanceView != null && bootstrap.balanceView.isActiveAndEnabled && bootstrap.balanceView.IsBalanceDisplayVisible
+            && bootstrap.armController != null && bootstrap.armController.isActiveAndEnabled
+            && !bootstrap.robot.IsMovementLocked && !bootstrap.robot.IsPhotoModeInputLocked
+            && !bootstrap.robot.IsLevelThreeUnstable && !bootstrap.robot.IsAutoAligningDownhill
+            && bootstrap.gameObject.scene == gameObject.scene && bootstrap.map != null && bootstrap.map.HasGeneratedMap
+            && (bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright);
+
+        private bool ArmsRetracted() => bootstrap.armController != null && !bootstrap.armController.IsArmModeActive
+            && bootstrap.armController.HeldObject == null && bootstrap.armController.State == RobotArmState.Retracted;
+
+        private bool IsStopped()
+        {
+            if (bootstrap.robot == null || bootstrap.map == null) return false;
+            RobotMover robot = bootstrap.robot;
+            float worldPerMeter = bootstrap.map.MapMetersToWorldDistance(robot.Forward, 1f);
+            float scale = 1f / Mathf.Max(.0001f, worldPerMeter);
+            return Mathf.Abs(robot.CurrentSpeed) * scale <= .2f && robot.CurrentTerrainVelocity.magnitude * scale <= .2f
+                && Mathf.Abs(robot.CurrentTurnSpeed) <= 2f && Mathf.Abs(robot.CurrentTerrainTurnSpeed) <= 2f;
+        }
+
+        private bool CanPractice() => ReadyToPresent() && ArmsRetracted() && !bootstrap.robot.IsArmInputCaptured && IsStopped();
+
+        private void RefreshPanel(bool valid = true)
+        {
+            if (Panel == null || progress == null) return;
+            BalanceLessonText text = Text;
+            TutorialStepText step = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
+            var tokens = new TutorialTextTokens().Add("value", progress.Value).Add("target", progress.Target);
+            string message = step.Message, glyph = step.ControlGlyph, action = step.Action;
+            string status = progress.Step == BalanceTutorialStep.AdjustWeight ? text.WaitingStatus : text.ReadingStatus;
+            if (progress.IsComplete) status = text.CompleteStatus;
+            else if (bootstrap != null && bootstrap.armController != null && !ArmsRetracted())
+            { message = text.NeedStowMessage; glyph = "L3"; status = text.NeedStowStatus; }
+            else if (!valid && bootstrap != null && bootstrap.robot != null && !IsStopped())
+            { message = text.StopMessage; status = text.StopStatus; }
+            else if (!valid) status = text.BlockedStatus;
+            else if (progress.Step == BalanceTutorialStep.AdjustWeight && progress.NeedsNeutral)
+            { message = text.NeutralMessage; status = text.NeutralStatus; }
+            Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
+            Panel.SetLessonHint(progress.IsComplete ? string.Empty : text.ToggleHint);
+            Panel.SetContent(tokens.Format(text.Title), tokens.Format(message), tokens.Format(glyph), tokens.Format(action),
+                tokens.Format(step.Detail), tokens.Format(status), 3, 9);
+            Panel.SetProgress(progress.NormalizedProgress); Panel.SetSuccess(progress.IsComplete);
+            displayedStep = progress.Step;
+        }
+
+        [ContextMenu("Restart Balance Lesson")]
+        public void RestartLesson()
+        {
+            if (!hasStarted || progress == null) return;
+            progress.Reset(); Panel.SetCollapsed(false); refreshRemaining = 0f;
+        }
+
+        private void ReleasePresentation()
+        {
+            if (Panel != null) Panel.SetLessonHint(string.Empty);
+            hasStarted = false; progress = null; ownsPresentation = true;
+            if (terrain != null) terrain.SetPresentationOwned(true);
+        }
+
+        private void OnDisable() { if (hasStarted) ReleasePresentation(); }
+    }
+}

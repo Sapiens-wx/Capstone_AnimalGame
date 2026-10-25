@@ -75,7 +75,7 @@ namespace AnimalGame.RobotMap
         private float pointCoverageOverlap = 0.1f;
         [SerializeField, Min(0.01f)] private float formedRingRadius = 0.2f;
         [SerializeField, Min(0.1f)] private float signalSpeed = 10f;
-        [SerializeField, Min(0.1f)] private float maximumSignalDistance = 12f;
+        [SerializeField, Min(0.1f)] private float maximumSignalDistance = 14.44f;
         [Tooltip("Seconds at the end of the outgoing wave used to fade its points to transparent. Detection still reaches the full scan range.")]
         [SerializeField, Min(0f)] private float signalFadeOutDuration = 0.35f;
         [Tooltip("Diameter of the solid leading point at the front of each biological signal.")]
@@ -119,6 +119,8 @@ namespace AnimalGame.RobotMap
         private bool signalFormationActive;
         private Vector2 scanWaveOrigin;
         private float scanWaveRadius;
+        private float scanWaveMaximumRadius;
+        private float scanWaveSpeed;
         private bool scanWaveActive;
         private ScannerPhase phase;
         private float phaseElapsed;
@@ -130,7 +132,12 @@ namespace AnimalGame.RobotMap
         public bool IsScanning => phase != ScannerPhase.Hidden;
         public bool IsCharging => phase == ScannerPhase.Charging;
         public int ScanSequence => scanSequence;
+        /// <summary>Travel time frozen when the latest wave was actually emitted, including its final fade.</summary>
+        public float LastReleasedWaveTravelDuration { get; private set; }
         public bool HasActiveScanWave => scanWaveActive;
+        public bool HasActiveReleasedScanWaves => isActiveAndEnabled
+            && (scanWaveActive
+                || (emittedPointSystem != null && emittedPointSystem.particleCount > 0));
         public float MaximumScanRadiusWorld => Mathf.Max(0.01f, formedRingRadius)
             + Mathf.Max(0.1f, maximumSignalDistance);
         public Vector2 FullyDeployedScanOriginWorld
@@ -168,6 +175,7 @@ namespace AnimalGame.RobotMap
 
         private void OnEnable()
         {
+            scanInput?.BindDiscoveryScanController(this);
             SubscribeToInput();
         }
 
@@ -179,12 +187,15 @@ namespace AnimalGame.RobotMap
             EnsureStaticAreaMarkers().Initialize(input, worldCamera);
             if (scanInput == input)
             {
+                scanInput?.BindDiscoveryScanController(this);
                 SubscribeToInput();
                 return;
             }
 
             UnsubscribeFromInput();
+            scanInput?.BindDiscoveryScanController(null);
             scanInput = input;
+            scanInput?.BindDiscoveryScanController(this);
             SubscribeToInput();
         }
 
@@ -529,6 +540,11 @@ namespace AnimalGame.RobotMap
 
             scanWaveOrigin = center;
             scanWaveRadius = initialRadius;
+            // A launched wave keeps the same travel distance and speed as its
+            // particles even when Inspector values change before it finishes.
+            scanWaveMaximumRadius = initialRadius + lifetime * speed;
+            scanWaveSpeed = speed;
+            LastReleasedWaveTravelDuration = lifetime;
             scanWaveActive = true;
             scanSequence = scanSequence == int.MaxValue ? 1 : scanSequence + 1;
             revealedEntityIds.Clear();
@@ -592,13 +608,11 @@ namespace AnimalGame.RobotMap
                 return;
 
             float previousRadius = scanWaveRadius;
-            float maximumRadius = Mathf.Max(0.01f, formedRingRadius)
-                                  + Mathf.Max(0.1f, maximumSignalDistance);
             scanWaveRadius = Mathf.Min(
-                maximumRadius,
-                scanWaveRadius + Mathf.Max(0.1f, signalSpeed) * deltaTime);
+                scanWaveMaximumRadius,
+                scanWaveRadius + scanWaveSpeed * deltaTime);
             RevealTargetsCrossedByWave(previousRadius, scanWaveRadius);
-            if (scanWaveRadius >= maximumRadius - 0.0001f)
+            if (scanWaveRadius >= scanWaveMaximumRadius - 0.0001f)
                 scanWaveActive = false;
         }
 
@@ -711,6 +725,7 @@ namespace AnimalGame.RobotMap
             main.loop = true;
             main.playOnAwake = false;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.useUnscaledTime = false;
             main.startLifetime = 1000f;
             main.startSpeed = 0f;
             main.startSize = 1f;
@@ -787,6 +802,9 @@ namespace AnimalGame.RobotMap
         private void OnDestroy()
         {
             UnsubscribeFromInput();
+            scanWaveActive = false;
+            if (emittedPointSystem != null)
+                emittedPointSystem.Clear(true);
             if (signalParticleRoot != null)
                 Destroy(signalParticleRoot.gameObject);
             if (signalPointMaterial != null)

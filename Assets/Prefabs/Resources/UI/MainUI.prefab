@@ -292,7 +292,9 @@ MonoBehaviour:
   scanZoomReferenceOrthographicSize: 9
   holdTargetOrthographicSize: 8.5
   releasePeakOrthographicSize: 9.5
+  discoveryObservationOrthographicSize: 15.5
   releaseZoomOutDuration: 0.45
+  discoveryCameraArrivalLeadTime: 0.5
   releaseZoomReturnDuration: 0.55
   cancelledChargeZoomReturnDuration: 0.2
   enableFullyChargedCameraShake: 1
@@ -412,6 +414,10 @@ PrefabInstance:
       propertyPath: m_ParentUI
       value: 
       objectReference: {fileID: 5078151001591562568}
+    - target: {fileID: 1195579321100125089, guid: 5b172d88c09e4f99951ccdd4949d05ef, type: 3}
+      propertyPath: m_PanelSettings
+      value: 
+      objectReference: {fileID: 11400000, guid: 70af1972533d0d54ab72794a84bf5449, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

@@ -9,6 +9,7 @@ namespace AnimalGame.Tutorial
     /// Scene-owned tutorial presentation. It neither advances lessons nor owns gameplay input or pause.
     /// All visual resources and the document are created as children and released with this component.
     /// </summary>
+    [DefaultExecutionOrder(1800)]
     [DisallowMultipleComponent]
     public sealed class TutorialDialoguePanel : MonoBehaviour
     {
@@ -208,7 +209,7 @@ namespace AnimalGame.Tutorial
             lessonHintLabel.name = "TutorialLessonHint";
 
             AddLine(expanded, 27, 112, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
-            currentLessonLabel = AddLabel(expanded, panelText.CurrentLesson, 27, 128, 170, 26, 16, Muted);
+            currentLessonLabel = AddLabel(expanded, panelText.CurrentLesson, 27, 128, 180, 26, 16, Muted);
             currentLessonLabel.name = "TutorialCurrentLesson";
             chapterLabel = AddLabel(expanded, "01 / 08", 221, 128, 107, 27, 18, Color.white);
             chapterLabel.name = "TutorialChapter";
@@ -329,6 +330,28 @@ namespace AnimalGame.Tutorial
             lessonHintLabel.style.display = string.IsNullOrWhiteSpace(lessonHint) ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
+        private static void FitText(Label label, int preferredSize, int minimumSize)
+        {
+            if (label == null || label.panel == null || label.resolvedStyle.display == DisplayStyle.None) return;
+            Vector2 box = label.contentRect.size;
+            float measuredFontSize = label.resolvedStyle.fontSize;
+            if (box.x <= 0f || box.y <= 0f || measuredFontSize <= 0f) return;
+            bool wrap = label.resolvedStyle.whiteSpace == WhiteSpace.Normal;
+            int fittedSize = minimumSize;
+            for (int candidate = preferredSize; candidate >= minimumSize; candidate--)
+            {
+                // Measure against the currently resolved font without resetting it first. Scaling
+                // the wrap width predicts the candidate size even before UI Toolkit resolves styles.
+                float scale = measuredFontSize / candidate;
+                Vector2 measured = label.MeasureTextSize(label.text, wrap ? (box.x - 1f) * scale : 0f,
+                    wrap ? VisualElement.MeasureMode.AtMost : VisualElement.MeasureMode.Undefined,
+                    0f, VisualElement.MeasureMode.Undefined);
+                if (measured.y <= (box.y - 1f) * scale && (wrap || measured.x <= (box.x - 1f) * scale))
+                { fittedSize = candidate; break; }
+            }
+            if (Mathf.Abs(label.style.fontSize.value.value - fittedSize) > .01f) label.style.fontSize = fittedSize;
+        }
+
         private void LateUpdate()
         {
             if (document == null) return;
@@ -338,6 +361,13 @@ namespace AnimalGame.Tutorial
             if (root == null) return;
             Vector2 size = root.layout.size;
             if (size.x <= 0 || size.y <= 0 || float.IsNaN(size.x) || float.IsNaN(size.y)) return;
+            // Keep the authored card bounds and copy when a font has wider glyphs.
+            // Only overflowing labels shrink; short replacement text restores its preferred size.
+            FitText(titleLabel, 32, 24);
+            FitText(messageLabel, 24, 18);
+            FitText(actionLabel, 23, 16);
+            FitText(detailLabel, 16, 13);
+            FitText(statusLabel, 17, 12);
             float fit = Mathf.Min(size.x / DesignWidth, size.y / DesignHeight);
             // Same fit as MainUI: on ultrawide displays the card stays close to the right edge;
             // on narrow displays it remains outside the central 960-unit ring.

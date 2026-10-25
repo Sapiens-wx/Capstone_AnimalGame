@@ -381,7 +381,7 @@ namespace AnimalGame.Editor
                         {
                             Invoke(lesson, "RefreshPanel", state[0], state[1], state[2]);
                             panel.SetCollapsed(false); Settle(panel, size);
-                            Require(root.Q<Label>("TutorialChapter").text == "02 / 08", "Terrain is chapter two.");
+                            Require(root.Q<Label>("TutorialChapter").text == "02 / 09", "Terrain is chapter two of nine.");
                             Require(root.Q<Label>("TutorialHeader").text == "TUTORIAL", "The header remains the simplified tutorial title.");
                             CheckVisibleText(root, step + " at " + size + " / " + string.Join(",", state));
                             if (size == new Vector2(1920, 1080) && state[0] && state[1] && state[2])

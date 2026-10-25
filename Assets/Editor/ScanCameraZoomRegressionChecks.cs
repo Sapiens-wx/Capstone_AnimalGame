@@ -294,7 +294,6 @@ namespace AnimalGame.Editor
                 GameObject viewObject = new GameObject("Scan zoom validation UI", typeof(RectTransform));
                 SceneManager.MoveGameObjectToScene(viewObject, scene);
                 View = viewObject.AddComponent<ScanChargeUI>();
-                Set(View, "animator", null);
                 Set(View, "showScanRing", false);
                 ScanChargeUI profile = LoadAuthoredProfile();
                 foreach (string field in new[] { "scanZoomReferenceOrthographicSize", "holdTargetOrthographicSize",

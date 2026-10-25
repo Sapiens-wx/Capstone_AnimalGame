@@ -38,10 +38,10 @@ namespace AnimalGame.Editor
                 PhotoResultView view = root.AddComponent<PhotoResultView>();
                 Set(view, "saveLabel", new Label());
                 Set(ui, "resultView", view);
-                AnimalPhotoSubject first = Subject(root.transform, "Teaching muskrat");
-                AnimalPhotoSubject second = Subject(root.transform, "Other muskrat");
-                PhotoResultSnapshot firstResult = Snapshot("Teaching muskrat");
-                PhotoResultSnapshot secondResult = Snapshot("Other muskrat");
+                AnimalPhotoSubject first = Subject(root.transform, "Teaching woodpecker");
+                AnimalPhotoSubject second = Subject(root.transform, "Other woodpecker");
+                PhotoResultSnapshot firstResult = Snapshot("Teaching woodpecker");
+                PhotoResultSnapshot secondResult = Snapshot("Other woodpecker");
                 int shown = 0, saved = 0;
                 AnimalPhotoSubject notifiedSubject = null;
                 PhotoResultSnapshot notifiedResult = null;
@@ -135,9 +135,9 @@ namespace AnimalGame.Editor
         }
 
         private static PhotoResultSnapshot Snapshot(string name) => new PhotoResultSnapshot(
-            "muskrat", name, name, "Ondatra zibethicus", "Tutorial", Color.yellow,
+            "pileated_woodpecker", name, name, "Dryocopus pileatus", "Tutorial", Color.yellow,
             1, 2, 3, null, Vector2.zero, 0f, 1f, new DateTime(2026, 1, 1),
-            AnimalSpecies.Muskrat, AnimalState.Daily, true, true);
+            AnimalSpecies.PileatedWoodpecker, AnimalState.Daily, true, true);
 
         private static void Set(object target, string name, object value) =>
             target.GetType().GetField(name, Fields).SetValue(target, value);

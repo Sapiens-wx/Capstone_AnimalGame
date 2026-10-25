@@ -111,6 +111,7 @@ namespace AnimalGame.MainUI
         private bool started, inventoryOpen, pauseOwned, originalCursor, hasGeometry;
         private CursorLockMode originalCursorLock;
         private float progress, savedTimeScale, fit = 1, photoScale = 1, photoAlpha = 1;
+        private float discoveryScanDiscScale = 1f;
         private float lastPower = -1, lastIntegrity = -1;
         private Color photoRingColor = Color.white;
         private Color photoRingTransitionStart = Color.white;
@@ -329,7 +330,7 @@ namespace AnimalGame.MainUI
             if (!Positive(ring.layout.width) || !Positive(inventory.layout.width)) return;
             float authoredRingX = view.layout.x + ring.layout.x + innerRing.layout.x + innerRing.contentRect.center.x;
             ringDisplacement = new Vector2((openCircleX - authoredRingX) * motion, 0);
-            ring.style.translate = new Translate(ringDisplacement.x, ringDisplacement.y);
+            ApplyRingTransform();
             // Scale each element around its own screen corner, including its authored edge offsets.
             MoveTopHudOffscreen(status, false, motion);
             MoveTopHudOffscreen(time, true, motion);
@@ -357,6 +358,24 @@ namespace AnimalGame.MainUI
                 levelIndicator.style.scale = new Scale(compassScale);
             InventoryController.RefreshLayout();
             ApplyPhotoTransform();
+        }
+
+        /// <summary>Compensates discovery observation zoom without scaling the rest of the HUD.</summary>
+        public void SetDiscoveryScanDiscScale(float scale)
+        {
+            discoveryScanDiscScale = Positive(scale) ? Mathf.Clamp(scale, .01f, 1f) : 1f;
+            ApplyRingTransform();
+        }
+
+        private void ApplyRingTransform()
+        {
+            if (ring == null || innerRing == null) return;
+            // Preserve the optical centre, including authored offsets and inventory movement.
+            Vector2 centre = innerRing.layout.position + innerRing.contentRect.center;
+            ring.style.transformOrigin = new TransformOrigin(
+                new Length(centre.x, LengthUnit.Pixel), new Length(centre.y, LengthUnit.Pixel));
+            ring.style.scale = new Scale(new Vector3(discoveryScanDiscScale, discoveryScanDiscScale, 1f));
+            ring.style.translate = new Translate(ringDisplacement.x, ringDisplacement.y);
         }
 
         private void MoveTopHudOffscreen(VisualElement element, bool right, float motion)
@@ -461,7 +480,8 @@ namespace AnimalGame.MainUI
                 Vector2 panelRoot = root.LocalToWorld(panelPoint);
                 cachedCenter = new Vector2((panelRoot.x - origin.x) / scale.x,
                     Screen.height - (panelRoot.y - origin.y) / scale.y);
-                cachedRadius = innerRing.Radius * fit * photoScale / Mathf.Max(scale.x, scale.y);
+                cachedRadius = innerRing.Radius * fit * photoScale * discoveryScanDiscScale
+                    / Mathf.Max(scale.x, scale.y);
                 hasGeometry = Positive(cachedRadius);
             }
             center = cachedCenter; radius = cachedRadius;

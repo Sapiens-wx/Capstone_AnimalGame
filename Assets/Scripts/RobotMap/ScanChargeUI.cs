@@ -40,6 +40,14 @@ namespace AnimalGame.RobotMap
             Cancelling
         }
 
+        private enum DiscoveryObservationPhase
+        {
+            None,
+            Expanding,
+            Holding,
+            Returning
+        }
+
         [Header("References")]
         [SerializeField] private AnimalGame.MainUI.MainUI mainUI;
 
@@ -87,8 +95,14 @@ namespace AnimalGame.RobotMap
         [Tooltip("Release peak Size at the reference camera size. Larger than the reference means a wider view; the actual target scales with the gameplay camera's base Size.")]
         [SerializeField, Min(0.01f)] private float releasePeakOrthographicSize = 11f;
 
-        [Tooltip("Independent seconds used to move from the charged close view to the large release view. Increase this for a softer Hold-to-Release transition.")]
+        [Tooltip("Wide view held while released discovery waves remain visible. This is an absolute Size, with the normal camera Size as its lower limit.")]
+        [SerializeField, Min(0.01f)] private float discoveryObservationOrthographicSize = 15.5f;
+
+        [Tooltip("Seconds used to pull back when no released discovery wave is available. Discovery observation instead follows the emitted wave's travel time minus its camera arrival lead.")]
         [SerializeField, Min(0.05f)] private float releaseZoomOutDuration = 0.45f;
+
+        [Tooltip("Seconds before the released discovery wave reaches its outer range that the camera reaches its wide observation Size. Captured once per observation transition.")]
+        [SerializeField, Min(0f)] private float discoveryCameraArrivalLeadTime = 0.5f;
 
         [Tooltip("Independent seconds used to move from the large release view back to the normal camera size.")]
         [SerializeField, Min(0.05f)] private float releaseZoomReturnDuration = 0.55f;
@@ -161,6 +175,11 @@ namespace AnimalGame.RobotMap
         private float cancelledZoomStartSize = 9f;
         private float cancelledZoomElapsed;
         private float fullyChargedShakeElapsed;
+        private BioScanController discoveryScanController;
+        private DiscoveryObservationPhase discoveryObservationPhase;
+        private float discoveryObservationElapsed;
+        private float discoveryObservationStartSize;
+        private float discoveryObservationExpansionDuration;
 
         private Camera mapCamera;
         private PhotoModeController photoMode;
@@ -300,6 +319,11 @@ namespace AnimalGame.RobotMap
         public void SetPhotoModeController(PhotoModeController controller)
         {
             photoMode = controller;
+        }
+
+        public void BindDiscoveryScanController(BioScanController controller)
+        {
+            discoveryScanController = controller;
         }
 
         private void Awake()
@@ -496,6 +520,10 @@ namespace AnimalGame.RobotMap
         private void BeginCharge()
         {
             ResolveTrackingReferences();
+            // A new charge can smoothly take over a completed scan's return.
+            // While older waves still exist, observation retains the wide view.
+            if (discoveryObservationPhase == DiscoveryObservationPhase.Returning)
+                discoveryObservationPhase = DiscoveryObservationPhase.None;
             state = ScanVisualState.Charging;
             chargeElapsed = 0f;
             releaseElapsed = 0f;
@@ -558,10 +586,15 @@ namespace AnimalGame.RobotMap
 
             if (!enableScanCameraZoom)
             {
+                discoveryObservationPhase = DiscoveryObservationPhase.None;
+                discoveryObservationElapsed = 0f;
                 cameraZoomPhase = ScanCameraZoomPhase.Base;
                 currentScanOrthographicSize = baseCameraOrthographicSize;
                 return;
             }
+
+            if (UpdateDiscoveryObservationZoom(deltaTime))
+                return;
 
             switch (cameraZoomPhase)
             {
@@ -629,6 +662,98 @@ namespace AnimalGame.RobotMap
             }
         }
 
+        private bool UpdateDiscoveryObservationZoom(float deltaTime)
+        {
+            bool scannerAvailable = discoveryScanController != null
+                && discoveryScanController.isActiveAndEnabled;
+            bool wavesActive = scannerAvailable
+                && discoveryScanController.HasActiveReleasedScanWaves;
+            if (wavesActive
+                && (discoveryObservationPhase == DiscoveryObservationPhase.None
+                    || discoveryObservationPhase == DiscoveryObservationPhase.Returning))
+            {
+                discoveryObservationPhase = DiscoveryObservationPhase.Expanding;
+                discoveryObservationElapsed = 0f;
+                discoveryObservationStartSize = currentScanOrthographicSize;
+                float waveTravelDuration = discoveryScanController.LastReleasedWaveTravelDuration;
+                discoveryObservationExpansionDuration = Mathf.Max(0.05f,
+                    waveTravelDuration > 0f
+                        ? waveTravelDuration - Mathf.Max(0f, discoveryCameraArrivalLeadTime)
+                        : releaseZoomOutDuration);
+            }
+
+            if (discoveryObservationPhase == DiscoveryObservationPhase.None)
+                return false;
+
+            // A follow-up charge keeps the observation view until it is released
+            // or cancelled, even if the previous wave finishes in the meantime.
+            bool keepObserving = wavesActive || (scannerAvailable && IsCharging);
+            if (!keepObserving
+                && discoveryObservationPhase != DiscoveryObservationPhase.Returning)
+            {
+                discoveryObservationPhase = DiscoveryObservationPhase.Returning;
+                discoveryObservationElapsed = 0f;
+                discoveryObservationStartSize = currentScanOrthographicSize;
+                cameraZoomPhase = ScanCameraZoomPhase.Base;
+                // The wave may have ended part-way through this frame. Begin
+                // the return at the last visible size rather than consuming
+                // an unknown portion of the frame as return animation time.
+                return true;
+            }
+
+            discoveryObservationElapsed += Mathf.Max(0f, deltaTime);
+            if (discoveryObservationPhase == DiscoveryObservationPhase.Expanding)
+            {
+                float progress = Mathf.Clamp01(discoveryObservationElapsed
+                    / discoveryObservationExpansionDuration);
+                currentScanOrthographicSize = Mathf.Lerp(
+                    discoveryObservationStartSize,
+                    Mathf.Max(baseCameraOrthographicSize, discoveryObservationOrthographicSize),
+                    EvaluateDiscoveryPullback(progress));
+                if (progress >= 1f)
+                    discoveryObservationPhase = DiscoveryObservationPhase.Holding;
+            }
+            else if (discoveryObservationPhase == DiscoveryObservationPhase.Holding)
+            {
+                currentScanOrthographicSize = Mathf.Max(
+                    baseCameraOrthographicSize, discoveryObservationOrthographicSize);
+            }
+            else
+            {
+                float progress = Mathf.Clamp01(discoveryObservationElapsed
+                    / Mathf.Max(0.05f, releaseZoomReturnDuration));
+                currentScanOrthographicSize = Mathf.Lerp(
+                    discoveryObservationStartSize,
+                    baseCameraOrthographicSize,
+                    Mathf.SmoothStep(0f, 1f, progress));
+                if (progress >= 1f)
+                {
+                    discoveryObservationPhase = DiscoveryObservationPhase.None;
+                    cameraZoomPhase = ScanCameraZoomPhase.Base;
+                    releaseCameraZoomElapsed = 0f;
+                    cancelledZoomElapsed = 0f;
+                }
+            }
+
+            return true;
+        }
+
+        private static float EvaluateDiscoveryPullback(float progress)
+        {
+            float t = Mathf.Clamp01(progress);
+            // Integrate a short acceleration, sustained drive and short brake.
+            // At the current 1.16-second pullback these occupy 0.08 / 0.90 / 0.18 seconds.
+            const float acceleration = 0.08f / 1.16f;
+            const float braking = 0.18f / 1.16f;
+            const float speed = 1f / (1f - (acceleration + braking) * 0.5f);
+            if (t < acceleration)
+                return speed * t * t / (2f * acceleration);
+            if (t < 1f - braking)
+                return speed * (t - acceleration * 0.5f);
+            float remaining = 1f - t;
+            return 1f - speed * remaining * remaining / (2f * braking);
+        }
+
         private float GetHoldTargetOrthographicSize()
         {
             float multiplier = Mathf.Clamp(
@@ -652,6 +777,14 @@ namespace AnimalGame.RobotMap
         private void ApplyScanCameraZoom()
         {
             ResolveTrackingReferences();
+            // Keep the revealed world radius fixed while the released discovery view pulls back.
+            // Use the scan track instead of the camera's final size, which also contains shake/photo effects.
+            float discScale = isActiveAndEnabled && enableScanCameraZoom
+                && cameraZoomInitialized && mapCamera != null && mapCamera.isActiveAndEnabled
+                && discoveryObservationPhase != DiscoveryObservationPhase.None
+                ? baseCameraOrthographicSize / Mathf.Max(baseCameraOrthographicSize, currentScanOrthographicSize)
+                : 1f;
+            if (mainUI != null) mainUI.SetDiscoveryScanDiscScale(discScale);
             if (!cameraZoomInitialized || mapCamera == null)
                 return;
 
@@ -674,6 +807,8 @@ namespace AnimalGame.RobotMap
         private void ResetScanCameraZoomImmediate()
         {
             ResolveTrackingReferences();
+            discoveryObservationPhase = DiscoveryObservationPhase.None;
+            discoveryObservationElapsed = 0f;
             cameraZoomPhase = ScanCameraZoomPhase.Base;
             releaseCameraZoomElapsed = 0f;
             cancelledZoomElapsed = 0f;
@@ -944,9 +1079,13 @@ namespace AnimalGame.RobotMap
             releasePeakOrthographicSize = Mathf.Max(
                 0.01f,
                 releasePeakOrthographicSize);
+            discoveryObservationOrthographicSize = Mathf.Max(
+                0.01f,
+                discoveryObservationOrthographicSize);
             releaseZoomOutDuration = Mathf.Max(
                 0.05f,
                 releaseZoomOutDuration);
+            discoveryCameraArrivalLeadTime = Mathf.Max(0f, discoveryCameraArrivalLeadTime);
             releaseZoomReturnDuration = Mathf.Max(
                 0.05f,
                 releaseZoomReturnDuration);

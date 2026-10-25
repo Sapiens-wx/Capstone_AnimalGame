@@ -25,6 +25,7 @@ namespace AnimalGame.Tutorial
         private readonly ArmsLessonText defaultText = new ArmsLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
         private TutorialTerrainLesson terrain;
+        private TutorialBalanceLesson balanceLesson;
         private TutorialDrivingLesson driving;
         private RobotArmController arm;
         private RobotMarkerView marker;
@@ -46,6 +47,7 @@ namespace AnimalGame.Tutorial
         {
             if (gameObject.scene.path != TutorialDrivingLesson.ScenePath) { enabled = false; return; }
             terrain = GetComponent<TutorialTerrainLesson>();
+            balanceLesson = GetComponent<TutorialBalanceLesson>();
             driving = GetComponent<TutorialDrivingLesson>();
             if (bootstrap == null)
                 foreach (GameObject root in gameObject.scene.GetRootGameObjects())
@@ -62,7 +64,7 @@ namespace AnimalGame.Tutorial
             bool togglePressed = toggleHeld && !previousToggleHeld;
             previousToggleHeld = toggleHeld;
             if (terrain == null || Panel == null || bootstrap == null) return;
-            if (!terrain.IsComplete)
+            if (!terrain.IsComplete || (balanceLesson != null && balanceLesson.isActiveAndEnabled && !balanceLesson.IsComplete))
             {
                 if (hasStarted) ReleasePresentation();
                 completionDelay = 0f;
@@ -123,7 +125,8 @@ namespace AnimalGame.Tutorial
             progress = new ArmTutorialProgress(
                 Mathf.Max(.01f, marker != null ? marker.BodyDiameter : .72f) * reachDistanceOfBodyDiameter,
                 swingAngleDegrees, holdStillSeconds);
-            terrain.SetPresentationOwned(false);
+            if (balanceLesson != null && balanceLesson.isActiveAndEnabled) balanceLesson.SetPresentationOwned(false);
+            else terrain.SetPresentationOwned(false);
             hasStarted = true;
             Panel.SetCollapsed(false);
             refreshRemaining = 0f;
@@ -191,7 +194,7 @@ namespace AnimalGame.Tutorial
             Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
             Panel.SetLessonHint(progress.IsComplete ? string.Empty : text.ToggleHint);
             Panel.SetContent(tokens.Format(text.Title), tokens.Format(message), tokens.Format(control),
-                tokens.Format(action), tokens.Format(step.Detail), tokens.Format(status), 3, 8);
+                tokens.Format(action), tokens.Format(step.Detail), tokens.Format(status), 4, 9);
             Panel.SetProgress(progress.NormalizedProgress);
             Panel.SetSuccess(progress.IsComplete);
         }
@@ -260,7 +263,8 @@ namespace AnimalGame.Tutorial
             if (Panel != null) Panel.SetLessonHint(string.Empty);
             hasStarted = false; progress = null;
             ownsPresentation = true;
-            if (terrain != null) terrain.SetPresentationOwned(true);
+            if (balanceLesson != null && balanceLesson.isActiveAndEnabled) balanceLesson.SetPresentationOwned(true);
+            else if (terrain != null) terrain.SetPresentationOwned(true);
         }
 
         private void OnDisable()

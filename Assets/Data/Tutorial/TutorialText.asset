@@ -160,6 +160,43 @@ MonoBehaviour:
     ObserveStatus: Observe the scan signs
     BlockedStatus: Return to driving mode
     CompleteStatus: Lesson complete
+  Balance:
+    Title: Balance
+    ReadIndicator:
+      ControlGlyph: "\xB7"
+      Action: Read the dot
+      Message: "The dot shows your\nbalance point.\nThe ring marks your\nsupport area."
+      Detail: Read {value:F1} / {target:F0} s
+      CompleteFeedback:
+    AdjustWeight:
+      ControlGlyph: R
+      Action: Shift weight
+      Message: "Move the right stick.\nWatch the dot move\nas you shift weight."
+      Detail: Move the balance point.
+      CompleteFeedback:
+    ReadRisk:
+      ControlGlyph: "\xB7"
+      Action: Support ring
+      Message: "Keep the point inside\nthe support ring.\nIf it moves outside,\nthe robot will tip."
+      Detail: Read {value:F1} / {target:F0} s
+      CompleteFeedback:
+    Completed:
+      ControlGlyph: "\u2713"
+      Action: Ready
+      Message: "Balance ready.\nUse the right stick to\nadjust your balance."
+      Detail: Keep the point inside.
+      CompleteFeedback:
+    WaitingStatus: Waiting
+    ReadingStatus: Read guide
+    BlockedStatus: Resume lesson
+    NeedStowStatus: Retract arms first
+    NeutralStatus: Center right stick
+    StopStatus: Stop to continue
+    CompleteStatus: Lesson complete
+    ToggleHint: "R \xB7 Balance"
+    NeedStowMessage: "Press L3 to retract\nyour arms and return\nto driving controls."
+    NeutralMessage: "Center the right stick.\nThen move it again to\nshift your balance."
+    StopMessage: "Release the triggers.\nStop to continue\nthis balance lesson."
   Arms:
     Title: Mechanical Arms
     Deploy:
@@ -279,7 +316,7 @@ MonoBehaviour:
     ApproachAnimal:
       ControlGlyph: LS
       Action: Follow marker
-      Message: "Follow the marker.\nScan again when nearby.\nObserve the muskrat\nfrom dry ground."
+      Message: "Follow the marker.\nScan again when nearby.\nLook for the woodpecker\non dry ground."
       Detail: Stay on dry ground.
       CompleteFeedback:
     Charge:
@@ -306,26 +343,14 @@ MonoBehaviour:
       CompleteFeedback:
     FindAnimal:
       ControlGlyph: "\u2727"
-      Action: Find muskrat
-      Message: 'A hollow star marks
-
-        wildlife not yet seen.
-
-        Find
-        the muskrat.'
+      Action: Find bird
+      Message: "A hollow star marks\nwildlife not yet seen.\nFind the woodpecker."
       Detail: "Hollow star \xB7 Unseen"
       CompleteFeedback:
     ConfirmAnimal:
       ControlGlyph: "\u2726"
-      Action: See muskrat
-      Message: 'Drive until the muskrat
-
-        is inside your view.
-
-        Its
-        star becomes solid
-
-        when you see it.'
+      Action: See bird
+      Message: "Bring the woodpecker\ninside your view.\nIts star becomes solid\nwhen you see it."
       Detail: "Solid star \xB7 Seen"
       CompleteFeedback:
     ReadObject:
@@ -382,9 +407,9 @@ MonoBehaviour:
     Title: Photo Practice
     ObserveMovement:
       ControlGlyph: "\u2726"
-      Action: Watch muskrat
-      Message: "The muskrat is moving.\nWatch it swim nearby.\nKeep it inside your view."
-      Detail: Watch from dry ground.
+      Action: Observe bird
+      Message: "Keep the woodpecker\ninside your view.\nPrepare to take a photo."
+      Detail: Keep the bird in view.
       CompleteFeedback:
     EnterPhoto:
       ControlGlyph: '{photo}'
@@ -394,20 +419,20 @@ MonoBehaviour:
       CompleteFeedback:
     FrameSubject:
       ControlGlyph: L
-      Action: Frame muskrat
-      Message: "Use the triggers to move.\nSteer with the left stick.\nBring the muskrat into\nthe camera frame."
+      Action: Frame bird
+      Message: "Use the triggers to move.\nSteer with the left stick.\nBring the bird into\nthe camera frame."
       Detail: "{rt} / {lt} move \xB7 L steer"
       CompleteFeedback:
     Capture:
       ControlGlyph: '{rb}'
       Action: Hold to capture
-      Message: "Hold the right bumper.\nKeep the muskrat framed\nuntil the photo is taken."
+      Message: "Hold the right bumper.\nKeep the bird framed\nuntil the photo is taken."
       Detail: Hold {rb} until captured.
       CompleteFeedback:
     SavePhoto:
       ControlGlyph: '{save}'
       Action: Save photo
-      Message: "Save the muskrat photo.\nPress {save} on the result\nscreen to add it to\nyour album."
+      Message: "Save the bird photo.\nPress {save} on the result\nscreen to add it to\nyour album."
       Detail: "{save} \xB7 Save to album"
       CompleteFeedback:
     ExitPhoto:
@@ -424,14 +449,14 @@ MonoBehaviour:
       CompleteFeedback:
     WaitingStatus: Waiting
     BlockedStatus: Return to photo practice
-    TargetMissingStatus: Follow the muskrat marker
+    TargetMissingStatus: Follow the bird marker
     NeedStowStatus: Retract arms first
     NeedRescanStatus: Scan again to find it
-    RetryPhotoStatus: Photograph the muskrat
+    RetryPhotoStatus: Photograph the bird
     SavedStatus: Photo saved to album
     CompleteStatus: Lesson complete
     ToggleHint: "{photo} \xB7 Photo / {cancel} \xB7 Back"
-    TargetMissingMessage: "Follow the gold marker.\nStay on dry ground and\nlook for the muskrat\nnear the water's edge."
+    TargetMissingMessage: "Follow the gold marker.\nLook for the woodpecker\nnearby on dry ground."
     NeedStowMessage: "Press L3 to retract\nyour arms before\nentering photo mode."
     NeedRescanMessage: "The star marker faded.\nHold the left bumper,\nthen release at full\ncharge to find it again."
-    RetryPhotoMessage: "The muskrat was not\nrecorded in that photo.\nBring it into the frame\nand hold {rb} to try again."
+    RetryPhotoMessage: "The woodpecker was not\nrecorded in that photo.\nBring it into the frame\nand hold {rb} to try again."

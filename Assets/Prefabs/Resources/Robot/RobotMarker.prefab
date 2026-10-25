@@ -1105,11 +1105,11 @@ MonoBehaviour:
   retractionDuration: 0.25
   signalPointCount: 160
   automaticAngularCoverage: 1
-  maximumPointCount: 299
+  maximumPointCount: 360
   pointCoverageOverlap: 0.1
   formedRingRadius: 0.2
   signalSpeed: 8.7
-  maximumSignalDistance: 12
+  maximumSignalDistance: 14.44
   signalFadeOutDuration: 0.35
   signalPointDiameter: 0.1
   signalHeadCoreRatio: 0.377

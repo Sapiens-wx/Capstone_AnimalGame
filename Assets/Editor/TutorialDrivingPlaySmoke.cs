@@ -243,7 +243,7 @@ namespace AnimalGame.Editor
                             "The distant survey marker was not clamped to the real HUD circle.");
                         Require(terrain.Waypoint.Image.sprite != null && terrain.Waypoint.Image.sprite.name == "Target_0"
                             && !terrain.Waypoint.Image.raycastTarget, "Target_0 sprite binding or input isolation failed.");
-                        Record("Driving completion hands the same panel to English chapter 02/08 and the distant target appears on the circular rim.");
+                        Record("Driving completion hands the same panel to English chapter 02/09 and the distant target appears on the circular rim.");
                         ScreenCapture.CaptureScreenshot(Path.Combine(outputDirectory, "terrain-waypoint-edge.png"));
                         lastTerrainStep = terrain.Progress.Step; Begin(Phase.TerrainRightCollapsed); break;
                     case Phase.TerrainRightCollapsed:
@@ -335,11 +335,11 @@ namespace AnimalGame.Editor
                         if (!terrain.IsComplete) return;
                         Require(!terrain.Waypoint.HasTarget && terrain.Waypoint.CurrentMode == TutorialWaypointIndicator.WaypointMode.Hidden,
                             "Final destination marker remains after arrival.");
-                        Record("Real gamepad driving climbs from marked point 1 to point 2; arrival completes chapter 02/08 and removes its triangle.");
+                        Record("Real gamepad driving climbs from marked point 1 to point 2; arrival completes chapter 02/09 and removes its triangle.");
                         BeginCapture("terrain-complete.png", Phase.TerrainComplete); break;
                     case Phase.TerrainComplete:
                         Require(Time.timeScale == 1f && bootstrap.robot.enabled
-                            && lesson.Panel.Root.Q<Label>("TutorialChapter").text == "02 / 08",
+                            && lesson.Panel.Root.Q<Label>("TutorialChapter").text == "02 / 09",
                             "Terrain completion altered gameplay ownership or lost the chapter handoff.");
                         Begin(Phase.Removed); break;
                     case Phase.Capturing:

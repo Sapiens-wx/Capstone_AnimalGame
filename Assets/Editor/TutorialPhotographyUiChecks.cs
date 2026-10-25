@@ -58,9 +58,11 @@ namespace AnimalGame.Editor
             catch (Exception error) { Debug.LogException(error); EditorApplication.Exit(1); }
         }
 
-        [MenuItem("Animal Game/Validation/Run All Five Tutorial Checks")]
+        [MenuItem("Animal Game/Validation/Run All Six Tutorial Checks")]
         public static void RunAll()
         {
+            TutorialBalanceRegressionChecks.Run();
+            TutorialBalanceUiChecks.Run();
             TutorialPhotographyRegressionChecks.Run();
             TutorialPhotoResultObservationChecks.Run();
             TutorialDiscoveryUiChecks.RunAll();
@@ -125,7 +127,7 @@ namespace AnimalGame.Editor
 
         private static string ExistingCopy(TutorialTextContent text) => JsonUtility.ToJson(text.Panel)
             + JsonUtility.ToJson(text.Driving) + JsonUtility.ToJson(text.Terrain)
-            + JsonUtility.ToJson(text.Arms) + JsonUtility.ToJson(text.Discovery);
+            + JsonUtility.ToJson(text.Balance) + JsonUtility.ToJson(text.Arms) + JsonUtility.ToJson(text.Discovery);
 
         private static void CheckPanel(TutorialTextContent text)
         {
@@ -175,7 +177,7 @@ namespace AnimalGame.Editor
                             DrivingHelper("Settle", panel, size);
                             string context = "Photography " + step + " / " + size + " / " + valid;
                             CheckVisibleText(panel.Root, context);
-                            Require(panel.Root.Q<Label>("TutorialChapter").text == "05 / 08", "Photography teaching is chapter five.");
+                            Require(panel.Root.Q<Label>("TutorialChapter").text == "06 / 09", "Photography teaching is chapter six of nine.");
                             Require(panel.Root.Q<Label>("TutorialTitle").text == text.Photography.Title,
                                 "Photography uses the editable chapter title.");
                             Require(panel.Root.Q<Label>("TutorialMessage").text == Tokens().Format(text.Photography.GetStep(step).Message),
@@ -215,7 +217,7 @@ namespace AnimalGame.Editor
             TutorialTextTokens tokens = Tokens();
             for (int index = 0; index < messages.Length; index++)
             {
-                panel.SetContent(copy.Title, tokens.Format(messages[index]), "RB", "Try again", "Follow the prompt.", statuses[index], 5, 8);
+                panel.SetContent(copy.Title, tokens.Format(messages[index]), "RB", "Try again", "Follow the prompt.", statuses[index], 6, 9);
                 panel.SetLessonHint(tokens.Format(copy.ToggleHint));
                 panel.SetVisible(true); panel.SetCollapsed(false);
                 DrivingHelper("Settle", panel, size);

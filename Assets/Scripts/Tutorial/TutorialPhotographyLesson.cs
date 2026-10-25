@@ -21,7 +21,8 @@ namespace AnimalGame.Tutorial
         [SerializeField, Min(0f)] private float discoveryCompletionDelay = 1.5f;
         [SerializeField, Min(.1f)] private float observationSeconds = .8f;
         [SerializeField, Min(.1f)] private float framingSeconds = .5f;
-        [SerializeField, Min(.1f)] private float requiredMovementMeters = 2f;
+        [Tooltip("Zero allows observing a stationary teaching animal before photographing it.")]
+        [SerializeField, Min(0f)] private float requiredMovementMeters;
 
         private readonly PhotographyLessonText defaultText = new PhotographyLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
@@ -225,7 +226,7 @@ namespace AnimalGame.Tutorial
             Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
             Panel.SetLessonHint(progress.IsComplete ? string.Empty : tokens.Format(text.ToggleHint));
             Panel.SetContent(tokens.Format(text.Title), tokens.Format(message), tokens.Format(glyph),
-                tokens.Format(action), tokens.Format(detail), tokens.Format(status), 5, 8);
+                tokens.Format(action), tokens.Format(detail), tokens.Format(status), 6, 9);
             Panel.SetProgress(progress.NormalizedProgress); Panel.SetSuccess(progress.IsComplete);
             displayedStep = progress.Step;
         }

@@ -80,6 +80,8 @@ namespace AnimalGame.RobotMap
         private float lastAnimationProgress = -1;
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
+        private PhotoResultSnapshot currentResult;
+        private bool currentPhotoSaved;
         private RobotBalanceView hiddenBalanceView;
         private bool previousBalanceDisplayVisible;
         private float MaximumTiltDegrees => Mathf.Max(interactiveTiltDegrees,
@@ -92,8 +94,31 @@ namespace AnimalGame.RobotMap
 
         private void Awake()
         {
-            if (document != null) BuildDocumentTree();
-            HeightMapPlayerSceneBootstrap.inst.photoResultView=this;
+            if (document == null) document = GetComponent<UIDocument>();
+            RefreshDocumentTree();
+            if (HeightMapPlayerSceneBootstrap.inst != null)
+                HeightMapPlayerSceneBootstrap.inst.photoResultView = this;
+        }
+
+        private void OnEnable() => RefreshDocumentTree();
+
+        private void RefreshDocumentTree()
+        {
+            if (document == null || !document.isActiveAndEnabled) return;
+            VisualElement nextRoot = document.rootVisualElement;
+            if (nextRoot == null || (nextRoot == root && stage == nextRoot.Q("stage"))) return;
+
+            // Enabling a parent UIDocument can recreate its nested result document after Awake.
+            // Bind the actual tree before rendering, so the authored example never appears as gameplay UI.
+            StopTextReveal();
+            BuildDocumentTree();
+            if (!showing || currentResult == null) return;
+            PopulateResultText(currentResult);
+            if (!IsWarmingUp && !textRevealStarted) PrepareTextReveal();
+            photoImage.image = cardOutput;
+            snapshotImage.image = circleOutput;
+            root.style.display = DisplayStyle.Flex;
+            ApplyAnimation();
         }
 
         private void BuildDocumentTree()
@@ -166,9 +191,7 @@ namespace AnimalGame.RobotMap
             HasPendingReview = false;
             if (mainUIAnimation == null)
                 mainUIAnimation = FindFirstObjectByType<PhotoResultMainUIAnimation>();
-            // UIDocument may rebuild its root after its parent GameObject is re-enabled.
-            if (document.rootVisualElement != root || document.rootVisualElement.Q("stage") == null)
-                BuildDocumentTree();
+            RefreshDocumentTree();
             ShowCore(result, capture.Texture);
         }
 
@@ -214,12 +237,9 @@ namespace AnimalGame.RobotMap
             processedPhoto = result.Photo.Render(photoResolution);
             photoSource = processedPhoto;
             contourSource = contours;
-            root.Q<Label>("animal-name").text = result.EnglishName;
-            root.Q<Label>("scientific-name").text = result.ScientificName;
-            UpdateLocation(result);
-            string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
-            root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
-            saveLabel.text = "Save Photo";
+            currentResult = result;
+            currentPhotoSaved = false;
+            PopulateResultText(result);
             if (!IsWarmingUp) PrepareTextReveal();
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             circleMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
@@ -338,8 +358,19 @@ namespace AnimalGame.RobotMap
                     + "\u00b0 " + (result.Latitude < 0 ? "S" : "N") : "Latitude --";
         }
 
+        private void PopulateResultText(PhotoResultSnapshot result)
+        {
+            root.Q<Label>("animal-name").text = result.EnglishName;
+            root.Q<Label>("scientific-name").text = result.ScientificName;
+            UpdateLocation(result);
+            string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
+            root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
+            saveLabel.text = currentPhotoSaved ? "Photo Saved" : "Save Photo";
+        }
+
         public void SetSaved()
         {
+            currentPhotoSaved = true;
             if (revealTargets.ContainsKey(saveLabel))
             {
                 revealTargets[saveLabel] = "Photo Saved";
@@ -355,6 +386,8 @@ namespace AnimalGame.RobotMap
             StopTextReveal();
             RestoreBalanceDisplay();
             showing = false;
+            currentResult = null;
+            currentPhotoSaved = false;
             textRevealStarted = false;
             HasPendingReview = false;
             if (!IsWarmingUp && mainUIAnimation != null) mainUIAnimation.Restore();
@@ -376,6 +409,7 @@ namespace AnimalGame.RobotMap
         // Run after RobotTumbleUiRotation's LateUpdate (350), which locks the HUD position.
         private void LateUpdate()
         {
+            RefreshDocumentTree();
             if (!showing || IsWarmingUp) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
             ApplyAnimation();

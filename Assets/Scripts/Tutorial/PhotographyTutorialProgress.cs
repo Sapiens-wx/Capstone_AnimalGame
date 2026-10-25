@@ -56,7 +56,7 @@ namespace AnimalGame.Tutorial
             this.observeSeconds = FiniteDuration(observeSeconds, .8f);
             this.frameSeconds = FiniteDuration(frameSeconds, .5f);
             this.requiredMovementMeters = float.IsFinite(requiredMovementMeters)
-                ? Mathf.Max(.01f, requiredMovementMeters) : 2f;
+                ? Mathf.Max(0f, requiredMovementMeters) : 2f;
             Reset(existingResultId);
         }
 

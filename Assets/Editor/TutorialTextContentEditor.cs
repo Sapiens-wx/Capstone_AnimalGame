@@ -14,11 +14,13 @@ namespace AnimalGame.Editor
         private bool panelExpanded;
         private bool drivingExpanded = true;
         private bool terrainExpanded = true;
+        private bool balanceExpanded = true;
         private bool armsExpanded = true;
         private bool discoveryExpanded = true;
         private bool photographyExpanded = true;
         private bool drivingStatusesExpanded;
         private bool terrainStatusesExpanded;
+        private bool balanceStatusesExpanded;
         private bool armsStatusesExpanded;
         private bool armsRemindersExpanded = true;
         private bool discoveryStatusesExpanded;
@@ -44,13 +46,16 @@ namespace AnimalGame.Editor
             terrainExpanded = EditorGUILayout.Foldout(terrainExpanded, "02 · 地形与坡度教程", true, EditorStyles.foldoutHeader);
             if (terrainExpanded) DrawTerrain(serializedObject.FindProperty("Terrain"));
             EditorGUILayout.Space(5);
-            armsExpanded = EditorGUILayout.Foldout(armsExpanded, "03 · 机械臂基础操作", true, EditorStyles.foldoutHeader);
+            balanceExpanded = EditorGUILayout.Foldout(balanceExpanded, "03 · 重心控制", true, EditorStyles.foldoutHeader);
+            if (balanceExpanded) DrawBalance(serializedObject.FindProperty("Balance"));
+            EditorGUILayout.Space(5);
+            armsExpanded = EditorGUILayout.Foldout(armsExpanded, "04 · 机械臂基础操作", true, EditorStyles.foldoutHeader);
             if (armsExpanded) DrawArms(serializedObject.FindProperty("Arms"));
             EditorGUILayout.Space(5);
-            discoveryExpanded = EditorGUILayout.Foldout(discoveryExpanded, "04 · 探索扫描", true, EditorStyles.foldoutHeader);
+            discoveryExpanded = EditorGUILayout.Foldout(discoveryExpanded, "05 · 探索扫描", true, EditorStyles.foldoutHeader);
             if (discoveryExpanded) DrawDiscovery(serializedObject.FindProperty("Discovery"));
             EditorGUILayout.Space(5);
-            photographyExpanded = EditorGUILayout.Foldout(photographyExpanded, "05 · 野生动物拍照", true, EditorStyles.foldoutHeader);
+            photographyExpanded = EditorGUILayout.Foldout(photographyExpanded, "06 · 野生动物拍照", true, EditorStyles.foldoutHeader);
             if (photographyExpanded) DrawPhotography(serializedObject.FindProperty("Photography"));
             EditorGUILayout.Space(7);
             placeholdersExpanded = EditorGUILayout.Foldout(placeholdersExpanded, "动态占位符与排版提示", true);
@@ -62,6 +67,7 @@ namespace AnimalGame.Editor
                 EditorGUILayout.LabelField("行进转向", "{movingDistance:F1}   {movingTarget:F1}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("地点与坡度", "{distance:F1}   {slope:F0}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("阅读时间", "{reading:F1}   {readingTarget:F0}", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("重心阅读进度", "{value:F1} / {target:F0} s；调整步骤按实际重心变化完成。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("机械臂进度", "{value:F0} / {target:F0} cm 或 °；停留时间使用 F1 秒。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("探索扫描", "{value:F0}% 充能；{value:F0} / {target:F0} 扫描次数。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("拍照按键", "{photo} 拍照模式；{rb} 快门；{save} 保存；{cancel} 返回。", EditorStyles.wordWrappedLabel);
@@ -161,6 +167,35 @@ namespace AnimalGame.Editor
             EditorGUILayout.Space(3);
         }
 
+        private void DrawBalance(SerializedProperty balance)
+        {
+            if (balance == null) return;
+            using (new EditorGUI.IndentLevelScope())
+            {
+                Field(balance, "Title", "章节标题");
+                DrawStep(balance, "ReadIndicator", "1 · 认识重心点与支撑圆环");
+                DrawStep(balance, "AdjustWeight", "2 · 右摇杆调整重心");
+                DrawStep(balance, "ReadRisk", "3 · 认识侧翻风险");
+                DrawStep(balance, "Completed", "重心教学完成");
+                Field(balance, "ToggleHint", "持续操作提醒", "仅本章节显示的右摇杆提示；底部方向键提示保持不变。");
+                Field(balance, "NeedStowMessage", "请先收起机械臂的正文");
+                Field(balance, "NeutralMessage", "请先松开右摇杆的正文", "进入调整步骤时摇杆已经偏转，提示回中后再主动推动。");
+                Field(balance, "StopMessage", "请先停车的正文", "释放扳机并停车后再练习，避免行驶惯性被计为主动调整重心。");
+                balanceStatusesExpanded = EditorGUILayout.Foldout(balanceStatusesExpanded, "通用状态反馈", true);
+                if (balanceStatusesExpanded)
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        Field(balance, "WaitingStatus", "等待操作");
+                        Field(balance, "ReadingStatus", "阅读提示");
+                        Field(balance, "BlockedStatus", "暂时无法练习");
+                        Field(balance, "NeedStowStatus", "请先收起机械臂");
+                        Field(balance, "NeutralStatus", "请先松开右摇杆");
+                        Field(balance, "StopStatus", "请先停车");
+                        Field(balance, "CompleteStatus", "教学完成");
+                    }
+            }
+        }
+
         private void DrawArms(SerializedProperty arms)
         {
             if (arms == null) return;
@@ -212,7 +247,7 @@ namespace AnimalGame.Editor
                 Field(discovery, "Title", "章节标题");
                 DrawStep(discovery, "Charge", "1 · 长按充能");
                 DrawStep(discovery, "Release", "2 · 充满后松开发出扫描");
-                DrawStep(discovery, "FindAnimal", "3 · 寻找未见过的麝鼠");
+                DrawStep(discovery, "FindAnimal", "3 · 寻找未见过的啄木鸟");
                 DrawStep(discovery, "ApproachAnimal", "目标超出扫描范围时的指引");
                 DrawStep(discovery, "ConfirmAnimal", "4 · 亲眼确认并识别实心标记");
                 DrawStep(discovery, "ReadObject", "5 · 识别可交互物标记");
@@ -243,7 +278,7 @@ namespace AnimalGame.Editor
             using (new EditorGUI.IndentLevelScope())
             {
                 Field(photography, "Title", "章节标题");
-                DrawStep(photography, "ObserveMovement", "1 · 观察麝鼠移动");
+                DrawStep(photography, "ObserveMovement", "1 · 观察啄木鸟");
                 DrawStep(photography, "EnterPhoto", "2 · 进入拍照模式");
                 DrawStep(photography, "FrameSubject", "3 · 调整车辆位置与构图");
                 DrawStep(photography, "Capture", "4 · 长按快门完成拍摄");
@@ -259,7 +294,7 @@ namespace AnimalGame.Editor
                         Field(photography, "TargetMissingMessage", "寻找目标的正文");
                         Field(photography, "NeedStowMessage", "请先收起机械臂的正文");
                         Field(photography, "NeedRescanMessage", "重新扫描的正文");
-                        Field(photography, "RetryPhotoMessage", "未拍到教学麝鼠的正文");
+                        Field(photography, "RetryPhotoMessage", "未拍到教学啄木鸟的正文");
                     }
                 photographyStatusesExpanded = EditorGUILayout.Foldout(photographyStatusesExpanded, "通用状态反馈", true);
                 if (photographyStatusesExpanded)
@@ -267,10 +302,10 @@ namespace AnimalGame.Editor
                     {
                         Field(photography, "WaitingStatus", "等待操作");
                         Field(photography, "BlockedStatus", "暂时无法练习");
-                        Field(photography, "TargetMissingStatus", "跟随麝鼠指引");
+                        Field(photography, "TargetMissingStatus", "跟随啄木鸟指引");
                         Field(photography, "NeedStowStatus", "请先收起机械臂");
                         Field(photography, "NeedRescanStatus", "请重新扫描");
-                        Field(photography, "RetryPhotoStatus", "请重拍教学麝鼠");
+                        Field(photography, "RetryPhotoStatus", "请重拍教学啄木鸟");
                         Field(photography, "SavedStatus", "照片已保存");
                         Field(photography, "CompleteStatus", "教学完成");
                     }
@@ -337,6 +372,10 @@ namespace AnimalGame.Editor
     [CustomEditor(typeof(TutorialArmLesson))]
     [CanEditMultipleObjects]
     public sealed class TutorialArmLessonTextEditor : TutorialLessonTextInspector { }
+
+    [CustomEditor(typeof(TutorialBalanceLesson))]
+    [CanEditMultipleObjects]
+    public sealed class TutorialBalanceLessonTextEditor : TutorialLessonTextInspector { }
 
     [CustomEditor(typeof(TutorialDiscoveryLesson))]
     [CanEditMultipleObjects]

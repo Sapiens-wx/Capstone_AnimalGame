@@ -21,6 +21,8 @@ namespace AnimalGame.Editor
     {
         private const string SessionKey = "AnimalGame.TutorialDiscoveryPlaySmoke.CurrentRun";
         private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private const string KnownMissingStaticAnimal = "Prefab instance problem: 'Static_Animal (Missing Prefab with guid: 2645e53e76c8ec846b09ee78b13275be)'. 2 instances are missing the same Prefab Asset with guid 2645e53e76c8ec846b09ee78b13275be.";
+        private const string KnownSceneHeader = "Problem detected while opening the Scene file: 'Assets/Scenes/GameMaps/TutorialTemporaryMap.unity'.\nCheck the following logs for more details.";
         private enum Phase { Starting, TerrainStarting, ArmStarting, DiscoveryStarting, Hide, Show,
             ShortTaps, EarlyCharge, EarlyRelease, FirstCharge, FirstRelease, TravelToObservation, ObserveAnimal,
             ApproachAnimal, ReadObject, RefreshCharge, RefreshRelease, RescanCharge, RescanRelease, Complete, Finishing }
@@ -31,18 +33,20 @@ namespace AnimalGame.Editor
             public bool animalPermanentlyDiscovered, armIsActive, nativeWaveActive;
             public bool earlyChargeFixture, chargedBeforeTargetsReady, fullChargeBeforeTargetsReady;
             public bool prechargeFixture, fullyChargedBeforeChapter;
-            public bool fixedWaterAnimal, animalWithinScanReach, observationReached, shorePathHasData, shorePathPassable, shorePathHardStop;
+            public bool usesFixedAnimalPosition, animalWithinScanReach, observationReached, observationPathHasData, observationPathPassable, observationPathHardStop;
             public bool animalMotionRequested, animalMovedAfterScan, checkedAnimalFrozenBeforeScan;
             public string project, phase, step, species, targetFailure, screenshotStatus, movementMode;
             public float value, charge, animalRemaining, objectRemaining, targetDistanceWorld, cameraSize, baseCameraSize, heading;
             public float targetDistanceFromNativeOrigin, currentTurnSpeed, currentThrottleIntent, steeringAuthority;
-            public float animalWaterDepth, playerWaterDepth, observationWaterDepth, shorePathMaximumSlope;
+            public float animalWaterDepth, playerWaterDepth, observationWaterDepth, observationPathMaximumSlope;
             public float animalTravelledMeters, maximumAnimalAnchorDistance;
             public int nativeSequence, terrainRequests, screenWidth, screenHeight, requestedScreenWidth, requestedScreenHeight;
+            public int knownSceneHeaders, knownMissingPrefabMessages;
             public Vector2 robotMapPosition, initialMapPosition, animalMapPosition, objectMapPosition;
             public Vector2 nativeWaveOrigin, actualLeftStick, queuedLeftStick;
             public Vector2 fixedAnimalMapPosition, observationMapPosition, initialAnimalMapPosition;
             public List<string> checks = new List<string>(), errors = new List<string>(), screenshots = new List<string>();
+            public List<string> knownSceneDiagnostics = new List<string>();
             public List<string> screenshotRequests = new List<string>(), screenshotWarnings = new List<string>();
         }
         [SerializeField] private string runId, output;
@@ -59,9 +63,9 @@ namespace AnimalGame.Editor
         [SerializeField] private TutorialArmLesson arms;
         [SerializeField] private TutorialDiscoveryLesson lesson;
         [SerializeField] private bool earlyChargeFixture, earlyTargetsRestored, prechargeFixture;
-        [SerializeField] private GameObject fixtureMuskratPrefab, fixtureItemPrefab;
+        [SerializeField] private GameObject fixtureAnimalPrefab, fixtureItemPrefab;
         [SerializeField] private Vector2 lastQueuedLeftStick;
-        [SerializeField] private bool fixedAnimalCaptured, observationReached;
+        [SerializeField] private bool animalAnchorCaptured, observationReached;
         [SerializeField] private Vector2 initialAnimalMapPosition;
 
         public static void RunBatch()
@@ -86,9 +90,10 @@ namespace AnimalGame.Editor
             test.report.prechargeFixture = test.prechargeFixture;
             Require(!test.earlyChargeFixture || !test.prechargeFixture,
                 "Run the delayed-target and prechapter-charge scenarios separately so each charge boundary is verified independently.");
+            test.Subscribe();
             EditorSceneManager.OpenScene(TutorialDrivingLesson.ScenePath, OpenSceneMode.Single);
             test.deadline = EditorApplication.timeSinceStartup + 210;
-            test.running = true; test.Begin(Phase.Starting); test.Subscribe(); EditorApplication.isPlaying = true;
+            test.running = true; test.Begin(Phase.Starting); EditorApplication.isPlaying = true;
         }
 
         private bool Current => !string.IsNullOrEmpty(runId) && SessionState.GetString(SessionKey, "") == runId;
@@ -119,7 +124,7 @@ namespace AnimalGame.Editor
                 if (!EditorApplication.isPlaying || Time.frameCount == lastFrame) return;
                 lastFrame = Time.frameCount;
                 ReadMarker();
-                CheckFixedAnimalMovement();
+                CheckAnimalMovement();
                 if (Time.frameCount % 30 == 0) Save();
                 switch (phase)
                 {
@@ -149,6 +154,13 @@ namespace AnimalGame.Editor
                         typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
+                        var precedingBalance = arms.GetComponent<TutorialBalanceLesson>();
+                        if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
+                            && !precedingBalance.Progress.IsComplete)
+                        {
+                            typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            return;
+                        }
                         if (!arms.HasStarted || arms.Progress == null) return;
                         if (prechargeFixture)
                         {
@@ -159,12 +171,12 @@ namespace AnimalGame.Editor
                         typeof(ArmTutorialProgress).GetProperty("Step", Flags).SetValue(arms.Progress, ArmTutorialStep.Completed);
                         if (earlyChargeFixture)
                         {
-                            fixtureMuskratPrefab = (GameObject)typeof(TutorialDiscoveryLesson).GetField("muskratPrefab", Flags).GetValue(lesson);
+                            fixtureAnimalPrefab = (GameObject)typeof(TutorialDiscoveryLesson).GetField("animalPrefab", Flags).GetValue(lesson);
                             fixtureItemPrefab = (GameObject)typeof(TutorialDiscoveryLesson).GetField("smallGarbagePrefab", Flags).GetValue(lesson);
-                            Require(fixtureMuskratPrefab != null && fixtureItemPrefab != null,
+                            Require(fixtureAnimalPrefab != null && fixtureItemPrefab != null,
                                 "The early-charge fixture needs the authored target prefabs to restore after its readiness delay.");
                             // Fixture only: keep targets unavailable while a real held LB gesture reaches full charge.
-                            typeof(TutorialDiscoveryLesson).GetField("muskratPrefab", Flags).SetValue(lesson, null);
+                            typeof(TutorialDiscoveryLesson).GetField("animalPrefab", Flags).SetValue(lesson, null);
                         }
                         Begin(Phase.DiscoveryStarting); break;
                     case Phase.DiscoveryStarting:
@@ -176,8 +188,8 @@ namespace AnimalGame.Editor
                             if (!lesson.HasStarted || lesson.Progress == null || !report.fullChargeBeforeTargetsReady) return;
                             Require(!ready && report.chargedBeforeTargetsReady,
                                 "The early-charge fixture must observe a real ongoing charge while targets are unavailable.");
-                            typeof(TutorialDiscoveryLesson).GetField("muskratPrefab", Flags).SetValue(lesson, fixtureMuskratPrefab);
-                            lesson.Targets.Configure(bootstrap, fixtureMuskratPrefab, fixtureItemPrefab);
+                            typeof(TutorialDiscoveryLesson).GetField("animalPrefab", Flags).SetValue(lesson, fixtureAnimalPrefab);
+                            lesson.Targets.Configure(bootstrap, fixtureAnimalPrefab, fixtureItemPrefab);
                             earlyTargetsRestored = true;
                             Record("Fixture delayed target readiness until a real held LB scan reached full charge, then restored its original prefabs.");
                             return;
@@ -192,8 +204,9 @@ namespace AnimalGame.Editor
                         }
                         else Require(lesson.Progress.Step == DiscoveryTutorialStep.Charge, "Discovery must start by requesting a fresh charge.");
                         var subject = lesson.Targets.Animal.GetComponent<AnimalPhotoSubject>();
-                        Require(subject != null && subject.Species == AnimalSpecies.Muskrat,
-                            "The designated scan subject must be the requested muskrat.");
+                        Require(subject != null && subject.Species == AnimalSpecies.PileatedWoodpecker
+                            && subject.SpeciesId == "pileated_woodpecker",
+                            "The designated scan subject must be the requested woodpecker.");
                         report.species = subject.SpeciesId;
                         Require(lesson.Targets.GetComponentsInChildren<AnimalGame.Discovery.DiscoverableEntity>(true).Length == 1
                             && lesson.Targets.GetComponentsInChildren<AnimalGame.World.ScannableInteractable>(true).Length == 1,
@@ -203,29 +216,27 @@ namespace AnimalGame.Editor
                         bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 current, out _);
                         Require(Vector2.Distance(current, report.initialMapPosition) < .2f,
                             "Skipping earlier chapters must not move the player to a scan practice destination.");
+                        initialAnimalMapPosition = lesson.Targets.AnimalMapPosition; animalAnchorCaptured = true;
+                        Require(bootstrap.map.TrySampleStaticWaterMapPosition(initialAnimalMapPosition, out float animalDepth)
+                            && animalDepth <= .01f, "The woodpecker teaching location must be on actual dry map ground.");
+                        Require(!lesson.Targets.HasAnimalMotionStarted && lesson.Targets.AnimalTravelledMeters <= .001f,
+                            "The teaching woodpecker must remain frozen at its initial anchor before a real scan hit.");
+                        report.checkedAnimalFrozenBeforeScan = true;
                         if (lesson.Targets.UsesFixedAnimalPosition)
                         {
-                            Vector2 expected = new Vector2(140f, 62.5f);
-                            initialAnimalMapPosition = lesson.Targets.AnimalMapPosition; fixedAnimalCaptured = true;
-                            Require(Vector2.Distance(lesson.Targets.FixedAnimalMapPositionMeters, expected) < .01f
-                                && Vector2.Distance(initialAnimalMapPosition, expected) < .05f,
-                                "The fixed teaching muskrat must be at the requested water location (140,62.5).");
-                            Require(bootstrap.map.TrySampleStaticWaterMapPosition(initialAnimalMapPosition, out float animalDepth)
-                                && animalDepth > .01f, "The fixed muskrat teaching location must be in actual map water.");
-                            Require(!lesson.Targets.HasAnimalMotionStarted && lesson.Targets.AnimalTravelledMeters <= .001f,
-                                "The teaching muskrat must remain frozen at its authored anchor before a real scan hit.");
-                            report.checkedAnimalFrozenBeforeScan = true;
+                            Require(Vector2.Distance(initialAnimalMapPosition, lesson.Targets.FixedAnimalMapPositionMeters) < .05f,
+                                "A fixed teaching woodpecker must start at its initial dry-land anchor.");
                             Vector2 observation = lesson.Targets.AnimalObservationMapPosition;
                             bootstrap.map.TrySampleStaticWaterMapPosition(observation, out float observationDepth);
                             Require(observationDepth <= .01f, "The configured observation point must be on dry land.");
-                            SlopeTraversalResult shorePath = bootstrap.traversalEvaluator.EvaluateMapPath(report.initialMapPosition, observation);
-                            report.shorePathHasData = shorePath.HasData;
-                            report.shorePathPassable = shorePath.IsPassable;
-                            report.shorePathHardStop = shorePath.RequiresHardStop;
-                            report.shorePathMaximumSlope = shorePath.MaximumSurfaceSlopeAngle;
-                            Record("The requested muskrat begins fixed in actual water; the fixture will drive to the dry observation point before scanning starts its bounded swim.");
+                            SlopeTraversalResult observationPath = bootstrap.traversalEvaluator.EvaluateMapPath(report.initialMapPosition, observation);
+                            report.observationPathHasData = observationPath.HasData;
+                            report.observationPathPassable = observationPath.IsPassable;
+                            report.observationPathHardStop = observationPath.RequiresHardStop;
+                            report.observationPathMaximumSlope = observationPath.MaximumSurfaceSlopeAngle;
+                            Record("The requested woodpecker remains fixed on dry ground while the fixture drives to the observation point and scans it.");
                         }
-                        Record("Fixture skips earlier chapter progress only; discovery creates an unknown muskrat and object around the unchanged player.");
+                        Record("Fixture skips earlier chapter progress only; discovery creates an unknown woodpecker and object around the unchanged player.");
                         if (earlyChargeFixture || prechargeFixture)
                         {
                             Record(prechargeFixture
@@ -278,7 +289,7 @@ namespace AnimalGame.Editor
                         Require(lesson.Progress.LatestWaveId > 0 && bootstrap.bioScan.ScanSequence > 0
                             && lesson.Targets.Animal.IsPermanentlyDiscovered, "Real outgoing scan must hit both designated targets.");
                         Require(report.observedHollow, "The initial detected animal must present a real hollow marker outside first-sight confirmation.");
-                        Record("The released native wave discovers the muskrat and highlights the designated object; a hollow animal marker is visible.",
+                        Record("The released native wave discovers the woodpecker and highlights the designated object; a hollow animal marker is visible.",
                             "discovery-hollow.png");
                         Begin(Phase.ObserveAnimal); break;
                     case Phase.TravelToObservation:
@@ -286,9 +297,9 @@ namespace AnimalGame.Editor
                         if (Vector2.Distance(observationPlayer, lesson.Targets.AnimalObservationMapPosition) > 1f) return;
                         observationReached = true;
                         Require(lesson.Targets.IsAnimalWithinScanReach,
-                            "The configured dry observation point must put the fixed muskrat inside real scan reach.");
-                        Require(PlayerWaterDepth() <= .01f, "Approaching the muskrat for scanning must stay on dry ground.");
-                        Record("Real RT and left-stick driving reaches the configured dry observation point; a fresh actual wave will scan the fixed water muskrat.");
+                            "The configured dry observation point must put the fixed woodpecker inside real scan reach.");
+                        Require(PlayerWaterDepth() <= .01f, "Approaching the woodpecker for scanning must stay on dry ground.");
+                        Record("Real RT and left-stick driving reaches the configured dry observation point; a fresh actual wave will scan the fixed woodpecker.");
                         Refresh(Phase.FirstRelease); break;
                     case Phase.ObserveAnimal:
                         if (lesson.Progress.Step == DiscoveryTutorialStep.FindAnimal)
@@ -305,7 +316,7 @@ namespace AnimalGame.Editor
                         {
                             Require(report.animalSeen, "Approach must produce the real solid/seen marker state.");
                             if (lesson.Targets.UsesFixedAnimalPosition)
-                                Require(PlayerWaterDepth() <= .01f, "The real solid muskrat marker must be confirmed while the player is still on dry ground.");
+                                Require(PlayerWaterDepth() <= .01f, "The real solid woodpecker marker must be confirmed while the player is still on dry ground.");
                             Record("Real RT and left-stick driving brings the animal to the view circle and confirms its solid marker before collision.",
                                 "discovery-solid.png");
                             Begin(Phase.ReadObject); break;
@@ -351,13 +362,14 @@ namespace AnimalGame.Editor
                         }
                         Require(lesson.Progress.IsComplete && bootstrap.robot.enabled && Time.timeScale == 1f,
                             "Completing discovery must preserve normal player ownership.");
-                        if (fixedAnimalCaptured)
+                        if (animalAnchorCaptured)
                         {
-                            Require(report.checkedAnimalFrozenBeforeScan && lesson.Targets.HasAnimalMotionStarted,
-                                "The teaching muskrat must remain anchored before discovery and begin its bounded swimming only after an actual scan hit.");
-                            Require(report.maximumAnimalAnchorDistance <= 4.1f,
-                                "The scanned teaching muskrat must stay on its short water route near the authored anchor.");
-                            Require(PlayerWaterDepth() <= .01f, "The completed water-animal tutorial must leave the player on dry land.");
+                            Require(report.checkedAnimalFrozenBeforeScan && !lesson.Targets.HasAnimalMotionStarted
+                                && lesson.Targets.AnimalTravelledMeters <= .001f,
+                                "The teaching woodpecker must remain anchored before and after an actual discovery scan.");
+                            Require(report.maximumAnimalAnchorDistance <= .05f,
+                                "The scanned teaching woodpecker must remain at its original dry-land anchor.");
+                            Require(PlayerWaterDepth() <= .01f, "The completed woodpecker tutorial must leave the player on dry land.");
                         }
                         Finish(null); break;
                 }
@@ -503,23 +515,24 @@ namespace AnimalGame.Editor
             return depth;
         }
 
-        private void CheckFixedAnimalMovement()
+        private void CheckAnimalMovement()
         {
-            if (!fixedAnimalCaptured || lesson?.Targets?.Animal == null || bootstrap?.map == null) return;
+            if (!animalAnchorCaptured || lesson?.Targets?.Animal == null || bootstrap?.map == null) return;
             TutorialDiscoveryTargets targets = lesson.Targets;
             float distance = Vector2.Distance(targets.AnimalMapPosition, initialAnimalMapPosition);
             report.maximumAnimalAnchorDistance = Mathf.Max(report.maximumAnimalAnchorDistance, distance);
+            Require(!targets.HasAnimalMotionStarted && targets.AnimalTravelledMeters <= .001f && distance <= .05f,
+                "Discovery must never request movement or displace the teaching woodpecker from its dry-land anchor.");
             if (!targets.Animal.IsPermanentlyDiscovered)
             {
                 Require(!targets.HasAnimalMotionStarted && targets.AnimalTravelledMeters <= .001f && distance < .05f,
-                    "Before the real animal scan hit, the teaching muskrat must stay frozen at its authored water anchor.");
+                    "Before the real animal scan hit, the teaching woodpecker must stay frozen at its initial dry-land anchor.");
                 report.checkedAnimalFrozenBeforeScan = true;
                 return;
             }
-            Require(bootstrap.bioScan.ScanSequence > 0, "A moving discovered teaching muskrat requires a native emitted scan.");
-            Require(distance <= 4.1f, "Post-scan swimming must remain within the approved short route around the water anchor.");
+            Require(bootstrap.bioScan.ScanSequence > 0, "A discovered teaching woodpecker requires a native emitted scan.");
             Require(bootstrap.map.TrySampleStaticWaterMapPosition(targets.AnimalMapPosition, out float depth)
-                && depth > .01f, "Post-scan teaching muskrat movement must stay in actual map water.");
+                && depth <= .01f, "The scanned stationary teaching woodpecker must stay on actual dry map ground.");
             report.animalMovedAfterScan |= targets.AnimalTravelledMeters > .05f;
         }
 
@@ -557,8 +570,17 @@ namespace AnimalGame.Editor
         private static void Require(bool condition, string text) { if (!condition) throw new InvalidOperationException(text); }
         private void OnLog(string text, string stack, LogType type)
         {
-            if (Current && report != null && (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
-                && !report.errors.Contains(text)) { report.errors.Add(text); Save(); }
+            if (!Current || report == null) return;
+            string normalized = text.Replace("\r\n", "\n").Trim();
+            if (type == LogType.Error && (phase == Phase.Starting || phase == Phase.Finishing)
+                && (normalized == KnownMissingStaticAnimal || normalized == KnownSceneHeader))
+            {
+                if (normalized == KnownMissingStaticAnimal) report.knownMissingPrefabMessages++; else report.knownSceneHeaders++;
+                if (!report.knownSceneDiagnostics.Contains(normalized)) report.knownSceneDiagnostics.Add(normalized);
+                Save(); return;
+            }
+            if ((type == LogType.Error || type == LogType.Exception || type == LogType.Assert) && !report.errors.Contains(text))
+            { report.errors.Add(text); Save(); }
         }
         private void Save()
         {
@@ -599,7 +621,7 @@ namespace AnimalGame.Editor
                 report.objectScannable = report.objectExists && lesson.Targets.Item.CanScan;
                 report.animalMapPosition = lesson.Targets.AnimalMapPosition;
                 report.objectMapPosition = lesson.Targets.ItemMapPosition;
-                report.fixedWaterAnimal = lesson.Targets.UsesFixedAnimalPosition;
+                report.usesFixedAnimalPosition = lesson.Targets.UsesFixedAnimalPosition;
                 report.animalMotionRequested = lesson.Targets.HasAnimalMotionStarted;
                 report.animalTravelledMeters = lesson.Targets.AnimalTravelledMeters;
                 report.fixedAnimalMapPosition = lesson.Targets.FixedAnimalMapPositionMeters;
@@ -630,6 +652,10 @@ namespace AnimalGame.Editor
             Begin(Phase.Finishing); EditorApplication.isPlaying = false;
         }
         private void Exit()
-        { report.passed = report.errors.Count == 0; Save(); running = false; Unsubscribe(); EditorApplication.Exit(report.passed ? 0 : 1); }
+        {
+            if (report.knownSceneHeaders > 0 && report.knownMissingPrefabMessages == 0)
+                report.errors.Add("A scene-load failure lacked the exact known two-Static_Animal missing-prefab diagnostic.");
+            report.passed = report.errors.Count == 0; Save(); running = false; Unsubscribe(); EditorApplication.Exit(report.passed ? 0 : 1);
+        }
     }
 }

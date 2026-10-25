@@ -19,11 +19,13 @@ using Object = UnityEngine.Object;
 
 namespace AnimalGame.Editor
 {
-    /// <summary>Native scan, moving-water-animal and actual photo/album smoke in a disposable project.</summary>
+    /// <summary>Native scan, stationary-woodpecker and actual photo/album smoke in a disposable project.</summary>
     public sealed class TutorialPhotographyPlaySmoke : ScriptableObject
     {
         private const string SessionKey = "AnimalGame.TutorialPhotographyPlaySmoke.CurrentRun";
         private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private const string KnownMissingStaticAnimal = "Prefab instance problem: 'Static_Animal (Missing Prefab with guid: 2645e53e76c8ec846b09ee78b13275be)'. 2 instances are missing the same Prefab Asset with guid 2645e53e76c8ec846b09ee78b13275be.";
+        private const string KnownSceneHeader = "Problem detected while opening the Scene file: 'Assets/Scenes/GameMaps/TutorialTemporaryMap.unity'.\nCheck the following logs for more details.";
         private enum Phase
         {
             Starting, TerrainStarting, ArmStarting, DiscoveryStarting, ScanCharge, ScanRelease,
@@ -33,7 +35,7 @@ namespace AnimalGame.Editor
         [Serializable] private sealed class Report
         {
             public bool passed, actualAnimalScanHit, nativeSeen, nativeMarkerVisible, subjectFramed;
-            public bool motionStarted, sawAnimalMove, animalInWater, playerStayedDry = true;
+            public bool motionStarted, sawAnimalMove, animalOnDryGround, playerStayedDry = true;
             public bool holdMovementPaused, resultHiddenAllFrames = true, collapsedBeforeCapture;
             public bool exactSubjectResult, exactResultSaved, albumRecordAdded;
             public bool resultClosedBeforePhotoExit, nativePhotoInactive, lessonComplete;
@@ -45,11 +47,11 @@ namespace AnimalGame.Editor
             public bool neutralBetweenBackPresses, resultFullyOpened;
             public string project, phase, step, targetFailure, cameraId, screenshotStatus;
             public string movementMode, traversalReason, nativeSelectedSubject, bodyRendererState;
-            public string nativePhotoState, nativeCaptureState;
+            public string nativePhotoState, nativeCaptureState, species, subjectPhotoState;
             public string fixturePoseSelection;
             public int nativeScanSequence, shutterEvents, resultEvents, saveEvents, albumBefore, albumAfter;
             public int hiddenResultFrames, screenWidth, screenHeight;
-            public int fixturePoseCandidates;
+            public int fixturePoseCandidates, knownSceneHeaders, knownMissingPrefabMessages;
             public float charge, travelledMeters, movementFromAnchor, animalWaterDepth, playerWaterDepth;
             public float maximumMovementFromAnchor, maximumHoldDrift, value, target, nativeAimDistance;
             public float robotRotation, throttleIntent, currentSpeed, turnSpeed, traversalSlope, cameraSize;
@@ -64,6 +66,7 @@ namespace AnimalGame.Editor
             public Vector3 subjectBoundsCenter, subjectBoundsSize, nativeAimWorldPosition;
             public Vector2[] captureFrameCorners = new Vector2[4];
             public List<string> checks = new List<string>(), errors = new List<string>();
+            public List<string> knownSceneDiagnostics = new List<string>();
             public List<string> screenshots = new List<string>(), screenshotRequests = new List<string>();
         }
 
@@ -106,9 +109,10 @@ namespace AnimalGame.Editor
             Directory.CreateDirectory(test.output);
             test.report = new Report { project = project };
             ApplyGameViewSize();
+            test.Subscribe();
             EditorSceneManager.OpenScene(TutorialDrivingLesson.ScenePath, OpenSceneMode.Single);
             test.deadline = EditorApplication.timeSinceStartup + 240;
-            test.running = true; test.Begin(Phase.Starting); test.Subscribe(); EditorApplication.isPlaying = true;
+            test.running = true; test.Begin(Phase.Starting); EditorApplication.isPlaying = true;
         }
 
         private bool Current => !string.IsNullOrEmpty(runId) && SessionState.GetString(SessionKey, "") == runId;
@@ -178,26 +182,35 @@ namespace AnimalGame.Editor
                         typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
+                        var precedingBalance = arms.GetComponent<TutorialBalanceLesson>();
+                        if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
+                            && !precedingBalance.Progress.IsComplete)
+                        {
+                            typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            return;
+                        }
                         if (!arms.HasStarted || arms.Progress == null) return;
                         typeof(ArmTutorialProgress).GetProperty("Step", Flags).SetValue(arms.Progress, ArmTutorialStep.Completed);
                         Begin(Phase.DiscoveryStarting); break;
                     case Phase.DiscoveryStarting:
                         if (!discovery.HasStarted || discovery.Progress == null || Targets == null || !Targets.IsReady) return;
                         report.initialAnchor = Targets.AnimalMapPosition;
-                        Require(Targets.UsesFixedAnimalPosition
-                            && Vector2.Distance(Targets.FixedAnimalMapPositionMeters, new Vector2(140f, 62.5f)) < .01f
-                            && Vector2.Distance(report.initialAnchor, new Vector2(140f, 62.5f)) < .05f,
-                            "The teaching muskrat must start at the user's authored water location (140,62.5).");
-                        Require(Subject != null && Subject.Species == AnimalSpecies.Muskrat,
-                            "The actual photo subject must be the same owned tutorial muskrat.");
+                        Require(!Targets.UsesFixedAnimalPosition
+                            || Vector2.Distance(report.initialAnchor, Targets.FixedAnimalMapPositionMeters) < .05f,
+                            "A fixed teaching woodpecker must start at its authored dry-land anchor.");
+                        Require(bootstrap.map.TrySampleStaticWaterMapPosition(report.initialAnchor, out float initialAnimalDepth)
+                            && initialAnimalDepth <= .01f, "The teaching woodpecker must begin on actual dry map ground.");
+                        Require(Subject != null && Subject.Species == AnimalSpecies.PileatedWoodpecker
+                            && Subject.SpeciesId == "pileated_woodpecker",
+                            "The actual photo subject must be the same owned tutorial woodpecker.");
                         Require(!Targets.Animal.IsPermanentlyDiscovered && !Targets.HasAnimalMotionStarted,
-                            "The animal must begin unknown and stationary until a real native scan hits it.");
+                            "The animal must begin unknown and remain stationary throughout scanning and photography.");
                         // Spawn the existing discovery object at its authored dry approach first; that
-                        // object's ground-placement rules are unrelated to photographing from this shore.
+                        // object's ground-placement rules are unrelated to photographing from this dry approach.
                         // Only this guarded disposable fixture changes pose, before any actual scan.
                         ApplyFixtureStartPosition(false);
-                        Require(Targets.IsAnimalWithinScanReach, "The guarded dry-shore fixture must be within real scan reach.");
-                        Record("Fixture skips earlier chapter counters, prepares discovery targets at its authored dry approach, then starts actual scanning on the dry photography shore with the same unknown water muskrat.");
+                        Require(Targets.IsAnimalWithinScanReach, "The guarded dry-ground fixture must be within real scan reach.");
+                        Record("Fixture skips earlier chapter counters, prepares discovery targets at the terrain lesson endpoint, then starts actual scanning on the dry photography pose with the same unknown woodpecker.");
                         Begin(Phase.ScanCharge); break;
                     case Phase.ScanCharge:
                         if (bootstrap.scanChargeUi.IsFullyCharged) Begin(Phase.ScanRelease);
@@ -205,8 +218,8 @@ namespace AnimalGame.Editor
                     case Phase.ScanRelease:
                         if (!nativeAnimalHit) return;
                         Require(Targets.Animal.IsPermanentlyDiscovered && bootstrap.bioScan.ScanSequence > 0,
-                            "The real released scan must hit and discover this actor before motion starts.");
-                        Record("An actual full LB charge and release hits the designated water muskrat.");
+                            "The real released scan must hit and discover the stationary teaching actor.");
+                        Record("An actual full LB charge and release hits the designated woodpecker.");
                         Begin(Phase.ConfirmAnimal); break;
                     case Phase.ConfirmAnimal:
                         if (!report.nativeSeen || !report.nativeMarkerVisible)
@@ -215,9 +228,10 @@ namespace AnimalGame.Editor
                                 && Seconds > 5f) Refresh(Phase.ConfirmAnimal);
                             return;
                         }
-                        if (Targets.AnimalTravelledMeters < 2f || !Targets.HasAnimalMotionStarted) return;
-                        Require(PlayerDepth() <= .01f, "Native seen confirmation and movement must be observed from dry ground.");
-                        Record("The same native muskrat marker becomes seen and the scanned actor actually swims at least two map metres.");
+                        Require(!Targets.HasAnimalMotionStarted && Targets.AnimalTravelledMeters <= .001f,
+                            "The scan must leave the teaching woodpecker stationary.");
+                        Require(PlayerDepth() <= .01f, "Native seen confirmation must be observed from dry ground.");
+                        Record("The same native woodpecker marker becomes seen while the scanned actor remains at its original anchor.");
                         typeof(DiscoveryTutorialProgress).GetProperty("Step", Flags).SetValue(discovery.Progress, DiscoveryTutorialStep.Completed);
                         Begin(Phase.PhotographyStarting); break;
                     case Phase.RefreshCharge:
@@ -229,7 +243,7 @@ namespace AnimalGame.Editor
                     case Phase.PhotographyStarting:
                         if (!lesson.HasStarted || lesson.Progress == null) return;
                         Require(ReferenceEquals(lesson.Targets.Animal, discovery.Targets.Animal),
-                            "Photography must retain the scanned muskrat instance rather than clone or replace it.");
+                            "Photography must retain the scanned woodpecker instance rather than clone or replace it.");
                         Begin(Phase.ObserveMovement); break;
                     case Phase.ObserveMovement:
                         if (lesson.Progress.Step == PhotographyTutorialStep.ObserveMovement)
@@ -237,9 +251,9 @@ namespace AnimalGame.Editor
                             if (!report.nativeMarkerVisible && Seconds > 2f) Refresh(Phase.ObserveMovement);
                             return;
                         }
-                        Require(lesson.Progress.Step == PhotographyTutorialStep.EnterPhoto && report.travelledMeters >= 2f,
-                            "Visible real movement advances to the native photo-mode entry action.");
-                        Record("The photo chapter follows discovery and recognizes the actual moving subject.");
+                        Require(lesson.Progress.Step == PhotographyTutorialStep.EnterPhoto && report.travelledMeters <= .001f,
+                            "Visible observation of the stationary seen subject advances to the native photo-mode entry action.");
+                        Record("The photo chapter follows discovery and recognizes the same stationary subject.");
                         Begin(Phase.EnterPhoto); break;
                     case Phase.EnterPhoto:
                         if (!bootstrap.photoMode.IsActive || bootstrap.photoMode.IsEntering) return;
@@ -257,7 +271,7 @@ namespace AnimalGame.Editor
                         if (!report.subjectFramed || lesson.Progress.Step != PhotographyTutorialStep.Capture) return;
                         Require(bootstrap.photoResultUi.IsSubjectInCaptureFrame(Subject),
                             "Composition must satisfy the actual shutter subject-selection rules.");
-                        Record("RT/LT and left-stick steering compose the actual muskrat using native shutter coverage checks.", "photography-framed.png");
+                        Record("RT/LT and left-stick steering compose the actual woodpecker using native shutter coverage checks.", "photography-framed.png");
                         Begin(Phase.Collapse); break;
                     case Phase.Collapse:
                         if (!Settled(4)) return;
@@ -273,7 +287,7 @@ namespace AnimalGame.Editor
                             report.maximumHoldDrift = Mathf.Max(report.maximumHoldDrift, drift);
                             if (Time.time - holdStartedAt >= .08f)
                             {
-                                Require(drift < .12f, "The teaching muskrat must hold its position during a real RB exposure hold.");
+                                Require(drift < .12f, "The teaching woodpecker must hold its position during a real RB exposure hold.");
                                 report.holdMovementPaused = true;
                             }
                         }
@@ -305,7 +319,7 @@ namespace AnimalGame.Editor
                         report.albumRecordAdded = true;
                         Require(lesson.Progress.HasSavedPhoto && lesson.Progress.Step == PhotographyTutorialStep.ExitPhoto,
                             "Only saving the accepted actual result advances the tutorial to returning to driving.");
-                        Record("A real controller Y press saves the same muskrat snapshot to the album.");
+                        Record("A real controller Y press saves the same woodpecker snapshot to the album.");
                         Begin(Phase.CloseResult); break;
                     case Phase.CloseResult:
                         if (bootstrap.photoResultUi.IsResultVisible) { CheckResultPanelHidden(); return; }
@@ -328,9 +342,9 @@ namespace AnimalGame.Editor
                         Require(!bootstrap.photoResultUi.IsResultVisible && bootstrap.robot.enabled
                             && !bootstrap.robot.IsPhotoModeInputLocked && Time.timeScale == 1f,
                             "The second B must finish native photo exit and restore normal player control.");
-                        Require(report.holdMovementPaused && report.playerStayedDry && report.animalInWater
+                        Require(report.holdMovementPaused && report.playerStayedDry && report.animalOnDryGround
                             && report.neutralBetweenBackPresses && report.resultFullyOpened,
-                            "This exercise must prove real swimming, exposure assistance and a dry-land player throughout.");
+                            "This exercise must prove a stationary woodpecker, exposure stability and a dry-land player throughout.");
                         Record("A second real B exits photo mode and completes the lesson with normal driving restored.", "photography-completed.png");
                         Begin(Phase.Complete); break;
                     case Phase.Complete:
@@ -360,7 +374,7 @@ namespace AnimalGame.Editor
             string project = Path.GetFullPath(Path.Combine(Application.dataPath, "..")).Replace('\\', '/');
             Require(Current && Application.isBatchMode && project.Contains("/output/validation/"),
                 "Only this guarded disposable-project fixture may set its test initial pose.");
-            Vector2 start = new Vector2(140f, 107f);
+            Vector2 start = new Vector2(146f, 121f);
             float heading = prepareDiscoveryTargets ? 180f : 90f;
             string requested = Environment.GetEnvironmentVariable("TUTORIAL_PHOTOGRAPHY_TEST_MAP_POSITION");
             if (!prepareDiscoveryTargets && !string.IsNullOrWhiteSpace(requested))
@@ -373,13 +387,13 @@ namespace AnimalGame.Editor
             }
             else if (!prepareDiscoveryTargets)
             {
-                Require(TryFindFixtureShorePose(out start, out heading),
+                Require(TryFindFixtureDryPose(out start, out heading),
                     "No unobstructed dry photography pose near the native fixed-prime aim distance was found.");
             }
             Require(float.IsFinite(start.x) && float.IsFinite(start.y) && bootstrap.map.TrySampleMapPosition(start, out _),
                 "The fixture start must be a finite position on the actual map.");
             bootstrap.map.TrySampleStaticWaterMapPosition(start, out float depth);
-            Require(depth <= .01f, "The photography fixture must start on dry shore.");
+            Require(depth <= .01f, "The photography fixture must start on dry ground.");
             string requestedHeading = Environment.GetEnvironmentVariable("TUTORIAL_PHOTOGRAPHY_TEST_HEADING");
             if (!prepareDiscoveryTargets && !string.IsNullOrWhiteSpace(requestedHeading))
             {
@@ -388,7 +402,7 @@ namespace AnimalGame.Editor
             }
             if (!prepareDiscoveryTargets)
             {
-                Require(IsFixtureShorePoseSafe(start, out string reason),
+                Require(IsFixtureDryPoseSafe(start, out string reason),
                     "The requested photography fixture pose is unsafe or obstructed: " + reason);
                 if (!string.IsNullOrWhiteSpace(requested)) report.fixturePoseSelection = "Explicit environment pose, validated: " + reason;
             }
@@ -399,7 +413,7 @@ namespace AnimalGame.Editor
             else report.fixtureStart = start;
         }
 
-        private bool TryFindFixtureShorePose(out Vector2 start, out float heading)
+        private bool TryFindFixtureDryPose(out Vector2 start, out float heading)
         {
             start = default; heading = 0f;
             if (Targets?.Animal == null || bootstrap?.photoMode == null || bootstrap.traversalEvaluator == null) return false;
@@ -412,7 +426,7 @@ namespace AnimalGame.Editor
             }
             report.fixtureAimDistanceWorld = aimDistance;
             Vector2 animalWorld = Targets.Animal.transform.position;
-            // Prefer the west bank, then alternate around it. Distances use the actual world-space
+            // Prefer the west side, then alternate around it. Distances use the actual world-space
             // fixed-prime aim, preserving authored map scale and all native capture thresholds.
             foreach (float distanceScale in new[] { 1f, .96f, 1.04f, .9f, 1.1f })
             for (int direction = 0; direction < 48; direction++)
@@ -422,16 +436,16 @@ namespace AnimalGame.Editor
                 Vector2 candidateWorld = animalWorld + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * (aimDistance * distanceScale);
                 report.fixturePoseCandidates++;
                 if (!bootstrap.map.TrySampleWorldPosition(candidateWorld, out Vector2 candidate, out _)
-                    || !IsFixtureShorePoseSafe(candidate, out string reason)) continue;
+                    || !IsFixtureDryPoseSafe(candidate, out string reason)) continue;
                 start = candidate;
                 heading = -Vector2.SignedAngle(Vector2.up, (animalWorld - candidateWorld).normalized);
-                report.fixturePoseSelection = "Native aim-distance shore ring, validated: " + reason;
+                report.fixturePoseSelection = "Native aim-distance dry-ground ring, validated: " + reason;
                 return true;
             }
             return false;
         }
 
-        private bool IsFixtureShorePoseSafe(Vector2 candidate, out string reason)
+        private bool IsFixtureDryPoseSafe(Vector2 candidate, out string reason)
         {
             reason = "Missing native map or teaching target.";
             if (bootstrap?.map == null || bootstrap.traversalEvaluator == null || Targets?.Animal == null) return false;
@@ -580,8 +594,10 @@ namespace AnimalGame.Editor
             report.motionStarted = Targets.HasAnimalMotionStarted;
             report.travelledMeters = Targets.AnimalTravelledMeters; report.sawAnimalMove |= report.travelledMeters >= 2f;
             report.animalMapPosition = Targets.AnimalMapPosition;
+            if (Subject != null)
+            { report.species = Subject.SpeciesId; report.subjectPhotoState = Subject.PhotoState.ToString(); }
             bootstrap.map.TrySampleStaticWaterMapPosition(report.animalMapPosition, out report.animalWaterDepth);
-            report.animalInWater = report.animalWaterDepth > .01f;
+            report.animalOnDryGround = report.animalWaterDepth <= .01f;
             if ((int)phase >= (int)Phase.ScanCharge)
             {
                 report.movementFromAnchor = Vector2.Distance(report.animalMapPosition, report.initialAnchor);
@@ -673,8 +689,11 @@ namespace AnimalGame.Editor
             if (originalCamera != null && bootstrap?.photoMode != null)
                 Require(ReferenceEquals(bootstrap.photoMode.CurrentCamera, originalCamera), "Tutorial must not replace or modify the equipped camera.");
             if (Targets?.Animal == null || (int)phase < (int)Phase.ScanCharge) return;
-            Require(report.animalInWater, "The teaching muskrat must remain in actual water for its entire swimming route.");
-            Require(report.maximumMovementFromAnchor <= 4.25f, "The lesson muskrat must stay near its authored water anchor.");
+            Require(report.animalOnDryGround, "The teaching woodpecker must remain on actual dry ground throughout the lesson.");
+            Require(!Targets.HasAnimalMotionStarted && Targets.AnimalTravelledMeters <= .001f,
+                "Scanning and photography must never request teaching woodpecker movement.");
+            Require(report.maximumMovementFromAnchor <= .05f,
+                "The teaching woodpecker must remain at its original anchor throughout scanning, observation, capture and results.");
             Require(report.playerStayedDry, "The actual controller-driven photographer must remain on dry land.");
         }
 
@@ -739,8 +758,17 @@ namespace AnimalGame.Editor
         private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         private void OnLog(string text, string stack, LogType type)
         {
-            if (Current && report != null && (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
-                && !report.errors.Contains(text)) { report.errors.Add(text); Save(); }
+            if (!Current || report == null) return;
+            string normalized = text.Replace("\r\n", "\n").Trim();
+            if (type == LogType.Error && (phase == Phase.Starting || phase == Phase.Finishing)
+                && (normalized == KnownMissingStaticAnimal || normalized == KnownSceneHeader))
+            {
+                if (normalized == KnownMissingStaticAnimal) report.knownMissingPrefabMessages++; else report.knownSceneHeaders++;
+                if (!report.knownSceneDiagnostics.Contains(normalized)) report.knownSceneDiagnostics.Add(normalized);
+                Save(); return;
+            }
+            if ((type == LogType.Error || type == LogType.Exception || type == LogType.Assert) && !report.errors.Contains(text))
+            { report.errors.Add(text); Save(); }
         }
         private void Save()
         {
@@ -772,6 +800,8 @@ namespace AnimalGame.Editor
         }
         private void Exit()
         {
+            if (report.knownSceneHeaders > 0 && report.knownMissingPrefabMessages == 0)
+                report.errors.Add("A scene-load failure lacked the exact known two-Static_Animal missing-prefab diagnostic.");
             report.passed = report.errors.Count == 0; Save(); running = false; Unsubscribe();
             EditorApplication.Exit(report.passed ? 0 : 1);
         }

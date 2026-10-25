@@ -213,6 +213,13 @@ namespace AnimalGame.Editor
 
         private static void CheckInvalidSettings()
         {
+            var stationary = new PhotographyTutorialProgress(requiredMovementMeters: 0f);
+            Feed(stationary, seen: false, moved: 0f);
+            Require(stationary.Step == PhotographyTutorialStep.ObserveMovement && stationary.ReadingSeconds == 0f,
+                "A stationary tutorial subject must still be seen before photography observation can advance.");
+            Observe(stationary, .8f, moved: 0f);
+            Require(stationary.Step == PhotographyTutorialStep.EnterPhoto && stationary.MovementMeters == 0f,
+                "Zero required travel permits the stationary visible seen woodpecker to enter photography.");
             var progress = new PhotographyTutorialProgress(float.NaN, float.PositiveInfinity, float.NaN);
             Feed(progress, moved: float.NaN);
             Require(float.IsFinite(progress.Value) && float.IsFinite(progress.Target) && progress.MovementMeters == 0f,

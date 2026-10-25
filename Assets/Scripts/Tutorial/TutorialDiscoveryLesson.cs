@@ -4,6 +4,7 @@ using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
 using UnityEngine;
+using UnityEngine.Serialization;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -18,7 +19,8 @@ namespace AnimalGame.Tutorial
     {
         [SerializeField] private HeightMapPlayerSceneBootstrap bootstrap;
         [SerializeField] private TutorialTextContent tutorialText;
-        [SerializeField] private GameObject muskratPrefab;
+        [FormerlySerializedAs("muskratPrefab")]
+        [SerializeField] private GameObject animalPrefab;
         [SerializeField] private GameObject smallGarbagePrefab;
         [SerializeField] private Sprite targetSprite;
         [SerializeField, Min(0f)] private float armCompletionDelay = 1.5f;
@@ -117,7 +119,7 @@ namespace AnimalGame.Tutorial
         private void BeginLesson()
         {
             progress = new DiscoveryTutorialProgress(animalReadingSeconds, objectReadingSeconds);
-            targets.Configure(bootstrap, muskratPrefab, smallGarbagePrefab);
+            targets.Configure(bootstrap, animalPrefab, smallGarbagePrefab);
             arms.SetPresentationOwned(false);
             hasStarted = true;
             BindScanner();
@@ -209,7 +211,6 @@ namespace AnimalGame.Tutorial
         private void OnAnimalDetected(int sequence, DiscoverableEntity entity)
         {
             if (!hasStarted || targets == null || entity != targets.Animal) return;
-            if (ValidEvent()) targets.StartAnimalMotion();
             if (sequence == nativeWaveSequence) progress.RegisterAnimalHit(modelWaveId, ValidEvent());
             else pendingAnimalSequence = sequence;
             refreshRemaining = 0f;
@@ -286,7 +287,7 @@ namespace AnimalGame.Tutorial
             Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
             Panel.SetLessonHint(progress.IsComplete ? string.Empty : tokens.Format(text.ToggleHint));
             Panel.SetContent(tokens.Format(text.Title), tokens.Format(message), tokens.Format(control),
-                tokens.Format(action), tokens.Format(detail), tokens.Format(status), 4, 8);
+                tokens.Format(action), tokens.Format(detail), tokens.Format(status), 5, 9);
             Panel.SetProgress(chargingStep ? value / 100f : progress.NormalizedProgress);
             Panel.SetSuccess(progress.IsComplete);
             displayedStep = progress.Step;

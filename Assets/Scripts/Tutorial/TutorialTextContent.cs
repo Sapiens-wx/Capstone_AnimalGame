@@ -13,6 +13,7 @@ namespace AnimalGame.Tutorial
         public TutorialPanelText Panel = new TutorialPanelText();
         public DrivingLessonText Driving = new DrivingLessonText();
         public TerrainLessonText Terrain = new TerrainLessonText();
+        public BalanceLessonText Balance = new BalanceLessonText();
         public ArmsLessonText Arms = new ArmsLessonText();
         public DiscoveryLessonText Discovery = new DiscoveryLessonText();
         public PhotographyLessonText Photography = new PhotographyLessonText();
@@ -131,6 +132,43 @@ namespace AnimalGame.Tutorial
     }
 
     [Serializable]
+    public sealed class BalanceLessonText
+    {
+        public string Title = "Balance";
+        public TutorialStepText ReadIndicator = new TutorialStepText("·", "Read the dot",
+            "The dot shows your\nbalance point.\nThe ring marks your\nsupport area.",
+            "Read {value:F1} / {target:F0} s");
+        public TutorialStepText AdjustWeight = new TutorialStepText("R", "Shift weight",
+            "Move the right stick.\nWatch the dot move\nas you shift weight.",
+            "Move the balance point.");
+        public TutorialStepText ReadRisk = new TutorialStepText("·", "Support ring",
+            "Keep the point inside\nthe support ring.\nIf it moves outside,\nthe robot will tip.",
+            "Read {value:F1} / {target:F0} s");
+        public TutorialStepText Completed = new TutorialStepText("✓", "Ready",
+            "Balance ready.\nUse the right stick to\nadjust your balance.",
+            "Keep the point inside.");
+        public string WaitingStatus = "Waiting";
+        public string ReadingStatus = "Read guide";
+        public string BlockedStatus = "Resume lesson";
+        public string NeedStowStatus = "Retract arms first";
+        public string NeutralStatus = "Center right stick";
+        public string StopStatus = "Stop to continue";
+        public string CompleteStatus = "Lesson complete";
+        public string ToggleHint = "R · Balance";
+        [TextArea(2, 4)] public string NeedStowMessage = "Press L3 to retract\nyour arms and return\nto driving controls.";
+        [TextArea(2, 4)] public string NeutralMessage = "Center the right stick.\nThen move it again to\nshift your balance.";
+        [TextArea(2, 4)] public string StopMessage = "Release the triggers.\nStop to continue\nthis balance lesson.";
+
+        public TutorialStepText GetStep(BalanceTutorialStep step) => step switch
+        {
+            BalanceTutorialStep.ReadIndicator => ReadIndicator,
+            BalanceTutorialStep.AdjustWeight => AdjustWeight,
+            BalanceTutorialStep.ReadRisk => ReadRisk,
+            _ => Completed
+        };
+    }
+
+    [Serializable]
     public sealed class ArmsLessonText
     {
         public string Title = "Mechanical Arms";
@@ -187,7 +225,7 @@ namespace AnimalGame.Tutorial
     {
         public string Title = "Discovery Scan";
         public TutorialStepText ApproachAnimal = new TutorialStepText("LS", "Follow marker",
-            "Follow the marker.\nScan again when nearby.\nObserve the muskrat\nfrom dry ground.",
+            "Follow the marker.\nScan again when nearby.\nLook for the woodpecker\non dry ground.",
             "Stay on dry ground.");
         public TutorialStepText Charge = new TutorialStepText("{lb}", "Charge scan",
             "Hold the left bumper.\nKeep holding to charge\na discovery scan.",
@@ -195,11 +233,11 @@ namespace AnimalGame.Tutorial
         public TutorialStepText Release = new TutorialStepText("{lb}", "Release to scan",
             "The scan is ready.\nRelease the left bumper\nto send the pulse.",
             "Release {lb} to scan");
-        public TutorialStepText FindAnimal = new TutorialStepText("✧", "Find muskrat",
-            "A hollow star marks\nwildlife not yet seen.\nFind the muskrat.",
+        public TutorialStepText FindAnimal = new TutorialStepText("✧", "Find bird",
+            "A hollow star marks\nwildlife not yet seen.\nFind the woodpecker.",
             "Hollow star · Unseen");
-        public TutorialStepText ConfirmAnimal = new TutorialStepText("✦", "See muskrat",
-            "Drive until the muskrat\nis inside your view.\nIts star becomes solid\nwhen you see it.",
+        public TutorialStepText ConfirmAnimal = new TutorialStepText("✦", "See bird",
+            "Bring the woodpecker\ninside your view.\nIts star becomes solid\nwhen you see it.",
             "Solid star · Seen");
         public TutorialStepText ReadObject = new TutorialStepText("///", "Inspect object",
             "Stripes and diamonds\nmark objects you can\ninteract with. Some need\nmore than recycling.",
@@ -238,20 +276,20 @@ namespace AnimalGame.Tutorial
     public sealed class PhotographyLessonText
     {
         public string Title = "Photo Practice";
-        public TutorialStepText ObserveMovement = new TutorialStepText("✦", "Watch muskrat",
-            "The muskrat is moving.\nWatch it swim nearby.\nKeep it inside your view.",
-            "Watch from dry ground.");
+        public TutorialStepText ObserveMovement = new TutorialStepText("✦", "Observe bird",
+            "Keep the woodpecker\ninside your view.\nPrepare to take a photo.",
+            "Keep the bird in view.");
         public TutorialStepText EnterPhoto = new TutorialStepText("{photo}", "Enter photo",
             "Press {photo} to enter\nphoto mode and open\nthe camera view.",
             "Press once, then release.");
-        public TutorialStepText FrameSubject = new TutorialStepText("L", "Frame muskrat",
-            "Use the triggers to move.\nSteer with the left stick.\nBring the muskrat into\nthe camera frame.",
+        public TutorialStepText FrameSubject = new TutorialStepText("L", "Frame bird",
+            "Use the triggers to move.\nSteer with the left stick.\nBring the bird into\nthe camera frame.",
             "{rt} / {lt} move · L steer");
         public TutorialStepText Capture = new TutorialStepText("{rb}", "Hold to capture",
-            "Hold the right bumper.\nKeep the muskrat framed\nuntil the photo is taken.",
+            "Hold the right bumper.\nKeep the bird framed\nuntil the photo is taken.",
             "Hold {rb} until captured.");
         public TutorialStepText SavePhoto = new TutorialStepText("{save}", "Save photo",
-            "Save the muskrat photo.\nPress {save} on the result\nscreen to add it to\nyour album.",
+            "Save the bird photo.\nPress {save} on the result\nscreen to add it to\nyour album.",
             "{save} · Save to album");
         public TutorialStepText ExitPhoto = new TutorialStepText("{cancel}", "Resume driving",
             "Photo saved.\nPress {cancel} to leave\nphoto mode and return\nto driving.",
@@ -261,17 +299,17 @@ namespace AnimalGame.Tutorial
             "Keep exploring freely.");
         public string WaitingStatus = "Waiting";
         public string BlockedStatus = "Return to photo practice";
-        public string TargetMissingStatus = "Follow the muskrat marker";
+        public string TargetMissingStatus = "Follow the bird marker";
         public string NeedStowStatus = "Retract arms first";
         public string NeedRescanStatus = "Scan again to find it";
-        public string RetryPhotoStatus = "Photograph the muskrat";
+        public string RetryPhotoStatus = "Photograph the bird";
         public string SavedStatus = "Photo saved to album";
         public string CompleteStatus = "Lesson complete";
         public string ToggleHint = "{photo} · Photo / {cancel} · Back";
-        [TextArea(3, 5)] public string TargetMissingMessage = "Follow the gold marker.\nStay on dry ground and\nlook for the muskrat\nnear the water's edge.";
+        [TextArea(3, 5)] public string TargetMissingMessage = "Follow the gold marker.\nLook for the woodpecker\nnearby on dry ground.";
         [TextArea(2, 4)] public string NeedStowMessage = "Press L3 to retract\nyour arms before\nentering photo mode.";
         [TextArea(3, 5)] public string NeedRescanMessage = "The star marker faded.\nHold the left bumper,\nthen release at full\ncharge to find it again.";
-        [TextArea(3, 5)] public string RetryPhotoMessage = "The muskrat was not\nrecorded in that photo.\nBring it into the frame\nand hold {rb} to try again.";
+        [TextArea(3, 5)] public string RetryPhotoMessage = "The woodpecker was not\nrecorded in that photo.\nBring it into the frame\nand hold {rb} to try again.";
 
         public TutorialStepText GetStep(PhotographyTutorialStep step) => step switch
         {
