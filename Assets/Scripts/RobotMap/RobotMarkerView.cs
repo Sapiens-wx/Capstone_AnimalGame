@@ -29,9 +29,6 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(1f)]
         private float bodyFillArtworkVisibleDiameterPixels = 82.5f;
 
-        [Tooltip("Keeps the complete robot marker at a stable pixel size when build resolution or camera zoom changes. Disable to use Body Diameter as a fixed world-space size.")]
-        [SerializeField] private bool keepMarkerSizeConstantOnScreen = true;
-
         [Tooltip("Screen-pixel size of the reference Body Diameter while Keep Marker Size Constant On Screen is enabled. The rendered chassis is this value multiplied by Visual Body Diameter Ratio.")]
         [SerializeField, Min(1f)] private float bodyScreenDiameterPixels = 45f;
 
@@ -509,15 +506,6 @@ namespace AnimalGame.RobotMap
             mediumRecycleBodyBaseRotation = bodyVisualRoot.localRotation;
 
             Sprite fillSprite = robotBodyFillSprite;
-            if (fillSprite == null)
-            {
-                generatedBodySprite = CreateCircularFillSprite(out generatedBodyTexture);
-                fillSprite = generatedBodySprite;
-                Debug.LogWarning(
-                    "RobotMarkerView is missing Arts/robot_body_fill. " +
-                    "Using the generated circular fallback fill.",
-                    this);
-            }
 
             float bodyArtworkScale = CalculateArtworkScale(
                 robotBodySprite,
@@ -776,66 +764,6 @@ namespace AnimalGame.RobotMap
         {
             color.a = Mathf.Clamp01(alpha);
             return color;
-        }
-
-        private static Sprite CreateCircularFillSprite(out Texture2D texture)
-        {
-            const int Resolution = 128;
-            // Keep the body interior fully opaque. Only the outermost pixels are
-            // antialiased so bright contour lines cannot bleed through the centre.
-            const float OuterFadeStart = 0.985f;
-
-            texture = new Texture2D(
-                Resolution,
-                Resolution,
-                TextureFormat.RGBA32,
-                false,
-                true)
-            {
-                name = "Runtime Robot Body Fill",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-                hideFlags = HideFlags.DontSave
-            };
-
-            var pixels = new Color[Resolution * Resolution];
-            Vector2 center = Vector2.one * (Resolution * 0.5f);
-            float radius = Resolution * 0.5f;
-
-            for (int y = 0; y < Resolution; y++)
-            {
-                for (int x = 0; x < Resolution; x++)
-                {
-                    Vector2 pixelCenter = new Vector2(x + 0.5f, y + 0.5f);
-                    float normalizedDistance = Vector2.Distance(pixelCenter, center) / radius;
-                    float outerCoverage = 1f - Mathf.SmoothStep(
-                        OuterFadeStart,
-                        1f,
-                        normalizedDistance);
-
-                    if (outerCoverage <= 0f)
-                    {
-                        pixels[y * Resolution + x] = Color.clear;
-                        continue;
-                    }
-
-                    pixels[y * Resolution + x] = new Color(1f, 1f, 1f, outerCoverage);
-                }
-            }
-
-            texture.SetPixels(pixels);
-            texture.Apply(false, true);
-
-            Sprite sprite = Sprite.Create(
-                texture,
-                new Rect(0f, 0f, Resolution, Resolution),
-                Vector2.one * 0.5f,
-                Resolution,
-                0,
-                SpriteMeshType.FullRect);
-            sprite.name = "Runtime Robot Body Fill";
-            sprite.hideFlags = HideFlags.DontSave;
-            return sprite;
         }
 
         private void StopDriveBob()
