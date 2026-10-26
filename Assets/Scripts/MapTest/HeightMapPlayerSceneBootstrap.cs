@@ -229,7 +229,7 @@ namespace AnimalGame.MapTest
 
         private void LateUpdate()
         {
-            if (map == null || robot == null)
+            if (map == null || robot == null || robot.IgnoreCollisionAndTerrain)
                 return;
 
             Bounds bounds = map.WorldBounds;

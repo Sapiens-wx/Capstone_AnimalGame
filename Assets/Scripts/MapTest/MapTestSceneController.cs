@@ -276,6 +276,19 @@ namespace AnimalGame.MapTest
             return true;
         }
 
+        public bool TryGeographicToWorldPosition(Vector2 longitudeLatitude, out Vector3 worldPosition)
+        {
+            worldPosition = default;
+            if (!HasGeneratedMap) return false;
+            Vector2 longitude = levelAsset.LongitudeRange, latitude = levelAsset.LatitudeRange;
+            if (longitudeLatitude.x < longitude.x || longitudeLatitude.x > longitude.y
+                || longitudeLatitude.y < latitude.x || longitudeLatitude.y > latitude.y) return false;
+            worldPosition = MapPositionToWorld(new Vector2(
+                Mathf.InverseLerp(longitude.x, longitude.y, longitudeLatitude.x) * mapWidthMeters,
+                Mathf.InverseLerp(latitude.x, latitude.y, longitudeLatitude.y) * mapHeightMeters));
+            return true;
+        }
+
         public bool TrySampleMapPosition(Vector2 position, out float height) => TrySample(position, out height, 0);
         public bool TrySampleDetailMapPosition(Vector2 position, out float height) => TrySample(position, out height, 1);
         public bool TrySampleRawDetailMapPosition(Vector2 position, out float height) => TrySample(position, out height, 2);

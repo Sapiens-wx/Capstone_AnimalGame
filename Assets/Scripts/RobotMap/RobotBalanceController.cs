@@ -199,7 +199,7 @@ namespace AnimalGame.RobotMap
 
         private void LateUpdate()
         {
-            if (mover == null)
+            if (mover == null || mover.IgnoreCollisionAndTerrain)
                 return;
 
             if (IsTippedOver)

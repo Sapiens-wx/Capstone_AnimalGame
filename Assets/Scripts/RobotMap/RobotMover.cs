@@ -197,9 +197,30 @@ namespace AnimalGame.RobotMap
                     lastMovingSpeedSign = Mathf.Sign(value);
             }
         }
+        public bool IgnoreCollisionAndTerrain { get; private set; }
+        public bool IgnoreAnimalDetection { get; set; }
+        public float? DebugMoveSpeed { get; set; }
+        public float DefaultMoveSpeed => ScaleMotion(forwardSpeed);
+        private float DriveSpeed(float configuredSpeed) => DebugMoveSpeed.HasValue
+            ? DebugMoveSpeed.Value * (configuredSpeed / forwardSpeed) : ScaleMotion(configuredSpeed);
+
+        public void SetIgnoreCollisionAndTerrain(bool value)
+        {
+            IgnoreCollisionAndTerrain = value;
+            ClearMotionForExternalControl();
+            GetComponent<PlayerWorldBody>().MarkSpatialDirty();
+        }
+
+        public void Teleport(Vector2 worldPosition)
+        {
+            ClearMotionForExternalControl();
+            transform.position = new Vector3(worldPosition.x, worldPosition.y, transform.position.z);
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
+        }
+
         public float CurrentTurnSpeed { get; private set; }
         public float BaseTurnSpeed => ScaleMotion(turnSpeed);
-        public float UnloadedReverseSpeed => ScaleMotion(reverseSpeed);
+        public float UnloadedReverseSpeed => DriveSpeed(reverseSpeed);
         public bool HeavyPullMovementBlocked { get; private set; }
         public float CurrentTerrainTurnSpeed { get; private set; }
         public Vector2 CurrentTerrainVelocity { get; private set; }
@@ -308,9 +329,9 @@ namespace AnimalGame.RobotMap
             climbableNormalSpeedLimit = float.PositiveInfinity;
             HeavyPullMovementBlocked = false;
             if (Time.deltaTime <= 0f) return;
-            if (animalCombat != null && animalCombat.IsDisplaced)
+            if (!IgnoreCollisionAndTerrain && animalCombat != null && animalCombat.IsDisplaced)
             { ClearMotionForExternalControl(); return; }
-            if (MovementMode != RobotMovementMode.Driven)
+            if (!IgnoreCollisionAndTerrain && MovementMode != RobotMovementMode.Driven)
             {
                 ClearMotionForExternalControl();
                 return;
@@ -321,7 +342,7 @@ namespace AnimalGame.RobotMap
                 ResetClimbableContact(); // External relocation is not a driven landing.
                 WorldInteraction.MarkHierarchySpatialDirty(transform);
             }
-            RefreshClimbableSurface();
+            if (!IgnoreCollisionAndTerrain) RefreshClimbableSurface();
             lastCommittedPosition = transform.position;
             hasCommittedPosition = true;
             if (CurrentClimbableSurface.IsActive)
@@ -393,6 +414,15 @@ namespace AnimalGame.RobotMap
                 CurrentSpeed = 0f;
                 CurrentTurnSpeed = 0f;
             }
+            if (IgnoreCollisionAndTerrain)
+            {
+                CurrentThrottleIntent = throttle;
+                UpdateTurning(steering, false);
+                UpdateDriveSpeed(throttle, throttle * DriveSpeed(throttle >= 0f ? forwardSpeed : reverseSpeed),
+                    1f, 1f, 0f, Time.deltaTime);
+                TryMoveSafely((Vector2)transform.up * (CurrentSpeed * Time.deltaTime), null);
+                return;
+            }
             if (balanceController != null)
             {
                 throttle *= balanceController.DriveAuthority;
@@ -400,7 +430,7 @@ namespace AnimalGame.RobotMap
             }
             CurrentThrottleIntent = throttle;
             UnresistedMovementIntentWorld = (Vector2)transform.up * (throttle >= 0f
-                ? throttle * ScaleMotion(forwardSpeed) : throttle * ScaleMotion(reverseSpeed));
+                ? throttle * DriveSpeed(forwardSpeed) : throttle * DriveSpeed(reverseSpeed));
             WorldInteraction heldObject = armController != null ? armController.HeldObject : null;
             if (heldObject != null && heldObject.TryGetComponent(out HeavyGarbagePull _))
             {
@@ -521,8 +551,8 @@ namespace AnimalGame.RobotMap
             if (suppressPlayerDrive)
                 CurrentSpeed = 0f;
             float baseTargetSpeed = movementThrottle >= 0f
-                ? movementThrottle * ScaleMotion(forwardSpeed)
-                : movementThrottle * ScaleMotion(reverseSpeed);
+                ? movementThrottle * DriveSpeed(forwardSpeed)
+                : movementThrottle * DriveSpeed(reverseSpeed);
             CurrentWaterSpeedMultiplier =
                 CalculateStaticWaterSpeedMultiplier();
             float normalSurfaceSpeedMultiplier = topSpeedMultiplier
@@ -571,6 +601,12 @@ namespace AnimalGame.RobotMap
         {
             if (desiredDisplacement.sqrMagnitude <= 0f)
                 return true;
+            if (IgnoreCollisionAndTerrain)
+            {
+                transform.position += (Vector3)desiredDisplacement;
+                WorldInteraction.MarkHierarchySpatialDirty(transform);
+                return true;
+            }
             MapTestSceneController climbableMap = traversalEvaluator != null ? traversalEvaluator.Map : null;
             float bodyRadius = GetClimbableBodyRadius(climbableMap);
             Vector2 movementStart = transform.position;
@@ -639,7 +675,7 @@ namespace AnimalGame.RobotMap
             }
             lastCommittedPosition = transform.position;
             bool wasClimbable = CurrentClimbableSurface.IsActive;
-            RefreshClimbableSurface();
+            if (!IgnoreCollisionAndTerrain) RefreshClimbableSurface();
             if (CurrentClimbableSurface.IsActive)
                 CurrentTraversalResult = CurrentClimbableSurface.Traversal(desiredDisplacement);
             else if (wasClimbable || stopUnsafeDownhill)
@@ -669,6 +705,7 @@ namespace AnimalGame.RobotMap
 
         public bool ApplyAnimalImpact(Vector2 displacement)
         {
+            if (IgnoreCollisionAndTerrain) return TryMoveSafely(displacement, null);
             PrepareMovementPlan(displacement, armController != null && armController.HeldObject != null ? armController.HeldObject.transform : null);
             if (!movementPlan.Evaluate() || !movementPlan.Commit()) return false;
             transform.position += (Vector3)displacement;
@@ -680,7 +717,7 @@ namespace AnimalGame.RobotMap
         private void RotateSafely(float angle)
         {
             Quaternion desired = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + angle);
-            if (armController != null && armController.isActiveAndEnabled)
+            if (!IgnoreCollisionAndTerrain && armController != null && armController.isActiveAndEnabled)
                 armController.ConstrainBodyRotation(desired);
             else transform.rotation = desired;
         }
@@ -815,8 +852,8 @@ namespace AnimalGame.RobotMap
                 // A fixed speed cap avoids multiplying the remaining momentum every frame.
                 float pushScale = surfaceSpeedMultiplier * pushSpeedMultiplier;
                 nextSpeed = Mathf.Clamp(nextSpeed,
-                    -ScaleMotion(reverseSpeed) * pushScale,
-                    ScaleMotion(forwardSpeed) * pushScale);
+                    -DriveSpeed(reverseSpeed) * pushScale,
+                    DriveSpeed(forwardSpeed) * pushScale);
             }
             return nextSpeed;
         }
@@ -1024,7 +1061,7 @@ namespace AnimalGame.RobotMap
                     levelOneAngle,
                     levelThreeAngle,
                     directionalAngle);
-                float slideSpeed = ScaleMotion(forwardSpeed)
+                float slideSpeed = DriveSpeed(forwardSpeed)
                                    * levelTwoMaximumSlideSpeedFraction
                                    * levelTwoProgress;
                 Vector2 slideVector = CalculateTractionAdjustedSlideVector(
@@ -1053,7 +1090,7 @@ namespace AnimalGame.RobotMap
                     levelThreePhysicalDownhillWeight,
                     1f);
                 terrainVelocity += slideVector
-                                   * ScaleMotion(forwardSpeed)
+                                   * DriveSpeed(forwardSpeed)
                                    * slideFraction
                                    * GetLevelThreeSlideMultiplier();
             }
@@ -1089,7 +1126,7 @@ namespace AnimalGame.RobotMap
                     groundResult.DownhillWorldDirection.x);
                 terrainVelocity += crossSlopeDirection
                                    * unstableLateralBlend
-                                   * ScaleMotion(forwardSpeed)
+                                   * DriveSpeed(forwardSpeed)
                                    * levelThreeLateralDriftSpeedFraction
                                    * levelThreeInstability;
                 targetTerrainTurnSpeed = unstableLateralBlend
@@ -1555,8 +1592,8 @@ namespace AnimalGame.RobotMap
                 return ScaleMotion(brakingDeceleration);
 
             float relevantTopSpeed = targetSpeed >= 0f
-                ? ScaleMotion(forwardSpeed)
-                : ScaleMotion(reverseSpeed);
+                ? DriveSpeed(forwardSpeed)
+                : DriveSpeed(reverseSpeed);
             float normalizedSpeed = relevantTopSpeed > 0f
                 ? Mathf.Clamp01(Mathf.Abs(CurrentSpeed) / relevantTopSpeed)
                 : 0f;

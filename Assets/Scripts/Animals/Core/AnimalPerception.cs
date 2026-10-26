@@ -201,7 +201,7 @@ namespace AnimalGame.Animals
 
             if (Player == null && agent != null)
                 Player = agent.Simulation.World.Player;
-            if (Player == null
+            if (Player == null || Player.IgnoreAnimalDetection
                 || !map.TrySampleWorldPosition(
                     transform.position,
                     out Vector2 animalMapPosition,
@@ -233,16 +233,19 @@ namespace AnimalGame.Animals
 
             if (Player == null && agent != null)
                 Player = agent.Simulation.World.Player;
-            return Player != null
+            return Player != null && !Player.IgnoreAnimalDetection
                    && map.TrySampleWorldPosition(
                        Player.transform.position,
                        out playerMapPosition,
                        out _);
         }
 
+        public bool IsIgnoredThreat(Transform threat) => threat != null
+            && threat.TryGetComponent(out RobotMover player) && player.IgnoreAnimalDetection;
+
         public void Remember(Transform threat)
         {
-            if (threat == null || agent?.Runtime == null || threat == transform) return;
+            if (threat == null || IsIgnoredThreat(threat) || agent?.Runtime == null || threat == transform) return;
             if (!agent.Runtime.Threats.Contains(threat)) agent.Runtime.Threats.Add(threat);
             PrimaryThreat = threat;
         }
@@ -257,7 +260,7 @@ namespace AnimalGame.Animals
             for (int i = threats.Count - 1; i >= 0; i--)
             {
                 Transform threat = threats[i];
-                if (threat == null || !threat.gameObject.activeInHierarchy || threat.gameObject.scene != gameObject.scene
+                if (threat == null || IsIgnoredThreat(threat) || !threat.gameObject.activeInHierarchy || threat.gameObject.scene != gameObject.scene
                     || !map.TrySampleWorldPosition(threat.position, out Vector2 position, out _))
                 { threats.RemoveAt(i); continue; }
                 AnimalAgent animal = threat.GetComponent<AnimalAgent>();

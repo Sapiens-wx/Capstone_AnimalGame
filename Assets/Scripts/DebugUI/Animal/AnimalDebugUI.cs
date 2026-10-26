@@ -1,34 +1,23 @@
 using System.Collections.Generic;
 using AnimalGame.Animals;
 using AnimalGame.MapTest;
-using AnimalGame.Tutorial;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Cursor = UnityEngine.Cursor;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace AnimalGame.AnimalDebug
 {
-    [DefaultExecutionOrder(-1200)]
-    [DisallowMultipleComponent, RequireComponent(typeof(UIDocument))]
-    public sealed class AnimalDebugUI : MonoBehaviour
+    [DisallowMultipleComponent, RequireComponent(typeof(DebugUI))]
+    public sealed class AnimalDebugUI : DebugUITab
     {
-        private static AnimalDebugUI active;
-        private static int closedFrame = -1;
-        public static bool IsOpen => active != null && active.open;
-        public static bool BlocksOtherPanels => IsOpen || closedFrame == Time.frameCount;
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { active = null; closedFrame = -1; }
-
+        public override string Title => "Animal Inspector";
+        public override VisualElement Content => panel;
         private UIDocument document;
-        private PanelSettings settings, originalSettings;
         private VisualElement root, panel, animalPopup, commandPopup, healthFill;
         private Button animalButton, sampleButton, commandButton, executeButton;
         private Label health, leader, group, state, action, message;
         private ListView animalList, commandList;
         private Arrow arrow, previewArrow;
+        private AnimalDebugProjection projection;
         private readonly List<AnimalAgent> animals = new();
         private readonly List<AnimalAgent> refreshed = new();
         private readonly List<Button> controls = new();
@@ -47,42 +36,19 @@ namespace AnimalGame.AnimalDebug
             public string Label;
         }
         private AnimalDebugCommandResult result;
-        private bool open, sampling, savedCursorVisible;
-        private CursorLockMode savedCursorLock;
+        private bool open, sampling;
         private int sampleFrame, lastActionFrame, focusedControl, animalIndex, commandIndex;
         private float refreshAt;
         public AnimalAgent Selected => selected;
         public UIDocument Document => document;
 
-        private void Awake()
+        public override void Bind(VisualElement next)
         {
             document = GetComponent<UIDocument>();
-            originalSettings = document.panelSettings;
-            settings = originalSettings != null ? Instantiate(originalSettings) : ScriptableObject.CreateInstance<PanelSettings>();
-            settings.name = "Animal AI Debug (Runtime)";
-            settings.hideFlags = HideFlags.DontSave;
-            settings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-            settings.referenceResolution = new Vector2Int(1920, 1080);
-            settings.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
-            settings.match = .5f;
-            settings.targetTexture = null;
-            settings.sortingOrder = 80;
-            document.panelSettings = settings;
-            gameObject.AddComponent<AnimalDebugProjection>().Owner = this;
-        }
-
-        private void OnEnable() { Bind(); }
-        private void Bind()
-        {
-            VisualElement next = document != null ? document.rootVisualElement : null;
-            if (root == next && panel != null) return;
             root = next;
-            if (root == null) return;
             panel = root.Q("AnimalPanel");
-            if (panel == null) return;
-            root.pickingMode = PickingMode.Ignore;
-            root.style.position = Position.Absolute;
-            root.style.left = root.style.top = root.style.right = root.style.bottom = 0;
+            if (projection == null) projection = gameObject.AddComponent<AnimalDebugProjection>();
+            projection.Owner = this;
             animalButton = root.Q<Button>("AnimalName"); sampleButton = root.Q<Button>("Sample");
             commandButton = root.Q<Button>("Command"); executeButton = root.Q<Button>("Execute");
             animalPopup = root.Q("AnimalPopup"); commandPopup = root.Q("CommandPopup");
@@ -100,15 +66,6 @@ namespace AnimalGame.AnimalDebug
             panel.RegisterCallback<GeometryChangedEvent>(PositionPopups);
             arrow = new Arrow(); root.Add(arrow);
             previewArrow = new Arrow { name = "AnimalPreviewArrow" }; root.Add(previewArrow);
-            // Toolkit's input module can also map gameplay WASD/stick to focus navigation.
-            // Only the explicit D-pad, arrow-key and Tab handling below may move our focus.
-            root.RegisterCallback<NavigationMoveEvent>(evt =>
-            {
-                root.focusController?.IgnoreEvent(evt);
-                evt.StopImmediatePropagation();
-            }, TrickleDown.TrickleDown);
-            root.RegisterCallback<NavigationSubmitEvent>(evt => evt.StopImmediatePropagation(), TrickleDown.TrickleDown);
-            root.RegisterCallback<NavigationCancelEvent>(evt => evt.StopImmediatePropagation(), TrickleDown.TrickleDown);
             SetPopup(null); panel.style.display = open ? DisplayStyle.Flex : DisplayStyle.None;
             RefreshDetails();
         }
@@ -264,41 +221,21 @@ namespace AnimalGame.AnimalDebug
             : AnimalDebugCommandService.Validate(selected, command, out reason);
 
         private bool IsValid(AnimalAgent animal) => AnimalDebugSelection.IsSelectable(animal, gameObject.scene);
-        private bool OtherPanelOpen()
+        public override void Show()
         {
-            var hud = AnimalGame.MainUI.MainUI.Active;
-            if (hud != null && (hud.IsInventoryOpen || hud.InventoryProgress > .001f)) return true;
-            foreach (GameObject sceneRoot in gameObject.scene.GetRootGameObjects())
-            {
-                foreach (var tutorial in sceneRoot.GetComponentsInChildren<TutorialDialoguePanel>())
-                    if (tutorial.isActiveAndEnabled && tutorial.IsVisible && !tutorial.IsCollapsed) return true;
-                foreach (var terminal in sceneRoot.GetComponentsInChildren<AnimalGame.Demos.CheckpointRefit.CheckpointRefitTerminal>())
-                    if (terminal.isActiveAndEnabled && terminal.IsOpen) return true;
-            }
-            return false;
-        }
-
-        public bool Open()
-        {
-            if (open) return true;
-            if (panel == null || OtherPanelOpen() || IsOpen) return false;
-            active = this; open = true;
-            savedCursorVisible = Cursor.visible; savedCursorLock = Cursor.lockState;
-            Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+            open = true;
             panel.style.display = DisplayStyle.Flex;
             RefreshAnimals(); RefreshDetails(); FocusControl(0);
             lastActionFrame = Time.frameCount;
-            return true;
         }
 
-        public void Close()
+        public override void Hide()
         {
-            if (!open) return;
-            open = sampling = false; SetPopup(null);
+            open = sampling = false;
+            message.text = "";
+            SetPopup(null);
             panel.style.display = DisplayStyle.None;
-            Cursor.visible = savedCursorVisible; Cursor.lockState = savedCursorLock;
-            closedFrame = Time.frameCount;
-            if (active == this) active = null;
+            RefreshArrow();
         }
 
         public void Select(AnimalAgent animal)
@@ -338,7 +275,7 @@ namespace AnimalGame.AnimalDebug
         private void ToggleSampling()
         {
             sampling = !sampling; SetPopup(null); sampleFrame = Time.frameCount; result = null;
-            message.text = sampling ? "Click an animal. B / Esc cancels." : "Sampling cancelled.";
+            message.text = sampling ? "Click an animal. Esc cancels." : "Sampling cancelled.";
         }
         private void Execute()
         {
@@ -348,11 +285,12 @@ namespace AnimalGame.AnimalDebug
                 : AnimalDebugCommandService.Execute(selected, command);
             RefreshDetails();
         }
-        private void Back()
+        public override bool Back()
         {
             if (sampling) { sampling = false; message.text = "Sampling cancelled."; }
             else if (Visible(animalPopup) || Visible(commandPopup)) SetPopup(null);
-            else Close();
+            else return false;
+            return true;
         }
 
         private void RefreshAnimals()
@@ -431,44 +369,8 @@ namespace AnimalGame.AnimalDebug
             controls[focusedControl].Focus();
         }
 
-        private void Update()
+        public override void HandleInput(int move, bool submit, bool click, Vector2 mouse)
         {
-            if (document != null && (root != document.rootVisualElement || panel == null)) Bind();
-            bool toggle = false, back = false, submit = false, click = false;
-            int move = 0; Vector2 mouse = Vector2.zero;
-#if ENABLE_INPUT_SYSTEM
-            var keyboard = Keyboard.current;
-            if (keyboard != null)
-            {
-                toggle = keyboard.mKey.wasPressedThisFrame; back = keyboard.escapeKey.wasPressedThisFrame;
-                submit = keyboard.enterKey.wasPressedThisFrame;
-                if (keyboard.upArrowKey.wasPressedThisFrame) move = -1;
-                if (keyboard.downArrowKey.wasPressedThisFrame || keyboard.tabKey.wasPressedThisFrame) move = 1;
-            }
-            foreach (Gamepad pad in Gamepad.all)
-            {
-                if (!pad.added) continue;
-                if (!open && pad.dpad.up.wasPressedThisFrame) toggle = true;
-                back |= pad.buttonEast.wasPressedThisFrame; submit |= pad.buttonSouth.wasPressedThisFrame;
-                if (pad.dpad.up.wasPressedThisFrame) move = -1;
-                if (pad.dpad.down.wasPressedThisFrame) move = 1;
-            }
-            if (Mouse.current != null) { click = Mouse.current.leftButton.wasPressedThisFrame; mouse = Mouse.current.position.ReadValue(); }
-#endif
-#if ENABLE_LEGACY_INPUT_MANAGER
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current == null)
-#endif
-            { toggle |= Input.GetKeyDown(KeyCode.M); back |= Input.GetKeyDown(KeyCode.Escape); submit |= Input.GetKeyDown(KeyCode.Return);
-                if (Input.GetKeyDown(KeyCode.UpArrow)) move = -1; if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.Tab)) move = 1; }
-#if ENABLE_INPUT_SYSTEM
-            if (Mouse.current == null)
-#endif
-            { click = Input.GetMouseButtonDown(0); mouse = Input.mousePosition; }
-#endif
-            if (toggle) { if (open) Close(); else Open(); return; }
-            if (!open) return;
-            if (back) { Back(); return; }
             if (lastActionFrame != Time.frameCount)
             {
                 if (Visible(animalPopup))
@@ -524,7 +426,7 @@ namespace AnimalGame.AnimalDebug
         private bool PointerOverUI(Vector2 screen)
         {
             Vector2 point = RuntimePanelUtils.ScreenToPanel(root.panel, new Vector2(screen.x, Screen.height - screen.y));
-            if (panel.worldBound.Contains(point)) return true;
+            if (root.Q("DebugPanel").worldBound.Contains(point)) return true;
             foreach (UIDocument ui in FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
             {
                 if (ui == document || ui.rootVisualElement?.panel == null) continue;
@@ -577,14 +479,6 @@ namespace AnimalGame.AnimalDebug
             marker.style.left = ui.x - 14; marker.style.top = ui.y - 14;
             Vector2 next = RuntimePanelUtils.ScreenToPanel(root.panel, new Vector2(location.x + direction.x, Screen.height - location.y - direction.y));
             marker.Direction = (next - ui).normalized; marker.MarkDirtyRepaint();
-        }
-
-        private void OnDisable() { Close(); }
-        private void OnDestroy()
-        {
-            Close();
-            if (document != null) document.panelSettings = originalSettings;
-            if (settings != null) { if (Application.isPlaying) Destroy(settings); else DestroyImmediate(settings); }
         }
 
         private sealed class Arrow : VisualElement

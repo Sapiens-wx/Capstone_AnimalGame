@@ -1,8 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="AnimalAi.uss" />
+    <Style src="DebugUI.uss" />
     <ui:VisualElement name="AnimalPanel" class="animal-panel" style="display: none;">
-        <ui:Label text="ANIMAL INSPECTOR" class="title" />
-        <ui:Label text="M: close  ·  B / Esc: back  ·  D-pad / arrow keys: navigate" class="hint" />
         <ui:VisualElement name="NameRow" class="row name-row">
             <ui:Button name="AnimalName" text="Select an animal  ▼" class="grow" />
             <ui:Button name="Sample" text="Pick" class="small-button" />

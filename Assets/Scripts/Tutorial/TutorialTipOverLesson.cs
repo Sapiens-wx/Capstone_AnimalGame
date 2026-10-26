@@ -286,7 +286,7 @@ namespace AnimalGame.Tutorial
 
         private bool IsModal() => Time.timeScale <= 0f || Time.deltaTime <= 0f || ExternalModalOpen();
 
-        private bool ExternalModalOpen() => AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+        private bool ExternalModalOpen() => AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
             || (bootstrap != null && bootstrap.photoMode != null && (bootstrap.photoMode.IsActive || bootstrap.photoMode.IsEntering
                 || bootstrap.photoMode.IsExiting || bootstrap.photoMode.IsCapturing || bootstrap.photoMode.IsReviewing))
             || (bootstrap != null && bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing)

@@ -96,7 +96,7 @@ namespace AnimalGame.Tutorial
             waypoint.SetVisible(!modal);
             if (modal) { panel.SetContinuePrompt(false); return; }
 #if ENABLE_INPUT_SYSTEM
-            if (!AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
+            if (!AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
                 || Gamepad.current.dpad.right.wasPressedThisFrame))
                 panel.ToggleCollapsed();
 #endif

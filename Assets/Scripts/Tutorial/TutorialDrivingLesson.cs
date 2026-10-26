@@ -76,7 +76,7 @@ namespace AnimalGame.Tutorial
             if (panel == null || progress == null || !ownsPresentation) return;
             if (progress.IsComplete) { panel.SetContinuePrompt(false); panel.SetVisible(false); return; }
             bool modal = AnimalGame.MainUI.MainUI.BlocksGameplay
-                || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+                || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
                 || (bootstrap != null && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
                 || (bootstrap != null && bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
             panel.SetVisible(!modal);
@@ -90,7 +90,7 @@ namespace AnimalGame.Tutorial
 
 #if ENABLE_INPUT_SYSTEM
             // The D-pad remains available while an achieved step waits for A confirmation.
-            if (!AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
+            if (!AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
                 || Gamepad.current.dpad.right.wasPressedThisFrame))
                 panel.ToggleCollapsed();
 #endif

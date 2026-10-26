@@ -32,6 +32,7 @@ namespace AnimalGame.Editor
             CheckSpecificDailyDeferredValidation();
             CheckMuskratDailyCommand();
             CheckExpandableCommands();
+            CheckPlayerDebugControls();
             TreeBirdRegressionChecks.CleanupActionCopies();
             Debug.Log("Animal inspector checks PASS: rejection without interruption, species escape, forced cooldown reset, live-only hunt, deferred validation, circular sampling, edge arrows, UXML/prefab bindings menu ownership, expandable daily entries and one-shot species actions.");
         }
@@ -132,7 +133,7 @@ namespace AnimalGame.Editor
         }
         private static void CheckDocumentAndModalOwnership()
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/AnimalAi/AnimalAi.prefab");
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/DebugUI/DebugUI.prefab");
             Require(prefab != null && prefab.GetComponent<AnimalDebugUI>() != null, "Inspector prefab/controller reference is broken");
             GameObject hudPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Resources/UI/MainUI.prefab");
             Require(hudPrefab != null, "Main HUD prefab is missing");
@@ -146,18 +147,18 @@ namespace AnimalGame.Editor
             using var f = new Fixture();
             GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, f.Scene);
             AnimalDebugUI ui = instance.GetComponent<AnimalDebugUI>();
-            Invoke(ui, "Awake"); Invoke(ui, "OnEnable");
+            DebugUI shell = ui.GetComponent<DebugUI>(); Invoke(shell, "Awake"); Invoke(shell, "OnEnable");
             float timeScale = Time.timeScale;
             var tutorial = f.New("Tutorial", Vector3.zero).AddComponent<TutorialDialoguePanel>();
             Invoke(tutorial, "Awake"); tutorial.SetCollapsed(false);
-            Require(!ui.Open(), "Inspector opened over an expanded tutorial");
+            Require(!shell.Open(), "Inspector opened over an expanded tutorial");
             tutorial.SetCollapsed(true); Object.DestroyImmediate(tutorial.gameObject);
-            Require(ui.Open() && AnimalDebugUI.BlocksOtherPanels, "Cannot open inspector");
+            Require(shell.Open() && DebugUI.BlocksOtherPanels, "Cannot open inspector");
             Near(Time.timeScale, timeScale, "Inspector paused the simulation");
             AnimalAgent animal = f.Animal("Details", new Vector2(5, 5)); ui.Select(animal);
             Require(ui.Document.rootVisualElement.Q<Label>("Group").text == "Group size: 1", "Ungrouped count excludes self");
             Require(ui.Document.rootVisualElement.Q<Button>("Execute").enabledSelf, "Selected animal cannot execute");
-            ui.Close(); Require(!AnimalDebugUI.IsOpen, "Closing left modal ownership active");
+            shell.Close(); Require(!DebugUI.IsOpen, "Closing left modal ownership active");
         }
         private static AnimalDailyBehaviourSettings DailyEntry(AnimalDailyBehaviourKind kind)
         {
@@ -291,9 +292,9 @@ namespace AnimalGame.Editor
                 DailyEntry(AnimalDailyBehaviourKind.FlyToTree), DailyEntry(AnimalDailyBehaviourKind.PeckAtTree)
             };
             Set(bird.Config, "dailyBehaviours", entries);
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/AnimalAi/AnimalAi.prefab");
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/DebugUI/DebugUI.prefab");
             var ui = ((GameObject)PrefabUtility.InstantiatePrefab(prefab, f.Scene)).GetComponent<AnimalDebugUI>();
-            Invoke(ui, "Awake"); Invoke(ui, "OnEnable"); Require(ui.Open(), "Menu test could not open inspector"); ui.Select(bird);
+            DebugUI shell = ui.GetComponent<DebugUI>(); Invoke(shell, "Awake"); Invoke(shell, "OnEnable"); Require(shell.Open(), "Menu test could not open inspector"); ui.Select(bird);
             ListView list = ui.Document.rootVisualElement.Q<ListView>("CommandList");
             Require(list.itemsSource.Count == 6, "Initial command menu did not contain only groups");
             var probe = new ProbeAction(); bird.Brain.StartAction(probe);
@@ -330,8 +331,78 @@ namespace AnimalGame.Editor
             Invoke(ui, "ActivateCommand", list.itemsSource[0]);
             Require(list.itemsSource.Count == 6 && ui.Document.rootVisualElement.Q("CommandPopup").style.display.value == DisplayStyle.None,
                 "Standalone Daily expanded unnecessarily");
-            ui.Close();
+            shell.Close();
         }
+        private static void CheckPlayerDebugControls()
+        {
+            using var f = new Fixture();
+            var player = f.New("Player", f.Map.MapPositionToWorld(new Vector2(12, 12))).AddComponent<AnimalGame.RobotMap.RobotMover>();
+            Invoke(player, "Awake");
+            var traversal = f.New("Traversal", Vector3.zero).AddComponent<HeightMapTraversalEvaluator>();
+            traversal.Initialize(f.Map); player.SetTraversalEvaluator(traversal);
+            AnimalAgent animal = f.Animal("Observer", new Vector2(18, 12));
+            animal.Simulation.World.Resolve(0);
+            animal.Perception.Initialize(f.Map, animal.Config);
+            Set(animal.Config, "baseDetectionChancePerCheck", 1f);
+            animal.Perception.TickDetection(0);
+            Require(animal.Perception.TickDetection(10), "Baseline player detection failed");
+            animal.NotifyThreat(player.transform, false);
+
+            var level = (TiledLevelAsset)typeof(MapTestSceneController).GetField("levelAsset", Flags).GetValue(f.Map);
+            Set(level, "longitudeRange", new Vector2(-75, -74)); Set(level, "latitudeRange", new Vector2(40, 41));
+            Vector2 geographic = new Vector2(-74.75f, 40.75f);
+            Require(f.Map.TryGeographicToWorldPosition(geographic, out Vector3 target), "Geographic inverse conversion failed");
+            Require(f.Map.TrySampleGeographicWorldPosition(target, out float latitude, out float longitude, out _), "Converted position is outside the map");
+            Near(longitude, geographic.x, "Longitude round trip"); Near(latitude, geographic.y, "Latitude round trip");
+            Require(!f.Map.TryGeographicToWorldPosition(new Vector2(-76, 41), out _), "Out-of-map coordinates were accepted");
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/DebugUI/DebugUI.prefab");
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, f.Scene);
+            var shell = instance.GetComponent<DebugUI>(); Invoke(shell, "Awake"); Invoke(shell, "OnEnable");
+            Require(shell.Open(), "Cannot open player debug controls"); shell.SelectTab(1);
+            VisualElement root = shell.Document.rootVisualElement;
+            Require(shell.SelectedTab is PlayerDebugUI, "Second tab is not Player");
+            root.Q<Toggle>("DisablePlayerDetection").value = true;
+            Require(!animal.Perception.TickDetection(10) && !animal.Perception.TryGetPlayerMapPosition(out _)
+                && !animal.Perception.HasThreatInRange && animal.CurrentState == AnimalState.Daily,
+                "Disabling detection retained the player threat or response");
+            animal.NotifyThreat(player.transform, false); animal.ForceGroupReaction(player.transform);
+            Require(animal.CurrentState == AnimalState.Daily && !animal.Perception.HasThreatInRange, "Ignored player triggered a group reaction");
+            Require(!animal.Simulation.Hit(animal, player.transform, true), "Ignored player can still be attacked");
+            root.Q<Toggle>("DisablePlayerDetection").value = false;
+            animal.Perception.TickDetection(0); Require(animal.Perception.TickDetection(10), "Detection did not resume");
+
+            float defaultSpeed = player.DefaultMoveSpeed;
+            root.Q<Toggle>("OverridePlayerSpeed").value = true;
+            Near(root.Q<FloatField>("PlayerSpeed").value, defaultSpeed, "Speed override default");
+            root.Q<FloatField>("PlayerSpeed").value = defaultSpeed * 2;
+            Near((float)typeof(AnimalGame.RobotMap.RobotMover).GetMethod("DriveSpeed", Flags).Invoke(player, new object[] { 5f }), defaultSpeed * 2, "Live speed edit");
+            root.Q<Toggle>("OverridePlayerSpeed").value = false;
+            Require(!player.DebugMoveSpeed.HasValue && root.Q<FloatField>("PlayerSpeed").style.display == DisplayStyle.None, "Speed override was not restored");
+            Near(player.DefaultMoveSpeed, defaultSpeed, "Speed override changed configured default");
+
+            root.Q<Vector2Field>("PlayerCoordinates").value = geographic;
+            Invoke(instance.GetComponent<PlayerDebugUI>(), "Teleport");
+            Require(Vector2.Distance(player.transform.position, target) < .001f, "Teleport disagrees with geographic target");
+            Vector2 outward = Vector2.right * 50;
+            var move = typeof(AnimalGame.RobotMap.RobotMover).GetMethod("TryMoveSafely", Flags);
+            Require(!(bool)move.Invoke(player, new object[] { outward, null, false }), "Normal movement crossed the map boundary");
+            root.Q<Toggle>("IgnoreCollisionAndTerrain").value = true;
+            Require(player.GetComponent<AnimalGame.RobotMap.PlayerWorldBody>().Kind == WorldInteractionKind.None, "No-clip body still blocks actors");
+            Require((bool)move.Invoke(player, new object[] { outward, null, false })
+                && Vector2.Distance(player.transform.position, (Vector2)target + outward) < .001f, "No-clip movement was constrained by terrain or boundaries");
+            var bootstrap = f.New("Map bounds", Vector3.zero).AddComponent<HeightMapPlayerSceneBootstrap>();
+            bootstrap.map = f.Map; bootstrap.robot = player;
+            Invoke(bootstrap, "LateUpdate");
+            Require(Vector2.Distance(player.transform.position, (Vector2)target + outward) < .001f, "Scene bootstrap clamped no-clip movement");
+            root.Q<Toggle>("IgnoreCollisionAndTerrain").value = false;
+            Require((player.GetComponent<AnimalGame.RobotMap.PlayerWorldBody>().Kind & WorldInteractionKind.Collision) != 0, "Collision was not restored");
+            Invoke(bootstrap, "LateUpdate");
+            Require(f.Map.WorldBounds.Contains(player.transform.position), "Normal map bounds were not restored");
+            shell.Close();
+            Debug.Log("Player debug checks PASS: geographic round trip, teleport, live speed override/restoration, player detection and group suppression, no-clip boundaries and collision restoration.");
+        }
+
         private sealed class ProbeAction : AnimalAction
         {
             public int Exits; public Action OnTick;

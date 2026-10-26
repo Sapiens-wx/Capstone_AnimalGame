@@ -131,8 +131,8 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private static bool CanAcquire(PlayerContext context, out string reason)
         {
-            if (AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels)
-            { reason = "Close the animal inspector before maintenance."; return false; }
+            if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
+            { reason = "Close the debug UI before maintenance."; return false; }
             RobotMover player = context.Player;
             if (Time.timeScale <= 0f)
             {
