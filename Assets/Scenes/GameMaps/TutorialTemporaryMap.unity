@@ -164,6 +164,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerSpawnMapPositionMeters: {x: 200, y: 191}
+  playerSpawnRotationDegrees: 180
   showRobotTerrainData: 0
   photoLibrary: {fileID: 0}
   initialPhotoCamera: {fileID: 11400000, guid: 59638854e8cb4d759d806e6d41931a9c, type: 2}
@@ -674,7 +675,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9010943531982006058, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.593658
+      value: 13.593659
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -6274,11 +6275,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 6411004824892339983, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -6.59
+      value: -0.14
       objectReference: {fileID: 0}
     - target: {fileID: 6411004824892339983, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -10.86
+      value: -11.21
       objectReference: {fileID: 0}
     - target: {fileID: 6411004824892339983, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: m_LocalPosition.z
@@ -8465,12 +8466,12 @@ PrefabInstance:
       value: CheckpointRefitTerminal
       objectReference: {fileID: 0}
     - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
-      propertyPath: checkpointName
-      value: Assembly Station
-      objectReference: {fileID: 0}
-    - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
       propertyPath: checkpointId
       value: TUT-01
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
+      propertyPath: checkpointName
+      value: Assembly Station
       objectReference: {fileID: 0}
     - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
       propertyPath: interactionRadiusMeters
@@ -8950,7 +8951,8 @@ GameObject:
   - component: {fileID: 9100000000000000041}
   - component: {fileID: 9100000000000000042}
   m_Layer: 0
-  m_Name: Tutorial - Driving, Terrain, Balance, Arms, Discovery, Photography, Recycling, Camera Upgrade and Recovery
+  m_Name: Tutorial - Driving, Terrain, Balance, Arms, Discovery, Photography, Recycling,
+    Camera Upgrade and Recovery
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9102,8 +9104,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7f2bd27c4c2b4f8aa6f54c78dcd1af51, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   terrainCompletionDelay: 0
@@ -9120,8 +9122,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54cd1ca02d1745c0ac60d2918d226681, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   machine: {fileID: 0}
@@ -9143,8 +9145,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7de7580bbf3a4a6b97284b420d896e62, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
@@ -9161,8 +9163,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6d281b69852a46278049cfd6b0b2ce20, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   requiredStableSeconds: 0.8
@@ -9179,8 +9181,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f6097fda8e954db394d17f99ae752908, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   largeGarbagePrefab: {fileID: 7253239608327384681, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
   mediumFragmentPrefab: {fileID: 7253239608327384681, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}

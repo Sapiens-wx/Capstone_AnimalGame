@@ -20,6 +20,9 @@ namespace AnimalGame.MapTest
         [Tooltip("Initial player position in logical map meters. Values outside the map are clamped to its edges.")]
         [SerializeField] private Vector2 playerSpawnMapPositionMeters = new Vector2(50f, 50f);
 
+        [Tooltip("Initial world-space Z rotation in degrees: 0 faces north, -90 east, 90 west, and 180 south. The camera may rotate with the player.")]
+        [SerializeField] private float playerSpawnRotationDegrees;
+
         [Header("Terrain Debug Display")]
         [SerializeField] private bool showRobotTerrainData;
 
@@ -172,7 +175,9 @@ namespace AnimalGame.MapTest
                 return;
             }
 
-            robot.transform.position = map.MapPositionToWorld(playerSpawnMapPositionMeters);
+            robot.transform.SetPositionAndRotation(
+                map.MapPositionToWorld(playerSpawnMapPositionMeters),
+                Quaternion.Euler(0f, 0f, playerSpawnRotationDegrees));
             WorldInteraction.MarkHierarchySpatialDirty(robot.transform);
             map.UseCamera(mapCamera);
             map.UseSurfaceRevealUi(scanChargeUi);
