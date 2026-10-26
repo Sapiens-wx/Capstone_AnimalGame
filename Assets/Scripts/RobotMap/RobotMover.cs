@@ -455,7 +455,8 @@ namespace AnimalGame.RobotMap
                                           throttle));
             UpdateTurning(steering, steeringLocked);
 
-            if (pathResult.HasData && pathResult.RequiresHardStop)
+            if (pathResult.HasData && pathResult.RequiresHardStop
+                && pathResult.BlockReason != TraversalBlockReason.UnsafeDownhill)
             {
                 HardStop(pathResult);
                 return;
@@ -597,8 +598,8 @@ namespace AnimalGame.RobotMap
                         desiredDisplacement.normalized, true);
                 bool hardObstacle = actualPathResult.HasData
                                     && actualPathResult.RequiresHardStop
-                                    && (stopUnsafeDownhill || actualPathResult.BlockReason
-                                        != TraversalBlockReason.UnsafeDownhill);
+                                    && actualPathResult.BlockReason
+                                        != TraversalBlockReason.UnsafeDownhill;
                 if (hardObstacle)
                 {
                     HardStop(actualPathResult);
