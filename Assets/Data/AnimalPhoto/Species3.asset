@@ -1,0 +1,154 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8831b4092902886339dfc33b6cf41ab, type: 3}
+  m_Name: Species3
+  m_EditorClassIdentifier: 
+  species: 3
+  states:
+  - state: 0
+    photos:
+    - image: {fileID: 2800000, guid: 02b63f30970789d48ae12fae69fd04c1, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.34
+        y: 0.1
+        width: 0.65999997
+        height: 0.8
+      saturation: 1
+    - image: {fileID: 2800000, guid: 59018f36a4347de4597cb3a8a7ba72be, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.16
+        y: 0.06
+        width: 0.6600001
+        height: 0.86
+      saturation: 1
+    - image: {fileID: 2800000, guid: fce411b313dabb746a07a96f074696cf, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.3
+        y: 0.12
+        width: 0.47999996
+        height: 0.37
+      saturation: 1
+    - image: {fileID: 2800000, guid: eca4f35593658c64ebcd5c118d68b521, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.46
+        y: 0.2
+        width: 0.20000002
+        height: 0.40000004
+      saturation: 1
+    - image: {fileID: 2800000, guid: 0754efb778b744e4991593495334f633, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.34
+        y: 0.25
+        width: 0.47
+        height: 0.43
+      saturation: 1
+    - image: {fileID: 2800000, guid: 6c401c185b17cb74b9265de0ad0151f7, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.24
+        y: 0.12
+        width: 0.47999996
+        height: 0.7
+      saturation: 1
+    - image: {fileID: 2800000, guid: 229cc812aeaf1cf4cb97ad47661a6cca, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.12
+        y: 0.18
+        width: 0.65
+        height: 0.57
+      saturation: 1
+    - image: {fileID: 2800000, guid: f503f8adcefd4494eaf5ba6ba80e3fe3, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.36
+        y: 0.02
+        width: 0.44
+        height: 0.61
+      saturation: 1
+    - image: {fileID: 2800000, guid: d99ac9b3cf3547a44bc5283772bfdd2f, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.54
+        y: 0.41
+        width: 0.18
+        height: 0.24999997
+      saturation: 1
+    - image: {fileID: 2800000, guid: 24960cabd744fd6438b98885efe006bf, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.33
+        y: 0.01
+        width: 0.44999996
+        height: 0.93
+      saturation: 1
+    - image: {fileID: 2800000, guid: 9483e91d0d51ff04a9675be86b19c1f5, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.12
+        y: 0.12
+        width: 0.65
+        height: 0.65
+      saturation: 1
+    - image: {fileID: 2800000, guid: f1d1e4c02c1d81b41abc8b8920a25564, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.16
+        y: 0.24
+        width: 0.61
+        height: 0.5
+      saturation: 1
+    - image: {fileID: 2800000, guid: 32f3d6ab3c30812409f358add40980ab, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.28
+        y: 0.47
+        width: 0.13
+        height: 0.26000002
+      saturation: 1
+    - image: {fileID: 2800000, guid: d7f2192f15264354e915e255caddcc25, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2
+        y: 0.31
+        width: 0.64
+        height: 0.40000004
+      saturation: 1
+    - image: {fileID: 2800000, guid: 7623e68ceb3754144805f754c2b6211f, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.49
+        y: 0.3
+        width: 0.26
+        height: 0.27000004
+      saturation: 1
+    - image: {fileID: 2800000, guid: e53de6ea896c58c4baa1d1b463738c1c, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.43
+        y: 0.24
+        width: 0.18
+        height: 0.45999998
+      saturation: 1
+    - image: {fileID: 2800000, guid: 56f73fb0874531d498f6ef1006ad3eeb, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.12
+        y: 0.33
+        width: 0.68
+        height: 0.38000003
+      saturation: 1

@@ -16,22 +16,6 @@ MonoBehaviour:
   states:
   - state: 0
     photos:
-    - image: {fileID: 2800000, guid: 798c65d1091aa484db1cb91306c3bcc0, type: 3}
-      subjectRect:
-        serializedVersion: 2
-        x: 0.20654994
-        y: 0.1032967
-        width: 0.5946429
-        height: 0.85494506
-      saturation: 1
-    - image: {fileID: 2800000, guid: 7eb7488762fcbf742a8155b1906c8494, type: 3}
-      subjectRect:
-        serializedVersion: 2
-        x: 0.13698328
-        y: 0.16043955
-        width: 0.5984171
-        height: 0.6681319
-      saturation: 1
     - image: {fileID: 2800000, guid: 84a898cc28e53ff4d932386f6ff48bd5, type: 3}
       subjectRect:
         serializedVersion: 2
@@ -120,7 +104,29 @@ MonoBehaviour:
         width: 0.654
         height: 0.652
       saturation: 1
-  - state: 1
-    photos: []
   - state: 2
-    photos: []
+    photos:
+    - image: {fileID: 2800000, guid: 798c65d1091aa484db1cb91306c3bcc0, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.16064653
+        y: 0.16326535
+        width: 0.6470723
+        height: 0.7877551
+      saturation: 1
+    - image: {fileID: 2800000, guid: 7eb7488762fcbf742a8155b1906c8494, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.15090282
+        y: 0.17959183
+        width: 0.5668826
+        height: 0.6612245
+      saturation: 1
+    - image: {fileID: 2800000, guid: 84a898cc28e53ff4d932386f6ff48bd5, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.08881538
+        y: 0.1469388
+        width: 0.6853077
+        height: 0.5469388
+      saturation: 1
