@@ -39,7 +39,6 @@ namespace AnimalGame.MainUI
             new Keyframe(0f, 0f, 0f, 3f),
             new Keyframe(1f, 1f, 0f, 0f));
         [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .4f;
-        [SerializeField, Min(0f)] private float photoRingColorTransitionDuration = .25f;
 
         [Header("Inventory interactions")]
         [SerializeField] private InventoryRewardTable inventoryRewards;
@@ -112,10 +111,6 @@ namespace AnimalGame.MainUI
         private CursorLockMode originalCursorLock;
         private float progress, savedTimeScale, fit = 1, photoScale = 1, photoAlpha = 1;
         private float lastPower = -1, lastIntegrity = -1;
-        private Color photoRingColor = Color.white;
-        private Color photoRingTransitionStart = Color.white;
-        private Color photoRingTransitionTarget = Color.white;
-        private float photoRingTransitionElapsed;
         private float headingDegrees;
         private float outerRingHeadingDegrees;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
@@ -403,35 +398,6 @@ namespace AnimalGame.MainUI
 
         public void RefreshLatePresentation()
         {
-            HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
-            bool cameraOpeningOrOpen = bootstrap != null
-                                       && bootstrap.photoMode != null
-                                       && bootstrap.photoMode.IsActive
-                                       && !bootstrap.photoMode.IsExiting;
-            Color ringColorTarget = cameraOpeningOrOpen
-                ? HudDrawing.Yellow
-                : Color.white;
-            if (ringColorTarget != photoRingTransitionTarget)
-            {
-                photoRingTransitionStart = photoRingColor;
-                photoRingTransitionTarget = ringColorTarget;
-                photoRingTransitionElapsed = 0f;
-            }
-
-            if (photoRingColor != photoRingTransitionTarget)
-            {
-                float duration = Mathf.Max(0f, photoRingColorTransitionDuration);
-                photoRingTransitionElapsed += Time.unscaledDeltaTime;
-                float progress = duration <= 0f
-                    ? 1f
-                    : Mathf.Clamp01(photoRingTransitionElapsed / duration);
-                photoRingColor = Color.Lerp(
-                    photoRingTransitionStart,
-                    photoRingTransitionTarget,
-                    Mathf.SmoothStep(0f, 1f, progress));
-                innerRing?.SetStrokeColor(photoRingColor);
-                outerRing?.SetStrokeColor(photoRingColor);
-            }
             UpdateLevelIndicator();
             UpdateOuterRingRotation();
         }
