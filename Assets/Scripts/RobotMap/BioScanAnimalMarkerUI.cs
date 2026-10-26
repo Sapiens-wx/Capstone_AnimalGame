@@ -334,6 +334,7 @@ namespace AnimalGame.RobotMap
 
         private float GetMarkerSizePixels(AnimalMarker marker)
         {
+            marker.Subject?.GetComponent<AnimalTurnDeformation>()?.SynchronizeForQuery();
             float bodySizePixels = float.PositiveInfinity;
             if (marker.Subject != null && marker.Subject.BodyRenderers != null)
             {
@@ -373,6 +374,7 @@ namespace AnimalGame.RobotMap
             if (subject == null || subject.BodyRenderers == null)
                 return false;
 
+            subject.GetComponent<AnimalTurnDeformation>()?.SynchronizeForQuery();
             foreach (SpriteRenderer body in subject.BodyRenderers)
             {
                 if (body == null || body.sprite == null || !body.enabled

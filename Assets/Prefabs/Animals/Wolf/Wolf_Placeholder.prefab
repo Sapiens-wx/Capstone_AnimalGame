@@ -230,6 +230,7 @@ GameObject:
   - component: {fileID: 7339224301837501201}
   - component: {fileID: 384726811717424707}
   - component: {fileID: 2992145452737048465}
+  - component: {fileID: 7392156480314278092}
   m_Layer: 0
   m_Name: Wolf_Placeholder
   m_TagString: Untagged
@@ -237,6 +238,27 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &7392156480314278092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  visualRoot: {fileID: 3351961163244372313}
+  bodyRenderers:
+  - {fileID: 6051157855037081251}
+  - {fileID: 1874912894510113343}
+  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
+  followTimeSeconds: 0.12
+  maximumBendDegrees: 22
+  headAnchor: {x: 0, y: 0.432}
+  tailAnchor: {x: 0, y: -0.5316}
 --- !u!4 &4641402971349804924
 Transform:
   m_ObjectHideFlags: 0

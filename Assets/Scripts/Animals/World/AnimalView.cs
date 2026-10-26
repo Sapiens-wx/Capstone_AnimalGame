@@ -7,6 +7,8 @@ namespace AnimalGame.Animals
     {
         public void ShowCorpse(AnimalAgent agent)
         {
+            AnimalTurnDeformation turn = GetComponent<AnimalTurnDeformation>();
+            if (turn != null) turn.enabled = false;
             agent.PlaceholderView?.RestoreVisibleAppearance();
             AnimalDiscoveryVisual discovery = GetComponent<AnimalDiscoveryVisual>();
             if (discovery != null) discovery.enabled = false;

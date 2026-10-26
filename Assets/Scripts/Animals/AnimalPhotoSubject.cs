@@ -178,6 +178,7 @@ namespace AnimalGame.Animals
 
         public bool TryGetWorldBounds(out Bounds bounds)
         {
+            GetComponent<AnimalTurnDeformation>()?.SynchronizeForQuery();
             bounds = default;
             bool hasBounds = false;
             if (photoBoundsRenderers == null)

@@ -269,6 +269,7 @@ namespace AnimalGame.Animals
             HasArrived = true;
             CurrentSpeedMetersPerSecond = 0f;
             IsAerialMovement = false;
+            GetComponent<AnimalTurnDeformation>()?.ResetDeformation();
             return true;
         }
 

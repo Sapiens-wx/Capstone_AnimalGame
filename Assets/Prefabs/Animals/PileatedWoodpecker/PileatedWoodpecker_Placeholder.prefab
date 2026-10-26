@@ -195,6 +195,7 @@ GameObject:
   - component: {fileID: -3843962255671004437}
   - component: {fileID: 3233982417491227726}
   - component: {fileID: 4684756253158047579}
+  - component: {fileID: 7392156480314278092}
   m_Layer: 0
   m_Name: PileatedWoodpecker_Placeholder
   m_TagString: Untagged
@@ -202,6 +203,27 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &7392156480314278092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4118156342335042637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  visualRoot: {fileID: 4124710611500769805}
+  bodyRenderers:
+  - {fileID: 3253483730233485182}
+  - {fileID: 8562076238673343995}
+  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
+  followTimeSeconds: 0.12
+  maximumBendDegrees: 22
+  headAnchor: {x: 0, y: 0.1632}
+  tailAnchor: {x: 0, y: -0.246}
 --- !u!4 &783411651329894211
 Transform:
   m_ObjectHideFlags: 0

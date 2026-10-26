@@ -14,6 +14,8 @@ namespace AnimalGame.Rendering
             "AnimalGame/Player UI Clipped Sprite";
         private const string UnknownAnimalShaderName =
             "Animal Game/Unknown Animal Static";
+        private const string AnimalTurnDeformationShaderName =
+            "AnimalGame/Animal Turn Deformation";
 
         private static readonly int ClipEnabledProperty =
             Shader.PropertyToID("_PlayerUiClipEnabled");
@@ -135,7 +137,8 @@ namespace AnimalGame.Rendering
                 return false;
 
             return shader.name == ClippedSpriteShaderName
-                   || shader.name == UnknownAnimalShaderName;
+                   || shader.name == UnknownAnimalShaderName
+                   || shader.name == AnimalTurnDeformationShaderName;
         }
 
         private static Material GetOrCreateClippedSpriteMaterial()
