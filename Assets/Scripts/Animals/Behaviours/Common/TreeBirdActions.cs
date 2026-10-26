@@ -130,14 +130,20 @@ namespace AnimalGame.Animals
         private readonly TreeBirdBehaviour bird;
         private readonly TreeHabitat target;
         private readonly FlyToTreeActionDefinition definition;
-        private float BaseSpeed(AnimalContext c) => Mathf.Max(.1f, definition != null ? definition.SpeedMetersPerSecond : c.Config.DailyMoveSpeedMetersPerSecond);
-        private float SpeedVariation => Mathf.Clamp(definition != null ? definition.FlightSpeedVariation : bird.Settings.FlightSpeedVariation, 0f, .5f);
+        private bool ownsDefinition;
+        private float BaseSpeed => Mathf.Max(.1f, definition.SpeedMetersPerSecond);
+        private float SpeedVariation => Mathf.Clamp(definition.FlightSpeedVariation, 0f, .5f);
         private float elapsed, period, phase, travelLimit;
         private bool valid, started, arrived;
         public bool IsCurved { get; private set; }
         public override AnimalState PhotoState => AnimalState.Moving;
         public FlyToTreeAction(TreeBirdBehaviour bird, TreeHabitat target, FlyToTreeActionDefinition definition = null)
-        { this.bird = bird; this.target = target; this.definition = definition; }
+        {
+            this.bird = bird; this.target = target;
+            ownsDefinition = definition == null;
+            this.definition = ownsDefinition ? ScriptableObject.CreateInstance<FlyToTreeActionDefinition>() : definition;
+            if (ownsDefinition) this.definition.hideFlags = HideFlags.HideAndDontSave;
+        }
         public override void Enter(AnimalContext c)
         {
             c.Motor.Stop(); c.Motor.ClearMovementOverrides();
@@ -147,22 +153,13 @@ namespace AnimalGame.Animals
             { valid = true; arrived = true; bird.ArrivedAt(target); return; }
             Vector2 start = c.Motor.CurrentMapPosition;
             var path = new List<Vector2>();
-            bool curved = Random.value < (definition != null ? definition.ArcProbability : bird.Settings.ArcProbability);
-            float offset = curved ? Mathf.Min(Vector2.Distance(start, end) * (definition != null ? definition.ArcOffsetRatio : bird.Settings.ArcOffsetRatio),
-                Mathf.Max(0f, definition != null ? definition.MaximumArcOffsetMeters : bird.Settings.MaximumArcOffsetMeters)) * (Random.value < .5f ? -1f : 1f) : 0f;
-            Vector2 delta = end - start;
-            Vector2 normal = new Vector2(-delta.y, delta.x).normalized;
+            bool curved = Random.value < definition.ArcProbability;
+            float offset = curved ? Mathf.Min(Vector2.Distance(start, end) * definition.ArcOffsetRatio,
+                Mathf.Max(0f, definition.MaximumArcOffsetMeters)) * (Random.value < .5f ? -1f : 1f) : 0f;
             for (int attempt = 0; attempt < 3; attempt++)
             {
-                path.Clear();
-                Vector2 control = (start + end) * .5f + normal * offset;
-                int count = Mathf.Clamp(Mathf.CeilToInt(delta.magnitude / .25f), 8, 2048);
-                for (int i = 1; i <= count; i++)
-                {
-                    float t = i / (float)count;
-                    path.Add((1f - t) * (1f - t) * start + 2f * (1f - t) * t * control + t * t * end);
-                }
-                if (c.Motor.SetAerialPath(path, BaseSpeed(c)))
+                BuildFlightPath(start, end, offset, path);
+                if (c.Motor.SetAerialPath(path, BaseSpeed))
                 { valid = true; IsCurved = Mathf.Abs(offset) > .0001f; break; }
                 offset = attempt == 0 ? offset * .5f : 0f;
             }
@@ -172,19 +169,45 @@ namespace AnimalGame.Animals
             foreach (Vector2 point in path) { length += Vector2.Distance(previous, point); previous = point; }
             travelLimit = Mathf.Max(c.Config.MaximumTravelTimeSeconds,
                 length / Mathf.Max(.1f, Mathf.Min(c.Config.FleeSpeedMetersPerSecond,
-                    BaseSpeed(c) * (1f - SpeedVariation))) * 1.5f);
+                    BaseSpeed * (1f - SpeedVariation))) * 1.5f);
             bird.CurrentTree = null;
             started = true;
-            Vector2 periods = definition != null ? definition.FlightSpeedPeriodSeconds : bird.Settings.FlightSpeedPeriodSeconds;
+            Vector2 periods = definition.FlightSpeedPeriodSeconds;
             period = Random.Range(Mathf.Max(.1f, periods.x), Mathf.Max(.1f, Mathf.Max(periods.x, periods.y)));
             phase = Random.Range(0f, Mathf.PI * 2f);
             c.Agent.SoundEmitter?.Emit(AnimalSoundKind.Takeoff);
             c.Agent.SoundEmitter?.BeginMovementSound(AnimalSoundKind.Flying);
             UpdateSpeed(c);
         }
+        // One circular arc joins the two perches. Offset is the signed height
+        // above the chord at its midpoint, rather than a Bezier control point.
+        private static void BuildFlightPath(Vector2 start, Vector2 end, float offset, List<Vector2> path)
+        {
+            path.Clear();
+            Vector2 delta = end - start;
+            float distance = delta.magnitude;
+            if (Mathf.Abs(offset) <= .0001f || distance <= .0001f)
+            { path.Add(end); return; }
+
+            float height = Mathf.Min(Mathf.Abs(offset), distance * .3f);
+            float angle = 4f * Mathf.Atan(2f * height / distance);
+            float radius = distance / (2f * Mathf.Sin(angle * .5f));
+            Vector2 forward = delta / distance;
+            Vector2 normal = new Vector2(-forward.y, forward.x) * Mathf.Sign(offset);
+            Vector2 midpoint = (start + end) * .5f;
+            int count = Mathf.Clamp(Mathf.CeilToInt(radius * angle / .25f), 8, 2048);
+            for (int i = 1; i < count; i++)
+            {
+                float a = (i / (float)count - .5f) * angle;
+                float halfSine = Mathf.Sin(a * .5f);
+                path.Add(midpoint + forward * (radius * Mathf.Sin(a))
+                    + normal * (height - 2f * radius * halfSine * halfSine));
+            }
+            path.Add(end);
+        }
         private void UpdateSpeed(AnimalContext c)
         {
-            float speed = BaseSpeed(c)
+            float speed = BaseSpeed
                 * (1f + SpeedVariation * Mathf.Sin(phase + elapsed * 2f * Mathf.PI / period));
             c.Motor.SetMovementSpeed(Mathf.Min(c.Config.FleeSpeedMetersPerSecond, speed));
         }
@@ -210,6 +233,12 @@ namespace AnimalGame.Animals
             base.Exit(c); c.Motor.ClearMovementOverrides();
             if (!arrived) bird.FlightFailed();
             else c.Motor.SetPerchedMode(true);
+            if (ownsDefinition)
+            {
+                ownsDefinition = false;
+                if (Application.isPlaying) Object.Destroy(definition);
+                else Object.DestroyImmediate(definition);
+            }
         }
     }
 

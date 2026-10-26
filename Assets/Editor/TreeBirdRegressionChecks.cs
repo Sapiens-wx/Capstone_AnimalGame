@@ -43,7 +43,7 @@ namespace AnimalGame.Editor
             {
                 Random.InitState(94631);
                 CheckActionAssets(); CheckActivityPaths(); CheckStationaryWoodpecker(); CheckCategoryWeights();
-                CheckFlight(); CheckEscape(); CheckRecoveryAndCooldown(); CheckEnableLifecycle(); CheckCadence();
+                CheckFlight(); CheckTemporaryFlightDefinition(); CheckEscape(); CheckRecoveryAndCooldown(); CheckEnableLifecycle(); CheckCadence();
                 Debug.Log("Tree bird checks PASS: crown/ring crawl, stationary woodpecker, global category weights, variable-speed arcs, threat interruption, bounded escape/despawn, cooldown/recovery and five-minute occupancy.");
             }
             finally { Random.state = random; CleanupActionCopies(); }
@@ -132,15 +132,19 @@ namespace AnimalGame.Editor
         }
         private static void CheckFlight()
         {
+            foreach (bool woodpecker in new[] { false, true })
             foreach (int fps in new[] { 30, 60, 144 })
             foreach (bool curve in new[] { false, true })
             {
-                using var f = new Fixture(true);
+                using var f = new Fixture(woodpecker);
                 TreeHabitat other = f.Tree(new Vector2(70f, 50f), TreeHealthState.Dead);
-                f.Bird.Settings.ArcProbability = curve ? 1f : 0f;
-                var action = new FlyToTreeAction(f.Bird, other);
+                var flightDefinition = (FlyToTreeActionDefinition)DailySettings(AnimalDailyBehaviourKind.FlyToTree, 1f, 1f, 1f).Action;
+                flightDefinition.ArcProbability = curve ? 1f : 0f;
+                var action = new FlyToTreeAction(f.Bird, other, flightDefinition);
+                Vector2 start = f.Agent.Motor.CurrentMapPosition;
                 f.Start(action);
                 Require(action.IsCurved == curve, "Flight path selection ignored probability");
+                if (curve) CheckCircularPath(f, start, flightDefinition.ArcOffsetRatio, flightDefinition.MaximumArcOffsetMeters);
                 float min = float.PositiveInfinity, max = 0f;
                 for (int i = 0; i < fps * 8 && f.Bird.CurrentTree != other; i++)
                 {
@@ -153,9 +157,10 @@ namespace AnimalGame.Editor
             }
             using (var f = new Fixture(true))
             {
-                f.Bird.Settings.ArcProbability = 0f;
+                var flightDefinition = (FlyToTreeActionDefinition)DailySettings(AnimalDailyBehaviourKind.FlyToTree, 1f, 1f, 1f).Action;
+                flightDefinition.ArcProbability = 0f;
                 TreeHabitat other = f.Tree(new Vector2(70f, 50f), TreeHealthState.Dead);
-                f.Start(new FlyToTreeAction(f.Bird, other));
+                f.Start(new FlyToTreeAction(f.Bird, other, flightDefinition));
                 f.Step(.05f);
                 Vector2 before = f.Agent.Motor.CurrentMapPosition;
                 f.Agent.Motor.SegmentFilter = (a, b) => false;
@@ -165,6 +170,56 @@ namespace AnimalGame.Editor
                 f.Step(.05f);
                 Require(Vector2.Distance(before, f.Agent.Motor.CurrentMapPosition) < .51f, "Unblocking flight jumped ahead");
             }
+        }
+        private static void CheckTemporaryFlightDefinition()
+        {
+            using var f = new Fixture(true);
+            var settings = DailySettings(AnimalDailyBehaviourKind.FlyToTree, 1f, 1f, 1f);
+            var configured = (FlyToTreeActionDefinition)settings.Action;
+            configured.SpeedMetersPerSecond = 2f;
+            configured.ArcOffsetRatio = .2f;
+            Set(f.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings> { settings });
+            FieldInfo field = typeof(FlyToTreeAction).GetField("definition", Flags);
+
+            // Exercise interruption, immediate arrival and a failed destination.
+            foreach (TreeHabitat target in new[] { f.Tree(new Vector2(70f, 50f), TreeHealthState.Dead), f.Home, null })
+            {
+                var action = new FlyToTreeAction(f.Bird, target);
+                var temporary = (FlyToTreeActionDefinition)field.GetValue(action);
+                Require(temporary != null && temporary != configured && temporary.hideFlags == HideFlags.HideAndDontSave,
+                    "Omitted flight definition did not create an unsaved temporary instance");
+                Require(temporary.SpeedMetersPerSecond == 9f && Mathf.Abs(temporary.ArcOffsetRatio - .08f) < .0001f,
+                    "Temporary flight definition read the bird's configured asset instead of class defaults");
+                action.Enter(f.Agent.Context);
+                action.Exit(f.Agent.Context);
+                Require(temporary == null, "Exiting flight leaked its temporary definition");
+                Require(configured != null && configured.SpeedMetersPerSecond == 2f,
+                    "Temporary flight destroyed or changed the configured asset");
+            }
+        }
+        private static void CheckCircularPath(Fixture f, Vector2 start, float ratio, float maximum)
+        {
+            var path = (List<Vector2>)typeof(AnimalMotor).GetField("aerialPath", Flags).GetValue(f.Agent.Motor);
+            Vector2 end = f.Agent.Motor.TargetMapPosition;
+            Vector2 delta = end - start;
+            float distance = delta.magnitude;
+            Vector2 normal = new Vector2(-delta.y, delta.x) / distance;
+            Vector2 midpoint = (start + end) * .5f;
+            float height = Mathf.Min(distance * ratio, maximum);
+            float radius = distance * distance / (8f * height) + height * .5f;
+            float side = Mathf.Sign(Vector2.Dot(path[path.Count / 2] - midpoint, normal));
+            Vector2 centre = midpoint + normal * (side * (height - radius));
+            float maxHeight = 0f;
+            foreach (Vector2 point in path)
+            {
+                Require(Mathf.Abs(Vector2.Distance(point, centre) - radius) < .002f,
+                    "Flight samples do not lie on a single circle");
+                float deviation = Vector2.Dot(point - midpoint, normal) * side;
+                Require(deviation >= -.001f, "Flight crossed to the other side of its chord");
+                maxHeight = Mathf.Max(maxHeight, deviation);
+            }
+            Require(Mathf.Abs(maxHeight - height) < .01f, "Arc midpoint height ignored the flight settings");
+            Require(path[path.Count - 1] == end, "Arc did not end exactly at the destination perch");
         }
         private static void CheckEscape()
         {
@@ -263,6 +318,20 @@ namespace AnimalGame.Editor
             Require(f.Bird.TargetTree == healthy && !flight.IsCurved, "Flight asset weights or arc probability were ignored");
             f.Agent.Motor.Tick(.1f);
             Require(Mathf.Abs(f.Agent.Motor.CurrentSpeedMetersPerSecond - 2f) < .001f, "Flight asset speed was ignored");
+            flight.Exit(f.Agent.Context);
+            Require(flightDefinition != null, "Flight destroyed a supplied definition");
+
+            // Woodpecker daily actions use the shared flight asset, even when
+            // the inherited fallback settings request a straight flight.
+            f.Bird.Settings.ArcProbability = 0f;
+            flightDefinition.ArcProbability = 1f;
+            Require(f.Bird.SnapToBirthPerch(), "Could not restore perch for daily curved flight");
+            Vector2 start = f.Agent.Motor.CurrentMapPosition;
+            flight = f.Bird.CreateDailyAction(fly, true) as FlyToTreeAction;
+            Require(flight != null, "Woodpecker daily flight did not use the shared action");
+            flight.Enter(f.Agent.Context);
+            Require(flight.IsCurved, "Woodpecker daily flight ignored the shared arc probability");
+            CheckCircularPath(f, start, flightDefinition.ArcOffsetRatio, flightDefinition.MaximumArcOffsetMeters);
             flight.Exit(f.Agent.Context);
         }
         private static void CheckCadence()

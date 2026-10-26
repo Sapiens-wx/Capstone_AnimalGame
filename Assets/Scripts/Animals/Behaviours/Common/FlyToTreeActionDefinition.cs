@@ -11,6 +11,7 @@ namespace AnimalGame.Animals
         [Range(0f, .5f)] public float FlightSpeedVariation = .1f;
         public Vector2 FlightSpeedPeriodSeconds = new Vector2(1f, 2f);
         [Range(0f, 1f)] public float ArcProbability = .35f;
+        // Circular arc midpoint height as a fraction of the distance between perches.
         [Range(0f, .3f)] public float ArcOffsetRatio = .08f;
         [Min(0f)] public float MaximumArcOffsetMeters = 2f;
         [Min(0f)] public float HealthyTreeWeight = .15f;

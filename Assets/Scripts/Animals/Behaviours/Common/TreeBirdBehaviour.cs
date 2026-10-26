@@ -11,11 +11,7 @@ namespace AnimalGame.Animals
         [Min(0f)] public float MinimumTreeStaySeconds = 15f;
         [Tooltip("Minimum time between tree changes, measured from landing. Species daily weights are configured separately.")]
         [Min(0f)] public float FlightCooldownSeconds = 20f;
-        [Range(0f, .5f)] public float FlightSpeedVariation = .1f;
-        public Vector2 FlightSpeedPeriodSeconds = new Vector2(1f, 2f);
         [Range(0f, 1f)] public float ArcProbability = .35f;
-        [Range(0f, .3f)] public float ArcOffsetRatio = .08f;
-        [Min(0f)] public float MaximumArcOffsetMeters = 2f;
         [Min(.05f)] public float CrawlSpeedMetersPerSecond = .35f;
         public Vector2 CrawlPauseSeconds = new Vector2(.7f, 2f);
         [Min(1f)] public float FleeSafeDistanceMultiplier = 2f;
@@ -35,7 +31,7 @@ namespace AnimalGame.Animals
         private readonly List<TreeHabitat> healthy = new(), dead = new();
         private float quietCountdown, nextFlightTime, nextSearchTime;
         private bool disposed;
-        public TreeBirdSettings Settings => birdSettings ??= new TreeBirdSettings();
+        public TreeBirdSettings Settings => birdSettings;
         public TreeHabitat BirthTree => birthTree;
         public TreeHabitat CurrentTree { get; internal set; }
         public TreeHabitat TargetTree { get; internal set; }

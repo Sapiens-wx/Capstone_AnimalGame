@@ -18,7 +18,7 @@ MonoBehaviour:
   FlightSpeedVariation: 0.1
   FlightSpeedPeriodSeconds: {x: 1, y: 2}
   ArcProbability: 0.35
-  ArcOffsetRatio: 0.08
+  ArcOffsetRatio: 0.15
   MaximumArcOffsetMeters: 2
   HealthyTreeWeight: 0.15
   DeadTreeWeight: 0.5
