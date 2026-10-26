@@ -209,7 +209,7 @@ namespace AnimalGame.Editor
                     if (step == TerrainTutorialStep.ReadSigns)
                     {
                         Invoke(terrain, "RefreshPanel", true, false, true);
-                        Require(Text(panel, "TutorialStatus") == "Custom markers", "Waiting-for-markers feedback is editable.");
+                        Require(Text(panel, "TutorialStatus") == "Custom observe", "Acknowledged scan reading continues after its temporary markers expire.");
                         Invoke(terrain, "RefreshPanel", true, true, false);
                         Require(Text(panel, "TutorialStatus") == "Custom observe", "Reading signs while moving keeps the active lesson copy.");
                     }

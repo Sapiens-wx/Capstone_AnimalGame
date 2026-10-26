@@ -9292,7 +9292,7 @@ MonoBehaviour:
   entranceInteriorLocal: {x: 0, y: -0.8}
   arrivalRadiusMeters: 3
   photographyCompletionDelay: 0
-  controlsReadingSeconds: 0.8
+  requiredFrameMovement: 0.12
 --- !u!114 &9100000000000000040
 MonoBehaviour:
   m_ObjectHideFlags: 0

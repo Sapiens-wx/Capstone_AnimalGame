@@ -30,7 +30,7 @@ namespace AnimalGame.Tutorial
         private UIDocument document;
         private PanelSettings runtimeSettings;
         private Font runtimeFont;
-        private VisualElement root, expanded, collapsedTab, progressFill;
+        private VisualElement root, expanded, collapsedTab, progressFill, statusDot, continueBanner;
         private PanelFrame frame;
         private ScanStarGlyph controlStar;
         private VisualElement controlBadge;
@@ -376,43 +376,50 @@ namespace AnimalGame.Tutorial
             chapterLabel = AddLabel(expanded, "01 / 08", 221, 128, 107, 27, 18, Color.white);
             chapterLabel.name = "TutorialChapter";
             chapterLabel.style.unityTextAlign = TextAnchor.MiddleRight;
-            titleLabel = AddLabel(expanded, title, 27, 163, 301, 48, 32, Gold, true);
+            // Keep chapter metadata available to existing observers without rendering an extra row.
+            currentLessonLabel.style.display = DisplayStyle.None;
+            chapterLabel.style.display = DisplayStyle.None;
+            titleLabel = AddLabel(expanded, title, 27, 125, 301, 48, 32, Gold, true);
             titleLabel.name = "TutorialTitle";
-            messageLabel = AddLabel(expanded, message, 27, 231, 301, 137, 24, Color.white);
+            messageLabel = AddLabel(expanded, message, 27, 193, 301, 137, 24, Color.white);
             messageLabel.name = "TutorialMessage";
             messageLabel.style.whiteSpace = WhiteSpace.Normal;
-            AddLine(expanded, 27, 376, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
-            currentActionLabel = AddLabel(expanded, panelText.CurrentAction, 27, 390, 220, 26, 16, Muted);
+            AddLine(expanded, 27, 338, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
+            currentActionLabel = AddLabel(expanded, panelText.CurrentAction, 27, 352, 220, 26, 16, Muted);
             currentActionLabel.name = "TutorialCurrentAction";
 
             controlBadge = new ControlBadge();
-            SetRect(controlBadge, 29, 420, 74, 70);
+            SetRect(controlBadge, 29, 382, 74, 70);
             expanded.Add(controlBadge);
-            controlLabel = AddLabel(expanded, controlGlyph, 33, 422, 66, 65, 22, Color.white, true);
+            controlLabel = AddLabel(expanded, controlGlyph, 33, 384, 66, 65, 22, Color.white, true);
             controlLabel.name = "TutorialControl";
             controlLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
             controlStar = new ScanStarGlyph { name = "TutorialControlStar" };
-            SetRect(controlStar, 47, 437, 38, 38);
+            SetRect(controlStar, 47, 399, 38, 38);
             expanded.Add(controlStar);
             recoveryStickGuide = new RecoveryStickGuide { name = "TutorialRecoveryStickGuide" };
-            SetRect(recoveryStickGuide, 29, 420, 74, 70);
+            SetRect(recoveryStickGuide, 29, 382, 74, 70);
             expanded.Add(recoveryStickGuide);
-            actionLabel = AddLabel(expanded, action, 121, 421, 207, 34, 23, Color.white, true);
+            actionLabel = AddLabel(expanded, action, 121, 383, 207, 34, 23, Color.white, true);
             actionLabel.name = "TutorialAction";
-            detailLabel = AddLabel(expanded, detail, 121, 457, 207, 45, 16, Muted);
+            detailLabel = AddLabel(expanded, detail, 121, 419, 207, 45, 16, Muted);
             detailLabel.name = "TutorialDetail";
             detailLabel.style.whiteSpace = WhiteSpace.Normal;
-            var statusDot = new VisualElement { pickingMode = PickingMode.Ignore };
-            SetRect(statusDot, 28, 515, 9, 9);
+            statusDot = new VisualElement { pickingMode = PickingMode.Ignore };
+            SetRect(statusDot, 28, 494, 9, 9);
             statusDot.style.backgroundColor = Gold;
             statusDot.style.borderTopLeftRadius = statusDot.style.borderTopRightRadius = 5;
             statusDot.style.borderBottomLeftRadius = statusDot.style.borderBottomRightRadius = 5;
             expanded.Add(statusDot);
-            statusLabel = AddLabel(expanded, status, 47, 505, 231, 25, 17, Muted);
+            statusLabel = AddLabel(expanded, status, 47, 484, 231, 25, 17, Muted);
             statusLabel.name = "TutorialStatus";
-            continueLabel = AddLabel(expanded, continuePrompt, 47, 505, 231, 25, 17, Gold, true);
+            continueBanner = new VisualElement { name = "TutorialContinueBanner", pickingMode = PickingMode.Ignore };
+            SetRect(continueBanner, 27, 476, 301, 54);
+            expanded.Add(continueBanner);
+            continueLabel = AddLabel(continueBanner, continuePrompt, 8, 6, 285, 42, 26, Gold, true);
             continueLabel.name = "TutorialContinuePrompt";
-            percentLabel = AddLabel(expanded, "0%", 280, 505, 47, 25, 16, Gold);
+            continueLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            percentLabel = AddLabel(expanded, "0%", 280, 484, 47, 25, 16, Gold);
             percentLabel.style.unityTextAlign = TextAnchor.MiddleRight;
             var progressTrack = new VisualElement { pickingMode = PickingMode.Ignore };
             SetRect(progressTrack, 27, 534, 301, 2);
@@ -482,7 +489,7 @@ namespace AnimalGame.Tutorial
             if (chapterLabel == null || tabProgressLabel == null) return;
             currentLessonLabel.style.width = string.IsNullOrEmpty(contextLabel) ? 180f : 301f;
             currentLessonLabel.text = string.IsNullOrEmpty(contextLabel) ? panelText.CurrentLesson : contextLabel;
-            chapterLabel.style.display = string.IsNullOrEmpty(contextLabel) ? DisplayStyle.Flex : DisplayStyle.None;
+            chapterLabel.style.display = DisplayStyle.None;
             chapterLabel.text = string.IsNullOrEmpty(contextLabel)
                 ? chapter.ToString("00") + " / " + chapters.ToString("00") : string.Empty;
             tabProgressLabel.text = string.IsNullOrEmpty(contextLabel)
@@ -495,7 +502,10 @@ namespace AnimalGame.Tutorial
             if (continueLabel == null || statusLabel == null) return;
             continueLabel.text = continuePrompt;
             continueLabel.style.display = continueReady ? DisplayStyle.Flex : DisplayStyle.None;
+            if (continueBanner != null) continueBanner.style.display = continueReady ? DisplayStyle.Flex : DisplayStyle.None;
             statusLabel.style.display = continueReady ? DisplayStyle.None : DisplayStyle.Flex;
+            if (statusDot != null) statusDot.style.display = continueReady ? DisplayStyle.None : DisplayStyle.Flex;
+            if (percentLabel != null) percentLabel.style.display = continueReady ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
         private void RefreshPanelText()
@@ -567,7 +577,7 @@ namespace AnimalGame.Tutorial
             FitText(actionLabel, 23, 16);
             FitText(detailLabel, 16, 13);
             FitText(statusLabel, 17, 12);
-            FitText(continueLabel, 17, 12);
+            FitText(continueLabel, 26, 22);
             float fit = Mathf.Min(size.x / DesignWidth, size.y / DesignHeight);
             // Same fit as MainUI: on ultrawide displays the card stays close to the right edge;
             // on narrow displays it remains outside the central 960-unit ring.

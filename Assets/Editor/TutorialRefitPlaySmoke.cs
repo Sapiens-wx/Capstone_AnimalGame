@@ -30,7 +30,8 @@ namespace AnimalGame.Editor
             Starting, Foundations, WaitRecyclingConfirmation, ConfirmRecycling, ReachEntrance, WaitEntranceConfirmation,
             ConfirmEntrance, EnterMachine, ReachWorkbench, OpenWorkbench, WaitIntroduction,
             SelectCameraSlot, SelectLens, EquipLens, HoldAfterEquipment, NeutralAfterEquipment,
-            CloseWorkbench, ReadNewControls, ConfirmControls, ConfirmCompletion, FinalRelease, FinalHide, FinalShow,
+            CloseWorkbench, ReadNewControls, OpenFinalCamera, CameraIdle, PrematureFinalA, NeutralBeforeFrame,
+            MoveFinalFrame, FrameReady, ConfirmControls, ConfirmCompletion, FinalRelease, ExitFinalCamera, FinalHide, FinalShow,
             ReopenNormally, SelectOldNormally, EquipOldNormally, SelectTargetNormally, EquipTargetNormally,
             CloseNormally, Cleanup, Finishing
         }
@@ -42,12 +43,16 @@ namespace AnimalGame.Editor
             public bool installedWithNativeA, heldEquipDidNotContinue, separateEquipmentConfirmation;
             public bool closedWithNativeB, retainedInterior, retainedCamera, completedWithA, cleanupReleasedTutorial;
             public bool finalADidNotReopen, finalPanelHidden, finalPanelShown, normalReopen, ordinaryEquipmentRestored;
+            public bool waitingDidNotComplete, openedFinalCamera, idleCameraDidNotComplete, prematureADidNotComplete;
+            public bool actualFrameAdjustment, finalTaskVisibleInCamera, cameraClosedAfterCompletion;
             public bool terminalIsNearby, terminalIsOpen, terminalInputArmed, terminalReleasing;
             public bool terminalHasOpenBlockHandler, tutorialPromptReady, heldContinueBlock, worldSouthHeld, canAcquireMaintenance;
             public string project, phase, step, targetCamera, actualCamera, movementMode, failureReason, foundationStage;
             public string firstGamepadName;
             public float interactionRadius, speed, throttle, turnSpeed, targetAngle, targetDistanceMeters, timeScale;
             public Vector2 playerMapPosition, playerPortalPosition, waypointMapPosition, queuedLeftStick;
+            public Vector2 frameStart, frameEnd, queuedRightStick;
+            public float actualFrameDisplacement, tutorialFrameMovement;
             public float queuedRightTrigger, traversalSlope;
             public float nativeTriggerThrottle, firstGamepadRightTrigger, virtualGamepadRightTrigger;
             public int connectedGamepads;
@@ -291,12 +296,59 @@ namespace AnimalGame.Editor
                         report.closedWithNativeB = report.retainedInterior = report.retainedCamera = true;
                         Begin(Phase.ReadNewControls); break;
                     case Phase.ReadNewControls:
-                        if (!lesson.Panel.CanContinue || !Settled(20)) return;
-                        Require(lesson.Progress.Step == RefitTutorialStep.NewLensControls && lesson.Panel.IsVisible,
-                            "The new focus/release/shutter instructions must stay available until A.");
-                        Require(lesson.Panel.Root.Q<Label>("TutorialMessage").text.Contains("release", StringComparison.OrdinalIgnoreCase),
-                            "The new lens must explain releasing focus before another shutter press.");
-                        Record("B returns to the same interior. The new camera stays installed and its focus/release/shutter explanation waits for A.", "refit-new-controls.png");
+                        if (!Settled(35)) return;
+                        Require(lesson.Progress.Step == RefitTutorialStep.NewLensControls && lesson.Panel.IsVisible
+                            && !lesson.Panel.CanContinue && !lesson.Progress.HasAdjustedFrame && !lesson.IsComplete,
+                            "Waiting after lens installation must not complete the actual camera-frame practice.");
+                        string finalInstruction = lesson.Panel.Root.Q<Label>("TutorialMessage").text;
+                        Require(finalInstruction.Contains("right stick", StringComparison.OrdinalIgnoreCase)
+                            && finalInstruction.Contains("frame", StringComparison.OrdinalIgnoreCase),
+                            "The final task must explain actual right-stick frame movement.");
+                        report.waitingDidNotComplete = true;
+                        Record("B retains Zoom Lens 300 and presents the final camera-frame practice. Waiting alone never unlocks A.", "refit-new-controls.png");
+                        Begin(Phase.OpenFinalCamera); break;
+                    case Phase.OpenFinalCamera:
+                        if (!bootstrap.photoMode.IsActive || bootstrap.photoMode.IsInputLocked || !Settled(5)) return;
+                        Require(lesson.Progress.Step == RefitTutorialStep.NewLensControls && !lesson.IsComplete,
+                            "Opening the actual upgraded camera must retain the final practice.");
+                        report.openedFinalCamera = true;
+                        report.frameStart = bootstrap.photoMode.AimLocalPosition;
+                        Begin(Phase.CameraIdle); break;
+                    case Phase.CameraIdle:
+                        if (!Settled(20)) return;
+                        Require(bootstrap.photoMode.IsActive && !bootstrap.photoMode.IsInputLocked
+                            && !lesson.Progress.HasAdjustedFrame && !lesson.Panel.CanContinue && !lesson.IsComplete,
+                            "An active camera with a stationary frame must not complete the final task.");
+                        Require(lesson.Panel.IsVisible && lesson.Panel.ShowDuringPhotoMode
+                            && lesson.Panel.Root.resolvedStyle.display == DisplayStyle.Flex,
+                            "The final tutorial card must remain visible while the real camera is open.");
+                        report.idleCameraDidNotComplete = report.finalTaskVisibleInCamera = true;
+                        Begin(Phase.PrematureFinalA); break;
+                    case Phase.PrematureFinalA:
+                        if (!Settled(10)) return;
+                        Require(lesson.Progress.Step == RefitTutorialStep.NewLensControls && !lesson.IsComplete
+                            && !lesson.Panel.CanContinue && !terminal.IsOpen,
+                            "A before actual right-stick movement cannot skip the final task or reopen maintenance through photo mode.");
+                        report.prematureADidNotComplete = true;
+                        Begin(Phase.NeutralBeforeFrame); break;
+                    case Phase.NeutralBeforeFrame:
+                        if (!Settled(8)) return;
+                        report.frameStart = bootstrap.photoMode.AimLocalPosition;
+                        Begin(Phase.MoveFinalFrame); break;
+                    case Phase.MoveFinalFrame:
+                        report.frameEnd = bootstrap.photoMode.AimLocalPosition;
+                        report.actualFrameDisplacement = Vector2.Distance(report.frameStart, report.frameEnd);
+                        if (!lesson.Progress.HasAdjustedFrame || !lesson.Panel.CanContinue) return;
+                        Require(report.actualFrameDisplacement >= .1f && bootstrap.photoMode.IsActive
+                            && bootstrap.photoMode.CurrentCamera == lesson.TargetCamera && !lesson.IsComplete,
+                            "Only actual native right-stick movement of the equipped Zoom 300 frame makes the final confirmation available.");
+                        report.actualFrameAdjustment = true;
+                        Record("A real X opens the upgraded camera. Idle framing and an early A cannot finish; actual R motion changes AimLocalPosition and unlocks the final A.", "refit-frame-adjusted.png");
+                        Begin(Phase.FrameReady); break;
+                    case Phase.FrameReady:
+                        if (!Settled(8)) return;
+                        Require(lesson.Panel.CanContinue && !lesson.IsComplete,
+                            "The actual completed frame adjustment remains ready until a fresh final A.");
                         Begin(Phase.ConfirmControls); break;
                     case Phase.ConfirmControls:
                         if (lesson.Progress.Step != RefitTutorialStep.Completed) return;
@@ -306,13 +358,19 @@ namespace AnimalGame.Editor
                         if (!lesson.IsComplete) return;
                         Require(!lesson.Panel.CanContinue, "A fully confirmed chapter must release gameplay A.");
                         report.completedWithA = true;
-                        Record("A confirms the new-lens explanation and directly releases the finished tutorial.", "refit-completed.png");
+                        Record("A confirms the actual upgraded-camera frame adjustment and directly releases the finished tutorial.", "refit-completed.png");
                         Begin(Phase.FinalRelease); break;
                     case Phase.FinalRelease:
                         if (!Settled(12)) return;
                         Require(!terminal.IsOpen && lesson.IsComplete && !lesson.Panel.CanContinue,
                             "The final confirmation A and its release cannot reopen the nearby terminal.");
-                        report.finalADidNotReopen = true; Begin(Phase.ReopenNormally); break;
+                        report.finalADidNotReopen = true; Begin(Phase.ExitFinalCamera); break;
+                    case Phase.ExitFinalCamera:
+                        if (bootstrap.photoMode.IsActive || !Settled(8)) return;
+                        Require(lesson.IsComplete && !terminal.IsOpen,
+                            "Native B returns from camera mode without restarting the completed tutorial or opening maintenance.");
+                        report.cameraClosedAfterCompletion = true;
+                        Begin(Phase.ReopenNormally); break;
                     case Phase.FinalHide:
                         if (!Settled(6)) return;
                         Require(lesson.IsComplete && lesson.Panel.IsCollapsed && !terminal.IsOpen,
@@ -428,7 +486,7 @@ namespace AnimalGame.Editor
             if (phase == Phase.ReachEntrance || phase == Phase.EnterMachine || phase == Phase.ReachWorkbench)
                 DriveToWaypoint(ref state);
             if (phase == Phase.ConfirmEntrance || phase == Phase.OpenWorkbench
-                || phase == Phase.ConfirmControls
+                || phase == Phase.ConfirmControls || phase == Phase.PrematureFinalA
                 || phase == Phase.ReopenNormally || phase == Phase.EquipOldNormally || phase == Phase.EquipTargetNormally)
                 Tap(ref state, GamepadButton.South);
             if (phase == Phase.EquipLens || phase == Phase.HoldAfterEquipment) state = state.WithButton(GamepadButton.South);
@@ -442,10 +500,13 @@ namespace AnimalGame.Editor
                 if (target >= 0 && target != terminal.View.SelectedModuleIndex)
                     Tap(ref state, target > terminal.View.SelectedModuleIndex ? GamepadButton.DpadRight : GamepadButton.DpadLeft);
             }
-            if (phase == Phase.CloseWorkbench || phase == Phase.CloseNormally) Tap(ref state, GamepadButton.East);
+            if (phase == Phase.CloseWorkbench || phase == Phase.CloseNormally || phase == Phase.ExitFinalCamera) Tap(ref state, GamepadButton.East);
+            if (phase == Phase.OpenFinalCamera) Tap(ref state, GamepadButton.West);
+            if (phase == Phase.MoveFinalFrame) state.rightStick = new Vector2(.7f, .35f);
             if (phase == Phase.FinalHide) Tap(ref state, GamepadButton.DpadLeft);
             if (phase == Phase.FinalShow) Tap(ref state, GamepadButton.DpadRight);
             report.queuedLeftStick = state.leftStick; report.queuedRightTrigger = state.rightTrigger;
+            report.queuedRightStick = state.rightStick;
             pad.MakeCurrent(); InputSystem.QueueStateEvent(pad, state);
         }
         private void Tap(ref GamepadState state, GamepadButton button)
@@ -496,7 +557,8 @@ namespace AnimalGame.Editor
             report.firstGamepadRightTrigger = Gamepad.all.Count > 0 ? Gamepad.all[0].rightTrigger.ReadValue() : 0f;
             var virtualGamepad = InputSystem.GetDeviceById(gamepadId) as Gamepad;
             report.virtualGamepadRightTrigger = virtualGamepad != null ? virtualGamepad.rightTrigger.ReadValue() : 0f;
-            if (lesson?.Progress != null) report.step = lesson.Progress.Step.ToString();
+            if (lesson?.Progress != null)
+            { report.step = lesson.Progress.Step.ToString(); report.tutorialFrameMovement = lesson.Progress.FrameMovement; }
             if (lesson?.TargetCamera != null) report.targetCamera = lesson.TargetCamera.CameraId;
             if (bootstrap?.photoMode?.CurrentCamera != null) report.actualCamera = bootstrap.photoMode.CurrentCamera.CameraId;
             if (bootstrap?.robot != null)

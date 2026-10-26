@@ -153,8 +153,8 @@ namespace AnimalGame.Editor
                             {
                                 Require(hint.text == text.Arms.ToggleHint, "The arm reminder uses editable chapter copy.");
                                 Require(hint.worldBound.yMin >= panel.Root.Q<Label>("TutorialHeader").worldBound.yMax
-                                    && hint.worldBound.yMax <= panel.Root.Q<Label>("TutorialChapter").worldBound.yMin,
-                                    "The L3 reminder does not cover the header or chapter readout.");
+                                    && hint.worldBound.yMax <= panel.Root.Q<Label>("TutorialTitle").worldBound.yMin,
+                                    "The L3 reminder does not cover the header or lesson title.");
                                 Require(hint.worldBound.yMax < panel.Root.Q<Label>("TutorialToggleHint").worldBound.yMin,
                                     "The L3 reminder is independent of the existing D-pad help row.");
                             }

@@ -29,7 +29,7 @@ namespace AnimalGame.Tutorial
         private TerrainTutorialProgress progress;
         private TutorialWaypointIndicator waypoint;
         private ScanChargeUI subscribedScan;
-        private float completionDelay, refreshRemaining, lastAcceptedScanAt;
+        private float completionDelay, refreshRemaining;
         private bool hasStarted;
         private TerrainTutorialStep displayedStep;
         private int displayedApproachIndex = -1;
@@ -104,9 +104,6 @@ namespace AnimalGame.Tutorial
             bool valid = CanDrive() && onMap;
             bool scanReady = bootstrap.scanOverlay != null && bootstrap.scanOverlay.HasActiveSnapshot
                 && bootstrap.scanOverlay.VisibleMarkerCount > 0;
-            // Requests arrive before the asynchronous scan has produced its first markers.
-            if (progress.Step == TerrainTutorialStep.ReadSigns && !scanReady
-                && Time.unscaledTime - lastAcceptedScanAt > 2f) progress.RequireFreshScan();
             progress.Sample(position, Time.deltaTime, valid, !panel.IsCollapsed, scanReady, true);
             panel.SetContinuePrompt(valid && progress.CanContinue,
                 (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
@@ -163,7 +160,6 @@ namespace AnimalGame.Tutorial
             if (!hasStarted || !isActiveAndEnabled || IsModal() || !CanDrive() || !TryGetPosition(out Vector2 position)) return;
             if (progress.RegisterTerrainScan(position, true))
             {
-                lastAcceptedScanAt = Time.unscaledTime;
                 refreshRemaining = 0f;
             }
         }
@@ -224,7 +220,7 @@ namespace AnimalGame.Tutorial
                     status = text.WaitingScanStatus;
                     break;
                 case TerrainTutorialStep.ReadSigns:
-                    status = !scanReady ? text.WaitingMarkersStatus : text.ObserveStatus;
+                    status = !scanReady && !progress.HasAcknowledgedScan ? text.WaitingMarkersStatus : text.ObserveStatus;
                     break;
                 case TerrainTutorialStep.FollowRoute:
                     slope = bootstrap != null && bootstrap.traversalEvaluator != null && bootstrap.robot != null

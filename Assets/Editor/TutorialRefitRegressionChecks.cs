@@ -39,9 +39,10 @@ namespace AnimalGame.Editor
 
         private static void Feed(RefitTutorialProgress progress, float dt = Dt, bool valid = true,
             bool expanded = true, bool atEntrance = false, bool inside = false, bool atWorkbench = false,
-            bool stopped = true, bool open = false, bool installed = false) =>
+            bool stopped = true, bool open = false, bool installed = false,
+            bool photoActive = false, float frameMovement = 0f) =>
             progress.Sample(new RefitTutorialSample(dt, valid, expanded, atEntrance, inside,
-                atWorkbench, stopped, open, installed));
+                atWorkbench, stopped, open, installed, photoActive, frameMovement));
 
         private static void CheckNavigationExceptions()
         {
@@ -86,18 +87,35 @@ namespace AnimalGame.Editor
                 "Actual lens installation remains native and needs no tutorial success confirmation.");
             Feed(progress, dt, inside: true, installed: true);
             Require(progress.Step == RefitTutorialStep.NewLensControls && !progress.CanContinue,
-                "Native menu close goes directly to the outside new-shutter card.");
-            float before = progress.ReadingSeconds;
-            for (int frame = 0; frame < fps; frame++) Feed(progress, dt, expanded: false, inside: true, installed: true);
-            Require(progress.ReadingSeconds == before && !progress.CanContinue,
-                "Collapsed outside instructions do not accumulate reading time.");
-            progress.Suspend();
-            Require(!progress.CanContinue, "Suspension preserves the outside card but releases A.");
+                "Native menu close goes directly to the final camera-frame practice.");
             for (int frame = 0; frame < fps; frame++) Feed(progress, dt, inside: true, installed: true);
+            Require(!progress.HasOpenedCamera && progress.FrameMovement == 0f && !progress.CanContinue && !progress.Continue(),
+                "Waiting and an early A cannot replace opening the new camera and moving its frame.");
+            Feed(progress, dt, inside: true, installed: true, frameMovement: 100f);
+            Require(progress.FrameMovement == 0f && !progress.CanContinue,
+                "A reported movement outside active photo framing cannot satisfy the final practice.");
+            Feed(progress, dt, inside: true, installed: true, photoActive: true);
+            for (int frame = 0; frame < fps; frame++) Feed(progress, dt, inside: true, installed: true, photoActive: true);
+            Require(progress.HasOpenedCamera && !progress.HasAdjustedFrame && !progress.CanContinue && !progress.Continue(),
+                "Opening the camera alone earns no frame movement or final confirmation.");
+            Feed(progress, dt, valid: false, inside: true, installed: true, photoActive: true, frameMovement: 100f);
+            Feed(progress, 0f, inside: true, installed: true, photoActive: true, frameMovement: 100f);
+            Feed(progress, dt, inside: true, installed: true, photoActive: true, frameMovement: float.NaN);
+            Feed(progress, dt, inside: true, installed: true, photoActive: true, frameMovement: -1f);
+            Require(progress.FrameMovement == 0f && !progress.HasAdjustedFrame,
+                "Paused, invalid and negative observations cannot counterfeit actual frame movement.");
+            for (int frame = 0; frame < fps; frame++)
+                Feed(progress, dt, expanded: false, inside: true, installed: true, photoActive: true, frameMovement: .18f / fps);
+            Require(progress.HasAdjustedFrame && progress.CanContinue,
+                "The actual short right-stick frame adjustment is credited even with the task panel collapsed.");
+            progress.Suspend();
+            Require(!progress.CanContinue && progress.HasAdjustedFrame,
+                "Suspension retains the performed frame adjustment but releases A ownership.");
+            Feed(progress, dt, inside: true, installed: true, photoActive: true);
             Require(progress.CanContinue && progress.Step == RefitTutorialStep.NewLensControls,
-                "Reading the outside shutter card retains its normal explicit A.");
+                "The final camera practice waits for the normal explicit A after actual movement.");
             Require(progress.Continue() && progress.IsComplete && !progress.CanContinue && !progress.Continue(),
-                "The last real outside instruction completes directly with no completion card.");
+                "The final real frame adjustment confirms directly with no completion card.");
         }
 
         private static void CheckEarlyArrivalAndEquippedLens()
@@ -143,19 +161,23 @@ namespace AnimalGame.Editor
             Require(progress.Step == RefitTutorialStep.OpenWorkbench, "A wrong lens on close remains incomplete.");
             Feed(progress, inside: true, open: true, installed: true);
             Feed(progress, inside: true, installed: true);
-            for (int frame = 0; frame < 60; frame++) Feed(progress, inside: true, installed: true);
-            Feed(progress, valid: false, inside: true, installed: true);
-            Require(!progress.CanContinue, "Invalid outside reading releases confirmation.");
-            Feed(progress, inside: true, installed: true);
+            Feed(progress, inside: true, installed: true, photoActive: true, frameMovement: .2f);
+            Feed(progress, valid: false, inside: true, installed: true, photoActive: true);
+            Require(!progress.CanContinue && progress.HasAdjustedFrame, "Invalid gameplay preserves the real adjustment but releases confirmation.");
+            Feed(progress, inside: true, installed: true, photoActive: true);
             Require(progress.CanContinue && float.IsFinite(progress.Value) && float.IsFinite(progress.Target),
-                "Finite outside reading resumes normally.");
+                "Finite camera framing resumes the acknowledged movement normally.");
             Feed(progress, inside: true, open: true, installed: false);
-            Require(progress.Step == RefitTutorialStep.EquipLens && !progress.CanContinue,
-                "Changing to a wrong lens before final completion returns to passive equipment observation.");
+            Require(progress.Step == RefitTutorialStep.EquipLens && !progress.CanContinue
+                && !progress.HasAdjustedFrame && !progress.HasOpenedCamera && progress.FrameMovement == 0f,
+                "Changing to a wrong lens before final completion clears frame practice and returns to passive equipment observation.");
+            Feed(progress, inside: true, installed: true);
+            Require(progress.Step == RefitTutorialStep.NewLensControls && !progress.CanContinue,
+                "Reinstalling the right lens cannot reuse movement performed before switching away.");
             progress.Reset();
             Require(progress.Step == RefitTutorialStep.ReachMachine && !progress.HasInstalledLens
-                && !progress.CanContinue && progress.ReadingSeconds == 0f,
-                "Restart clears equipment and navigation evidence.");
+                && !progress.CanContinue && progress.FrameMovement == 0f && !progress.HasOpenedCamera && !progress.HasAdjustedFrame,
+                "Restart clears equipment, navigation and final camera-practice evidence.");
         }
 
         private static void CheckEditableText()
@@ -174,8 +196,9 @@ namespace AnimalGame.Editor
                 Require(!tokens.Format(item.Message).Contains("{"), "Every " + step + " message has supported placeholders.");
             }
             string controls = tokens.Format(asset.Refit.NewLensControls.Message);
-            Require(controls.Contains("Hold RB to focus") && controls.Contains("release") && controls.Contains("again to shoot"),
-                "The upgrade explanation uses focus, release and press-to-shoot rather than the damaged prime's automatic shutter.");
+            Require(controls.Contains("X") && controls.Contains("right stick", StringComparison.OrdinalIgnoreCase)
+                && controls.Contains("frame", StringComparison.OrdinalIgnoreCase),
+                "The final editable instruction explicitly opens the camera and teaches right-stick frame movement.");
             string exterior = tokens.Format(asset.Refit.OpenWorkbench.Message);
             Require(exterior.Contains("CAMERA") && exterior.Contains("300"),
                 "The outside task card clearly names the native CAMERA slot and Zoom Lens 300.");

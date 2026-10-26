@@ -14,13 +14,17 @@ namespace AnimalGame.Tutorial
         public readonly float DeltaTime;
         public readonly bool Valid, PanelExpanded, AtEntrance, InsideMachine, AtWorkbench;
         public readonly bool Stopped, RefitOpen, TargetLensInstalled;
+        public readonly bool PhotoActive;
+        public readonly float FrameMovement;
 
         public RefitTutorialSample(float deltaTime, bool valid, bool panelExpanded, bool atEntrance,
-            bool insideMachine, bool atWorkbench, bool stopped, bool refitOpen, bool targetLensInstalled)
+            bool insideMachine, bool atWorkbench, bool stopped, bool refitOpen, bool targetLensInstalled,
+            bool photoActive = false, float frameMovement = 0f)
         {
             DeltaTime = deltaTime; Valid = valid; PanelExpanded = panelExpanded; AtEntrance = atEntrance;
             InsideMachine = insideMachine; AtWorkbench = atWorkbench; Stopped = stopped;
             RefitOpen = refitOpen; TargetLensInstalled = targetLensInstalled;
+            PhotoActive = photoActive; FrameMovement = frameMovement;
         }
     }
 
@@ -30,36 +34,37 @@ namespace AnimalGame.Tutorial
     /// </summary>
     public sealed class RefitTutorialProgress
     {
-        private readonly float controlsReadingSeconds;
+        private readonly float requiredFrameMovement;
         private bool entranceReached, lastValid, lastRefitOpen, targetInstalled;
 
         public RefitTutorialStep Step { get; private set; }
-        public float ReadingSeconds { get; private set; }
+        public float FrameMovement { get; private set; }
+        public bool HasOpenedCamera { get; private set; }
+        public bool HasAdjustedFrame => FrameMovement >= requiredFrameMovement * .99999f;
         public bool HasInstalledLens { get; private set; }
         public bool IsComplete => Step == RefitTutorialStep.Completed;
         public bool CanContinue => !IsComplete && lastValid && (Step switch
         {
             RefitTutorialStep.ReachMachine => entranceReached,
-            RefitTutorialStep.NewLensControls => targetInstalled && !lastRefitOpen && IsRead,
+            RefitTutorialStep.NewLensControls => targetInstalled && !lastRefitOpen && HasOpenedCamera && HasAdjustedFrame,
             RefitTutorialStep.Completed => true,
             _ => false
         });
-        public float Target => Step == RefitTutorialStep.NewLensControls ? controlsReadingSeconds : 1f;
-        public float Value => CanContinue ? Target : Step == RefitTutorialStep.NewLensControls ? ReadingSeconds : 0f;
+        public float Target => Step == RefitTutorialStep.NewLensControls ? requiredFrameMovement : 1f;
+        public float Value => CanContinue ? Target : Step == RefitTutorialStep.NewLensControls ? FrameMovement : 0f;
         public float NormalizedProgress => IsComplete ? 1f : Mathf.Clamp01(Value / Target);
-        private bool IsRead => controlsReadingSeconds - ReadingSeconds <= controlsReadingSeconds * .00001f;
-
-        public RefitTutorialProgress(float controlsReadingSeconds = .8f)
+        public RefitTutorialProgress(float requiredFrameMovement = .12f)
         {
-            this.controlsReadingSeconds = float.IsFinite(controlsReadingSeconds)
-                ? Mathf.Max(.1f, controlsReadingSeconds) : .8f;
+            this.requiredFrameMovement = float.IsFinite(requiredFrameMovement)
+                ? Mathf.Max(.01f, requiredFrameMovement) : .12f;
             Reset();
         }
 
         public void Reset()
         {
             Step = RefitTutorialStep.ReachMachine;
-            ReadingSeconds = 0f;
+            FrameMovement = 0f;
+            HasOpenedCamera = false;
             entranceReached = lastValid = lastRefitOpen = targetInstalled = false;
             HasInstalledLens = false;
         }
@@ -102,8 +107,8 @@ namespace AnimalGame.Tutorial
                     case RefitTutorialStep.RefitIntroduction:
                     case RefitTutorialStep.EquipLens:
                     case RefitTutorialStep.CloseRefit:
-                        // Only native menu state and the actual equipped lens determine completion.
-                        // No tutorial A is needed before, during or after installation.
+                        // Native menu state and the equipped lens unlock the final camera practice.
+                        // Equipment selection itself needs no extra tutorial confirmation.
                         if (sample.RefitOpen) MoveTo(RefitTutorialStep.EquipLens);
                         else if (targetInstalled) MoveTo(RefitTutorialStep.NewLensControls);
                         else RecoverWorkbench(sample);
@@ -119,8 +124,12 @@ namespace AnimalGame.Tutorial
                 if (Step == before) break;
             }
 
-            if (Step == RefitTutorialStep.NewLensControls && sample.PanelExpanded && !sample.RefitOpen)
-                ReadingSeconds = Mathf.Min(controlsReadingSeconds, ReadingSeconds + sample.DeltaTime);
+            if (Step == RefitTutorialStep.NewLensControls && targetInstalled && sample.PhotoActive && !sample.RefitOpen)
+            {
+                HasOpenedCamera = true;
+                if (float.IsFinite(sample.FrameMovement) && sample.FrameMovement > 0f)
+                    FrameMovement = Mathf.Min(requiredFrameMovement, FrameMovement + sample.FrameMovement);
+            }
         }
 
         public bool Continue()
@@ -141,7 +150,10 @@ namespace AnimalGame.Tutorial
         private void MoveTo(RefitTutorialStep step)
         {
             if (Step == step) return;
-            Step = step; ReadingSeconds = 0f;
+            // Equipment replacement invalidates practice performed with the earlier lens.
+            if (Step == RefitTutorialStep.NewLensControls && step != RefitTutorialStep.Completed)
+            { FrameMovement = 0f; HasOpenedCamera = false; }
+            Step = step;
         }
     }
 }

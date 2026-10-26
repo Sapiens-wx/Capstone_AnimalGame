@@ -104,6 +104,7 @@ namespace AnimalGame.Editor
                     data.Update();
                     chapter.FindPropertyRelative("OpenWorkbench").FindPropertyRelative("Message").stringValue = "Edited exterior lens instruction.";
                     chapter.FindPropertyRelative("EnterMachine").FindPropertyRelative("Message").stringValue = "Edited entrance probe.";
+                    chapter.FindPropertyRelative("NewLensControls").FindPropertyRelative("Message").stringValue = "Edited camera frame practice.";
                     data.ApplyModifiedPropertiesWithoutUndo();
                 }
                 Require(OtherCopy(copy) == untouched, "Editing refit instructions preserves all earlier chapters and panel text.");
@@ -112,8 +113,9 @@ namespace AnimalGame.Editor
                 AssetDatabase.CreateAsset(copy, temporary);
                 EditorUtility.SetDirty(copy); AssetDatabase.SaveAssetIfDirty(copy);
                 string saved = File.ReadAllText(temporary);
-                Require(saved.Contains("Edited exterior lens instruction.") && saved.Contains("Edited entrance probe."),
-                    "Both exterior station and entrance card edits persist in a disposable serialized asset.");
+                Require(saved.Contains("Edited exterior lens instruction.") && saved.Contains("Edited entrance probe.")
+                    && saved.Contains("Edited camera frame practice."),
+                    "Exterior station, entrance and final camera-frame card edits persist in a disposable serialized asset.");
                 Require(OtherCopy(copy) == untouched, "Saving refit copy preserves every existing chapter.");
             }
             finally
@@ -162,7 +164,7 @@ namespace AnimalGame.Editor
             Set(fixture.Lesson, "chapterConfirmed", false); Invoke(fixture.Lesson, "RefreshPanel", true);
             Driving("Settle", fixture.Panel, Sizes[0]);
             Require(fixture.Lesson.IsComplete && !fixture.Panel.CanContinue && !fixture.Panel.IsVisible,
-                "The last actionable confirmation completes the chapter and hides the card without another A.");
+                "The final camera-frame confirmation completes the chapter and hides the card without another A.");
             fixture.Panel.SetContinuePrompt(false); fixture.Panel.SetVisible(false);
         }
 

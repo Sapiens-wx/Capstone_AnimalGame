@@ -29,7 +29,8 @@ namespace AnimalGame.Tutorial
         [SerializeField] private Vector2 entranceInteriorLocal = new Vector2(0f, -.8f);
         [SerializeField, Min(.1f)] private float arrivalRadiusMeters = 3f;
         [SerializeField, Min(0f)] private float photographyCompletionDelay = .5f;
-        [SerializeField, Min(.1f)] private float controlsReadingSeconds = .8f;
+        [Tooltip("Actual right-stick frame travel required after opening the new camera, in local world units.")]
+        [SerializeField, Min(.01f)] private float requiredFrameMovement = .12f;
 
         private readonly RefitLessonText defaultText = new RefitLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
@@ -44,6 +45,8 @@ namespace AnimalGame.Tutorial
         private RefitTutorialStep displayedStep = (RefitTutorialStep)(-1);
         private CheckpointRefitTerminal hookedTerminal;
         private Func<bool> previousOpenBlocked, openBlockHandler;
+        private Vector2 previousFramePosition;
+        private int previousFrameSample = -1;
 
         public TutorialTextContent TextContent => tutorialText;
         public TutorialDialoguePanel Panel => photography != null ? photography.Panel : null;
@@ -66,6 +69,10 @@ namespace AnimalGame.Tutorial
         private bool RefitOpen => terminal != null && terminal.IsOpen;
         private bool TargetInstalled => targetCamera != null && bootstrap != null && bootstrap.photoMode != null
             && bootstrap.photoMode.CurrentCamera == targetCamera;
+        private bool IsCameraPractice => progress != null && progress.Step == RefitTutorialStep.NewLensControls;
+        private bool IsPhotoFraming => bootstrap != null && bootstrap.photoMode != null
+            && bootstrap.photoMode.isActiveAndEnabled && bootstrap.photoMode.IsActive
+            && !bootstrap.photoMode.IsEntering && !bootstrap.photoMode.IsExiting && !bootstrap.photoMode.IsInputLocked;
 
 
         private void Start()
@@ -99,15 +106,18 @@ namespace AnimalGame.Tutorial
         {
             if (TutorialTipOverLesson.BlocksMainline(gameObject))
             {
+                previousFrameSample = -1;
                 if (!interrupted) progress?.Suspend();
                 interrupted = true;
                 if (waypoint != null) waypoint.SetVisible(false);
                 return;
             }
             if (interrupted) { interrupted = false; progress?.Suspend(); }
-            if (photography == null || recycling == null || Panel == null || !ResolveReferences()) return;
+            if (photography == null || recycling == null || Panel == null || !ResolveReferences())
+            { previousFrameSample = -1; return; }
             if (!recycling.IsComplete)
             {
+                previousFrameSample = -1;
                 if (hasStarted) ReleasePresentation();
                 completionDelay = 0f; return;
             }
@@ -124,11 +134,13 @@ namespace AnimalGame.Tutorial
 
             bool open = RefitOpen;
             bool worldModal = !open && WorldModal();
-            Panel.SetPhotoModeVisible(false);
+            Panel.SetPhotoModeVisible(IsCameraPractice);
             Panel.SetVisible(!open && !worldModal);
             waypoint.SetVisible(!open && !worldModal);
             if (machine.IsInside && !hasWorkbenchPosition) FindWorkbenchPosition();
             bool valid = open || (!worldModal && CanNavigate());
+            bool photoActive = IsCameraPractice && !open && !worldModal && valid && TargetInstalled && IsPhotoFraming;
+            float frameMovement = ObserveFrameMovement(photoActive);
             if (!valid)
             {
                 progress.Suspend(); Panel.SetContinuePrompt(false);
@@ -146,7 +158,8 @@ namespace AnimalGame.Tutorial
             bool atWorkbench = terminal.IsNearby;
             progress.Sample(new RefitTutorialSample(Time.unscaledDeltaTime, valid,
                 !open && !Panel.IsCollapsed,
-                atEntrance, machine.IsInside, atWorkbench, stopped, open, TargetInstalled));
+                atEntrance, machine.IsInside, atWorkbench, stopped, open, TargetInstalled,
+                photoActive, frameMovement));
 
             if (!open)
             {
@@ -172,7 +185,8 @@ namespace AnimalGame.Tutorial
 
         private void BeginLesson()
         {
-            progress = new RefitTutorialProgress(controlsReadingSeconds);
+            progress = new RefitTutorialProgress(requiredFrameMovement);
+            previousFrameSample = -1;
             chapterConfirmed = false; hasStarted = true;
             recycling.SetPresentationOwned(false);
             Panel.SetContinuePrompt(false); Panel.SetPhotoModeVisible(false); Panel.SetCollapsed(false);
@@ -209,9 +223,22 @@ namespace AnimalGame.Tutorial
             && (bootstrap.photoMode == null || !bootstrap.photoMode.IsInputLocked)
             && (bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright);
 
+        private float ObserveFrameMovement(bool canPractice)
+        {
+            if (!canPractice) { previousFrameSample = -1; return 0f; }
+            Vector2 position = bootstrap.photoMode.AimLocalPosition;
+            Vector2 stick = AdaptiveLegacyGamepadInput.ReadRightStick();
+            float movement = previousFrameSample == Time.frameCount - 1 && stick.sqrMagnitude > .25f * .25f
+                ? Vector2.Distance(previousFramePosition, position) : 0f;
+            previousFramePosition = position;
+            previousFrameSample = Time.frameCount;
+            return float.IsFinite(movement) ? movement : 0f;
+        }
+
         private bool WorldModal() => Time.timeScale <= 0f || Time.deltaTime <= 0f
             || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
-            || (bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
+            || (bootstrap.photoMode != null && ((bootstrap.photoMode.IsActive && !IsCameraPractice)
+                || bootstrap.photoMode.IsCapturing || bootstrap.photoMode.IsReviewing))
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
 
         private bool IsStopped()
@@ -237,7 +264,8 @@ namespace AnimalGame.Tutorial
             string message = item.Message;
             string glyph = item.ControlGlyph, action = item.Action;
             string status = progress.Step == RefitTutorialStep.EquipLens && TargetInstalled ? Text.InstalledStatus : Text.WaitingStatus;
-            Panel.SetPanelText(PanelText); Panel.SetLessonHint(tokens.Format(Text.ToggleHint));
+            Panel.SetPanelText(PanelText);
+            Panel.SetLessonHint(tokens.Format(IsCameraPractice ? Text.NewLensToggleHint : Text.ToggleHint));
             Panel.SetContent(tokens.Format(Text.Title), tokens.Format(message), tokens.Format(glyph),
                 tokens.Format(action), tokens.Format(item.Detail), tokens.Format(status), 8, 9);
             Panel.SetProgress(progress.NormalizedProgress); Panel.SetSuccess(progress.IsComplete);
@@ -247,7 +275,7 @@ namespace AnimalGame.Tutorial
         private void HideCompletedPresentation()
         {
             UnhookTerminal();
-            if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetLessonHint(string.Empty); }
+            if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetPhotoModeVisible(false); Panel.SetLessonHint(string.Empty); }
             if (waypoint != null) waypoint.ClearTarget();
         }
 
@@ -315,7 +343,8 @@ namespace AnimalGame.Tutorial
             UnhookTerminal();
             if (waypoint != null) { waypoint.ClearTarget(); Destroy(waypoint.gameObject); }
             waypoint = null;
-            if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetLessonHint(string.Empty); }
+            previousFrameSample = -1;
+            if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetPhotoModeVisible(false); Panel.SetLessonHint(string.Empty); }
             if (recycling != null) recycling.SetPresentationOwned(true);
             hasStarted = chapterConfirmed = hasWorkbenchPosition = false; progress = null;
         }
@@ -324,7 +353,7 @@ namespace AnimalGame.Tutorial
         public void RestartLesson()
         {
             if (!hasStarted || progress == null) return;
-            progress.Reset(); chapterConfirmed = false; displayedStep = (RefitTutorialStep)(-1);
+            progress.Reset(); previousFrameSample = -1; chapterConfirmed = false; displayedStep = (RefitTutorialStep)(-1);
             HookTerminal();
             Panel.SetContinuePrompt(false); Panel.SetCollapsed(false);
         }

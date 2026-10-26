@@ -17,12 +17,14 @@ namespace AnimalGame.Tutorial
         [SerializeField] private GameObject largeGarbagePrefab;
         [SerializeField] private GameObject mediumFragmentPrefab;
         [SerializeField, Min(1f)] private float minimumApproachDistanceMeters = 6f;
+        [SerializeField, Min(1f)] private float maximumApproachDistanceMeters = 65f;
         [SerializeField, Min(.1f)] private float placementMarginMeters = .75f;
 
         private GameObject ownedRoot, sourceContainer, recoveryContainer;
         private TutorialLargeWasteBreakObserver sourceObserver;
         private bool resetting;
         private float nextPlacementAttemptAt;
+        private int placementSearchAttempt;
 
         public WorldInteraction Target { get; private set; }
         public HeavyGarbagePull Pull { get; private set; }
@@ -115,6 +117,7 @@ namespace AnimalGame.Tutorial
             Target = Fragment = null; Pull = null; HasBroken = false;
             ApproachMapPosition = default; LastFailure = null;
             nextPlacementAttemptAt = 0f;
+            placementSearchAttempt = 0;
             resetting = false;
         }
 
@@ -174,13 +177,20 @@ namespace AnimalGame.Tutorial
             float clearRadius = radius + Mathf.Max(placementMarginMeters, bodyRadius * .4f);
             Vector2 preferred = bootstrap.map.WorldDirectionToMapDirection(bootstrap.robot.Forward);
             if (preferred.sqrMagnitude < .001f) preferred = Vector2.up;
-            for (int ring = 0; ring < 9; ring++)
+            preferred.Normalize();
+            // Keep looking beyond a crowded shoreline without relaxing the dry footprint,
+            // approach or pulling-room checks. Interleaved bearings cover gaps between props;
+            // retries also sample different bearings instead of repeating a failed search.
+            float bearingOffset = placementSearchAttempt++ % 3 * 5f;
+            float maximumDistance = Mathf.Max(minimumApproachDistanceMeters, maximumApproachDistanceMeters);
+            int ringCount = Mathf.CeilToInt((maximumDistance - minimumApproachDistanceMeters) / 2.5f) + 1;
+            for (int ring = 0; ring < ringCount; ring++)
             {
-                float distance = minimumApproachDistanceMeters + ring * 2.5f;
+                float distance = Mathf.Min(maximumDistance, minimumApproachDistanceMeters + ring * 2.5f);
                 for (int side = 0; side < 24; side++)
                 {
                     int offset = (side + 1) / 2 * (side % 2 == 0 ? 1 : -1);
-                    float angle = offset * 15f * Mathf.Deg2Rad;
+                    float angle = (offset * 15f + (ring % 2) * 7.5f + bearingOffset) * Mathf.Deg2Rad;
                     Vector2 direction = new Vector2(preferred.x * Mathf.Cos(angle) - preferred.y * Mathf.Sin(angle),
                         preferred.x * Mathf.Sin(angle) + preferred.y * Mathf.Cos(angle));
                     Vector2 candidate = player + direction * (distance + radius + standOff);
@@ -221,8 +231,12 @@ namespace AnimalGame.Tutorial
                 || !back.HasData || !back.IsPassable || back.RequiresHardStop) return false;
             Transform ignore = ownedRoot != null ? ownedRoot.transform : null;
             var kinds = WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision;
+            // Match native movement's escape rule: a prop already touching the starting
+            // clearance circle must not invalidate every route away from that same prop.
+            // The destination and retreat remain fully checked for collisions below.
             return !WorldInteractionQuery.Query(InteractionShape.Capsule(player, stand, bodyRadius + .15f), kinds,
-                    bootstrap.map, gameObject.scene, ignore: ignore, ignoreHeld: bootstrap.robot.transform)
+                    bootstrap.map, gameObject.scene, ignore: ignore,
+                    previous: InteractionShape.Circle(player, bodyRadius + .15f), ignoreHeld: bootstrap.robot.transform)
                 && !WorldInteractionQuery.Query(InteractionShape.Capsule(stand, retreat, bodyRadius + .15f), kinds,
                     bootstrap.map, gameObject.scene, ignore: ignore, ignoreHeld: bootstrap.robot.transform);
         }

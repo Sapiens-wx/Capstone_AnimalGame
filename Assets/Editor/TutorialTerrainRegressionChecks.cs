@@ -47,7 +47,7 @@ namespace AnimalGame.Editor
                 CheckOrderAndApproach();
                 CheckPositionAndScanGates();
                 CheckReadingGates();
-                CheckExpiredSnapshotAndReturn();
+                CheckAcknowledgedScanNeverReturns();
                 CheckWaypointGeometry();
                 CheckAssetWiring();
                 CheckTerrainPanel();
@@ -94,8 +94,8 @@ namespace AnimalGame.Editor
                 "Waiting cannot advance arrival; a confirmation advances exactly one instruction.");
             Require(progress.Step == TerrainTutorialStep.ScanTerrain && !progress.Continue(), "A cannot skip scanning.");
             Require(progress.RegisterTerrainScan(Survey, true) && progress.Step == TerrainTutorialStep.ScanTerrain
-                && progress.CanContinue, "A native terrain scan is latched without replacing its instruction.");
-            Require(progress.Continue() && progress.Step == TerrainTutorialStep.ReadSigns,
+                && progress.CanContinue && !progress.HasAcknowledgedScan, "A native terrain scan is latched without replacing its instruction or inventing confirmation.");
+            Require(progress.Continue() && progress.Step == TerrainTutorialStep.ReadSigns && progress.HasAcknowledgedScan,
                 "Only confirming the accepted scan reveals its legend.");
             progress.Sample(Survey, 4f, true, true, true, true);
             Require(progress.Step == TerrainTutorialStep.ReadSigns && progress.CanContinue,
@@ -235,48 +235,72 @@ namespace AnimalGame.Editor
 
         private static void CheckReadingGates()
         {
-            foreach (string blocked in new[] { "collapsed", "no markers", "invalid", "paused" })
+            foreach (string blocked in new[] { "collapsed", "invalid", "paused" })
             {
                 var p = At(TerrainTutorialStep.ReadSigns);
                 Feed(p, Survey, blocked == "paused" ? 0 : 10, blocked != "invalid", blocked != "collapsed",
-                    blocked != "no markers", blocked != "moving");
+                    false, false);
                 Require(p.Step == TerrainTutorialStep.ReadSigns && p.ReadingSeconds == 0,
-                    "Reading requires an expanded panel, valid gameplay and real visible markers: " + blocked);
+                    "Acknowledged sign reading still requires an expanded panel and valid running gameplay: " + blocked);
             }
             var progress = At(TerrainTutorialStep.ReadSigns);
             Feed(progress, Survey, 1);
             Near(progress.ReadingSeconds, 1, "Visible reading adds actual simulation time.");
             Feed(progress, Survey, 20, true, false);
-            Feed(progress, Survey, 20, true, true, false);
+            Feed(progress, Survey, 20, false, true, false);
             Near(progress.ReadingSeconds, 1, "Interrupted reading preserves credit without adding blocked time.");
             Require(progress.Step == TerrainTutorialStep.ReadSigns, "Partial reading does not unlock the route.");
-            Feed(progress, Survey + Vector2.right * 30f, 3, true, true, true, false);
+            Feed(progress, Survey + Vector2.right * 30f, 3, true, true, false, false);
             Require(progress.Step == TerrainTutorialStep.FollowRoute,
-                "Reading an acquired scan while moving outside the survey still unlocks the route.");
+                "Reading a confirmed scan while moving outside the survey still unlocks the route even after its markers disappear.");
             Near(progress.ReadingSeconds, 4, "Reading credit is clamped to its configured duration.");
             Require(!Scan(progress, Survey, true), "Later scans cannot force route progress back into reading.");
         }
 
-        private static void CheckExpiredSnapshotAndReturn()
+        private static void CheckAcknowledgedScanNeverReturns()
         {
             var progress = At(TerrainTutorialStep.ReadSigns);
             Feed(progress, Survey, 1.5f);
             progress.RequireFreshScan();
-            Require(progress.Step == TerrainTutorialStep.ScanTerrain && !progress.HasTarget,
-                "An expired snapshot requires another scan without adding a destination.");
+            Require(progress.Step == TerrainTutorialStep.ReadSigns && progress.HasAcknowledgedScan && !progress.HasTarget,
+                "The former snapshot-expiry request cannot reopen a scan that the player confirmed with A.");
             Near(progress.ReadingSeconds, 1.5f, "Snapshot expiry preserves time already spent reading.");
-            Feed(progress, Survey, 100);
-            Near(progress.ReadingSeconds, 1.5f, "Waiting for a fresh scan cannot add reading credit.");
-            Require(Scan(progress, Survey, true), "A fresh scan resumes sign reading.");
-            Near(progress.ReadingSeconds, 1.5f, "Rescanning does not reset sign-reading credit.");
-            Feed(progress, Survey + Vector2.right * 7);
+            Feed(progress, Survey, 0f, markers: false);
+            Feed(progress, Survey, 100f, valid: false, markers: false);
+            Feed(progress, Survey, 100f, expanded: false, markers: false);
+            Near(progress.ReadingSeconds, 1.5f, "Pausing, other modes and a collapsed card add no reading time and preserve the scan acknowledgement.");
+            for (int frame = 0; frame < 60; frame++)
+            {
+                progress.RequireFreshScan();
+                progress.Sample(Survey + Vector2.right * 30f, 1f / 60f, true, true, false, false);
+                Require(progress.Step == TerrainTutorialStep.ReadSigns && progress.HasAcknowledgedScan,
+                    "Expired/replaced markers never require a repeated scan during ordinary exploration.");
+            }
             Require(progress.Step == TerrainTutorialStep.ReadSigns && !progress.HasTarget,
-                "Leaving the survey preserves the acquired scan and does not replace it with a forced return task.");
-            Near(progress.ReadingSeconds, 2.5f, "Reading continues during ordinary exploration after rescanning.");
-            Feed(progress, Survey, 1.5f);
-            Require(progress.Step == TerrainTutorialStep.FollowRoute, "Saved reading time survives expiry and exploration.");
+                "Leaving the survey preserves the acknowledged scan without a forced return task.");
+            Near(progress.ReadingSeconds, 2.5f, "Reading continues after acknowledgement without requiring live scan markers.");
+            Require(progress.RegisterTerrainScan(Survey, true), "The player may voluntarily scan again while reading.");
+            Near(progress.ReadingSeconds, 2.5f, "A voluntary rescan neither repeats a card nor resets its reading credit.");
+            progress.Sample(Survey, 2f, true, true, false, false);
+            Require(progress.Step == TerrainTutorialStep.ReadSigns && progress.CanContinue,
+                "The completed reading still waits for its own A confirmation.");
+            Require(progress.Continue() && progress.Step == TerrainTutorialStep.FollowRoute,
+                "Only the reading confirmation starts the route, without another scan.");
             progress.RequireFreshScan();
             Require(progress.Step == TerrainTutorialStep.FollowRoute, "Expiry cannot reset a route that has already unlocked.");
+
+            var fresh = At(TerrainTutorialStep.ScanTerrain);
+            Require(!fresh.HasAcknowledgedScan && !fresh.Continue(), "An unfinished initial scan cannot be skipped with A.");
+            fresh.RequireFreshScan();
+            Require(fresh.Step == TerrainTutorialStep.ScanTerrain && !fresh.HasAcknowledgedScan,
+                "Display refreshes cannot supply a scan or acknowledge it on the player's behalf.");
+            Require(fresh.RegisterTerrainScan(Survey, true) && !fresh.HasAcknowledgedScan,
+                "The actual scan is recorded once but still needs the player's A.");
+            fresh.Sample(Survey, 100f, true, true, false, false);
+            Require(fresh.Step == TerrainTutorialStep.ScanTerrain && fresh.CanContinue && !fresh.HasAcknowledgedScan,
+                "Losing markers before A cannot discard the performed scan or auto-confirm it.");
+            Require(fresh.Continue() && fresh.HasAcknowledgedScan && fresh.Step == TerrainTutorialStep.ReadSigns,
+                "A confirms that same performed scan even when its transient markers have already gone.");
         }
 
         private static void CheckWaypointGeometry()

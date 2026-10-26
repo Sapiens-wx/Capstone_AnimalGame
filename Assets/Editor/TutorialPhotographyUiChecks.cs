@@ -332,8 +332,8 @@ namespace AnimalGame.Editor
                 "Only active photography steps show the extra photo-control reminder.");
             if (expected)
                 Require(hint.worldBound.yMin >= root.Q<Label>("TutorialHeader").worldBound.yMax
-                    && hint.worldBound.yMax <= root.Q<Label>("TutorialChapter").worldBound.yMin,
-                    "Photo controls fit between the title and chapter readout.");
+                    && hint.worldBound.yMax <= root.Q<Label>("TutorialTitle").worldBound.yMin,
+                    "Photo controls fit between the header and lesson title.");
             Require(root.Q<Label>("TutorialToggleHint").resolvedStyle.display != DisplayStyle.None,
                 "The existing D-pad hide/show help remains independently visible.");
         }

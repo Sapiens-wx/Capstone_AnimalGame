@@ -428,9 +428,9 @@ namespace AnimalGame.Tutorial
         [HideInInspector] public TutorialStepText CloseRefit = new TutorialStepText("{cancel}", "Return to driving",
             "New lens installed.\nPress {cancel} to close\nthe assembly station\nand resume driving.",
             "{cancel} · Back");
-        public TutorialStepText NewLensControls = new TutorialStepText("{rb}", "Learn new shutter",
-            "Hold {rb} to focus.\nWhen focused, release it.\nPress {rb} again to shoot.",
-            "{photo} · Photo mode\nR · Move frame");
+        public TutorialStepText NewLensControls = new TutorialStepText("R", "Move camera frame",
+            "Press {photo} to open the camera.\nMove the right stick\nto adjust the frame.\nTry it with Zoom Lens 300.",
+            "{photo} · Open camera\nR · Move frame");
         [HideInInspector] public TutorialStepText Completed = new TutorialStepText("✓", "Camera upgraded",
             "Camera upgraded.\nUse your new lens\nto photograph wildlife\nas you explore.",
             "New lens ready.");
@@ -442,6 +442,7 @@ namespace AnimalGame.Tutorial
         public string InstalledStatus = "New lens installed";
         [HideInInspector] public string CompleteStatus = "Lesson complete";
         public string ToggleHint = "{rt}/{lt} · Drive / L · Steer";
+        public string NewLensToggleHint = "{photo} · Camera / R · Frame";
         [HideInInspector] public string MenuTitle = "CAMERA UPGRADE";
         [HideInInspector, TextArea(2, 3)] public string MenuIntroductionMessage = "Use this station to change your equipment.\nInstall a better camera for clearer photographs.";
         [HideInInspector, TextArea(2, 3)] public string MenuEquipMessage = "Switch to CAMERA with {lb} / {rb}.\nChoose {lens} with D-pad ← / →.";

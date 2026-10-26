@@ -20,6 +20,7 @@ namespace AnimalGame.Tutorial
         public float ReadingDuration => readingDuration;
         public float ArrivalRadiusMeters => arrivalRadius;
         public float SurveyRadiusMeters => surveyRadius;
+        public bool HasAcknowledgedScan { get; private set; }
         public bool IsComplete => Step == TerrainTutorialStep.Completed;
         public bool CanContinue => IsComplete || satisfied;
         public bool HasTarget => !satisfied && (Step == TerrainTutorialStep.ReachSurvey || Step == TerrainTutorialStep.FollowRoute);
@@ -57,8 +58,9 @@ namespace AnimalGame.Tutorial
                 return;
             }
 
-            // Reading an acquired scan can continue while driving or exploring elsewhere.
-            if (Step == TerrainTutorialStep.ReadSigns && panelExpanded && scanHasMarkers)
+            // The player has already performed and confirmed the scan. Its transient overlay
+            // may expire or be replaced by another action without revoking the lesson outcome.
+            if (Step == TerrainTutorialStep.ReadSigns && panelExpanded && (scanHasMarkers || HasAcknowledgedScan))
             {
                 ReadingSeconds = Mathf.Min(readingDuration, ReadingSeconds + deltaTime);
                 if (ReadingSeconds >= readingDuration)
@@ -82,14 +84,15 @@ namespace AnimalGame.Tutorial
         public bool Continue()
         {
             if (!satisfied || IsComplete) return false;
+            if (Step == TerrainTutorialStep.ScanTerrain) HasAcknowledgedScan = true;
             Step++; satisfied = false; startingDistance = 0f;
             return true;
         }
 
-        /// <summary>Expired snapshots can be scanned again without losing time already spent reading.</summary>
+        /// <summary>A temporary display expiry cannot revoke an already acknowledged scan.</summary>
         public void RequireFreshScan()
         {
-            if (Step == TerrainTutorialStep.ReadSigns && !satisfied)
+            if (!HasAcknowledgedScan && Step == TerrainTutorialStep.ReadSigns && !satisfied)
             { Step = TerrainTutorialStep.ScanTerrain; satisfied = false; }
         }
     }

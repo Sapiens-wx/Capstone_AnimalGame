@@ -454,7 +454,7 @@ namespace AnimalGame.Editor
                     Require(root.Q<Label>("TutorialContinuePrompt").text == "Press A to continue"
                         && root.Q<Label>("TutorialContinuePrompt").resolvedStyle.display == DisplayStyle.Flex
                         && root.Q<Label>("TutorialStatus").resolvedStyle.display == DisplayStyle.None,
-                        "An achieved step shows a readable A confirmation in the existing status row at " + size);
+                        "An achieved step shows its A confirmation in the dedicated highlighted footer at " + size);
                     CheckVisibleEnglishText(root, "A confirmation at " + size);
                     panel.SetContinuePrompt(false);
                     panel.SetCollapsed(true);
@@ -494,7 +494,14 @@ namespace AnimalGame.Editor
                     Set(lesson, "feedbackRemaining", 0f);
                     Invoke(lesson, "RefreshPanel", true);
                     Settle(panel, new Vector2(1920, 1080));
-                    if (step == 0) Capture(root, texture, "driving-expanded.png");
+                    if (step == 0)
+                    {
+                        Capture(root, texture, "driving-expanded.png");
+                        panel.SetProgress(1f); panel.SetContinuePrompt(true);
+                        Settle(panel, new Vector2(1920, 1080));
+                        Capture(root, texture, "driving-ready-to-continue.png");
+                        panel.SetContinuePrompt(false); panel.SetProgress(progress.NormalizedProgress);
+                    }
                     if (!progress.IsComplete) { Satisfy(progress); Require(progress.Advance(), "UI fixture advances through actual lesson steps."); }
                 }
                 Invoke(lesson, "RefreshPanel", true);

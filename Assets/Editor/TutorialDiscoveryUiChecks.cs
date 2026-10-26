@@ -192,8 +192,8 @@ namespace AnimalGame.Editor
             Require((hint.resolvedStyle.display != DisplayStyle.None) == expected, "The scan gesture reminder follows chapter activity.");
             if (expected)
                 Require(hint.worldBound.yMin >= root.Q<Label>("TutorialHeader").worldBound.yMax
-                    && hint.worldBound.yMax <= root.Q<Label>("TutorialChapter").worldBound.yMin,
-                    "Discovery help fits between the title and chapter readout.");
+                    && hint.worldBound.yMax <= root.Q<Label>("TutorialTitle").worldBound.yMin,
+                    "Discovery help fits between the header and lesson title.");
             Require(root.Q<Label>("TutorialToggleHint").resolvedStyle.display != DisplayStyle.None,
                 "The existing D-pad hide/show reminder remains visible independently.");
         }

@@ -36,6 +36,7 @@ namespace AnimalGame.Editor
             public List<string> errors = new List<string>();
             public List<string> knownSceneDiagnostics = new List<string>();
             public int knownSceneHeaders, knownMissingPrefabMessages, drivingConfirmations;
+            public bool terrainScanConfirmedOnce, terrainSnapshotExpiredAfterConfirmation, terrainReadingSurvivedExpiry;
             public string phase;
             public Vector2 robotMapPosition, destination;
             public float speed, throttle, navigationAngle;
@@ -307,6 +308,9 @@ namespace AnimalGame.Editor
                     case Phase.TerrainScan:
                     case Phase.TerrainRescan:
                         if (terrain.Progress.Step != TerrainTutorialStep.ReadSigns) return;
+                        Require(terrain.Progress.HasAcknowledgedScan,
+                            "The real scan operation is acknowledged once by a genuine A confirmation.");
+                        report.terrainScanConfirmedOnce = true;
                         Record("Two real short LB taps trigger the production terrain scan event in the survey area.");
                         Begin(Phase.TerrainRead); break;
                     case Phase.TerrainRead:
@@ -315,18 +319,22 @@ namespace AnimalGame.Editor
                         var unsafeSigns = (System.Collections.ICollection)typeof(TraversalScanOverlayUI).GetField("unpassableRenderData",
                             BindingFlags.NonPublic | BindingFlags.Instance).GetValue(bootstrap.scanOverlay);
                         observedBothSigns |= passable.Count > 0 && unsafeSigns.Count > 0;
-                        if (!checkedTerrainPause && terrain.Progress.ReadingSeconds >= .5f)
+                        if (!checkedTerrainPause && observedBothSigns && terrain.Progress.ReadingSeconds >= .5f)
                         {
                             frozenReading = terrain.Progress.ReadingSeconds;
                             bootstrap.mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>().OpenInventory();
                             checkedTerrainPause = true; Begin(Phase.TerrainReadPaused); return;
                         }
-                        if (terrain.Progress.Step == TerrainTutorialStep.ScanTerrain) { Begin(Phase.TerrainRescan); return; }
+                        Require(terrain.Progress.Step != TerrainTutorialStep.ScanTerrain,
+                            "The confirmed terrain scan may not reopen when its snapshot expires or is replaced.");
                         if (terrain.Progress.Step != TerrainTutorialStep.FollowRoute) return;
                         Require(observedBothSigns, "Survey point did not show both actual passable and unsafe scan signs.");
                         Require(Vector2.Distance(terrain.Progress.CurrentTarget, new Vector2(146, 121)) < .01f,
                             "The uphill destination does not match the user's marked point 2.");
-                        Record("Both real + and X signs are visible; expanded, unpaused reading advances without requiring a stop.");
+                        Require(report.terrainSnapshotExpiredAfterConfirmation && !bootstrap.scanOverlay.HasActiveSnapshot,
+                            "The remaining reading and route must proceed after the real native scan overlay has been cleared, without another LB scan.");
+                        report.terrainReadingSurvivedExpiry = true;
+                        Record("Both real + and X signs were observed. After A acknowledgement, clearing the real snapshot never repeats scanning or blocks the remaining reading.");
                         BeginCapture("terrain-slopes.png", Phase.TerrainRoute); break;
                     case Phase.TerrainReadPaused:
                         if (!Settled(10)) return;
@@ -337,8 +345,15 @@ namespace AnimalGame.Editor
                         Begin(Phase.TerrainReadResumed); break;
                     case Phase.TerrainReadResumed:
                         if (!Settled(10) || AnimalGame.MainUI.MainUI.BlocksGameplay) return;
-                        Record("Inventory pause hides terrain UI and freezes reading; reading or re-scanning resumes safely.");
-                        Begin(terrain.Progress.Step == TerrainTutorialStep.ScanTerrain ? Phase.TerrainRescan : Phase.TerrainRead); break;
+                        Require(terrain.Progress.Step == TerrainTutorialStep.ReadSigns && terrain.Progress.HasAcknowledgedScan,
+                            "Returning from inventory retains the confirmed scan and its partially read legend.");
+                        typeof(TraversalScanOverlayUI).GetMethod("ClearSnapshot", BindingFlags.Instance | BindingFlags.NonPublic)
+                            .Invoke(bootstrap.scanOverlay, null);
+                        Require(!bootstrap.scanOverlay.HasActiveSnapshot && bootstrap.scanOverlay.VisibleMarkerCount == 0,
+                            "The disposable regression removes the actual native snapshot and signs after acknowledgement.");
+                        report.terrainSnapshotExpiredAfterConfirmation = true;
+                        Record("Inventory pause preserves reading; the acknowledged scan then survives a real overlay expiry without returning to its scan card.");
+                        Begin(Phase.TerrainRead); break;
                     case Phase.TerrainRoute:
                         CheckNavigationProgress();
                         Require(!AnimalGame.MainUI.MainUI.BlocksGameplay, "Slope travel is unexpectedly paused by inventory.");

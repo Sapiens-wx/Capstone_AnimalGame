@@ -314,8 +314,9 @@ namespace AnimalGame.Editor
                 DrawStep(refit, "OpenWorkbench", "4 · 按 A 打开装配台");
                 EditorGUILayout.HelpBox("外侧任务栏说明在装配台选择 CAMERA 并装备 Zoom Lens 300。装配界面内不显示教学，也不拦截装备操作；实际装好目标镜头并关闭界面后继续。", MessageType.None);
                 DrawStep(refit, "EquipLens", "5 · 外侧任务栏的 Zoom 300 换镜头说明");
-                DrawStep(refit, "NewLensControls", "6 · 新镜头的对焦与快门");
+                DrawStep(refit, "NewLensControls", "6 · 打开相机并用右摇杆移动取景框");
                 Field(refit, "ToggleHint", "驾驶时的持续操作提醒");
+                Field(refit, "NewLensToggleHint", "最后一步的相机操作提醒");
                 refitStatusesExpanded = EditorGUILayout.Foldout(refitStatusesExpanded, "通用状态反馈", true);
                 if (refitStatusesExpanded)
                     using (new EditorGUI.IndentLevelScope())

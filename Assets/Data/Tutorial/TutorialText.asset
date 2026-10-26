@@ -854,12 +854,10 @@ MonoBehaviour:
       Detail: "{cancel} \xB7 Back"
       CompleteFeedback: 
     NewLensControls:
-      ControlGlyph: '{rb}'
-      Action: Learn new shutter
-      Message: 'Move Right Stick to move
-
-        frame. Hold {rb} to photograph.'
-      Detail: "{photo} \xB7 Photo mode\nR \xB7 Move frame"
+      ControlGlyph: R
+      Action: Move camera frame
+      Message: "Press {photo} to open the camera.\nMove the right stick\nto adjust the frame.\nTry it with Zoom Lens 300."
+      Detail: "{photo} \xB7 Open camera\nR \xB7 Move frame"
       CompleteFeedback: 
     Completed:
       ControlGlyph: "\u2713"
@@ -882,6 +880,7 @@ MonoBehaviour:
     InstalledStatus: New lens installed
     CompleteStatus: Lesson complete
     ToggleHint: "{rt}/{lt} \xB7 Drive / L \xB7 Steer"
+    NewLensToggleHint: "{photo} \xB7 Camera / R \xB7 Frame"
     MenuTitle: CAMERA UPGRADE
     MenuIntroductionMessage: 'Use this station to change your equipment.
 
