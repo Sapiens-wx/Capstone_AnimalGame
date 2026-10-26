@@ -39,6 +39,7 @@ namespace AnimalGame.Tutorial
         private BioScanAnimalMarkerUI animalMarkers;
         private BioScanStaticAreaUI objectMarkers;
         private bool hasStarted;
+        private bool birdScanned;
         private bool chapterConfirmed;
         private bool ownsPresentation = true;
         private bool interrupted;
@@ -53,7 +54,15 @@ namespace AnimalGame.Tutorial
         public TutorialDialoguePanel Panel => arms != null ? arms.Panel : null;
         public bool HasStarted => hasStarted;
         public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        public bool HasScannedBird => birdScanned;
+        public TutorialWaypointIndicator BirdTarget => birdScanned ? recoveryWaypoint : null;
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
+
+        public TutorialWaypointIndicator AcquireBirdTarget()
+        {
+            EnsureRecoveryWaypoint();
+            return recoveryWaypoint;
+        }
         private DiscoveryLessonText Text => tutorialText != null && tutorialText.Discovery != null
             ? tutorialText.Discovery : defaultText;
 
@@ -93,7 +102,9 @@ namespace AnimalGame.Tutorial
                 return;
             }
             if (!ownsPresentation) return;
-            if (progress != null && progress.IsComplete) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
+            if (targets.Animal != null && targets.Animal.IsPermanentlyDiscovered) birdScanned = true;
+            if (progress != null && progress.IsComplete)
+            { UpdateRecoveryWaypoint(true, false, false); Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
             bool modal = IsModal();
             bool justStarted = false;
             if (!hasStarted)
@@ -103,7 +114,8 @@ namespace AnimalGame.Tutorial
             }
             BindScanner();
             Panel.SetVisible(!modal);
-            if (recoveryWaypoint != null) recoveryWaypoint.SetVisible(!modal);
+            if (recoveryWaypoint != null) recoveryWaypoint.SetVisible(!TargetModal());
+            if (birdScanned) UpdateRecoveryWaypoint(true, false, false);
             if (modal) { progress.Suspend(); return; }
 #if ENABLE_INPUT_SYSTEM
             if (!justStarted && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
@@ -129,7 +141,7 @@ namespace AnimalGame.Tutorial
                 refreshRemaining = 0f;
             }
             if (progress.IsComplete)
-            { if (recoveryWaypoint != null) recoveryWaypoint.ClearTarget(); Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
+            { UpdateRecoveryWaypoint(true, animalVisible, objectVisible); Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
             if (progress.Step != displayedStep)
             {
                 Panel.SetCollapsed(false);
@@ -161,6 +173,10 @@ namespace AnimalGame.Tutorial
 
         private bool IsModal() => Time.deltaTime <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay
             || (bootstrap.photoMode != null && (bootstrap.photoMode.IsActive || bootstrap.photoMode.IsInputLocked))
+            || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
+
+        private bool TargetModal() => Time.deltaTime <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay
+            || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
 
         private bool CanScan()
@@ -242,6 +258,9 @@ namespace AnimalGame.Tutorial
         private void OnAnimalDetected(int sequence, DiscoverableEntity entity)
         {
             if (!hasStarted || targets == null || entity != targets.Animal) return;
+            // The native hit has already marked this exact clone as discovered. Its target
+            // remains valid even if the player opened another native mode while the wave travelled.
+            if (entity.IsPermanentlyDiscovered) birdScanned = true;
             if (sequence == nativeWaveSequence) progress.RegisterAnimalHit(modelWaveId, ValidEvent());
             else pendingAnimalSequence = sequence;
             refreshRemaining = 0f;
@@ -321,17 +340,22 @@ namespace AnimalGame.Tutorial
 
         private void UpdateRecoveryWaypoint(bool valid, bool animalVisible, bool objectVisible)
         {
+            // Keep the actual scanned bird highlighted even when it is already visible/nearby,
+            // while reading the object legend, and through the handoff into photography.
+            if (birdScanned && targets != null && (targets.Animal != null || targets.AnimalActor != null))
+            {
+                EnsureRecoveryWaypoint();
+                recoveryWaypoint.SetPhotoModeVisible(true);
+                recoveryWaypoint.SetVisible(!TargetModal());
+                recoveryWaypoint.SetTarget(targets.AnimalMapPosition);
+                return;
+            }
             bool toAnimal = (progress.Step == DiscoveryTutorialStep.FindAnimal
                 || progress.Step == DiscoveryTutorialStep.ConfirmAnimal) && !animalVisible;
             bool toItem = progress.Step == DiscoveryTutorialStep.ReadObject && !objectVisible;
             if (!valid || progress.IsComplete || (!toAnimal && !toItem))
             { if (recoveryWaypoint != null) recoveryWaypoint.ClearTarget(); return; }
-            if (recoveryWaypoint == null)
-            {
-                var child = new GameObject("Discovery Target Reminder"); child.transform.SetParent(transform, false);
-                recoveryWaypoint = child.AddComponent<TutorialWaypointIndicator>();
-                recoveryWaypoint.Configure(bootstrap, targetSprite);
-            }
+            EnsureRecoveryWaypoint();
             Vector2 animalTarget = targets.UsesFixedAnimalPosition && !targets.IsAnimalWithinScanReach
                 ? targets.AnimalObservationMapPosition : targets.AnimalMapPosition;
             Vector2 target = toAnimal ? animalTarget : targets.ItemMapPosition;
@@ -341,11 +365,21 @@ namespace AnimalGame.Tutorial
             recoveryWaypoint.SetTarget(target);
         }
 
+        private void EnsureRecoveryWaypoint()
+        {
+            if (recoveryWaypoint != null) return;
+            var child = new GameObject("Discovery Target Reminder"); child.transform.SetParent(transform, false);
+            recoveryWaypoint = child.AddComponent<TutorialWaypointIndicator>();
+            recoveryWaypoint.Configure(bootstrap, targetSprite);
+        }
+
         [ContextMenu("Restart Discovery Lesson")]
         public void RestartLesson()
         {
             if (!hasStarted || progress == null) return;
             progress.Reset(); targets.ResetTargets();
+            birdScanned = false;
+            if (recoveryWaypoint != null) recoveryWaypoint.ClearTarget();
             nativeWaveSequence = scanner != null ? scanner.ScanSequence : 0;
             modelWaveId = pendingAnimalSequence = pendingObjectSequence = 0;
             Panel.SetCollapsed(false); refreshRemaining = 0f;
@@ -375,6 +409,7 @@ namespace AnimalGame.Tutorial
             if (targets != null) targets.Cleanup();
             if (Panel != null) Panel.SetLessonHint(string.Empty);
             hasStarted = false; progress = null;
+            birdScanned = false;
             ownsPresentation = true;
             if (arms != null) arms.SetPresentationOwned(true);
         }

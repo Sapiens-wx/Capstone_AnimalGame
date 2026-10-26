@@ -746,15 +746,8 @@ MonoBehaviour:
     OpenWorkbench:
       ControlGlyph: '{confirm}'
       Action: Use workbench
-      Message: 'Press {confirm} to open
-
-        the assembly station.
-
-        You
-        can change your
-
-        equipment here.'
-      Detail: "{confirm} \xB7 Open refit"
+      Message: "Open the station with {confirm}.\nChoose CAMERA, then\nselect Zoom Lens 300.\nPress {confirm} to equip it."
+      Detail: "{cancel} \xB7 Close after equipping"
       CompleteFeedback: 
     RefitIntroduction:
       ControlGlyph: '{confirm}'
@@ -772,15 +765,8 @@ MonoBehaviour:
     EquipLens:
       ControlGlyph: '{confirm}'
       Action: Install better lens
-      Message: 'Choose CAMERA.
-
-        Select {lens}.
-
-        Press {confirm} to
-        equip
-
-        the new lens.'
-      Detail: "{lb}/{rb} \xB7 Slot\n\u2190 / \u2192 \xB7 Lens"
+      Message: "At the assembly station,\nchoose CAMERA and\ninstall Zoom Lens 300.\nClose the station with {cancel}."
+      Detail: "{lb}/{rb} \xB7 CAMERA\n\u2190 / \u2192 \xB7 Lens \xB7 {confirm} equip"
       CompleteFeedback: 
     CloseRefit:
       ControlGlyph: '{cancel}'
@@ -847,12 +833,7 @@ MonoBehaviour:
     MenuEquipHint: "{confirm} \xB7 Equip"
     MenuBackHint: "{cancel} \xB7 Back"
     MenuInspectHint: "{photo} \xB7 Inspect"
-    InstalledMessage: 'New lens installed.
-
-      Release {confirm}, then press
-
-      {confirm}
-      again to continue.'
+    InstalledMessage: "Zoom Lens 300 installed.\nClose the station with {cancel}\nto resume the tutorial."
     NeedStowMessage: 'Press L3 to retract
 
       your arms before using

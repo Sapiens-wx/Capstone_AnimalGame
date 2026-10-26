@@ -47,6 +47,8 @@ namespace AnimalGame.Editor
             public bool neutralBetweenBackPresses, resultFullyOpened;
             public bool deadTrunkPresent, nativePecking, departureQueued, birdFlewAfterPhoto, birdDespawned, trunkRetained, noBirdRespawn;
             public bool waitedForA, confirmedWithA, observationConfirmedWithA;
+            public bool birdTargetAfterScan, birdTargetSharedAcrossChapters, birdTargetInPhotoMode;
+            public bool birdTargetDuringCapture, birdTargetRetainedOnResult, birdTargetClearedAfterPhoto;
             public string project, phase, step, targetFailure, cameraId, screenshotStatus;
             public string movementMode, traversalReason, nativeSelectedSubject, bodyRendererState;
             public string nativePhotoState, nativeCaptureState, species, subjectPhotoState;
@@ -230,8 +232,12 @@ namespace AnimalGame.Editor
                         break;
                     case Phase.ScanRelease:
                         if (!nativeAnimalHit) return;
+                        if (discovery.BirdTarget == null || !discovery.BirdTarget.HasTarget) return;
                         Require(Targets.Animal.IsPermanentlyDiscovered && bootstrap.bioScan.ScanSequence > 0,
                             "The real released scan must hit and discover the stationary teaching actor.");
+                        Require(Vector2.Distance(discovery.BirdTarget.TargetMapMeters, Targets.AnimalMapPosition) < .001f,
+                            "The detected woodpecker immediately owns a target at its actual location.");
+                        report.birdTargetAfterScan = true;
                         Record("An actual full LB charge and release hits the designated woodpecker.");
                         Begin(Phase.ConfirmAnimal); break;
                     case Phase.ConfirmAnimal:
@@ -259,6 +265,10 @@ namespace AnimalGame.Editor
                             "Photography begins directly after discovery while recycling still waits.");
                         Require(ReferenceEquals(lesson.Targets.Animal, discovery.Targets.Animal),
                             "Photography must retain the scanned woodpecker instance rather than clone or replace it.");
+                        Require(lesson.Waypoint != null && ReferenceEquals(lesson.Waypoint, discovery.BirdTarget)
+                            && lesson.Waypoint.HasTarget,
+                            "Discovery passes the same persistent bird target into photography without duplicating or clearing it.");
+                        report.birdTargetSharedAcrossChapters = true;
                         Begin(Phase.ObserveMovement); break;
                     case Phase.ObserveMovement:
                         if (lesson.Progress.Step == PhotographyTutorialStep.ObserveMovement)
@@ -286,6 +296,10 @@ namespace AnimalGame.Editor
                                 "photography-compose-diagnostic.png");
                         }
                         if (!report.subjectFramed || lesson.Progress.Step != PhotographyTutorialStep.Capture) return;
+                        Require(lesson.Waypoint != null && lesson.Waypoint.HasTarget
+                            && lesson.Waypoint.CurrentMode != TutorialWaypointIndicator.WaypointMode.Hidden,
+                            "A visible framed woodpecker retains its native target while photo mode is active.");
+                        report.birdTargetInPhotoMode = true;
                         Require(bootstrap.photoResultUi.IsSubjectInCaptureFrame(Subject),
                             "Composition must satisfy the actual shutter subject-selection rules.");
                         Record("RT/LT and left-stick steering compose the actual woodpecker using native shutter coverage checks.", "photography-framed.png");
@@ -298,6 +312,14 @@ namespace AnimalGame.Editor
                     case Phase.Capture:
                         if (bootstrap.photoMode.IsFocusing || bootstrap.photoMode.IsCapturing)
                         {
+                            if (!bootstrap.photoResultUi.IsResultVisible && !bootstrap.photoMode.IsReviewing
+                                && !bootstrap.photoResultView.IsShowing)
+                            {
+                                Require(lesson.Waypoint != null && lesson.Waypoint.HasTarget
+                                    && lesson.Waypoint.CurrentMode != TutorialWaypointIndicator.WaypointMode.Hidden,
+                                    "The bird target stays visible through exposure even when the tutorial card is collapsed.");
+                                report.birdTargetDuringCapture = true;
+                            }
                             if (!holdPositionRecorded)
                             { holdAnimalPosition = Targets.AnimalMapPosition; holdStartedAt = Time.time; holdPositionRecorded = true; }
                             float drift = Vector2.Distance(Targets.AnimalMapPosition, holdAnimalPosition);
@@ -317,6 +339,10 @@ namespace AnimalGame.Editor
                     case Phase.Result:
                         CheckResultPanelHidden();
                         if (!Settled(8) || !ResultFullyOpen()) return;
+                        Require(lesson.Waypoint != null && lesson.Waypoint.HasTarget
+                            && lesson.Waypoint.CurrentMode == TutorialWaypointIndicator.WaypointMode.Hidden,
+                            "The original bird target is retained but hidden throughout native photo results.");
+                        report.birdTargetRetainedOnResult = true;
                         report.resultFullyOpened = true;
                         Require(report.hiddenResultFrames >= 5 && report.resultHiddenAllFrames,
                             "Both expanded card and collapsed tab must stay hidden throughout the real result screen.");
@@ -349,6 +375,9 @@ namespace AnimalGame.Editor
                         if (!Settled(4) || bootstrap.photoMode.IsReviewing || bootstrap.photoResultView.IsClosing) return;
                         Require(bootstrap.photoMode.IsActive && lesson.IsComplete && !lesson.Panel.CanContinue,
                             "Closing results completes photography without a save, exit or completion confirmation.");
+                        Require(lesson.Waypoint != null && !lesson.Waypoint.HasTarget,
+                            "Completing photography clears the persistent bird target before later chapters begin.");
+                        report.birdTargetClearedAfterPhoto = true;
                         report.resultClosedBeforePhotoExit = true;
                         Record("The first real B closes the native result; photo mode remains active.");
                         Begin(Phase.NeutralAfterResult); break;
@@ -394,6 +423,10 @@ namespace AnimalGame.Editor
                             "Completed photography hands off to the same discovery waste as chapter seven without extra A prompts.");
                         Require(lesson.Panel.Root.Q<Label>("TutorialChapter").text == "07 / 09" && Targets.HasAnimalDeparted,
                             "Recycling follows photography without respawning its departed teaching bird.");
+                        Require(report.birdTargetAfterScan && report.birdTargetSharedAcrossChapters
+                            && report.birdTargetInPhotoMode && report.birdTargetDuringCapture
+                            && report.birdTargetRetainedOnResult && report.birdTargetClearedAfterPhoto,
+                            "The same native target persists from scan to exposure, hides for results and clears at photography completion.");
                         CollectScreenshots();
                         Finish(null); break;
                 }

@@ -36,6 +36,7 @@ namespace AnimalGame.Editor
             public bool usesFixedAnimalPosition, animalWithinScanReach, observationReached, observationPathHasData, observationPathPassable, observationPathHardStop;
             public bool animalMotionRequested, animalMovedAfterScan, checkedAnimalFrozenBeforeScan;
             public bool deadTrunkPresent, nativePecking, waitedForA, confirmedWithA, animalCardConfirmedWithA, noRescanStep;
+            public bool birdTargetWhenVisible, birdTargetDuringObjectLegend;
             public string project, phase, step, species, targetFailure, screenshotStatus, movementMode;
             public float value, charge, animalRemaining, objectRemaining, targetDistanceWorld, cameraSize, baseCameraSize, heading;
             public float targetDistanceFromNativeOrigin, currentTurnSpeed, currentThrottleIntent, steeringAuthority;
@@ -316,6 +317,7 @@ namespace AnimalGame.Editor
                             return;
                         }
                         Require(lesson.Progress.Step == DiscoveryTutorialStep.ConfirmAnimal, "Expanded legend reading must advance to first sight, not skip it.");
+                        RequireBirdTarget();
                         Require(report.animalCardConfirmedWithA,
                             "The ready animal legend card must stay unchanged for five neutral frames until an actual A press.");
                         Record("The live animal marker and expanded legend finish the 1.2-second observation.");
@@ -323,6 +325,7 @@ namespace AnimalGame.Editor
                     case Phase.ApproachAnimal:
                         if (lesson.Progress.Step == DiscoveryTutorialStep.ReadObject)
                         {
+                            RequireBirdTarget(); report.birdTargetWhenVisible = true;
                             Require(report.animalSeen, "Approach must produce the real solid/seen marker state.");
                             if (lesson.Targets.UsesFixedAnimalPosition)
                                 Require(PlayerWaterDepth() <= .01f, "The real solid woodpecker marker must be confirmed while the player is still on dry ground.");
@@ -333,6 +336,7 @@ namespace AnimalGame.Editor
                         if (report.animalRemaining <= .1f) Refresh(Phase.ApproachAnimal);
                         break;
                     case Phase.ReadObject:
+                        RequireBirdTarget(); report.birdTargetDuringObjectLegend = true;
                         Require(lesson.Progress.Step != DiscoveryTutorialStep.Rescan,
                             "The removed rescan/refresh lesson must never be presented.");
                         if (lesson.IsComplete)
@@ -572,6 +576,16 @@ namespace AnimalGame.Editor
             Require(bootstrap.map.TrySampleStaticWaterMapPosition(targets.AnimalMapPosition, out float depth)
                 && depth <= .01f, "The scanned stationary teaching woodpecker must stay on actual dry map ground.");
             report.animalMovedAfterScan |= targets.AnimalTravelledMeters > .05f;
+        }
+
+        private void RequireBirdTarget()
+        {
+            Require(lesson != null && lesson.HasScannedBird && lesson.BirdTarget != null && lesson.BirdTarget.HasTarget,
+                "The scanned woodpecker keeps a target after it is seen and during the object legend.");
+            Require(Vector2.Distance(lesson.BirdTarget.TargetMapMeters, lesson.Targets.AnimalMapPosition) < .001f,
+                "The persistent target stays on the actual woodpecker rather than the scan object or an approach point.");
+            Require(lesson.BirdTarget.CurrentMode != TutorialWaypointIndicator.WaypointMode.Hidden,
+                "The bird's target remains rendered while discovery practice is unpaused.");
         }
 
         private void ReadMarker()

@@ -44,6 +44,7 @@ namespace AnimalGame.Tutorial
         private Vector2 targetMapMeters;
         private bool hasTarget;
         private bool visible = true;
+        private bool showDuringPhotoMode;
         private float bounceStartTime;
         private IndicatorLayout currentLayout;
 
@@ -87,6 +88,11 @@ namespace AnimalGame.Tutorial
             RefreshPresentation();
         }
 
+        // Bird teaching shares the normal ring/hover target while the native camera is open.
+        // Destination markers retain their existing default of hiding in photo mode.
+        public void SetPhotoModeVisible(bool value)
+        { showDuringPhotoMode = value; RefreshPresentation(); }
+
         private void OnEnable() => Canvas.willRenderCanvases += RefreshPresentation;
 
         private void OnDisable()
@@ -104,7 +110,7 @@ namespace AnimalGame.Tutorial
                 || bootstrap == null || bootstrap.gameObject.scene != gameObject.scene
                 || bootstrap.map == null || !bootstrap.map.HasGeneratedMap || bootstrap.mapCamera == null
                 || Time.timeScale <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay
-                || (bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
+                || (bootstrap.photoMode != null && bootstrap.photoMode.IsActive && !showDuringPhotoMode)
                 || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing))
             {
                 Hide();

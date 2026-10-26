@@ -34,7 +34,6 @@ namespace AnimalGame.Editor
         private bool photographyStatusesExpanded;
         private bool photographyRemindersExpanded;
         private bool refitStatusesExpanded;
-        private bool refitMenuExpanded = true;
         private bool placeholdersExpanded;
         private readonly HashSet<string> initializedSteps = new HashSet<string>();
 
@@ -306,28 +305,10 @@ namespace AnimalGame.Editor
                 DrawStep(refit, "EnterMachine", "2 · 驶入机械内部");
                 DrawStep(refit, "ReachWorkbench", "3 · 前往装配台");
                 DrawStep(refit, "OpenWorkbench", "4 · 按 A 打开装配台");
-                EditorGUILayout.HelpBox("进入内部后，目标会直接切到装配台；接近装配台并停车后，直接按 A 打开界面。这两处不需要额外按 A 确认教程。", MessageType.None);
-                DrawStep(refit, "RefitIntroduction", "5 · 认识改装界面");
-                DrawStep(refit, "EquipLens", "6 · 选择并实际装备新镜头");
-                DrawStep(refit, "CloseRefit", "7 · 按 B 返回驾驶");
-                DrawStep(refit, "NewLensControls", "8 · 新镜头的对焦与快门");
+                EditorGUILayout.HelpBox("外侧任务栏说明在装配台选择 CAMERA 并装备 Zoom Lens 300。装配界面内不显示教学，也不拦截装备操作；实际装好目标镜头并关闭界面后继续。", MessageType.None);
+                DrawStep(refit, "EquipLens", "5 · 外侧任务栏的 Zoom 300 换镜头说明");
+                DrawStep(refit, "NewLensControls", "6 · 新镜头的对焦与快门");
                 Field(refit, "ToggleHint", "驾驶时的持续操作提醒");
-                Field(refit, "InstalledMessage", "安装成功后等待 A 的正文", "安装操作与继续教学分开，安装时的 A 不会推进教程。");
-                refitMenuExpanded = EditorGUILayout.Foldout(refitMenuExpanded, "装配界面内的手柄提示", true);
-                if (refitMenuExpanded)
-                    using (new EditorGUI.IndentLevelScope())
-                    {
-                        Field(refit, "MenuTitle", "界面内教学标题");
-                        Field(refit, "MenuIntroductionMessage", "改装界面介绍正文", "界面内教学条显示两行文字，建议每行保持简短。");
-                        Field(refit, "MenuEquipMessage", "选择与安装镜头的正文");
-                        Field(refit, "MenuInstalledMessage", "安装完成等待确认的正文");
-                        Field(refit, "MenuCloseMessage", "关闭装配界面的正文");
-                        Field(refit, "MenuSlotHint", "切换相机部位");
-                        Field(refit, "MenuModuleHint", "选择镜头模块");
-                        Field(refit, "MenuEquipHint", "安装镜头");
-                        Field(refit, "MenuBackHint", "返回");
-                        Field(refit, "MenuInspectHint", "查看详情");
-                    }
                 refitStatusesExpanded = EditorGUILayout.Foldout(refitStatusesExpanded, "通用状态反馈", true);
                 if (refitStatusesExpanded)
                     using (new EditorGUI.IndentLevelScope())

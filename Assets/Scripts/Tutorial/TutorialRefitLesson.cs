@@ -37,21 +37,21 @@ namespace AnimalGame.Tutorial
         private TutorialRecyclingLesson recycling;
         private RefitTutorialProgress progress;
         private TutorialWaypointIndicator waypoint;
-        private TutorialRefitGuide guide;
         private bool hasStarted, chapterConfirmed, hasWorkbenchPosition;
         private bool interrupted;
         private Vector2 workbenchPosition;
         private float completionDelay;
         private RefitTutorialStep displayedStep = (RefitTutorialStep)(-1);
         private CheckpointRefitTerminal hookedTerminal;
-        private Func<bool> previousSubmit, previousOpenBlocked, submitHandler, openBlockHandler;
+        private Func<bool> previousOpenBlocked, openBlockHandler;
 
         public TutorialTextContent TextContent => tutorialText;
         public TutorialDialoguePanel Panel => photography != null ? photography.Panel : null;
         public TutorialPhotographyLesson Photography => photography;
         public RefitTutorialProgress Progress => progress;
         public TutorialWaypointIndicator Waypoint => waypoint;
-        public TutorialRefitGuide Guide => guide;
+        // Kept as an observation API for existing callers; no in-menu tutorial is created.
+        public TutorialRefitGuide Guide => null;
         public WasteRobotBase Machine => machine;
         public CheckpointRefitTerminal Terminal => terminal;
         public PhotoCameraDefinition TargetCamera => targetCamera;
@@ -102,7 +102,6 @@ namespace AnimalGame.Tutorial
                 if (!interrupted) progress?.Suspend();
                 interrupted = true;
                 if (waypoint != null) waypoint.SetVisible(false);
-                if (guide != null) guide.SetVisible(false);
                 return;
             }
             if (interrupted) { interrupted = false; progress?.Suspend(); }
@@ -129,12 +128,10 @@ namespace AnimalGame.Tutorial
             Panel.SetVisible(!open && !worldModal);
             waypoint.SetVisible(!open && !worldModal);
             if (machine.IsInside && !hasWorkbenchPosition) FindWorkbenchPosition();
-            bool guideBound = guide.Configure(terminal);
             bool valid = open || (!worldModal && CanNavigate());
             if (!valid)
             {
                 progress.Suspend(); Panel.SetContinuePrompt(false);
-                guide.SetVisible(false);
                 if (!worldModal) RefreshPanel(IsStopped());
                 return;
             }
@@ -148,7 +145,7 @@ namespace AnimalGame.Tutorial
             bool atEntrance = Vector2.Distance(player, EntranceMapPosition) <= arrivalRadiusMeters;
             bool atWorkbench = terminal.IsNearby;
             progress.Sample(new RefitTutorialSample(Time.unscaledDeltaTime, valid,
-                open ? guideBound && !terminal.View.IsInspectionOpen : !Panel.IsCollapsed,
+                !open && !Panel.IsCollapsed,
                 atEntrance, machine.IsInside, atWorkbench, stopped, open, TargetInstalled));
 
             if (!open)
@@ -170,7 +167,6 @@ namespace AnimalGame.Tutorial
                 displayedStep = progress.Step;
             }
             RefreshPanel(stopped);
-            RefreshGuide(guideBound);
             UpdateWaypoint();
         }
 
@@ -184,9 +180,6 @@ namespace AnimalGame.Tutorial
             targetOwner.transform.SetParent(transform, false);
             waypoint = targetOwner.AddComponent<TutorialWaypointIndicator>();
             waypoint.Configure(bootstrap, targetSprite);
-            var guideOwner = new GameObject("Camera Upgrade Menu Guide");
-            guideOwner.transform.SetParent(transform, false);
-            guide = guideOwner.AddComponent<TutorialRefitGuide>();
             HookTerminal();
         }
 
@@ -195,43 +188,11 @@ namespace AnimalGame.Tutorial
             if (hookedTerminal == terminal) return;
             UnhookTerminal();
             hookedTerminal = terminal;
-            previousSubmit = terminal.TutorialSubmitHandler;
             previousOpenBlocked = terminal.TutorialOpenBlocked;
-            submitHandler = OnMenuSubmit;
             openBlockHandler = () => hasStarted && Panel != null
                 && (Panel.CanContinue || TutorialContinueInput.BlocksWorldSouth(gameObject.scene))
                 || (previousOpenBlocked != null && previousOpenBlocked());
-            terminal.TutorialSubmitHandler = submitHandler;
             terminal.TutorialOpenBlocked = openBlockHandler;
-        }
-
-        private bool OnMenuSubmit()
-        {
-            // A queued recovery never takes ownership of an already open maintenance menu.
-            if (TutorialTipOverLesson.BlocksMainline(gameObject))
-                return previousSubmit != null && previousSubmit();
-            if (!hasStarted || !isActiveAndEnabled || !RefitOpen || progress == null)
-                return previousSubmit != null && previousSubmit();
-            // Until the actual equipment changes, A belongs to the existing Equip action.
-            if (progress.Step == RefitTutorialStep.EquipLens && !TargetInstalled)
-                return previousSubmit != null && previousSubmit();
-            if (progress.CanContinue && guide != null && guide.ContinueWasPresented && SouthPressed())
-            {
-                progress.Continue();
-                // Invalidate the displayed readiness now, before this A reaches another UI listener.
-                guide.SetContent(Text.MenuTitle, string.Empty, string.Empty, false);
-                Panel.SetContinuePrompt(false);
-            }
-            return true;
-        }
-
-        private static bool SouthPressed()
-        {
-#if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null) return Gamepad.current.buttonSouth.wasPressedThisFrame;
-#endif
-            return Input.GetKeyDown(AdaptiveLegacyGamepadInput.ActiveFamily == LegacyGamepadFamily.Sony
-                ? KeyCode.JoystickButton1 : KeyCode.JoystickButton0);
         }
 
         private void HandleCollapse()
@@ -273,7 +234,7 @@ namespace AnimalGame.Tutorial
             if (progress == null || progress.IsComplete) { HideCompletedPresentation(); return; }
             TutorialStepText item = Text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             TutorialTextTokens tokens = Tokens();
-            string message = progress.Step == RefitTutorialStep.EquipLens && TargetInstalled ? Text.InstalledMessage : item.Message;
+            string message = item.Message;
             string glyph = item.ControlGlyph, action = item.Action;
             string status = progress.Step == RefitTutorialStep.EquipLens && TargetInstalled ? Text.InstalledStatus : Text.WaitingStatus;
             Panel.SetPanelText(PanelText); Panel.SetLessonHint(tokens.Format(Text.ToggleHint));
@@ -283,31 +244,11 @@ namespace AnimalGame.Tutorial
             Panel.SetContinuePrompt(!RefitOpen && progress.CanContinue, PanelText.ContinuePrompt);
         }
 
-        private void RefreshGuide(bool bound)
-        {
-            if (progress == null || progress.IsComplete) { if (guide != null) guide.Clear(); return; }
-            if (!bound) return;
-            TutorialStepText item = Text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
-            if (progress.Step >= RefitTutorialStep.NewLensControls) item = Text.CloseRefit;
-            string message = progress.Step == RefitTutorialStep.RefitIntroduction ? Text.MenuIntroductionMessage
-                : progress.Step == RefitTutorialStep.EquipLens ? (TargetInstalled ? Text.MenuInstalledMessage : Text.MenuEquipMessage)
-                : Text.MenuCloseMessage;
-            string controls = progress.Step == RefitTutorialStep.EquipLens && !TargetInstalled
-                ? Text.MenuEquipHint
-                : progress.Step == RefitTutorialStep.CloseRefit || progress.Step >= RefitTutorialStep.NewLensControls
-                    ? Text.MenuBackHint : PanelText.ContinuePrompt;
-            TutorialTextTokens tokens = Tokens();
-            guide.SetContent(tokens.Format(Text.MenuTitle), tokens.Format(message), tokens.Format(controls),
-                progress.CanContinue);
-            guide.SetVisible(RefitOpen && terminal.View != null && !terminal.View.IsInspectionOpen);
-        }
-
         private void HideCompletedPresentation()
         {
             UnhookTerminal();
             if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetLessonHint(string.Empty); }
             if (waypoint != null) waypoint.ClearTarget();
-            if (guide != null) guide.Clear();
         }
 
         private void UpdateWaypoint()
@@ -364,18 +305,16 @@ namespace AnimalGame.Tutorial
         {
             if (hookedTerminal != null)
             {
-                if (hookedTerminal.TutorialSubmitHandler == submitHandler) hookedTerminal.TutorialSubmitHandler = previousSubmit;
                 if (hookedTerminal.TutorialOpenBlocked == openBlockHandler) hookedTerminal.TutorialOpenBlocked = previousOpenBlocked;
             }
-            hookedTerminal = null; previousSubmit = previousOpenBlocked = submitHandler = openBlockHandler = null;
+            hookedTerminal = null; previousOpenBlocked = openBlockHandler = null;
         }
 
         private void ReleasePresentation()
         {
             UnhookTerminal();
-            if (guide != null) { guide.Clear(); Destroy(guide.gameObject); }
             if (waypoint != null) { waypoint.ClearTarget(); Destroy(waypoint.gameObject); }
-            guide = null; waypoint = null;
+            waypoint = null;
             if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetLessonHint(string.Empty); }
             if (recycling != null) recycling.SetPresentationOwned(true);
             hasStarted = chapterConfirmed = hasWorkbenchPosition = false; progress = null;
@@ -386,7 +325,7 @@ namespace AnimalGame.Tutorial
         {
             if (!hasStarted || progress == null) return;
             progress.Reset(); chapterConfirmed = false; displayedStep = (RefitTutorialStep)(-1);
-            guide.Clear(); HookTerminal();
+            HookTerminal();
             Panel.SetContinuePrompt(false); Panel.SetCollapsed(false);
         }
 

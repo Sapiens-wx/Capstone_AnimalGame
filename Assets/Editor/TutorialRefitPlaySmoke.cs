@@ -28,9 +28,9 @@ namespace AnimalGame.Editor
         private enum Phase
         {
             Starting, Foundations, WaitRecyclingConfirmation, ConfirmRecycling, ReachEntrance, WaitEntranceConfirmation,
-            ConfirmEntrance, EnterMachine, ReachWorkbench, OpenWorkbench, WaitIntroduction, ConfirmIntroduction,
+            ConfirmEntrance, EnterMachine, ReachWorkbench, OpenWorkbench, WaitIntroduction,
             SelectCameraSlot, SelectLens, EquipLens, HoldAfterEquipment, NeutralAfterEquipment,
-            ConfirmEquipment, CloseWorkbench, ReadNewControls, ConfirmControls, ConfirmCompletion, FinalRelease, FinalHide, FinalShow,
+            CloseWorkbench, ReadNewControls, ConfirmControls, ConfirmCompletion, FinalRelease, FinalHide, FinalShow,
             ReopenNormally, SelectOldNormally, EquipOldNormally, SelectTargetNormally, EquipTargetNormally,
             CloseNormally, Cleanup, Finishing
         }
@@ -38,7 +38,7 @@ namespace AnimalGame.Editor
         {
             public bool passed, waitedForRecyclingA, entryReachedWithNativeInput, enteredWithNativeInput;
             public bool targetSwitchedWithoutA, reachedWorkbenchWithoutA, openedWithNativeA;
-            public bool pausedGuideVisible, introductionWaitedForA, nativeCameraSlot, nativeLensSelection;
+            public bool noMenuGuide, noMenuSubmitInterception, nativeCameraSlot, nativeLensSelection;
             public bool installedWithNativeA, heldEquipDidNotContinue, separateEquipmentConfirmation;
             public bool closedWithNativeB, retainedInterior, retainedCamera, completedWithA, cleanupReleasedTutorial;
             public bool finalADidNotReopen, finalPanelHidden, finalPanelShown, normalReopen, ordinaryEquipmentRestored;
@@ -238,31 +238,25 @@ namespace AnimalGame.Editor
                             + ", continueBlock=" + report.heldContinueBlock + ", canAcquire=" + report.canAcquireMaintenance
                             + ", reason=" + report.failureReason);
                         if (!terminal.IsOpen || !Settled(6)) return;
-                        CheckPausedGuide();
-                        Require(lesson.Progress.Step == RefitTutorialStep.RefitIntroduction && bootstrap.photoMode.CurrentCamera == damagedCamera,
-                            "The opening A must show the introduction without equipping or continuing it.");
+                        CheckPausedNativeMenu();
+                        Require(lesson.Progress.Step == RefitTutorialStep.EquipLens && bootstrap.photoMode.CurrentCamera == damagedCamera,
+                            "Opening the station starts passive equipment observation without an in-menu tutorial.");
                         terminal.View.EquipRequested -= OnEquipRequested; terminal.View.EquipRequested += OnEquipRequested;
                         report.openedWithNativeA = true; Begin(Phase.WaitIntroduction); break;
                     case Phase.WaitIntroduction:
-                        CheckPausedGuide();
+                        CheckPausedNativeMenu();
                         if (!Settled(12)) return;
-                        Require(lesson.Progress.Step == RefitTutorialStep.RefitIntroduction && report.equipRequests == 0,
-                            "The paused introduction must wait for a new A and cannot equip behind its instruction.");
-                        report.introductionWaitedForA = true;
-                        Record("The world task panel hides during native maintenance pause; the hand-controller tutorial guide remains visible and waits for a separate A.", "refit-introduction.png");
-                        Begin(Phase.ConfirmIntroduction); break;
-                    case Phase.ConfirmIntroduction:
-                        CheckPausedGuide();
-                        if (lesson.Progress.Step != RefitTutorialStep.EquipLens) return;
-                        Require(report.equipRequests == 0 && bootstrap.photoMode.CurrentCamera == damagedCamera,
-                            "An instruction A cannot also request equipment.");
+                        Require(lesson.Progress.Step == RefitTutorialStep.EquipLens && !lesson.Progress.CanContinue
+                            && report.equipRequests == 0,
+                            "The native menu has no introduction card or tutorial confirmation before selection.");
+                        Record("The outside task card gives the Zoom Lens 300 requirement; opening maintenance hides all tutorial UI and leaves native equipment controls untouched.", "refit-native-menu-no-tutorial.png");
                         Begin(Phase.SelectCameraSlot); break;
                     case Phase.SelectCameraSlot:
-                        CheckPausedGuide();
+                        CheckPausedNativeMenu();
                         if (!Settled(5) || terminal.View.SelectedSlotIndex != 1) return;
                         report.nativeCameraSlot = true; Begin(Phase.SelectLens); break;
                     case Phase.SelectLens:
-                        CheckPausedGuide();
+                        CheckPausedNativeMenu();
                         if (!Settled(5) || terminal.View.SelectedCamera != lesson.TargetCamera) return;
                         Require(!terminal.View.IsSelectedModuleInstalled && bootstrap.photoMode.CurrentCamera == damagedCamera,
                             "Selecting an available lens must not install it.");
@@ -270,29 +264,24 @@ namespace AnimalGame.Editor
                         Record("Native RB changes to CAMERA and the horizontal D-pad selects the actual target camera definition, independently of card order.", "refit-lens-selection.png");
                         Begin(Phase.EquipLens); break;
                     case Phase.EquipLens:
-                        CheckPausedGuide();
+                        CheckPausedNativeMenu();
                         if (bootstrap.photoMode.CurrentCamera != lesson.TargetCamera) return;
                         Require(report.equipRequests == 1 && terminal.CameraEquipment.IsInstalled(lesson.TargetCamera),
                             "The real native A installation must apply the target camera exactly once.");
                         report.installedWithNativeA = true; Begin(Phase.HoldAfterEquipment); break;
                     case Phase.HoldAfterEquipment:
-                        CheckPausedGuide();
+                        CheckPausedNativeMenu();
                         if (!Settled(8)) return;
                         Require(lesson.Progress.Step == RefitTutorialStep.EquipLens && report.equipRequests == 1,
                             "Continuing to hold the installation A cannot continue the successful tutorial card or equip twice.");
                         report.heldEquipDidNotContinue = true; Begin(Phase.NeutralAfterEquipment); break;
                     case Phase.NeutralAfterEquipment:
-                        CheckPausedGuide();
+                        CheckPausedNativeMenu();
                         if (!Settled(8)) return;
-                        Require(lesson.Progress.Step == RefitTutorialStep.EquipLens && lesson.Progress.CanContinue,
-                            "An installed lens waits through neutral input for its own A confirmation.");
-                        Record("One deliberate A installs the new lens; held and neutral frames leave the successful card pending a separate confirmation.", "refit-lens-installed.png");
-                        Begin(Phase.ConfirmEquipment); break;
-                    case Phase.ConfirmEquipment:
-                        CheckPausedGuide();
-                        if (lesson.Progress.Step != RefitTutorialStep.CloseRefit) return;
-                        Require(report.equipRequests == 1, "The success-confirmation A must be owned by the tutorial.");
-                        report.separateEquipmentConfirmation = true; Begin(Phase.CloseWorkbench); break;
+                        Require(lesson.Progress.Step == RefitTutorialStep.EquipLens && !lesson.Progress.CanContinue,
+                            "The native installed lens needs no tutorial success confirmation while the table remains open.");
+                        Record("A installs Zoom Lens 300 directly. Native menu operation continues without any tutorial A interception.", "refit-lens-installed.png");
+                        Begin(Phase.CloseWorkbench); break;
                     case Phase.CloseWorkbench:
                         if (terminal.IsOpen || Time.timeScale <= 0f || !bootstrap.robot.isActiveAndEnabled || !Settled(8)) return;
                         Require(machine.IsInside && bootstrap.photoMode.CurrentCamera == lesson.TargetCamera,
@@ -410,15 +399,17 @@ namespace AnimalGame.Editor
                 && terminal.transform.localRotation == terminalRotation && terminal.transform.localScale == terminalScale,
                 "The refit tutorial must retain the authored machine, station hierarchy and every local placement.");
         }
-        private void CheckPausedGuide()
+        private void CheckPausedNativeMenu()
         {
             Require(terminal.IsOpen && terminal.View != null && terminal.View.IsVisible && machine.IsInside,
                 "The real nested maintenance UI must remain open in the interior.");
             Require(Time.timeScale == 0f && !bootstrap.robot.enabled && !lesson.Panel.IsVisible,
                 "The native refit UI owns its world pause and hides the original right task panel.");
-            Require(lesson.Guide != null && lesson.Guide.IsVisible,
-                "The scene-owned tutorial hint must remain visible while native maintenance pauses the world.");
-            report.pausedGuideVisible = true;
+            Require(lesson.Guide == null && terminal.View.Document.rootVisualElement.Q("TutorialRefitGuide") == null,
+                "The paused native assembly interface has no tutorial component or overlay.");
+            Require(terminal.TutorialSubmitHandler == null,
+                "The native equipment A is not intercepted by the tutorial.");
+            report.noMenuGuide = report.noMenuSubmitInterception = true;
         }
 
         private void Drive()
@@ -437,7 +428,7 @@ namespace AnimalGame.Editor
             if (phase == Phase.ReachEntrance || phase == Phase.EnterMachine || phase == Phase.ReachWorkbench)
                 DriveToWaypoint(ref state);
             if (phase == Phase.ConfirmEntrance || phase == Phase.OpenWorkbench
-                || phase == Phase.ConfirmIntroduction || phase == Phase.ConfirmEquipment || phase == Phase.ConfirmControls
+                || phase == Phase.ConfirmControls
                 || phase == Phase.ReopenNormally || phase == Phase.EquipOldNormally || phase == Phase.EquipTargetNormally)
                 Tap(ref state, GamepadButton.South);
             if (phase == Phase.EquipLens || phase == Phase.HoldAfterEquipment) state = state.WithButton(GamepadButton.South);

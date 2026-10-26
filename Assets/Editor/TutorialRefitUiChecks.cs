@@ -17,7 +17,7 @@ using Object = UnityEngine.Object;
 
 namespace AnimalGame.Editor
 {
-    /// <summary>Actual refit chapter cards and native-menu guide geometry, using owned disposable UI instances.</summary>
+    /// <summary>Actual refit chapter cards and unmodified native assembly UI, using owned disposable UI instances.</summary>
     public static class TutorialRefitUiChecks
     {
         private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -45,7 +45,7 @@ namespace AnimalGame.Editor
                 using (var fixture = new Fixture(text))
                 {
                     CheckWorldCards(fixture, text);
-                    CheckMenuGuide(fixture, text);
+                    CheckNativeMenuUnmodified(fixture, text);
                 }
                 Require(EditorJsonUtility.ToJson(text) == before && Convert.ToBase64String(bytes)
                     == Convert.ToBase64String(File.ReadAllBytes(TextPath)), "UI checks preserve all authored tutorial copy and asset bytes.");
@@ -102,7 +102,7 @@ namespace AnimalGame.Editor
                     Require(copy.Refit.Title == title, "Refit authoring supports Unity Undo.");
                     Undo.ClearUndo(copy);
                     data.Update();
-                    chapter.FindPropertyRelative("MenuEquipMessage").stringValue = "Edited refit menu probe.";
+                    chapter.FindPropertyRelative("OpenWorkbench").FindPropertyRelative("Message").stringValue = "Edited exterior lens instruction.";
                     chapter.FindPropertyRelative("EnterMachine").FindPropertyRelative("Message").stringValue = "Edited entrance probe.";
                     data.ApplyModifiedPropertiesWithoutUndo();
                 }
@@ -112,8 +112,8 @@ namespace AnimalGame.Editor
                 AssetDatabase.CreateAsset(copy, temporary);
                 EditorUtility.SetDirty(copy); AssetDatabase.SaveAssetIfDirty(copy);
                 string saved = File.ReadAllText(temporary);
-                Require(saved.Contains("Edited refit menu probe.") && saved.Contains("Edited entrance probe."),
-                    "Both modal guidance and world-card edits persist in a disposable serialized asset.");
+                Require(saved.Contains("Edited exterior lens instruction.") && saved.Contains("Edited entrance probe."),
+                    "Both exterior station and entrance card edits persist in a disposable serialized asset.");
                 Require(OtherCopy(copy) == untouched, "Saving refit copy preserves every existing chapter.");
             }
             finally
@@ -135,7 +135,7 @@ namespace AnimalGame.Editor
             foreach (Vector2 size in Sizes)
             foreach (RefitTutorialStep step in Enum.GetValues(typeof(RefitTutorialStep)))
             {
-                if (step == RefitTutorialStep.Completed) continue;
+                if (step == RefitTutorialStep.Completed || step == RefitTutorialStep.RefitIntroduction || step == RefitTutorialStep.CloseRefit) continue;
                 typeof(RefitTutorialProgress).GetProperty("Step", Flags).SetValue(fixture.Progress, step);
                 Set(fixture.Lesson, "chapterConfirmed", false);
                 Invoke(fixture.Lesson, "RefreshPanel", true);
@@ -166,64 +166,48 @@ namespace AnimalGame.Editor
             fixture.Panel.SetContinuePrompt(false); fixture.Panel.SetVisible(false);
         }
 
-        private static void CheckMenuGuide(Fixture fixture, TutorialTextContent text)
+        private static void CheckNativeMenuUnmodified(Fixture fixture, TutorialTextContent text)
         {
             var root = fixture.View.Document.rootVisualElement;
             fixture.View.Show("TUTORIAL ASSEMBLY", "TUT-01");
             fixture.View.NavigateSlot(1); fixture.View.NavigateModule(1);
-            Require(fixture.View.SelectedCamera == fixture.Zoom, "The native menu fixture selects the available replacement lens by identity.");
+            Require(fixture.View.SelectedCamera == fixture.Zoom, "The native menu selects the real available replacement lens.");
             Set(fixture.Terminal, "<IsOpen>k__BackingField", true);
             var originals = new Dictionary<string, string>();
             foreach (string name in new[] { "refit-equip-footer", "refit-inspect-footer", "refit-close", "refit-inspection-close" })
                 originals.Add(name, root.Q<TextElement>(name).text);
-            Require(fixture.Guide.Configure(fixture.Terminal), "The guide explicitly binds only to the same tutorial scene's terminal.");
+            Func<bool> submit = () => false;
+            fixture.Terminal.TutorialSubmitHandler = submit;
+            Invoke(fixture.Lesson, "HookTerminal");
+            Require(fixture.Terminal.TutorialSubmitHandler == submit,
+                "The tutorial never replaces the native equipment-submit callback.");
+            Require(fixture.Lesson.Guide == null && fixture.Lesson.GetComponentsInChildren<TutorialRefitGuide>(true).Length == 0,
+                "No guide component is created inside the assembly station.");
             Time.timeScale = 0f;
-            string[] messages = { text.Refit.MenuIntroductionMessage, text.Refit.MenuEquipMessage,
-                text.Refit.MenuInstalledMessage, text.Refit.MenuCloseMessage };
-            string[] controls = { text.Panel.ContinuePrompt, text.Refit.MenuEquipHint,
-                text.Panel.ContinuePrompt, text.Refit.MenuBackHint };
-            for (int state = 0; state < messages.Length; state++)
             foreach (Vector2 size in Sizes)
             {
-                fixture.Guide.SetContent(text.Refit.MenuTitle, Tokens().Format(messages[state]), Tokens().Format(controls[state]), state != 1 && state != 3);
-                fixture.Guide.SetVisible(true); fixture.LayoutMenu(size);
-                Require(fixture.Guide.IsVisible && fixture.Guide.Root.resolvedStyle.display != DisplayStyle.None,
-                    "The actual modal guide remains visible while the assembly station pauses the world.");
-                CheckText(fixture.Guide.Root, "Refit modal " + state + " / " + size);
-                Require(Mathf.Abs(fixture.Guide.MessageLabel.layout.width - 1030f) < .1f
-                    && Mathf.Abs(fixture.Guide.MessageLabel.layout.height - 50f) < .1f,
-                    "Modal body stays within its intended two-line header region.");
-                Require(Mathf.Abs(fixture.Guide.ControlLabel.layout.width - 365f) < .1f
-                    && Mathf.Abs(fixture.Guide.ControlLabel.layout.height - 50f) < .1f,
-                    "Modal controls stay within their dedicated two-line region.");
-                Rect guideRect = fixture.Guide.Root.worldBound;
-                foreach (string className in new[] { "refit-header", "refit-slot-navigation", "refit-unit-panel", "refit-module-library", "refit-detail", "refit-footer" })
-                    Require(!guideRect.Overlaps(root.Q<VisualElement>(className: className).worldBound),
-                        "The guide does not cover native " + className + " / " + size + ".");
-                foreach (VisualElement element in root.Query<VisualElement>().ToList())
-                {
-                    if (!Visible(element, root) || !(element is TextElement caption)) continue;
-                    Require(!caption.text.Contains(" / ENTER") && !caption.text.Contains(" / ESC")
-                        && !caption.text.Contains("X / I"), "The tutorial's active native menu uses controller-only captions.");
-                }
-                if (size == Sizes[0]) Capture(root, fixture.MenuTexture, "refit-menu-" + state + ".png");
+                fixture.LayoutMenu(size);
+                Require(root.Q("TutorialRefitGuide") == null,
+                    "The native paused assembly interface has no tutorial overlay at " + size + ".");
+                foreach (var original in originals)
+                    Require(root.Q<TextElement>(original.Key).text == original.Value,
+                        "The outside-only tutorial preserves native " + original.Key + ".");
+                if (size == Sizes[0]) Capture(root, fixture.MenuTexture, "refit-native-menu-no-tutorial.png");
             }
-            fixture.View.RefreshEquipment(); Invoke(fixture.Guide, "LateUpdate");
-            Require(root.Q<Button>("refit-equip").text == "A   EQUIP", "Native selection refreshes retain the tutorial-only A caption.");
-            fixture.View.OpenInspection(); Invoke(fixture.Guide, "LateUpdate");
-            Require(!fixture.Guide.IsVisible && fixture.Guide.Root.resolvedStyle.display == DisplayStyle.None,
-                "Optional module inspection hides the guide instead of covering its modal window.");
-            fixture.View.CloseInspection(); Invoke(fixture.Guide, "LateUpdate");
-            Require(fixture.Guide.IsVisible && !fixture.Guide.ContinueWasPresented,
-                "Returning from inspection restores the guide without accepting that same frame as a continuation.");
-            Require(fixture.Equipment.TryEquip(fixture.Zoom), "The fixture can install the actual target definition without changing shared assets.");
-            fixture.View.RefreshEquipment(); Invoke(fixture.Guide, "LateUpdate");
-            Require(root.Q<Button>("refit-equip").text == "INSTALLED", "The tutorial caption adapter preserves the native installed state.");
-            fixture.Guide.Clear(); fixture.LayoutMenu(Sizes[0]);
-            Require(root.Q("TutorialRefitGuide") == null && !fixture.Guide.IsVisible, "Clearing the lesson removes only its owned guide.");
-            foreach (var original in originals)
-                Require(root.Q<TextElement>(original.Key).text == original.Value, "Clear restores the original native " + original.Key + " caption.");
-            Require(root.Q<Button>("refit-equip").text == "INSTALLED", "Clear never overwrites a newer native equipment caption.");
+            fixture.View.OpenInspection(); fixture.LayoutMenu(Sizes[0]);
+            Require(root.Q("TutorialRefitGuide") == null && fixture.View.IsInspectionOpen,
+                "Native inspection works without a tutorial overlay or confirmation.");
+            fixture.View.CloseInspection();
+            Require(fixture.Equipment.TryEquip(fixture.Zoom), "The native equipment operation installs the actual target definition.");
+            fixture.View.RefreshEquipment(); fixture.LayoutMenu(Sizes[0]);
+            Require(root.Q<Button>("refit-equip").text == "INSTALLED",
+                "The native installed caption remains fully controlled by the equipment UI.");
+            Require(fixture.Terminal.TutorialSubmitHandler == submit,
+                "Selecting, inspecting and installing never gives the tutorial submit ownership.");
+            Invoke(fixture.Lesson, "UnhookTerminal");
+            Require(fixture.Terminal.TutorialSubmitHandler == submit && fixture.Terminal.TutorialOpenBlocked == null,
+                "Releasing the outside-only open guard preserves the native submit callback.");
+            fixture.Terminal.TutorialSubmitHandler = null;
         }
 
         private sealed class Fixture : IDisposable
@@ -237,7 +221,6 @@ namespace AnimalGame.Editor
             public readonly TutorialDialoguePanel Panel;
             public readonly TutorialRefitLesson Lesson;
             public readonly RefitTutorialProgress Progress;
-            public readonly TutorialRefitGuide Guide;
             public readonly CheckpointRefitView View;
             public readonly CheckpointRefitTerminal Terminal;
             public readonly RefitCameraEquipment Equipment;
@@ -284,7 +267,6 @@ namespace AnimalGame.Editor
                 Require(Zoom != null && damaged != null, "The menu fixture uses both real camera definitions.");
                 camera.SetCamera(damaged); Equipment = fixture.AddComponent<RefitCameraEquipment>(); Equipment.Configure(camera, Zoom); Equipment.Unlock(damaged);
                 View.BindCameraEquipment(Equipment, Zoom, damaged);
-                Guide = Create("Refit UI validation guide").AddComponent<TutorialRefitGuide>();
             }
 
             private GameObject Create(string name, bool active = true)
@@ -297,12 +279,11 @@ namespace AnimalGame.Editor
                 VisualElement root = View.Document.rootVisualElement;
                 Require(root.panel != null, "The native refit UXML attaches to a real runtime Toolkit panel.");
                 root.style.width = size.x; root.style.height = size.y;
-                for (int pass = 0; pass < 3; pass++) { Layout(root); Invoke(View, "FitStage"); Invoke(Guide, "LateUpdate"); }
+                for (int pass = 0; pass < 3; pass++) { Layout(root); Invoke(View, "FitStage"); }
                 Layout(root);
             }
             public void Dispose()
             {
-                Guide.Clear();
                 foreach (GameObject item in owned) if (item != null) Object.DestroyImmediate(item);
                 if (opened) EditorSceneManager.CloseScene(scene, true);
                 WorldTexture.Release(); MenuTexture.Release(); Object.DestroyImmediate(WorldTexture); Object.DestroyImmediate(MenuTexture);

@@ -48,6 +48,7 @@ namespace AnimalGame.Tutorial
         public PhotographyTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => discovery != null ? discovery.Panel : null;
         public bool HasStarted => hasStarted;
+        public TutorialWaypointIndicator Waypoint => waypoint;
         public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
         private PhotographyLessonText Text => tutorialText != null && tutorialText.Photography != null
@@ -101,7 +102,8 @@ namespace AnimalGame.Tutorial
                 if (!resultVisible) chapterConfirmed = true;
                 Panel.SetContinuePrompt(false);
                 Panel.SetVisible(false);
-                if (waypoint != null) waypoint.ClearTarget();
+                if (chapterConfirmed) { if (waypoint != null) waypoint.ClearTarget(); }
+                else { UpdateWaypoint(); if (waypoint != null) waypoint.SetVisible(false); }
                 return;
             }
             if (modal) { progress.Suspend(); return; }
@@ -149,8 +151,7 @@ namespace AnimalGame.Tutorial
             }
             if (progress.Step != displayedStep)
             { Panel.SetCollapsed(false); refreshRemaining = 0f; }
-            if (!resultVisible && acceptedSnapshot == null && !progress.IsComplete && !bodyVisible && !photoActive) UpdateWaypoint();
-            else if (waypoint != null) waypoint.ClearTarget();
+            UpdateWaypoint();
             refreshRemaining -= Time.unscaledDeltaTime;
             if (refreshRemaining <= 0f) { RefreshPanel(valid); refreshRemaining = .08f; }
         }
@@ -160,6 +161,8 @@ namespace AnimalGame.Tutorial
             progress = new PhotographyTutorialProgress(observationSeconds, framingSeconds, requiredMovementMeters);
             chapterConfirmed = false;
             hasStarted = true; discovery.SetPresentationOwned(false);
+            waypoint = discovery.AcquireBirdTarget();
+            waypoint.SetPhotoModeVisible(true);
             Panel.SetPhotoModeVisible(true); Panel.SetCollapsed(false);
             if (acceptedSnapshot != null)
             {
@@ -188,12 +191,15 @@ namespace AnimalGame.Tutorial
             || (results != null && results.IsResultVisible)
             || (camera != null && (camera.IsReviewing || camera.IsCapturing));
 
+        private bool TargetResultVisible() => (bootstrap != null && bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing)
+            || (results != null && results.IsResultVisible) || (camera != null && camera.IsReviewing);
+
         private void UpdatePanelVisibility(bool modal, bool resultVisible)
         {
             if (Panel == null) return;
             Panel.SetPhotoModeVisible(true);
             Panel.SetVisible(!modal && !resultVisible);
-            if (waypoint != null) waypoint.SetVisible(!modal && !resultVisible);
+            if (waypoint != null) waypoint.SetVisible(!modal && !TargetResultVisible());
         }
 
         private void BindCamera()
@@ -297,17 +303,16 @@ namespace AnimalGame.Tutorial
 
         private void UpdateWaypoint()
         {
-            if (targets.Animal == null) return;
-            Vector2 target = targets.IsAnimalWithinScanReach ? targets.AnimalMapPosition : targets.AnimalObservationMapPosition;
-            if (bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 player, out _)
-                && Vector2.Distance(player, target) <= recoveryArrivalRadiusMeters)
+            if (chapterConfirmed || targets == null || (targets.Animal == null && targets.AnimalActor == null))
             { if (waypoint != null) waypoint.ClearTarget(); return; }
             if (waypoint == null)
             {
                 var child = new GameObject("Photography Target Reminder"); child.transform.SetParent(transform, false);
                 waypoint = child.AddComponent<TutorialWaypointIndicator>(); waypoint.Configure(bootstrap, targetSprite);
             }
-            waypoint.SetTarget(target);
+            waypoint.SetPhotoModeVisible(true);
+            waypoint.SetVisible(!IsModal() && !TargetResultVisible());
+            waypoint.SetTarget(targets.AnimalMapPosition);
         }
 
         [ContextMenu("Restart Photography Lesson")]

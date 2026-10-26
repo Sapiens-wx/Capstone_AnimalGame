@@ -409,15 +409,15 @@ namespace AnimalGame.Tutorial
             "Follow the marker to\nthe assembly station.\nMove beside the station\nto use it.",
             "Station {distance:F1} m");
         public TutorialStepText OpenWorkbench = new TutorialStepText("{confirm}", "Use workbench",
-            "Press {confirm} to open\nthe assembly station.\nYou can change your\nequipment here.",
-            "{confirm} · Open refit");
-        public TutorialStepText RefitIntroduction = new TutorialStepText("{confirm}", "Read refit guide",
+            "Open the station with {confirm}.\nChoose CAMERA, then\nselect Zoom Lens 300.\nPress {confirm} to equip it.",
+            "{cancel} · Close after equipping");
+        [HideInInspector] public TutorialStepText RefitIntroduction = new TutorialStepText("{confirm}", "Read refit guide",
             "Use this station to\nchange equipment.\nInstall a better camera\nfor clearer photographs.",
             "Choose a new lens.");
         public TutorialStepText EquipLens = new TutorialStepText("{confirm}", "Install better lens",
-            "Choose CAMERA.\nSelect {lens}.\nPress {confirm} to equip\nthe new lens.",
-            "{lb}/{rb} · Slot\n← / → · Lens");
-        public TutorialStepText CloseRefit = new TutorialStepText("{cancel}", "Return to driving",
+            "At the assembly station,\nchoose CAMERA and\ninstall Zoom Lens 300.\nClose the station with {cancel}.",
+            "{lb}/{rb} · CAMERA\n← / → · Lens · {confirm} equip");
+        [HideInInspector] public TutorialStepText CloseRefit = new TutorialStepText("{cancel}", "Return to driving",
             "New lens installed.\nPress {cancel} to close\nthe assembly station\nand resume driving.",
             "{cancel} · Back");
         public TutorialStepText NewLensControls = new TutorialStepText("{rb}", "Learn new shutter",
@@ -434,17 +434,17 @@ namespace AnimalGame.Tutorial
         public string InstalledStatus = "New lens installed";
         [HideInInspector] public string CompleteStatus = "Lesson complete";
         public string ToggleHint = "{rt}/{lt} · Drive / L · Steer";
-        public string MenuTitle = "CAMERA UPGRADE";
-        [TextArea(2, 3)] public string MenuIntroductionMessage = "Use this station to change your equipment.\nInstall a better camera for clearer photographs.";
-        [TextArea(2, 3)] public string MenuEquipMessage = "Switch to CAMERA with {lb} / {rb}.\nChoose {lens} with D-pad ← / →.";
-        [TextArea(2, 3)] public string MenuInstalledMessage = "Your new lens is installed.\nRelease {confirm}, then press it again to continue.";
-        [TextArea(2, 3)] public string MenuCloseMessage = "The new lens is ready.\nPress {cancel} to close the assembly station.";
-        public string MenuSlotHint = "{lb} / {rb} · Select CAMERA";
-        public string MenuModuleHint = "D-pad ← / → · Select lens";
-        public string MenuEquipHint = "{confirm} · Equip";
-        public string MenuBackHint = "{cancel} · Back";
-        public string MenuInspectHint = "{photo} · Inspect";
-        [TextArea(3, 5)] public string InstalledMessage = "New lens installed.\nRelease {confirm}, then press\n{confirm} again to continue.";
+        [HideInInspector] public string MenuTitle = "CAMERA UPGRADE";
+        [HideInInspector, TextArea(2, 3)] public string MenuIntroductionMessage = "Use this station to change your equipment.\nInstall a better camera for clearer photographs.";
+        [HideInInspector, TextArea(2, 3)] public string MenuEquipMessage = "Switch to CAMERA with {lb} / {rb}.\nChoose {lens} with D-pad ← / →.";
+        [HideInInspector, TextArea(2, 3)] public string MenuInstalledMessage = "Your new lens is installed.\nRelease {confirm}, then press it again to continue.";
+        [HideInInspector, TextArea(2, 3)] public string MenuCloseMessage = "The new lens is ready.\nPress {cancel} to close the assembly station.";
+        [HideInInspector] public string MenuSlotHint = "{lb} / {rb} · Select CAMERA";
+        [HideInInspector] public string MenuModuleHint = "D-pad ← / → · Select lens";
+        [HideInInspector] public string MenuEquipHint = "{confirm} · Equip";
+        [HideInInspector] public string MenuBackHint = "{cancel} · Back";
+        [HideInInspector] public string MenuInspectHint = "{photo} · Inspect";
+        [HideInInspector, TextArea(3, 5)] public string InstalledMessage = "Zoom Lens 300 installed.\nClose the station with {cancel}\nto resume the tutorial.";
         [HideInInspector, TextArea(2, 4)] public string NeedStowMessage = "Press L3 to retract\nyour arms before using\nthe assembly station.";
 
         public TutorialStepText GetStep(RefitTutorialStep step) => step switch

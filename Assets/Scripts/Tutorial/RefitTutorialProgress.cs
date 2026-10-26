@@ -26,12 +26,12 @@ namespace AnimalGame.Tutorial
 
     /// <summary>
     /// Navigation follows real interior/range state without extra confirmations at the doorway or
-    /// workbench. The introduction, real lens installation and new controls retain explicit A gates.
+    /// workbench. Native equipment selection is never intercepted by an in-menu tutorial.
     /// </summary>
     public sealed class RefitTutorialProgress
     {
         private readonly float controlsReadingSeconds;
-        private bool entranceReached, introductionAcknowledged, lastValid, lastRefitOpen, targetInstalled;
+        private bool entranceReached, lastValid, lastRefitOpen, targetInstalled;
 
         public RefitTutorialStep Step { get; private set; }
         public float ReadingSeconds { get; private set; }
@@ -40,8 +40,6 @@ namespace AnimalGame.Tutorial
         public bool CanContinue => !IsComplete && lastValid && (Step switch
         {
             RefitTutorialStep.ReachMachine => entranceReached,
-            RefitTutorialStep.RefitIntroduction => lastRefitOpen,
-            RefitTutorialStep.EquipLens => targetInstalled,
             RefitTutorialStep.NewLensControls => targetInstalled && !lastRefitOpen && IsRead,
             RefitTutorialStep.Completed => true,
             _ => false
@@ -62,7 +60,7 @@ namespace AnimalGame.Tutorial
         {
             Step = RefitTutorialStep.ReachMachine;
             ReadingSeconds = 0f;
-            entranceReached = introductionAcknowledged = lastValid = lastRefitOpen = targetInstalled = false;
+            entranceReached = lastValid = lastRefitOpen = targetInstalled = false;
             HasInstalledLens = false;
         }
 
@@ -80,7 +78,7 @@ namespace AnimalGame.Tutorial
             // Opening the actual terminal proves arrival. An early open must not strand a player
             // behind navigation cards whose targets are hidden by that same terminal.
             if (sample.RefitOpen && (int)Step <= (int)RefitTutorialStep.OpenWorkbench)
-                MoveTo(introductionAcknowledged ? RefitTutorialStep.EquipLens : RefitTutorialStep.RefitIntroduction);
+                MoveTo(RefitTutorialStep.EquipLens);
 
             for (int transition = 0; transition < 5; transition++)
             {
@@ -97,26 +95,25 @@ namespace AnimalGame.Tutorial
                         break;
                     case RefitTutorialStep.OpenWorkbench:
                         if (sample.RefitOpen)
-                            MoveTo(introductionAcknowledged ? RefitTutorialStep.EquipLens : RefitTutorialStep.RefitIntroduction);
+                            MoveTo(RefitTutorialStep.EquipLens);
                         else if (!sample.InsideMachine) MoveTo(RefitTutorialStep.EnterMachine);
                         else if (!sample.AtWorkbench) MoveTo(RefitTutorialStep.ReachWorkbench);
                         break;
                     case RefitTutorialStep.RefitIntroduction:
-                        if (!sample.RefitOpen) RecoverWorkbench(sample);
-                        break;
                     case RefitTutorialStep.EquipLens:
-                        // Keep a genuine installed result pending A even if B already closed the UI.
-                        if (!sample.RefitOpen && !targetInstalled) RecoverWorkbench(sample);
-                        break;
                     case RefitTutorialStep.CloseRefit:
+                        // Only native menu state and the actual equipped lens determine completion.
+                        // No tutorial A is needed before, during or after installation.
+                        if (sample.RefitOpen) MoveTo(RefitTutorialStep.EquipLens);
+                        else if (targetInstalled) MoveTo(RefitTutorialStep.NewLensControls);
+                        else RecoverWorkbench(sample);
+                        break;
                     case RefitTutorialStep.NewLensControls:
                         if (!targetInstalled)
                         {
                             if (sample.RefitOpen) MoveTo(RefitTutorialStep.EquipLens);
                             else RecoverWorkbench(sample);
                         }
-                        else if (Step == RefitTutorialStep.CloseRefit && !sample.RefitOpen)
-                            MoveTo(RefitTutorialStep.NewLensControls);
                         break;
                 }
                 if (Step == before) break;
@@ -132,9 +129,6 @@ namespace AnimalGame.Tutorial
             switch (Step)
             {
                 case RefitTutorialStep.ReachMachine: MoveTo(RefitTutorialStep.EnterMachine); break;
-                case RefitTutorialStep.RefitIntroduction:
-                    introductionAcknowledged = true; MoveTo(RefitTutorialStep.EquipLens); break;
-                case RefitTutorialStep.EquipLens: MoveTo(RefitTutorialStep.CloseRefit); break;
                 case RefitTutorialStep.NewLensControls: MoveTo(RefitTutorialStep.Completed); break;
                 default: return false;
             }
