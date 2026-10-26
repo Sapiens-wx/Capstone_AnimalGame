@@ -9,7 +9,7 @@ namespace AnimalGame.Animals
         [SerializeField] private List<AnimalPhotoLibrary> animals = new List<AnimalPhotoLibrary>();
         public IReadOnlyList<AnimalPhotoLibrary> Animals => animals;
 
-        public bool TryChoosePhoto(AnimalSpecies species, AnimalState state, out AnimalPhoto photo)
+        public bool TryChoosePhoto(AnimalSpecies species, AnimalPhotoEnvironment environment, out AnimalPhoto photo)
         {
             photo = null;
             AnimalPhotoEntry selected = null;
@@ -21,7 +21,7 @@ namespace AnimalGame.Animals
                 if (animal == null || animal.Species != species || animal.States == null) continue;
                 foreach (AnimalStatePhotos group in animal.States)
                 {
-                    if (group == null || group.State != state || group.Photos == null) continue;
+                    if (group == null || group.State != environment || group.Photos == null) continue;
                     foreach (AnimalPhotoEntry entry in group.Photos)
                     {
                         if (entry == null || entry.Image == null) continue;

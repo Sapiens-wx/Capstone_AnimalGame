@@ -158,7 +158,7 @@ namespace AnimalGame.EditorTools
                     $"{state.enumDisplayNames[state.enumValueIndex]} ({photos.arraySize})", true);
                 if (group.isExpanded)
                 {
-                    EditorGUILayout.PropertyField(state);
+                    EditorGUILayout.PropertyField(state, new GUIContent("Environment"));
                     for (int p = 0; p < photos.arraySize; p++)
                     {
                         SerializedProperty photo = photos.GetArrayElementAtIndex(p);
@@ -200,7 +200,7 @@ namespace AnimalGame.EditorTools
                 }
                 EditorGUILayout.EndVertical();
             }
-            if (GUILayout.Button("Add state"))
+            if (GUILayout.Button("Add environment"))
             {
                 int index = states.arraySize++;
                 SerializedProperty added = states.GetArrayElementAtIndex(index);

@@ -104,8 +104,6 @@ MonoBehaviour:
         width: 0.2475586
         height: 0.22857141
       saturation: 1
-  - state: 1
-    photos:
     - image: {fileID: 2800000, guid: 01408c17d2568ec47bb0141e416cb0f0, type: 3}
       subjectRect:
         serializedVersion: 2
@@ -114,3 +112,7 @@ MonoBehaviour:
         width: 0.26629892
         height: 0.31208795
       saturation: 1
+  - state: 1
+    photos: []
+  - state: 2
+    photos: []

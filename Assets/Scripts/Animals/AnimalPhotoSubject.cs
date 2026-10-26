@@ -86,6 +86,31 @@ namespace AnimalGame.Animals
             : speciesId;
         public string DisplayName => displayName;
         public AnimalSpecies Species => species;
+        public AnimalPhotoEnvironment PhotoEnvironment
+        {
+            get
+            {
+                if (agent == null) agent = GetComponent<AnimalAgent>();
+                if (agent == null || agent.Motor == null)
+                    return AnimalPhotoEnvironment.Ground;
+
+                AnimalMotor motor = agent.Motor;
+                // Tree crawling also uses aerial paths to bypass ground obstacles.
+                // Perching/crawling belongs to Ground, even above a river.
+                if (motor.IsPerchedMovement)
+                    return AnimalPhotoEnvironment.Ground;
+                if (motor.IsAerialMovement)
+                    return AnimalPhotoEnvironment.Air;
+                if (agent.Map != null
+                    && agent.Map.TrySampleStaticWaterMapPosition(
+                        motor.CurrentMapPosition, out float depthMeters)
+                    && depthMeters > 0.01f)
+                    return AnimalPhotoEnvironment.Water;
+
+                return AnimalPhotoEnvironment.Ground;
+            }
+        }
+
         public AnimalState PhotoState
         {
             get

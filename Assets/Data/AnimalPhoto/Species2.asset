@@ -122,3 +122,5 @@ MonoBehaviour:
       saturation: 1
   - state: 1
     photos: []
+  - state: 2
+    photos: []
