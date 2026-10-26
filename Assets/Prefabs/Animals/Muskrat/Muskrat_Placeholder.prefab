@@ -114,8 +114,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.41379312, y: 0.41379312, z: 0.41379312}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 3351961163244372313}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -163,12 +163,12 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1151
-  m_Sprite: {fileID: 21300000, guid: d8a7a1ecebca36f4ba3b3f2b2c222603, type: 3}
+  m_Sprite: {fileID: 5038306761891615856, guid: 458e094374646354286967126f57f35e, type: 3}
   m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1.28, y: 1.28}
+  m_Size: {x: 2.42, y: 4.92}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -228,6 +228,8 @@ GameObject:
   - component: {fileID: 4693375148983939860}
   - component: {fileID: 4509910512206878976}
   - component: {fileID: 7339224301837501201}
+  - component: {fileID: 384726811717424707}
+  - component: {fileID: 2992145452737048465}
   m_Layer: 0
   m_Name: Muskrat_Placeholder
   m_TagString: Untagged
@@ -337,6 +339,7 @@ MonoBehaviour:
   behaviourSet: {fileID: 4511366766958947892}
   placeholderView: {fileID: 2442668759248348903}
   soundEmitter: {fileID: 7723140912345678901}
+  groupId: 
 --- !u!114 &7723140912345678901
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -398,6 +401,16 @@ MonoBehaviour:
     opacity: 0.76
     repeatIntervalSeconds: {x: 0.75, y: 1.1}
     radiusVariation: 0.08
+  howlingSound:
+    enabled: 1
+    maximumRadiusMeters: 4
+    durationSeconds: 1.6
+    ringCount: 6
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.9
+    repeatIntervalSeconds: {x: 3, y: 5}
+    radiusVariation: 0.08
   landMovementSound:
     enabled: 1
     maximumRadiusMeters: 0.78
@@ -427,6 +440,66 @@ MonoBehaviour:
     lineWidthNormalized: 0.014
     opacity: 0.84
     repeatIntervalSeconds: {x: 0.22, y: 0.34}
+    radiusVariation: 0.08
+  flyingSound:
+    enabled: 0
+    maximumRadiusMeters: 0.65
+    durationSeconds: 0.45
+    ringCount: 4
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.68
+    repeatIntervalSeconds: {x: 1.2, y: 1.8}
+    radiusVariation: 0.08
+  peckingSound:
+    enabled: 0
+    maximumRadiusMeters: 0.52
+    durationSeconds: 0.35
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.76
+    repeatIntervalSeconds: {x: 0.55, y: 0.55}
+    radiusVariation: 0.08
+  takeoffSound:
+    enabled: 0
+    maximumRadiusMeters: 0.75
+    durationSeconds: 0.4
+    ringCount: 4
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.76
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  landingSound:
+    enabled: 0
+    maximumRadiusMeters: 0.6
+    durationSeconds: 0.4
+    ringCount: 4
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.7
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  enteringTreeSound:
+    enabled: 0
+    maximumRadiusMeters: 0.5
+    durationSeconds: 0.4
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.7
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  emergingFromTreeSound:
+    enabled: 0
+    maximumRadiusMeters: 0.45
+    durationSeconds: 0.45
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.65
+    repeatIntervalSeconds: {x: 1, y: 1}
     radiusVariation: 0.08
   submergingSound:
     enabled: 1
@@ -506,7 +579,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 1
-  photoState: 0
   speciesId: muskrat
   displayName: "\u9E9D\u9F20"
   englishName: Muskrat
@@ -519,6 +591,54 @@ MonoBehaviour:
   photoBoundsRenderers:
   - {fileID: 6051157855037081251}
   - {fileID: 1874912894510113343}
+--- !u!114 &384726811717424707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1dbaf13fe81a20c42842790aef0ee0e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  kind: 1
+  box: {fileID: 0}
+  sprite: {fileID: 0}
+  colliderType: 0
+  colliderShape: 0
+  colliderCenter: {x: 0, y: 0}
+  colliderRadius: 0.5
+  localSize: {x: 1, y: 1}
+  climbableRadius: 1
+  slopeStrength01: 0.5
+  topRadiusRatio01: 0.5
+  climbableEntrySpeedMultiplier: 1
+  climbableAffectsWholeArea: 0
+  climbableUseBodyOverlap: 0
+  climbableEntryBlendDuration: 0.08
+  climbableCameraMultiplier: 1
+  climbableRumbleMultiplier: 1
+  climbableLandingDurationMultiplier: 1
+  requiredHands: 1
+  recyclable: 1
+  size: 0
+  pushSpeedMultiplier: 0.6
+  grabResistance: 0
+  motionRoot: {fileID: 0}
+--- !u!114 &2992145452737048465
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4fbd2374a71125419c537991b0785f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &3470056907385243293
 GameObject:
   m_ObjectHideFlags: 0
@@ -632,9 +752,9 @@ Transform:
   m_GameObject: {fileID: 6092550001239039825}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.30525002, y: 0.53625, z: 0.66}
-  m_ConstrainProportionsScale: 0
+  m_LocalPosition: {x: 0, y: 0.328, z: 0}
+  m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 3351961163244372313}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -682,12 +802,12 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1152
-  m_Sprite: {fileID: 21300000, guid: 8855a116fe17eeb4c913dbee10e1dc04, type: 3}
+  m_Sprite: {fileID: -3638679228419101534, guid: 458e094374646354286967126f57f35e, type: 3}
   m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1.28, y: 1.28}
+  m_Size: {x: 2.42, y: 4.92}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
