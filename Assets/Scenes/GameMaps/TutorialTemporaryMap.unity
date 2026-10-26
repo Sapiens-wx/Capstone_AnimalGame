@@ -346,7 +346,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.619942
+      value: 30.61994
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -666,7 +666,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 9010943531982006058, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 167.5926
+      value: 167.59259
       objectReference: {fileID: 0}
     - target: {fileID: 9010943531982006058, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
       propertyPath: mapPositionMeters.y
@@ -674,7 +674,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9010943531982006058, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.593659
+      value: 13.593658
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -744,15 +744,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 184.22223
+      value: 170.96297
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 184.7037
+      value: 162.03703
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.951987
+      value: 14.654411
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -830,15 +830,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 127.7037
+      value: 127.703705
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 234.1852
+      value: 234.18518
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.079823
+      value: 30.079826
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -916,7 +916,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 19.71393
+      value: 19.713928
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -998,11 +998,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 200.55554
+      value: 200.55556
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.239121
+      value: 14.2391205
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1013,6 +1013,84 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
   m_PrefabInstance: {fileID: 209305491}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &226265101
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 9100000000000000022}
+    m_Modifications:
+    - target: {fileID: 3409958733117504358, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_Name
+      value: Wolf_Placeholder
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -19.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -13.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: map
+      value: 
+      objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 54.25926
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 75
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 35.546528
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+--- !u!4 &226265102 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+  m_PrefabInstance: {fileID: 226265101}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &230744352
 PrefabInstance:
@@ -1036,11 +1114,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 84.5926
+      value: 84.59259
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 15.014731
+      value: 15.01473
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1154,15 +1232,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 174.77777
+      value: 117.40741
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 135.85185
+      value: 64.51852
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.437916
+      value: 23.711897
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1236,11 +1314,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 183.33334
+      value: 183.33333
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.168299
+      value: 14.168298
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -1364,7 +1442,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.2966175
+      value: 14.296617
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1707,7 +1785,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 132.8148
+      value: 132.81482
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
@@ -1715,7 +1793,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.033392
+      value: 13.03339
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1849,7 +1927,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8601369888071405056, guid: fe32cb359d975ca4c8263a305b11418c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.123247
+      value: 14.123253
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1924,15 +2002,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 167.62962
+      value: 116.40741
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 133.96295
+      value: 110.77778
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.189162
+      value: 27.852541
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2166,7 +2244,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.436659
+      value: 30.43666
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2236,15 +2314,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 169.37036
+      value: 104.59259
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 148.1111
+      value: 95.888885
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.841707
+      value: 26.880852
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2314,7 +2392,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8601369888071405056, guid: fe32cb359d975ca4c8263a305b11418c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 145.51851
+      value: 145.51852
       objectReference: {fileID: 0}
     - target: {fileID: 8601369888071405056, guid: fe32cb359d975ca4c8263a305b11418c, type: 3}
       propertyPath: mapPositionMeters.y
@@ -2474,7 +2552,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 226.5926
+      value: 226.59259
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -2634,7 +2712,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 185.37038
+      value: 185.37036
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
@@ -2642,7 +2720,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 15.197229
+      value: 15.197236
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -2762,7 +2840,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 62.77778
+      value: 62.777782
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -3044,11 +3122,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 214.66667
+      value: 214.66666
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 31.069857
+      value: 31.069864
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3133,11 +3211,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 74.62962
+      value: 74.62963
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 17.26601
+      value: 17.266012
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -3156,6 +3234,84 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
   m_PrefabInstance: {fileID: 889088458}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &895769478
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 9100000000000000022}
+    m_Modifications:
+    - target: {fileID: 3409958733117504358, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_Name
+      value: MountainGoat_Juvenile_Placeholder
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -22.658329
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 15.143579
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: map
+      value: 
+      objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 9010943531982006058, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 41.08026
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 181.08733
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: bf315141feef487c841ef27495ba995b, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 28.17329
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: bf315141feef487c841ef27495ba995b, type: 3}
+--- !u!4 &895769479 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4641402971349804924, guid: bf315141feef487c841ef27495ba995b, type: 3}
+  m_PrefabInstance: {fileID: 895769478}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &956235945
 PrefabInstance:
@@ -3301,7 +3457,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 137.74075
+      value: 137.74074
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
@@ -3309,7 +3465,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.959059
+      value: 20.95907
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3406,15 +3562,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 188.29631
+      value: 188.2963
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 121.259254
+      value: 121.25926
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.760683
+      value: 14.760678
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3482,6 +3638,18 @@ PrefabInstance:
       propertyPath: map
       value: 
       objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 109.14815
+      objectReference: {fileID: 0}
+    - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 106.18519
+      objectReference: {fileID: 0}
+    - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 27.727196
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3752,7 +3920,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 131.66666
+      value: 131.66667
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
@@ -3760,7 +3928,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.270157
+      value: 13.270148
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3870,15 +4038,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 51.11111
+      value: 27.999998
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 60.148148
+      value: 74.14815
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.124228
+      value: 29.686565
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -4091,7 +4259,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.497213
+      value: 13.497212
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4251,7 +4419,7 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 0}
+    m_TransformParent: {fileID: 9100000000000000022}
     m_Modifications:
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: map
@@ -4267,7 +4435,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.477438
+      value: 20.477436
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4287,15 +4455,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -4322,6 +4490,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
+--- !u!4 &1122946783 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
+  m_PrefabInstance: {fileID: 1122946782}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1129314040
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4388,7 +4561,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.031267
+      value: 20.031273
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -4458,7 +4631,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 218.92592
+      value: 218.92593
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
@@ -4466,7 +4639,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 21.222992
+      value: 21.22299
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -4548,11 +4721,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 145.74075
+      value: 145.74074
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.687709
+      value: 13.68771
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -4638,7 +4811,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 19.248283
+      value: 19.248285
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -4712,11 +4885,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 200.92593
+      value: 200.92592
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.626788
+      value: 14.626787
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -4742,7 +4915,7 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 0}
+    m_TransformParent: {fileID: 9100000000000000022}
     m_Modifications:
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: map
@@ -4750,7 +4923,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 66.4074
+      value: 66.40741
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: mapPositionMeters.y
@@ -4778,15 +4951,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -4813,6 +4986,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
+--- !u!4 &1291283458 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
+  m_PrefabInstance: {fileID: 1291283457}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1295324128
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4961,11 +5139,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 87.5926
+      value: 87.59259
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.98092
+      value: 13.980921
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -5043,15 +5221,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 214.07408
+      value: 214.07407
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 19.185184
+      value: 19.185186
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.890097
+      value: 20.890095
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -5137,15 +5315,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 219.22221
+      value: 219.22223
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 25.037037
+      value: 25.037039
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.794144
+      value: 20.794142
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -5265,7 +5443,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 55.829624
+      value: 55.829628
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -5686,7 +5864,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 44.703705
+      value: 44.7037
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -5764,11 +5942,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 55.07778
+      value: 55.077778
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.28839
+      value: 13.288389
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5846,7 +6024,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.471022
+      value: 13.471023
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5976,11 +6154,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8601369888071405056, guid: fe32cb359d975ca4c8263a305b11418c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 33.851852
+      value: 33.85185
       objectReference: {fileID: 0}
     - target: {fileID: 8601369888071405056, guid: fe32cb359d975ca4c8263a305b11418c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 12.976841
+      value: 12.97684
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -6055,15 +6233,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 187.48148
+      value: 187.48149
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 154.33334
+      value: 154.33333
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.850452
+      value: 13.850453
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -6148,21 +6326,99 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 193.92593
+      value: 100.59259
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 177.92593
+      value: 84.77778
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.225958
+      value: 27.081308
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
+--- !u!1001 &1638477306
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 9100000000000000022}
+    m_Modifications:
+    - target: {fileID: 3409958733117504358, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_Name
+      value: MountainGoat_Placeholder (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -20.96439
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 13.409308
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: map
+      value: 
+      objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 47.35411
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 174.66411
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 32.672848
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+--- !u!4 &1638477307 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+  m_PrefabInstance: {fileID: 1638477306}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1660453721
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6185,7 +6441,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 45.148148
+      value: 45.14815
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -6307,7 +6563,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.864453
+      value: 14.864452
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -6432,7 +6688,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 58.148148
+      value: 58.14815
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -6550,7 +6806,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 54.11111
+      value: 54.111115
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -6736,7 +6992,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 134.25925
+      value: 134.25926
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
@@ -6818,7 +7074,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 81.66667
+      value: 81.666664
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -6873,6 +7129,84 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
   m_PrefabInstance: {fileID: 1837229803}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1843734529
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 9100000000000000022}
+    m_Modifications:
+    - target: {fileID: 3409958733117504358, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_Name
+      value: Wolf_Placeholder (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -21.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -13.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: map
+      value: 
+      objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 44.629627
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 75.74074
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 33.85446
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+--- !u!4 &1843734530 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4641402971349804924, guid: acbb91ce39bb430685565951ef2d4983, type: 3}
+  m_PrefabInstance: {fileID: 1843734529}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1846013299
 PrefabInstance:
@@ -6932,15 +7266,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 35.92593
+      value: 62.888885
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 90.62963
+      value: 75.44444
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 36.194286
+      value: 36.740562
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -7034,15 +7368,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 63.66667
+      value: 63.666668
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 212.03705
+      value: 212.03703
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.298431
+      value: 30.298437
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -7061,6 +7395,84 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
   m_PrefabInstance: {fileID: 1848375155}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1896204299
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 9100000000000000022}
+    m_Modifications:
+    - target: {fileID: 3409958733117504358, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_Name
+      value: MountainGoat_Placeholder
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -21.6097
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 16.111542
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: map
+      value: 
+      objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 44.964077
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 184.67238
+      objectReference: {fileID: 0}
+    - target: {fileID: 9010943531982006058, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 29.115831
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+--- !u!4 &1896204300 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4641402971349804924, guid: ce6e86e65c284442a6eb0e6df7dc9a75, type: 3}
+  m_PrefabInstance: {fileID: 1896204299}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1920911660
 PrefabInstance:
@@ -7166,7 +7578,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 15.651091
+      value: 15.65109
       objectReference: {fileID: 0}
     - target: {fileID: 6142890754967992368, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -7354,15 +7766,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 204.55556
+      value: 73.22222
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 198.8889
+      value: 95.55556
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.911722
+      value: 39.867958
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -7542,7 +7954,7 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 0}
+    m_TransformParent: {fileID: 9100000000000000022}
     m_Modifications:
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: map
@@ -7558,7 +7970,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 741918049071958800, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.879943
+      value: 13.879944
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalPosition.x
@@ -7578,15 +7990,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -7613,6 +8025,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
+--- !u!4 &1992465094 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 783411651329894211, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
+  m_PrefabInstance: {fileID: 1992465093}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &2001315687
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7635,7 +8052,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 27.962961
+      value: 27.96296
       objectReference: {fileID: 0}
     - target: {fileID: 5542579892575990758, guid: 6e55ca357ec8f244dbadeb4a77a76e8b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -7761,7 +8178,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9010943531982006058, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 40.14815
+      value: 40.148148
       objectReference: {fileID: 0}
     - target: {fileID: 9010943531982006058, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -7839,11 +8256,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 206.1111
+      value: 206.11111
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 19.48352
+      value: 19.483534
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -8007,15 +8424,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 27.999998
+      value: 35.92593
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 74.14815
+      value: 90.62963
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 29.686565
+      value: 36.194286
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -8167,7 +8584,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 204.74075
+      value: 204.74074
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
@@ -8175,7 +8592,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.247463
+      value: 14.247461
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -8245,15 +8662,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 196.48148
+      value: 223.88889
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 205
+      value: 193.48148
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.547832
+      value: 14.309621
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -8326,6 +8743,18 @@ PrefabInstance:
       propertyPath: map
       value: 
       objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 100.92593
+      objectReference: {fileID: 0}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 68.85185
+      objectReference: {fileID: 0}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 27.150637
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -8425,12 +8854,12 @@ MonoBehaviour:
   elevationFilterKeyboardToggleKey: 104
   elevationFilterStartsEnabled: 0
   lowerElevationFilterColor: {r: 0.12, g: 0.54, b: 0.78, a: 1}
-  higherElevationFilterColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
+  higherElevationFilterColor: {r: 1, g: 0.82, b: 0.38, a: 1}
   elevationFilterMaximumOpacity: 0.44
   elevationFilterRelativeRangeMeters: 15
   elevationFilterNeutralBandMeters: 1.5
   elevationFilterResponseExponent: 1.15
-  playerHeightReferenceColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
+  playerHeightReferenceColor: {r: 1, g: 0.96, b: 0.7, a: 1}
   playerHeightReferenceLineWidth: 2.4
   playerHeightReferenceOpacity: 0.95
   elevationFilterHillshadeStrength: 0.16
@@ -8476,6 +8905,14 @@ Transform:
   - {fileID: 429108222}
   - {fileID: 242051007}
   - {fileID: 300954095}
+  - {fileID: 1896204300}
+  - {fileID: 895769479}
+  - {fileID: 1638477307}
+  - {fileID: 226265102}
+  - {fileID: 1843734530}
+  - {fileID: 1992465094}
+  - {fileID: 1122946783}
+  - {fileID: 1291283458}
   - {fileID: 2020687177}
   - {fileID: 76156898}
   m_Father: {fileID: 9100000000000000002}
@@ -8569,8 +9006,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e0ac0af646384dc4a1a521a058482d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   reachDistanceOfBodyDiameter: 0.2
@@ -8587,8 +9024,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 769a861ca5b24c11aef3c6b005629f30, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   muskratPrefab: {fileID: 3409958733117504358, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
@@ -8607,8 +9044,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9d4c62e817ab4dcf958b2f78c06a43e1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   muskratPrefab: {fileID: 0}
   smallGarbagePrefab: {fileID: 0}
@@ -8634,8 +9071,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 63dd3ccf472d4ac79d699573c8a17061, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
@@ -8650,9 +9087,6 @@ SceneRoots:
   - {fileID: 400000}
   - {fileID: 347674283}
   - {fileID: 9100000000000000002}
-  - {fileID: 1992465093}
-  - {fileID: 1122946782}
-  - {fileID: 1291283457}
   - {fileID: 1435155819}
   - {fileID: 1807408224}
   - {fileID: 9100000000000000031}
