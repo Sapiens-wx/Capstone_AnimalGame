@@ -4,6 +4,14 @@ using UnityEngine;
 
 namespace AnimalGame.Animals
 {
+    // Independent of AI behaviour. Keep Ground at zero for authored Daily photos.
+    public enum AnimalPhotoEnvironment
+    {
+        Ground = 0,
+        Water = 1,
+        Air = 2
+    }
+
     [Serializable]
     public sealed class AnimalPhotoEntry
     {
@@ -20,9 +28,9 @@ namespace AnimalGame.Animals
     [Serializable]
     public sealed class AnimalStatePhotos
     {
-        [SerializeField] private AnimalState state;
+        [SerializeField] private AnimalPhotoEnvironment state;
         [SerializeField] private List<AnimalPhotoEntry> photos = new List<AnimalPhotoEntry>();
-        public AnimalState State => state;
+        public AnimalPhotoEnvironment State => state;
         public IReadOnlyList<AnimalPhotoEntry> Photos => photos;
     }
 
