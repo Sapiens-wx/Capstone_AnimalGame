@@ -38,7 +38,10 @@ namespace AnimalGame.Editor
         {
             WaitingForPlay, Neutral, Entering, PrimeReady, PrimeShortHold, PrimeCancelled,
             PrimeHold, PrimeFlash, PrimeReviewHeld, PrimeReturnedHeld, PrimeReleased,
-            ZoomAim, ZoomReady, ZoomFocus, ZoomFocusedHeld, ZoomRelease, ZoomShutter, Finishing
+            ZoomAim, ZoomReady, ZoomFocus, ZoomFocusedHeld, ZoomRelease, ZoomShutter,
+            ZoomManualReviewHeld, ZoomManualReturnedHeld, ZoomAutoReleased, ZoomAutoExit,
+            ZoomAutoEntering, ZoomAutoFocus, ZoomAutoHeld, ZoomAutoShutter,
+            ZoomAutoReviewHeld, ZoomAutoReturnedHeld, Finishing
         }
 
         [SerializeField] private bool running;
@@ -173,10 +176,152 @@ namespace AnimalGame.Editor
                     Require(c.IsFocusing && !c.IsCapturing, "Zoom lens incorrectly kept the prime's automatic 0.3 second shutter.");
                     Step(c, true, false, .45001f);
                     Require(c.IsFocused && !c.IsCapturing, "Zoom lens did not complete its original 0.75 second focus.");
-                    Step(c, true, false, 1);
-                    Require(c.IsFocused && !c.IsCapturing, "Zoom lens fired without release and a second press.");
+                    Step(c, true, false, .1f);
+                    Require(c.IsFocused && !c.IsCapturing, "Zoom lens did not leave a window for manual shutter selection.");
                     Step(c, false, false, 0); Step(c, true, true, 0);
                     Require(c.IsCapturing && c.LastCaptureSettings.CameraId == Load(ZoomPath).CameraId, "Zoom shutter did not resume after a release and second press.");
+                }
+            });
+            Check(result, "Zoom continuous hold waits for focus and its adjustable automatic-shutter delay", () =>
+            {
+                using (var f = new Fixture(Load(ZoomPath)))
+                {
+                    var c = f.Controller;
+                    float delay = (float)Get(c, "zoomHoldShutterDelaySeconds");
+                    Require(Near(delay, .3f), "Zoom automatic-shutter delay no longer defaults to 0.3 seconds.");
+                    Step(c, true, true, 0); Step(c, true, false, .75f);
+                    Require(c.IsFocused && !c.IsCapturing, "Zoom shot immediately at focus completion.");
+                    Step(c, true, false, delay - .001f);
+                    Require(c.IsFocused && !c.IsCapturing, "Zoom shot before the complete post-focus hold delay.");
+                    Step(c, true, false, .0011f);
+                    Require(c.IsCapturing && c.LastCaptureSettings.CameraId == Load(ZoomPath).CameraId,
+                        "An uninterrupted focus and post-focus hold did not capture the equipped Zoom 300.");
+                }
+                using (var f = new Fixture(Load(ZoomPath)))
+                {
+                    var c = f.Controller; Set(c, "zoomHoldShutterDelaySeconds", .5f);
+                    Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .4f);
+                    Require(c.IsFocused && !c.IsCapturing, "The authored automatic-shutter delay was ignored.");
+                    Step(c, true, false, .1001f);
+                    Require(c.IsCapturing, "Changing the automatic-shutter delay prevented continuous-hold capture.");
+                }
+                foreach (int fps in new[] { 30, 60, 120 })
+                using (var f = new Fixture(Load(ZoomPath)))
+                {
+                    var c = f.Controller; float dt = 1f / fps;
+                    Step(c, true, true, 0);
+                    for (int i = 0; i < fps * 2 && c.IsFocusing; i++) Step(c, true, false, dt);
+                    Require(c.IsFocused, "Zoom failed to complete focus at " + fps + " fps.");
+                    float postFocusSeconds = 0f;
+                    while (!c.IsCapturing && postFocusSeconds < .5f)
+                    { Step(c, true, false, dt); postFocusSeconds += dt; }
+                    Require(c.IsCapturing && postFocusSeconds >= .299f && postFocusSeconds <= .3f + dt * 2f,
+                        "Post-focus automatic shutter was frame-rate dependent. fps=" + fps + "; elapsed=" + postFocusSeconds);
+                }
+            });
+            Check(result, "Zoom release wins the automatic threshold and retains manual locked focus", () =>
+            {
+                using (var f = new Fixture(Load(ZoomPath)))
+                {
+                    var c = f.Controller;
+                    Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .29f);
+                    Step(c, false, false, 1f);
+                    Require(c.IsFocused && !c.IsCapturing, "Releasing on the automatic threshold fired instead of retaining locked focus.");
+                    Step(c, false, false, 3f);
+                    Require(c.IsFocused && !c.IsCapturing, "A released, locked focus kept running the automatic-shutter timer.");
+                    // A missed press edge must not silently turn the manual route back into auto.
+                    Step(c, true, false, 1f);
+                    Require(c.IsFocused && !c.IsCapturing, "A released focus re-enabled automatic capture without a new press.");
+                    Step(c, true, true, 0);
+                    Require(c.IsCapturing, "The original release and second-press shutter stopped working.");
+                }
+            });
+            Check(result, "Zoom short holds cancel and reset before another focus", () =>
+            {
+                using (var f = new Fixture(Load(ZoomPath)))
+                {
+                    var c = f.Controller;
+                    Step(c, true, true, 0); Step(c, true, false, .74f); Step(c, false, false, .5f);
+                    Require(!c.IsFocusing && !c.IsFocused && !c.IsCapturing && Near(c.FocusProgress01, 0),
+                        "Releasing before zoom focus completion generated a photograph or retained partial focus.");
+                    Step(c, true, true, 0); Step(c, true, false, .2f);
+                    Require(c.IsFocusing && c.FocusProgress01 < .3f && !c.IsCapturing,
+                        "A cancelled short hold leaked elapsed time into a new focus.");
+                }
+            });
+            Check(result, "Zoom automatic capture emits once through direct return and photo review", () =>
+            {
+                foreach (bool review in new[] { false, true })
+                using (var f = new Fixture(Load(ZoomPath)))
+                {
+                    var c = f.Controller; int count = 0;
+                    c.PhotoCaptured += () => { count++; if (review) Require(c.RequestPhotoReview(), "Zoom could not enter review."); };
+                    Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .3001f);
+                    Require(c.IsCapturing, "Zoom did not start its continuous-hold exposure.");
+                    Step(c, true, false, .3f);
+                    Require(count == 1 && c.IsReviewing == review, "Zoom exposure/review emitted a duplicate or missed the photo.");
+                    for (int i = 0; i < 3; i++) Step(c, true, true, 1f);
+                    if (review) c.EndPhotoReview();
+                    for (int i = 0; i < 3; i++) Step(c, true, true, 1f);
+                    Require(count == 1 && !c.IsFocusing && !c.IsCapturing,
+                        "Continuing the same press repeated the zoom shutter. review=" + review);
+                    Step(c, false, false, 0); Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .3001f);
+                    Require(c.IsCapturing, "A release followed by a new hold failed to re-arm Zoom 300.");
+                }
+            });
+            Check(result, "Lens changes, exit and disable clear a partial Zoom automatic-shutter wait", () =>
+            {
+                foreach (string reset in new[] { "lens", "exit", "disable" })
+                using (var f = new Fixture(Load(ZoomPath)))
+                {
+                    var c = f.Controller;
+                    Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .25f);
+                    if (reset == "lens") { c.SetCamera(Load(DamagedPath)); c.SetCamera(Load(ZoomPath)); }
+                    else if (reset == "exit") { Call(c, "ExitPhotoModeImmediately"); SetEnum(c, "state", "Active"); }
+                    else { Call(c, "OnDisable"); SetEnum(c, "state", "Active"); }
+                    Require(!c.IsFocused && !c.IsCapturing, "A reset retained locked zoom focus: " + reset);
+                    Step(c, true, false, 1f);
+                    Require(!c.IsFocusing && !c.IsCapturing, "A held button restarted focus after reset without a new press: " + reset);
+                    Step(c, false, false, 0); Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .1f);
+                    Require(c.IsFocused && !c.IsCapturing, "A reset leaked the previous automatic wait into the next shot: " + reset);
+                    Step(c, true, false, .2001f);
+                    Require(c.IsCapturing, "A clean focus no longer captured after reset: " + reset);
+                }
+            });
+            Check(result, "Zoom retarget cancellation precedes automatic capture and requires a new press", () =>
+            {
+                Gamepad pad = InputSystem.AddDevice<Gamepad>("Zoom retarget deterministic input");
+                try
+                {
+                    using (var f = new Fixture(Load(ZoomPath)))
+                    {
+                        var c = f.Controller;
+                        InputState.Change(pad.rightStick, Vector2.zero);
+                        Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .29f);
+                        InputState.Change(pad.rightStick, Vector2.right);
+                        Step(c, true, false, .1f);
+                        Require(!c.IsFocused && !c.IsCapturing && !c.IsFocusing,
+                            "A right-stick retarget at the threshold lost to the automatic shutter.");
+                        InputState.Change(pad.rightStick, Vector2.zero);
+                        Step(c, true, false, 1f);
+                        Require(!c.IsFocusing && !c.IsCapturing, "Retarget cancellation re-entered focus while the original hold continued.");
+                        Step(c, false, false, 0); Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, .1f);
+                        Require(c.IsFocused && !c.IsCapturing, "Retarget cancellation leaked the old automatic wait.");
+                        Step(c, true, false, .2001f);
+                        Require(c.IsCapturing, "A fresh hold failed after cancelling to retarget.");
+                    }
+                }
+                finally { if (pad.added) InputSystem.RemoveDevice(pad); }
+            });
+            Check(result, "A missing camera profile keeps its original manual shutter fallback", () =>
+            {
+                using (var f = new Fixture(null))
+                {
+                    var c = f.Controller;
+                    Step(c, true, true, 0); Step(c, true, false, .75f); Step(c, true, false, 2f);
+                    Require(c.IsFocused && !c.IsCapturing, "The Zoom 300 shortcut changed the no-profile fallback.");
+                    Step(c, false, false, 0); Step(c, true, true, 0);
+                    Require(c.IsCapturing && c.LastCaptureSettings.CameraId == "basic-fallback", "Manual fallback capture no longer works.");
                 }
             });
             Check(result, "Changing equipment during exposure preserves current photo geometry until review ends", () =>
@@ -338,7 +483,7 @@ namespace AnimalGame.Editor
                         report.metrics.Add("Restored zoom focus duration: " + Elapsed.ToString("F4") + " s");
                         Begin(Phase.ZoomFocusedHeld); break;
                     case Phase.ZoomFocusedHeld:
-                        if (Elapsed < .35f) break;
+                        if (Elapsed < .08f) break;
                         Require(controller.IsFocused && captured == 1, "Zoom shutter fired before release and second press.");
                         rbHeld = false; Begin(Phase.ZoomRelease); break;
                     case Phase.ZoomRelease:
@@ -348,6 +493,57 @@ namespace AnimalGame.Editor
                         if (!controller.IsReviewing) break;
                         Require(captured == 2 && controller.LastCaptureSettings.CameraId == Load(ZoomPath).CameraId, "Restored zoom shutter captured the wrong model.");
                         report.checks.Add("Equipping zoom lens restores actual right-stick aiming, 0.75 second focus and release / second-press shutter input.");
+                        Begin(Phase.ZoomManualReviewHeld); break;
+                    case Phase.ZoomManualReviewHeld:
+                        if (Elapsed < .3f) break;
+                        Require(captured == 2, "The manual zoom shutter repeated during review.");
+                        controller.EndPhotoReview(); Begin(Phase.ZoomManualReturnedHeld); break;
+                    case Phase.ZoomManualReturnedHeld:
+                        if (Elapsed < .4f) break;
+                        Require(captured == 2 && !controller.IsFocusing && !controller.IsCapturing,
+                            "Returning from manual zoom review while RB remained held repeated the shutter.");
+                        rbHeld = false; Begin(Phase.ZoomAutoReleased); break;
+                    case Phase.ZoomAutoReleased:
+                        if (!Settled(3)) break;
+                        Set(controller, "entryDuration", .7f);
+                        controller.SetPhotoModeActive(false); Begin(Phase.ZoomAutoExit); break;
+                    case Phase.ZoomAutoExit:
+                        if (controller.IsActive) break;
+                        rbHeld = true; Begin(Phase.ZoomAutoEntering); break;
+                    case Phase.ZoomAutoEntering:
+                        Require(captured == 2 && !controller.IsCapturing, "Zoom captured during its entry presentation.");
+                        if (!controller.IsFocusing) { Require(Elapsed < 1.4f, "A continuous RB press did not enter zoom focus after the normal entry animation."); break; }
+                        Require(Elapsed >= .65f, "The automatic zoom shutter bypassed its original 0.7 second entry presentation.");
+                        Begin(Phase.ZoomAutoFocus); break;
+                    case Phase.ZoomAutoFocus:
+                        Require(captured == 2 && !controller.IsCapturing, "Continuous zoom hold skipped the original focus stage.");
+                        if (!controller.IsFocused) { Require(Elapsed < 1.4f, "Continuous zoom focus did not complete."); break; }
+                        Require(Elapsed >= .65f, "Continuous zoom focus used the prime's short hold.");
+                        Begin(Phase.ZoomAutoHeld); break;
+                    case Phase.ZoomAutoHeld:
+                        if (!controller.IsCapturing && !controller.IsReviewing)
+                        {
+                            Require(Elapsed < .8f, "Keeping real RB held after zoom focus did not activate the automatic shutter.");
+                            break;
+                        }
+                        Require(Elapsed >= .2f, "Continuous zoom shot before the post-focus grace period.");
+                        report.metrics.Add("Zoom post-focus continuous hold to shutter: " + Elapsed.ToString("F4") + " s");
+                        Begin(Phase.ZoomAutoShutter); break;
+                    case Phase.ZoomAutoShutter:
+                        if (!controller.IsReviewing) break;
+                        Require(captured == 3 && controller.LastCaptureSettings.CameraId == Load(ZoomPath).CameraId,
+                            "Continuous zoom hold missed, duplicated or used the wrong camera for its photo.");
+                        report.checks.Add("Zoom continuous RB hold carries through entry, 0.75 second focus and the 0.3 second post-focus wait to exactly one photo.");
+                        Begin(Phase.ZoomAutoReviewHeld); break;
+                    case Phase.ZoomAutoReviewHeld:
+                        if (Elapsed < .4f) break;
+                        Require(captured == 3, "A continuous zoom hold repeated during review.");
+                        controller.EndPhotoReview(); Begin(Phase.ZoomAutoReturnedHeld); break;
+                    case Phase.ZoomAutoReturnedHeld:
+                        if (Elapsed < .5f) break;
+                        Require(captured == 3 && !controller.IsFocusing && !controller.IsCapturing,
+                            "RB held after automatic zoom review repeated the shutter.");
+                        report.checks.Add("Zoom manual and continuous hold routes both require a release before another photo after review.");
                         BeginFinish(); break;
                 }
             }

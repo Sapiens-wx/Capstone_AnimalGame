@@ -18,6 +18,8 @@ namespace AnimalGame.RobotMap
         public PhotoCaptureSettings LastCaptureSettings { get; private set; }
         public bool UsesFixedPrimeHandling => PresentationCamera != null
             && PresentationCamera.Handling == PhotoCameraHandling.FixedPrimeHold;
+        private bool UsesZoomHoldShutter => PresentationCamera != null
+            && PresentationCamera.Handling == PhotoCameraHandling.ZoomFocus;
         public float FixedFrameWidthOfRange => PresentationCamera != null
             ? PresentationCamera.FixedFrameWidthOfRange : 0.9f;
         public float FixedFrameAspect => PresentationCamera != null
@@ -92,6 +94,9 @@ namespace AnimalGame.RobotMap
         [Header("Focus")]
         [Tooltip("How long RB must remain held to complete focus.")]
         [SerializeField, Min(0.05f)] private float focusDuration = 0.75f;
+
+        [Tooltip("After zoom focus completes, keep RB held this long to take one photo automatically. Releasing instead retains the manual second-press shutter.")]
+        [SerializeField, Min(0.01f)] private float zoomHoldShutterDelaySeconds = 0.3f;
 
         [Tooltip("Seconds used to return camera and UI presentation after focus is cancelled.")]
         [SerializeField, Min(0.05f)] private float focusCancelBlendDuration =
@@ -291,6 +296,7 @@ namespace AnimalGame.RobotMap
         private float exitElapsed;
         private PhotoCaptureState captureState;
         private float focusElapsed;
+        private float zoomHoldShutterElapsed;
         private float focusPresentation01;
         private float focusPresentationVelocity;
         private bool shutterArmed;
@@ -298,6 +304,7 @@ namespace AnimalGame.RobotMap
         private bool captureMomentFired;
         private bool photoReviewRequested;
         private bool fixedHoldRequiresRelease;
+        private bool zoomCaptureRequiresRelease;
         private PhotoCameraDefinition captureCamera;
         private bool cameraHandlingChangePending;
         private bool entryInProgress;
@@ -568,6 +575,7 @@ namespace AnimalGame.RobotMap
 
             captureState = PhotoCaptureState.Framing;
             focusElapsed = 0f;
+            zoomHoldShutterElapsed = 0f;
             shutterArmed = false;
             shutterElapsed = 0f;
             captureMomentFired = false;
@@ -597,9 +605,13 @@ namespace AnimalGame.RobotMap
             {
                 case PhotoCaptureState.Framing:
                     if (!shoulderHeld)
+                    {
                         fixedHoldRequiresRelease = false;
+                        zoomCaptureRequiresRelease = false;
+                    }
                     if (shoulderPressed
-                        && (!UsesFixedPrimeHandling || !fixedHoldRequiresRelease))
+                        && (!UsesFixedPrimeHandling || !fixedHoldRequiresRelease)
+                        && (!UsesZoomHoldShutter || !zoomCaptureRequiresRelease))
                         BeginFocus();
                     break;
 
@@ -632,9 +644,22 @@ namespace AnimalGame.RobotMap
                     }
 
                     if (!shoulderHeld)
+                    {
                         shutterArmed = true;
+                        zoomHoldShutterElapsed = 0f;
+                        break;
+                    }
                     if (shutterArmed && shoulderPressed)
+                    {
                         BeginCapture();
+                        break;
+                    }
+                    if (UsesZoomHoldShutter && !shutterArmed)
+                    {
+                        zoomHoldShutterElapsed += deltaTime;
+                        if (zoomHoldShutterElapsed >= Mathf.Max(0.01f, zoomHoldShutterDelaySeconds))
+                            BeginCapture();
+                    }
                     break;
 
                 case PhotoCaptureState.Capturing:
@@ -650,6 +675,7 @@ namespace AnimalGame.RobotMap
         {
             captureState = PhotoCaptureState.Focusing;
             focusElapsed = 0f;
+            zoomHoldShutterElapsed = 0f;
             shutterArmed = false;
             shutterElapsed = 0f;
             captureMomentFired = false;
@@ -661,6 +687,7 @@ namespace AnimalGame.RobotMap
         {
             focusElapsed = Mathf.Max(0.05f, focusDuration);
             captureState = PhotoCaptureState.Focused;
+            zoomHoldShutterElapsed = 0f;
             shutterArmed = false;
             mover?.SetPhotoModeInputLocked(true);
         }
@@ -669,6 +696,7 @@ namespace AnimalGame.RobotMap
         {
             captureState = PhotoCaptureState.Framing;
             focusElapsed = 0f;
+            zoomHoldShutterElapsed = 0f;
             shutterArmed = false;
             shutterElapsed = 0f;
             captureMomentFired = false;
@@ -686,6 +714,8 @@ namespace AnimalGame.RobotMap
                 ? currentCamera.Capture(seed) : PhotoCaptureSettings.Basic(seed);
             captureCamera = currentCamera;
             fixedHoldRequiresRelease = UsesFixedPrimeHandling;
+            zoomCaptureRequiresRelease = UsesZoomHoldShutter;
+            zoomHoldShutterElapsed = 0f;
             captureState = PhotoCaptureState.Capturing;
             shutterElapsed = 0f;
             captureMomentFired = false;
@@ -718,6 +748,7 @@ namespace AnimalGame.RobotMap
                 ? PhotoCaptureState.Reviewing
                 : PhotoCaptureState.Framing;
             focusElapsed = 0f;
+            zoomHoldShutterElapsed = 0f;
             shutterArmed = false;
             captureMomentFired = false;
             photoReviewRequested = false;
@@ -781,11 +812,13 @@ namespace AnimalGame.RobotMap
             LastCaptureSettings = null;
             captureState = PhotoCaptureState.Framing;
             focusElapsed = 0f;
+            zoomHoldShutterElapsed = 0f;
             shutterArmed = false;
             shutterElapsed = 0f;
             captureMomentFired = false;
             photoReviewRequested = false;
             fixedHoldRequiresRelease = false;
+            zoomCaptureRequiresRelease = false;
             captureCamera = null;
             ApplyPendingCameraHandlingChange();
             if (!resetPresentation)
@@ -1085,6 +1118,7 @@ namespace AnimalGame.RobotMap
             lateralAimSpeed = Mathf.Max(0f, lateralAimSpeed);
             depthAimSpeed = Mathf.Max(0f, depthAimSpeed);
             focusDuration = Mathf.Max(0.05f, focusDuration);
+            zoomHoldShutterDelaySeconds = Mathf.Max(0.01f, zoomHoldShutterDelaySeconds);
             focusCancelBlendDuration = Mathf.Max(
                 0.05f,
                 focusCancelBlendDuration);
