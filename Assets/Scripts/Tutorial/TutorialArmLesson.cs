@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 
 namespace AnimalGame.Tutorial
 {
-    /// <summary>In-place empty-hand practice that observes normal arm controls in this scene only.</summary>
+    /// <summary>In-place practice that observes normal arm controls in this scene only.</summary>
     [DefaultExecutionOrder(1200)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(TutorialTerrainLesson))]
@@ -19,7 +19,6 @@ namespace AnimalGame.Tutorial
         [SerializeField] private TutorialTextContent tutorialText;
         [SerializeField, Range(.05f, .5f)] private float reachDistanceOfBodyDiameter = .2f;
         [SerializeField, Range(5f, 40f)] private float swingAngleDegrees = 15f;
-        [SerializeField, Min(.1f)] private float holdStillSeconds = .6f;
         [SerializeField, Min(0f)] private float terrainCompletionDelay = 1.5f;
 
         private readonly ArmsLessonText defaultText = new ArmsLessonText();
@@ -35,12 +34,13 @@ namespace AnimalGame.Tutorial
         private bool previousToggleHeld, hasStarted;
         private bool ownsPresentation = true;
         private bool chapterConfirmed;
+        private bool interrupted;
 
         public TutorialTextContent TextContent => tutorialText;
         public ArmTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => driving != null ? driving.Panel : null;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
         private ArmsLessonText Text => tutorialText != null && tutorialText.Arms != null ? tutorialText.Arms : defaultText;
 
@@ -61,6 +61,21 @@ namespace AnimalGame.Tutorial
 
         private void LateUpdate()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject))
+            {
+                if (!interrupted) progress?.Suspend();
+                interrupted = true;
+                previousToggleHeld = AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
+                SetDirectionCueVisible(false);
+                return;
+            }
+            if (interrupted)
+            {
+                interrupted = false;
+                progress?.Suspend();
+                refreshRemaining = 0f;
+                previousToggleHeld = AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
+            }
             bool toggleHeld = AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
             bool togglePressed = toggleHeld && !previousToggleHeld;
             previousToggleHeld = toggleHeld;
@@ -72,6 +87,8 @@ namespace AnimalGame.Tutorial
                 return;
             }
             if (!ownsPresentation) return;
+            if (progress != null && progress.IsComplete)
+            { Panel.SetContinuePrompt(false); Panel.SetVisible(false); SetDirectionCueVisible(false); return; }
             arm = bootstrap.armController;
             if (arm == null || bootstrap.robot == null) return;
             if (marker == null) marker = bootstrap.robot.GetComponent<RobotMarkerView>();
@@ -80,8 +97,6 @@ namespace AnimalGame.Tutorial
             if (!hasStarted)
             {
                 if (modal || !CanPractice()) return;
-                completionDelay += Time.deltaTime;
-                if (completionDelay < terrainCompletionDelay) return;
                 BeginLesson();
                 justStarted = true;
             }
@@ -107,15 +122,15 @@ namespace AnimalGame.Tutorial
                 bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright,
                 valid, Time.deltaTime, !justStarted && ManualActionPressed(progress.Step,
                     togglePressed, arm.ManualRetractRequestedThisFrame), arm.IsBlocked));
-            Panel.SetContinuePrompt(valid && progress.CanContinue && !chapterConfirmed
-                && arm.HeldObject == null && arm.State != RobotArmState.Recycling,
+            Panel.SetContinuePrompt(valid && progress.CanContinue,
                 (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
             if (TutorialContinueInput.TryConsume(Panel, bootstrap))
             {
-                if (progress.IsComplete) chapterConfirmed = true;
-                else progress.Continue();
+                progress.Continue();
                 Panel.SetContinuePrompt(false); refreshRemaining = 0f;
             }
+            if (progress.IsComplete)
+            { Panel.SetContinuePrompt(false); Panel.SetVisible(false); SetDirectionCueVisible(false); return; }
             if (progress.Step != previousStep)
             {
                 Panel.SetCollapsed(false);
@@ -134,11 +149,11 @@ namespace AnimalGame.Tutorial
         {
             progress = new ArmTutorialProgress(
                 Mathf.Max(.01f, marker != null ? marker.BodyDiameter : .72f) * reachDistanceOfBodyDiameter,
-                swingAngleDegrees, holdStillSeconds);
+                swingAngleDegrees);
             if (balanceLesson != null && balanceLesson.isActiveAndEnabled) balanceLesson.SetPresentationOwned(false);
             else terrain.SetPresentationOwned(false);
             hasStarted = true;
-            chapterConfirmed = false; Panel.SetContinuePrompt(false);
+            Panel.SetContinuePrompt(false);
             Panel.SetCollapsed(false);
             refreshRemaining = 0f;
         }
@@ -156,7 +171,7 @@ namespace AnimalGame.Tutorial
             RobotMover robot = bootstrap != null ? bootstrap.robot : null;
             return robot != null && robot.isActiveAndEnabled && arm != null && arm.isActiveAndEnabled
                 && marker != null && marker.MarkerVisualRoot != null && !robot.IsMovementLocked
-                && !robot.IsPhotoModeInputLocked && !robot.IsLevelThreeUnstable && !robot.IsAutoAligningDownhill
+                && !robot.IsPhotoModeInputLocked
                 && bootstrap.gameObject.scene == gameObject.scene && bootstrap.map != null && bootstrap.map.HasGeneratedMap
                 && (bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright);
         }
@@ -168,6 +183,7 @@ namespace AnimalGame.Tutorial
         private void RefreshPanel(bool canPractice = true)
         {
             if (Panel == null || progress == null) return;
+            if (progress.IsComplete) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
             ArmsLessonText text = Text;
             TutorialStepText step = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             float value = progress.Value, target = progress.Target;
@@ -189,11 +205,9 @@ namespace AnimalGame.Tutorial
                 .Add("rt", rt).Add("lt", lt).Add("lb", lb);
             string message = step.Message, action = step.Action, control = step.ControlGlyph;
             string status = text.WaitingStatus;
-            bool empty = arm == null || (arm.HeldObject == null && arm.State != RobotArmState.Recycling);
             bool needsReopen = arm != null && progress.Step > ArmTutorialStep.Deploy
                 && progress.Step < ArmTutorialStep.Stow && (!arm.IsArmModeActive || arm.VisibleDeployment01 < .999f);
             if (progress.IsComplete) status = text.CompleteStatus;
-            else if (!empty) status = text.EmptyHandsStatus;
             else if (!canPractice || (arm != null && arm.IsBlocked)) status = text.BlockedStatus;
             else if (progress.Step == ArmTutorialStep.Deploy && progress.NeedsInitialStow)
             { message = text.InitialStowMessage; action = text.InitialStowAction; }
@@ -212,7 +226,7 @@ namespace AnimalGame.Tutorial
 
         private void UpdateDirectionCue(bool valid)
         {
-            bool show = valid && !progress.CanContinue && arm.HeldObject == null && arm.IsArmModeActive && arm.VisibleDeployment01 >= .999f
+            bool show = valid && !progress.CanContinue && arm.State == RobotArmState.OuterOperating && arm.IsArmModeActive && arm.VisibleDeployment01 >= .999f
                 && !arm.IsBlocked && !Panel.IsCollapsed && progress.Step >= ArmTutorialStep.Extend
                 && progress.Step <= ArmTutorialStep.SwingRight && Panel.Root?.panel != null && bootstrap.mapCamera != null;
             if (!show) { SetDirectionCueVisible(false); return; }
@@ -263,7 +277,7 @@ namespace AnimalGame.Tutorial
         {
             if (!hasStarted || progress == null) return;
             progress.Reset();
-            chapterConfirmed = false; Panel.SetContinuePrompt(false);
+            Panel.SetContinuePrompt(false);
             previousToggleHeld = AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
             Panel.SetCollapsed(false);
             refreshRemaining = 0f;
@@ -273,7 +287,7 @@ namespace AnimalGame.Tutorial
         {
             directionCue?.RemoveFromHierarchy(); directionCue = null;
             if (Panel != null) Panel.SetLessonHint(string.Empty);
-            Panel?.SetContinuePrompt(false); chapterConfirmed = false;
+            Panel?.SetContinuePrompt(false);
             hasStarted = false; progress = null;
             ownsPresentation = true;
             if (balanceLesson != null && balanceLesson.isActiveAndEnabled) balanceLesson.SetPresentationOwned(true);

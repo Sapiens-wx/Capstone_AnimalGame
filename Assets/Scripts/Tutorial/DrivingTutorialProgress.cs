@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace AnimalGame.Tutorial
 {
-    public enum DrivingTutorialStep { TurnLeft, TurnRight, Forward, Reverse, SteerWhileMoving, Stop, Completed }
+    public enum DrivingTutorialStep { TurnLeft, TurnRight, Forward, Reverse, SteerWhileMoving, Completed }
 
     /// <summary>A measured driving frame, in logical map metres (not Unity world units).</summary>
     public readonly struct DrivingTutorialSample
@@ -29,7 +29,7 @@ namespace AnimalGame.Tutorial
     /// <summary>Scene-independent measurement; never changes the robot, controls, time or saved progress.</summary>
     public sealed class DrivingTutorialProgress
     {
-        private readonly float forwardMeters, reverseMeters, turnDegrees, stopSeconds;
+        private readonly float forwardMeters, reverseMeters, turnDegrees;
         private readonly float movingTurnDegrees, movingTurnMeters;
         private DrivingTutorialSample previous;
         private bool hasPrevious;
@@ -49,20 +49,18 @@ namespace AnimalGame.Tutorial
         {
             DrivingTutorialStep.Forward => forwardMeters,
             DrivingTutorialStep.Reverse => reverseMeters,
-            DrivingTutorialStep.Stop => stopSeconds,
             DrivingTutorialStep.SteerWhileMoving => movingTurnDegrees,
             DrivingTutorialStep.Completed => 1f,
             _ => turnDegrees
         };
 
         public DrivingTutorialProgress(float forwardMeters = 5f, float reverseMeters = 3f,
-            float turnDegrees = 45f, float stopSeconds = .8f,
+            float turnDegrees = 45f,
             float movingTurnDegrees = 30f, float movingTurnMeters = 2f)
         {
             this.forwardMeters = Mathf.Max(.5f, forwardMeters);
             this.reverseMeters = Mathf.Max(.5f, reverseMeters);
             this.turnDegrees = Mathf.Clamp(turnDegrees, 10f, 180f);
-            this.stopSeconds = Mathf.Max(.2f, stopSeconds);
             this.movingTurnDegrees = Mathf.Clamp(movingTurnDegrees, 10f, 90f);
             this.movingTurnMeters = Mathf.Max(.5f, movingTurnMeters);
         }
@@ -75,7 +73,6 @@ namespace AnimalGame.Tutorial
         public void Suspend()
         {
             hasPrevious = false;
-            if (Step == DrivingTutorialStep.Stop && !IsStepSatisfied) Value = 0f;
         }
 
         public bool Advance()
@@ -94,11 +91,7 @@ namespace AnimalGame.Tutorial
             previous = sample;
             hasPrevious = sample.CanDrive && sample.DeltaTime > 0f;
             if (IsComplete || IsStepSatisfied) return;
-            if (!hadPrevious || !hasPrevious)
-            {
-                if (Step == DrivingTutorialStep.Stop) Value = 0f;
-                return;
-            }
+            if (!hadPrevious || !hasPrevious) return;
 
             Vector2 displacement = sample.PositionMeters - last.PositionMeters;
             float angle = Mathf.DeltaAngle(last.HeadingDegrees, sample.HeadingDegrees);
@@ -106,11 +99,7 @@ namespace AnimalGame.Tutorial
             float plausibleDistance = Mathf.Max(.025f,
                 Mathf.Abs(sample.SpeedMetersPerSecond) * sample.DeltaTime * 2f + .015f);
             float plausibleAngle = Mathf.Abs(sample.CommandedTurnSpeed) * sample.DeltaTime * 2f + .3f;
-            if (displacement.magnitude > plausibleDistance || Mathf.Abs(angle) > plausibleAngle)
-            {
-                if (Step == DrivingTutorialStep.Stop) Value = 0f;
-                return;
-            }
+            if (displacement.magnitude > plausibleDistance || Mathf.Abs(angle) > plausibleAngle) return;
 
             Vector2 forward = (last.Forward + sample.Forward).normalized;
             float drivenDistance = Vector2.Dot(displacement, forward);
@@ -148,14 +137,6 @@ namespace AnimalGame.Tutorial
                         // Going back in the opposite direction removes the same amount of progress.
                         Value = Mathf.Max(0f, Value + angle * expectedSign);
                     }
-                    break;
-                case DrivingTutorialStep.Stop:
-                    bool stopped = Mathf.Abs(sample.ThrottleIntent) <= .08f
-                        && Mathf.Abs(sample.CommandedTurnSpeed) <= 1f
-                        && Mathf.Abs(sample.SpeedMetersPerSecond) <= .15f
-                        && displacement.magnitude / sample.DeltaTime <= .15f
-                        && Mathf.Abs(angle) / sample.DeltaTime <= 3f;
-                    Value = stopped ? Value + sample.DeltaTime : 0f;
                     break;
             }
             Value = Mathf.Min(Value, Target);

@@ -19,7 +19,6 @@ namespace AnimalGame.Tutorial
         [SerializeField, Min(.5f)] private float forwardDistanceMeters = 5f;
         [SerializeField, Min(.5f)] private float reverseDistanceMeters = 3f;
         [SerializeField, Range(10f, 180f)] private float turnAngleDegrees = 45f;
-        [SerializeField, Min(.2f)] private float stopDurationSeconds = .8f;
         [SerializeField, Range(10f, 90f)] private float movingTurnAngleDegrees = 30f;
         [SerializeField, Min(.5f)] private float movingTurnDistanceMeters = 2f;
 
@@ -29,14 +28,16 @@ namespace AnimalGame.Tutorial
         private float refreshRemaining;
         private string lastFeedback;
         private bool ownsPresentation = true;
+        // Retained for existing editor fixtures; completion no longer requires a chapter confirmation.
         private bool chapterConfirmed;
+        private bool interrupted;
         private readonly DrivingLessonText defaultText = new DrivingLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
 
         public TutorialTextContent TextContent => tutorialText;
         public DrivingTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => panel;
-        public bool IsComplete => progress != null && progress.IsComplete && chapterConfirmed;
+        public bool IsComplete => progress != null && progress.IsComplete;
 
         // The next scene-owned lesson reuses this card after driving is complete.
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
@@ -45,7 +46,7 @@ namespace AnimalGame.Tutorial
         {
             if (gameObject.scene.path != ScenePath) { enabled = false; return; }
             progress = new DrivingTutorialProgress(forwardDistanceMeters, reverseDistanceMeters,
-                turnAngleDegrees, stopDurationSeconds, movingTurnAngleDegrees, movingTurnDistanceMeters);
+                turnAngleDegrees, movingTurnAngleDegrees, movingTurnDistanceMeters);
             var panelObject = new GameObject("Driving Tutorial Dialogue");
             panelObject.transform.SetParent(transform, false);
             panel = panelObject.AddComponent<TutorialDialoguePanel>();
@@ -60,7 +61,20 @@ namespace AnimalGame.Tutorial
 
         private void LateUpdate()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject))
+            {
+                if (!interrupted) progress?.Suspend();
+                interrupted = true;
+                return;
+            }
+            if (interrupted)
+            {
+                interrupted = false;
+                progress?.Suspend();
+                refreshRemaining = 0f;
+            }
             if (panel == null || progress == null || !ownsPresentation) return;
+            if (progress.IsComplete) { panel.SetContinuePrompt(false); panel.SetVisible(false); return; }
             bool modal = AnimalGame.MainUI.MainUI.BlocksGameplay
                 || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
                 || (bootstrap != null && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
@@ -82,8 +96,7 @@ namespace AnimalGame.Tutorial
 #endif
             RobotMover robot = bootstrap.robot;
             bool valid = robot.isActiveAndEnabled && !robot.IsMovementLocked
-                && !robot.IsArmInputCaptured && !robot.IsPhotoModeInputLocked
-                && !robot.IsLevelThreeUnstable && !robot.IsAutoAligningDownhill
+                && !robot.IsPhotoModeInputLocked
                 && (bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright);
             bool onMap = bootstrap.map.TrySampleWorldPosition(robot.transform.position,
                 out Vector2 mapPosition, out _);
@@ -94,21 +107,18 @@ namespace AnimalGame.Tutorial
                 speedMeters, robot.CurrentThrottleIntent, robot.CurrentTurnSpeed, Time.deltaTime,
                 valid && onMap));
 
-            panel.SetContinuePrompt(valid && onMap && progress.CanContinue && !chapterConfirmed,
+            panel.SetContinuePrompt(valid && onMap && progress.CanContinue,
                 (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
             if (TutorialContinueInput.TryConsume(panel, bootstrap))
             {
-                if (progress.IsComplete) chapterConfirmed = true;
-                else
-                {
-                    lastFeedback = GetCompletionFeedback(progress.Step);
-                    progress.Continue();
-                    feedbackRemaining = .9f;
-                }
+                lastFeedback = GetCompletionFeedback(progress.Step);
+                progress.Continue();
+                feedbackRemaining = .9f;
                 panel.SetContinuePrompt(false);
                 panel.SetCollapsed(false);
                 refreshRemaining = 0f;
             }
+            if (progress.IsComplete) { panel.SetContinuePrompt(false); panel.SetVisible(false); return; }
             feedbackRemaining = Mathf.Max(0f, feedbackRemaining - Time.deltaTime);
             refreshRemaining -= Time.unscaledDeltaTime;
             if (refreshRemaining <= 0f)
@@ -131,7 +141,6 @@ namespace AnimalGame.Tutorial
             if (progress == null) return;
             ownsPresentation = true;
             progress.Reset();
-            chapterConfirmed = false;
             feedbackRemaining = 0f;
             if (panel != null) panel.SetCollapsed(false);
             RefreshPanel();
@@ -159,6 +168,7 @@ namespace AnimalGame.Tutorial
         private void RefreshPanel(bool canDrive = true)
         {
             if (panel == null || progress == null) return;
+            if (progress.IsComplete) { panel.SetContinuePrompt(false); panel.SetVisible(false); return; }
             DrivingLessonText text = Text;
             TutorialStepText stepText = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             TutorialTextTokens tokens = CreateTextTokens();
@@ -166,11 +176,12 @@ namespace AnimalGame.Tutorial
                 : !canDrive ? text.BlockedStatus
                 : feedbackRemaining > 0f ? lastFeedback
                 : text.WaitingStatus;
+            string message = stepText.Message, glyph = stepText.ControlGlyph, action = stepText.Action, detail = stepText.Detail;
             panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
             panel.SetLessonHint(string.Empty);
-            panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
-                tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
-                tokens.Format(stepText.Detail), tokens.Format(status), 1, 9);
+            panel.SetContent(tokens.Format(text.Title), tokens.Format(message),
+                tokens.Format(glyph), tokens.Format(action),
+                tokens.Format(detail), tokens.Format(status), 1, 9);
             panel.SetProgress(progress.NormalizedProgress);
             panel.SetSuccess(progress.CanContinue || feedbackRemaining > 0f);
         }

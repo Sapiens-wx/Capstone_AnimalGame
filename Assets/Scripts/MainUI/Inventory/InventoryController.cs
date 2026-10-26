@@ -36,6 +36,8 @@ namespace AnimalGame.MainUI.Inventory
         private int selectedIndex;
         private bool openHoldLatched;
         private float openHoldElapsed;
+        private bool closeHoldLatched;
+        private float closeHoldElapsed;
         public int SelectedIndex => selectedIndex;
         public InventoryItem[] Items => inventoryStore.Items;
 
@@ -70,6 +72,7 @@ namespace AnimalGame.MainUI.Inventory
         {
             ResetInventoryInteraction();
             openHoldElapsed = 0; openHoldLatched = false;
+            closeHoldElapsed = 0; closeHoldLatched = false;
             stickDirection = Vector2Int.zero;
         }
 
@@ -388,6 +391,7 @@ namespace AnimalGame.MainUI.Inventory
         // Pointer callbacks can run before Update. Give cancellation priority there as well.
         private bool CancelInventoryInputPending()
         {
+            if (IsCloseHoldPending()) return true;
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && Keyboard.current.nKey.wasPressedThisFrame) return true;
             foreach (Gamepad pad in Gamepad.all)
@@ -404,6 +408,18 @@ namespace AnimalGame.MainUI.Inventory
             if (Mouse.current == null)
 #endif
                 if (interactionState == InventoryInteractionState.Move && Input.GetMouseButtonDown(1)) return true;
+#endif
+            return false;
+        }
+
+        private bool IsCloseHoldPending()
+        {
+            if (!host.IsInventoryOpen || closeHoldLatched
+                || closeHoldElapsed + Time.unscaledDeltaTime < Mathf.Max(.1f, settings.OpenHoldSeconds))
+                return false;
+#if ENABLE_INPUT_SYSTEM
+            foreach (Gamepad pad in Gamepad.all)
+                if (pad.added && pad.dpad.left.isPressed) return true;
 #endif
             return false;
         }
@@ -428,8 +444,12 @@ namespace AnimalGame.MainUI.Inventory
         private void HandleInput()
         {
             if (AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels)
-            { openHoldElapsed = 0f; openHoldLatched = true; return; }
-            bool toggle = false, close = false, heldOpen = false, confirm = false, rightClick = false;
+            {
+                openHoldElapsed = closeHoldElapsed = 0f;
+                openHoldLatched = closeHoldLatched = true;
+                return;
+            }
+            bool toggle = false, close = false, heldOpen = false, heldClose = false, confirm = false, rightClick = false;
             Vector2Int navigation = Vector2Int.zero;
             Vector2 stick = Vector2.zero;
 #if ENABLE_INPUT_SYSTEM
@@ -446,6 +466,7 @@ namespace AnimalGame.MainUI.Inventory
             {
                 if (!pad.added) continue;
                 heldOpen |= pad.dpad.right.isPressed;
+                heldClose |= pad.dpad.left.isPressed;
                 close |= pad.buttonEast.wasPressedThisFrame;
                 confirm |= pad.buttonSouth.wasPressedThisFrame;
                 if (pad.dpad.left.wasPressedThisFrame) navigation.x = -1;
@@ -478,7 +499,32 @@ namespace AnimalGame.MainUI.Inventory
                 else if (toggle) { host.OpenInventory(); lastInventoryActionFrame = Time.frameCount; }
                 // A right hold used for opening must be released after cancelling/closing.
                 openHoldLatched = heldOpen;
+                closeHoldElapsed = 0f;
+                closeHoldLatched = heldClose;
                 return;
+            }
+            if (!heldClose)
+            {
+                closeHoldElapsed = 0f;
+                closeHoldLatched = false;
+            }
+            else if (!host.IsInventoryOpen)
+            {
+                closeHoldElapsed = 0f;
+                closeHoldLatched = true;
+            }
+            else if (!closeHoldLatched)
+            {
+                closeHoldElapsed += Time.unscaledDeltaTime;
+                if (closeHoldElapsed >= Mathf.Max(.1f, settings.OpenHoldSeconds))
+                {
+                    closeHoldLatched = true;
+                    openHoldElapsed = 0f;
+                    openHoldLatched = heldOpen;
+                    host.CloseInventory();
+                    lastInventoryActionFrame = Time.frameCount;
+                    return;
+                }
             }
             if (rightClick && interactionState == InventoryInteractionState.Move)
             {

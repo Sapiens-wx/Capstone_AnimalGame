@@ -4,7 +4,7 @@ namespace AnimalGame.Tutorial
 {
     public enum ArmTutorialStep
     {
-        Deploy, Extend, RetractReach, SwingLeft, SwingRight, HoldStill, Stow, Completed
+        Deploy, Extend, RetractReach, SwingLeft, SwingRight, Stow, Completed
     }
 
     /// <summary>Measured hand pose in robot-local units; chassis translation and rotation are excluded.</summary>
@@ -28,7 +28,7 @@ namespace AnimalGame.Tutorial
     /// <summary>Scene-owned lesson measurement. Never deploys arms, moves the robot or changes arm settings.</summary>
     public sealed class ArmTutorialProgress
     {
-        private readonly float radialDistance, swingDegrees, holdSeconds;
+        private readonly float radialDistance, swingDegrees;
         private Vector2 previousCentre;
         private bool hasPrevious, deployRequested, stowRequested, hasDeployObservation;
 
@@ -42,16 +42,14 @@ namespace AnimalGame.Tutorial
         {
             ArmTutorialStep.Extend or ArmTutorialStep.RetractReach => radialDistance,
             ArmTutorialStep.SwingLeft or ArmTutorialStep.SwingRight => swingDegrees,
-            ArmTutorialStep.HoldStill => holdSeconds,
             _ => 1f
         };
         public float NormalizedProgress => IsComplete ? 1f : Mathf.Clamp01(Value / Target);
 
-        public ArmTutorialProgress(float radialDistance = .2f, float swingDegrees = 15f, float holdSeconds = .6f)
+        public ArmTutorialProgress(float radialDistance = .2f, float swingDegrees = 15f)
         {
             this.radialDistance = float.IsFinite(radialDistance) ? Mathf.Max(.001f, radialDistance) : .2f;
             this.swingDegrees = float.IsFinite(swingDegrees) ? Mathf.Clamp(swingDegrees, 1f, 90f) : 15f;
-            this.holdSeconds = float.IsFinite(holdSeconds) ? Mathf.Max(.1f, holdSeconds) : .6f;
         }
 
         public void Reset()
@@ -65,7 +63,6 @@ namespace AnimalGame.Tutorial
         {
             hasPrevious = false;
             if (IsStepSatisfied) return;
-            if (Step == ArmTutorialStep.HoldStill) Value = 0f;
             if (Step == ArmTutorialStep.Deploy)
             {
                 deployRequested = hasDeployObservation = false;
@@ -90,7 +87,7 @@ namespace AnimalGame.Tutorial
         public void Sample(in ArmTutorialSample sample)
         {
             if (IsComplete || IsStepSatisfied) return;
-            bool valid = sample.Valid && sample.Empty && sample.Upright
+            bool valid = sample.Valid && sample.Upright
                 && sample.DeltaTime > 0f && sample.DeltaTime <= .25f && float.IsFinite(sample.DeltaTime)
                 && float.IsFinite(sample.Deployment01)
                 && Finite(sample.HandCentreLocal) && Finite(sample.Stick);
@@ -137,14 +134,6 @@ namespace AnimalGame.Tutorial
                 return;
             }
             float radial = sample.HandCentreLocal.magnitude - last.magnitude;
-            if (Step == ArmTutorialStep.HoldStill)
-            {
-                bool still = sample.Stick.magnitude <= .14f
-                    && movement.magnitude <= radialDistance * .1f * sample.DeltaTime
-                    && Mathf.Abs(angle) <= 2f * sample.DeltaTime;
-                Value = still ? Mathf.Min(holdSeconds, Value + sample.DeltaTime) : 0f;
-                return;
-            }
             if (Step == ArmTutorialStep.Extend || Step == ArmTutorialStep.RetractReach)
             {
                 if (Mathf.Abs(sample.Stick.y) > .15f && radial * sample.Stick.y > 0f)

@@ -136,6 +136,7 @@ namespace AnimalGame.Editor
                     new Vector2(1440, 1080), new Vector2(2560, 1080) })
                     foreach (ArmTutorialStep step in Enum.GetValues(typeof(ArmTutorialStep)))
                     {
+                        if (step == ArmTutorialStep.Completed) continue;
                         typeof(ArmTutorialProgress).GetProperty("Step", Flags).SetValue(progress, step);
                         foreach (bool valid in new[] { true, false })
                         {
@@ -164,6 +165,11 @@ namespace AnimalGame.Editor
                         }
                     }
 
+                typeof(ArmTutorialProgress).GetProperty("Step", Flags).SetValue(progress, ArmTutorialStep.Completed);
+                Invoke(lesson, "RefreshPanel", true);
+                Require(!panel.IsVisible && !panel.CanContinue,
+                    "Terminal arms state hides its card without asking for an extra chapter confirmation.");
+                panel.SetVisible(true);
                 panel.SetCollapsed(false);
                 UIDocument document = panel.Document;
                 VisualElement root = panel.Root;

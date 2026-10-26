@@ -26,6 +26,7 @@ namespace AnimalGame.Tutorial
         [SerializeField, Min(0f)] private float armCompletionDelay = 1.5f;
         [SerializeField, Min(.1f)] private float animalReadingSeconds = 1.2f;
         [SerializeField, Min(.1f)] private float objectReadingSeconds = 1.5f;
+        [SerializeField, Min(.5f)] private float recoveryArrivalRadiusMeters = 4f;
 
         private readonly DiscoveryLessonText defaultText = new DiscoveryLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
@@ -37,8 +38,10 @@ namespace AnimalGame.Tutorial
         private BioScanController scanner;
         private BioScanAnimalMarkerUI animalMarkers;
         private BioScanStaticAreaUI objectMarkers;
-        private bool hasStarted, chapterConfirmed;
+        private bool hasStarted;
+        private bool chapterConfirmed;
         private bool ownsPresentation = true;
+        private bool interrupted;
         private float completionDelay, refreshRemaining, feedbackRemaining;
         private bool cancelledFeedback;
         private int nativeWaveSequence, modelWaveId, pendingAnimalSequence, pendingObjectSequence;
@@ -49,7 +52,7 @@ namespace AnimalGame.Tutorial
         public DiscoveryTutorialProgress Progress => progress;
         public TutorialDialoguePanel Panel => arms != null ? arms.Panel : null;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
         public void SetPresentationOwned(bool value) => ownsPresentation = value;
         private DiscoveryLessonText Text => tutorialText != null && tutorialText.Discovery != null
             ? tutorialText.Discovery : defaultText;
@@ -69,6 +72,19 @@ namespace AnimalGame.Tutorial
 
         private void LateUpdate()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject))
+            {
+                if (!interrupted) progress?.Suspend();
+                interrupted = true;
+                if (recoveryWaypoint != null) recoveryWaypoint.SetVisible(false);
+                return;
+            }
+            if (interrupted)
+            {
+                interrupted = false;
+                progress?.Suspend();
+                refreshRemaining = 0f;
+            }
             if (arms == null || Panel == null || bootstrap == null || targets == null) return;
             if (!arms.IsComplete)
             {
@@ -77,13 +93,12 @@ namespace AnimalGame.Tutorial
                 return;
             }
             if (!ownsPresentation) return;
+            if (progress != null && progress.IsComplete) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
             bool modal = IsModal();
             bool justStarted = false;
             if (!hasStarted)
             {
                 if (modal || !CanScan()) return;
-                completionDelay += Time.deltaTime;
-                if (completionDelay < armCompletionDelay) return;
                 BeginLesson(); justStarted = true;
             }
             BindScanner();
@@ -105,15 +120,16 @@ namespace AnimalGame.Tutorial
             progress.Sample(new DiscoveryTutorialSample(Time.deltaTime, validInput, !Panel.IsCollapsed,
                 scanInput != null && scanInput.IsFullyCharged, animalVisible, seen, objectVisible));
             TutorialPanelText continueText = tutorialText != null ? tutorialText.Panel : defaultPanelText;
-            Panel.SetContinuePrompt(!chapterConfirmed && progress.CanContinue && validInput,
-                !chapterConfirmed && progress.CanContinue && validInput ? continueText.ContinuePrompt : continueText.ContinueWaitingPrompt);
-            if (!justStarted && !chapterConfirmed && validInput && progress.CanContinue && TutorialContinueInput.TryConsume(Panel, bootstrap))
+            Panel.SetContinuePrompt(progress.CanContinue && validInput,
+                progress.CanContinue && validInput ? continueText.ContinuePrompt : continueText.ContinueWaitingPrompt);
+            if (!justStarted && validInput && progress.CanContinue && TutorialContinueInput.TryConsume(Panel, bootstrap))
             {
-                if (progress.IsComplete) chapterConfirmed = true;
-                else progress.Continue();
+                progress.Continue();
                 Panel.SetContinuePrompt(false);
                 refreshRemaining = 0f;
             }
+            if (progress.IsComplete)
+            { if (recoveryWaypoint != null) recoveryWaypoint.ClearTarget(); Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
             if (progress.Step != displayedStep)
             {
                 Panel.SetCollapsed(false);
@@ -129,7 +145,6 @@ namespace AnimalGame.Tutorial
         private void BeginLesson()
         {
             progress = new DiscoveryTutorialProgress(animalReadingSeconds, objectReadingSeconds);
-            chapterConfirmed = false;
             targets.Configure(bootstrap, animalPrefab, smallGarbagePrefab);
             arms.SetPresentationOwned(false);
             hasStarted = true;
@@ -151,19 +166,20 @@ namespace AnimalGame.Tutorial
         private bool CanScan()
         {
             RobotMover robot = bootstrap != null ? bootstrap.robot : null;
-            RobotArmController arm = bootstrap != null ? bootstrap.armController : null;
             return robot != null && robot.isActiveAndEnabled && !robot.IsMovementLocked
-                && !robot.IsPhotoModeInputLocked && !robot.IsLevelThreeUnstable && !robot.IsAutoAligningDownhill
-                && arm != null && arm.isActiveAndEnabled && !arm.IsArmModeActive && arm.HeldObject == null
-                && arm.State == RobotArmState.Retracted && bootstrap.gameObject.scene == gameObject.scene
+                && !robot.IsPhotoModeInputLocked && bootstrap.gameObject.scene == gameObject.scene
                 && bootstrap.map != null && bootstrap.map.HasGeneratedMap
                 && bootstrap.scanChargeUi != null && bootstrap.scanChargeUi.isActiveAndEnabled
                 && bootstrap.bioScan != null && bootstrap.bioScan.isActiveAndEnabled
                 && (bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright);
         }
 
-        private bool ValidInputEvent() => hasStarted && progress != null && !IsModal() && CanScan();
-        private bool ValidEvent() => ValidInputEvent() && targets != null && targets.IsReady;
+        private bool ValidInputEvent() => !TutorialTipOverLesson.BlocksMainline(gameObject)
+            && hasStarted && progress != null && !IsModal() && CanScan();
+        // An already released wave may finish during recovery. Preserve its exact target hits,
+        // while new charge/release gestures remain owned by the interruption.
+        private bool ValidEvent() => hasStarted && progress != null && targets != null && targets.IsReady
+            && (TutorialTipOverLesson.BlocksMainline(gameObject) || ValidInputEvent());
 
         private void BindScanner()
         {
@@ -188,12 +204,14 @@ namespace AnimalGame.Tutorial
 
         private void OnChargeStarted()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject)) return;
             progress?.RegisterChargeStarted(ValidInputEvent());
             feedbackRemaining = 0f; refreshRemaining = 0f;
         }
 
         private void OnChargeCancelled()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject)) return;
             bool valid = ValidInputEvent();
             progress?.RegisterChargeCancelled(valid);
             if (valid) { cancelledFeedback = true; feedbackRemaining = 2f; refreshRemaining = 0f; }
@@ -201,12 +219,14 @@ namespace AnimalGame.Tutorial
 
         private void OnTerrainScan()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject)) return;
             if (!ValidInputEvent()) return;
             cancelledFeedback = false; feedbackRemaining = 2f; refreshRemaining = 0f;
         }
 
         private void OnScanReleased()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject)) return;
             int sequence = scanner != null ? scanner.ScanSequence : 0;
             int accepted = progress != null ? progress.RegisterScanReleased(ValidInputEvent()
                 && sequence != nativeWaveSequence) : 0;
@@ -238,6 +258,7 @@ namespace AnimalGame.Tutorial
         private void RefreshPanel(bool canScan = true)
         {
             if (Panel == null || progress == null) return;
+            if (progress.IsComplete) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); return; }
             DiscoveryLessonText text = Text;
             TutorialStepText step = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             bool chargingStep = progress.Step == DiscoveryTutorialStep.Charge;
@@ -252,8 +273,6 @@ namespace AnimalGame.Tutorial
             string message = step.Message, action = step.Action, control = step.ControlGlyph, detail = step.Detail;
             string status = text.WaitingStatus;
             bool ready = targets == null || targets.IsReady;
-            bool armsOpen = bootstrap != null && bootstrap.armController != null
-                && (bootstrap.armController.IsArmModeActive || bootstrap.armController.HeldObject != null);
             bool waveInFlight = scanner != null && scanner.HasActiveScanWave && modelWaveId > 0
                 && scanner.ScanSequence == nativeWaveSequence;
             bool targetMarkAlive = false;
@@ -266,12 +285,6 @@ namespace AnimalGame.Tutorial
                     targetMarkAlive = targets.Item.RevealRemaining > 0f;
             }
             if (progress.IsComplete) status = text.CompleteStatus;
-            else if (armsOpen)
-            {
-                message = text.NeedStowMessage; control = "L3";
-                action = tutorialText != null && tutorialText.Arms != null ? tutorialText.Arms.Stow.Action : "Retract arms";
-                status = text.NeedEmptyHandsStatus;
-            }
             else if (!ready) status = text.PreparingStatus;
             else if (!canScan) status = text.BlockedStatus;
             else if (progress.Step == DiscoveryTutorialStep.Release && !progress.IsChargeReady && !progress.HasReleasedScan)
@@ -301,8 +314,8 @@ namespace AnimalGame.Tutorial
             Panel.SetProgress(chargingStep ? value / 100f : progress.NormalizedProgress);
             Panel.SetSuccess(progress.IsComplete);
             TutorialPanelText panelText = tutorialText != null ? tutorialText.Panel : defaultPanelText;
-            Panel.SetContinuePrompt(!chapterConfirmed && progress.CanContinue && canScan,
-                !chapterConfirmed && progress.CanContinue && canScan ? panelText.ContinuePrompt : panelText.ContinueWaitingPrompt);
+            Panel.SetContinuePrompt(progress.CanContinue && canScan,
+                progress.CanContinue && canScan ? panelText.ContinuePrompt : panelText.ContinueWaitingPrompt);
             displayedStep = progress.Step;
         }
 
@@ -321,14 +334,18 @@ namespace AnimalGame.Tutorial
             }
             Vector2 animalTarget = targets.UsesFixedAnimalPosition && !targets.IsAnimalWithinScanReach
                 ? targets.AnimalObservationMapPosition : targets.AnimalMapPosition;
-            recoveryWaypoint.SetTarget(toAnimal ? animalTarget : targets.ItemMapPosition);
+            Vector2 target = toAnimal ? animalTarget : targets.ItemMapPosition;
+            if (bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 player, out _)
+                && Vector2.Distance(player, target) <= recoveryArrivalRadiusMeters)
+            { recoveryWaypoint.ClearTarget(); return; }
+            recoveryWaypoint.SetTarget(target);
         }
 
         [ContextMenu("Restart Discovery Lesson")]
         public void RestartLesson()
         {
             if (!hasStarted || progress == null) return;
-            progress.Reset(); chapterConfirmed = false; targets.ResetTargets();
+            progress.Reset(); targets.ResetTargets();
             nativeWaveSequence = scanner != null ? scanner.ScanSequence : 0;
             modelWaveId = pendingAnimalSequence = pendingObjectSequence = 0;
             Panel.SetCollapsed(false); refreshRemaining = 0f;
@@ -357,7 +374,7 @@ namespace AnimalGame.Tutorial
             if (recoveryWaypoint != null) recoveryWaypoint.ClearTarget();
             if (targets != null) targets.Cleanup();
             if (Panel != null) Panel.SetLessonHint(string.Empty);
-            hasStarted = chapterConfirmed = false; progress = null;
+            hasStarted = false; progress = null;
             ownsPresentation = true;
             if (arms != null) arms.SetPresentationOwned(true);
         }

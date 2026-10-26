@@ -8047,6 +8047,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: CheckpointRefitTerminal
       objectReference: {fileID: 0}
+    - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
+      propertyPath: checkpointName
+      value: Assembly Station
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
+      propertyPath: checkpointId
+      value: TUT-01
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
+      propertyPath: interactionRadiusMeters
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 8637752686558655013, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.3484638
@@ -8496,8 +8508,12 @@ GameObject:
   - component: {fileID: 9100000000000000036}
   - component: {fileID: 9100000000000000037}
   - component: {fileID: 9100000000000000038}
+  - component: {fileID: 9100000000000000039}
+  - component: {fileID: 9100000000000000040}
+  - component: {fileID: 9100000000000000041}
+  - component: {fileID: 9100000000000000042}
   m_Layer: 0
-  m_Name: Tutorial - Driving, Terrain, Balance, Arms, Discovery and Photography
+  m_Name: Tutorial - Driving, Terrain, Balance, Arms, Discovery, Photography, Recycling, Camera Upgrade and Recovery
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8535,7 +8551,6 @@ MonoBehaviour:
   forwardDistanceMeters: 5
   reverseDistanceMeters: 3
   turnAngleDegrees: 45
-  stopDurationSeconds: 0.8
   movingTurnAngleDegrees: 30
   movingTurnDistanceMeters: 2
 --- !u!114 &9100000000000000033
@@ -8556,10 +8571,10 @@ MonoBehaviour:
   approachPointsMeters:
   - {x: 163, y: 140}
   gentleRouteDestinationMeters: {x: 146, y: 121}
-  arrivalRadiusMeters: 2
-  surveyRadiusMeters: 6
+  arrivalRadiusMeters: 4
+  surveyRadiusMeters: 8
   signsReadingSeconds: 4
-  drivingCompletionDelay: 2
+  drivingCompletionDelay: 0
 --- !u!114 &9100000000000000034
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8576,8 +8591,7 @@ MonoBehaviour:
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   reachDistanceOfBodyDiameter: 0.2
   swingAngleDegrees: 15
-  holdStillSeconds: 0.6
-  terrainCompletionDelay: 1.5
+  terrainCompletionDelay: 0
 --- !u!114 &9100000000000000035
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8595,9 +8609,10 @@ MonoBehaviour:
   animalPrefab: {fileID: 4118156342335042637, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
   smallGarbagePrefab: {fileID: 8098866755847926482, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
   targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
-  armCompletionDelay: 1.5
+  armCompletionDelay: 0
   animalReadingSeconds: 1.2
   objectReadingSeconds: 1.5
+  recoveryArrivalRadiusMeters: 4
 --- !u!114 &9100000000000000036
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8635,10 +8650,11 @@ MonoBehaviour:
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
   targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
-  discoveryCompletionDelay: 1.5
+  discoveryCompletionDelay: 0
   observationSeconds: 0.8
   framingSeconds: 0.5
   requiredMovementMeters: 0
+  recoveryArrivalRadiusMeters: 4
 --- !u!114 &9100000000000000038
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8653,10 +8669,86 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   bootstrap: {fileID: 11400000}
   tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
-  terrainCompletionDelay: 1.5
+  terrainCompletionDelay: 0
   indicatorReadingSeconds: 3
   riskReadingSeconds: 3
   requiredPointMovement: 0.05
+--- !u!114 &9100000000000000039
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000000000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54cd1ca02d1745c0ac60d2918d226681, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bootstrap: {fileID: 11400000}
+  tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
+  machine: {fileID: 0}
+  terminal: {fileID: 0}
+  targetCamera: {fileID: 11400000, guid: 4197a39da5c1459da8ae34670d152477, type: 2}
+  targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
+  entranceApproachLocal: {x: 0, y: 1.2}
+  entranceInteriorLocal: {x: 0, y: -0.8}
+  arrivalRadiusMeters: 3
+  photographyCompletionDelay: 0
+  controlsReadingSeconds: 0.8
+--- !u!114 &9100000000000000040
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000000000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7de7580bbf3a4a6b97284b420d896e62, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bootstrap: {fileID: 11400000}
+  tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
+  targetSprite: {fileID: -4119334708683220384, guid: 4feca9c9273d73146b3b53fab283d329, type: 3}
+  approachRadiusMeters: 4
+  discoveryCompletionDelay: 0
+  recoveryDistanceMeters: 15
+--- !u!114 &9100000000000000041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000000000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d281b69852a46278049cfd6b0b2ce20, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bootstrap: {fileID: 11400000}
+  tutorialText: {fileID: 11400000, guid: a6be406bbab746eca142cb65b19f72a5, type: 2}
+  requiredStableSeconds: 0.8
+  safeBalanceMagnitude: 0.9
+  automaticRecoveryNoticeSeconds: 1.5
+  retryFeedbackSeconds: 1.4
+--- !u!114 &9100000000000000042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000000000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6097fda8e954db394d17f99ae752908, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bootstrap: {fileID: 11400000}
+  largeGarbagePrefab: {fileID: 7253239608327384681, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
+  mediumFragmentPrefab: {fileID: 7253239608327384681, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+  minimumApproachDistanceMeters: 6
+  placementMarginMeters: 0.75
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

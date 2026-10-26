@@ -38,6 +38,8 @@ namespace AnimalGame.MainUI
         [SerializeField] private AnimationCurve inventoryEasing = new AnimationCurve(
             new Keyframe(0f, 0f, 0f, 3f),
             new Keyframe(1f, 1f, 0f, 0f));
+        [Tooltip("Seconds to hold D-pad right to open, or D-pad left to close, the inventory.")]
+        [InspectorName("Gamepad Inventory Hold Seconds")]
         [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .4f;
         [SerializeField, Min(0f)] private float photoRingColorTransitionDuration = .25f;
 
@@ -219,6 +221,7 @@ namespace AnimalGame.MainUI
         public void ToggleInventory() { if (inventoryOpen) InventoryController.BackInventory(); else OpenInventory(); }
         public void OpenInventory()
         {
+            if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
             if (AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;

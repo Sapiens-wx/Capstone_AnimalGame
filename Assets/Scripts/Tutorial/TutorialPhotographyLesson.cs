@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 
 namespace AnimalGame.Tutorial
 {
-    /// <summary>Observes the real camera, exact teaching subject, result and album save in this scene only.</summary>
+    /// <summary>Observes the real camera and exact teaching subject in this scene only.</summary>
     [DefaultExecutionOrder(1600)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(TutorialDiscoveryLesson))]
@@ -23,6 +23,7 @@ namespace AnimalGame.Tutorial
         [SerializeField, Min(.1f)] private float framingSeconds = .5f;
         [Tooltip("Zero allows observing a stationary teaching animal before photographing it.")]
         [SerializeField, Min(0f)] private float requiredMovementMeters;
+        [SerializeField, Min(.5f)] private float recoveryArrivalRadiusMeters = 4f;
 
         private readonly PhotographyLessonText defaultText = new PhotographyLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
@@ -37,6 +38,8 @@ namespace AnimalGame.Tutorial
         private PhotoResultSnapshot acceptedSnapshot;
         private long resultSequence, acceptedResultId;
         private bool acceptedSaved, hasStarted, chapterConfirmed, wasResultVisible, retryFeedback, shutterPending;
+        private bool ownsPresentation = true;
+        private bool interrupted;
         private float completionDelay, refreshRemaining;
         private PhotographyTutorialStep displayedStep = (PhotographyTutorialStep)(-1);
 
@@ -46,6 +49,7 @@ namespace AnimalGame.Tutorial
         public TutorialDialoguePanel Panel => discovery != null ? discovery.Panel : null;
         public bool HasStarted => hasStarted;
         public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
+        public void SetPresentationOwned(bool value) => ownsPresentation = value;
         private PhotographyLessonText Text => tutorialText != null && tutorialText.Photography != null
             ? tutorialText.Photography : defaultText;
 
@@ -60,7 +64,21 @@ namespace AnimalGame.Tutorial
 
         private void LateUpdate()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject))
+            {
+                if (!interrupted) progress?.Suspend();
+                interrupted = true;
+                if (waypoint != null) waypoint.SetVisible(false);
+                return;
+            }
+            if (interrupted)
+            {
+                interrupted = false;
+                progress?.Suspend();
+                refreshRemaining = 0f;
+            }
             if (discovery == null || targets == null || Panel == null || bootstrap == null) return;
+            if (!ownsPresentation) return;
             BindCamera();
             if (!discovery.IsComplete)
             {
@@ -72,12 +90,20 @@ namespace AnimalGame.Tutorial
             if (!hasStarted)
             {
                 if (modal || !CanPractice()) return;
-                completionDelay += Time.deltaTime;
-                if (completionDelay < discoveryCompletionDelay) return;
                 BeginLesson(); justStarted = true;
             }
             bool resultVisible = ResultVisible();
             UpdatePanelVisibility(modal, resultVisible);
+            if (progress.IsComplete)
+            {
+                // Settle the accepted result once. Future photographs taken during other chapters
+                // must not revoke this handoff and reset the following lesson's progress.
+                if (!resultVisible) chapterConfirmed = true;
+                Panel.SetContinuePrompt(false);
+                Panel.SetVisible(false);
+                if (waypoint != null) waypoint.ClearTarget();
+                return;
+            }
             if (modal) { progress.Suspend(); return; }
 #if ENABLE_INPUT_SYSTEM
             if (!justStarted && !resultVisible && Gamepad.current != null
@@ -110,17 +136,6 @@ namespace AnimalGame.Tutorial
             progress.Sample(new PhotographyTutorialSample(Time.deltaTime, valid && !cameraTransition, !Panel.IsCollapsed,
                 camera != null && camera.IsActive, resultVisible, bodyVisible, seen,
                 framed, targets.AnimalTravelledMeters));
-            // The owned bird has already flown away after a valid shot. Keep its exact snapshot
-            // recoverable if the result was closed unsaved; Y still performs an explicit album save.
-            if (valid && !resultVisible && !resultWasVisible && acceptedSnapshot != null && !acceptedSaved
-                && progress.Step == PhotographyTutorialStep.SavePhoto && !Panel.IsCollapsed
-                && AdaptiveLegacyGamepadInput.WasNorthFaceButtonPressedThisFrame())
-            {
-                PhotoAlbumService.Save(acceptedSnapshot);
-                acceptedSaved = true;
-                progress.RegisterPhotoSaved(acceptedResultId, true);
-                refreshRemaining = 0f;
-            }
             TutorialPanelText continueText = tutorialText != null ? tutorialText.Panel : defaultPanelText;
             Panel.SetContinuePrompt(!chapterConfirmed && progress.CanContinue && valid,
                 !chapterConfirmed && progress.CanContinue && valid ? continueText.ContinuePrompt : continueText.ContinueWaitingPrompt);
@@ -207,12 +222,12 @@ namespace AnimalGame.Tutorial
         {
             if (!hasStarted) return;
             shutterPending = true; retryFeedback = false;
-            if (Panel != null) Panel.SetVisible(false);
+            if (Panel != null && !TutorialTipOverLesson.BlocksMainline(gameObject)) Panel.SetVisible(false);
         }
 
         private void OnResultShown(AnimalPhotoSubject captured, PhotoResultSnapshot snapshot)
         {
-            if (hasStarted && Panel != null) Panel.SetVisible(false);
+            if (hasStarted && Panel != null && !TutorialTipOverLesson.BlocksMainline(gameObject)) Panel.SetVisible(false);
             shutterPending = false;
             if (ReferenceEquals(captured, null) || !ReferenceEquals(captured, subject) || snapshot == null)
             { retryFeedback = acceptedSnapshot == null; return; }
@@ -237,6 +252,12 @@ namespace AnimalGame.Tutorial
         private void RefreshPanel(bool valid = true)
         {
             if (Panel == null || progress == null) return;
+            if (progress.IsComplete)
+            {
+                Panel.SetContinuePrompt(false);
+                Panel.SetVisible(false);
+                return;
+            }
             PhotographyLessonText text = Text;
             TutorialStepText item = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             string photo = "X", rb = "RB", save = "Y", cancel = "B", rt = "RT", lt = "LT", lb = "LB";
@@ -256,8 +277,6 @@ namespace AnimalGame.Tutorial
             { message = text.NeedRescanMessage; glyph = "{lb}"; status = text.NeedRescanStatus; }
             else if (progress.Step == PhotographyTutorialStep.Capture && progress.HasCapturedPhoto)
             { message = text.CapturedMessage; status = text.CapturedStatus; }
-            else if (progress.Step == PhotographyTutorialStep.SavePhoto && acceptedSnapshot != null && !acceptedSaved)
-            { message = text.RecoverySaveMessage; status = text.CapturedStatus; }
             else if (!progress.HasCapturedPhoto && camera != null && !camera.IsActive
                 && (progress.Step == PhotographyTutorialStep.FrameSubject || progress.Step == PhotographyTutorialStep.Capture))
             {
@@ -279,12 +298,16 @@ namespace AnimalGame.Tutorial
         private void UpdateWaypoint()
         {
             if (targets.Animal == null) return;
+            Vector2 target = targets.IsAnimalWithinScanReach ? targets.AnimalMapPosition : targets.AnimalObservationMapPosition;
+            if (bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 player, out _)
+                && Vector2.Distance(player, target) <= recoveryArrivalRadiusMeters)
+            { if (waypoint != null) waypoint.ClearTarget(); return; }
             if (waypoint == null)
             {
                 var child = new GameObject("Photography Target Reminder"); child.transform.SetParent(transform, false);
                 waypoint = child.AddComponent<TutorialWaypointIndicator>(); waypoint.Configure(bootstrap, targetSprite);
             }
-            waypoint.SetTarget(targets.IsAnimalWithinScanReach ? targets.AnimalMapPosition : targets.AnimalObservationMapPosition);
+            waypoint.SetTarget(target);
         }
 
         [ContextMenu("Restart Photography Lesson")]

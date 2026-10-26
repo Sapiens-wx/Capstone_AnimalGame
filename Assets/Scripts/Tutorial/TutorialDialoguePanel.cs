@@ -46,8 +46,10 @@ namespace AnimalGame.Tutorial
         private VisualElement collapseControl;
         private TutorialPanelText panelText = new TutorialPanelText();
         private string lessonHint = string.Empty;
+        private string contextLabel = string.Empty;
         private bool visible = true;
         private bool showDuringPhotoMode;
+        private bool showDuringTutorialPause;
         private bool collapsed;
         private bool successful;
         private float progress;
@@ -62,7 +64,41 @@ namespace AnimalGame.Tutorial
         public bool CanContinue => continueReady && visible && !collapsed && isActiveAndEnabled;
         public bool ContinueWasPresented => CanContinue && Time.frameCount > continueReadyFrame && Time.frameCount > reopenedFrame;
         public bool ShowDuringPhotoMode => showDuringPhotoMode;
+        public bool ShowDuringTutorialPause => showDuringTutorialPause;
         public event Action<bool> CollapsedChanged;
+
+        /// <summary>Content only; presentation visibility and confirmation input are restored separately.</summary>
+        public sealed class ContentSnapshot
+        {
+            internal string Title, Message, ControlGlyph, Action, Detail, Status, ContextLabel, LessonHint;
+            internal int Chapter, Chapters;
+            internal float Progress;
+            internal bool Successful, ShowDuringPhotoMode;
+            internal TutorialPanelText PanelText;
+        }
+
+        public ContentSnapshot CaptureContent() => new ContentSnapshot
+        {
+            Title = title, Message = message, ControlGlyph = controlGlyph, Action = action,
+            Detail = detail, Status = status, ContextLabel = contextLabel, LessonHint = lessonHint,
+            Chapter = chapter, Chapters = chapters, Progress = progress,
+            Successful = successful, ShowDuringPhotoMode = showDuringPhotoMode, PanelText = panelText
+        };
+
+        public void RestoreContent(ContentSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            title = snapshot.Title; message = snapshot.Message; controlGlyph = snapshot.ControlGlyph;
+            action = snapshot.Action; detail = snapshot.Detail; status = snapshot.Status;
+            contextLabel = snapshot.ContextLabel; lessonHint = snapshot.LessonHint;
+            chapter = snapshot.Chapter; chapters = snapshot.Chapters; panelText = snapshot.PanelText;
+            showDuringPhotoMode = snapshot.ShowDuringPhotoMode;
+            // A content snapshot cannot retain permission to display over a later pause.
+            showDuringTutorialPause = false;
+            SetContinuePrompt(false);
+            RefreshPanelText(); RefreshContent(); RefreshLessonHint();
+            SetProgress(snapshot.Progress); SetSuccess(snapshot.Successful); RefreshVisibility();
+        }
 
         private void Awake()
         {
@@ -103,7 +139,15 @@ namespace AnimalGame.Tutorial
             this.status = status ?? string.Empty;
             this.chapters = Mathf.Max(1, chapters);
             this.chapter = Mathf.Clamp(chapter, 1, this.chapters);
+            contextLabel = string.Empty;
             RefreshContent();
+        }
+
+        /// <summary>A temporary contextual lesson replaces the numeric chapter without changing the main sequence.</summary>
+        public void SetContextLabel(string value)
+        {
+            contextLabel = value ?? string.Empty;
+            RefreshChapterLabels();
         }
 
         public void SetProgress(float normalized)
@@ -111,6 +155,7 @@ namespace AnimalGame.Tutorial
             progress = Mathf.Clamp01(normalized);
             if (progressFill != null) progressFill.style.width = Length.Percent(progress * 100f);
             if (percentLabel != null) percentLabel.text = Mathf.RoundToInt(progress * 100f) + "%";
+            if (!string.IsNullOrEmpty(contextLabel)) RefreshChapterLabels();
         }
 
         /// <summary>Update fixed panel copy without replacing the document or any lesson/fold state.</summary>
@@ -145,6 +190,13 @@ namespace AnimalGame.Tutorial
         public void SetPhotoModeVisible(bool value)
         {
             showDuringPhotoMode = value;
+            RefreshVisibility();
+        }
+
+        /// <summary>Only this scene's owned landing lesson can remain visible during its world pause.</summary>
+        public void SetTutorialPauseVisible(bool value)
+        {
+            showDuringTutorialPause = value;
             RefreshVisibility();
         }
 
@@ -329,9 +381,21 @@ namespace AnimalGame.Tutorial
             actionLabel.text = action;
             detailLabel.text = detail;
             statusLabel.text = status;
-            chapterLabel.text = chapter.ToString("00") + " / " + chapters.ToString("00");
-            tabProgressLabel.text = chapter.ToString("00") + "\n/" + chapters.ToString("00");
+            RefreshChapterLabels();
             RefreshContinuePrompt();
+        }
+
+        private void RefreshChapterLabels()
+        {
+            if (chapterLabel == null || tabProgressLabel == null) return;
+            currentLessonLabel.style.width = string.IsNullOrEmpty(contextLabel) ? 180f : 301f;
+            currentLessonLabel.text = string.IsNullOrEmpty(contextLabel) ? panelText.CurrentLesson : contextLabel;
+            chapterLabel.style.display = string.IsNullOrEmpty(contextLabel) ? DisplayStyle.Flex : DisplayStyle.None;
+            chapterLabel.text = string.IsNullOrEmpty(contextLabel)
+                ? chapter.ToString("00") + " / " + chapters.ToString("00") : string.Empty;
+            tabProgressLabel.text = string.IsNullOrEmpty(contextLabel)
+                ? chapter.ToString("00") + "\n/" + chapters.ToString("00")
+                : Mathf.RoundToInt(progress * 100f) + "\n%";
         }
 
         private void RefreshContinuePrompt()
@@ -354,6 +418,7 @@ namespace AnimalGame.Tutorial
             guideLabel.text = panelText.GuideLabel ?? string.Empty;
             collapseControl.tooltip = panelText.CollapseTooltip ?? string.Empty;
             collapsedTab.tooltip = panelText.ExpandTooltip ?? string.Empty;
+            RefreshChapterLabels();
         }
 
         private void RefreshLessonHint()
@@ -387,6 +452,7 @@ namespace AnimalGame.Tutorial
 
         private void LateUpdate()
         {
+            TutorialContinueInput.ObserveRelease();
             if (document == null) return;
             // UIDocument rebuilds its visual tree after re-enabling its GameObject.
             if (root != document.rootVisualElement || expanded == null || expanded.parent == null) BuildTree();
@@ -416,10 +482,14 @@ namespace AnimalGame.Tutorial
         private void RefreshVisibility()
         {
             if (root == null) return;
-            bool obscured = Time.timeScale <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay;
+            var recovery = showDuringTutorialPause ? GetComponentInParent<TutorialTipOverLesson>() : null;
+            bool tutorialPause = recovery != null && recovery.gameObject.scene == gameObject.scene
+                && gameObject.scene.path == TutorialDrivingLesson.ScenePath && recovery.OwnsInertiaPause;
+            bool obscured = (Time.timeScale <= 0f && !tutorialPause) || AnimalGame.MainUI.MainUI.BlocksGameplay
+                || (tutorialPause && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels);
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap != null)
-                obscured |= (!showDuringPhotoMode && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
+                obscured |= ((!showDuringPhotoMode || tutorialPause) && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
                     || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
             root.style.display = visible && !obscured ? DisplayStyle.Flex : DisplayStyle.None;
             expanded.style.display = collapsed ? DisplayStyle.None : DisplayStyle.Flex;

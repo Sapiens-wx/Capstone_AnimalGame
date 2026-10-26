@@ -453,7 +453,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             CheckCameraBeforeEquip();
             CheckpointRefitView view = terminal.View;
             view.NavigateSlot(1 - view.SelectedSlotIndex);
-            Require(view.GetCameraModule(0) == zoomLens300 && view.GetCameraModule(1) == damagedPrime50
+            Require(view.GetCameraModule(0) == CameraBeforePass && view.GetCameraModule(1) == CameraAfterPass
                 && view.GetCameraModule(2) == null, "The CAMERA slot must expose the real camera assets and retain its third unavailable bar.");
             view.NavigateModule(2 - view.SelectedModuleIndex);
             Require(!view.IsSelectedModuleAvailable, "The third camera bar must remain undiscovered.");
@@ -461,14 +461,18 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             Require(photoController.CurrentCamera == CameraBeforePass && equipRequests == RequestsBeforePass,
                 "Requesting an unavailable module must not change equipment or emit an equip action.");
             CheckpointRefitPreviewValidation.CheckModulePresentation(view);
-            int target = restoreCameraPass ? 0 : 1;
+            int target = -1;
+            for (int i = 0; i < view.ModuleCount; i++)
+                if (view.GetCameraModule(i) == CameraAfterPass) { target = i; break; }
+            Require(target >= 0, "The camera to equip must be present in the current display order.");
             view.NavigateModule(target - view.SelectedModuleIndex);
         }
 
         private void CheckCameraAfterEquip()
         {
             Require(photoController.CurrentCamera == CameraAfterPass && cameraEquipment.IsInstalled(CameraAfterPass)
-                && terminal.View.IsSelectedModuleInstalled && terminal.View.SelectedCamera == CameraAfterPass,
+                && terminal.View.IsSelectedModuleInstalled && terminal.View.SelectedCamera == CameraAfterPass
+                && terminal.View.SelectedModuleIndex == 0 && terminal.View.GetCameraModule(0) == CameraAfterPass,
                 "The maintenance installation state must match the real photographic controller.");
             Require(equipRequests == RequestsBeforePass + 1,
                 "Each deliberate A / Enter press must emit exactly one equipment request, including while held.");

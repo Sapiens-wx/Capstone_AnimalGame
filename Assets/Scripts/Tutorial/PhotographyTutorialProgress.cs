@@ -4,7 +4,7 @@ namespace AnimalGame.Tutorial
 {
     public enum PhotographyTutorialStep
     {
-        ObserveMovement, EnterPhoto, FrameSubject, Capture, SavePhoto, ExitPhoto, Completed
+        ObserveMovement, EnterPhoto, FrameSubject, Capture, Completed
     }
 
     /// <summary>Native camera and target observations. Result UI visibility is separate from photo mode.</summary>
@@ -26,14 +26,14 @@ namespace AnimalGame.Tutorial
     }
 
     /// <summary>
-    /// Observes real movement, framing, capture and album-save outcomes. The lesson controller verifies
+    /// Observes real movement, framing and capture outcomes. The lesson controller verifies
     /// that results belong to its teaching animal before forwarding their monotonic identifiers.
     /// </summary>
     public sealed class PhotographyTutorialProgress
     {
         private readonly float observeSeconds, frameSeconds, requiredMovementMeters;
         private long resultFloor, newestResultId;
-        private bool lastPhotoModeActive, enteredPhoto, lastResultVisible;
+        private bool enteredPhoto, lastResultVisible;
         private float observationReading, framingReading;
 
         public PhotographyTutorialStep Step { get; private set; }
@@ -43,15 +43,12 @@ namespace AnimalGame.Tutorial
         public bool HasSavedPhoto { get; private set; }
         public bool HasCapturedPhoto => ActiveResultId > 0;
         public bool IsComplete => Step == PhotographyTutorialStep.Completed;
-        public bool CanContinue => !lastResultVisible && (Step switch
+        public bool CanContinue => !IsComplete && !lastResultVisible && (Step switch
         {
             PhotographyTutorialStep.ObserveMovement => HasCapturedPhoto || (IsRead(observationReading, observeSeconds) && MovementMeters >= requiredMovementMeters),
             PhotographyTutorialStep.EnterPhoto => enteredPhoto || HasCapturedPhoto,
             PhotographyTutorialStep.FrameSubject => IsRead(framingReading, frameSeconds) || HasCapturedPhoto,
             PhotographyTutorialStep.Capture => HasCapturedPhoto,
-            PhotographyTutorialStep.SavePhoto => HasSavedPhoto,
-            PhotographyTutorialStep.ExitPhoto => HasSavedPhoto && !lastPhotoModeActive,
-            PhotographyTutorialStep.Completed => true,
             _ => false
         });
         public float Value => CanContinue ? Target : ReadingSeconds;
@@ -80,7 +77,7 @@ namespace AnimalGame.Tutorial
             newestResultId = resultFloor;
             Step = PhotographyTutorialStep.ObserveMovement; ReadingSeconds = MovementMeters = 0f;
             ActiveResultId = 0; HasSavedPhoto = false;
-            lastPhotoModeActive = enteredPhoto = lastResultVisible = false;
+            enteredPhoto = lastResultVisible = false;
             observationReading = framingReading = 0f;
         }
 
@@ -95,17 +92,18 @@ namespace AnimalGame.Tutorial
             if (!valid || IsComplete || HasSavedPhoto || resultId <= 0 || resultId <= newestResultId)
                 return false;
             newestResultId = resultId; ActiveResultId = resultId;
-            // Keep the current instruction until A. A real subject result also proves the preceding
-            // camera actions, including an early shot taken before their individual confirmations.
+            // A real subject result proves all camera actions. There is no separate save, exit or
+            // completion instruction; the controller waits only for the native result screen to close.
             enteredPhoto = true;
             observationReading = observeSeconds; framingReading = frameSeconds;
+            MoveTo(PhotographyTutorialStep.Completed);
             return true;
         }
 
         /// <summary>Only the album save for the current accepted result satisfies this action.</summary>
         public bool RegisterPhotoSaved(long resultId, bool valid)
         {
-            if (!valid || IsComplete || ActiveResultId <= 0 || resultId != ActiveResultId || HasSavedPhoto)
+            if (!valid || ActiveResultId <= 0 || resultId != ActiveResultId || HasSavedPhoto)
                 return false;
             HasSavedPhoto = true;
             return true;
@@ -114,7 +112,7 @@ namespace AnimalGame.Tutorial
         /// <summary>Keep the captured result available when the bird has already left the scene.</summary>
         public bool RegisterResultClosed(long resultId, bool valid)
         {
-            if (!valid || IsComplete || ActiveResultId <= 0 || resultId != ActiveResultId) return false;
+            if (!valid || ActiveResultId <= 0 || resultId != ActiveResultId) return false;
             return true;
         }
 
@@ -123,7 +121,6 @@ namespace AnimalGame.Tutorial
             if (IsComplete) return;
             if (!sample.Valid || !float.IsFinite(sample.DeltaTime) || sample.DeltaTime <= 0f || sample.DeltaTime > .25f)
             { Suspend(); return; }
-            lastPhotoModeActive = sample.PhotoModeActive;
             lastResultVisible = sample.ResultVisible;
             enteredPhoto |= sample.PhotoModeActive;
             if (float.IsFinite(sample.MovementMeters)) MovementMeters = Mathf.Max(MovementMeters, sample.MovementMeters);
@@ -158,8 +155,6 @@ namespace AnimalGame.Tutorial
                 PhotographyTutorialStep.ObserveMovement => PhotographyTutorialStep.EnterPhoto,
                 PhotographyTutorialStep.EnterPhoto => PhotographyTutorialStep.FrameSubject,
                 PhotographyTutorialStep.FrameSubject => PhotographyTutorialStep.Capture,
-                PhotographyTutorialStep.Capture => PhotographyTutorialStep.SavePhoto,
-                PhotographyTutorialStep.SavePhoto => PhotographyTutorialStep.ExitPhoto,
                 _ => PhotographyTutorialStep.Completed
             });
             return true;

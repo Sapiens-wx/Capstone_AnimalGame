@@ -155,6 +155,9 @@ namespace AnimalGame.Editor
                 EditorApplication.QueuePlayerLoopUpdate();
                 if (!EditorApplication.isPlaying || Time.frameCount == lastFrame) return;
                 lastFrame = Time.frameCount;
+                if (lesson != null && lesson.HasStarted && !lesson.IsComplete)
+                    Require(!lesson.GetComponent<TutorialRecyclingLesson>().HasStarted,
+                        "Recycling cannot start before a real subject photograph or while its native result is visible.");
                 ReadNativeState();
                 if (Time.frameCount % 30 == 0) Save();
                 CheckRuntimeInvariants();
@@ -252,6 +255,8 @@ namespace AnimalGame.Editor
                         Begin(refreshReturn); break;
                     case Phase.PhotographyStarting:
                         if (!lesson.HasStarted || lesson.Progress == null) return;
+                        Require(!discovery.GetComponent<TutorialRecyclingLesson>().HasStarted,
+                            "Photography begins directly after discovery while recycling still waits.");
                         Require(ReferenceEquals(lesson.Targets.Animal, discovery.Targets.Animal),
                             "Photography must retain the scanned woodpecker instance rather than clone or replace it.");
                         Begin(Phase.ObserveMovement); break;
@@ -315,9 +320,9 @@ namespace AnimalGame.Editor
                         report.resultFullyOpened = true;
                         Require(report.hiddenResultFrames >= 5 && report.resultHiddenAllFrames,
                             "Both expanded card and collapsed tab must stay hidden throughout the real result screen.");
-                        Require(lesson.Progress.Step == PhotographyTutorialStep.Capture && lesson.Progress.HasCapturedPhoto
-                            && !lesson.Progress.CanContinue && !lesson.Progress.HasSavedPhoto,
-                            "The accepted real shot must latch while the unchanged Capture card and its A confirmation are hidden during results.");
+                        Require(lesson.Progress.IsComplete && lesson.Progress.HasCapturedPhoto
+                            && !lesson.Progress.CanContinue && !lesson.Progress.HasSavedPhoto && !lesson.IsComplete,
+                            "A valid shot finishes photo practice while native results defer chapter handoff and hide all tutorial UI.");
                         Require(Targets.AnimalActor != null && Targets.AnimalActor.IsDeparting,
                             "The accepted shot must immediately queue the teaching bird's departure.");
                         Require(!Targets.AnimalActor.HasStartedDepartureFlight,
@@ -335,15 +340,15 @@ namespace AnimalGame.Editor
                             && ReferenceEquals(PhotoAlbumService.Photos[report.albumAfter - 1].Snapshot, acceptedResult),
                             "The real Y save must add this exact result once to the native album.");
                         report.albumRecordAdded = true;
-                        Require(lesson.Progress.HasSavedPhoto && lesson.Progress.Step == PhotographyTutorialStep.Capture,
-                            "Saving the actual result must be remembered while the unchanged Capture card waits for A.");
+                        Require(lesson.Progress.HasSavedPhoto && lesson.Progress.IsComplete,
+                            "The normal optional album save remains available without a tutorial save step.");
                         Record("A real controller Y press saves the same woodpecker snapshot to the album.");
                         Begin(Phase.CloseResult); break;
                     case Phase.CloseResult:
                         if (bootstrap.photoResultUi.IsResultVisible) { CheckResultPanelHidden(); return; }
                         if (!Settled(4) || bootstrap.photoMode.IsReviewing || bootstrap.photoResultView.IsClosing) return;
-                        Require(bootstrap.photoMode.IsActive && !lesson.IsComplete,
-                            "The first B closes results but retains photo mode and pending exit instructions.");
+                        Require(bootstrap.photoMode.IsActive && lesson.IsComplete && !lesson.Panel.CanContinue,
+                            "Closing results completes photography without a save, exit or completion confirmation.");
                         report.resultClosedBeforePhotoExit = true;
                         Record("The first real B closes the native result; photo mode remains active.");
                         Begin(Phase.NeutralAfterResult); break;
@@ -354,7 +359,7 @@ namespace AnimalGame.Editor
                             && !bootstrap.photoResultUi.IsResultVisible && !bootstrap.photoMode.IsReviewing,
                             "Several real neutral input frames must separate closing results and the next B press.");
                         report.neutralBetweenBackPresses = true;
-                        if (lesson.Progress.Step != PhotographyTutorialStep.ExitPhoto) return;
+                        if (!lesson.IsComplete) return;
                         Begin(Phase.ExitPhoto); break;
                     case Phase.ExitPhoto:
                         if (bootstrap.photoMode.IsActive || !lesson.IsComplete) return;
@@ -381,6 +386,14 @@ namespace AnimalGame.Editor
                         Begin(Phase.Complete); break;
                     case Phase.Complete:
                         if (!Settled(10)) return;
+                        var followingRecycling = lesson.GetComponent<TutorialRecyclingLesson>();
+                        if (!followingRecycling.HasStarted || followingRecycling.Progress == null) return;
+                        Require(followingRecycling.Progress.Step == RecyclingTutorialStep.ReachWaste
+                            && followingRecycling.TargetWaste != null && Targets.Item != null
+                            && followingRecycling.TargetWaste.gameObject == Targets.Item.gameObject,
+                            "Completed photography hands off to the same discovery waste as chapter seven without extra A prompts.");
+                        Require(lesson.Panel.Root.Q<Label>("TutorialChapter").text == "07 / 09" && Targets.HasAnimalDeparted,
+                            "Recycling follows photography without respawning its departed teaching bird.");
                         CollectScreenshots();
                         Finish(null); break;
                 }

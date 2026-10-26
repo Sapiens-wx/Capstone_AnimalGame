@@ -169,6 +169,7 @@ namespace AnimalGame.Editor
                 {
                     foreach (PhotographyTutorialStep step in Enum.GetValues(typeof(PhotographyTutorialStep)))
                     {
+                        if (step == PhotographyTutorialStep.Completed) continue;
                         typeof(PhotographyTutorialProgress).GetProperty("Step", Flags).SetValue(progress, step);
                         foreach (bool valid in new[] { true, false })
                         {
@@ -208,14 +209,10 @@ namespace AnimalGame.Editor
                 }
                 typeof(PhotographyTutorialProgress).GetProperty("Step", Flags).SetValue(progress, PhotographyTutorialStep.Completed);
                 Set(lesson, "chapterConfirmed", false); Invoke(lesson, "RefreshPanel", true);
-                panel.SetVisible(true); panel.SetCollapsed(false);
                 DrivingHelper("Settle", panel, new Vector2(1920, 1080));
-                Require(panel.CanContinue, "The final photo completion card waits for A.");
-                Set(lesson, "chapterConfirmed", true); Invoke(lesson, "RefreshPanel", true);
-                DrivingHelper("Settle", panel, new Vector2(1920, 1080));
-                Require(!panel.CanContinue && panel.Root.Q("TutorialContinuePrompt").resolvedStyle.display == DisplayStyle.None,
-                    "After final chapter confirmation the photo tutorial cannot claim future gameplay A presses.");
-                CheckNativePhotoVisibility(fixture, bootstrap, panel);
+                Require(!panel.IsVisible && !panel.CanContinue,
+                    "Completed photo practice hides its card without requiring an additional chapter confirmation.");
+                CheckNativePhotoVisibility(fixture, bootstrap, panel, lesson, discovery);
             }
             finally
             {
@@ -229,10 +226,10 @@ namespace AnimalGame.Editor
         private static void CheckRecoveryCopy(TutorialDialoguePanel panel, TutorialTextContent text, Vector2 size)
         {
             PhotographyLessonText copy = text.Photography;
-            string[] messages = { copy.TargetMissingMessage, copy.NeedStowMessage, copy.NeedRescanMessage,
-                copy.RetryPhotoMessage, copy.CapturedMessage, copy.RecoverySaveMessage };
-            string[] statuses = { copy.TargetMissingStatus, copy.NeedStowStatus, copy.NeedRescanStatus,
-                copy.RetryPhotoStatus, copy.CapturedStatus, copy.CapturedStatus };
+            string[] messages = { copy.TargetMissingMessage, copy.NeedRescanMessage,
+                copy.RetryPhotoMessage, copy.CapturedMessage };
+            string[] statuses = { copy.TargetMissingStatus, copy.NeedRescanStatus,
+                copy.RetryPhotoStatus, copy.CapturedStatus };
             TutorialTextTokens tokens = Tokens();
             for (int index = 0; index < messages.Length; index++)
             {
@@ -275,7 +272,7 @@ namespace AnimalGame.Editor
         }
 
         private static void CheckNativePhotoVisibility(GameObject fixture, HeightMapPlayerSceneBootstrap bootstrap,
-            TutorialDialoguePanel panel)
+            TutorialDialoguePanel panel, TutorialPhotographyLesson lesson, TutorialDiscoveryLesson discovery)
         {
             HeightMapPlayerSceneBootstrap previousBootstrap = HeightMapPlayerSceneBootstrap.inst;
             var photo = fixture.AddComponent<PhotoModeController>();
@@ -285,6 +282,22 @@ namespace AnimalGame.Editor
             {
                 bootstrap.photoMode = photo; bootstrap.photoResultView = result;
                 HeightMapPlayerSceneBootstrap.inst = bootstrap;
+                var completedDiscovery = new DiscoveryTutorialProgress();
+                typeof(DiscoveryTutorialProgress).GetProperty("Step", Flags).SetValue(completedDiscovery, DiscoveryTutorialStep.Completed);
+                Set(discovery, "progress", completedDiscovery); Set(discovery, "hasStarted", true);
+                Set(lesson, "targets", fixture.GetComponent<TutorialDiscoveryTargets>());
+                Set(lesson, "hasStarted", true); Set(lesson, "chapterConfirmed", false);
+                Set(result, "showing", true);
+                Invoke(lesson, "LateUpdate");
+                Require(!lesson.IsComplete, "The accepted photo result must close before the next chapter can begin.");
+                Set(result, "showing", false);
+                Invoke(lesson, "LateUpdate");
+                Require(lesson.IsComplete, "Closing the accepted result automatically settles photography without A.");
+                Set(result, "showing", true);
+                Invoke(lesson, "LateUpdate");
+                Require(lesson.IsComplete && !panel.CanContinue,
+                    "A later native photo result cannot revoke settled photography or reset following chapters.");
+                Set(result, "showing", false);
                 photoState.SetValue(photo, Enum.Parse(photoState.FieldType, "Active"));
                 panel.SetCollapsed(false); panel.SetPhotoModeVisible(false); panel.SetVisible(true);
                 DrivingHelper("Settle", panel, new Vector2(1920, 1080));

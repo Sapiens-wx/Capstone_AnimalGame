@@ -340,7 +340,7 @@ namespace AnimalGame.Editor
                             Require(report.waitedForA && report.confirmedWithA,
                                 "Native observations must wait on their ready cards until real A confirmation.");
                             report.noRescanStep = true;
-                            Record("Reading the actual object highlight then confirming its card and final card with A completes discovery without a rescan lesson.", "discovery-completed.png");
+                            Record("Reading the actual object highlight then confirming that action with A completes discovery directly without a completion or rescan card.", "discovery-completed.png");
                             Begin(Phase.Complete); break;
                         }
                         if (!lesson.Progress.CanContinue && !lesson.Progress.IsComplete

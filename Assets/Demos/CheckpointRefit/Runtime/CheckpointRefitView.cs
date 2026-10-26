@@ -17,6 +17,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private static readonly string[] SlotNames = { "LEGS", "CAMERA", "BACK", "EXPANSION" };
         private readonly Button[] slotButtons = new Button[4];
         private readonly Button[] moduleButtons = new Button[3];
+        private readonly PhotoCameraDefinition[] cameraModules = new PhotoCameraDefinition[3];
         private readonly List<KeyValuePair<Button, Action>> clickHandlers = new List<KeyValuePair<Button, Action>>();
         private UIDocument document;
         private VisualElement boundRoot;
@@ -49,6 +50,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private RefitCameraEquipment cameraEquipment;
         private PhotoCameraDefinition zoomLens300;
         private PhotoCameraDefinition damagedPrime50;
+        private PhotoCameraDefinition displayedInstalledCamera;
 
         public event Action CloseRequested;
         public event Action EquipRequested;
@@ -72,14 +74,14 @@ namespace AnimalGame.Demos.CheckpointRefit
         }
 
         public PhotoCameraDefinition GetCameraModule(int index)
-            => index == 0 ? zoomLens300 : (index == 1 ? damagedPrime50 : null);
+            => index >= 0 && index < cameraModules.Length ? cameraModules[index] : null;
 
         public bool IsModuleAvailable(int slotIndex, int moduleIndex)
         {
             if (slotIndex == 0) return moduleIndex == 0;
             if (slotIndex != 1) return false;
             var camera = GetCameraModule(moduleIndex);
-            return camera != null && (moduleIndex == 0 || (cameraEquipment != null && cameraEquipment.IsUnlocked(camera)));
+            return camera != null && (camera == zoomLens300 || (cameraEquipment != null && cameraEquipment.IsUnlocked(camera)));
         }
 
         public bool IsModuleInstalled(int slotIndex, int moduleIndex)
@@ -112,6 +114,13 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void OnDestroy()
         {
             Unbind();
+        }
+
+        private void LateUpdate()
+        {
+            if (!IsVisible) return;
+            var installed = cameraEquipment != null ? cameraEquipment.CurrentCamera : null;
+            if (installed != displayedInstalledCamera) RefreshEquipment();
         }
 
         public void Show(string checkpointName, string checkpointId)
@@ -284,6 +293,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void SelectSlot(int index)
         {
             if (!IsVisible || IsInspectionOpen) return;
+            RefreshCameraModuleOrder();
             SelectedSlotIndex = Wrap(index, SlotNames.Length);
             SelectedModuleIndex = 0;
             RefreshSelection();
@@ -298,6 +308,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void RefreshSelection()
         {
+            bool selectionMoved = RefreshCameraModuleOrder();
             for (int i = 0; i < slotButtons.Length; i++) slotButtons[i]?.EnableInClassList("refit-selected", i == SelectedSlotIndex);
             for (int i = 0; i < moduleButtons.Length; i++)
             {
@@ -321,7 +332,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (libraryLabel != null) libraryLabel.text = SlotNames[SelectedSlotIndex] + " / MODULES";
             bool selectedAvailable = IsSelectedModuleAvailable;
             bool selectedInstalled = IsSelectedModuleInstalled;
-            bool selectedDamagedCamera = SelectedSlotIndex == 1 && SelectedModuleIndex == 1;
+            bool selectedDamagedCamera = SelectedSlotIndex == 1 && SelectedCamera != null && SelectedCamera == damagedPrime50;
             string kind = selectedAvailable ? (SelectedSlotIndex == 0 ? "tracks" : "camera") : "unavailable";
             string title = selectedAvailable ? (SelectedSlotIndex == 0 ? "TRACKS" : SelectedCamera.DisplayName) : "NO MODULE DATA";
             string description = selectedAvailable
@@ -368,6 +379,33 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (photoExpand != null) photoExpand.style.display = selectedAvailable ? DisplayStyle.Flex : DisplayStyle.None;
             if (noData != null) noData.style.display = selectedAvailable ? DisplayStyle.None : DisplayStyle.Flex;
             if (modalNoData != null) modalNoData.style.display = selectedAvailable ? DisplayStyle.None : DisplayStyle.Flex;
+            if (selectionMoved && IsVisible && !IsInspectionOpen) moduleButtons[SelectedModuleIndex]?.Focus();
+        }
+
+        private bool RefreshCameraModuleOrder()
+        {
+            var selected = SelectedCamera;
+            int previousIndex = SelectedModuleIndex;
+            cameraModules[0] = zoomLens300;
+            cameraModules[1] = damagedPrime50;
+            cameraModules[2] = null;
+            displayedInstalledCamera = cameraEquipment != null ? cameraEquipment.CurrentCamera : null;
+            // Move the installed definition to the front without changing the
+            // relative order of the other modules or the identity of the selection.
+            for (int i = 1; i < cameraModules.Length; i++)
+            {
+                if (cameraModules[i] == null || cameraModules[i] != displayedInstalledCamera) continue;
+                var installed = cameraModules[i];
+                for (int j = i; j > 0; j--) cameraModules[j] = cameraModules[j - 1];
+                cameraModules[0] = installed;
+                break;
+            }
+            if (selected != null)
+            {
+                int nextIndex = Array.IndexOf(cameraModules, selected);
+                SelectedModuleIndex = nextIndex >= 0 ? nextIndex : 0;
+            }
+            return SelectedModuleIndex != previousIndex;
         }
 
         private static void SetCardLabel(Button button, string className, string text, bool visible)

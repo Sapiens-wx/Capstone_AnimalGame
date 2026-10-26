@@ -20,8 +20,8 @@ namespace AnimalGame.Tutorial
         [Tooltip("Logical map metres. The last approach point is the terrain survey area.")]
         [SerializeField] private Vector2[] approachPointsMeters = { new Vector2(163f, 140f) };
         [SerializeField] private Vector2 gentleRouteDestinationMeters = new Vector2(146f, 121f);
-        [SerializeField, Min(.5f)] private float arrivalRadiusMeters = 2f;
-        [SerializeField, Min(1f)] private float surveyRadiusMeters = 6f;
+        [SerializeField, Min(.5f)] private float arrivalRadiusMeters = 4f;
+        [SerializeField, Min(1f)] private float surveyRadiusMeters = 8f;
         [SerializeField, Min(1f)] private float signsReadingSeconds = 4f;
         [SerializeField, Min(0f)] private float drivingCompletionDelay = 2f;
 
@@ -37,6 +37,7 @@ namespace AnimalGame.Tutorial
         private bool showingTarget;
         private bool ownsPresentation = true;
         private bool chapterConfirmed;
+        private bool interrupted;
         private readonly TerrainLessonText defaultText = new TerrainLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();
 
@@ -44,9 +45,13 @@ namespace AnimalGame.Tutorial
         public TerrainTutorialProgress Progress => progress;
         public TutorialWaypointIndicator Waypoint => waypoint;
         public bool HasStarted => hasStarted;
-        public bool IsComplete => hasStarted && progress != null && progress.IsComplete && chapterConfirmed;
+        public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
 
-        public void SetPresentationOwned(bool value) => ownsPresentation = value;
+        public void SetPresentationOwned(bool value)
+        {
+            ownsPresentation = value;
+            if (!value && progress != null && progress.IsComplete) UpdateTarget();
+        }
 
         private void Start()
         {
@@ -62,6 +67,13 @@ namespace AnimalGame.Tutorial
 
         private void LateUpdate()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject))
+            {
+                interrupted = true;
+                if (waypoint != null) waypoint.SetVisible(false);
+                return;
+            }
+            if (interrupted) { interrupted = false; refreshRemaining = 0f; }
             if (driving == null || driving.Panel == null || bootstrap == null) return;
             if (!driving.IsComplete)
             {
@@ -70,12 +82,12 @@ namespace AnimalGame.Tutorial
                 return;
             }
             if (!ownsPresentation) return;
+            if (progress != null && progress.IsComplete)
+            { UpdateTarget(); driving.Panel.SetContinuePrompt(false); driving.Panel.SetVisible(false); return; }
             bool modal = IsModal();
             if (!hasStarted)
             {
                 if (modal || !CanDrive()) return;
-                completionDelay += Time.deltaTime;
-                if (completionDelay < drivingCompletionDelay) return;
                 BeginLesson();
             }
             EnsureScanSubscription();
@@ -95,22 +107,16 @@ namespace AnimalGame.Tutorial
             // Requests arrive before the asynchronous scan has produced its first markers.
             if (progress.Step == TerrainTutorialStep.ReadSigns && !scanReady
                 && Time.unscaledTime - lastAcceptedScanAt > 2f) progress.RequireFreshScan();
-            float metersPerWorld = bootstrap.map != null && bootstrap.robot != null
-                ? 1f / Mathf.Max(.0001f, bootstrap.map.MapMetersToWorldDistance(bootstrap.robot.Forward, 1f)) : 1f;
-            bool stopped = bootstrap.robot != null && Mathf.Abs(bootstrap.robot.CurrentSpeed) * metersPerWorld <= .2f
-                && bootstrap.robot.CurrentTerrainVelocity.magnitude * metersPerWorld <= .2f
-                && Mathf.Abs(bootstrap.robot.CurrentTurnSpeed) <= 2f
-                && Mathf.Abs(bootstrap.robot.CurrentTerrainTurnSpeed) <= 2f;
-            progress.Sample(position, Time.deltaTime, valid, !panel.IsCollapsed, scanReady, stopped);
-            panel.SetContinuePrompt(valid && progress.CanContinue && !chapterConfirmed,
+            progress.Sample(position, Time.deltaTime, valid, !panel.IsCollapsed, scanReady, true);
+            panel.SetContinuePrompt(valid && progress.CanContinue,
                 (tutorialText != null ? tutorialText.Panel : defaultPanelText).ContinuePrompt);
             if (TutorialContinueInput.TryConsume(panel, bootstrap))
             {
-                if (progress.IsComplete) chapterConfirmed = true;
-                else progress.Continue();
+                progress.Continue();
                 panel.SetContinuePrompt(false);
                 refreshRemaining = 0f;
             }
+            if (progress.IsComplete) { UpdateTarget(); panel.SetContinuePrompt(false); panel.SetVisible(false); return; }
             if (progress.Step != displayedStep || progress.ApproachIndex != displayedApproachIndex)
             {
                 panel.SetCollapsed(false);
@@ -118,7 +124,7 @@ namespace AnimalGame.Tutorial
             }
             UpdateTarget();
             refreshRemaining -= Time.unscaledDeltaTime;
-            if (refreshRemaining <= 0f) { RefreshPanel(valid, scanReady, stopped); refreshRemaining = .08f; }
+            if (refreshRemaining <= 0f) { RefreshPanel(valid, scanReady); refreshRemaining = .08f; }
         }
 
         private void BeginLesson()
@@ -135,7 +141,6 @@ namespace AnimalGame.Tutorial
             waypoint.Configure(bootstrap, targetSprite);
             driving.Panel.SetCollapsed(false);
             driving.Panel.SetContinuePrompt(false);
-            chapterConfirmed = false;
             hasStarted = true;
             if (TryGetPosition(out Vector2 position))
                 progress.Sample(position, Time.deltaTime, CanDrive(), true, false, false);
@@ -154,6 +159,7 @@ namespace AnimalGame.Tutorial
 
         private void OnTerrainScan()
         {
+            if (TutorialTipOverLesson.BlocksMainline(gameObject)) return;
             if (!hasStarted || !isActiveAndEnabled || IsModal() || !CanDrive() || !TryGetPosition(out Vector2 position)) return;
             if (progress.RegisterTerrainScan(position, true))
             {
@@ -164,6 +170,7 @@ namespace AnimalGame.Tutorial
 
         private void UpdateTarget()
         {
+            if (waypoint == null) { showingTarget = false; return; }
             if (!progress.HasTarget)
             {
                 if (showingTarget) waypoint.ClearTarget();
@@ -184,8 +191,8 @@ namespace AnimalGame.Tutorial
         private bool CanDrive()
         {
             RobotMover robot = bootstrap != null ? bootstrap.robot : null;
-            return robot != null && robot.isActiveAndEnabled && !robot.IsMovementLocked && !robot.IsArmInputCaptured
-                && !robot.IsPhotoModeInputLocked && !robot.IsLevelThreeUnstable && !robot.IsAutoAligningDownhill
+            return robot != null && robot.isActiveAndEnabled && !robot.IsMovementLocked
+                && !robot.IsPhotoModeInputLocked
                 && bootstrap.map != null && bootstrap.map.HasGeneratedMap
                 && (bootstrap.tumble == null || bootstrap.tumble.State == RobotTumbleState.Upright);
         }
@@ -200,6 +207,8 @@ namespace AnimalGame.Tutorial
         private void RefreshPanel(bool canDrive = true, bool scanReady = false, bool stopped = true)
         {
             if (progress == null || driving == null || driving.Panel == null) return;
+            if (progress.IsComplete)
+            { UpdateTarget(); driving.Panel.SetContinuePrompt(false); driving.Panel.SetVisible(false); return; }
             TerrainLessonText text = tutorialText != null && tutorialText.Terrain != null ? tutorialText.Terrain : defaultText;
             TutorialStepText stepText = text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             string lb = "LB", rt = "RT", lt = "LT";
@@ -215,7 +224,7 @@ namespace AnimalGame.Tutorial
                     status = text.WaitingScanStatus;
                     break;
                 case TerrainTutorialStep.ReadSigns:
-                    status = !scanReady ? text.WaitingMarkersStatus : !stopped ? text.StopToReadStatus : text.ObserveStatus;
+                    status = !scanReady ? text.WaitingMarkersStatus : text.ObserveStatus;
                     break;
                 case TerrainTutorialStep.FollowRoute:
                     slope = bootstrap != null && bootstrap.traversalEvaluator != null && bootstrap.robot != null
@@ -226,14 +235,15 @@ namespace AnimalGame.Tutorial
                     break;
             }
             if (!canDrive && !progress.IsComplete) status = text.BlockedStatus;
+            string message = stepText.Message, glyph = stepText.ControlGlyph, action = stepText.Action, detail = stepText.Detail;
             var tokens = new TutorialTextTokens().Add("rt", rt).Add("lt", lt).Add("lb", lb)
                 .Add("distance", progress.DistanceMeters).Add("slope", slope)
                 .Add("reading", progress.ReadingSeconds).Add("readingTarget", progress.ReadingDuration);
             driving.Panel.SetPanelText(tutorialText != null ? tutorialText.Panel : defaultPanelText);
             driving.Panel.SetLessonHint(string.Empty);
-            driving.Panel.SetContent(tokens.Format(text.Title), tokens.Format(stepText.Message),
-                tokens.Format(stepText.ControlGlyph), tokens.Format(stepText.Action),
-                tokens.Format(stepText.Detail), tokens.Format(status), 2, 9);
+            driving.Panel.SetContent(tokens.Format(text.Title), tokens.Format(message),
+                tokens.Format(glyph), tokens.Format(action),
+                tokens.Format(detail), tokens.Format(status), 2, 9);
             driving.Panel.SetProgress(progress.NormalizedProgress);
             driving.Panel.SetSuccess(progress.CanContinue);
             displayedStep = progress.Step;
@@ -253,7 +263,6 @@ namespace AnimalGame.Tutorial
             showingTarget = false;
             driving?.Panel?.SetContinuePrompt(false);
             hasStarted = false;
-            chapterConfirmed = false;
             ownsPresentation = true;
             progress = null;
             if (driving != null) driving.SetPresentationOwned(true);

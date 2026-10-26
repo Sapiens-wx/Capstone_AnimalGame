@@ -103,6 +103,13 @@ namespace AnimalGame.RobotArm
         public bool IsRecycleReady { get; private set; }
         public bool IsBlocked { get; private set; }
         public WorldInteraction HeldObject => heldObject;
+        /// <summary>Read-only native inlet geometry for optional scene-local teaching cues, in MarkerVisualRoot coordinates.</summary>
+        public bool TryGetRecyclingInlet(out Vector2 center, out Vector2 halfExtents)
+        {
+            center = initialized ? DockLocal : Vector2.zero;
+            halfExtents = initialized ? RecycleZoneHalfExtents : Vector2.zero;
+            return initialized && marker != null && RecyclableHeld;
+        }
         public Vector2 LeftHandWorld => HandWorld(left);
         public Vector2 RightHandWorld => HandWorld(right);
         public MediumRecycleFrame CurrentMediumRecycleFrame { get; private set; }
@@ -224,7 +231,8 @@ namespace AnimalGame.RobotArm
         {
             ManualRetractRequestedThisFrame = false;
             bool armButtonHeld = Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
-            if (AnimalGame.MainUI.MainUI.BlocksGameplay)
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay
+                || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject))
             {
                 // Menu presses must not become a new toggle when gameplay resumes.
                 previousArmButtonHeld = armButtonHeld;

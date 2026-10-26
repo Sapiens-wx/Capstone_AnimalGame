@@ -35,6 +35,8 @@ namespace AnimalGame.Tutorial
         private AnimalAgent animalAgent;
         private Vector2 animalAnchor;
         private bool departureRequested;
+        private bool wasteRecycled;
+        public bool HasRecycledWaste => wasteRecycled;
         public TutorialWoodpeckerActor AnimalActor { get; private set; }
         public TreeHabitat Trunk { get; private set; }
         public bool IsAnimalDeparting => AnimalActor != null && AnimalActor.IsDeparting;
@@ -53,7 +55,8 @@ namespace AnimalGame.Tutorial
         public DiscoverableEntity Animal { get; private set; }
         public ScannableInteractable Item { get; private set; }
         public bool IsAnimalReady => Animal != null && Animal.IsScannable && AnimalActor != null && AnimalActor.IsReady;
-        public bool IsReady => (IsAnimalReady || IsAnimalDeparting || HasAnimalDeparted) && Item != null && Item.CanScan;
+        public bool IsReady => (IsAnimalReady || IsAnimalDeparting || HasAnimalDeparted)
+            && (wasteRecycled || (Item != null && Item.CanScan));
         public Vector2 AnimalMapPosition => Animal != null ? MapPosition(Animal.transform)
             : AnimalActor != null ? AnimalActor.LastMapPosition : animalAnchor;
         public Vector2 ItemMapPosition => MapPosition(Item != null ? Item.transform : null);
@@ -120,6 +123,14 @@ namespace AnimalGame.Tutorial
             }
             if (!IsAnimalReady && AnimalActor != null && !AnimalActor.Configure(bootstrap, animalAgent, Trunk))
             { LastFailure = AnimalActor.LastFailure; return false; }
+            return EnsureWasteTarget() && IsReady;
+        }
+
+        /// <summary>Recovers only the owned waste, preserving the scanned bird and its tree.</summary>
+        public bool EnsureWasteTarget()
+        {
+            if (!CanCreate()) return false;
+            if (wasteRecycled) return true;
             if (Item == null || !Item.gameObject.activeInHierarchy || !Item.CanScan)
             {
                 DestroyOwned(itemContainer);
@@ -133,7 +144,18 @@ namespace AnimalGame.Tutorial
                 { LastFailure = "The small-garbage prefab requires its real scan and grabbable interaction components."; DestroyOwned(itemContainer); itemContainer = null; Item = null; return false; }
                 Item.EnableSmallAreaFill();
             }
-            return IsReady;
+            return Item != null && Item.CanScan;
+        }
+
+        public void MarkWasteRecycled(WorldInteraction source)
+        {
+            if (source != null && Item != null && source.gameObject == Item.gameObject) wasteRecycled = true;
+        }
+
+        public void ResetWasteTarget()
+        {
+            DestroyOwned(itemContainer); itemContainer = null; Item = null; wasteRecycled = false;
+            EnsureWasteTarget();
         }
 
         /// <summary>Restarts discovery with fresh owned targets near the current player; never relocates the player.</summary>
@@ -150,6 +172,7 @@ namespace AnimalGame.Tutorial
             ownedRoot = animalContainer = itemContainer = trunkContainer = actorContainer = null;
             LastFailure = null;
             departureRequested = false;
+            wasteRecycled = false;
         }
 
         private bool CanCreate()

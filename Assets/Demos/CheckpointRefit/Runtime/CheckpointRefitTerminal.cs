@@ -51,6 +51,10 @@ namespace AnimalGame.Demos.CheckpointRefit
         public float InteractionRadiusMeters => interactionRadiusMeters;
         public InteractionMarker Marker => interactionMarker;
         public RefitCameraEquipment CameraEquipment => cameraEquipment;
+        /// <summary>Optional owner-local submit interception. Returning true handles this press without equipping.</summary>
+        public Func<bool> TutorialSubmitHandler { get; set; }
+        /// <summary>Optional owner-local gate while a nearby tutorial card owns the same interaction press.</summary>
+        public Func<bool> TutorialOpenBlocked { get; set; }
         private bool PlayerPresent => player != null && player.gameObject.activeInHierarchy
             && player.gameObject.scene == gameObject.scene;
 
@@ -100,8 +104,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         {
             if (!IsOpen || releasing || lease == null || !PlayerPresent || view == null
                 || view.IsInspectionOpen || view.SelectedSlotIndex != 1 || cameraEquipment == null) return;
-            PhotoCameraDefinition selected = view.SelectedModuleIndex == 0 ? zoomLens300
-                : view.SelectedModuleIndex == 1 ? damagedPrime50 : null;
+            PhotoCameraDefinition selected = view.SelectedCamera;
             if (cameraEquipment.TryEquip(selected)) view.RefreshEquipment();
         }
 
@@ -179,7 +182,7 @@ namespace AnimalGame.Demos.CheckpointRefit
                 if (!view.IsInspectionOpen)
                 {
                     Navigate();
-                    if (interactPressed) view.RequestEquipSelected();
+                    if (interactPressed && !(TutorialSubmitHandler?.Invoke() ?? false)) view.RequestEquipSelected();
                 }
                 return;
             }
@@ -190,7 +193,8 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         public bool TryOpen()
         {
-            if (!Application.isPlaying || !isActiveAndEnabled || IsOpen || lease != null || !IsNearby)
+            if (!Application.isPlaying || !isActiveAndEnabled || IsOpen || lease != null || !IsNearby
+                || (TutorialOpenBlocked?.Invoke() ?? false))
                 return false;
             if (!EnsureUi() || !RefitGameplayLease.CanAcquire(player, out _)) return false;
             try

@@ -61,15 +61,16 @@ namespace AnimalGame.Editor
             {
                 Require(text.Panel.Header == "TUTORIAL" && text.Driving.Title == "Driving Practice"
                     && text.Terrain.Title == "Terrain & Slopes", "Default section titles retain the existing English copy.");
-                string[] actions = { "Turn left", "Turn right", "Drive forward", "Reverse", "Drive and steer", "Release inputs", "Lesson complete" };
+                string[] actions = { "Turn left", "Turn right", "Drive forward", "Reverse", "Drive and steer" };
                 foreach (DrivingTutorialStep step in Enum.GetValues(typeof(DrivingTutorialStep)))
                 {
+                    if (step == DrivingTutorialStep.Completed) continue;
                     TutorialStepText item = text.Driving.GetStep(step);
                     Require(item.Action == actions[(int)step], "Default driving action is preserved for " + step);
                     Require(!string.IsNullOrWhiteSpace(item.Message) && !string.IsNullOrWhiteSpace(item.Detail), "Default driving copy is populated.");
                 }
                 foreach (TerrainTutorialStep step in Enum.GetValues(typeof(TerrainTutorialStep)))
-                    Require(!string.IsNullOrWhiteSpace(text.Terrain.GetStep(step).Action)
+                    if (step != TerrainTutorialStep.Completed) Require(!string.IsNullOrWhiteSpace(text.Terrain.GetStep(step).Action)
                         && !string.IsNullOrWhiteSpace(text.Terrain.GetStep(step).Message), "Default terrain copy is populated for " + step);
                 string json = EditorJsonUtility.ToJson(text);
                 Require(!json.Any(c => c >= '\u3400' && c <= '\u9fff'), "New tutorial content defaults are entirely English.");
@@ -127,8 +128,8 @@ namespace AnimalGame.Editor
         {
             string guid = AssetDatabase.AssetPathToGUID(ContentPath);
             string scene = File.ReadAllText(TutorialDrivingLesson.ScenePath);
-            Require(scene.Split(new[] { "guid: " + guid }, StringSplitOptions.None).Length - 1 == 6,
-                "The six tutorial lessons reference one shared content asset.");
+            Require(scene.Split(new[] { "guid: " + guid }, StringSplitOptions.None).Length - 1 == 9,
+                "The eight main lessons and contextual recovery reference one shared content asset.");
             foreach (string sceneGuid in AssetDatabase.FindAssets("t:Scene", new[] { "Assets/Scenes" }))
             {
                 string path = AssetDatabase.GUIDToAssetPath(sceneGuid);
@@ -164,6 +165,7 @@ namespace AnimalGame.Editor
                 copy.Driving.CompleteStatus = "Custom complete";
                 foreach (DrivingTutorialStep step in Enum.GetValues(typeof(DrivingTutorialStep)))
                 {
+                    if (step == DrivingTutorialStep.Completed) continue;
                     var progress = new DrivingTutorialProgress();
                     typeof(DrivingTutorialProgress).GetProperty("Step").SetValue(progress, step);
                     typeof(DrivingTutorialProgress).GetProperty("Value").SetValue(progress, 2.34f);
@@ -189,6 +191,7 @@ namespace AnimalGame.Editor
                 copy.Terrain.CompleteStatus = "Custom complete";
                 foreach (TerrainTutorialStep step in Enum.GetValues(typeof(TerrainTutorialStep)))
                 {
+                    if (step == TerrainTutorialStep.Completed) continue;
                     var progress = (TerrainTutorialProgress)typeof(TutorialTerrainRegressionChecks)
                         .GetMethod("At", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { step });
                     Set(terrain, "progress", progress);
@@ -208,7 +211,7 @@ namespace AnimalGame.Editor
                         Invoke(terrain, "RefreshPanel", true, false, true);
                         Require(Text(panel, "TutorialStatus") == "Custom markers", "Waiting-for-markers feedback is editable.");
                         Invoke(terrain, "RefreshPanel", true, true, false);
-                        Require(Text(panel, "TutorialStatus") == "Custom stop", "Stop-to-read feedback is editable.");
+                        Require(Text(panel, "TutorialStatus") == "Custom observe", "Reading signs while moving keeps the active lesson copy.");
                     }
                     Require(TerrainState(progress) == state, "Copy edits cannot change terrain progress, destinations or reading time.");
                 }

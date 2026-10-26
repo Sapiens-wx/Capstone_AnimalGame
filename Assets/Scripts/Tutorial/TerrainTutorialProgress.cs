@@ -18,6 +18,8 @@ namespace AnimalGame.Tutorial
         public float ReadingSeconds { get; private set; }
         public float DistanceMeters { get; private set; }
         public float ReadingDuration => readingDuration;
+        public float ArrivalRadiusMeters => arrivalRadius;
+        public float SurveyRadiusMeters => surveyRadius;
         public bool IsComplete => Step == TerrainTutorialStep.Completed;
         public bool CanContinue => IsComplete || satisfied;
         public bool HasTarget => !satisfied && (Step == TerrainTutorialStep.ReachSurvey || Step == TerrainTutorialStep.FollowRoute);
@@ -28,7 +30,7 @@ namespace AnimalGame.Tutorial
                 ? Mathf.Clamp01(1f - Mathf.Max(0f, DistanceMeters - arrivalRadius) / startingDistance) : 0f;
 
         public TerrainTutorialProgress(Vector2[] approachPointsMeters, Vector2 destinationMeters,
-            float arrivalRadiusMeters = 2f, float surveyRadiusMeters = 6f, float readingSeconds = 4f)
+            float arrivalRadiusMeters = 4f, float surveyRadiusMeters = 8f, float readingSeconds = 4f)
         {
             approach = approachPointsMeters != null && approachPointsMeters.Length > 0
                 ? (Vector2[])approachPointsMeters.Clone() : new[] { Vector2.zero };
@@ -55,9 +57,8 @@ namespace AnimalGame.Tutorial
                 return;
             }
 
-            // Leaving the survey area restores its destination marker; it never teleports the player.
-            if (!IsInSurveyArea(positionMeters)) { Step = TerrainTutorialStep.ReachSurvey; return; }
-            if (Step == TerrainTutorialStep.ReadSigns && panelExpanded && scanHasMarkers && stopped)
+            // Reading an acquired scan can continue while driving or exploring elsewhere.
+            if (Step == TerrainTutorialStep.ReadSigns && panelExpanded && scanHasMarkers)
             {
                 ReadingSeconds = Mathf.Min(readingDuration, ReadingSeconds + deltaTime);
                 if (ReadingSeconds >= readingDuration)

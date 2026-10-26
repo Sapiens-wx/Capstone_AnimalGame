@@ -101,7 +101,7 @@ namespace AnimalGame.Editor
                     new Vector2(1440, 1080), new Vector2(2560, 1080) })
                     foreach (DiscoveryTutorialStep step in Enum.GetValues(typeof(DiscoveryTutorialStep)))
                     {
-                        if (step == DiscoveryTutorialStep.Rescan) continue; // Removed from the displayed tutorial.
+                        if (step == DiscoveryTutorialStep.Rescan || step == DiscoveryTutorialStep.Completed) continue;
                         typeof(DiscoveryTutorialProgress).GetProperty("Step", Flags).SetValue(progress, step);
                         // Keep stage-specific copy visible; the pure suite checks how real hits earn it.
                         Set(progress, "animalHit", true); Set(progress, "animalObserved", true);
@@ -148,14 +148,11 @@ namespace AnimalGame.Editor
                     }
 
                 typeof(DiscoveryTutorialProgress).GetProperty("Step", Flags).SetValue(progress, DiscoveryTutorialStep.Completed);
-                Set(lesson, "chapterConfirmed", false); Invoke(lesson, "RefreshPanel", true);
-                panel.SetVisible(true); panel.SetCollapsed(false);
+                Invoke(lesson, "RefreshPanel", true);
                 DrivingHelper("Settle", panel, new Vector2(1920, 1080));
-                Require(panel.CanContinue, "The scan completion card waits for its chapter confirmation.");
-                Set(lesson, "chapterConfirmed", true); Invoke(lesson, "RefreshPanel", true);
-                DrivingHelper("Settle", panel, new Vector2(1920, 1080));
-                Require(!panel.CanContinue && panel.Root.Q("TutorialContinuePrompt").resolvedStyle.display == DisplayStyle.None,
-                    "A confirmed scan chapter releases A ownership and hides its continuation hint.");
+                Require(!panel.IsVisible && !panel.CanContinue,
+                    "Terminal scan state hides its card without asking for an extra chapter confirmation.");
+                panel.SetVisible(true);
 
                 foreach (string glyph in new[] { "✧", "✦" })
                 {

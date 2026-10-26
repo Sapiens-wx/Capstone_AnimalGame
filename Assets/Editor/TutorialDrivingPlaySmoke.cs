@@ -144,6 +144,8 @@ namespace AnimalGame.Editor
                         testInput.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
                         InputSystem.settings = testInput;
                         originalBackground = Application.runInBackground; Application.runInBackground = true;
+                        // Adaptive input reads the first wrapper; isolate this disposable batch fixture.
+                        foreach (Gamepad other in new List<Gamepad>(Gamepad.all)) InputSystem.RemoveDevice(other);
                         gamepadId = InputSystem.AddDevice<Gamepad>("Driving tutorial validation gamepad").deviceId;
                         Begin(Phase.Ready); break;
                     case Phase.Ready:
@@ -232,19 +234,21 @@ namespace AnimalGame.Editor
                     case Phase.Complete:
                         if (!Settled(8)) return;
                         report.drivingConfirmations = TutorialContinueSmokeInput.ConfirmationCount(lesson.Panel);
-                        Require(report.drivingConfirmations == 7,
-                            "All six driving goals and the completion card require a separate physical A confirmation after at least twelve ready frames.");
-                        Record("Seven separate real A confirmations advance the six measured actions and the completed chapter; every ready card waited twelve frames before A.");
+                        Require(report.drivingConfirmations == 5,
+                            "Only the five driving goals require separate physical A confirmations; no completion card adds another press.");
+                        Record("Five separate real A confirmations advance the five measured actions and directly release the next chapter.");
                         Require(Time.timeScale == 1f && bootstrap.robot.enabled, "Completion changes gameplay ownership.");
                         Require(observedMovingTurn, "The real controller never demonstrated simultaneous driving and steering.");
                         Require(observedTurningWhileDriving, "Actual moving steering was not counted during the first turn lesson.");
-                        Record("Left/right steering comes first, then forward/reverse, moving steering and stop; the first turn accepts actual forward driving plus steering.");
+                        Record("Left/right steering comes first, then forward/reverse and moving steering; the first turn accepts actual forward driving plus steering, and no separate parking exercise follows.");
                         BeginCapture("driving-complete.png", includeTerrain ? Phase.TerrainStarting : Phase.Removed); break;
                     case Phase.TerrainStarting:
                         terrain = lesson.GetComponent<TutorialTerrainLesson>();
                         Require(terrain != null, "Saved scene has no terrain lesson.");
                         if (!terrain.HasStarted || terrain.Waypoint.CurrentMode == TutorialWaypointIndicator.WaypointMode.Hidden) return;
                         Require(terrain.Progress.Step == TerrainTutorialStep.ReachSurvey, "Terrain lesson skipped travel.");
+                        Require(terrain.Progress.ArrivalRadiusMeters >= 4f && terrain.Progress.SurveyRadiusMeters >= 8f,
+                            "The authored tutorial uses wider arrival and survey areas without changing map terrain rules.");
                         Require(Vector2.Distance(terrain.Progress.SurveyPosition, new Vector2(163, 140)) < .01f,
                             "The saved survey destination does not match the user's marked point 1.");
                         Require(terrain.Waypoint.CurrentMode == TutorialWaypointIndicator.WaypointMode.Edge,
@@ -322,7 +326,7 @@ namespace AnimalGame.Editor
                         Require(observedBothSigns, "Survey point did not show both actual passable and unsafe scan signs.");
                         Require(Vector2.Distance(terrain.Progress.CurrentTarget, new Vector2(146, 121)) < .01f,
                             "The uphill destination does not match the user's marked point 2.");
-                        Record("Both real + and X signs are visible; only expanded, stopped, unpaused reading advances the lesson.");
+                        Record("Both real + and X signs are visible; expanded, unpaused reading advances without requiring a stop.");
                         BeginCapture("terrain-slopes.png", Phase.TerrainRoute); break;
                     case Phase.TerrainReadPaused:
                         if (!Settled(10)) return;
@@ -346,9 +350,15 @@ namespace AnimalGame.Editor
                         Record("Real gamepad driving climbs from marked point 1 to point 2; arrival completes chapter 02/09 and removes its triangle.");
                         BeginCapture("terrain-complete.png", Phase.TerrainComplete); break;
                     case Phase.TerrainComplete:
+                        TutorialBalanceLesson nextBalance = lesson.GetComponent<TutorialBalanceLesson>();
                         Require(Time.timeScale == 1f && bootstrap.robot.enabled
-                            && lesson.Panel.Root.Q<Label>("TutorialChapter").text == "02 / 09",
-                            "Terrain completion altered gameplay ownership or lost the chapter handoff.");
+                            && nextBalance != null && nextBalance.HasStarted
+                            && nextBalance.Progress.Step == BalanceTutorialStep.ReadIndicator
+                            && lesson.Panel.IsVisible
+                            && lesson.Panel.Root.Q<Label>("TutorialChapter").text == "03 / 09"
+                            && lesson.Panel.Root.Q<Label>("TutorialTitle").text == nextBalance.TextContent.Balance.Title,
+                            "Terrain's last action must hand the live panel directly to balance without a completion card or an extra A press.");
+                        Record("The last terrain action immediately hands the panel to chapter 03/09 indicator reading, with normal gameplay ownership and no completion card.");
                         Begin(Phase.Removed); break;
                     case Phase.Capturing:
                         if (!Settled(6)) return;

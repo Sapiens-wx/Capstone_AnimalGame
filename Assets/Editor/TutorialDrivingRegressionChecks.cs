@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using AnimalGame.MapTest;
+using AnimalGame.RobotArm;
 using AnimalGame.Tutorial;
+using AnimalGame.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -37,10 +40,11 @@ namespace AnimalGame.Editor
             {
                 CheckMeasuredDriving();
                 CheckManualContinueGates();
+                CheckNativeArmSouthOwnership();
                 CheckTurning();
                 CheckMovingTurns();
                 CheckInterruptions();
-                CheckContinuousStop();
+                CheckDirectCompletion();
                 foreach (int fps in new[] { 30, 60, 120 }) CheckCourseAtFrameRate(fps);
                 CheckPanel();
                 WriteReport(true, null);
@@ -65,9 +69,9 @@ namespace AnimalGame.Editor
             var p = new DrivingTutorialProgress();
             DrivingTutorialStep[] order = { DrivingTutorialStep.TurnLeft, DrivingTutorialStep.TurnRight,
                 DrivingTutorialStep.Forward, DrivingTutorialStep.Reverse, DrivingTutorialStep.SteerWhileMoving,
-                DrivingTutorialStep.Stop, DrivingTutorialStep.Completed };
+                DrivingTutorialStep.Completed };
             Require(Enum.GetValues(typeof(DrivingTutorialStep)).Length == order.Length,
-                "The driving chapter has exactly six ordered exercises and one terminal state.");
+                "The driving chapter has exactly five ordered exercises and one terminal state.");
             for (int index = 0; index < order.Length; index++)
                 Require((int)order[index] == index, "Driving sequence places " + order[index] + " at position " + index);
             Require(p.Step == DrivingTutorialStep.TurnLeft && !p.Advance(), "A new lesson begins with left turning and cannot advance early.");
@@ -202,7 +206,7 @@ namespace AnimalGame.Editor
             position += Direction(37.5f) * 1.51f;
             Feed(p, position, 45, 1, 1, -10, 1.5f);
             Require(p.IsStepSatisfied && p.NormalizedProgress == 1 && p.Advance()
-                && p.Step == DrivingTutorialStep.Stop, "Both arc targets unlock the following stop lesson.");
+                && p.Step == DrivingTutorialStep.Completed, "Confirming both moving-turn goals goes straight to chapter completion.");
             Near(p.MovingTurnDistanceMeters, 0, "Advancing resets arc distance for subsequent lesson stages.");
 
             p = MovingTurnFixture();
@@ -264,25 +268,15 @@ namespace AnimalGame.Editor
             Require(!progress.IsStepSatisfied && !progress.Advance(), message + " The lesson stays pending.");
         }
 
-        private static void CheckContinuousStop()
+        private static void CheckDirectCompletion()
         {
-            var p = new DrivingTutorialProgress(stopSeconds: .8f);
-            ReachStep(p, DrivingTutorialStep.Stop);
-            Feed(p, Vector2.zero, 0, 0, 0, 0, .2f);
-            Feed(p, Vector2.zero, 0, 0, 0, 0, .2f);
-            Feed(p, Vector2.zero, 0, 0, 0, 0, .2f);
-            Near(p.Value, .4f, "Stationary samples accumulate elapsed simulation time.");
-            Feed(p, Vector2.up * .05f, 0, .25f, 0, 0, .2f);
-            Near(p.Value, 0, "Physical movement interrupts the consecutive stop interval.");
-            Feed(p, Vector2.up * .05f, 0, 0, 0, 0, .2f);
-            Feed(p, Vector2.up * .05f, 0, 0, .2f, 0, .2f);
-            Near(p.Value, 0, "Holding throttle resets the stop interval even against an obstruction.");
-            Feed(p, Vector2.up * .05f, 0, 0, 0, 0, .2f);
+            var p = MovingTurnFixture();
+            Satisfy(p);
+            Require(p.Step == DrivingTutorialStep.SteerWhileMoving && p.CanContinue && !p.IsComplete,
+                "The final driving action still waits for A after its measured goals are satisfied.");
             p.Suspend();
-            Near(p.Value, 0, "Opening a modal/pause resets an unfinished consecutive stop interval.");
-            Feed(p, Vector2.up * .05f, 0, 0, 0, 0, .2f);
-            for (int i = 0; i < 4; i++) Feed(p, Vector2.up * .05f, 0, 0, 0, 0, .2f);
-            Require(p.IsStepSatisfied && p.Advance() && p.IsComplete, "Only a complete uninterrupted stop finishes the lesson.");
+            Require(p.Continue() && p.IsComplete,
+                "Confirming moving steering ends driving practice without a separate parking interval.");
             Require(!p.Advance(), "Completed lessons cannot advance past the terminal state.");
             Feed(p, Vector2.one * 1000, 90, 20, 1, 30, 1);
             Require(p.IsComplete && p.NormalizedProgress == 1, "Completion remains stable after further world movement.");
@@ -306,6 +300,50 @@ namespace AnimalGame.Editor
             }
         }
 
+        private static void CheckNativeArmSouthOwnership()
+        {
+            // The native Play Mode recycling smoke also holds a real grip while a card is ready.
+            // This fixture covers the input policy for every arm state, independent of UI timing.
+            var owner = new GameObject("Tutorial native grip ownership regression");
+            owner.SetActive(false);
+            var itemOwner = new GameObject("Tutorial native grip item regression");
+            HeightMapPlayerSceneBootstrap originalBootstrap = HeightMapPlayerSceneBootstrap.inst;
+            try
+            {
+                var bootstrap = owner.AddComponent<HeightMapPlayerSceneBootstrap>();
+                var arm = owner.AddComponent<RobotArmController>();
+                bootstrap.armController = arm;
+                var item = itemOwner.AddComponent<WorldInteraction>();
+                item.SetKind(WorldInteractionKind.Grabbable);
+                Require(item.TryGrab(arm), "The policy fixture obtains a real world-item ownership claim.");
+                MethodInfo nativeOwns = typeof(TutorialContinueInput).GetMethod("NativeArmOwnsSouth",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+                Require(nativeOwns != null, "Tutorial confirmation has an explicit native arm-input priority policy.");
+                bool Owns() => (bool)nativeOwns.Invoke(null, new object[] { bootstrap });
+                foreach (RobotArmState state in Enum.GetValues(typeof(RobotArmState)))
+                {
+                    Set(arm, "<State>k__BackingField", state);
+                    Set(arm, "heldObject", item);
+                    Require(Owns() && arm.HeldObject == item && item.Owner == arm,
+                        "A held native item retains South input without changing its grip in " + state + ".");
+                    Set(arm, "heldObject", null);
+                    Require(Owns() == (state == RobotArmState.Recycling),
+                        "Only active processing retains native South priority after a released grip: " + state + ".");
+                }
+                item.Release(arm);
+                Set(arm, "<State>k__BackingField", RobotArmState.OuterOperating);
+                Require(!Owns(), "A released, idle native arm allows the next fresh A to confirm a ready tutorial card.");
+                bootstrap.armController = null;
+                Require(!Owns(), "An absent arm does not reserve an unrelated tutorial confirmation.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(itemOwner);
+                Object.DestroyImmediate(owner);
+                HeightMapPlayerSceneBootstrap.inst = originalBootstrap;
+            }
+        }
+
         private static void CheckCourseAtFrameRate(int fps)
         {
             foreach (float turningSpeed in new[] { 0f, 2f, -2f }) CheckCourseWithTurningSpeed(fps, turningSpeed);
@@ -313,12 +351,12 @@ namespace AnimalGame.Editor
 
         private static void CheckCourseWithTurningSpeed(int fps, float turningSpeed)
         {
-            var p = new DrivingTutorialProgress(3, 2, 30, .6f);
+            var p = new DrivingTutorialProgress(3, 2, 30);
             float dt = 1f / fps;
             Vector2 position = Vector2.zero;
             float heading = 350;
             foreach (DrivingTutorialStep expected in new[] { DrivingTutorialStep.TurnLeft, DrivingTutorialStep.TurnRight,
-                DrivingTutorialStep.Forward, DrivingTutorialStep.Reverse, DrivingTutorialStep.SteerWhileMoving, DrivingTutorialStep.Stop })
+                DrivingTutorialStep.Forward, DrivingTutorialStep.Reverse, DrivingTutorialStep.SteerWhileMoving })
             {
                 Require(p.Step == expected && !p.Advance(), "An unsatisfied step stays pending at " + fps + " FPS: " + expected);
                 bool movingTurn = expected == DrivingTutorialStep.SteerWhileMoving;
@@ -345,7 +383,7 @@ namespace AnimalGame.Editor
                     "Course timing remains consistent at " + fps + " FPS: " + expected);
                 Require(p.Advance(), "Satisfied course step advances at " + fps + " FPS: " + expected);
             }
-            Require(p.IsComplete, "All six measured steps complete in order at " + fps
+            Require(p.IsComplete, "All five measured steps complete in order at " + fps
                 + " FPS with turn-driving speed " + turningSpeed + ".");
         }
 
@@ -438,7 +476,7 @@ namespace AnimalGame.Editor
                 var progress = new DrivingTutorialProgress();
                 Set(lesson, "panel", panel);
                 Set(lesson, "progress", progress);
-                for (int step = 0; step <= (int)DrivingTutorialStep.Completed; step++)
+                for (int step = 0; step < (int)DrivingTutorialStep.Completed; step++)
                 {
                     Invoke(lesson, "RefreshPanel", true);
                     Settle(panel, new Vector2(1920, 1080));
@@ -456,10 +494,13 @@ namespace AnimalGame.Editor
                     Set(lesson, "feedbackRemaining", 0f);
                     Invoke(lesson, "RefreshPanel", true);
                     Settle(panel, new Vector2(1920, 1080));
-                    if (step == 0 || progress.IsComplete)
-                        Capture(root, texture, progress.IsComplete ? "driving-completed.png" : "driving-expanded.png");
+                    if (step == 0) Capture(root, texture, "driving-expanded.png");
                     if (!progress.IsComplete) { Satisfy(progress); Require(progress.Advance(), "UI fixture advances through actual lesson steps."); }
                 }
+                Invoke(lesson, "RefreshPanel", true);
+                Require(!panel.IsVisible && !panel.CanContinue,
+                    "Terminal driving state hides its card without asking for an extra chapter confirmation.");
+                panel.SetVisible(true);
                 Click(root.Q("CollapseTutorial"));
                 Require(panel.IsCollapsed, "Clicking the real header collapses the tutorial.");
                 Settle(panel, new Vector2(1920, 1080));
@@ -590,7 +631,9 @@ namespace AnimalGame.Editor
 
         private static void CheckTextFits(Label label, string name)
         {
-            Require(label != null && !string.IsNullOrWhiteSpace(label.text), name + " is populated.");
+            Require(label != null, name + " exists.");
+            // Optional glyphs and captions may be intentionally blank in the authored tutorial asset.
+            if (string.IsNullOrWhiteSpace(label.text)) return;
             Vector2 measured = label.MeasureTextSize(label.text, label.layout.width, VisualElement.MeasureMode.AtMost,
                 0, VisualElement.MeasureMode.Undefined);
             Require(measured.y <= label.layout.height + 2, name + " fits its text height: " + measured + " in " + label.layout.size);
@@ -685,9 +728,6 @@ namespace AnimalGame.Editor
                 case DrivingTutorialStep.Reverse:
                     Feed(progress, Vector2.zero, 0, -5, -1, 0, 1);
                     Feed(progress, Vector2.down * progress.Target, 0, -5, -1, 0, 1); break;
-                case DrivingTutorialStep.Stop:
-                    Feed(progress, Vector2.zero, 0, 0, 0, 0, 1);
-                    Feed(progress, Vector2.zero, 0, 0, 0, 0, 1); break;
             }
             Require(progress.IsStepSatisfied, "Fixture satisfies " + progress.Step);
         }

@@ -14,7 +14,7 @@ using UnityEngine.SceneManagement;
 
 namespace AnimalGame.Editor
 {
-    /// <summary>Native subject, capture and save evidence is retained until each explicit confirmation.</summary>
+    /// <summary>Camera practice confirms individual actions, then a native subject result ends the chapter.</summary>
     public static class TutorialPhotographyRegressionChecks
     {
         private static int checks;
@@ -91,46 +91,37 @@ namespace AnimalGame.Editor
             Require(progress.Continue() && progress.Step == PhotographyTutorialStep.FrameSubject, "Native camera entry is confirmed.");
             Observe(progress, .5f, fps, photo: true, framed: true);
             Require(progress.Continue() && progress.Step == PhotographyTutorialStep.Capture, "Native target framing is confirmed.");
-            Require(progress.RegisterValidPhoto(fps, true) && progress.Step == PhotographyTutorialStep.Capture,
-                "The exact new target result is accepted while the capture instruction stays selected.");
+            Require(progress.RegisterValidPhoto(fps, true) && progress.IsComplete,
+                "The exact new target result completes photography without save, exit or completion cards.");
             Feed(progress, photo: true, result: true);
             Require(!progress.CanContinue && !progress.Continue(), "A on native results cannot skip a tutorial instruction.");
-            Require(progress.RegisterPhotoSaved(fps, true) && progress.HasSavedPhoto
-                && progress.Step == PhotographyTutorialStep.Capture, "Native Y save is latched without automatic progression.");
+            Require(progress.RegisterPhotoSaved(fps, true) && progress.HasSavedPhoto && progress.IsComplete,
+                "Optional native Y saving remains available after photography completes.");
             Feed(progress, photo: true, result: false);
-            Require(progress.Continue() && progress.Step == PhotographyTutorialStep.SavePhoto,
-                "After closing results A confirms capture, revealing the save explanation.");
-            Require(progress.CanContinue && progress.Continue() && progress.Step == PhotographyTutorialStep.ExitPhoto,
-                "The earlier genuine save is retained for its own A confirmation.");
-            Require(!progress.CanContinue && !progress.Continue(), "Exit still requires the actual camera to close.");
+            Require(!progress.CanContinue && !progress.Continue(),
+                "Closing the native result cannot reveal removed save, exit or completion confirmations.");
             Feed(progress, photo: false);
-            Require(progress.Step == PhotographyTutorialStep.ExitPhoto && progress.CanContinue,
-                "Camera exit waits for the player's final action confirmation.");
-            Require(progress.Continue() && progress.IsComplete && progress.CanContinue,
-                "A reaches the completion card; its chapter confirmation belongs to the controller.");
+            Require(progress.IsComplete && !progress.CanContinue,
+                "Normal camera exit leaves the completed tutorial inactive.");
             Require(!progress.Continue() && !progress.RegisterValidPhoto(fps + 1, true), "The finished model cannot restart itself.");
         }
 
         private static void CheckEarlyCaptureAndDiscard()
         {
             var progress = new PhotographyTutorialProgress(requiredMovementMeters: 0f);
-            Require(progress.RegisterValidPhoto(10, true) && progress.Step == PhotographyTutorialStep.ObserveMovement,
-                "An early valid photo does not jump past unconfirmed instructions.");
+            Require(progress.RegisterValidPhoto(10, true) && progress.IsComplete,
+                "An early valid photo proves all camera actions without forcing repeated practice.");
             Feed(progress, photo: true, result: true);
             Require(!progress.Continue(), "Result-screen A cannot acknowledge any early-photo cards.");
             Require(progress.RegisterResultClosed(10, true) && progress.ActiveResultId == 10,
                 "Closing an unsaved result retains its snapshot identity after the teaching bird departs.");
             Feed(progress, photo: false, visible: false, seen: false, framed: false);
-            foreach (PhotographyTutorialStep expected in new[] { PhotographyTutorialStep.EnterPhoto,
-                PhotographyTutorialStep.FrameSubject, PhotographyTutorialStep.Capture, PhotographyTutorialStep.SavePhoto })
-                Require(progress.Continue() && progress.Step == expected,
-                    "Every earlier camera accomplishment remains available for one explicit confirmation: " + expected);
+            Require(progress.IsComplete && !progress.HasSavedPhoto && !progress.Continue(),
+                "Closing an unsaved result still completes photography without a save requirement.");
             Require(!progress.CanContinue && !progress.RegisterPhotoSaved(9, true),
-                "A closed unsaved capture still needs an explicit matching album save.");
-            Require(progress.RegisterPhotoSaved(10, true) && progress.Continue(),
-                "A tutorial recovery save can retain the original native photo without respawning its subject.");
-            Require(progress.Step == PhotographyTutorialStep.ExitPhoto && progress.Continue() && progress.IsComplete,
-                "An already closed camera is retained until its exit explanation is acknowledged.");
+                "An unrelated album save cannot match the accepted photograph.");
+            Require(progress.RegisterPhotoSaved(10, true) && progress.IsComplete,
+                "An optional matching album save remains observable without affecting chapter handoff.");
         }
 
         private static void CheckOldResultsAndReset()
@@ -141,11 +132,11 @@ namespace AnimalGame.Editor
             Require(!progress.RegisterPhotoSaved(51, true), "Saving without a matching real capture is insufficient.");
             Require(progress.RegisterValidPhoto(53, true) && !progress.RegisterValidPhoto(53, true),
                 "Monotonic actual results reject duplicate callbacks.");
-            Require(progress.RegisterValidPhoto(55, true) && !progress.RegisterPhotoSaved(53, true),
-                "A newer capture replaces an unsaved snapshot without accepting the old save.");
+            Require(!progress.RegisterValidPhoto(55, true) && !progress.RegisterPhotoSaved(55, true),
+                "A finished chapter does not replace its exact accepted result with later photography.");
             progress.Reset();
             Require(progress.Step == PhotographyTutorialStep.ObserveMovement && !progress.HasCapturedPhoto
-                && !progress.HasSavedPhoto && !progress.CanContinue && !progress.RegisterValidPhoto(55, true),
+                && !progress.HasSavedPhoto && !progress.CanContinue && !progress.RegisterValidPhoto(53, true),
                 "Restart clears all latched goals and confirmation readiness while preserving the result floor.");
             Require(progress.RegisterValidPhoto(56, true), "A new post-reset capture remains eligible.");
         }

@@ -43,6 +43,7 @@ namespace AnimalGame.Editor
             {
                 Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Run terrain checks in Edit Mode.");
                 CheckManualContinueGates();
+                CheckForgivingArrivalDefaults();
                 CheckOrderAndApproach();
                 CheckPositionAndScanGates();
                 CheckReadingGates();
@@ -108,7 +109,36 @@ namespace AnimalGame.Editor
             Require(progress.Step == TerrainTutorialStep.FollowRoute && progress.CanContinue && !progress.IsComplete,
                 "The final arrival also waits for A.");
             Require(progress.Continue() && progress.IsComplete && progress.CanContinue && !progress.Continue(),
-                "The completion card is terminal and leaves chapter confirmation to its controller.");
+                "The internal completion state is terminal and requires no separate confirmation.");
+        }
+
+        private static void CheckForgivingArrivalDefaults()
+        {
+            var progress = new TerrainTutorialProgress(new[] { Survey }, Destination);
+            Near(progress.ArrivalRadiusMeters, 4f, "Default navigation accepts a four-metre arrival area.");
+            Near(progress.SurveyRadiusMeters, 8f, "Sign reading and scan practice use the wider eight-metre survey area.");
+            progress.Sample(Survey + Vector2.right * 4.01f, 1f, true, true, false, true);
+            Require(!progress.CanContinue && progress.HasTarget, "A point outside the larger arrival boundary remains pending.");
+            progress.Sample(Survey + Vector2.right * 3.9f, 1f, true, true, false, true);
+            Require(progress.Step == TerrainTutorialStep.ReachSurvey && progress.CanContinue && !progress.HasTarget,
+                "A near miss that used to require precise parking now clears navigation but still waits for A.");
+            Require(!progress.RegisterTerrainScan(Survey, true), "The wider arrival cannot skip the navigation confirmation.");
+            Require(progress.Continue() && progress.Step == TerrainTutorialStep.ScanTerrain,
+                "The wider approach still confirms into the separate scan task.");
+            Require(!progress.RegisterTerrainScan(Survey + Vector2.right * 8.01f, true),
+                "The wider survey still rejects scans beyond its real boundary.");
+            Require(progress.RegisterTerrainScan(Survey + Vector2.right * 8f, true),
+                "A genuine scan at the new survey boundary is accepted.");
+            Require(progress.Continue() && progress.Step == TerrainTutorialStep.ReadSigns,
+                "Scan completion still waits for confirmation before sign reading.");
+            progress.Sample(Survey + Vector2.right * 7.9f, 4f, true, true, true, true);
+            Require(progress.CanContinue && progress.Step == TerrainTutorialStep.ReadSigns,
+                "Real reading remains eligible near the wider survey edge and still waits for A.");
+            Require(progress.Continue() && progress.Step == TerrainTutorialStep.FollowRoute,
+                "Reading confirmation starts the route without changing its destination.");
+            progress.Sample(Destination + Vector2.right * 3.9f, 1f, true, true, true, true);
+            Require(progress.CanContinue && !progress.IsComplete && !progress.HasTarget,
+                "The final route accepts the same generous arrival radius without automatically completing the chapter.");
         }
 
         private static TerrainTutorialProgress At(TerrainTutorialStep step)
@@ -205,24 +235,24 @@ namespace AnimalGame.Editor
 
         private static void CheckReadingGates()
         {
-            foreach (string blocked in new[] { "collapsed", "moving", "no markers", "invalid", "paused" })
+            foreach (string blocked in new[] { "collapsed", "no markers", "invalid", "paused" })
             {
                 var p = At(TerrainTutorialStep.ReadSigns);
                 Feed(p, Survey, blocked == "paused" ? 0 : 10, blocked != "invalid", blocked != "collapsed",
                     blocked != "no markers", blocked != "moving");
                 Require(p.Step == TerrainTutorialStep.ReadSigns && p.ReadingSeconds == 0,
-                    "Reading requires an expanded panel, a stopped valid robot and real visible markers: " + blocked);
+                    "Reading requires an expanded panel, valid gameplay and real visible markers: " + blocked);
             }
             var progress = At(TerrainTutorialStep.ReadSigns);
             Feed(progress, Survey, 1);
-            Near(progress.ReadingSeconds, 1, "Visible stopped reading adds actual simulation time.");
+            Near(progress.ReadingSeconds, 1, "Visible reading adds actual simulation time.");
             Feed(progress, Survey, 20, true, false);
             Feed(progress, Survey, 20, true, true, false);
-            Feed(progress, Survey, 20, true, true, true, false);
             Near(progress.ReadingSeconds, 1, "Interrupted reading preserves credit without adding blocked time.");
             Require(progress.Step == TerrainTutorialStep.ReadSigns, "Partial reading does not unlock the route.");
-            Feed(progress, Survey, 3);
-            Require(progress.Step == TerrainTutorialStep.FollowRoute, "Enough eligible reading time unlocks the route.");
+            Feed(progress, Survey + Vector2.right * 30f, 3, true, true, true, false);
+            Require(progress.Step == TerrainTutorialStep.FollowRoute,
+                "Reading an acquired scan while moving outside the survey still unlocks the route.");
             Near(progress.ReadingSeconds, 4, "Reading credit is clamped to its configured duration.");
             Require(!Scan(progress, Survey, true), "Later scans cannot force route progress back into reading.");
         }
@@ -240,16 +270,11 @@ namespace AnimalGame.Editor
             Require(Scan(progress, Survey, true), "A fresh scan resumes sign reading.");
             Near(progress.ReadingSeconds, 1.5f, "Rescanning does not reset sign-reading credit.");
             Feed(progress, Survey + Vector2.right * 7);
-            Require(progress.Step == TerrainTutorialStep.ReachSurvey && progress.HasTarget
-                && progress.CurrentTarget == Survey && progress.ApproachIndex == 1,
-                "Leaving the survey restores its marker and retains completed approach points.");
-            Require(!Scan(progress, Survey + Vector2.right * 7, true), "Outside scans cannot bypass returning.");
-            Feed(progress, Survey);
-            Require(progress.Step == TerrainTutorialStep.ScanTerrain && !progress.HasTarget,
-                "Returning removes the marker and asks for a local scan again.");
-            Require(Scan(progress, Survey, true), "A scan after returning is accepted.");
-            Feed(progress, Survey, 2.5f);
-            Require(progress.Step == TerrainTutorialStep.FollowRoute, "Saved reading time survives expiry and a survey return.");
+            Require(progress.Step == TerrainTutorialStep.ReadSigns && !progress.HasTarget,
+                "Leaving the survey preserves the acquired scan and does not replace it with a forced return task.");
+            Near(progress.ReadingSeconds, 2.5f, "Reading continues during ordinary exploration after rescanning.");
+            Feed(progress, Survey, 1.5f);
+            Require(progress.Step == TerrainTutorialStep.FollowRoute, "Saved reading time survives expiry and exploration.");
             progress.RequireFreshScan();
             Require(progress.Step == TerrainTutorialStep.FollowRoute, "Expiry cannot reset a route that has already unlocked.");
         }
@@ -417,6 +442,7 @@ namespace AnimalGame.Editor
                     new Vector2(1440, 1080), new Vector2(2560, 1080) })
                     foreach (TerrainTutorialStep step in Enum.GetValues(typeof(TerrainTutorialStep)))
                     {
+                        if (step == TerrainTutorialStep.Completed) continue;
                         Set(lesson, "progress", At(step));
                         foreach (bool[] state in new[] { new[] { true, true, true }, new[] { false, false, true },
                             new[] { true, false, false }, new[] { true, true, false } })
@@ -432,6 +458,10 @@ namespace AnimalGame.Editor
                             CheckVisibleText(root, "Collapsed " + step + " at " + size);
                         }
                     }
+                Set(lesson, "progress", At(TerrainTutorialStep.Completed));
+                Invoke(lesson, "RefreshPanel", true, true, true);
+                Require(!panel.IsVisible && !panel.CanContinue,
+                    "Terminal terrain state hides its card without asking for an extra chapter confirmation.");
                 textChecks = checks - before;
                 Require(EditorJsonUtility.ToJson(shared) == sharedBefore, "Terrain rendering does not modify shared HUD settings.");
             }

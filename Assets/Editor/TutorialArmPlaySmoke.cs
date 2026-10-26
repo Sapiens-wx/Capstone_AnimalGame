@@ -200,12 +200,12 @@ namespace AnimalGame.Editor
                     case Phase.Complete:
                         if (!Settled(8)) return;
                         report.armConfirmations = TutorialContinueSmokeInput.ConfirmationCount(lesson.Panel);
-                        Require(report.armConfirmations == 8,
-                            "All seven native arm actions and the completion card require separate A confirmations after at least twelve ready frames.");
-                        Record("Eight separate real A confirmations advance the seven measured arm actions and the completed chapter; achieved goals stay pending before A.");
+                        Require(report.armConfirmations == 6,
+                            "Only the six native arm actions require separate A confirmations; no completion card adds another press.");
+                        Record("Six separate real A confirmations advance the measured arm actions and directly release the next chapter.");
                         Require(lesson.Progress.IsComplete && Time.timeScale == 1f && bootstrap.robot.enabled,
                             "Completion must preserve ordinary robot and gameplay ownership.");
-                        Record("All seven real gamepad arm actions finish in place: deploy, extension, inward reach, left swing, right swing, centred hold and full stow.");
+                        Record("All six real gamepad arm actions finish in place: deploy, extension, inward reach, left swing, right swing and full stow.");
                         Finish(null); break;
                 }
             }
@@ -221,6 +221,8 @@ namespace AnimalGame.Editor
 
         private void CheckInPlace()
         {
+            // The discovery chapter can legitimately create its own destination after this handoff.
+            if (lesson.IsComplete) return;
             Require(bootstrap != null && bootstrap.robot != null && bootstrap.map != null,
                 "In-place arm practice must retain the existing robot and map.");
             Require(bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position,

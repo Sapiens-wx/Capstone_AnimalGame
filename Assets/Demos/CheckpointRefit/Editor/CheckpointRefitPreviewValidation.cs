@@ -79,11 +79,15 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             Require(equip != null, "Missing equipment action.");
             Require(!equip.enabledInHierarchy || (view.SelectedSlotIndex == 1 && selectedAvailable && !selectedInstalled),
                 "Only an available, uninstalled camera may offer an enabled Equip action.");
-            if (selectedAvailable && view.SelectedSlotIndex == 1 && view.SelectedModuleIndex == 0)
+            if (selectedAvailable && view.SelectedSlotIndex == 1)
             {
                 Label hint = root.Q<Label>("refit-equip-hint");
-                Require(hint != null && hint.text.IndexOf("GOOD", StringComparison.OrdinalIgnoreCase) >= 0,
-                    "Zoom lens 300 must report good condition, whether available or installed.");
+                if (view.SelectedCamera == CheckpointRefitValidation.CameraDefinition("zoomLens300"))
+                    Require(hint != null && hint.text.IndexOf("GOOD", StringComparison.OrdinalIgnoreCase) >= 0,
+                        "Zoom lens 300 must report good condition at every display position.");
+                else if (view.SelectedCamera == CheckpointRefitValidation.CameraDefinition("damagedPrime50"))
+                    Require(hint != null && hint.text.IndexOf("DAMAGED", StringComparison.OrdinalIgnoreCase) >= 0,
+                        "The damaged prime must retain its condition after moving to the first display position.");
             }
         }
 

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -66,7 +68,143 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 EditorSceneManager.ClosePreviewScene(scene);
                 if (previous.IsValid() && previous.isLoaded) SceneManager.SetActiveScene(previous);
             }
+            RunOrderingChecks();
             Debug.Log("Checkpoint Refit validation PASS: isolated terminal/UI prefabs, dedicated UI assets, and original-player Demo scene.");
+        }
+
+        internal static PhotoCameraDefinition CameraDefinition(string propertyName)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(TerminalPath);
+            var terminal = asset != null ? asset.GetComponent<CheckpointRefitTerminal>() : null;
+            Require(terminal != null, "The camera ordering fixture requires the authored terminal.");
+            SerializedProperty property = new SerializedObject(terminal).FindProperty(propertyName);
+            return property != null ? property.objectReferenceValue as PhotoCameraDefinition : null;
+        }
+
+        /// <summary>Small real Toolkit/equipment checks, independent of the full gameplay map.</summary>
+        [MenuItem("Animal Game/Demos/Checkpoint Refit/Validate Equipment Order")]
+        public static void RunOrderingChecks()
+        {
+            Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Leave Play Mode before validating equipment order.");
+            int checks = 0;
+            void Check(bool condition, string message) { Require(condition, message); checks++; }
+            PhotoCameraDefinition zoom = CameraDefinition("zoomLens300");
+            PhotoCameraDefinition damaged = CameraDefinition("damagedPrime50");
+            Check(zoom != null && damaged != null && zoom != damaged, "The two authored camera definitions must resolve independently.");
+
+            using (var fixture = new OrderingFixture(zoom, damaged))
+            {
+                CheckpointRefitView view = fixture.View;
+                view.Show("ORDER CHECK", "ORDER-01"); fixture.Layout();
+                Check(view.SelectedSlotIndex == 0 && view.IsSelectedModuleInstalled,
+                    "The installed tracked undercarriage must remain the first LEGS module.");
+                view.NavigateSlot(1); fixture.Layout();
+                Check(view.GetCameraModule(0) == zoom && view.GetCameraModule(1) == damaged
+                    && view.GetCameraModule(2) == null && view.SelectedModuleIndex == 0 && view.IsSelectedModuleInstalled,
+                    "CAMERA must initially begin with the actual installed zoom lens and retain its unavailable third card.");
+
+                view.NavigateModule(1);
+                Check(fixture.Equipment.TryEquip(view.SelectedCamera), "The selected unlocked damaged camera must equip.");
+                view.RefreshEquipment(); fixture.Layout();
+                Check(view.GetCameraModule(0) == damaged && view.GetCameraModule(1) == zoom
+                    && view.SelectedModuleIndex == 0 && view.SelectedCamera == damaged && view.IsSelectedModuleInstalled
+                    && fixture.Root.focusController.focusedElement == fixture.Root.Q<Button>("refit-module-0"),
+                    "Equipping the second camera must move it, selection and focus to the leftmost card.");
+                CheckpointRefitPreviewValidation.CheckModulePresentation(view);
+                Check(fixture.Root.Q<Label>("refit-detail-title").text == damaged.DisplayName
+                    && fixture.Root.Q<Label>("refit-equip-hint").text.Contains("DAMAGED")
+                    && !fixture.Root.Q<Button>("refit-equip").enabledInHierarchy,
+                    "Details and installation actions must continue to describe the moved damaged camera.");
+
+                view.Hide(); view.Show("ORDER CHECK", "ORDER-02");
+                view.NavigateSlot(1); view.NavigateSlot(-1); fixture.Layout();
+                Check(view.GetCameraModule(0) == damaged && view.SelectedModuleIndex == 0 && view.IsSelectedModuleInstalled,
+                    "Reopening and returning to CAMERA must retain the equipped-first order.");
+                VisualTreeAsset tree = view.Document.visualTreeAsset;
+                view.Document.visualTreeAsset = null; view.Document.visualTreeAsset = tree;
+                view.Show("ORDER CHECK", "ORDER-03"); fixture.Layout();
+                Check(view.GetCameraModule(0) == damaged && view.SelectedCamera == damaged
+                    && fixture.Root.Q<Button>("refit-module-0").ClassListContains("refit-selected"),
+                    "Rebuilding the actual Toolkit document must preserve the equipped card and selection.");
+
+                PhotoCameraDefinition requested = null;
+                int requests = 0;
+                view.EquipRequested += () => { requested = view.SelectedCamera; requests++; };
+                view.NavigateModule(1); view.RequestEquipSelected();
+                Check(requests == 1 && requested == zoom && fixture.Equipment.TryEquip(requested),
+                    "The second displayed card must request the zoom camera after the damaged camera has moved left.");
+                view.RefreshEquipment(); fixture.Layout();
+                Check(view.GetCameraModule(0) == zoom && view.GetCameraModule(1) == damaged
+                    && view.SelectedModuleIndex == 0 && view.SelectedCamera == zoom
+                    && fixture.Root.Q<Label>("refit-equip-hint").text.Contains("GOOD"),
+                    "Equipping back to the zoom camera must restore its first position and good-condition details.");
+
+                fixture.Controller.SetCamera(damaged);
+                OrderingFixture.Call(view, "LateUpdate"); fixture.Layout();
+                Check(view.GetCameraModule(0) == damaged && view.IsModuleInstalled(1, 0)
+                    && view.SelectedCamera == zoom && view.SelectedModuleIndex == 1,
+                    "An external equipment change must update the order without changing the selected camera's identity.");
+                view.NavigateModule(1); view.RequestEquipSelected();
+                Check(view.SelectedModuleIndex == 2 && !view.IsSelectedModuleAvailable && requests == 1,
+                    "The unavailable third card must never become equipable after either sort direction.");
+            }
+            using (var fixture = new OrderingFixture(zoom, damaged, false))
+            {
+                fixture.View.Show("LOCK CHECK", "ORDER-04"); fixture.View.NavigateSlot(1); fixture.View.NavigateModule(1);
+                Check(!fixture.View.IsSelectedModuleAvailable && !fixture.Equipment.TryEquip(damaged)
+                    && fixture.Controller.CurrentCamera == zoom && fixture.View.GetCameraModule(0) == zoom,
+                    "Sorting must not unlock an undiscovered camera or change the installed camera.");
+            }
+            Debug.Log("Checkpoint Refit equipment ordering checks PASS: " + checks
+                + " checks; equipped-first cards, selection and focus, camera identities, reopening, document rebuild, external changes and unavailable modules.");
+        }
+
+        private sealed class OrderingFixture : IDisposable
+        {
+            private static readonly BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            private readonly Scene scene;
+            private readonly PanelSettings settings;
+            private readonly RenderTexture texture;
+            public readonly CheckpointRefitView View;
+            public readonly PhotoModeController Controller;
+            public readonly RefitCameraEquipment Equipment;
+            public VisualElement Root => View.Document.rootVisualElement;
+
+            public OrderingFixture(PhotoCameraDefinition zoom, PhotoCameraDefinition damaged, bool unlockDamaged = true)
+            {
+                scene = EditorSceneManager.NewPreviewScene();
+                var profile = AssetDatabase.LoadAssetAtPath<GameObject>(UIPath).GetComponent<UIDocument>();
+                settings = UnityEngine.Object.Instantiate(profile.panelSettings);
+                texture = new RenderTexture(1920, 1080, 24); texture.Create(); settings.targetTexture = texture;
+                var ui = new GameObject("Refit ordering UI"); SceneManager.MoveGameObjectToScene(ui, scene);
+                var document = ui.AddComponent<UIDocument>();
+                document.panelSettings = settings; document.visualTreeAsset = profile.visualTreeAsset;
+                View = ui.AddComponent<CheckpointRefitView>();
+                var owner = new GameObject("Refit ordering camera owner"); owner.SetActive(false);
+                SceneManager.MoveGameObjectToScene(owner, scene);
+                Controller = owner.AddComponent<PhotoModeController>(); Controller.SetCamera(zoom);
+                Equipment = owner.AddComponent<RefitCameraEquipment>(); Equipment.Configure(Controller, zoom);
+                if (unlockDamaged) Equipment.Unlock(damaged);
+                View.BindCameraEquipment(Equipment, zoom, damaged);
+            }
+
+            public void Layout()
+            {
+                Require(Root.panel != null, "The real refit UXML must attach to a runtime Toolkit panel.");
+                Call(Root.panel, "ValidateLayout");
+                Call(View, "FitStage");
+                Call(Root.panel, "ValidateLayout");
+            }
+
+            public static void Call(object target, string method)
+                => target.GetType().GetMethod(method, Flags).Invoke(target, null);
+
+            public void Dispose()
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+                texture.Release(); UnityEngine.Object.DestroyImmediate(texture);
+                UnityEngine.Object.DestroyImmediate(settings);
+            }
         }
 
         public static void RunBatch()

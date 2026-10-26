@@ -104,6 +104,8 @@ namespace AnimalGame.World
         private System.Action onGrabbed;
         private System.Action onReleased;
         private System.Action onRecycled;
+        /// <summary>Observes the successful native recycling path; disabling or dropping an object never raises this event.</summary>
+        public event System.Action Recycled { add => onRecycled += value; remove => onRecycled -= value; }
         public virtual WorldInteractionKind Kind => kind;
         public void SetKind(WorldInteractionKind value) { kind = value; MarkSpatialDirty(); }
         public BoxCollider2D BoxSource { get => box; set { box = value; MarkSpatialDirty(); } }

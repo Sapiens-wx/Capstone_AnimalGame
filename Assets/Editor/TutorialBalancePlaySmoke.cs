@@ -165,6 +165,8 @@ namespace AnimalGame.Editor
                         if (lesson.Progress.ReadingSeconds < .45f) return;
                         Require(lesson.Progress.Step == BalanceTutorialStep.ReadIndicator,
                             "The authored indicator explanation must remain visible long enough to read.");
+                        Require(Mathf.Abs(bootstrap.robot.CurrentTurnSpeed) > 2f,
+                            "Balance reading must keep progressing while the native left stick turns the robot.");
                         Begin(Phase.HidePanel); break;
                     case Phase.HidePanel:
                         if (!Settled(4) || !lesson.Panel.IsCollapsed) return;
@@ -235,9 +237,9 @@ namespace AnimalGame.Editor
                     case Phase.ArmStarting:
                         if (!arms.HasStarted || arms.Progress == null) return;
                         report.balanceConfirmations = TutorialContinueSmokeInput.ConfirmationCount(lesson.Panel);
-                        Require(report.balanceConfirmations == 4,
-                            "The three balance instructions and completion card each require a separate A confirmation after twelve ready frames.");
-                        Record("Four separate real A confirmations complete the three balance cards and its chapter before arms can start.");
+                        Require(report.balanceConfirmations == 3,
+                            "Only the three balance instructions require A confirmation; the final one directly starts the arms chapter.");
+                        Record("Three separate real A confirmations complete balance and directly hand off to arms.");
                         Require(lesson.IsComplete && arms.Progress.Step == ArmTutorialStep.Deploy
                             && bootstrap.armController.State == RobotArmState.Retracted,
                             "The ordinary in-place arms lesson starts only after all balance steps complete.");
@@ -351,6 +353,7 @@ namespace AnimalGame.Editor
             }
             var gamepad = InputSystem.GetDeviceById(gamepadId) as Gamepad; if (gamepad == null) return;
             var state = new GamepadState();
+            if (phase == Phase.ReadIndicator) state.leftStick = Vector2.right * .5f;
             if (phase == Phase.HiddenReading || phase == Phase.Adjust) state.rightStick = Vector2.right * .7f;
             if (phase == Phase.Paused) state.rightStick = Vector2.left * .7f;
             if (phase == Phase.HidePanel || phase == Phase.ShowPanel || phase == Phase.DeployArms || phase == Phase.StowArms)

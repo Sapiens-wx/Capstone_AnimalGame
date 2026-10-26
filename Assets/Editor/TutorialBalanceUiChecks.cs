@@ -149,6 +149,7 @@ namespace AnimalGame.Editor
                 {
                     foreach (BalanceTutorialStep step in Enum.GetValues(typeof(BalanceTutorialStep)))
                     {
+                        if (step == BalanceTutorialStep.Completed) continue;
                         typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(progress, step);
                         Set(progress, "armed", true);
                         foreach (bool valid in new[] { true, false })
@@ -174,6 +175,10 @@ namespace AnimalGame.Editor
                     }
                     CheckRecoveryCopy(panel, text.Balance, size);
                 }
+                typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(progress, BalanceTutorialStep.Completed);
+                Invoke(lesson, "RefreshPanel", true);
+                Require(!panel.IsVisible && !panel.CanContinue,
+                    "Terminal balance state hides its card without asking for an extra chapter confirmation.");
                 Require(EditorJsonUtility.ToJson(bootstrap.balanceView) == viewBefore
                     && EditorJsonUtility.ToJson(bootstrap.balance) == balanceBefore,
                     "Balance presentation preserves native balance view and controller configuration.");
@@ -196,8 +201,8 @@ namespace AnimalGame.Editor
 
         private static void CheckRecoveryCopy(TutorialDialoguePanel panel, BalanceLessonText text, Vector2 size)
         {
-            string[] messages = { text.NeedStowMessage, text.NeutralMessage, text.StopMessage };
-            string[] statuses = { text.NeedStowStatus, text.NeutralStatus, text.StopStatus };
+            string[] messages = { text.NeutralMessage };
+            string[] statuses = { text.NeutralStatus };
             for (int index = 0; index < messages.Length; index++)
             {
                 panel.SetContent(text.Title, messages[index], "R", "Shift weight", "Follow the prompt.", statuses[index], 3, 9);

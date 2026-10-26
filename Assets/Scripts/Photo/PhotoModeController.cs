@@ -322,7 +322,8 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
-            if (AnimalGame.MainUI.MainUI.BlocksGameplay) return;
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay
+                || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
             bool shoulderHeld = Input.GetKey(keyboardFocusAndShutterKey)
                                 || AdaptiveLegacyGamepadInput
                                     .IsRightShoulderHeld();
@@ -419,6 +420,7 @@ namespace AnimalGame.RobotMap
         public void SetPhotoModeActive(bool active)
         {
             if (!this) return;
+            if (active && AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
             if (!active && entryInProgress) entryCancellationVersion++;
             if (active)
             {
