@@ -27,8 +27,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.55, y: 0.55, z: 0.55}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 4124710611500769805}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -76,7 +76,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1152
-  m_Sprite: {fileID: 21300000, guid: 8855a116fe17eeb4c913dbee10e1dc04, type: 3}
+  m_Sprite: {fileID: 21300000, guid: c959ac98c26ce094fb62f574c4212b50, type: 3}
   m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -114,8 +114,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.29090908, y: 0.29090908, z: 0.29090908}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 4124710611500769805}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -163,8 +163,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1150
-  m_Sprite: {fileID: 21300000, guid: b202381eb90f91040a281a4f4577b9e1, type: 3}
-  m_Color: {r: 0, g: 0, b: 0, a: 1}
+  m_Sprite: {fileID: 21300000, guid: 66fbefc6c42c12243bfd70b1244d7547, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -193,6 +193,8 @@ GameObject:
   - component: {fileID: 6012108510752505119}
   - component: {fileID: 5055605387045942725}
   - component: {fileID: -3843962255671004437}
+  - component: {fileID: 3233982417491227726}
+  - component: {fileID: 4684756253158047579}
   m_Layer: 0
   m_Name: PileatedWoodpecker_Placeholder
   m_TagString: Untagged
@@ -287,8 +289,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   birthTree: {fileID: 0}
-  healthyTreeWeight: 0.15
-  deadTreeWeight: 0.5
   perchClearanceMeters: 0.04
   birdSettings:
     MinimumTreeStaySeconds: 15
@@ -303,9 +303,6 @@ MonoBehaviour:
     FleeSafeDistanceMultiplier: 2
     FleeOffscreenDelaySeconds: 2
   visualRoot: {fileID: 4124710611500769805}
-  peckAmplitudeMeters: 0.08
-  peckFrequencyHz: 5.5
-  pecksPerSoundWave: 3
 --- !u!114 &2815272410721087732
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -367,6 +364,16 @@ MonoBehaviour:
     opacity: 0.76
     repeatIntervalSeconds: {x: 0.75, y: 1.1}
     radiusVariation: 0.08
+  howlingSound:
+    enabled: 1
+    maximumRadiusMeters: 4
+    durationSeconds: 1.6
+    ringCount: 6
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.9
+    repeatIntervalSeconds: {x: 3, y: 5}
+    radiusVariation: 0.08
   landMovementSound:
     enabled: 0
     maximumRadiusMeters: 0.78
@@ -396,26 +403,6 @@ MonoBehaviour:
     lineWidthNormalized: 0.014
     opacity: 0.84
     repeatIntervalSeconds: {x: 0.5, y: 0.8}
-    radiusVariation: 0.08
-  submergingSound:
-    enabled: 0
-    maximumRadiusMeters: 1.8
-    durationSeconds: 1
-    ringCount: 5
-    innerRadiusRatio: 0.23
-    lineWidthNormalized: 0.014
-    opacity: 0.9
-    repeatIntervalSeconds: {x: 1, y: 1}
-    radiusVariation: 0.08
-  surfacingSound:
-    enabled: 0
-    maximumRadiusMeters: 2.2
-    durationSeconds: 1.1
-    ringCount: 5
-    innerRadiusRatio: 0.23
-    lineWidthNormalized: 0.014
-    opacity: 0.94
-    repeatIntervalSeconds: {x: 1, y: 1}
     radiusVariation: 0.08
   flyingSound:
     enabled: 1
@@ -477,6 +464,26 @@ MonoBehaviour:
     opacity: 0.65
     repeatIntervalSeconds: {x: 1, y: 1}
     radiusVariation: 0.08
+  submergingSound:
+    enabled: 0
+    maximumRadiusMeters: 1.8
+    durationSeconds: 1
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.9
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  surfacingSound:
+    enabled: 0
+    maximumRadiusMeters: 2.2
+    durationSeconds: 1.1
+    ringCount: 5
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.94
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
   showSoundRangeGizmos: 0
 --- !u!114 &1275120524590967715
 MonoBehaviour:
@@ -494,6 +501,7 @@ MonoBehaviour:
   behaviourSet: {fileID: 3020024773526074951}
   placeholderView: {fileID: 2867623857043679190}
   soundEmitter: {fileID: 2815272410721087732}
+  groupId: 
 --- !u!114 &6012108510752505119
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -551,7 +559,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 2
-  photoState: 0
   speciesId: pileated_woodpecker
   displayName: "\u5317\u7F8E\u9ED1\u5544\u6728\u9E1F"
   englishName: Pileated Woodpecker
@@ -563,6 +570,54 @@ MonoBehaviour:
   cognitionReward: 0
   photoBoundsRenderers:
   - {fileID: 3253483730233485182}
+--- !u!114 &3233982417491227726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4118156342335042637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1dbaf13fe81a20c42842790aef0ee0e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  kind: 1
+  box: {fileID: 0}
+  sprite: {fileID: 0}
+  colliderType: 0
+  colliderShape: 0
+  colliderCenter: {x: 0, y: 0}
+  colliderRadius: 0.5
+  localSize: {x: 1, y: 1}
+  climbableRadius: 1
+  slopeStrength01: 0.5
+  topRadiusRatio01: 0.5
+  climbableEntrySpeedMultiplier: 1
+  climbableAffectsWholeArea: 0
+  climbableUseBodyOverlap: 0
+  climbableEntryBlendDuration: 0.08
+  climbableCameraMultiplier: 1
+  climbableRumbleMultiplier: 1
+  climbableLandingDurationMultiplier: 1
+  requiredHands: 1
+  recyclable: 1
+  size: 0
+  pushSpeedMultiplier: 0.6
+  grabResistance: 0
+  motionRoot: {fileID: 0}
+--- !u!114 &4684756253158047579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4118156342335042637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4fbd2374a71125419c537991b0785f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &4309270336449829723
 GameObject:
   m_ObjectHideFlags: 0
@@ -590,8 +645,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.33103445, y: 0.33103445, z: 0.33103445}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 4124710611500769805}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -639,7 +694,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1151
-  m_Sprite: {fileID: 21300000, guid: d8a7a1ecebca36f4ba3b3f2b2c222603, type: 3}
+  m_Sprite: {fileID: 21300000, guid: ebbac0102f70c6c48aa43be5dc775258, type: 3}
   m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

@@ -1,13 +1,10 @@
 fileFormatVersion: 2
-guid: 458e094374646354286967126f57f35e
+guid: 198b7d81c24ae084589128317411f8a0
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3638679228419101534
-    second: Muskrat_0
-  - first:
-      213: 5038306761891615856
-    second: Muskrat_1
+      213: -2098984272493273933
+    second: Wolf_Arrow_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -49,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -103,11 +100,11 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Muskrat_0
+      name: Wolf_Arrow_0
       rect:
         serializedVersion: 2
         x: 457
-        y: 666
+        y: 874
         width: 110
         height: 46
       alignment: 0
@@ -118,30 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 2acac723580d08dc0800000000000000
-      internalID: -3638679228419101534
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Muskrat_1
-      rect:
-        serializedVersion: 2
-        x: 391
-        y: 171
-        width: 242
-        height: 492
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 0749ffb4e49abe540800000000000000
-      internalID: 5038306761891615856
+      spriteID: 3bc18e0dce8eed2e0800000000000000
+      internalID: -2098984272493273933
       vertices: []
       indices: 
       edges: []
@@ -150,7 +125,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -160,8 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Muskrat_0: -3638679228419101534
-      Muskrat_1: 5038306761891615856
+      Wolf_Arrow_0: -2098984272493273933
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
