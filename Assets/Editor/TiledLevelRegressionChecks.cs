@@ -150,9 +150,10 @@ namespace AnimalGame.Editor
                     // Exercise cached and uncached tiles in the same resident map.
                     var source = runtime.Tiles.First();
                     var data = ScriptableObject.CreateInstance<HeightMapPrebakedData>(); owned.Add(data);
-                    var raw = source.Field.CreateRawDetailTexture(); owned.Add(raw);
+                    var raw = new TextAsset(source.Field.CreateRawDetailHeightData()); owned.Add(raw);
+                    var surfaceData = new TextAsset(source.Field.CreateSurfaceHeightData()); owned.Add(surfaceData);
                     var surface = source.Field.CreateSurfaceTextureCopy(); owned.Add(surface);
-                    data.SetBakedData(source.Level, source.Field.SourceMinimum, source.Field.SourceMaximum, raw, raw, surface);
+                    data.SetBakedData(source.Level, source.Field.SourceMinimum, source.Field.SourceMaximum, raw, raw, surfaceData, surface);
                     source.Level.SetPrebakedHeightField(data);
                     using (var cached = new TiledMapRuntime(tiled, true))
                     {

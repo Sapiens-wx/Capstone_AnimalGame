@@ -317,9 +317,9 @@ namespace AnimalGame.Editor
 
         internal static void VerifyBakedChannels(HeightMapPrebakedData data)
         {
-            var raw = data.RawDetailTexture.GetPixelData<float>(0);
-            var detail = data.DetailTexture.GetPixelData<float>(0);
-            var surface = data.SurfaceTexture.GetPixelData<float>(0);
+            var raw = data.RawDetailHeightData.GetData<float>();
+            var detail = data.DetailHeightData.GetData<float>();
+            var surface = data.SurfaceHeightData.GetData<float>();
             Require(raw.Length == detail.Length && raw.Length == surface.Length, "V1 channel size mismatch.");
             for (int index = 0; index < raw.Length; index++)
                 Require(Mathf.Abs(raw[index] - detail[index]) <= 0.000001f

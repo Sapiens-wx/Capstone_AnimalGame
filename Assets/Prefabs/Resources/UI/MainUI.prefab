@@ -261,7 +261,6 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   gamepadOpenHoldSeconds: 0.4
-  photoRingColorTransitionDuration: 0.25
   inventoryRewards: {fileID: 11400000, guid: f8afad1a7512481e958dffe5fd896144, type: 2}
   newItemBlinkPeriod: 1
   inventoryStickDeadzone: 0.5

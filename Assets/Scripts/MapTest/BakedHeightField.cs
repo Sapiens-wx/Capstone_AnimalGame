@@ -1,4 +1,5 @@
 using System;
+using Unity.Collections;
 using UnityEngine;
 
 namespace AnimalGame.MapTest
@@ -11,10 +12,41 @@ namespace AnimalGame.MapTest
     /// </summary>
     public sealed class BakedHeightField : IDisposable, IMapHeightSource
     {
-        private readonly float[] rawDetailHeightsMeters;
-        private readonly float[] detailHeightsMeters;
-        private readonly float[] surfaceHeightsMeters;
+        private readonly HeightSamples rawDetailHeightsMeters;
+        private readonly HeightSamples detailHeightsMeters;
+        private readonly HeightSamples surfaceHeightsMeters;
         private readonly bool ownsTextures;
+        // Retain asset owners while borrowing their native buffers; never dispose those views.
+        private readonly HeightMapPrebakedData prebakedData;
+
+        private readonly struct HeightSamples
+        {
+            private readonly float[] managed;
+            private readonly NativeArray<float> borrowed;
+            public int Length => managed != null ? managed.Length : borrowed.Length;
+            public float this[int index] => managed != null ? managed[index] : borrowed[index];
+            private HeightSamples(float[] values) { managed = values; borrowed = default; }
+            private HeightSamples(NativeArray<float> values) { managed = null; borrowed = values; }
+            public static implicit operator HeightSamples(float[] values) => new HeightSamples(values);
+            public static implicit operator HeightSamples(NativeArray<float> values) => new HeightSamples(values);
+#if UNITY_EDITOR
+            public byte[] ToLittleEndianBytes()
+            {
+                var bytes = new byte[Length * sizeof(float)];
+                Buffer.BlockCopy(managed ?? borrowed.ToArray(), 0, bytes, 0, bytes.Length);
+                if (!BitConverter.IsLittleEndian)
+                    for (int i = 0; i < bytes.Length; i += sizeof(float)) Array.Reverse(bytes, i, sizeof(float));
+                return bytes;
+            }
+            public bool SameValues(HeightSamples other)
+            {
+                if (managed != null && ReferenceEquals(managed, other.managed)) return true;
+                if (Length != other.Length) return false;
+                for (int i = 0; i < Length; i++) if (this[i] != other[i]) return false;
+                return true;
+            }
+#endif
+        }
 
         public int Width { get; }
         public int Height { get; }
@@ -39,11 +71,12 @@ namespace AnimalGame.MapTest
             float maximumHeightMeters,
             float sourceMinimum,
             float sourceMaximum,
-            float[] rawDetailHeights,
-            float[] detailHeights,
-            float[] surfaceHeights,
+            HeightSamples rawDetailHeights,
+            HeightSamples detailHeights,
+            HeightSamples surfaceHeights,
             Texture2D surfaceTexture,
-            bool ownsTextures = true)
+            bool ownsTextures = true,
+            HeightMapPrebakedData prebakedData = null)
         {
             Width = width;
             Height = height;
@@ -57,6 +90,7 @@ namespace AnimalGame.MapTest
             surfaceHeightsMeters = surfaceHeights;
             SurfaceTexture = surfaceTexture;
             this.ownsTextures = ownsTextures;
+            this.prebakedData = prebakedData;
         }
 
         public static BakedHeightField Bake(
@@ -204,40 +238,16 @@ namespace AnimalGame.MapTest
         public static BakedHeightField FromPrebakedData(
             HeightMapPrebakedData data)
         {
-            if (data == null || data.RawDetailTexture == null
-                || data.DetailTexture == null || data.SurfaceTexture == null)
-            {
-                return null;
-            }
-
-            int sampleCount = data.Resolution * data.Resolution;
-            float[] raw = ReadHeightTexture(
-                data.RawDetailTexture,
-                sampleCount,
-                data.MinimumHeightMeters,
-                data.MaximumHeightMeters);
-            float[] detail = data.DetailTexture == data.RawDetailTexture
-                ? raw
-                : ReadHeightTexture(
-                    data.DetailTexture,
-                    sampleCount,
-                    data.MinimumHeightMeters,
-                    data.MaximumHeightMeters);
-            float[] surface = ReadHeightTexture(
-                data.SurfaceTexture,
-                sampleCount,
-                data.MinimumHeightMeters,
-                data.MaximumHeightMeters);
-            if (raw == null || detail == null || surface == null)
-            {
-                return null;
-            }
-
+            if (data == null || !data.HasHeightData) return null;
+            // Bytes already contain meters. Borrow buffers without conversion or array allocation.
+            var raw = data.RawDetailHeightData.GetData<float>();
+            var detail = data.DetailHeightData.GetData<float>();
+            var surface = data.SurfaceHeightData.GetData<float>();
             return new BakedHeightField(
                 data.Resolution, data.Resolution, data.MapSizeMeters,
                 data.MinimumHeightMeters, data.MaximumHeightMeters,
                 data.SourceMinimum, data.SourceMaximum, raw, detail, surface,
-                data.SurfaceTexture, false);
+                data.SurfaceTexture, false, data);
         }
 
         public void Dispose()
@@ -256,7 +266,7 @@ namespace AnimalGame.MapTest
 
         }
 
-        private float SampleBilinear(float[] values, Vector2 uv)
+        private float SampleBilinear(HeightSamples values, Vector2 uv)
         {
             float pixelX = Mathf.Clamp01(uv.x) * (Width - 1);
             float pixelY = Mathf.Clamp01(uv.y) * (Height - 1);
@@ -322,63 +332,21 @@ namespace AnimalGame.MapTest
             return samples;
         }
 
-        public Texture2D CreateRawDetailTexture()
-        {
-            return CreateHeightTexture(
-                rawDetailHeightsMeters, Width, Height, MinimumHeightMeters,
-                MaximumHeightMeters, "Pre-Baked Raw Detail Height Field", false);
-        }
+#if UNITY_EDITOR
+        public byte[] CreateRawDetailHeightData() => rawDetailHeightsMeters.ToLittleEndianBytes();
 
-        public Texture2D CreateDetailTexture()
-        {
-            return ReferenceEquals(detailHeightsMeters, rawDetailHeightsMeters)
-                ? null
-                : CreateHeightTexture(
-                    detailHeightsMeters, Width, Height, MinimumHeightMeters,
-                    MaximumHeightMeters, "Pre-Baked Detail Height Field", false);
-        }
+        // An absent detail payload encodes exact raw/detail deduplication.
+        public byte[] CreateDetailHeightData() => detailHeightsMeters.SameValues(rawDetailHeightsMeters)
+            ? null : detailHeightsMeters.ToLittleEndianBytes();
+
+        public byte[] CreateSurfaceHeightData() => surfaceHeightsMeters.ToLittleEndianBytes();
 
         public Texture2D CreateSurfaceTextureCopy()
         {
-            return CreateHeightTexture(
-                surfaceHeightsMeters, Width, Height, MinimumHeightMeters,
-                MaximumHeightMeters, "Pre-Baked Surface Height Field", false);
+            return CreateHeightTexture(surfaceHeightsMeters, Width, Height, MinimumHeightMeters,
+                MaximumHeightMeters, "Pre-Baked Surface Height Field");
         }
-
-
-
-        private static float[] ReadHeightTexture(
-            Texture2D texture,
-            int sampleCount,
-            float minimumHeightMeters,
-            float maximumHeightMeters)
-        {
-            if (texture.width * texture.height != sampleCount)
-                return null;
-
-            try
-            {
-                var source = texture.GetPixelData<float>(0);
-                if (source.Length < sampleCount)
-                    return null;
-                var values = new float[sampleCount];
-                for (int index = 0; index < sampleCount; index++)
-                {
-                    values[index] = Mathf.Lerp(
-                        minimumHeightMeters,
-                        maximumHeightMeters,
-                        source[index]);
-                }
-                return values;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-
-
-
+#endif
         private static float SampleSource(
             float[] pixels,
             int width,
@@ -491,7 +459,7 @@ namespace AnimalGame.MapTest
         }
 
         private static Texture2D CreateSurfaceTexture(
-            float[] heightsMeters,
+            HeightSamples heightsMeters,
             int width,
             int height,
             float minimumHeightMeters,
@@ -507,7 +475,7 @@ namespace AnimalGame.MapTest
         }
 
         private static Texture2D CreateHeightTexture(
-            float[] heightsMeters,
+            HeightSamples heightsMeters,
             int width,
             int height,
             float minimumHeightMeters,
