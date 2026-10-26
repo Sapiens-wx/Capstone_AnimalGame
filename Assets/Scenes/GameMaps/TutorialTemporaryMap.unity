@@ -8631,7 +8631,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
       propertyPath: interactionRadiusMeters
-      value: 2
+      value: 2.14
       objectReference: {fileID: 0}
     - target: {fileID: 8637752686558655013, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
       propertyPath: m_LocalScale.x

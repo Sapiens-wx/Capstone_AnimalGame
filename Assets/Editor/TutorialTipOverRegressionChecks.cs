@@ -27,6 +27,7 @@ namespace AnimalGame.Editor
             CheckReminder();
             CheckInterruptedLanding();
             CheckEditableCopy();
+            CheckRecoveryCopy(source: AssetDatabase.LoadAssetAtPath<TutorialTextContent>("Assets/Data/Tutorial/TutorialText.asset"));
             string requested = Environment.GetEnvironmentVariable("TUTORIAL_TIPOVER_VALIDATION_OUTPUT");
             string output = string.IsNullOrWhiteSpace(requested)
                 ? Path.GetFullPath("output/validation/tutorial-tipover") : Path.GetFullPath(requested);
@@ -243,7 +244,7 @@ namespace AnimalGame.Editor
             var source = AssetDatabase.LoadAssetAtPath<TutorialTextContent>("Assets/Data/Tutorial/TutorialText.asset");
             Require(source != null && source.TipOver != null, "The scene's shared text asset has its independent tip-over group.");
             var tokens = new TutorialTextTokens().Add("confirm", "A").Add("brace", "→").Add("effort", "←")
-                .Add("counter", "→").Add("inertia", "←");
+                .Add("counter", "→").Add("inertia", "←").Add("cadence", 3f);
             using (var serialized = new SerializedObject(source))
             {
                 var chapter = serialized.FindProperty("TipOver");
@@ -270,8 +271,31 @@ namespace AnimalGame.Editor
         {
             Require(!string.IsNullOrWhiteSpace(text), "Recovery copy is present: " + field);
             Require(text.IndexOf('{') < 0 && text.IndexOf('}') < 0, "Known recovery placeholders resolve: " + field);
-            Require(text.Split('\n').Length <= 4, "Default recovery copy fits four short lines: " + field);
+            Require(text.Split('\n').Length <= 6, "Recovery copy stays within six short lines before actual layout validation: " + field);
             foreach (char letter in text) Require(letter < '\u4e00' || letter > '\u9fff', "Recovery copy remains English: " + field);
+        }
+
+        private static void CheckRecoveryCopy(TutorialTextContent source)
+        {
+            Require(source != null && source.TipOver != null, "The real authoring asset supplies recovery instructions.");
+            var text = source.TipOver;
+            var tokens = new TutorialTextTokens().Add("cadence", 3f);
+            foreach (string name in new[] { "EffortMessage", "CadenceLostMessage", "DirectionLostMessage", "ReminderMessage" })
+            {
+                string raw = (string)typeof(TipOverLessonText).GetField(name).GetValue(text);
+                string firstLine = tokens.Format(raw).Split('\n')[0];
+                Require(firstLine.Contains("3") && firstLine.Contains("second"),
+                    name + " puts the approximately three pushes per second instruction in the first main-body line.");
+                Require(!raw.Contains("{brace}") && !raw.Contains("{effort}"),
+                    name + " explains the physical action without a quantized direction character.");
+            }
+            string recover = text.Recover.Message;
+            Require(tokens.Format(recover).Split('\n')[0].Contains("3"),
+                "The initial recovery card also keeps cadence in its main body rather than only the detail row.");
+            foreach (string raw in new[] { recover, text.SupportMessage, text.ArmLostMessage, text.SupportStatus,
+                text.EffortStatus, text.Recover.Action, text.Recover.Detail, text.ToggleHint })
+                Require(!raw.Contains("{brace}") && !raw.Contains("{effort}"),
+                    "Recovery-stage text never substitutes a rounded eight-way arrow for continuous support or force direction.");
         }
 
         private static void Require(bool condition, string message)

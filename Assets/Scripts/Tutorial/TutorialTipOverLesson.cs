@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using UnityEngine;
+using UnityEngine.UIElements;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -28,6 +29,7 @@ namespace AnimalGame.Tutorial
         private TutorialDrivingLesson driving;
         private RobotTumbleController tumble;
         private RobotSelfRightingController selfRighting;
+        private RobotBalanceView balanceView;
         private TipOverTutorialProgress progress;
         private TutorialDialoguePanel.ContentSnapshot savedContent;
         private bool interrupting, resumePending, hasStarted, hasCompleted, reminder;
@@ -50,8 +52,10 @@ namespace AnimalGame.Tutorial
         public bool IsReminder => reminder;
         public bool OwnsInertiaPause => ownsInertiaPause;
         public bool HasReadInertiaLesson => hasReadInertiaLesson;
-        public Vector2 CurrentBraceDirection => WorldToRobot(tumbleDirectionWorld);
-        public Vector2 CurrentEffortDirection => -CurrentBraceDirection;
+        public Vector2 CurrentBraceDirection => selfRighting != null && selfRighting.HasBalancePresentation
+            ? selfRighting.RequiredBraceDirectionLocal : WorldToRobot(tumbleDirectionWorld);
+        public Vector2 CurrentEffortDirection => selfRighting != null && selfRighting.HasBalancePresentation
+            ? selfRighting.RequiredEffortDirectionLocal : -CurrentBraceDirection;
         public Vector2 CurrentCounterDirection => WorldToRobot(inertiaCounterWorld);
         private TipOverLessonText Text => tutorialText != null && tutorialText.TipOver != null ? tutorialText.TipOver : defaultText;
         private TutorialPanelText PanelText => tutorialText != null ? tutorialText.Panel : defaultPanelText;
@@ -92,6 +96,7 @@ namespace AnimalGame.Tutorial
                 foreach (GameObject root in gameObject.scene.GetRootGameObjects())
                 { bootstrap = root.GetComponentInChildren<HeightMapPlayerSceneBootstrap>(); if (bootstrap != null) break; }
             if (bootstrap == null || bootstrap.robot == null) return;
+            balanceView = bootstrap.robot.GetComponent<RobotBalanceView>();
             var nextTumble = bootstrap.tumble != null ? bootstrap.tumble : bootstrap.robot.GetComponent<RobotTumbleController>();
             var nextRighting = bootstrap.selfRightingController != null ? bootstrap.selfRightingController
                 : bootstrap.robot.GetComponent<RobotSelfRightingController>();
@@ -196,6 +201,7 @@ namespace AnimalGame.Tutorial
 
         private void RefreshInertiaPanel()
         {
+            ClearRecoveryDirectionGuide();
             var tokens = Tokens();
             Panel.SetPanelText(PanelText); Panel.SetLessonHint(tokens.Format(Text.InertiaStatus));
             Panel.SetContent(tokens.Format(Text.InertiaTitle), tokens.Format(Text.InertiaMessage), "R",
@@ -243,6 +249,7 @@ namespace AnimalGame.Tutorial
             }
             if (IsModal())
             {
+                ClearRecoveryDirectionGuide();
                 progress?.Suspend(); Panel.SetContinuePrompt(false); Panel.SetVisible(false); return;
             }
             Panel.SetPhotoModeVisible(false); Panel.SetVisible(true);
@@ -286,11 +293,13 @@ namespace AnimalGame.Tutorial
             || (GetComponent<TutorialRefitLesson>() is TutorialRefitLesson refit && refit.Terminal != null && refit.Terminal.IsOpen);
 
         private TutorialTextTokens Tokens() => new TutorialTextTokens().Add("confirm", "A")
-            .Add("brace", DirectionArrow(CurrentBraceDirection)).Add("effort", DirectionArrow(CurrentEffortDirection))
+            .Add("brace", "toward the fallen-side support").Add("effort", "toward the robot center")
+            .Add("cadence", selfRighting != null ? selfRighting.RequiredEffortPushFrequency : 3f)
             .Add("counter", DirectionArrow(CurrentCounterDirection)).Add("inertia", DirectionArrow(-CurrentCounterDirection));
 
         private void RefreshRollingPanel(bool recovered)
         {
+            ClearRecoveryDirectionGuide();
             var tokens = Tokens();
             Panel.SetPanelText(PanelText); Panel.SetLessonHint(string.Empty);
             Panel.SetContent(tokens.Format(Text.Title), tokens.Format(recovered ? Text.StabilizeMessage : Text.RollingMessage),
@@ -301,7 +310,7 @@ namespace AnimalGame.Tutorial
 
         private void RefreshRecoveryPanel()
         {
-            if (progress == null || progress.IsComplete) { Panel.SetContinuePrompt(false); return; }
+            if (progress == null || progress.IsComplete) { ClearRecoveryDirectionGuide(); Panel.SetContinuePrompt(false); return; }
             var tokens = Tokens();
             TutorialStepText card = Text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             string message = card.Message, action = card.Action, detail = card.Detail, glyph = card.ControlGlyph;
@@ -339,6 +348,37 @@ namespace AnimalGame.Tutorial
                 tokens.Format(detail), tokens.Format(status));
             Panel.SetContextLabel(Text.ContextLabel); Panel.SetProgress(value); Panel.SetSuccess(progress.IsComplete);
             Panel.SetContinuePrompt(progress.CanContinue, PanelText.ContinuePrompt);
+            UpdateRecoveryDirectionGuide();
+        }
+
+        private void UpdateRecoveryDirectionGuide()
+        {
+            var arm = bootstrap.armController;
+            bool show = progress != null && progress.Step == TipOverTutorialStep.Recover
+                && tumble.State == RobotTumbleState.Fallen && selfRighting != null
+                && selfRighting.State != RobotSelfRightingState.RightingChassis
+                && arm != null && arm.IsArmModeActive && !ownsInertiaPause && !IsModal()
+                && Panel.Root?.panel != null;
+            if (!show) { ClearRecoveryDirectionGuide(); return; }
+
+            bool isBracing = !selfRighting.IsArmSupportCorrect;
+            Vector2 input = isBracing
+                ? arm.CurrentTargetLocal.normalized * Mathf.Clamp01(arm.CurrentInputMagnitude)
+                : selfRighting.CurrentBalancePullInputLocal;
+            Vector2 bodyPanel = Vector2.zero, pointPanel = Vector2.zero;
+            if (balanceView != null && balanceView.TryGetDisplayedBalanceScreenPositions(out Vector2 body, out Vector2 point))
+            {
+                bodyPanel = RuntimePanelUtils.ScreenToPanel(Panel.Root.panel, new Vector2(body.x, Screen.height - body.y));
+                pointPanel = RuntimePanelUtils.ScreenToPanel(Panel.Root.panel, new Vector2(point.x, Screen.height - point.y));
+            }
+            Panel.SetRecoveryDirectionGuide(true, isBracing, CurrentBraceDirection, CurrentEffortDirection, input,
+                selfRighting.IsArmSupportCorrect, selfRighting.IsEffortPushInputCorrect, bodyPanel, pointPanel);
+        }
+
+        private void ClearRecoveryDirectionGuide()
+        {
+            if (Panel != null) Panel.SetRecoveryDirectionGuide(false, false, Vector2.zero, Vector2.zero,
+                Vector2.zero, false, false, Vector2.zero, Vector2.zero);
         }
 
         private Vector2 WorldToRobot(Vector2 world)
@@ -357,6 +397,7 @@ namespace AnimalGame.Tutorial
 
         private void FinishInterrupt(bool completed)
         {
+            ClearRecoveryDirectionGuide();
             ReleaseInertiaPause(); pendingInertiaPause = false;
             if (completed) hasCompleted = true;
             interrupting = false; resumePending = true; resumeFrame = Time.frameCount;
@@ -377,6 +418,7 @@ namespace AnimalGame.Tutorial
         [ContextMenu("Reset First Tip-over Tutorial")]
         public void ResetFirstTipOverTutorial()
         {
+            ClearRecoveryDirectionGuide();
             ReleaseInertiaPause(); pendingInertiaPause = hasReadInertiaLesson = false;
             interrupting = resumePending = hasStarted = hasCompleted = reminder = observedFallen = false;
             progress = null; RestorePresentation(); TutorialContinueInput.DisarmUntilRelease(gameObject.scene);
@@ -384,6 +426,7 @@ namespace AnimalGame.Tutorial
 
         private void OnDisable()
         {
+            ClearRecoveryDirectionGuide();
             ReleaseInertiaPause(); pendingInertiaPause = false;
             if (tumble != null) tumble.Started -= OnTumbleStarted;
             if (selfRighting != null)

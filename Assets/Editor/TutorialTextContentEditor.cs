@@ -91,7 +91,7 @@ namespace AnimalGame.Editor
                 EditorGUILayout.LabelField("物品栏与材料", "{inventoryRight} 右方向键；{inventoryLeft} 左方向键；{cancel} 返回键；{materials} 当前材料名称与数量。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("拍照按键", "{photo} 拍照模式；{rb} 快门；{cancel} 返回。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("改装按键与镜头", "{confirm} 确认 / 装备；{cancel} 返回；{lens} 目标镜头；{distance:F1} 到目标距离。", EditorStyles.wordWrappedLabel);
-                EditorGUILayout.LabelField("侧翻与回正", "{brace} 机械臂支撑方向；{effort} 右摇杆反复推动方向；{confirm} 继续或返回。方向随实际侧翻更新。", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("侧翻与回正", "{cadence:F0} 为当前要求的每秒发力次数，必须放在上方正文。L 负责顶住侧翻一侧，R 朝侧翻反方向将重心推回身体中心，每次推出后回中；方向由连续角度图示说明。{confirm} 继续或返回。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("手柄按键", "{rt}   {lt}   {lb}", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.HelpBox("正文建议控制在 4 行左右，可按 Enter 换行。操作指令与底部提示尽量简短；这里不会截断或限制保存的文字。\n"
                     + "收起标签较窄，纵排标题可为每个字母单独换行。", MessageType.None);
@@ -342,6 +342,7 @@ namespace AnimalGame.Editor
                 DrawStep(tipOver, "Explanation", "1 · 认识侧翻");
                 DrawStep(tipOver, "DeployArms", "2 · 展开机械臂");
                 DrawStep(tipOver, "Recover", "3 · 支撑、发力与稳住机身");
+                EditorGUILayout.HelpBox("左摇杆持续顶住侧翻一侧的支撑标记；右摇杆朝侧翻反方向反复推出并回中，让黄色重心点靠近身体中心。每秒约 {cadence:F0} 次是核心操作要求，应写在正文首行。恢复阶段不再用八向文字箭头描述精确方向，连续图示与实际输入判定保持一致。", MessageType.None);
                 Field(tipOver, "ToggleHint", "持续操作提醒");
                 EditorGUILayout.Space(3);
                 EditorGUILayout.LabelField("首次落地惯性慢动作讲解", EditorStyles.boldLabel);
@@ -355,8 +356,8 @@ namespace AnimalGame.Editor
                 if (tipOverRemindersExpanded)
                     using (new EditorGUI.IndentLevelScope())
                     {
-                        Field(tipOver, "SupportMessage", "机械臂支撑正文");
-                        Field(tipOver, "EffortMessage", "右摇杆推回中正文");
+                        Field(tipOver, "SupportMessage", "机械臂支撑正文", "L 将机械臂推向侧翻一侧的支撑标记并持续顶住。");
+                        Field(tipOver, "EffortMessage", "右摇杆将重心推回中心", "正文首行保留约每秒 {cadence:F0} 次；右杆朝侧翻反方向推出，再回到摇杆中心。");
                         Field(tipOver, "RightingMessage", "机身正在回正的正文");
                         Field(tipOver, "StabilizeMessage", "落地后稳住重心的正文");
                         Field(tipOver, "ArmLostMessage", "支撑丢失的重试正文");
@@ -395,7 +396,6 @@ namespace AnimalGame.Editor
                 DrawStep(discovery, "FindAnimal", "3 · 寻找未见过的啄木鸟");
                 DrawStep(discovery, "ApproachAnimal", "目标超出扫描范围时的指引");
                 DrawStep(discovery, "ConfirmAnimal", "4 · 亲眼确认并识别实心标记");
-                DrawStep(discovery, "ReadObject", "5 · 识别可交互物标记");
                 Field(discovery, "ToggleHint", "持续操作提醒", "本章顶部的长按 / 松开说明，{lb} 会替换为当前手柄按键。");
                 Field(discovery, "NeedRescanMessage", "尚未找到目标时的恢复正文", "只在尚未观察到教学目标时提供恢复操作，不包含刷新标记教学。");
                 discoveryStatusesExpanded = EditorGUILayout.Foldout(discoveryStatusesExpanded, "通用状态反馈", true);

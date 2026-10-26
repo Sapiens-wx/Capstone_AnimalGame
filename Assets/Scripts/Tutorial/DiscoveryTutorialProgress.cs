@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace AnimalGame.Tutorial
 {
-    public enum DiscoveryTutorialStep { Charge, Release, FindAnimal, ConfirmAnimal, ReadObject, Rescan, Completed }
+    public enum DiscoveryTutorialStep { Charge = 0, Release = 1, FindAnimal = 2, ConfirmAnimal = 3, Rescan = 5, Completed = 6 }
 
     /// <summary>Actual target presentation, sampled after the existing scanner and marker systems.</summary>
     public readonly struct DiscoveryTutorialSample
@@ -41,7 +41,6 @@ namespace AnimalGame.Tutorial
             DiscoveryTutorialStep.Release => scanReleased,
             DiscoveryTutorialStep.FindAnimal => animalObserved && IsRead(animalReading, animalReadSeconds),
             DiscoveryTutorialStep.ConfirmAnimal => animalSeen,
-            DiscoveryTutorialStep.ReadObject => objectObserved && IsRead(objectReading, objectReadSeconds),
             DiscoveryTutorialStep.Completed => true,
             _ => false
         };
@@ -49,14 +48,12 @@ namespace AnimalGame.Tutorial
         {
             DiscoveryTutorialStep.Release => !scanReleased && !chargeStarted,
             DiscoveryTutorialStep.FindAnimal or DiscoveryTutorialStep.ConfirmAnimal => !animalObserved,
-            DiscoveryTutorialStep.ReadObject => !objectObserved,
             _ => false
         };
         public float Value => CanContinue ? Target : ReadingSeconds;
         public float Target => Step switch
         {
             DiscoveryTutorialStep.FindAnimal => animalReadSeconds,
-            DiscoveryTutorialStep.ReadObject => objectReadSeconds,
             _ => 1f
         };
         public float NormalizedProgress => IsComplete ? 1f : Mathf.Clamp01(Value / Target);
@@ -139,9 +136,6 @@ namespace AnimalGame.Tutorial
                 case DiscoveryTutorialStep.FindAnimal:
                     ReadingSeconds = animalReading;
                     break;
-                case DiscoveryTutorialStep.ReadObject:
-                    ReadingSeconds = objectReading;
-                    break;
             }
         }
 
@@ -154,7 +148,7 @@ namespace AnimalGame.Tutorial
                 DiscoveryTutorialStep.Charge => DiscoveryTutorialStep.Release,
                 DiscoveryTutorialStep.Release => DiscoveryTutorialStep.FindAnimal,
                 DiscoveryTutorialStep.FindAnimal => DiscoveryTutorialStep.ConfirmAnimal,
-                DiscoveryTutorialStep.ConfirmAnimal => DiscoveryTutorialStep.ReadObject,
+                DiscoveryTutorialStep.ConfirmAnimal => DiscoveryTutorialStep.Completed,
                 _ => DiscoveryTutorialStep.Completed
             });
             return true;

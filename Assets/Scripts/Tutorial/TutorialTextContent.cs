@@ -241,9 +241,6 @@ namespace AnimalGame.Tutorial
         public TutorialStepText ConfirmAnimal = new TutorialStepText("✦", "See bird",
             "Bring the woodpecker\ninside your view.\nIts star becomes solid\nwhen you see it.",
             "Solid star · Seen");
-        public TutorialStepText ReadObject = new TutorialStepText("///", "Inspect object",
-            "Stripes and diamonds\nmark objects you can\ninteract with. Some need\nmore than recycling.",
-            "Striped mark · Interact");
         // Retained for old serialized text assets; this step is no longer part of the lesson.
         [HideInInspector] public TutorialStepText Rescan = new TutorialStepText("{lb}", "Charge scan",
             "Hold the left bumper.\nRelease at full charge\nto locate nearby targets.", "Release {lb} to scan");
@@ -268,7 +265,6 @@ namespace AnimalGame.Tutorial
             DiscoveryTutorialStep.Release => Release,
             DiscoveryTutorialStep.FindAnimal => FindAnimal,
             DiscoveryTutorialStep.ConfirmAnimal => ConfirmAnimal,
-            DiscoveryTutorialStep.ReadObject => ReadObject,
             DiscoveryTutorialStep.Rescan => Rescan,
             _ => Completed
         };
@@ -487,28 +483,28 @@ namespace AnimalGame.Tutorial
         public TutorialStepText DeployArms = new TutorialStepText("L3", "Deploy arms",
             "Press L3 to deploy\nyour mechanical arms.\nThey can support\nthe fallen robot.",
             "Press once, then release.");
-        public TutorialStepText Recover = new TutorialStepText("L+R", "Brace and push",
-            "Hold the left stick {brace}.\nPush the right stick {effort}.\nReturn it to center,\nthen push again.",
-            "R · Push, center · ~3/s");
+        public TutorialStepText Recover = new TutorialStepText("L+R", "Brace and recover",
+            "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R opposite the fall,\ntoward the robot center.\nRecenter R each time.",
+            "Move yellow point inward.");
         [HideInInspector] public TutorialStepText Completed = new TutorialStepText("✓", "Robot stabilized",
             "The robot is upright\nand stable again.\nContinue your\nprevious tutorial.",
             "Your progress is retained.");
-        [TextArea(3, 5)] public string SupportMessage = "Use left stick {brace}\nto move the arms onto\nthe marked support bar.\nKeep pushing to brace.";
-        [TextArea(3, 5)] public string EffortMessage = "Keep left stick {brace} held.\nPush right stick {effort},\ncenter it, then repeat\nabout 3 times a second.";
+        [TextArea(3, 5)] public string SupportMessage = "Push L toward the bar\non the fallen side.\nKeep pushing so the arms\nbrace against it.";
+        [TextArea(3, 5)] public string EffortMessage = "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R opposite the fall,\ntoward the robot center.\nRecenter R each time.";
         [TextArea(3, 5)] public string RightingMessage = "The robot is lifting.\nGet ready to adjust\nyour balance point\nwhen it lands.";
         [TextArea(3, 5)] public string StabilizeMessage = "Use the right stick\nto keep the balance point\ninside the support area\nuntil the robot is stable.";
-        [TextArea(3, 5)] public string ArmLostMessage = "Arm support was lost.\nPush the left stick {brace}\ntoward the guide again.\nKeep it held.";
-        [TextArea(3, 5)] public string CadenceLostMessage = "Keep the left stick {brace}.\nPush right stick {effort},\ncenter it, then repeat\nabout 3 times a second.";
-        [TextArea(3, 5)] public string DirectionLostMessage = "Keep the left stick {brace}.\nPush the right stick {effort}.\nFollow the shown direction,\nthen return it to center.";
-        [TextArea(3, 5)] public string ReminderMessage = "L3 deploys your arms.\nHold left stick {brace}.\nPush right stick {effort},\ncenter it, then repeat.";
+        [TextArea(3, 5)] public string ArmLostMessage = "Arm support was lost.\nPush L toward the bar\non the fallen side.\nKeep it held to brace.";
+        [TextArea(3, 5)] public string CadenceLostMessage = "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R opposite the fall,\ntoward the robot center.\nRecenter R each time.";
+        [TextArea(3, 5)] public string DirectionLostMessage = "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R from yellow point\ntoward robot center.\nRecenter R each time.";
+        [TextArea(3, 5)] public string ReminderMessage = "~{cadence:F0} pushes per second.\nL3 deploys your arms.\nHold L toward support.\nPush R opposite the fall.\nRecenter R each time.";
         public string WaitingStatus = "Follow the recovery guide";
-        public string SupportStatus = "Brace toward {brace}";
-        public string EffortStatus = "Push and center {effort}";
+        public string SupportStatus = "Brace on fallen side";
+        public string EffortStatus = "Push balance inward";
         public string RightingStatus = "Righting the robot";
         public string StabilizeStatus = "Keep the balance point inside";
         [HideInInspector] public string CompleteStatus = "Ready to resume";
         public string RetryStatus = "Try the recovery again";
-        public string ToggleHint = "L · Brace / R · Push, center";
+        public string ToggleHint = "L · Brace / R · Push, recenter";
         [HideInInspector] public string ResumePrompt = "A · Resume tutorial";
         public string InertiaTitle = "Landing Recoil";
         [TextArea(3, 5)] public string InertiaMessage = "Standing up creates\nrecoil toward {inertia}.\nPush the right stick {counter}\nto stop another fall.";

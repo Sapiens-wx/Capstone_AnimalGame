@@ -274,8 +274,7 @@ MonoBehaviour:
     SwingRight:
       ControlGlyph: "L \u2192"
       Action: Swing right
-      Message: "Push the left stick right \nto move the hands\ntoward the right
-        side."
+      Message: "Push the left stick right \nto move the hands\ntoward the right side."
       Detail: "Right {value:F0}\xB0 / {target:F0}\xB0"
       CompleteFeedback: 
     Stow:
@@ -320,9 +319,9 @@ MonoBehaviour:
     Title: Discovery Scan
     ApproachAnimal:
       ControlGlyph: LS
-      Action: Follow marker
+      Action: Follow target
       Message: Follow the marker.
-      Detail: Stay on dry ground.
+      Detail: 
       CompleteFeedback: 
     Charge:
       ControlGlyph: '{lb}'
@@ -345,7 +344,7 @@ MonoBehaviour:
       CompleteFeedback: 
     FindAnimal:
       ControlGlyph: "\u2727"
-      Action: 
+      Action: Follow target
       Message: 'A hollow star marks
 
         wildlife not yet seen.
@@ -356,22 +355,9 @@ MonoBehaviour:
       CompleteFeedback: 
     ConfirmAnimal:
       ControlGlyph: "\u2726"
-      Action: 
+      Action: Follow target
       Message: "The hollow star becomes \nsolid when you see it."
       Detail: "Solid star \xB7 Seen"
-      CompleteFeedback: 
-    ReadObject:
-      ControlGlyph: ///
-      Action: Inspect object
-      Message: 'Stripes and diamonds
-
-        mark objects you can
-
-        interact
-        with. Some need
-
-        more than recycling.'
-      Detail: "Striped mark \xB7 Interact"
       CompleteFeedback: 
     Rescan:
       ControlGlyph: '{lb}'
@@ -415,28 +401,6 @@ MonoBehaviour:
       arms before scanning.'
   Recycling:
     Title: Waste Recycling
-    ReachLargeWaste:
-      ControlGlyph: L
-      Action: Find large waste
-      Message: "Follow the marker.\nL3 can stow the arms\nfor normal steering.\nThis pile needs pulling."
-      Detail: Approach {distance:F1} m
-      CompleteFeedback:
-    RecycleLargeWaste:
-      ControlGlyph: '{lt}'
-      Action: Pull and recycle
-      Message: "Move both hands to\nthe large pile. Hold A,\nthen hold {lt} to pull\nit apart."
-      Detail: "A \xB7 Grip / {lt} \xB7 Reverse"
-      CompleteFeedback:
-    LargePullMessage: "Keep holding A.\nHold {lt} to reverse.\nKeep pulling until\nthe pile breaks apart."
-    LargePullAction: Pull apart
-    LargePullDetail: "Pull {pull:F0}%"
-    LargePullStatus: Hold A + {lt}
-    LargeToggleHint: "A \xB7 Grip / {lt} \xB7 Pull"
-    FragmentAction: Recycle fragment
-    FragmentHoldingMessage: "A piece is in your hands.\nRelease {lt}. Keep A held.\nPull the left stick back\nto the yellow inlet."
-    FragmentDroppedMessage: "Hold A to grip the piece.\nPull the left stick back.\nRelease A at the yellow\ninlet to recycle it."
-    LargeRecycledMessage: "Large waste cleared.\nMaterials recovered.\nYou can recycle the\nremaining pieces too."
-    LargeReopenMessage: "Click L3 to deploy.\nMove both hands to\nthe large pile and hold A.\nHold {lt} to pull it apart."
     ReachWaste:
       ControlGlyph: L
       Action: Find the waste
@@ -446,7 +410,8 @@ MonoBehaviour:
 
         Move closer to
 
-        reach it with your arms.'
+        reach
+        it with your arms.'
       Detail: Waste {distance:F1} m
       CompleteFeedback: 
     DeployArms:
@@ -465,16 +430,82 @@ MonoBehaviour:
     RecycleWaste:
       ControlGlyph: '{confirm}'
       Action: Grip and recycle
-      Message: 'Move a hand to waste.
+      Message: 'Move a hand onto waste.
 
         Hold {confirm} to grip it.
 
         Keep
-        holding. Pull
+        holding, then pull
 
         the left stick back.'
       Detail: "Hold {confirm} \xB7 Keep grip"
       CompleteFeedback: 
+    ReachLargeWaste:
+      ControlGlyph: L
+      Action: Find large waste
+      Message: 'Follow the marker.
+
+        This large pile needs pulling.'
+      Detail: Approach {distance:F1} m
+      CompleteFeedback: 
+    RecycleLargeWaste:
+      ControlGlyph: '{lt}'
+      Action: Pull and recycle
+      Message: 'Move both hands to
+
+        the large pile. Hold A,
+
+        then
+        hold {lt} to pull
+
+        it apart.'
+      Detail: "A \xB7 Grip / {lt} \xB7 Reverse"
+      CompleteFeedback: 
+    LargePullMessage: 'Keep holding A.
+
+      Hold {lt} to reverse.
+
+      Keep pulling
+      until
+
+      the pile breaks apart.'
+    LargePullAction: Pull apart
+    LargePullDetail: Pull {pull:F0}%
+    LargePullStatus: Hold A + {lt}
+    LargeToggleHint: "A \xB7 Grip / {lt} \xB7 Pull"
+    FragmentAction: Recycle fragment
+    FragmentHoldingMessage: 'A piece is in your hands.
+
+      Release {lt}. Keep
+      A held.
+
+      Pull the left stick back
+
+      to the yellow inlet.'
+    FragmentDroppedMessage: 'Hold A to grip the piece.
+
+      Pull the left stick
+      back.
+
+      Release A at the yellow
+
+      inlet to recycle it.'
+    LargeRecycledMessage: 'Large waste cleared.
+
+      Materials recovered.
+
+      You
+      can recycle the
+
+      remaining pieces too.'
+    LargeReopenMessage: 'Click L3 to deploy.
+
+      Move both hands to
+
+      the
+      large pile and hold A.
+
+      Hold {lt} to pull it apart.'
     StowArms:
       ControlGlyph: L3
       Action: Retract arms
@@ -491,15 +522,29 @@ MonoBehaviour:
     OpenInventory:
       ControlGlyph: '{inventoryRight}'
       Action: Open inventory
-      Message: "Recovered materials\nare stored in inventory.\nHold D-pad {inventoryRight}\nto open it."
+      Message: 'Recovered materials
+
+        are stored in inventory.
+
+        Hold
+        D-pad {inventoryRight}
+
+        to open it.'
       Detail: Hold {inventoryRight} to open.
-      CompleteFeedback:
+      CompleteFeedback: 
     ViewMaterials:
       ControlGlyph: '{inventoryLeft}'
       Action: Close inventory
-      Message: "Recovered raw materials\nare stored here.\nProcessing sites turn them\ninto useful materials."
+      Message: 'Recovered raw materials
+
+        are stored here.
+
+        Processing
+        sites turn them
+
+        into useful materials.'
       Detail: "Hold {inventoryLeft} / Tap {cancel} \xB7 Close"
-      CompleteFeedback:
+      CompleteFeedback: 
     OpenInventoryHint: "Hold {inventoryRight} \xB7 Open inventory"
     InventoryToggleHint: "Hold {inventoryLeft} / Tap {cancel} \xB7 Close"
     MaterialsDetail: '{materials}'
@@ -592,14 +637,11 @@ MonoBehaviour:
     Title: Photo Practice
     ObserveMovement:
       ControlGlyph: "\u2726"
-      Action: Observe bird
-      Message: 'Watch the woodpecker
+      Action: Observe
+      Message: 'Watch the wildlife and
 
-        pecking the tree trunk.
-
-        Prepare
-        to take a photo.'
-      Detail: Keep the bird in view.
+        prepare to take a photo.'
+      Detail: Keep the wildlife in view.
       CompleteFeedback: 
     EnterPhoto:
       ControlGlyph: '{photo}'
@@ -713,7 +755,7 @@ MonoBehaviour:
 
       to
       save it to your album.'
-    RetryPhotoMessage: 'The woodpecker was not
+    RetryPhotoMessage: 'The wildlife was not
 
       recorded in that photo.
 
@@ -762,7 +804,14 @@ MonoBehaviour:
     OpenWorkbench:
       ControlGlyph: '{confirm}'
       Action: Use workbench
-      Message: "Open the station with {confirm}.\nChoose CAMERA, then\nselect Zoom Lens 300.\nPress {confirm} to equip it."
+      Message: 'Open the station with {confirm}.
+
+        Choose CAMERA, then
+
+        select
+        Zoom Lens 300.
+
+        Press {confirm} to equip it.'
       Detail: "{cancel} \xB7 Close after equipping"
       CompleteFeedback: 
     RefitIntroduction:
@@ -781,7 +830,14 @@ MonoBehaviour:
     EquipLens:
       ControlGlyph: '{confirm}'
       Action: Install better lens
-      Message: "At the assembly station,\nchoose CAMERA and\ninstall Zoom Lens 300.\nClose the station with {cancel}."
+      Message: 'At the assembly station,
+
+        choose CAMERA and
+
+        install
+        Zoom Lens 300.
+
+        Close the station with {cancel}.'
       Detail: "{lb}/{rb} \xB7 CAMERA\n\u2190 / \u2192 \xB7 Lens \xB7 {confirm} equip"
       CompleteFeedback: 
     CloseRefit:
@@ -800,12 +856,9 @@ MonoBehaviour:
     NewLensControls:
       ControlGlyph: '{rb}'
       Action: Learn new shutter
-      Message: 'Hold {rb} to focus.
+      Message: 'Move Right Stick to move
 
-        When focused, release it.
-
-        Press
-        {rb} again to shoot.'
+        frame. Hold {rb} to photograph.'
       Detail: "{photo} \xB7 Photo mode\nR \xB7 Move frame"
       CompleteFeedback: 
     Completed:
@@ -849,7 +902,12 @@ MonoBehaviour:
     MenuEquipHint: "{confirm} \xB7 Equip"
     MenuBackHint: "{cancel} \xB7 Back"
     MenuInspectHint: "{photo} \xB7 Inspect"
-    InstalledMessage: "Zoom Lens 300 installed.\nClose the station with {cancel}\nto resume the tutorial."
+    InstalledMessage: 'Zoom Lens 300 installed.
+
+      Close the station with {cancel}
+
+      to
+      resume the tutorial.'
     NeedStowMessage: 'Press L3 to retract
 
       your arms before using
@@ -859,12 +917,11 @@ MonoBehaviour:
   TipOver:
     Title: Tip-over Recovery
     ContextLabel: CONTEXT TUTORIAL
-    RollingMessage: 'Your robot has tipped over.
+    RollingMessage: 'You have tipped over.
 
       Wait for it to
 
-      stop
-      rolling.'
+      stop rolling.'
     RollingAction: Wait for the robot
     RollingDetail: Recovery starts when still.
     Explanation:
@@ -895,16 +952,9 @@ MonoBehaviour:
       CompleteFeedback: 
     Recover:
       ControlGlyph: L+R
-      Action: Brace and push
-      Message: 'Hold the left stick {brace}.
-
-        Push the right stick {effort}.
-
-        Return
-        it to center,
-
-        then push again.'
-      Detail: "R \xB7 Push, center \xB7 ~3/s"
+      Action: Brace and recover
+      Message: "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R opposite the fall,\ntoward the robot center.\nRecenter R each time."
+      Detail: Move yellow point inward.
       CompleteFeedback: 
     Completed:
       ControlGlyph: "\u2713"
@@ -919,22 +969,8 @@ MonoBehaviour:
         previous tutorial.'
       Detail: Your progress is retained.
       CompleteFeedback: 
-    SupportMessage: 'Use left stick {brace}
-
-      to move the arms onto
-
-      the
-      marked support bar.
-
-      Keep pushing to brace.'
-    EffortMessage: 'Keep left stick {brace} held.
-
-      Push right stick {effort},
-
-      center
-      it, then repeat
-
-      about 3 times a second.'
+    SupportMessage: "Push L toward the bar\non the fallen side.\nKeep pushing so the arms\nbrace against it."
+    EffortMessage: "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R opposite the fall,\ntoward the robot center.\nRecenter R each time."
     RightingMessage: 'The robot is lifting.
 
       Get ready to adjust
@@ -951,46 +987,18 @@ MonoBehaviour:
       the support area
 
       until the robot is stable.'
-    ArmLostMessage: 'Arm support was lost.
-
-      Push the left stick {brace}
-
-      toward
-      the guide again.
-
-      Keep it held.'
-    CadenceLostMessage: 'Keep the left stick {brace}.
-
-      Push right stick {effort},
-
-      center
-      it, then repeat
-
-      about 3 times a second.'
-    DirectionLostMessage: 'Keep the left stick {brace}.
-
-      Push the right stick
-      {effort}.
-
-      Follow the shown direction,
-
-      then return it to center.'
-    ReminderMessage: 'L3 deploys your arms.
-
-      Hold left stick {brace}.
-
-      Push
-      right stick {effort},
-
-      center it, then repeat.'
+    ArmLostMessage: "Arm support was lost.\nPush L toward the bar\non the fallen side.\nKeep it held to brace."
+    CadenceLostMessage: "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R opposite the fall,\ntoward the robot center.\nRecenter R each time."
+    DirectionLostMessage: "~{cadence:F0} pushes per second.\nKeep L held to brace.\nPush R from yellow point\ntoward robot center.\nRecenter R each time."
+    ReminderMessage: "~{cadence:F0} pushes per second.\nL3 deploys your arms.\nHold L toward support.\nPush R opposite the fall.\nRecenter R each time."
     WaitingStatus: Follow the recovery guide
-    SupportStatus: Brace toward {brace}
-    EffortStatus: Push and center {effort}
+    SupportStatus: Brace on fallen side
+    EffortStatus: Push balance inward
     RightingStatus: Righting the robot
     StabilizeStatus: Keep the balance point inside
     CompleteStatus: Ready to resume
     RetryStatus: Try the recovery again
-    ToggleHint: "L \xB7 Brace / R \xB7 Push, center"
+    ToggleHint: "L \xB7 Brace / R \xB7 Push, recenter"
     ResumePrompt: "A \xB7 Resume tutorial"
     InertiaTitle: Landing Recoil
     InertiaMessage: 'Standing up creates

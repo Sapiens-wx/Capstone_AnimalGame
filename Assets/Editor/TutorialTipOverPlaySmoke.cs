@@ -45,6 +45,7 @@ namespace AnimalGame.Editor
             public bool inertiaSlowMotionOnRealLanding, inertiaCardVisible, inertiaStateAdvancesSlowly, inertiaOldAHeldIgnored;
             public bool inertiaSeparateAResumed, inertiaReadOnce, disableReleasesInertiaSlowMotion;
             public bool inertiaInventoryBlocked, inertiaArmPhotoInputBlocked;
+            public bool continuousEffortGuide, mainBodyCadenceVisible, rotatedGuideVerified, guidesClearedForInertia;
             public string project, phase, recoveryStep, tumbleState, selfRightingState, mainlineStep;
             public float phaseSeconds, pullProgress, effortFrequency, balanceMagnitude, deployment;
             public float timeScale, pausedInertiaMagnitude, pausedInertiaElapsed, observedSlowMotionRate;
@@ -203,6 +204,8 @@ namespace AnimalGame.Editor
                         report.actualSupport = true; Begin(Phase.Effort); break;
                     case Phase.Effort:
                         if (Self.PullProgress01 <= .1f || report.acceptedPulses < 3) return;
+                        CheckContinuousGuide(); report.continuousEffortGuide = true;
+                        Record("A non-cardinal continuous stick target matches native recovery input. The main body starts with approximately three pushes per second, and the inward balance-point arrow is visible.", "tipover-continuous-effort.png");
                         report.actualEffort = true; Begin(Phase.LoseSupport); break;
                     case Phase.LoseSupport:
                         if (!report.actualSupportFailure) return;
@@ -298,12 +301,20 @@ namespace AnimalGame.Editor
                         report.secondTumbleReminderOnly = true; Begin(Phase.SecondRecovery); break;
                     case Phase.SecondRecovery:
                         if (!Arms.IsArmModeActive && Settled(5)) return;
+                        if (!report.rotatedGuideVerified && Tumble.State == RobotTumbleState.Fallen && Self.IsArmSupportCorrect
+                            && Self.PullProgress01 > .1f)
+                        {
+                            CheckContinuousGuide(); report.rotatedGuideVerified = true;
+                            Record("After rotating the robot and camera, a second non-cardinal fall still displays the exact native stick angle and projects the balance point inward arrow correctly.", "tipover-continuous-rotated.png");
+                        }
                         if (recovery.IsInterrupting || TutorialTipOverLesson.BlocksMainline(terrain.gameObject)) return;
                         Require(report.landings >= 2 && Tumble.State == RobotTumbleState.Upright,
                             "A reminder can finish automatically only after the second real upright recovery.");
                         Require(recovery.HasReadInertiaLesson && !recovery.OwnsInertiaPause && Time.timeScale == 1f,
                             "A later reminder does not repeat the already-read landing slowdown.");
                         report.secondRecoveryAutomatic = true;
+                        Require(report.continuousEffortGuide && report.mainBodyCadenceVisible && report.rotatedGuideVerified
+                            && report.guidesClearedForInertia, "Continuous guide angles, top-body cadence and lifecycle cleanup must all be verified.");
                         report.physicsSettingsPreserved = nativeSettings == NativeSettings();
                         Require(report.physicsSettingsPreserved, "The tutorial and fixture preserve all native tumble/self-righting settings.");
                         Record("The second actual fall presents only an operational reminder and returns automatically after a second native recovery. Native physics settings remain unchanged.");
@@ -358,7 +369,14 @@ namespace AnimalGame.Editor
             interruptedDistance = terrain.Progress.DistanceMeters;
             interruptedReadingSeconds = terrain.Progress.ReadingSeconds;
             interruptedApproachIndex = terrain.Progress.ApproachIndex;
-            Set(bootstrap.balance, "currentBalanceLocal", Vector2.right * 1.19f);
+            float degrees = report.tumbleEvents == 0 ? 17f : report.tumbleEvents == 1 ? 73f : 37f;
+            if (report.tumbleEvents == 1)
+            {
+                bootstrap.robot.transform.rotation = Quaternion.Euler(0f, 0f, 31f);
+                bootstrap.cameraFollow?.SnapToTarget();
+            }
+            float radians = degrees * Mathf.Deg2Rad;
+            Set(bootstrap.balance, "currentBalanceLocal", new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)) * 1.19f);
             Set(bootstrap.balance, "balanceVelocityLocal", Vector2.zero);
             Record("Fixture seeded one initial balance offset at 1.19 support radii; the production balance solver alone triggers and simulates the resulting fall.");
         }
@@ -376,6 +394,9 @@ namespace AnimalGame.Editor
         }
         private void CheckInertiaPause()
         {
+            Require(!recovery.Panel.IsRecoveryDirectionGuideVisible,
+                "The standing landing-inertia lesson must not retain the fallen recovery direction guide.");
+            report.guidesClearedForInertia = true;
             Require(recovery.OwnsInertiaPause && Mathf.Approximately(Time.timeScale, .05f) && recovery.Panel.IsVisible
                 && !recovery.Panel.IsCollapsed && recovery.Panel.ShowDuringTutorialPause
                 && recovery.Panel.Root.resolvedStyle.display == DisplayStyle.Flex,
@@ -386,6 +407,34 @@ namespace AnimalGame.Editor
                 "Reading alone cannot satisfy the later stability practice.");
             report.inertiaCardVisible = true;
             CheckSlowMotionInertia();
+        }
+
+        private void CheckContinuousGuide()
+        {
+            var panel = recovery.Panel;
+            Require(panel.IsRecoveryDirectionGuideVisible && !panel.RecoveryGuideIsBracing,
+                "Actual right-stick recovery displays the continuous effort guide.");
+            Require(Vector2.Angle(panel.RecoveryStickTargetDirection, Self.RequiredEffortDirectionLocal) < .05f
+                && Vector2.Angle(recovery.CurrentEffortDirection, Self.RequiredEffortDirectionLocal) < .05f,
+                "The shown angle and tutorial target use exactly the same local direction as native force acceptance.");
+            Require(Vector2.Dot(Self.RequiredBraceDirectionLocal, Self.RequiredEffortDirectionLocal) < -.9999f,
+                "The arms brace toward the fallen side while recovery effort acts in its opposite direction.");
+            float angle = Mathf.Atan2(Self.RequiredEffortDirectionLocal.y, Self.RequiredEffortDirectionLocal.x) * Mathf.Rad2Deg;
+            Require(Mathf.Abs(Mathf.DeltaAngle(angle, Mathf.Round(angle / 45f) * 45f)) > 1f,
+                "This native fixture actually exercises an angle between the old eight-way directions.");
+            string firstLine = panel.Root.Q<Label>("TutorialMessage").text.Split('\n')[0];
+            Require(firstLine.Contains(Self.RequiredEffortPushFrequency.ToString("F0")) && firstLine.Contains("second"),
+                "The required cadence is in the first line of the main body, not just its detail footer.");
+            report.mainBodyCadenceVisible = true;
+            foreach (string name in new[] { "TutorialRecoveryStickGuide", "TutorialRecoveryInwardGuide" })
+            {
+                var element = panel.Root.Q(name);
+                Require(element != null && element.worldBound.width > 1f && element.worldBound.height > 1f,
+                    name + " has actual runtime geometry.");
+                for (var parent = element; parent != null; parent = parent.parent)
+                    Require(parent.resolvedStyle.display != DisplayStyle.None && parent.resolvedStyle.visibility == Visibility.Visible,
+                        name + " and every ancestor are actually visible.");
+            }
         }
         private void CheckSlowMotionInertia()
         {

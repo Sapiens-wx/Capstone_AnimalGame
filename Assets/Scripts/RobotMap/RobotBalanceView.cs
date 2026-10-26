@@ -114,6 +114,17 @@ namespace AnimalGame.RobotMap
         private readonly float[] tumbleTrailAges01 = new float[8];
         private float tumbleTrailSampleElapsed;
         private bool tumbleTrailWasActive;
+        private bool hasDisplayedScreenPositions;
+        private Vector2 displayedBodyScreen, displayedPointScreen;
+
+        /// <summary>Exact screen-pixel positions used by the visible balance graphic, including its overflow clamp.</summary>
+        public bool TryGetDisplayedBalanceScreenPositions(out Vector2 bodyScreen, out Vector2 pointScreen)
+        {
+            bodyScreen = displayedBodyScreen;
+            pointScreen = displayedPointScreen;
+            return isActiveAndEnabled && showBalanceDisplay && hasDisplayedScreenPositions
+                && canvasObject != null && canvasObject.activeInHierarchy && graphic != null && graphic.enabled;
+        }
 
         private struct BalanceTrailSample
         {
@@ -144,6 +155,7 @@ namespace AnimalGame.RobotMap
 
         private void LateUpdate()
         {
+            hasDisplayedScreenPositions = false;
             if (!showBalanceDisplay
                 || balance == null
                 || graphic == null)
@@ -196,6 +208,10 @@ namespace AnimalGame.RobotMap
             }
 
             Vector2 displayOffset = screenDirection * state.Magnitude;
+            displayedBodyScreen = originScreen;
+            displayedPointScreen = displayedBodyScreen
+                + Vector2.ClampMagnitude(displayOffset, displayedOverflowLimit) * pointTravelRangePixels;
+            hasDisplayedScreenPositions = true;
             float tumbleOpacityMultiplier = tumble != null
                                              && tumble.HasTumbleBalanceState
                 ? tumbleBalanceOpacityMultiplier

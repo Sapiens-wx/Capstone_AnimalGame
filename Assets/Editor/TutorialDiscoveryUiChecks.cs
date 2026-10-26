@@ -106,8 +106,6 @@ namespace AnimalGame.Editor
                         // Keep stage-specific copy visible; the pure suite checks how real hits earn it.
                         Set(progress, "animalHit", true); Set(progress, "animalObserved", true);
                         Set(progress, "animalSeen", true); Set(progress, "animalReading", 1.2f);
-                        Set(progress, "objectHit", true); Set(progress, "objectObserved", true);
-                        Set(progress, "objectReading", 1.5f);
                         Set(progress, "chargeAchieved", true); Set(progress, "scanReleased", true);
                         Set(progress, "chargeStarted", true); Set(progress, "chargeReady", true);
                         foreach (bool valid in new[] { true, false })
@@ -135,12 +133,10 @@ namespace AnimalGame.Editor
                             CheckVisibleText(panel.Root, "Collapsed " + context);
                         }
 
-                        if (step == DiscoveryTutorialStep.FindAnimal || step == DiscoveryTutorialStep.ConfirmAnimal
-                            || step == DiscoveryTutorialStep.ReadObject)
+                        if (step == DiscoveryTutorialStep.FindAnimal || step == DiscoveryTutorialStep.ConfirmAnimal)
                         {
-                            Set(progress, "animalHit", false); Set(progress, "objectHit", false);
+                            Set(progress, "animalHit", false);
                             Set(progress, "animalObserved", false); Set(progress, "animalSeen", false);
-                            Set(progress, "objectObserved", false);
                             Invoke(lesson, "RefreshPanel", true);
                             panel.SetCollapsed(false); DrivingHelper("Settle", panel, size);
                             CheckVisibleText(panel.Root, "Expired discovery marks / " + step + " / " + size);

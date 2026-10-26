@@ -19,6 +19,7 @@ namespace AnimalGame.Editor
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Run discovery checks in Edit Mode.");
             CheckInvalidEvidence();
             foreach (int fps in new[] { 30, 60, 120 }) CheckManualSequence(fps);
+            CheckCompletionWithoutObjectHighlight();
             CheckResetAndMalformedSamples();
             string output = Path.GetFullPath("output/validation/tutorial-discovery");
             Directory.CreateDirectory(output);
@@ -80,11 +81,23 @@ namespace AnimalGame.Editor
                 "Actual marker observation is retained even if its native mark has since faded.");
             Require(progress.Continue() && progress.Step == DiscoveryTutorialStep.ConfirmAnimal && progress.CanContinue,
                 "Previously observed first sight is retained until its explanation is confirmed.");
-            Require(progress.Continue() && progress.Step == DiscoveryTutorialStep.ReadObject && progress.CanContinue,
-                "The same real wave can satisfy the object explanation without requiring another scan.");
             Require(progress.Continue() && progress.Step == DiscoveryTutorialStep.Completed && progress.IsComplete,
-                "The object card leads directly to completion, without the removed rescan card.");
-            Require(progress.CanContinue && !progress.Continue(), "The completion card is available for controller chapter confirmation.");
+                "Confirming the seen animal completes discovery directly, without an object legend or rescan card.");
+            Require(!progress.Continue(), "A completed discovery chapter needs no additional confirmation.");
+        }
+
+        private static void CheckCompletionWithoutObjectHighlight()
+        {
+            var progress = new DiscoveryTutorialProgress();
+            progress.RegisterChargeStarted(true); Feed(progress, full: true);
+            int wave = progress.RegisterScanReleased(true);
+            Require(progress.RegisterAnimalHit(wave, true), "The accepted scan records its actual bird hit.");
+            for (int frame = 0; frame < 60; frame++) Feed(progress, animal: true, seen: true);
+            Require(progress.Continue() && progress.Step == DiscoveryTutorialStep.Release, "Charge confirmation is retained.");
+            Require(progress.Continue() && progress.Step == DiscoveryTutorialStep.FindAnimal, "Release confirmation is retained.");
+            Require(progress.Continue() && progress.Step == DiscoveryTutorialStep.ConfirmAnimal, "The bird legend still needs confirmation.");
+            Require(progress.Continue() && progress.IsComplete,
+                "A real seen bird completes discovery without any object hit, highlight, reading delay or extra A.");
         }
 
         private static void CheckResetAndMalformedSamples()

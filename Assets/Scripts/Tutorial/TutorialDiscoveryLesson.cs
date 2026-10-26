@@ -25,7 +25,7 @@ namespace AnimalGame.Tutorial
         [SerializeField] private Sprite targetSprite;
         [SerializeField, Min(0f)] private float armCompletionDelay = 1.5f;
         [SerializeField, Min(.1f)] private float animalReadingSeconds = 1.2f;
-        [SerializeField, Min(.1f)] private float objectReadingSeconds = 1.5f;
+        [SerializeField, HideInInspector, Min(.1f)] private float objectReadingSeconds = 1.5f;
         [SerializeField, Min(.5f)] private float recoveryArrivalRadiusMeters = 4f;
 
         private readonly DiscoveryLessonText defaultText = new DiscoveryLessonText();
@@ -300,8 +300,6 @@ namespace AnimalGame.Tutorial
                 if ((progress.Step == DiscoveryTutorialStep.FindAnimal || progress.Step == DiscoveryTutorialStep.ConfirmAnimal)
                     && animalMarkers != null && animalMarkers.TryGetScanStatus(targets.Animal, out _, out _, out float remaining))
                     targetMarkAlive = remaining > 0f;
-                else if (progress.Step == DiscoveryTutorialStep.ReadObject && targets.Item != null)
-                    targetMarkAlive = targets.Item.RevealRemaining > 0f;
             }
             if (progress.IsComplete) status = text.CompleteStatus;
             else if (!ready) status = text.PreparingStatus;
@@ -341,7 +339,7 @@ namespace AnimalGame.Tutorial
         private void UpdateRecoveryWaypoint(bool valid, bool animalVisible, bool objectVisible)
         {
             // Keep the actual scanned bird highlighted even when it is already visible/nearby,
-            // while reading the object legend, and through the handoff into photography.
+            // and through the handoff into photography.
             if (birdScanned && targets != null && (targets.Animal != null || targets.AnimalActor != null))
             {
                 EnsureRecoveryWaypoint();
@@ -352,13 +350,12 @@ namespace AnimalGame.Tutorial
             }
             bool toAnimal = (progress.Step == DiscoveryTutorialStep.FindAnimal
                 || progress.Step == DiscoveryTutorialStep.ConfirmAnimal) && !animalVisible;
-            bool toItem = progress.Step == DiscoveryTutorialStep.ReadObject && !objectVisible;
-            if (!valid || progress.IsComplete || (!toAnimal && !toItem))
+            if (!valid || progress.IsComplete || !toAnimal)
             { if (recoveryWaypoint != null) recoveryWaypoint.ClearTarget(); return; }
             EnsureRecoveryWaypoint();
             Vector2 animalTarget = targets.UsesFixedAnimalPosition && !targets.IsAnimalWithinScanReach
                 ? targets.AnimalObservationMapPosition : targets.AnimalMapPosition;
-            Vector2 target = toAnimal ? animalTarget : targets.ItemMapPosition;
+            Vector2 target = animalTarget;
             if (bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out Vector2 player, out _)
                 && Vector2.Distance(player, target) <= recoveryArrivalRadiusMeters)
             { recoveryWaypoint.ClearTarget(); return; }

@@ -25,7 +25,7 @@ namespace AnimalGame.Editor
         private const string KnownSceneHeader = "Problem detected while opening the Scene file: 'Assets/Scenes/GameMaps/TutorialTemporaryMap.unity'.\nCheck the following logs for more details.";
         private enum Phase { Starting, TerrainStarting, ArmStarting, DiscoveryStarting, Hide, Show,
             ShortTaps, EarlyCharge, EarlyRelease, FirstCharge, FirstRelease, TravelToObservation, ObserveAnimal,
-            ApproachAnimal, ReadObject, RefreshCharge, RefreshRelease, RescanCharge, RescanRelease, Complete, Finishing }
+            ApproachAnimal, RefreshCharge, RefreshRelease, RescanCharge, RescanRelease, Complete, Finishing }
         [Serializable] private sealed class Report
         {
             public bool passed, animalSeen, animalVisible, observedHollow;
@@ -36,7 +36,7 @@ namespace AnimalGame.Editor
             public bool usesFixedAnimalPosition, animalWithinScanReach, observationReached, observationPathHasData, observationPathPassable, observationPathHardStop;
             public bool animalMotionRequested, animalMovedAfterScan, checkedAnimalFrozenBeforeScan;
             public bool deadTrunkPresent, nativePecking, waitedForA, confirmedWithA, animalCardConfirmedWithA, noRescanStep;
-            public bool birdTargetWhenVisible, birdTargetDuringObjectLegend;
+            public bool birdTargetWhenVisible, noObjectLegendStep;
             public string project, phase, step, species, targetFailure, screenshotStatus, movementMode;
             public float value, charge, animalRemaining, objectRemaining, targetDistanceWorld, cameraSize, baseCameraSize, heading;
             public float targetDistanceFromNativeOrigin, currentTurnSpeed, currentThrottleIntent, steeringAuthority;
@@ -323,7 +323,7 @@ namespace AnimalGame.Editor
                         Record("The live animal marker and expanded legend finish the 1.2-second observation.");
                         Begin(Phase.ApproachAnimal); break;
                     case Phase.ApproachAnimal:
-                        if (lesson.Progress.Step == DiscoveryTutorialStep.ReadObject)
+                        if (lesson.IsComplete)
                         {
                             RequireBirdTarget(); report.birdTargetWhenVisible = true;
                             Require(report.animalSeen, "Approach must produce the real solid/seen marker state.");
@@ -331,24 +331,13 @@ namespace AnimalGame.Editor
                                 Require(PlayerWaterDepth() <= .01f, "The real solid woodpecker marker must be confirmed while the player is still on dry ground.");
                             Record("Real RT and left-stick driving brings the animal to the view circle and confirms its solid marker before collision.",
                                 "discovery-solid.png");
-                            Begin(Phase.ReadObject); break;
-                        }
-                        if (report.animalRemaining <= .1f) Refresh(Phase.ApproachAnimal);
-                        break;
-                    case Phase.ReadObject:
-                        RequireBirdTarget(); report.birdTargetDuringObjectLegend = true;
-                        Require(lesson.Progress.Step != DiscoveryTutorialStep.Rescan,
-                            "The removed rescan/refresh lesson must never be presented.");
-                        if (lesson.IsComplete)
-                        {
                             Require(report.waitedForA && report.confirmedWithA,
                                 "Native observations must wait on their ready cards until real A confirmation.");
-                            report.noRescanStep = true;
-                            Record("Reading the actual object highlight then confirming that action with A completes discovery directly without a completion or rescan card.", "discovery-completed.png");
+                            report.noObjectLegendStep = report.noRescanStep = true;
+                            Record("Confirming the actual seen bird completes discovery directly without an object legend, completion or rescan card.", "discovery-completed.png");
                             Begin(Phase.Complete); break;
                         }
-                        if (!lesson.Progress.CanContinue && !lesson.Progress.IsComplete
-                            && lesson.Targets.Item.RevealRemaining <= .1f) Refresh(Phase.ReadObject);
+                        if (report.animalRemaining <= .1f) Refresh(Phase.ApproachAnimal);
                         break;
                     case Phase.RefreshCharge:
                         if (bootstrap.scanChargeUi.IsFullyCharged) Begin(Phase.RefreshRelease);
@@ -357,9 +346,7 @@ namespace AnimalGame.Editor
                         if (!Settled(3) || bootstrap.scanChargeUi.IsCharging || bootstrap.bioScan.HasActiveScanWave) return;
                         Require(bootstrap.bioScan.ScanSequence > refreshBeforeSequence,
                             "A refresh must emit a new real native wave before returning to observation.");
-                        // Only the currently taught target must be refreshed. The other target may be outside view or range.
-                        if (refreshReturn == Phase.ReadObject ? lesson.Targets.Item.RevealRemaining <= 0f
-                            : report.animalRemaining <= 0f)
+                        if (report.animalRemaining <= 0f)
                         { Refresh(refreshReturn); break; }
                         Begin(refreshReturn); break;
                     case Phase.RescanCharge:
@@ -507,8 +494,7 @@ namespace AnimalGame.Editor
                 state.leftStick = new Vector2(SteeringForAngle(angle), 0f);
                 if (Mathf.Abs(angle) < 4f && offset.magnitude > .15f) state.rightTrigger = .3f;
             }
-            bool refreshingAnimal = (phase == Phase.RefreshCharge || phase == Phase.RefreshRelease)
-                && refreshReturn != Phase.ReadObject;
+            bool refreshingAnimal = phase == Phase.RefreshCharge || phase == Phase.RefreshRelease;
             bool rotateToFind = ((phase == Phase.FirstRelease || phase == Phase.ObserveAnimal) && !report.animalVisible)
                 || refreshingAnimal;
             if ((phase == Phase.ApproachAnimal || rotateToFind) && lesson?.Targets?.Animal != null)
@@ -527,7 +513,7 @@ namespace AnimalGame.Editor
             }
             lastQueuedLeftStick = state.leftStick;
             bool confirmPhase = phase == Phase.DiscoveryStarting || phase == Phase.FirstCharge
-                || phase == Phase.ObserveAnimal || phase == Phase.ApproachAnimal || phase == Phase.ReadObject
+                || phase == Phase.ObserveAnimal || phase == Phase.ApproachAnimal
                 || (phase == Phase.FirstRelease && lesson?.Progress?.Step == DiscoveryTutorialStep.Release);
             if (confirmPhase && lesson?.Progress != null && lesson.Panel != null && lesson.Panel.ContinueWasPresented)
             {
@@ -581,7 +567,7 @@ namespace AnimalGame.Editor
         private void RequireBirdTarget()
         {
             Require(lesson != null && lesson.HasScannedBird && lesson.BirdTarget != null && lesson.BirdTarget.HasTarget,
-                "The scanned woodpecker keeps a target after it is seen and during the object legend.");
+                "The scanned woodpecker keeps a target after it is seen and through discovery completion.");
             Require(Vector2.Distance(lesson.BirdTarget.TargetMapMeters, lesson.Targets.AnimalMapPosition) < .001f,
                 "The persistent target stays on the actual woodpecker rather than the scan object or an approach point.");
             Require(lesson.BirdTarget.CurrentMode != TutorialWaypointIndicator.WaypointMode.Hidden,

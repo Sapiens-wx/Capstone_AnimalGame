@@ -33,6 +33,9 @@ namespace AnimalGame.Tutorial
         private VisualElement root, expanded, collapsedTab, progressFill;
         private PanelFrame frame;
         private ScanStarGlyph controlStar;
+        private VisualElement controlBadge;
+        private RecoveryStickGuide recoveryStickGuide;
+        private RecoveryInwardGuide recoveryInwardGuide;
         private Label titleLabel, messageLabel, controlLabel, actionLabel, detailLabel;
         private Label statusLabel, chapterLabel, tabProgressLabel, percentLabel;
         private Label headerLabel, currentLessonLabel, currentActionLabel, toggleHintLabel;
@@ -52,6 +55,8 @@ namespace AnimalGame.Tutorial
         private bool showDuringTutorialPause;
         private bool showDuringInventory;
         private bool collapseEnabled = true;
+        private bool recoveryGuideRequested, recoveryGuideIsBracing, recoveryGuideCorrect;
+        private Vector2 recoveryTargetLocal, recoveryInputLocal, recoveryBodyPosition, recoveryBalancePosition;
         private bool collapsed;
         private bool successful;
         private float progress;
@@ -69,6 +74,10 @@ namespace AnimalGame.Tutorial
         public bool ShowDuringTutorialPause => showDuringTutorialPause;
         public bool ShowDuringInventory => showDuringInventory;
         public bool CollapseEnabled => collapseEnabled;
+        public bool IsRecoveryDirectionGuideVisible => recoveryGuideRequested && visible && !collapsed
+            && root != null && root.style.display.value != DisplayStyle.None;
+        public bool RecoveryGuideIsBracing => recoveryGuideIsBracing;
+        public Vector2 RecoveryStickTargetDirection => recoveryTargetLocal;
         public event Action<bool> CollapsedChanged;
 
         /// <summary>Content only; presentation visibility and confirmation input are restored separately.</summary>
@@ -92,6 +101,7 @@ namespace AnimalGame.Tutorial
         public void RestoreContent(ContentSnapshot snapshot)
         {
             if (snapshot == null) return;
+            ClearRecoveryDirectionGuide();
             title = snapshot.Title; message = snapshot.Message; controlGlyph = snapshot.ControlGlyph;
             action = snapshot.Action; detail = snapshot.Detail; status = snapshot.Status;
             contextLabel = snapshot.ContextLabel; lessonHint = snapshot.LessonHint;
@@ -120,6 +130,7 @@ namespace AnimalGame.Tutorial
 
         private void OnDisable()
         {
+            ClearRecoveryDirectionGuide();
             if (documentObject != null) documentObject.SetActive(false);
             TutorialContinueInput.Unregister(this);
         }
@@ -137,6 +148,7 @@ namespace AnimalGame.Tutorial
         public void SetContent(string title, string message, string controlGlyph, string action,
             string detail, string status, int chapter = 1, int chapters = 8)
         {
+            ClearRecoveryDirectionGuide();
             this.title = title ?? string.Empty;
             this.message = message ?? string.Empty;
             this.controlGlyph = controlGlyph ?? string.Empty;
@@ -187,6 +199,7 @@ namespace AnimalGame.Tutorial
 
         public void SetVisible(bool value)
         {
+            if (!value) ClearRecoveryDirectionGuide();
             if (value && !collapsed && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) SetCollapsed(true);
             if (value && !visible) reopenedFrame = Time.frameCount;
             visible = value;
@@ -220,6 +233,56 @@ namespace AnimalGame.Tutorial
             RefreshCollapseControls();
         }
 
+        /// <summary>The stick uses controller-local coordinates; the world cue receives camera-projected panel positions.</summary>
+        public void SetRecoveryDirectionGuide(bool visible, bool isBracing, Vector2 braceLocal,
+            Vector2 effortLocal, Vector2 inputLocal, bool supportCorrect, bool effortCorrect,
+            Vector2 bodyPanelPosition, Vector2 balancePanelPosition)
+        {
+            Vector2 target = isBracing ? braceLocal : effortLocal;
+            if (!visible || !Finite(target) || target.sqrMagnitude < .000001f)
+            { ClearRecoveryDirectionGuide(); return; }
+            recoveryGuideRequested = true;
+            recoveryGuideIsBracing = isBracing;
+            recoveryGuideCorrect = isBracing ? supportCorrect : effortCorrect;
+            recoveryTargetLocal = target.normalized;
+            recoveryInputLocal = Finite(inputLocal) ? Vector2.ClampMagnitude(inputLocal, 1f) : Vector2.zero;
+            recoveryBodyPosition = bodyPanelPosition;
+            recoveryBalancePosition = balancePanelPosition;
+            RefreshRecoveryDirectionGuide();
+        }
+
+        private void ClearRecoveryDirectionGuide()
+        {
+            recoveryGuideRequested = false;
+            recoveryGuideIsBracing = false;
+            recoveryTargetLocal = recoveryInputLocal = Vector2.zero;
+            RefreshRecoveryDirectionGuide();
+        }
+
+        private void RefreshRecoveryDirectionGuide()
+        {
+            bool show = IsRecoveryDirectionGuideVisible;
+            if (recoveryStickGuide != null)
+            {
+                recoveryStickGuide.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+                recoveryStickGuide.SetGuide(recoveryGuideIsBracing, recoveryTargetLocal, recoveryInputLocal, recoveryGuideCorrect);
+            }
+            if (recoveryInwardGuide != null)
+            {
+                bool positionsValid = Finite(recoveryBodyPosition) && Finite(recoveryBalancePosition);
+                recoveryInwardGuide.style.display = show && !recoveryGuideIsBracing && positionsValid
+                    ? DisplayStyle.Flex : DisplayStyle.None;
+                recoveryInwardGuide.SetGuide(recoveryBodyPosition, recoveryBalancePosition);
+            }
+            if (controlBadge != null) controlBadge.style.display = show ? DisplayStyle.None : DisplayStyle.Flex;
+            if (controlLabel != null) controlLabel.style.display = show ? DisplayStyle.None : DisplayStyle.Flex;
+            if (controlStar != null) controlStar.style.display = !show && (controlGlyph == "✧" || controlGlyph == "✦")
+                ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private static bool Finite(Vector2 value) => !float.IsNaN(value.x) && !float.IsInfinity(value.x)
+            && !float.IsNaN(value.y) && !float.IsInfinity(value.y);
+
         public void ToggleCollapsed() => SetCollapsed(!collapsed);
 
         public void SetCollapsed(bool value)
@@ -227,6 +290,7 @@ namespace AnimalGame.Tutorial
             if (value && !collapseEnabled) return;
             if (!value && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
             if (collapsed == value) return;
+            if (value) ClearRecoveryDirectionGuide();
             collapsed = value;
             if (!value) reopenedFrame = Time.frameCount;
             RefreshVisibility();
@@ -278,6 +342,10 @@ namespace AnimalGame.Tutorial
             }
             if (font != null) root.style.unityFontDefinition = FontDefinition.FromFont(font);
 
+            recoveryInwardGuide = new RecoveryInwardGuide { name = "TutorialRecoveryInwardGuide" };
+            FillParent(recoveryInwardGuide);
+            root.Add(recoveryInwardGuide);
+
             expanded = new VisualElement { name = "TutorialPanel", pickingMode = PickingMode.Position };
             SetRect(expanded, 0, 0, PanelWidth, PanelHeight);
             expanded.style.transformOrigin = new TransformOrigin(0, 0, 0);
@@ -317,15 +385,18 @@ namespace AnimalGame.Tutorial
             currentActionLabel = AddLabel(expanded, panelText.CurrentAction, 27, 390, 220, 26, 16, Muted);
             currentActionLabel.name = "TutorialCurrentAction";
 
-            var key = new ControlBadge();
-            SetRect(key, 29, 420, 74, 70);
-            expanded.Add(key);
+            controlBadge = new ControlBadge();
+            SetRect(controlBadge, 29, 420, 74, 70);
+            expanded.Add(controlBadge);
             controlLabel = AddLabel(expanded, controlGlyph, 33, 422, 66, 65, 22, Color.white, true);
             controlLabel.name = "TutorialControl";
             controlLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
             controlStar = new ScanStarGlyph { name = "TutorialControlStar" };
             SetRect(controlStar, 47, 437, 38, 38);
             expanded.Add(controlStar);
+            recoveryStickGuide = new RecoveryStickGuide { name = "TutorialRecoveryStickGuide" };
+            SetRect(recoveryStickGuide, 29, 420, 74, 70);
+            expanded.Add(recoveryStickGuide);
             actionLabel = AddLabel(expanded, action, 121, 421, 207, 34, 23, Color.white, true);
             actionLabel.name = "TutorialAction";
             detailLabel = AddLabel(expanded, detail, 121, 457, 207, 45, 16, Muted);
@@ -530,6 +601,7 @@ namespace AnimalGame.Tutorial
             root.style.display = visible && !obscured ? DisplayStyle.Flex : DisplayStyle.None;
             expanded.style.display = collapsed ? DisplayStyle.None : DisplayStyle.Flex;
             collapsedTab.style.display = collapsed ? DisplayStyle.Flex : DisplayStyle.None;
+            RefreshRecoveryDirectionGuide();
         }
 
         private void OnDestroy()
@@ -653,6 +725,103 @@ namespace AnimalGame.Tutorial
                     p.ClosePath();
                     if (Filled) p.Fill(); else p.Stroke();
                 };
+            }
+        }
+
+        /// <summary>A continuous thumb-stick target in controller coordinates, with the player's actual input.</summary>
+        private sealed class RecoveryStickGuide : VisualElement
+        {
+            private readonly Label stickLabel;
+            private Vector2 targetLocal, inputLocal;
+            private bool correct;
+
+            public RecoveryStickGuide()
+            {
+                pickingMode = PickingMode.Ignore;
+                stickLabel = AddLabel(this, "R", 2, 0, 17, 17, 12, Gold, true);
+                stickLabel.name = "TutorialRecoveryStickLabel";
+                RegisterCallback<GeometryChangedEvent>(_ => MarkDirtyRepaint());
+                generateVisualContent += Draw;
+            }
+
+            public void SetGuide(bool isBracing, Vector2 target, Vector2 input, bool aligned)
+            {
+                targetLocal = target;
+                inputLocal = input;
+                correct = aligned;
+                stickLabel.text = isBracing ? "L" : "R";
+                MarkDirtyRepaint();
+            }
+
+            private void Draw(MeshGenerationContext context)
+            {
+                if (contentRect.width <= 0f || contentRect.height <= 0f || targetLocal.sqrMagnitude < .000001f) return;
+                Painter2D p = context.painter2D;
+                Vector2 centre = new Vector2(37f, 36f);
+                const float radius = 25f;
+                p.strokeColor = Muted; p.lineWidth = 1.3f;
+                p.BeginPath(); p.Arc(centre, radius, 0, 360); p.Stroke();
+                p.strokeColor = new Color(.72f, .74f, .74f, .6f);
+                p.BeginPath(); p.Arc(centre, 5f, 0, 360); p.Stroke();
+
+                // Controller up is positive Y, while UI Toolkit panel Y points down.
+                Vector2 target = new Vector2(targetLocal.x, -targetLocal.y);
+                Vector2 tip = centre + target * radius;
+                Vector2 tangent = new Vector2(-target.y, target.x);
+                p.strokeColor = Gold; p.lineWidth = 1.8f;
+                Stroke(p, centre + target * 7f, tip);
+                Stroke(p, tip - target * 7f + tangent * 4f, tip, tip - target * 7f - tangent * 4f);
+                p.fillColor = Gold;
+                p.BeginPath(); p.Arc(tip, 2.5f, 0, 360); p.Fill();
+
+                Vector2 input = centre + new Vector2(inputLocal.x, -inputLocal.y) * radius;
+                p.fillColor = inputLocal.sqrMagnitude < .04f ? Muted
+                    : correct ? Color.white : new Color(.95f, .48f, .32f);
+                p.BeginPath(); p.Arc(input, 3.8f, 0, 360); p.Fill();
+            }
+        }
+
+        /// <summary>The desired movement of the outside balance point toward the body, projected by the owner camera.</summary>
+        private sealed class RecoveryInwardGuide : VisualElement
+        {
+            private Vector2 bodyPosition, balancePosition;
+
+            public RecoveryInwardGuide()
+            {
+                pickingMode = PickingMode.Ignore;
+                RegisterCallback<GeometryChangedEvent>(_ => MarkDirtyRepaint());
+                generateVisualContent += Draw;
+            }
+
+            public void SetGuide(Vector2 body, Vector2 balance)
+            {
+                bodyPosition = body;
+                balancePosition = balance;
+                MarkDirtyRepaint();
+            }
+
+            private void Draw(MeshGenerationContext context)
+            {
+                if (contentRect.width <= 0f || contentRect.height <= 0f
+                    || !Finite(bodyPosition) || !Finite(balancePosition)) return;
+                float fit = Mathf.Min(contentRect.width / DesignWidth, contentRect.height / DesignHeight);
+                Vector2 towardBody = bodyPosition - balancePosition;
+                float distance = towardBody.magnitude;
+                // Keep clear of both the balance point and the body; do not reverse the arrow near the centre.
+                if (fit <= 0f || distance <= 42f * fit) return;
+                Vector2 direction = towardBody / distance;
+                Vector2 tangent = new Vector2(-direction.y, direction.x);
+                Vector2 start = balancePosition + direction * (12f * fit);
+                Vector2 tip = balancePosition + direction * Mathf.Min(78f * fit, distance - 24f * fit);
+                Vector2 left = tip - direction * (10f * fit) + tangent * (5f * fit);
+                Vector2 right = tip - direction * (10f * fit) - tangent * (5f * fit);
+                Painter2D p = context.painter2D;
+                p.strokeColor = new Color(0f, 0f, 0f, .85f); p.lineWidth = 5f * fit;
+                Stroke(p, start, tip);
+                Stroke(p, left, tip, right);
+                p.strokeColor = Gold; p.lineWidth = 2f * fit;
+                Stroke(p, start, tip);
+                Stroke(p, left, tip, right);
             }
         }
 

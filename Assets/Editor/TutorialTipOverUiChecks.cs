@@ -104,7 +104,7 @@ namespace AnimalGame.Editor
                 foreach (string arrow in new[] { "↑", "→", "↓", "←" })
                 {
                     var tokens = new TutorialTextTokens().Add("confirm", "A").Add("brace", arrow).Add("effort", Opposite(arrow))
-                        .Add("counter", arrow).Add("inertia", Opposite(arrow));
+                        .Add("counter", arrow).Add("inertia", Opposite(arrow)).Add("cadence", 3f);
                     foreach (FieldInfo field in text.TipOver.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public))
                     {
                         if (field.FieldType != typeof(TutorialStepText)) continue;
@@ -132,6 +132,7 @@ namespace AnimalGame.Editor
                             field.Name.EndsWith("Status") ? value : text.TipOver.WaitingStatus);
                         Settle(panel, size); CheckText(panel.Root, field.Name + " / " + arrow + " / " + size);
                     }
+                    if (arrow == "→") CheckContinuousGuides(panel, text, tokens, size);
                     Show(panel, text, tokens.Format(text.TipOver.InertiaMessage), "R", tokens.Format(text.TipOver.InertiaAction),
                         tokens.Format(text.TipOver.InertiaDetail), tokens.Format(text.TipOver.InertiaStatus));
                     panel.SetContent(tokens.Format(text.TipOver.InertiaTitle), tokens.Format(text.TipOver.InertiaMessage), "R",
@@ -165,6 +166,57 @@ namespace AnimalGame.Editor
                 EditorSceneManager.ClosePreviewScene(scene);
                 if (texture != null) { texture.Release(); Object.DestroyImmediate(texture); }
                 Time.timeScale = oldTimeScale;
+            }
+        }
+        private static void CheckContinuousGuides(TutorialDialoguePanel panel, TutorialTextContent text,
+            TutorialTextTokens tokens, Vector2 size)
+        {
+            foreach (float degrees in new[] { 17f, 73f })
+            {
+                float angle = degrees * Mathf.Deg2Rad;
+                Vector2 brace = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                Vector2 effort = -brace;
+                Vector2 body = new Vector2(size.x * .45f, size.y * .5f);
+                Vector2 point = body + new Vector2(brace.x, -brace.y) * 90f;
+                Show(panel, text, tokens.Format(text.TipOver.EffortMessage), "R", text.TipOver.EffortStatus,
+                    text.TipOver.Recover.Detail, text.TipOver.EffortStatus);
+                panel.SetRecoveryDirectionGuide(true, false, brace, effort, effort, true, true, body, point);
+                Settle(panel, size);
+                Require(panel.IsRecoveryDirectionGuideVisible && !panel.RecoveryGuideIsBracing,
+                    "Continuous effort guidance is visible while teaching the right-stick action.");
+                Require(Vector2.Angle(panel.RecoveryStickTargetDirection, effort) < .05f,
+                    degrees + " degrees: the stick target preserves the exact required angle instead of rounding to an eight-way character.");
+                Require(Visible(panel.Root.Q("TutorialRecoveryStickGuide"), panel.Root)
+                    && Visible(panel.Root.Q("TutorialRecoveryInwardGuide"), panel.Root),
+                    "The continuous stick display and the balance-point-to-body arrow both render in the actual panel tree.");
+                string firstLine = panel.Root.Q<Label>("TutorialMessage").text.Split('\n')[0];
+                Require(firstLine.Contains("3") && firstLine.Contains("second"),
+                    "The push cadence remains in the first line of the main tutorial body.");
+                CheckText(panel.Root, "Continuous effort / " + degrees + " / " + size);
+                if (size == new Vector2(1920, 1080))
+                    Capture(panel.Root, texture: panel.Document.panelSettings.targetTexture,
+                        "tipover-continuous-" + degrees.ToString("F0") + ".png");
+
+                panel.SetRecoveryDirectionGuide(true, true, brace, effort, brace, false, false, body, point);
+                Settle(panel, size);
+                Require(panel.RecoveryGuideIsBracing && Vector2.Angle(panel.RecoveryStickTargetDirection, brace) < .05f,
+                    "The left-stick support target uses the continuous outward brace direction.");
+                Require(!Visible(panel.Root.Q("TutorialRecoveryInwardGuide"), panel.Root),
+                    "The inward force arrow waits until support has been established.");
+                panel.SetCollapsed(true); Settle(panel, size);
+                Require(!panel.IsRecoveryDirectionGuideVisible, "Collapsing the task removes temporary recovery guidance.");
+                panel.SetCollapsed(false);
+                panel.SetRecoveryDirectionGuide(true, false, brace, effort, effort, true, true, body, point);
+                panel.SetVisible(false); Settle(panel, size);
+                Require(!panel.IsRecoveryDirectionGuideVisible, "Hiding for another modal removes the temporary recovery guide.");
+                panel.SetVisible(true);
+                panel.SetRecoveryDirectionGuide(true, false, brace, effort, effort, true, true, body, point);
+                var snapshot = panel.CaptureContent(); panel.RestoreContent(snapshot); Settle(panel, size);
+                Require(!panel.IsRecoveryDirectionGuideVisible, "Restoring another chapter cannot retain recovery overlay permission.");
+                panel.SetRecoveryDirectionGuide(true, false, brace, effort, effort, true, true, body, point);
+                panel.SetContent(text.Terrain.Title, "Resume the original lesson.", "L", "Follow target", "", "Ready", 2, 9);
+                Settle(panel, size);
+                Require(!panel.IsRecoveryDirectionGuideVisible, "Changing card content clears old recovery instructions and geometry.");
             }
         }
         private static string Opposite(string arrow) => arrow == "↑" ? "↓" : arrow == "↓" ? "↑" : arrow == "→" ? "←" : "→";

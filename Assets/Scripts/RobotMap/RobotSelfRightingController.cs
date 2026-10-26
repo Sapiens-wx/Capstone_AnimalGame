@@ -164,6 +164,11 @@ namespace AnimalGame.RobotMap
         public bool IsArmSupportCorrect { get; private set; }
         public float ArmAlignment01 { get; private set; }
         public Vector2 CurrentBalancePullInputLocal { get; private set; }
+        public Vector2 RequiredBraceDirectionLocal => WorldDirectionToLocal(lockedTumbleDirectionWorld);
+        public Vector2 RequiredEffortDirectionLocal => -RequiredBraceDirectionLocal;
+        public float RequiredEffortPushFrequency => requiredEffortPushFrequencyPerSecond;
+        public bool IsEffortPushInputCorrect => CurrentBalancePullInputLocal.magnitude >= minimumEffortPushMagnitude
+            && IsCurrentEffortDirectionCorrect();
 
         public event Action<RobotSelfRightingForcePulseInfo> ForcePulse;
         public event Action<RobotSelfRightingFailureInfo> SupportFailed;
@@ -342,8 +347,7 @@ namespace AnimalGame.RobotMap
                 return;
 
             effortPushIsArmed = false;
-            Vector2 desiredDirectionLocal = -WorldDirectionToLocal(
-                lockedTumbleDirectionWorld);
+            Vector2 desiredDirectionLocal = RequiredEffortDirectionLocal;
             float alignment = Vector2.Dot(
                 CurrentBalancePullInputLocal.normalized,
                 desiredDirectionLocal.normalized);
@@ -578,8 +582,7 @@ namespace AnimalGame.RobotMap
                 return true;
             }
 
-            Vector2 desiredDirectionLocal = -WorldDirectionToLocal(
-                lockedTumbleDirectionWorld);
+            Vector2 desiredDirectionLocal = RequiredEffortDirectionLocal;
             return Vector2.Dot(
                        CurrentBalancePullInputLocal.normalized,
                        desiredDirectionLocal.normalized)
