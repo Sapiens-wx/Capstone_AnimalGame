@@ -488,6 +488,22 @@ MonoBehaviour:
         and resume driving.'
       Detail: Press once, then release.
       CompleteFeedback: 
+    OpenInventory:
+      ControlGlyph: '{inventoryRight}'
+      Action: Open inventory
+      Message: "Recovered materials\nare stored in inventory.\nHold D-pad {inventoryRight}\nto open it."
+      Detail: Hold {inventoryRight} to open.
+      CompleteFeedback:
+    ViewMaterials:
+      ControlGlyph: '{inventoryLeft}'
+      Action: Close inventory
+      Message: "Recovered raw materials\nare stored here.\nProcessing sites turn them\ninto useful materials."
+      Detail: "Hold {inventoryLeft} / Tap {cancel} \xB7 Close"
+      CompleteFeedback:
+    OpenInventoryHint: "Hold {inventoryRight} \xB7 Open inventory"
+    InventoryToggleHint: "Hold {inventoryLeft} / Tap {cancel} \xB7 Close"
+    MaterialsDetail: '{materials}'
+    NoMaterialsDetail: No materials in storage.
     Completed:
       ControlGlyph: "\u2713"
       Action: Recycling ready

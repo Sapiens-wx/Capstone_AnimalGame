@@ -22,6 +22,7 @@ namespace AnimalGame.Editor
             CheckDroppingAndFalseSuccess();
             CheckLargeWasteFalseSuccess();
             CheckEarlyRecyclingAndSuspension();
+            CheckInventoryObservations();
             CheckLessonOrder();
             CheckEditableCopy();
             string requested = Environment.GetEnvironmentVariable("TUTORIAL_RECYCLING_VALIDATION_OUTPUT");
@@ -162,7 +163,15 @@ namespace AnimalGame.Editor
             Feed(progress, dt, deployed: true);
             Require(!progress.CanContinue, "Reopening the arms before confirming no longer presents them as safely stowed.");
             Feed(progress, dt, retracted: true);
-            Require(progress.Continue() && progress.IsComplete, "A after real stowing completes the chapter directly.");
+            Require(progress.Continue() && progress.Step == RecyclingTutorialStep.OpenInventory && !progress.IsComplete,
+                "A after real stowing introduces the inventory before camera upgrade.");
+            Require(progress.IsInventoryStep && !progress.CanContinue && !progress.Continue(),
+                "Opening inventory is an actual UI action and cannot be skipped with A.");
+            progress.SampleInventory(true, true, 1f);
+            Require(progress.Step == RecyclingTutorialStep.ViewMaterials && !progress.CanContinue,
+                "A fully expanded real inventory automatically presents material uses and closing controls.");
+            progress.SampleInventory(true, false, 0f);
+            Require(progress.IsComplete, "Closing the viewed inventory completes recycling without another A.");
             Feed(progress, dt, retracted: true);
             Require(!progress.CanContinue && !progress.Continue(), "A completed chapter releases confirmation without an extra card.");
         }
@@ -244,6 +253,71 @@ namespace AnimalGame.Editor
             Require(!progress.CanContinue, "An early disposal cannot invent the requested manual arm close.");
             Feed(progress, manualStow: true, retracted: true);
             Require(progress.CanContinue, "A real close after an early completed outcome remains usable.");
+            Require(progress.Continue() && progress.Step == RecyclingTutorialStep.OpenInventory,
+                "Even early recycling still teaches the inventory after the requested stow.");
+        }
+
+        private static RecyclingTutorialProgress AtInventory()
+        {
+            var progress = new RecyclingTutorialProgress();
+            progress.SampleInventory(true, true, 1f);
+            progress.SampleInventory(true, false, 0f);
+            Require(progress.Step == RecyclingTutorialStep.ReachWaste,
+                "An inventory opened before recycling never skips an earlier instruction.");
+            Require(progress.RegisterRecycled(true) && progress.RegisterLargeWasteBroken(true)
+                && progress.RegisterFragmentRecycled(true), "The inventory fixture starts with real verified recycling outcomes.");
+            for (int step = 0; step < 5; step++)
+            {
+                Feed(progress, retracted: true);
+                Require(progress.Continue(), "The inventory fixture confirms each completed earlier action.");
+            }
+            Feed(progress, retracted: true, manualStow: true);
+            Require(progress.Continue() && progress.Step == RecyclingTutorialStep.OpenInventory,
+                "The inventory fixture reaches the instruction through actual recycling and manual stowing.");
+            return progress;
+        }
+
+        private static void CheckInventoryObservations()
+        {
+            var progress = AtInventory();
+            Require(progress.IsInventoryStep && !progress.IsComplete, "The inventory remains part of the recycling chapter.");
+            Feed(progress, dt: 0f, retracted: true);
+            Require(!progress.CanContinue && !progress.Continue(),
+                "Paused gameplay observations and A cannot replace the inventory opening action.");
+            progress.SampleInventory(true, false, 0f);
+            progress.SampleInventory(false, true, 1f);
+            progress.SampleInventory(true, true, float.NaN);
+            progress.SampleInventory(true, true, float.PositiveInfinity);
+            Require(progress.Step == RecyclingTutorialStep.OpenInventory,
+                "Closed inventory, unrelated modal states and invalid animation values cannot claim an opening.");
+            progress.SampleInventory(true, true, .97f);
+            progress.SampleInventory(true, false, .99f);
+            Require(progress.Step == RecyclingTutorialStep.OpenInventory,
+                "A partial opening or an inventory already closing waits for a real fully displayed view.");
+            progress.SampleInventory(true, true, .98f);
+            Require(progress.Step == RecyclingTutorialStep.ViewMaterials && !progress.CanContinue && !progress.Continue(),
+                "The native interactive threshold shows the material card without consuming an A confirmation.");
+            progress.Suspend();
+            progress.SampleInventory(false, false, 0f);
+            Require(progress.Step == RecyclingTutorialStep.ViewMaterials && !progress.IsComplete,
+                "An unrelated modal cannot finish the material explanation while it owns the presentation.");
+            progress.SampleInventory(true, true, 1f);
+            progress.SampleInventory(true, false, .1f);
+            progress.SampleInventory(true, false, float.NaN);
+            Require(!progress.IsComplete, "The chapter waits until the real inventory closing animation is finished.");
+            // Inventory pauses Time.deltaTime. This observer intentionally needs no scaled timer.
+            Feed(progress, dt: 0f, retracted: true);
+            progress.SampleInventory(true, false, 0f);
+            Require(progress.IsComplete && !progress.IsInventoryStep && !progress.CanContinue,
+                "Actual inventory closure works during the paused UI flow with no reading delay or extra A.");
+            progress.Reset();
+            progress.SampleInventory(true, false, 0f);
+            Require(progress.Step == RecyclingTutorialStep.ReachWaste && !progress.IsComplete && !progress.IsInventoryStep,
+                "Restart removes earlier inventory observation progress as well as recycling outcomes.");
+            progress = AtInventory();
+            progress.SampleInventory(true, false, 0f);
+            Require(progress.Step == RecyclingTutorialStep.OpenInventory,
+                "An opening from a previous run cannot satisfy the restarted inventory instruction.");
         }
 
         private static void CheckEditableCopy()
@@ -259,7 +333,9 @@ namespace AnimalGame.Editor
                     foreach (FieldInfo field in typeof(RecyclingLessonText).GetFields(BindingFlags.Public | BindingFlags.Instance))
                         Require(chapter.FindPropertyRelative(field.Name) != null, "Inspector exposes recycling field " + field.Name + ".");
                 }
-                var tokens = new TutorialTextTokens().Add("confirm", "A").Add("distance", 3.5f);
+                var tokens = new TutorialTextTokens().Add("confirm", "A").Add("distance", 3.5f)
+                    .Add("inventoryRight", "→").Add("inventoryLeft", "←").Add("cancel", "B")
+                    .Add("materials", "Metal Scrap × 1");
                 foreach (RecyclingTutorialStep step in Enum.GetValues(typeof(RecyclingTutorialStep)))
                 {
                     if (step == RecyclingTutorialStep.Completed) continue;
@@ -269,6 +345,9 @@ namespace AnimalGame.Editor
                     Require(item.Message.Split('\n').Length <= 4 && item.Detail.Split('\n').Length <= 2,
                         "The " + step + " copy retains the current card's short format.");
                     Require(!tokens.Format(item.Message).Contains("{confirm}"), "The actual confirmation glyph formats for " + step + ".");
+                    if (step == RecyclingTutorialStep.OpenInventory || step == RecyclingTutorialStep.ViewMaterials)
+                        Require(!tokens.Format(item.Message + item.Detail + item.ControlGlyph).Contains("{"),
+                            "The inventory tutorial formats every real control token for " + step + ".");
                 }
                 bool containsChinese = false;
                 foreach (char character in JsonUtility.ToJson(text.Recycling))

@@ -33,6 +33,7 @@ namespace AnimalGame.MainUI.Inventory
         private VisualElement root, inventory, grid;
         private InventorySelectionElement selection;
         private readonly Button[] slots = new Button[SlotCount];
+        private readonly HashSet<InventoryItem> tutorialHighlightedItems = new();
         private int selectedIndex;
         private bool openHoldLatched;
         private float openHoldElapsed;
@@ -79,6 +80,7 @@ namespace AnimalGame.MainUI.Inventory
         public void Dispose()
         {
             Suspend();
+            SetTutorialHighlightedItems(null);
             if (inventoryEventRoot != null) inventoryEventRoot.UnregisterCallback<PointerMoveEvent>(InventoryPointerMoved);
             inventoryStore.Changed -= InventoryChanged;
         }
@@ -120,6 +122,26 @@ namespace AnimalGame.MainUI.Inventory
         public InventoryStore.AddResult GrantRecycleRewards(RecyclableSize size)
         {
             return settings.Rewards != null ? settings.Rewards.Grant(size, inventoryStore) : default;
+        }
+
+        public bool IsRecycleRewardItem(InventoryItem item) => settings.Rewards != null && settings.Rewards.ContainsItem(item);
+
+        /// <summary>Presentation only: follows these materials when stacks move, without acknowledging new items.</summary>
+        public void SetTutorialHighlightedItems(IReadOnlyCollection<InventoryItem> items)
+        {
+            if (items == null)
+            {
+                if (tutorialHighlightedItems.Count == 0) return;
+                tutorialHighlightedItems.Clear();
+            }
+            else
+            {
+                if (tutorialHighlightedItems.SetEquals(items)) return;
+                tutorialHighlightedItems.Clear();
+                foreach (InventoryItem item in items)
+                    if (item != null) tutorialHighlightedItems.Add(item);
+            }
+            for (int i = 0; i < SlotCount; i++) RefreshTutorialHighlight(i);
         }
 
         public void SetItem(int index, InventoryItem item)
@@ -231,6 +253,23 @@ namespace AnimalGame.MainUI.Inventory
             {
                 bool show = preview ? inventoryStore.IsUnread(moveSource) : inventoryStore.IsUnread(index);
                 itemStars[index].style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+            RefreshTutorialHighlight(index);
+        }
+
+        private void RefreshTutorialHighlight(int index)
+        {
+            Button button = slots[index];
+            if (button == null) return;
+            bool highlighted = Items[index] != null && inventoryStore.Quantity(index) > 0
+                && tutorialHighlightedItems.Contains(Items[index]);
+            button.EnableInClassList("inventory-slot--tutorial-material", highlighted);
+            var outline = button.Q<InventoryTutorialHighlightElement>("InventoryTutorialHighlight");
+            if (!highlighted) { outline?.RemoveFromHierarchy(); return; }
+            if (outline == null)
+            {
+                outline = new InventoryTutorialHighlightElement { name = "InventoryTutorialHighlight" };
+                button.Add(outline);
             }
         }
 

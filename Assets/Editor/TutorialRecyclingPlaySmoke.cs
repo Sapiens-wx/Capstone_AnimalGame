@@ -35,7 +35,7 @@ namespace AnimalGame.Editor
             LargeDeploy, LargeAlign, LargeGrab, LargePull, LargeCancelPull, LargeResumePull,
             FragmentSettle, FragmentPullInside, FragmentAtInlet, FragmentReleaseInlet,
             WaitFragmentRecycleA, ConfirmFragmentRecycle, Stow,
-            WaitStowA, ConfirmStow, WaitCompletionA, ConfirmCompletion, Refit, Finishing
+            WaitStowA, ConfirmStow, OpenInventory, ViewMaterials, CloseInventory, WaitInventoryClosed, Refit, Finishing
         }
         [Serializable] private sealed class Report
         {
@@ -43,6 +43,8 @@ namespace AnimalGame.Editor
             public bool realGrab, holdingADidNotAdvance, dropDidNotRecycle, actualRegrab, actualInletReady;
             public bool sawProcessing, actualRecycled, materialsGranted, recycledWaitedForA, actualManualStow;
             public bool finalWaitedForA, refitHandoff, noWasteRespawn, birdStayedDeparted;
+            public bool inventoryOpened, materialTutorialVisible, inventoryClosed;
+            public string inventoryCloseControl;
             public bool rootCanContinue;
             public bool lateralInletAlignmentUsed;
             public bool inletCueVisibleWhileHolding, inletCueHiddenAfterRecycle;
@@ -65,7 +67,7 @@ namespace AnimalGame.Editor
             public List<string> checks = new(), errors = new(), knownSceneDiagnostics = new(), screenshots = new();
         }
         [SerializeField] private string runId, output;
-        [SerializeField] private bool running, originalBackground, cameraFollowSuspended;
+        [SerializeField] private bool running, originalBackground, cameraFollowSuspended, closeInventoryWithLeft;
         [SerializeField] private int gamepadId, phaseFrame, lastFrame = -1;
         [SerializeField] private double deadline, phaseStarted;
         [SerializeField] private Phase phase;
@@ -98,6 +100,8 @@ namespace AnimalGame.Editor
             string configured = Environment.GetEnvironmentVariable("TUTORIAL_RECYCLING_VALIDATION_OUTPUT");
             test.output = string.IsNullOrWhiteSpace(configured) ? Path.Combine(project, "output/validation/tutorial-recycling") : Path.GetFullPath(configured);
             Directory.CreateDirectory(test.output); test.report = new Report { project = project };
+            test.closeInventoryWithLeft = Environment.GetEnvironmentVariable("TUTORIAL_RECYCLING_CLOSE_WITH_LEFT") == "1";
+            test.report.inventoryCloseControl = test.closeInventoryWithLeft ? "Hold D-pad left" : "Tap B";
             typeof(TutorialPhotographyPlaySmoke).GetMethod("ApplyGameViewSize", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, null);
             test.Subscribe(); EditorSceneManager.OpenScene(TutorialDrivingLesson.ScenePath, OpenSceneMode.Single);
             test.deadline = EditorApplication.timeSinceStartup + 360;
@@ -386,27 +390,64 @@ namespace AnimalGame.Editor
                             "Stowing the arms is a real action and still waits for A before the next card.");
                         Begin(Phase.ConfirmStow); break;
                     case Phase.ConfirmStow:
-                        if (lesson.Progress.Step != RecyclingTutorialStep.Completed) return;
-                        Begin(Phase.WaitCompletionA); break;
-                    case Phase.WaitCompletionA:
-                        Require(lesson.IsComplete && !lesson.Progress.CanContinue,
-                            "The last stowing confirmation finishes recycling without a completion card.");
+                        if (lesson.Progress.Step != RecyclingTutorialStep.OpenInventory) return;
+                        Require(!lesson.IsComplete && !refit.HasStarted && !lesson.Progress.CanContinue,
+                            "Stowing introduces inventory controls before the camera-upgrade chapter.");
+                        Begin(Phase.OpenInventory); break;
+                    case Phase.OpenInventory:
+                        if (lesson.Progress.Step != RecyclingTutorialStep.ViewMaterials) return;
+                        var openedInventory = bootstrap.mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>();
+                        Require(openedInventory.IsInventoryOpen && openedInventory.InventoryProgress >= .98f,
+                            "The tutorial observes the real inventory opened by holding D-pad right.");
+                        Require(Time.timeScale == 0f && lesson.Panel.IsVisible && !lesson.Panel.IsCollapsed
+                            && !lesson.Panel.CanContinue && !refit.HasStarted,
+                            "Material teaching remains visible and owns no A while the actual inventory pauses gameplay.");
+                        report.inventoryOpened = true;
+                        Begin(Phase.ViewMaterials); break;
+                    case Phase.ViewMaterials:
+                        if (!Settled(12)) return;
+                        Require(lesson.Progress.Step == RecyclingTutorialStep.ViewMaterials && lesson.Panel.IsVisible
+                            && ActuallyVisible(lesson.Panel.Root)
+                            && !string.IsNullOrWhiteSpace(lesson.Panel.Root.Q<Label>("TutorialMessage")?.text),
+                            "The paused inventory keeps its material explanation visible until the player closes it.");
+                        var materialUi = bootstrap.mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>();
+                        var materialRoot = (VisualElement)Get(materialUi, "root");
+                        var materialHighlights = materialRoot.Query<VisualElement>("InventoryTutorialHighlight").ToList();
+                        Require(materialHighlights.Count > 0, "Actually recovered material slots carry the tutorial's gold outline.");
+                        foreach (VisualElement highlight in materialHighlights)
+                            Require(ActuallyVisible(highlight) && highlight.worldBound.width > 0 && highlight.worldBound.height > 0,
+                                "The material outline has real visible layout in the same frame as the paused tutorial.");
+                        report.materialTutorialVisible = true;
+                        Record("Hold D-pad right opens the actual inventory, showing recovered materials and processing-site guidance during pause.",
+                            "recycling-inventory-materials.png");
+                        Begin(Phase.CloseInventory); break;
+                    case Phase.CloseInventory:
+                        if (bootstrap.mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>().IsInventoryOpen) return;
+                        Begin(Phase.WaitInventoryClosed); break;
+                    case Phase.WaitInventoryClosed:
+                        if (!lesson.IsComplete) return;
+                        var closedInventory = bootstrap.mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>();
+                        Require(!closedInventory.IsInventoryOpen && closedInventory.InventoryProgress <= .001f
+                            && !lesson.Progress.CanContinue,
+                            "Native closure finishes the inventory teaching after its slide animation, without another A.");
+                        Require(((VisualElement)Get(closedInventory, "root")).Query<VisualElement>("InventoryTutorialHighlight").ToList().Count == 0,
+                            "Completing inventory teaching removes its temporary material outlines.");
+                        report.inventoryClosed = true;
                         report.finalWaitedForA = false; Begin(Phase.Refit); break;
-                    case Phase.ConfirmCompletion:
-                        Begin(Phase.Refit); break;
                     case Phase.Refit:
                         if (!refit.HasStarted || !Settled(5)) return;
                         Require(report.productionLargeTarget && report.actualLargeGrip && report.actualLargePull
                             && report.cancelledPullDidNotComplete && report.actualLargeBreak && report.exactHeldFragment
-                            && report.fragmentRecycled && report.fragmentMaterialsGranted && report.noRefitBeforeFragment,
-                            "Both the small-waste exercise and the entire native large-pile/medium-fragment chain must succeed before refit.");
+                            && report.fragmentRecycled && report.fragmentMaterialsGranted && report.noRefitBeforeFragment
+                            && report.inventoryOpened && report.materialTutorialVisible && report.inventoryClosed,
+                            "Real recycling, material viewing and native inventory closure must succeed before refit.");
                         targets.EnsureTargets();
                         Require(targets.HasAnimalDeparted && targets.Animal == null && targets.Trunk != null,
                             "The earlier photograph's departed woodpecker is never respawned during recycling or refit.");
                         Require(refit.Panel.Root.Q<Label>("TutorialChapter").text == "08 / 09",
                             "Camera upgrade follows recycling as chapter eight.");
                         report.birdStayedDeparted = report.refitHandoff = true;
-                        Record("A confirms recycling and passes the panel to camera upgrade with the photo bird still departed and no replacement waste.", "recycling-refit-handoff.png");
+                        Record("Closing the viewed material inventory passes the panel to camera upgrade with the photo bird still departed and no replacement waste.", "recycling-refit-handoff.png");
                         Finish(null); break;
                 }
             }
@@ -454,9 +495,15 @@ namespace AnimalGame.Editor
             if (phase == Phase.Deploy || phase == Phase.Stow || phase == Phase.LargeStow || phase == Phase.LargeDeploy)
                 Tap(ref state,GamepadButton.LeftStick);
             if (phase == Phase.ConfirmArrival || phase == Phase.ConfirmDeployment
-                || phase == Phase.ConfirmRecycle || phase == Phase.ConfirmStow || phase == Phase.ConfirmCompletion
+                || phase == Phase.ConfirmRecycle || phase == Phase.ConfirmStow
                 || phase == Phase.ConfirmLargeArrival || phase == Phase.ConfirmFragmentRecycle)
                 Tap(ref state,GamepadButton.South);
+            if (phase == Phase.OpenInventory) state = state.WithButton(GamepadButton.DpadRight);
+            if (phase == Phase.CloseInventory)
+            {
+                if (closeInventoryWithLeft) state = state.WithButton(GamepadButton.DpadLeft);
+                else Tap(ref state, GamepadButton.East);
+            }
             if (phase == Phase.LargeApproach) DriveLargeApproach(ref state);
             if (phase == Phase.LargeAlign) AlignLargeHands(ref state);
             if (phase == Phase.Align || phase == Phase.Regrab) AlignHands(ref state);
@@ -579,6 +626,14 @@ namespace AnimalGame.Editor
         }
         private int InventoryQuantity()
         { var inventory = bootstrap.mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>().Inventory; int total=0; for(int i=0;i<inventory.Capacity;i++) total+=inventory.Quantity(i); return total; }
+        private static bool ActuallyVisible(VisualElement element)
+        {
+            if (element == null || element.panel == null) return false;
+            for (var current = element; current != null; current = current.parent)
+                if (current.resolvedStyle.display == DisplayStyle.None || current.resolvedStyle.visibility == Visibility.Hidden
+                    || current.resolvedStyle.opacity <= 0f) return false;
+            return true;
+        }
         private static object Get(object target,string field) => target.GetType().GetField(field,Flags).GetValue(target);
         private static void Set(object target,string field,object value) => target.GetType().GetField(field,Flags).SetValue(target,value);
         private static void SetStep(object progress,object step) => progress.GetType().GetProperty("Step",Flags).SetValue(progress,step);

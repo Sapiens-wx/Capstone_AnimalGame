@@ -24,6 +24,23 @@ namespace AnimalGame.MainUI.Inventory
         }
         [SerializeField] private Rule[] rules = Array.Empty<Rule>();
 
+        /// <summary>Identifies possible recycle materials without granting rewards or consuming randomness.</summary>
+        public bool ContainsItem(InventoryItem item)
+        {
+            if (item == null || rules == null) return false;
+            foreach (Rule rule in rules)
+            {
+                if (rule == null) continue;
+                if (rule.guaranteed != null)
+                    foreach (Reward reward in rule.guaranteed)
+                        if (reward.item == item && reward.quantity > 0) return true;
+                if (rule.randomRolls <= 0 || rule.random == null) continue;
+                foreach (Reward reward in rule.random)
+                    if (reward.item == item && reward.quantity > 0 && reward.weight > 0f) return true;
+            }
+            return false;
+        }
+
         /// <summary>Overflow is intentionally ignored. Return value reports it to callers/tests.</summary>
         public InventoryStore.AddResult Grant(RecyclableSize size, InventoryStore inventory, Func<float> random01 = null)
         {

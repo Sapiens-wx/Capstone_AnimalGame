@@ -111,16 +111,24 @@ namespace AnimalGame.Editor
                         if (step == RecyclingTutorialStep.Completed) continue;
                         var item = text.Recycling.GetStep(step);
                         Show(panel, text, item, tokens);
-                        panel.SetLessonHint(tokens.Format(step == RecyclingTutorialStep.ReachLargeWaste
-                            || step == RecyclingTutorialStep.RecycleLargeWaste ? text.Recycling.LargeToggleHint : text.Recycling.ToggleHint));
+                        bool inventoryStep = step == RecyclingTutorialStep.OpenInventory || step == RecyclingTutorialStep.ViewMaterials;
+                        panel.SetCollapseEnabled(!inventoryStep);
+                        panel.SetLessonHint(tokens.Format(step == RecyclingTutorialStep.OpenInventory ? text.Recycling.OpenInventoryHint
+                            : step == RecyclingTutorialStep.ViewMaterials ? text.Recycling.InventoryToggleHint
+                            : step == RecyclingTutorialStep.ReachLargeWaste || step == RecyclingTutorialStep.RecycleLargeWaste
+                                ? text.Recycling.LargeToggleHint : text.Recycling.ToggleHint));
                         Settle(panel, size); CheckText(panel.Root, step + " / " + size);
                         Require(panel.Root.Q<Label>("TutorialChapter").text == "07 / 09", "Recycling is chapter seven of nine.");
-                        panel.SetContinuePrompt(true, text.Panel.ContinuePrompt); Settle(panel, size);
+                        panel.SetContinuePrompt(!inventoryStep, text.Panel.ContinuePrompt); Settle(panel, size);
                         CheckText(panel.Root, "Ready " + step + " / " + size);
-                        Require(panel.Root.Q<Label>("TutorialToggleHint").resolvedStyle.display != DisplayStyle.None,
-                            "The D-pad hide hint remains visible while waiting for A.");
+                        Require(panel.CanContinue == !inventoryStep,
+                            "Inventory actions preserve actual open/close controls instead of claiming the A confirmation.");
+                        Require((panel.Root.Q<Label>("TutorialToggleHint").resolvedStyle.display == DisplayStyle.None) == inventoryStep,
+                            "The D-pad hide reminder is suppressed only while the inventory controls own those directions.");
                         if (size == new Vector2(1920,1080)) Capture(panel.Root, texture, "recycling-" + step.ToString().ToLowerInvariant() + ".png");
                         panel.SetCollapsed(true); Settle(panel, size); CheckText(panel.Root, "Collapsed " + step + " / " + size);
+                        Require(panel.IsCollapsed == !inventoryStep,
+                            "Inventory teaching stays expanded when a D-pad or collapse request would otherwise hide it.");
                     }
                     // Dynamic operational/recovery messages share the exact same runtime message box.
                     foreach (FieldInfo field in text.Recycling.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
@@ -130,6 +138,7 @@ namespace AnimalGame.Editor
                         string message = tokens.Format((string)field.GetValue(text.Recycling));
                         if (string.IsNullOrWhiteSpace(message)) continue;
                         var item = text.Recycling.GetStep(RecyclingTutorialStep.RecycleWaste);
+                        panel.SetCollapseEnabled(true);
                         Show(panel, text, item, tokens);
                         panel.SetContent(text.Recycling.Title, field.Name.EndsWith("Message") ? message : tokens.Format(item.Message),
                             "A", field.Name.EndsWith("Action") ? message : tokens.Format(item.Action),
@@ -158,6 +167,7 @@ namespace AnimalGame.Editor
         }
         private static TutorialTextTokens Tokens() => new TutorialTextTokens().Add("confirm", "A").Add("grab", "A")
             .Add("cancel", "B").Add("rt", "RT").Add("lt", "LT").Add("lb", "LB").Add("rb", "RB")
+            .Add("inventoryRight", "→").Add("inventoryLeft", "←").Add("materials", "Metal Scrap × 1")
             .Add("distance", 2f).Add("value", .5f).Add("target", 1f).Add("pull", 55f).Add("l3", "L3").Add("stick", "L");
         private static void Settle(TutorialDialoguePanel panel, Vector2 size) => Driving("Settle", panel, size);
         private static void CheckText(VisualElement root, string context)

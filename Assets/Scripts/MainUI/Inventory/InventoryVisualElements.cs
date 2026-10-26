@@ -3,6 +3,21 @@ using UnityEngine.UIElements;
 
 namespace AnimalGame.MainUI.Inventory
 {
+    /// <summary>A quiet, complete frame inside a material slot; the normal selection corners remain separate.</summary>
+    internal sealed class InventoryTutorialHighlightElement : VisualElement
+    {
+        public InventoryTutorialHighlightElement()
+        {
+            pickingMode = PickingMode.Ignore;
+            style.position = Position.Absolute;
+            style.left = style.right = style.top = style.bottom = 8f;
+            Color gold = HudDrawing.Yellow;
+            gold.a = .65f;
+            style.borderLeftColor = style.borderRightColor = style.borderTopColor = style.borderBottomColor = gold;
+            style.borderLeftWidth = style.borderRightWidth = style.borderTopWidth = style.borderBottomWidth = 1.5f;
+        }
+    }
+
     [UxmlElement]
     public partial class EmptyInventoryElement : VisualElement
     {

@@ -88,6 +88,7 @@ namespace AnimalGame.Editor
                 EditorGUILayout.LabelField("机械臂进度", "{value:F0} / {target:F0} cm 或 °。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("探索扫描", "{value:F0}% 充能。完成操作后按 A 逐条继续。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("垃圾回收", "{confirm} 抓持 / 松开回收；{distance:F1} 到垃圾的距离。抓取至处理结束是同一连续实操步骤。", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("物品栏与材料", "{inventoryRight} 右方向键；{inventoryLeft} 左方向键；{cancel} 返回键；{materials} 当前材料名称与数量。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("拍照按键", "{photo} 拍照模式；{rb} 快门；{cancel} 返回。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("改装按键与镜头", "{confirm} 确认 / 装备；{cancel} 返回；{lens} 目标镜头；{distance:F1} 到目标距离。", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.LabelField("侧翻与回正", "{brace} 机械臂支撑方向；{effort} 右摇杆反复推动方向；{confirm} 继续或返回。方向随实际侧翻更新。", EditorStyles.wordWrappedLabel);
@@ -253,6 +254,12 @@ namespace AnimalGame.Editor
                 DrawStep(recycling, "RecycleLargeWaste", "5 · 持续后退拉散，再回收碎块");
                 EditorGUILayout.HelpBox("大型垃圾：双手抓住后保持 A，按住 LT 后退拉散。原生系统会把一个中型碎块留在手中；松开 LT，继续保持 A，用左摇杆拉回黄色接收区，松开 A 回收。拉散与碎块回收之间不插入 A 确认。", MessageType.None);
                 DrawStep(recycling, "StowArms", "6 · 收回机械臂");
+                DrawStep(recycling, "OpenInventory", "7 · 打开物品栏");
+                DrawStep(recycling, "ViewMaterials", "8 · 查看材料并关闭");
+                Field(recycling, "OpenInventoryHint", "长按打开物品栏提醒", "{inventoryRight} 显示右方向键；实际打开物品栏后自动进入材料说明。");
+                Field(recycling, "InventoryToggleHint", "关闭物品栏提醒", "{inventoryLeft} 显示左方向键；{cancel} 显示当前手柄的返回键。长按左方向键或点按返回键关闭。");
+                Field(recycling, "MaterialsDetail", "实际材料名称与数量", "{materials} 显示当前物品栏中回收材料的名称与数量。");
+                Field(recycling, "NoMaterialsDetail", "没有可展示材料时的提示", "物品栏中没有实际回收材料时显示，避免虚构材料或数量。");
                 Field(recycling, "ToggleHint", "持续操作提醒");
                 recyclingRemindersExpanded = EditorGUILayout.Foldout(recyclingRemindersExpanded, "连续实操与失败恢复正文", true);
                 if (recyclingRemindersExpanded)

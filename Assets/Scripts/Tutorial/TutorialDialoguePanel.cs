@@ -36,7 +36,7 @@ namespace AnimalGame.Tutorial
         private Label titleLabel, messageLabel, controlLabel, actionLabel, detailLabel;
         private Label statusLabel, chapterLabel, tabProgressLabel, percentLabel;
         private Label headerLabel, currentLessonLabel, currentActionLabel, toggleHintLabel;
-        private Label tabArrowsLabel, tabHintLabel, guideLabel;
+        private Label tabArrowsLabel, tabHintLabel, guideLabel, collapseArrowLabel;
         private Label lessonHintLabel;
         private Label continueLabel;
         private bool continueReady;
@@ -50,6 +50,8 @@ namespace AnimalGame.Tutorial
         private bool visible = true;
         private bool showDuringPhotoMode;
         private bool showDuringTutorialPause;
+        private bool showDuringInventory;
+        private bool collapseEnabled = true;
         private bool collapsed;
         private bool successful;
         private float progress;
@@ -65,6 +67,8 @@ namespace AnimalGame.Tutorial
         public bool ContinueWasPresented => CanContinue && Time.frameCount > continueReadyFrame && Time.frameCount > reopenedFrame;
         public bool ShowDuringPhotoMode => showDuringPhotoMode;
         public bool ShowDuringTutorialPause => showDuringTutorialPause;
+        public bool ShowDuringInventory => showDuringInventory;
+        public bool CollapseEnabled => collapseEnabled;
         public event Action<bool> CollapsedChanged;
 
         /// <summary>Content only; presentation visibility and confirmation input are restored separately.</summary>
@@ -95,6 +99,8 @@ namespace AnimalGame.Tutorial
             showDuringPhotoMode = snapshot.ShowDuringPhotoMode;
             // A content snapshot cannot retain permission to display over a later pause.
             showDuringTutorialPause = false;
+            showDuringInventory = false;
+            SetCollapseEnabled(true);
             SetContinuePrompt(false);
             RefreshPanelText(); RefreshContent(); RefreshLessonHint();
             SetProgress(snapshot.Progress); SetSuccess(snapshot.Successful); RefreshVisibility();
@@ -200,10 +206,25 @@ namespace AnimalGame.Tutorial
             RefreshVisibility();
         }
 
+        /// <summary>Only the active recycling inventory steps may display over the inventory's owned pause.</summary>
+        public void SetInventoryTutorialVisible(bool value)
+        {
+            showDuringInventory = value;
+            RefreshVisibility();
+        }
+
+        public void SetCollapseEnabled(bool value)
+        {
+            collapseEnabled = value;
+            if (!value) SetCollapsed(false);
+            RefreshCollapseControls();
+        }
+
         public void ToggleCollapsed() => SetCollapsed(!collapsed);
 
         public void SetCollapsed(bool value)
         {
+            if (value && !collapseEnabled) return;
             if (!value && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
             if (collapsed == value) return;
             collapsed = value;
@@ -275,7 +296,7 @@ namespace AnimalGame.Tutorial
             expanded.Add(header);
             headerLabel = AddLabel(header, panelText.Header, 11, 27, 244, 41, 27, Gold, true);
             headerLabel.name = "TutorialHeader";
-            AddLabel(header, "›", 287, 16, 24, 46, 30, Gold);
+            collapseArrowLabel = AddLabel(header, "›", 287, 16, 24, 46, 30, Gold);
             // The existing space below the header fits a single optional reminder without moving
             // the lesson body, input instructions, standard D-pad footer, or the outer frame.
             lessonHintLabel = AddLabel(expanded, lessonHint, 27, 88, 301, 21, 14, Muted);
@@ -419,6 +440,14 @@ namespace AnimalGame.Tutorial
             collapseControl.tooltip = panelText.CollapseTooltip ?? string.Empty;
             collapsedTab.tooltip = panelText.ExpandTooltip ?? string.Empty;
             RefreshChapterLabels();
+            RefreshCollapseControls();
+        }
+
+        private void RefreshCollapseControls()
+        {
+            if (toggleHintLabel != null) toggleHintLabel.style.display = collapseEnabled ? DisplayStyle.Flex : DisplayStyle.None;
+            if (collapseArrowLabel != null) collapseArrowLabel.style.display = collapseEnabled ? DisplayStyle.Flex : DisplayStyle.None;
+            if (collapseControl != null) collapseControl.tooltip = collapseEnabled ? panelText.CollapseTooltip : string.Empty;
         }
 
         private void RefreshLessonHint()
@@ -485,8 +514,15 @@ namespace AnimalGame.Tutorial
             var recovery = showDuringTutorialPause ? GetComponentInParent<TutorialTipOverLesson>() : null;
             bool tutorialPause = recovery != null && recovery.gameObject.scene == gameObject.scene
                 && gameObject.scene.path == TutorialDrivingLesson.ScenePath && recovery.OwnsInertiaPause;
-            bool obscured = (Time.timeScale <= 0f && !tutorialPause) || AnimalGame.MainUI.MainUI.BlocksGameplay
-                || (tutorialPause && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels);
+            var inventoryLesson = showDuringInventory ? GetComponentInParent<TutorialRecyclingLesson>() : null;
+            var mainUi = AnimalGame.MainUI.MainUI.Active;
+            bool inventoryPause = inventoryLesson != null && inventoryLesson.IsInventoryTeaching
+                && inventoryLesson.gameObject.scene == gameObject.scene && mainUi != null
+                && mainUi.gameObject.scene == gameObject.scene && AnimalGame.MainUI.MainUI.BlocksGameplay
+                && !TutorialTipOverLesson.BlocksMainline(gameObject);
+            bool obscured = (Time.timeScale <= 0f && !tutorialPause && !inventoryPause)
+                || (AnimalGame.MainUI.MainUI.BlocksGameplay && !inventoryPause)
+                || ((tutorialPause || inventoryPause) && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels);
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap != null)
                 obscured |= ((!showDuringPhotoMode || tutorialPause) && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)

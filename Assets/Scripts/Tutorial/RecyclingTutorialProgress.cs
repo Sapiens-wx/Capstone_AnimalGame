@@ -4,7 +4,8 @@ namespace AnimalGame.Tutorial
 {
     public enum RecyclingTutorialStep
     {
-        ReachWaste, DeployArms, RecycleWaste, ReachLargeWaste, RecycleLargeWaste, StowArms, Completed
+        ReachWaste, DeployArms, RecycleWaste, ReachLargeWaste, RecycleLargeWaste, StowArms,
+        OpenInventory, ViewMaterials, Completed
     }
 
     /// <summary>Actual navigation, hands and native recycling observations for the designated waste.</summary>
@@ -48,7 +49,8 @@ namespace AnimalGame.Tutorial
         public bool IsHoldingLargeWaste { get; private set; }
         public float LargePullProgress { get; private set; }
         public bool IsComplete => Step == RecyclingTutorialStep.Completed;
-        public bool CanContinue => !IsComplete && lastValid && confirmationArmed && IsSatisfied
+        public bool IsInventoryStep => Step == RecyclingTutorialStep.OpenInventory || Step == RecyclingTutorialStep.ViewMaterials;
+        public bool CanContinue => !IsComplete && !IsInventoryStep && lastValid && confirmationArmed && IsSatisfied
             && !IsHoldingWaste && !IsHoldingLargeWaste && !IsProcessing;
         public float Target => 1f;
         public float Value => IsSatisfied ? 1f : Step switch
@@ -85,6 +87,20 @@ namespace AnimalGame.Tutorial
         }
 
         public void Suspend() { lastValid = false; confirmationArmed = false; }
+
+        /// <summary>Inventory animation runs while game time is paused; observe its real state without an A confirmation.</summary>
+        public void SampleInventory(bool valid, bool open, float animationProgress)
+        {
+            if (!IsInventoryStep) return;
+            confirmationArmed = false;
+            if (!valid || !float.IsFinite(animationProgress) || animationProgress < 0f || animationProgress > 1f)
+            { Suspend(); return; }
+            lastValid = true;
+            if (Step == RecyclingTutorialStep.OpenInventory && open && animationProgress >= .98f)
+                Step = RecyclingTutorialStep.ViewMaterials;
+            else if (Step == RecyclingTutorialStep.ViewMaterials && !open && animationProgress <= .001f)
+                Step = RecyclingTutorialStep.Completed;
+        }
 
         public void Sample(in RecyclingTutorialSample sample)
         {

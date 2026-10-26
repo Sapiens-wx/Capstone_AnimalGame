@@ -359,6 +359,16 @@ namespace AnimalGame.Tutorial
         public TutorialStepText StowArms = new TutorialStepText("L3", "Retract arms",
             "Waste recycled.\nPress L3 to retract\nyour mechanical arms\nand resume driving.",
             "Press once, then release.");
+        public TutorialStepText OpenInventory = new TutorialStepText("{inventoryRight}", "Open inventory",
+            "Recovered materials\nare stored in inventory.\nHold D-pad {inventoryRight}\nto open it.",
+            "Hold {inventoryRight} to open.");
+        public TutorialStepText ViewMaterials = new TutorialStepText("{inventoryLeft}", "Close inventory",
+            "Recovered raw materials\nare stored here.\nProcessing sites turn them\ninto useful materials.",
+            "Hold {inventoryLeft} / Tap {cancel} · Close");
+        public string OpenInventoryHint = "Hold {inventoryRight} · Open inventory";
+        public string InventoryToggleHint = "Hold {inventoryLeft} / Tap {cancel} · Close";
+        public string MaterialsDetail = "{materials}";
+        public string NoMaterialsDetail = "No materials in storage.";
         [HideInInspector] public TutorialStepText Completed = new TutorialStepText("✓", "Recycling ready",
             "Recycling complete.\nMaterials recovered.\nNext, upgrade your camera\nat the large machine.",
             "Next · Camera upgrade");
@@ -391,6 +401,8 @@ namespace AnimalGame.Tutorial
             RecyclingTutorialStep.ReachLargeWaste => ReachLargeWaste,
             RecyclingTutorialStep.RecycleLargeWaste => RecycleLargeWaste,
             RecyclingTutorialStep.StowArms => StowArms,
+            RecyclingTutorialStep.OpenInventory => OpenInventory,
+            RecyclingTutorialStep.ViewMaterials => ViewMaterials,
             _ => Completed
         };
     }

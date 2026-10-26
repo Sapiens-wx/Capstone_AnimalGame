@@ -1,10 +1,12 @@
 using AnimalGame.MapTest;
+using AnimalGame.MainUI.Inventory;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using GameMainUI = AnimalGame.MainUI.MainUI;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -42,6 +44,10 @@ namespace AnimalGame.Tutorial
         private RecyclingTutorialStep displayedStep = (RecyclingTutorialStep)(-1);
         private string practiceStatus;
         private InletOutline inletOutline;
+        private GameMainUI inventoryUi;
+        private readonly Dictionary<InventoryItem, int> inventorySnapshot = new Dictionary<InventoryItem, int>();
+        private readonly HashSet<InventoryItem> recoveredMaterials = new HashSet<InventoryItem>();
+        private readonly List<InventoryItem> visibleMaterials = new List<InventoryItem>();
 
         public TutorialTextContent TextContent => tutorialText;
         public TutorialDiscoveryTargets Targets => targets;
@@ -56,10 +62,16 @@ namespace AnimalGame.Tutorial
         public float ApproachRadiusMeters => approachRadiusMeters;
         public bool HasStarted => hasStarted;
         public bool IsComplete => hasStarted && progress != null && progress.IsComplete;
+        public bool IsInventoryTeaching => isActiveAndEnabled && hasStarted && ownsPresentation
+            && progress != null && progress.IsInventoryStep;
         public string CurrentPracticeStatus => practiceStatus;
         public bool IsInletCueVisible => inletOutline != null && inletOutline.style.display.value != DisplayStyle.None;
         public void SetPresentationOwned(bool value)
-        { ownsPresentation = value; if (!value && inletOutline != null) inletOutline.style.display = DisplayStyle.None; }
+        {
+            ownsPresentation = value;
+            if (!value) ClearInventoryPresentation();
+            if (!value && inletOutline != null) inletOutline.style.display = DisplayStyle.None;
+        }
         private RecyclingLessonText Text => tutorialText != null && tutorialText.Recycling != null ? tutorialText.Recycling : defaultText;
         private TutorialPanelText PanelText => tutorialText != null ? tutorialText.Panel : defaultPanelText;
         private bool IsLargePractice => progress != null && (progress.Step == RecyclingTutorialStep.ReachLargeWaste
@@ -87,6 +99,7 @@ namespace AnimalGame.Tutorial
         {
             if (TutorialTipOverLesson.BlocksMainline(gameObject))
             {
+                ClearInventoryPresentation();
                 if (!interrupted) progress?.Suspend();
                 interrupted = true;
                 previousToggleHeld = AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
@@ -111,6 +124,8 @@ namespace AnimalGame.Tutorial
             }
             if (!ownsPresentation) return;
             if (IsComplete) { HideCompletedPresentation(); return; }
+            EnsureInventoryContext();
+            if (IsInventoryTeaching) { UpdateInventoryTeaching(); return; }
             bool modal = IsModal();
             if (!modal && !acceptedRecycle) EnsureWaste();
             if (!hasStarted)
@@ -156,6 +171,7 @@ namespace AnimalGame.Tutorial
                 progress.Continue();
                 Panel.SetContinuePrompt(false);
             }
+            if (IsInventoryTeaching) { UpdateInventoryTeaching(); return; }
             if (IsComplete) { HideCompletedPresentation(); return; }
             if (progress.Step != displayedStep)
             { Panel.SetCollapsed(false); displayedStep = progress.Step; }
@@ -180,6 +196,116 @@ namespace AnimalGame.Tutorial
             || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
             || (bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
+
+        private void EnsureInventoryContext()
+        {
+            var active = GameMainUI.Active;
+            if (active == null || !active.isActiveAndEnabled || active.gameObject.scene != gameObject.scene) return;
+            if (inventoryUi == active) return;
+            inventoryUi?.InventoryController.SetTutorialHighlightedItems(null);
+            inventoryUi = active;
+            CaptureInventorySnapshot();
+        }
+
+        private void CaptureInventorySnapshot()
+        {
+            inventorySnapshot.Clear();
+            if (inventoryUi == null) return;
+            InventoryStore store = inventoryUi.Inventory;
+            for (int i = 0; i < store.Capacity; i++)
+            {
+                InventoryItem item = store.Items[i];
+                if (item == null) continue;
+                inventorySnapshot.TryGetValue(item, out int quantity);
+                inventorySnapshot[item] = quantity + store.Quantity(i);
+            }
+        }
+
+        private void RecordRecycledMaterials()
+        {
+            EnsureInventoryContext();
+            if (inventoryUi == null) return;
+            InventoryStore store = inventoryUi.Inventory;
+            for (int i = 0; i < store.Capacity; i++)
+            {
+                InventoryItem item = store.Items[i];
+                if (item == null || !inventoryUi.InventoryController.IsRecycleRewardItem(item)) continue;
+                int total = 0;
+                for (int j = 0; j < store.Capacity; j++)
+                    if (store.Items[j] == item) total += store.Quantity(j);
+                inventorySnapshot.TryGetValue(item, out int before);
+                if (total > before) recoveredMaterials.Add(item);
+            }
+            CaptureInventorySnapshot();
+        }
+
+        private void UpdateInventoryTeaching()
+        {
+            bool inventoryPause = inventoryUi != null && GameMainUI.BlocksGameplay
+                && (inventoryUi.IsInventoryOpen || inventoryUi.InventoryProgress > 0f);
+            bool valid = inventoryUi != null && inventoryUi.isActiveAndEnabled && CanPractice()
+                && !AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+                && (bootstrap.photoMode == null || !bootstrap.photoMode.IsActive)
+                && (bootstrap.photoResultView == null || !bootstrap.photoResultView.IsShowing)
+                && (Time.timeScale > 0f || inventoryPause);
+            Panel.SetPhotoModeVisible(false);
+            Panel.SetContinuePrompt(false);
+            Panel.SetCollapseEnabled(false);
+            Panel.SetInventoryTutorialVisible(valid);
+            Panel.SetVisible(valid);
+            waypoint?.ClearTarget();
+            if (inletOutline != null) inletOutline.style.display = DisplayStyle.None;
+            if (!valid)
+            {
+                progress.Suspend();
+                inventoryUi?.InventoryController.SetTutorialHighlightedItems(null);
+                return;
+            }
+
+            RecyclingTutorialStep before = progress.Step;
+            progress.SampleInventory(true, inventoryUi.IsInventoryOpen, inventoryUi.InventoryProgress);
+            if (IsComplete) { HideCompletedPresentation(); return; }
+            RefreshInventoryMaterials(before != progress.Step && progress.Step == RecyclingTutorialStep.ViewMaterials);
+            displayedStep = progress.Step;
+            RefreshPanel();
+        }
+
+        private void RefreshInventoryMaterials(bool focus)
+        {
+            visibleMaterials.Clear();
+            InventoryStore store = inventoryUi.Inventory;
+            for (int i = 0; i < store.Capacity; i++)
+            {
+                InventoryItem item = store.Items[i];
+                if (item == null || store.Quantity(i) <= 0 || visibleMaterials.Contains(item)) continue;
+                if (recoveredMaterials.Contains(item) || (recoveredMaterials.Count == 0
+                    && inventoryUi.InventoryController.IsRecycleRewardItem(item))) visibleMaterials.Add(item);
+            }
+            bool showingMaterials = progress.Step == RecyclingTutorialStep.ViewMaterials && inventoryUi.IsInventoryOpen;
+            inventoryUi.InventoryController.SetTutorialHighlightedItems(showingMaterials ? visibleMaterials : null);
+            if (!focus || visibleMaterials.Count == 0) return;
+            for (int i = 0; i < store.Capacity; i++)
+                if (store.Items[i] == visibleMaterials[0]) { inventoryUi.SelectItem(i); break; }
+        }
+
+        private string InventoryMaterialsSummary()
+        {
+            if (inventoryUi == null || visibleMaterials.Count == 0) return Text.NoMaterialsDetail;
+            InventoryStore store = inventoryUi.Inventory;
+            InventoryItem selected = store.Items[inventoryUi.SelectedIndex];
+            InventoryItem item = visibleMaterials.Contains(selected) ? selected : visibleMaterials[0];
+            int quantity = 0;
+            for (int i = 0; i < store.Capacity; i++) if (store.Items[i] == item) quantity += store.Quantity(i);
+            return item.ItemName + " × " + quantity;
+        }
+
+        private void ClearInventoryPresentation()
+        {
+            inventoryUi?.InventoryController.SetTutorialHighlightedItems(null);
+            if (Panel == null) return;
+            Panel.SetInventoryTutorialVisible(false);
+            Panel.SetCollapseEnabled(true);
+        }
 
         private bool CanPractice() => bootstrap.map != null && bootstrap.map.HasGeneratedMap
             && bootstrap.robot.isActiveAndEnabled && !bootstrap.robot.IsMovementLocked
@@ -230,6 +356,7 @@ namespace AnimalGame.Tutorial
                 || targetFragment != largeTargets.Fragment || targetFragment.gameObject.scene != gameObject.scene
                 || !targetFragment.Recyclable || targetFragment.Size != RecyclableSize.Medium) return;
             acceptedFragmentRecycle = true;
+            RecordRecycledMaterials();
             progress?.RegisterFragmentRecycled(true);
         }
 
@@ -258,6 +385,7 @@ namespace AnimalGame.Tutorial
             if (targetWaste == null || photography == null || !photography.IsComplete || targetWaste.gameObject.scene != gameObject.scene
                 || !targetWaste.Recyclable || targetWaste.Size != RecyclableSize.Small) return;
             acceptedRecycle = true;
+            RecordRecycledMaterials();
             targets.MarkWasteRecycled(targetWaste);
             progress?.RegisterRecycled(true);
         }
@@ -267,12 +395,17 @@ namespace AnimalGame.Tutorial
             if (progress == null || progress.IsComplete) { HideCompletedPresentation(); return; }
             TutorialStepText item = Text.GetStep(progress.Step) ?? defaultText.GetStep(progress.Step);
             var tokens = new TutorialTextTokens().Add("confirm", "A").Add("rt", "RT").Add("lt", "LT")
-                .Add("distance", WasteDistance).Add("pull", progress.LargePullProgress * 100f);
+                .Add("distance", WasteDistance).Add("pull", progress.LargePullProgress * 100f)
+                .Add("inventoryRight", "→").Add("inventoryLeft", "←")
+                .Add("cancel", AdaptiveLegacyGamepadInput.ActiveFamily == LegacyGamepadFamily.Sony ? "○" : "B")
+                .Add("materials", InventoryMaterialsSummary());
             string message = item.Message, action = item.Action, glyph = item.ControlGlyph, detail = item.Detail;
             string status = !valid ? Text.BlockedStatus : Text.WaitingStatus;
             if (valid && !progress.IsComplete)
             {
-                if (IsLargePractice) RefreshLargePractice(ref message, ref action, ref glyph, ref detail, ref status);
+                if (progress.IsInventoryStep)
+                    status = progress.Step == RecyclingTutorialStep.ViewMaterials ? Text.MaterialsDetail : Text.WaitingStatus;
+                else if (IsLargePractice) RefreshLargePractice(ref message, ref action, ref glyph, ref detail, ref status);
                 else if (progress.IsProcessing)
                 { message = Text.ProcessingMessage; status = action = detail = Text.ProcessingStatus; }
                 else if (progress.IsHoldingWaste)
@@ -298,8 +431,11 @@ namespace AnimalGame.Tutorial
                     && !bootstrap.armController.IsArmModeActive) message = Text.ReopenMessage;
             }
             practiceStatus = tokens.Format(status);
-            Panel.SetPanelText(PanelText); Panel.SetLessonHint(tokens.Format(progress.Step == RecyclingTutorialStep.RecycleLargeWaste && !progress.HasBrokenLargeWaste
-                ? Text.LargeToggleHint : Text.ToggleHint));
+            Panel.SetPanelText(PanelText);
+            Panel.SetLessonHint(tokens.Format(progress.Step == RecyclingTutorialStep.OpenInventory ? Text.OpenInventoryHint
+                : progress.Step == RecyclingTutorialStep.ViewMaterials ? Text.InventoryToggleHint
+                : progress.Step == RecyclingTutorialStep.RecycleLargeWaste && !progress.HasBrokenLargeWaste
+                    ? Text.LargeToggleHint : Text.ToggleHint));
             Panel.SetContent(tokens.Format(Text.Title), tokens.Format(message), tokens.Format(glyph),
                 tokens.Format(action), tokens.Format(detail), practiceStatus, 7, 9);
             Panel.SetProgress(progress.NormalizedProgress); Panel.SetSuccess(progress.IsComplete);
@@ -335,6 +471,7 @@ namespace AnimalGame.Tutorial
 
         private void HideCompletedPresentation()
         {
+            ClearInventoryPresentation();
             if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetLessonHint(string.Empty); }
             if (waypoint != null) waypoint.ClearTarget();
             if (inletOutline != null) inletOutline.style.display = DisplayStyle.None;
@@ -418,6 +555,7 @@ namespace AnimalGame.Tutorial
         public void RestartLesson()
         {
             if (!hasStarted || progress == null) return;
+            ClearInventoryPresentation(); recoveredMaterials.Clear(); visibleMaterials.Clear(); CaptureInventorySnapshot();
             UnbindWaste(); targets.ResetWasteTarget(); acceptedRecycle = false;
             UnbindFragment(); acceptedFragmentRecycle = false; largeTargets?.ResetTarget();
             progress.Reset(); chapterConfirmed = false; ownsPresentation = true;
@@ -427,6 +565,7 @@ namespace AnimalGame.Tutorial
 
         private void ReleasePresentation()
         {
+            ClearInventoryPresentation(); recoveredMaterials.Clear(); visibleMaterials.Clear(); inventorySnapshot.Clear(); inventoryUi = null;
             UnbindWaste();
             UnbindFragment(); acceptedFragmentRecycle = false; largeTargets?.ResetTarget();
             inletOutline?.RemoveFromHierarchy(); inletOutline = null;
