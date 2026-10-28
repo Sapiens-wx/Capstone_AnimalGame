@@ -18,7 +18,9 @@ namespace AnimalGame.Editor
                 "Scene Gizmos\n"
                 + "Green: local activity search distance (no birth-position boundary)\n"
                 + "Orange: hearing / alert range around the animal\n"
-                + "Cyan: direct-vision bonus angle (hearing still works outside it)",
+                + "Cyan: direct-vision bonus angle (hearing still works outside it)\n"
+                + "Red: hunting search radius (species with prey only)\n"
+                + "Purple: chase radius (species with prey only)",
                 MessageType.Info);
 
             using (new EditorGUI.DisabledScope(agent.Config == null))
@@ -42,6 +44,10 @@ namespace AnimalGame.Editor
             new Color(0.28f, 0.95f, 0.52f, 0.95f);
         private static readonly Color AlertColour =
             new Color(1f, 0.67f, 0.12f, 0.95f);
+        private static readonly Color HuntingColour =
+            new Color(1f, 0.3f, 0.3f, 0.95f);
+        private static readonly Color ChaseColour =
+            new Color(0.75f, 0.4f, 1f, 0.95f);
         private static readonly Color VisionOutlineColour =
             new Color(0.18f, 0.88f, 1f, 0.95f);
         private static readonly Color VisionFillColour =
@@ -78,6 +84,23 @@ namespace AnimalGame.Editor
                 map,
                 hasMap,
                 true);
+            if (agent.Config.CanHunt)
+            {
+                DrawRangeCircle(
+                    currentCentre,
+                    agent.Config.HuntingRadiusMeters,
+                    HuntingColour,
+                    map,
+                    hasMap,
+                    false);
+                DrawRangeCircle(
+                    currentCentre,
+                    agent.Config.ChaseRadiusMeters,
+                    ChaseColour,
+                    map,
+                    hasMap,
+                    true);
+            }
             DrawVisionSector(
                 currentCentre,
                 facingMapDirection,
@@ -258,6 +281,25 @@ namespace AnimalGame.Editor
                 $"  Direct vision / {config.DirectVisionAngleDegrees:0.#}°  "
                 + $"x{config.DirectLineOfSightDetectionMultiplier:0.##}",
                 CreateLabelStyle(VisionOutlineColour));
+            if (config.CanHunt)
+            {
+                Handles.Label(
+                    MapOffsetToWorld(
+                        currentCentre,
+                        Vector2.down * config.HuntingRadiusMeters,
+                        map,
+                        hasMap),
+                    $"  Hunting / {config.HuntingRadiusMeters:0.##} m",
+                    CreateLabelStyle(HuntingColour));
+                Handles.Label(
+                    MapOffsetToWorld(
+                        currentCentre,
+                        Vector2.left * config.ChaseRadiusMeters,
+                        map,
+                        hasMap),
+                    $"  Chase / {config.ChaseRadiusMeters:0.##} m",
+                    CreateLabelStyle(ChaseColour));
+            }
         }
 
         private static GUIStyle CreateLabelStyle(Color colour)
