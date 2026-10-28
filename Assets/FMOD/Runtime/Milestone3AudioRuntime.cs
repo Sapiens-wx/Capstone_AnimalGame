@@ -22,7 +22,9 @@ namespace Capstone.Audio
         private RobotTumbleController tumble;
         private RobotSelfRightingController righting;
         private ScanChargeUI scanSource;
+        private BioScanController hitSource;
         private bool initialized, applicationPaused, timePaused, shuttingDown;
+        private bool needsScanChargeSource, needsScanHitSource;
         private float nextDiscovery;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -66,6 +68,8 @@ namespace Capstone.Audio
                 worldMotionSampler.Bind(world);
             }
             scan = config.HasScanEvents ? new Milestone3ScanAudio(config, voices) : null;
+            needsScanChargeSource = config.HasCue(Milestone3Cue.ScanDeploy) || config.HasCue(Milestone3Cue.ScanReady);
+            needsScanHitSource = config.HasCue(Milestone3Cue.ScanHit);
             initialized = true;
             enabled = true;
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -79,12 +83,14 @@ namespace Capstone.Audio
             if (nowPaused != timePaused)
             {
                 timePaused = nowPaused;
-                ReleaseBindings();
+                ReleaseBindings(preserveScanHitState: true);
                 if (!timePaused) Discover();
             }
             if (timePaused) return;
             if (Time.unscaledTime >= nextDiscovery && (!Usable(mover) || !Usable(arm)
-                || !Usable(tumble) || !Usable(righting) || (scan != null && !Usable(scanSource)))) Discover();
+                || !Usable(tumble) || !Usable(righting) || (scan != null
+                    && ((needsScanChargeSource && !Usable(scanSource))
+                        || (needsScanHitSource && !Usable(hitSource)))))) Discover();
         }
         private void LateUpdate()
         {
@@ -113,8 +119,10 @@ namespace Capstone.Audio
             worldMotionSampler?.Bind(world);
             if (scan != null)
             {
-                if (!Usable(scanSource)) scanSource = FindScanSource();
-                scan.Bind(scanSource);
+                if (needsScanChargeSource && !Usable(scanSource)) scanSource = FindScanSource();
+                hitSource = null;
+                if (needsScanHitSource && mover != null) mover.TryGetComponent(out hitSource);
+                scan.Bind(scanSource, hitSource);
             }
         }
         private ScanChargeUI FindScanSource()
@@ -146,15 +154,16 @@ namespace Capstone.Audio
         internal static bool SuppressesOrdinaryLanding(RobotMover source) => instance != null
             && instance.isActiveAndEnabled && !instance.shuttingDown && !instance.applicationPaused
             && !instance.timePaused && instance.balance != null && instance.balance.SuppressesOrdinaryLanding(source);
-        private void ReleaseBindings()
+        private void ReleaseBindings(bool preserveScanHitState = false)
         {
             balance?.Bind(null, null, null);
             garbage?.Bind(null, null);
             world?.Bind(null, null);
             worldMotionSampler?.Bind(null);
-            scan?.Bind(null);
+            if (preserveScanHitState) scan?.Suspend();
+            else scan?.Bind(null);
             voices?.StopAllImmediately();
-            mover = null; arm = null; tumble = null; righting = null; scanSource = null;
+            mover = null; arm = null; tumble = null; righting = null; scanSource = null; hitSource = null;
             nextDiscovery = 0f;
         }
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -170,7 +179,7 @@ namespace Capstone.Audio
         private void OnApplicationPause(bool value)
         {
             applicationPaused = value;
-            if (value) ReleaseBindings(); else Discover();
+            if (value) ReleaseBindings(preserveScanHitState: true); else Discover();
         }
         private void OnEnable() { Discover(); }
         private void OnDisable() { ReleaseBindings(); }

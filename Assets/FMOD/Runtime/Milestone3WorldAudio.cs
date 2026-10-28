@@ -363,8 +363,9 @@ namespace Capstone.Audio
             if (surfaceItem != contact)
             {
                 surfaceItem = contact;
-                surfaceIsBush = contact != null && contact.TryGetComponent(out AnimalFoodSource food)
-                    && food.FoodType == AnimalFoodType.Bush;
+                // Bush contact lives on Solid Core, below the plant's food source.
+                AnimalFoodSource food = contact != null ? contact.GetComponentInParent<AnimalFoodSource>() : null;
+                surfaceIsBush = food != null && food.FoodType == AnimalFoodType.Bush;
                 surfaceIsSmallGarbage = contact != null && contact.TryGetComponent(out GarbageItem garbage)
                     && garbage.Size == RecyclableSize.Small;
             }

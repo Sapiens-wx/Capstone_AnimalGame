@@ -120,8 +120,8 @@ namespace Capstone.Audio
         public static bool HasObservableTrigger(int index) => HasSeparateEvent(index) && index != (int)Milestone3Cue.PushStart
             && index != (int)Milestone3Cue.PushLoop && index != (int)Milestone3Cue.RecycleComplete
             // Heavy conversion is observed from the committed source/held-object state.
-            // These remaining methods have no reliable completion/hit signal.
-            && index != (int)Milestone3Cue.GarbageBreak && index != (int)Milestone3Cue.ScanHit;
+            // GarbageBreak still has no reliable completion signal.
+            && index != (int)Milestone3Cue.GarbageBreak;
         public static bool IsLoop(int index) => index == (int)Milestone3Cue.TumbleMove
             || index == (int)Milestone3Cue.SupportLoad || index == (int)Milestone3Cue.PullBalance
             || index == (int)Milestone3Cue.RightingChassis || index == (int)Milestone3Cue.PushLoop

@@ -36,6 +36,8 @@ namespace Capstone.Audio
         [Tooltip("Minimum unloaded servo pitch; held load can lower it further.")]
         [SerializeField, Range(0.01f, 2f)] private float armMinimumPitch = 0.75f;
         [SerializeField, Range(0.01f, 2f)] private float armMaximumPitch = 1.3f;
+        [SerializeField, Range(0f, 1f)] private float armMinimumGain = 0.5f;
+        [SerializeField, Range(0f, 1f)] private float armMaximumGain = 0.9f;
         [SerializeField, Range(0f, 0.5f)] private float armLoadPitchReduction = 0.2f;
         [SerializeField, Min(0.001f)] private float armPitchSmoothingSeconds = 0.06f;
         [SerializeField, Min(0f)] private float blockedCooldown = 0.35f;
@@ -68,6 +70,8 @@ namespace Capstone.Audio
         internal float ArmJointMovementThresholdDegrees => Mathf.Max(0f, armJointMovementThresholdDegrees);
         internal float ArmMinimumPitch => Mathf.Max(0.01f, armMinimumPitch);
         internal float ArmMaximumPitch => Mathf.Max(ArmMinimumPitch, armMaximumPitch);
+        internal float ArmMinimumGain => Mathf.Clamp01(armMinimumGain);
+        internal float ArmMaximumGain => Mathf.Clamp(armMaximumGain, ArmMinimumGain, 1f);
         internal float ArmLoadPitchReduction => Mathf.Clamp(armLoadPitchReduction, 0f, 0.5f);
         internal float ArmPitchSmoothingSeconds => Mathf.Max(0.001f, armPitchSmoothingSeconds);
         internal float BlockedCooldown => Mathf.Max(0f, blockedCooldown);

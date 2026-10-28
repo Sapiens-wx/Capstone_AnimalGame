@@ -376,10 +376,10 @@ MonoBehaviour:
     soundUIStrength: 0.5
   - eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
+        Data1: 317682470
+        Data2: 1139770060
+        Data3: -910220877
+        Data4: 183146200
       Path: event:/Robot/Scan/Hit
     gainDb: 0
     readBySoundUI: 1

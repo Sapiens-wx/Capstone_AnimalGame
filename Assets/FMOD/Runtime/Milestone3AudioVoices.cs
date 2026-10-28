@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Capstone.Audio
 {
-    // Fixed cue slots and one shared impact voice bound concurrent instances.
+    // Fixed cue slots, a shared impact voice, and a bounded scan-tail pool.
     // No source-file IO, sample-loading barrier, or per-frame allocation.
     internal sealed class Milestone3AudioVoices
     {
@@ -30,7 +30,9 @@ namespace Capstone.Audio
             internal float Gain, Envelope = 1f, LastVolume = -1f, PollTime;
         }
         private readonly Milestone3AudioSettings settings;
-        private readonly Slot[] slots = new Slot[Milestone3AudioCatalog.CueCount];
+        // 1.673 s source / 0.15 s hit interval, plus the 0.1 s release poll.
+        private const int ScanHitVoiceCount = 12;
+        private readonly Slot[] slots;
         private readonly Milestone3Cue[] impacts =
             { Milestone3Cue.TumbleImpact, Milestone3Cue.TumbleImpact03 };
         private readonly System.Random random = new System.Random();
@@ -39,7 +41,24 @@ namespace Capstone.Audio
         internal Milestone3AudioVoices(Milestone3AudioSettings settings)
         {
             this.settings = settings;
-            for (int i = 0; i < slots.Length; i++) slots[i] = new Slot { Cue = (Milestone3Cue)i };
+            int extraScanVoices = settings.HasDirectCue(Milestone3Cue.ScanHit) ? ScanHitVoiceCount - 1 : 0;
+            slots = new Slot[Milestone3AudioCatalog.CueCount + extraScanVoices];
+            for (int i = 0; i < slots.Length; i++) slots[i] = new Slot
+            {
+                Cue = i < Milestone3AudioCatalog.CueCount ? (Milestone3Cue)i : Milestone3Cue.ScanHit
+            };
+        }
+
+        internal bool PlayScanHit(float pitch)
+        {
+            // FMOD's final combined pitch is limited to 100x. Preserve every
+            // two-semitone step up to that native limit, including values >4x.
+            pitch = Mathf.Clamp(pitch, 1f, 100f);
+            Slot first = slots[(int)Milestone3Cue.ScanHit];
+            if (!first.Active) return Start(first, 1f, pitch: pitch);
+            for (int i = Milestone3AudioCatalog.CueCount; i < slots.Length; i++)
+                if (!slots[i].Active) return Start(slots[i], 1f, pitch: pitch);
+            return false;
         }
 
         internal bool Play(Milestone3Cue cue, float intensity = 1f)
@@ -149,8 +168,12 @@ namespace Capstone.Audio
 
         private bool Start(Milestone3Cue cue, float intensity, bool recycleFeed = false,
             int startPositionMs = 0, float pitch = 1f, float maximumIntensity = 1f)
+            => Start(slots[(int)cue], intensity, recycleFeed, startPositionMs, pitch, maximumIntensity);
+
+        private bool Start(Slot slot, float intensity, bool recycleFeed = false,
+            int startPositionMs = 0, float pitch = 1f, float maximumIntensity = 1f)
         {
-            Slot slot = slots[(int)cue];
+            Milestone3Cue cue = slot.Cue;
             AudioCueSettings config = settings.GetCue(cue);
             if (slot.Failed || config == null || config.EventReference.Guid.IsNull) return false;
             Release(slot);
@@ -176,7 +199,7 @@ namespace Capstone.Audio
                 {
                     slot.Parameters[p].Resolved = 0;
                     slot.Parameters[p].Applied = false;
-                    ApplyParameter(cue, (Milestone3Parameter)p);
+                    ApplyParameter(slot, (Milestone3Parameter)p);
                     if (!slot.Active) return false;
                 }
                 if (startPositionMs > 0) Check(slot.Instance.setTimelinePosition(startPositionMs));
@@ -212,14 +235,16 @@ namespace Capstone.Audio
         }
 
         private void ApplyParameter(Milestone3Cue cue, Milestone3Parameter parameter)
+            => ApplyParameter(slots[(int)cue], parameter);
+
+        private void ApplyParameter(Slot slot, Milestone3Parameter parameter)
         {
-            Slot slot = slots[(int)cue];
             ref Parameter value = ref slot.Parameters[(int)parameter];
             if (!slot.Active || !value.Desired) return;
             if (value.Resolved == 0)
             {
                 RESULT result = slot.Description.getParameterDescriptionByName(
-                    Milestone3AudioCatalog.ParameterName(cue, parameter), out PARAMETER_DESCRIPTION description);
+                    Milestone3AudioCatalog.ParameterName(slot.Cue, parameter), out PARAMETER_DESCRIPTION description);
                 value.Resolved = result == RESULT.OK ? 1 : -1;
                 value.Id = description.id;
             }
@@ -232,6 +257,8 @@ namespace Capstone.Audio
 
         internal void Stop(Milestone3Cue cue, bool immediate = false)
         {
+            if (cue == Milestone3Cue.ScanHit)
+                for (int i = Milestone3AudioCatalog.CueCount; i < slots.Length; i++) StopSlot(slots[i], immediate);
             if (cue == Milestone3Cue.TumbleImpact)
             {
                 StopSlot(slots[(int)Milestone3Cue.TumbleImpact02], immediate);

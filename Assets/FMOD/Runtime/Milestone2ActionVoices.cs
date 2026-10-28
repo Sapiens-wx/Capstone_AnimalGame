@@ -123,7 +123,8 @@ namespace Capstone.Audio
                 result = slot.Instance.start();
                 if (result != RESULT.OK) throw new InvalidOperationException(result.ToString());
                 slot.ReadBySoundUI = config.ReadBySoundUI;
-                slot.SoundUIStrength = config.SoundUIStrength * gain;
+                slot.SoundUIStrength = config.SoundUIStrength
+                    * (cue == Milestone2ActionCue.ArmServo ? 1f : gain);
                 if (slot.ReadBySoundUI)
                     slot.SoundUIHandle = SoundUIPlayback.BeginSound(slot.SoundUIStrength);
                 return true;
@@ -146,15 +147,20 @@ namespace Capstone.Audio
 
         internal void SetLoop(Milestone2ActionCue cue, bool active) => SetLoopFrom(cue, active, 0);
 
-        internal void SetLoopFrom(Milestone2ActionCue cue, bool active, int timelineMs, float fadeInSeconds = -1f)
+        internal void SetLoopFrom(Milestone2ActionCue cue, bool active, int timelineMs,
+            float fadeInSeconds = -1f, float gain = 1f)
         {
             Slot slot = slots[(int)cue];
             if (active)
             {
+                gain = Mathf.Clamp01(gain);
                 if (!slot.Active || slot.KeyedOff)
-                    Start(cue, timelineMs, 1f, fadeInSeconds >= 0f ? fadeInSeconds
+                {
+                    Start(cue, timelineMs, gain, fadeInSeconds >= 0f ? fadeInSeconds
                         : IsMovementLoop(cue) ? settings.MovementFadeInSeconds : 0f);
-                else if (slot.Fading)
+                    return;
+                }
+                if (slot.Fading)
                 {
                     // A brief motion dropout resumes the same sample/phase,
                     // restoring its current gain smoothly instead of restarting.
@@ -171,6 +177,13 @@ namespace Capstone.Audio
                         SetPitch(cue, slot.DesiredPitch);
                     for (int index = 0; index < slot.Parameters.Length; index++)
                         if (slot.Parameters[index].HasDesiredValue) ApplyParameter(slot, (ActionAudioParameter)index);
+                }
+                float loopGain = settings.GetCue(cue).LinearGain * gain
+                    * (IsEngineCue(cue) ? settings.EngineGainMultiplier : 1f);
+                if (Mathf.Abs(loopGain - slot.Gain) >= 0.0001f)
+                {
+                    slot.Gain = loopGain;
+                    slot.Instance.setVolume(slot.Gain * slot.Envelope);
                 }
             }
             else Stop(cue);

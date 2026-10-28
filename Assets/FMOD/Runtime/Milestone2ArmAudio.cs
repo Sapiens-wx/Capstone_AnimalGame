@@ -39,6 +39,7 @@ namespace Capstone.Audio
         private float jointBindingRetryRemaining;
         private float handBindingRetryRemaining;
         private float servoPitch;
+        private float servoGain;
         private bool previousBlocked;
         private bool hasBaseline;
         private bool hasJointBaseline;
@@ -144,14 +145,16 @@ namespace Capstone.Audio
                     Mathf.Lerp(settings.ArmMinimumPitch, settings.ArmMaximumPitch, servoSpeed)
                     * (1f - heldLoad * settings.ArmLoadPitchReduction),
                     settings.ArmMinimumPitch * (1f - settings.ArmLoadPitchReduction), settings.ArmMaximumPitch);
-                servoPitch = voices.IsAlive(Milestone2ActionCue.ArmServo)
-                    ? Mathf.Lerp(servoPitch, targetPitch,
-                        1f - Mathf.Exp(-elapsed / settings.ArmPitchSmoothingSeconds))
-                    : targetPitch;
+                float targetGain = Mathf.Lerp(settings.ArmMinimumGain, settings.ArmMaximumGain, servoSpeed);
+                float smoothing = voices.IsAlive(Milestone2ActionCue.ArmServo)
+                    ? 1f - Mathf.Exp(-elapsed / settings.ArmPitchSmoothingSeconds) : 1f;
+                servoPitch = Mathf.Lerp(servoPitch, targetPitch, smoothing);
+                servoGain = Mathf.Lerp(servoGain, targetGain, smoothing);
                 // Prime the real FMOD pitch before starting the loop's audible window.
                 voices.SetPitch(Milestone2ActionCue.ArmServo, servoPitch);
             }
-            voices.SetLoopFrom(Milestone2ActionCue.ArmServo, servoMoving, ServoLoopStartMilliseconds);
+            voices.SetLoopFrom(Milestone2ActionCue.ArmServo, servoMoving, ServoLoopStartMilliseconds,
+                gain: servoGain);
             ObserveEmptyHandGrip(heldObject, deployment,
                 deploying || retracting || finishingDeployment || finishingRetraction,
                 canObserveMotion, elapsed);
@@ -233,6 +236,7 @@ namespace Capstone.Audio
             ResetJointBinding();
             ResetHandBinding();
             servoPitch = settings.ArmMinimumPitch;
+            servoGain = settings.ArmMinimumGain;
         }
 
         private bool IsSourceAvailable() => source != null && source.isActiveAndEnabled
