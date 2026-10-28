@@ -109,7 +109,7 @@ namespace AnimalGame.MainUI
         private TimeOrbitElement timeOrbit;
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
         private Label latitudeHemisphereLabel, longitudeHemisphereLabel;
-        private bool started, inventoryOpen, pauseOwned, originalCursor, hasGeometry;
+        private bool started, inventoryOpen, pauseOwned, hasGeometry;
         private CursorLockMode originalCursorLock;
         private float progress, savedTimeScale, fit = 1, photoScale = 1, photoAlpha = 1;
         private float discoveryScanDiscScale = 1f;
@@ -234,10 +234,8 @@ namespace AnimalGame.MainUI
             pauseOwned = true;
             savedTimeScale = Time.timeScale;
             Time.timeScale = 0;
-            originalCursor = Cursor.visible;
             originalCursorLock = Cursor.lockState;
             Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
         }
 
         private void ReleasePause()
@@ -246,7 +244,6 @@ namespace AnimalGame.MainUI
             pauseOwned = false;
             // Do not overwrite a time scale explicitly changed by another owner while the panel was open.
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
-            Cursor.visible = originalCursor;
             Cursor.lockState = originalCursorLock;
         }
 

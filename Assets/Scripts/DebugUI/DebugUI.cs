@@ -26,7 +26,7 @@ namespace AnimalGame.AnimalDebug
         private DebugUITab[] tabs;
         private readonly List<Button> tabButtons = new();
         private int selectedTab;
-        private bool open, savedCursorVisible;
+        private bool open;
         private CursorLockMode savedCursorLock;
         public UIDocument Document => document;
         public DebugUITab SelectedTab => tabs[selectedTab];
@@ -122,8 +122,8 @@ namespace AnimalGame.AnimalDebug
             if (open) return true;
             if (panel == null || OtherPanelOpen() || IsOpen) return false;
             active = this; open = true;
-            savedCursorVisible = Cursor.visible; savedCursorLock = Cursor.lockState;
-            Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+            savedCursorLock = Cursor.lockState;
+            Cursor.lockState = CursorLockMode.None;
             panel.style.display = DisplayStyle.Flex;
             SelectedTab.Show();
             return true;
@@ -135,7 +135,7 @@ namespace AnimalGame.AnimalDebug
             open = false;
             SelectedTab.Hide();
             panel.style.display = DisplayStyle.None;
-            Cursor.visible = savedCursorVisible; Cursor.lockState = savedCursorLock;
+            Cursor.lockState = savedCursorLock;
             closedFrame = Time.frameCount;
             if (active == this) active = null;
         }

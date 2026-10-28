@@ -17,7 +17,6 @@ namespace AnimalGame.Demos.CheckpointRefit
         private readonly List<EnabledState> states = new List<EnabledState>();
         private readonly HashSet<int> captured = new HashSet<int>();
         private readonly float previousTimeScale;
-        private readonly bool previousCursorVisible;
         private readonly CursorLockMode previousCursorLock;
         private bool timeScaleOwned;
         private bool cursorOwned;
@@ -55,7 +54,6 @@ namespace AnimalGame.Demos.CheckpointRefit
         private RefitGameplayLease(PlayerContext context)
         {
             previousTimeScale = Time.timeScale;
-            previousCursorVisible = Cursor.visible;
             previousCursorLock = Cursor.lockState;
 
             // Collect every reference and original enabled flag before invoking
@@ -206,7 +204,6 @@ namespace AnimalGame.Demos.CheckpointRefit
 
             cursorOwned = true;
             Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
         }
 
         public void Dispose()
@@ -239,8 +236,6 @@ namespace AnimalGame.Demos.CheckpointRefit
                 // Respect an explicit cursor change made by another owner.
                 if (Cursor.lockState == CursorLockMode.None)
                     Cursor.lockState = previousCursorLock;
-                if (Cursor.visible)
-                    Cursor.visible = previousCursorVisible;
             }
 
             states.Clear();

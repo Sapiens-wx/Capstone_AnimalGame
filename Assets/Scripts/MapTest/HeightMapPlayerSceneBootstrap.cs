@@ -215,9 +215,6 @@ namespace AnimalGame.MapTest
             scanOverlayCanvasObject = scanOverlayCanvas != null ? scanOverlayCanvas.gameObject : null;
             if (showRobotTerrainData)
                 UpdatePlayerHeight();
-            #if !UNITY_EDITOR
-            Cursor.visible=false;
-            #endif
         }
 
         private void Update()
