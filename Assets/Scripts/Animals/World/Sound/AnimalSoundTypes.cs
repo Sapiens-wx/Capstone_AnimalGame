@@ -20,7 +20,9 @@ namespace AnimalGame.Animals
         Landing,
         EnteringTree,
         EmergingFromTree,
-        Howling
+        Howling,
+        Alarm,
+        BarkEating
     }
 
     [Serializable]

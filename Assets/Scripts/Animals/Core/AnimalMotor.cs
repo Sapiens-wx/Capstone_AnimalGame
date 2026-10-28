@@ -384,6 +384,7 @@ namespace AnimalGame.Animals
 
         private bool CanWalkAt(Vector2 position)
         {
+            if (map.TrySampleStaticWaterMapPosition(position, out float depth) && depth > config.MaximumWalkWaterDepthMeters) return false;
             if (config.MaximumWalkSlopeDegrees >= 90f) return map.TrySampleMapPosition(position, out _);
             return AnimalTerrainQuery.TrySample(map, position, out var sample)
                 && sample.SlopeDegrees <= config.MaximumWalkSlopeDegrees + .001f;

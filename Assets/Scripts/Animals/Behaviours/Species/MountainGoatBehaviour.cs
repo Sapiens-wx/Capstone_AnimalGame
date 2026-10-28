@@ -18,7 +18,8 @@ namespace AnimalGame.Animals
         [SerializeField, Min(.001f)] private float minimumRiseMeters = .025f;
         [SerializeField, Min(.1f)] private float minimumDescentTravelMeters = 1.5f;
         private bool visualApplied;
-        public bool IsJuvenile => juvenile;
+        public override bool IsJuvenile => juvenile;
+        public override bool SupportsAggression => !juvenile;
         public float EscapeProbeMeters => Mathf.Max(Config.ArrivalDistanceMeters * 3f, escapeProbeMeters);
         public float MinimumRiseMeters => Mathf.Max(.001f, minimumRiseMeters);
         public float MinimumDescentTravelMeters => Mathf.Max(.1f, minimumDescentTravelMeters);

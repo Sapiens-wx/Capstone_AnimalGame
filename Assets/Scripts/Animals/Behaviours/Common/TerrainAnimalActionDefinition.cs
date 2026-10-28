@@ -28,18 +28,8 @@ namespace AnimalGame.Animals
                 case ActionKind.Mark:
                     valid = AnimalDailyTargets.Plant(c, out _, out _, out _); break;
                 case ActionKind.Spar:
-                    var goat = c.Agent.GetComponent<MountainGoatBehaviour>();
-                    valid = false;
-                    if (goat != null && !goat.IsJuvenile && c.Runtime.Group != null && c.Runtime.Sparring == null)
-                        foreach (AnimalAgent member in c.Runtime.Group.Members)
-                        {
-                            if (member == null || member == c.Agent || !member.IsPresent || !member.CanAcceptSocialAction
-                                || member.Runtime.Sparring != null || member.Runtime.Time < member.Runtime.SparringCooldownUntil) continue;
-                            var other = member.GetComponent<MountainGoatBehaviour>();
-                            if (other != null && !other.IsJuvenile && Vector2.Distance(c.Motor.CurrentMapPosition, member.Motor.CurrentMapPosition) <= c.Config.ActivityRadiusMeters)
-                            { valid = true; break; }
-                        }
-                    reason = valid ? null : "No available adult goat in this group can spar.";
+                    valid = SparringAction.CanStart(c);
+                    reason = valid ? null : "No available adult of this species in this group can spar.";
                     return valid;
                 case ActionKind.Sniff: return AnimalDailyTargets.CanRoam(c, out reason);
                 default: return true;

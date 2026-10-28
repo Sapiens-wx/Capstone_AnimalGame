@@ -32,12 +32,18 @@ namespace AnimalGame.Animals
         public MapTestSceneController Map { get; private set; }
         // Compatibility anchor for returning to a specific tree/water site, not an activity boundary.
         public Vector2 HomeMapPosition { get; private set; }
-        public Vector2 ActivityCenter => Runtime?.Group?.Leader != null
-            ? Runtime.Group.Leader.Motor.CurrentMapPosition : Motor.CurrentMapPosition;
+        public Vector2 ActivityCenter => behaviourSet.ActivityCenter;
         public AnimalState CurrentState => Brain?.State ?? AnimalState.Daily;
         public AnimalState DailyPhotoState => Brain != null ? Brain.PhotoState : AnimalState.Daily;
         public bool PerceptionSuppressed { get; private set; }
-        public bool IsHidden => CurrentState == AnimalState.Hiding || CurrentState == AnimalState.Despawned;
+        private bool concealed;
+        public bool IsHidden => concealed || CurrentState == AnimalState.Hiding || CurrentState == AnimalState.Despawned;
+        public void SetConcealed(bool hidden)
+        {
+            concealed = hidden;
+            placeholderView?.SetSubmergeProgress(hidden ? 1f : 0f);
+            body?.MarkSpatialDirty();
+        }
         public bool IsPresent => initialized && !IsHidden && !Health.IsDead;
         public bool IsInitialized => initialized;
         public AnimalRuntime Runtime { get; private set; }
@@ -54,7 +60,7 @@ namespace AnimalGame.Animals
         private bool initialized, rejected;
         private float reactionCountdown, outsideAlertTimer, detectionGraceRemaining;
         private SpriteRenderer[] playerUiVisibilityRenderers;
-        private AggressiveAction aggressiveAction;
+        private AnimalAction aggressiveAction;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRegistry() { activeAgents.Clear(); }
 
@@ -96,7 +102,7 @@ namespace AnimalGame.Animals
             if (!(CurrentState == AnimalState.Fleeing && behaviourSet.UsesCustomFleeDespawn)
                 && Simulation.World.IsBeyondView(this)) { Despawn(); return; }
             detectionGraceRemaining = Mathf.Max(0f, detectionGraceRemaining - deltaTime);
-            if (!PerceptionSuppressed && detectionGraceRemaining <= 0f && Perception.TickDetection(deltaTime))
+            if (!IsHidden && !behaviourSet.IgnoresThreats && !PerceptionSuppressed && detectionGraceRemaining <= 0f && Perception.TickDetection(deltaTime))
                 NotifyThreat(Perception.PrimaryThreat, true);
             Brain.Tick(deltaTime);
             if (Runtime.Removed) return;
@@ -205,7 +211,7 @@ namespace AnimalGame.Animals
         }
         public void NotifyThreat(Transform threat, bool broadcast = true)
         {
-            if (!CanAct || Perception.IsIgnoredThreat(threat)) return;
+            if (!CanAct || IsHidden || behaviourSet.IgnoresThreats || Perception.IsIgnoredThreat(threat)) return;
             Perception.Remember(threat);
             if (CurrentState != AnimalState.Fleeing && CurrentState != AnimalState.Aggressive && CurrentState != AnimalState.Curious)
                 Brain.Request(ThreatResponse);
@@ -213,7 +219,7 @@ namespace AnimalGame.Animals
         }
         public void ForceGroupReaction(Transform threat)
         {
-            if (!CanAct || Perception.IsIgnoredThreat(threat)) return;
+            if (!CanAct || IsHidden || behaviourSet.IgnoresThreats || Perception.IsIgnoredThreat(threat)) return;
             Perception.Remember(threat);
             float flee = config.BaseFleeChancePerCheck, aggression = SupportsAggression ? config.BaseAggressionChancePerCheck : 0f;
             float total = flee + aggression;
@@ -244,8 +250,10 @@ namespace AnimalGame.Animals
         }
         public bool ReceiveDamage(float damage, Transform attacker, bool notifyThreat = true)
         {
-            if (!CanAct) return false;
+            if (!CanAct || IsHidden) return false;
+            AnimalState stateWhenHit = CurrentState;
             bool applied = Health.Damage(damage);
+            if (applied) behaviourSet.OnDamaged(attacker, stateWhenHit);
             if (applied && !Health.IsDead && notifyThreat) NotifyThreat(attacker);
             return applied;
         }
@@ -257,7 +265,7 @@ namespace AnimalGame.Animals
             Motor.Stop();
         }
         internal void EnterAggressiveAction()
-        { aggressiveAction = new AggressiveAction(); aggressiveAction.Enter(Context); }
+        { aggressiveAction = behaviourSet.CreateAggressiveAction(); aggressiveAction.Enter(Context); }
         internal void TickAggressive(float dt)
         { if (aggressiveAction.Tick(Context, dt) != AnimalActionStatus.Running) ReturnToDaily(); }
         internal void ExitAggressiveAction() { aggressiveAction?.Exit(Context); aggressiveAction = null; }

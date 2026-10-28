@@ -18,6 +18,8 @@ namespace AnimalGame.Animals
         [SerializeField] private Sprite corpseSprite;
 
         [Header("Hunting And Combat")]
+        [SerializeField] private bool canClimbTrees;
+        public bool CanClimbTrees => canClimbTrees;
         [SerializeField] private AnimalActionDefinition escapeAction;
         [SerializeField] private List<AnimalSpeciesConfig> preySpecies = new();
         [SerializeField, Min(.1f)] private float huntingRadiusMeters = 20f;
@@ -54,6 +56,8 @@ namespace AnimalGame.Animals
             Mathf.InverseLerp(knockbackDamageRange.x, Mathf.Max(knockbackDamageRange.x + .001f, knockbackDamageRange.y), damage));
 
         [Header("Activity And Movement")]
+        [SerializeField, Min(0f)] private float maximumWalkWaterDepthMeters = 1000f;
+        public float MaximumWalkWaterDepthMeters => maximumWalkWaterDepthMeters;
         [SerializeField, Range(0f, 90f)] private float maximumWalkSlopeDegrees = 90f;
         [SerializeField, Range(0f, 90f)] private float slideSlopeDegrees = 55f;
         public float MaximumWalkSlopeDegrees => Mathf.Clamp(maximumWalkSlopeDegrees, 0f, 90f);

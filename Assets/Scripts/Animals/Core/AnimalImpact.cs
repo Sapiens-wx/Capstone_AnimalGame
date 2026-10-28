@@ -6,9 +6,10 @@ namespace AnimalGame.Animals
 {
     public static class AnimalImpact
     {
-        // Shared by angry charges and adult sparring: same radius, pair cooldown, delayed damage and knockback.
+        // Social sparring never produces combat impacts.
         public static void Apply(AnimalContext c, Vector2 direction, bool sparring = false)
         {
+            if (sparring) return;
             if (direction.sqrMagnitude < .001f) direction = c.Motor.FacingMapDirection;
             Vector2 center = c.Motor.CurrentMapPosition + direction.normalized * c.Config.BodyRadiusMeters;
             var hits = new List<WorldInteraction>();

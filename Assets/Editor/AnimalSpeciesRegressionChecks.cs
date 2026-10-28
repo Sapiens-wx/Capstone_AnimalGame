@@ -138,9 +138,9 @@ namespace AnimalGame.Editor
             float health = b.Health.CurrentHealth;
             AnimalImpact.Apply(a.Context, Vector2.right, true);
             Require(b.CurrentState == AnimalState.Daily && !session.Ended, "Expected sparring impact triggered threat reaction");
-            Require(b.Motor.IsDisplaced, "Sparring impact omitted knockback");
+            Require(!b.Motor.IsDisplaced, "Social sparring caused knockback");
             f.Tick(1f);
-            Require(b.Health.CurrentHealth <= health - 1.99f, "Sparring impact omitted delayed damage");
+            Require(Mathf.Approximately(b.Health.CurrentHealth, health), "Social sparring caused damage");
             b.NotifyThreat(juvenile.transform);
             Require(session.Ended && a.Runtime.Sparring == null && b.Runtime.Sparring == null, "External threat leaked paired reservations");
             Require(b.CurrentState == AnimalState.Curious, "Sparring cancellation overwrote threat state");
@@ -151,7 +151,7 @@ namespace AnimalGame.Editor
             AnimalGroup activeGroup = f.Simulation.GetGroup("active-pair"); activeGroup.Add(activeA); activeGroup.Add(activeB);
             Require(activeA.Brain.StartAction(new SparringAction(4f)), "Active sparring failed to start");
             f.Tick(8f);
-            Require(activeA.Health.CurrentHealth < 100f && activeB.Health.CurrentHealth < 100f, "Active sparring failed to exchange impacts");
+            Require(activeA.Health.CurrentHealth == 100f && activeB.Health.CurrentHealth == 100f, "Active sparring caused damage");
             Require(activeA.Runtime.Sparring == null && activeB.Runtime.Sparring == null, "Timed sparring did not release both members");
 
             AnimalAgent impact = f.Animal("Area attacker", new Vector2(15f, 15f));

@@ -1,0 +1,118 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e42ea6af259ac874fabc89fccca67a0b, type: 3}
+  m_Name: PronghornConfig
+  m_EditorClassIdentifier: 
+  speciesName: Pronghorn
+  maximumHealth: 10
+  initialHealthRange: {x: 10, y: 10}
+  corpseNutrition: 10
+  corpseSprite: {fileID: 0}
+  canClimbTrees: 0
+  escapeAction: {fileID: 0}
+  preySpecies: []
+  huntingRadiusMeters: 20
+  chaseRadiusMeters: 30
+  huntTimeoutSeconds: 180
+  attackDamage: 0
+  aggressiveSpeedMetersPerSecond: 5
+  aggressiveRadiusMeters: 10
+  attackPaddingMeters: 0.1
+  impactRadiusMeters: 0.5
+  knockbackDamageRange: {x: 0, y: 100}
+  knockbackDistanceRange: {x: 0.1, y: 2}
+  groupFollowRadiusMeters: 8
+  maximumWalkWaterDepthMeters: 0.01
+  maximumWalkSlopeDegrees: 38
+  slideSlopeDegrees: 38
+  activityRadiusMeters: 20
+  dailyMoveSpeedMetersPerSecond: 1.4
+  fleeSpeedMetersPerSecond: 5
+  turnSpeedDegreesPerSecond: 420
+  arrivalDistanceMeters: 0.08
+  bodyRadiusMeters: 0.22
+  maximumTravelTimeSeconds: 18
+  dailyBehaviours:
+  - behaviour: 7
+    selectionWeight: 1
+    durationSeconds: {x: 10, y: 16}
+    action: {fileID: 11400000, guid: 08c10cae743896f45b9f7238f9b32b2d, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 3
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 1
+    durationSeconds: {x: 4, y: 8}
+    action: {fileID: 11400000, guid: 948ec13df8e8bd04e94f3f8a517af6c9, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 3
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 1
+    durationSeconds: {x: 25, y: 40}
+    action: {fileID: 11400000, guid: 0eebe0dcb62817a46bd9eb25f86ff93d, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 3
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 1
+    durationSeconds: {x: 6, y: 10}
+    action: {fileID: 11400000, guid: dd5988fe31bcbfa4fb1b106d49489227, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 3
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  - behaviour: 7
+    selectionWeight: 0.35
+    durationSeconds: {x: 8, y: 12}
+    action: {fileID: 11400000, guid: 9848fd3eace23f247a297e92bd55c7ed, type: 2}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 15
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
+  foodPreferences:
+  - foodType: 0
+    selectionWeight: 1
+  nearbyFoodDistanceMeters: 1.6
+  foodApproachPaddingMeters: 0.08
+  lookIntervalSeconds: {x: 1, y: 2}
+  lookAngleDegrees: 75
+  minimumDiveWaterDepthMeters: 0.05
+  resurfaceRadiusMeters: 2.5
+  submergeTransitionSeconds: 0.35
+  waterSearchSpacingMeters: 1.5
+  alertRadiusMeters: 10
+  detectionIntervalSeconds: 0.3
+  baseDetectionChancePerCheck: 0.08
+  nearestDetectionMultiplier: 3
+  playerSpeedForMaximumBonus: 3
+  maximumPlayerSpeedDetectionMultiplier: 2
+  directVisionAngleDegrees: 120
+  directLineOfSightDetectionMultiplier: 1.5
+  reactionIntervalSeconds: 0.15
+  baseFleeChancePerCheck: 0.05
+  nearestFleeMultiplier: 2.5
+  baseAggressionChancePerCheck: 0
+  nearestAggressionMultiplier: 1
+  curiousLostPlayerDelaySeconds: 2.5
+  frightenedHideDurationSeconds: {x: 6, y: 10}
+  hideSafetyCheckIntervalSeconds: 0.75
+  reappearSafeDistanceMultiplier: 1.1
+  postReappearGraceDurationSeconds: 1.5

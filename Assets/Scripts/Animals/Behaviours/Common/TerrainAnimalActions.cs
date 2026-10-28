@@ -29,11 +29,12 @@ namespace AnimalGame.Animals
         public static bool Terrain(AnimalContext c, TerrainKind kind, float maxSlope, out Vector2 target)
         {
             Vector2 origin = c.Motor.CurrentMapPosition;
+            Vector2 searchCenter = c.Agent.Behaviour is AmericanMarmotBehaviour ? c.Agent.ActivityCenter : origin;
             target = origin;
             float nearest = float.PositiveInfinity;
             for (int i = 0; i < 48; i++)
             {
-                Vector2 p = i == 0 ? origin : origin + Random.insideUnitCircle * c.Config.ActivityRadiusMeters;
+                Vector2 p = i == 0 ? searchCenter : searchCenter + Random.insideUnitCircle * c.Config.ActivityRadiusMeters;
                 if (!AnimalTerrainQuery.TrySample(c.Agent.Map, p, out var sample) || !Matches(sample.Terrain, kind)
                     || sample.SlopeDegrees >= maxSlope || !c.Motor.CanOccupyMapPosition(p)) continue;
                 float distance = Vector2.SqrMagnitude(p - origin);

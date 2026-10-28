@@ -10,6 +10,7 @@ namespace AnimalGame.Animals
         {
             return prey != null && prey != c.Agent && prey.IsInitialized && !prey.Runtime.Removed
                 && prey.gameObject.scene == c.Agent.gameObject.scene && prey.isActiveAndEnabled && c.Config.Eats(prey.Config)
+                && !prey.IsHidden && (prey.Health.IsDead || prey.Behaviour.CanBeHuntedBy(c.Agent))
                 && (!corpseOnly || prey.Health.IsDead)
                 && (!aliveOnly || !prey.Health.IsDead)
                 && !(c.Runtime.FailedTargets.TryGetValue(prey, out float retryAt) && c.Runtime.Time < retryAt)

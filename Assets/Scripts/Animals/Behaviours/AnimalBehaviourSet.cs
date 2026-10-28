@@ -19,6 +19,14 @@ namespace AnimalGame.Animals
             Agent != null ? Agent.Config : null;
 
         public virtual bool SupportsAggression => false;
+        public virtual bool IsJuvenile => false;
+        public virtual bool IgnoresThreats => false;
+        public virtual Vector2 ActivityCenter => Agent.Runtime.Group?.Leader != null
+            ? Agent.Runtime.Group.Leader.Motor.CurrentMapPosition : Motor.CurrentMapPosition;
+        public virtual bool CanBeHuntedBy(AnimalAgent hunter) => !Motor.IsAerialMovement
+            && (!Motor.IsPerchedMovement || hunter.Config.CanClimbTrees);
+        public virtual AnimalAction CreateAggressiveAction() => new AggressiveAction();
+        public virtual void OnDamaged(Transform attacker, AnimalState stateWhenHit) { }
         public virtual AnimalState ThreatResponse => AnimalState.Curious;
         public virtual bool UsesCustomFleeDespawn => false;
         // Debug commands bypass scheduling, but validate physical/species prerequisites

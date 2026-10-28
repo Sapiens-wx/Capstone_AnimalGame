@@ -9,7 +9,8 @@ namespace AnimalGame.AnimalDebug
     {
         public static bool IsSelectable(AnimalAgent animal, Scene scene) => animal != null
             && animal.gameObject.scene == scene && animal.isActiveAndEnabled && animal.IsInitialized
-            && !animal.Runtime.Removed && animal.IsPresent;
+            && !animal.Runtime.Removed && !animal.Health.IsDead && animal.CurrentState != AnimalState.Despawned
+            && (animal.IsPresent || animal.Behaviour is AmericanMarmotBehaviour);
 
         public static string DisplayName(AnimalAgent animal)
         {
@@ -24,7 +25,7 @@ namespace AnimalGame.AnimalDebug
             bounds = default;
             if (animal == null) return false;
             var photo = animal.GetComponent<AnimalPhotoSubject>();
-            if (photo != null && photo.TryGetWorldBounds(out bounds) && bounds.size.x > .00001f) return true;
+            if (!animal.IsHidden && photo != null && photo.TryGetWorldBounds(out bounds) && bounds.size.x > .00001f) return true;
             if (animal.Map == null || animal.Motor == null) return false;
             float width = animal.Map.MapMetersToWorldDistance(Vector2.right, animal.Config.BodyRadiusMeters * 2f);
             float height = animal.Map.MapMetersToWorldDistance(Vector2.up, animal.Config.BodyRadiusMeters * 2f);

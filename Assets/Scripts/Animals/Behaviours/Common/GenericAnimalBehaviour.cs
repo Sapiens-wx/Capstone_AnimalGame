@@ -9,7 +9,20 @@ namespace AnimalGame.Animals
         private readonly List<AnimalDailyBehaviourSettings> available = new();
         private AnimalAction daily;
         private RunAwayAction fleeing;
-        public override bool SupportsAggression => true;
+        [SerializeField] private bool juvenileIndividual;
+        [SerializeField, Range(.1f, 1f)] private float juvenileSizeMultiplier = .65f;
+        public override bool IsJuvenile => juvenileIndividual;
+        public override bool SupportsAggression => !IsJuvenile;
+        public override void Initialize(AnimalAgent agent)
+        {
+            base.Initialize(agent);
+            if (juvenileIndividual) agent.PlaceholderView?.ScaleVisuals(juvenileSizeMultiplier);
+        }
+        public override void TickCurious(float dt)
+        {
+            if (Agent.Perception.PrimaryThreat != null)
+                Motor.FaceMapPosition(AnimalGame.World.InteractionShape.ToQuery(Agent.Perception.PrimaryThreat.position, Agent.Map));
+        }
         public override AnimalState PhotoState => HasConfiguredAction ? ConfiguredPhotoState : daily?.PhotoState ?? base.PhotoState;
         public override string CurrentActionName => HasConfiguredAction ? base.CurrentActionName : daily?.Name ?? "";
         public override void EnterDaily() { daily = null; }

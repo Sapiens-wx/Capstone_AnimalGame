@@ -58,10 +58,7 @@ namespace AnimalGame.Animals
                 if (Vector2.Distance(c.Motor.CurrentMapPosition, partner.Motor.CurrentMapPosition) <= contact)
                 {
                     struck[0] = struck[1] = true;
-                    Vector2 impactDirection = partner.Motor.CurrentMapPosition - c.Motor.CurrentMapPosition;
-                    AnimalImpact.Apply(c, impactDirection, true);
-                    if (!Ended) AnimalImpact.Apply(partner.Context, -impactDirection, true);
-                    if (Ended) return AnimalActionStatus.Failed;
+                    // Social contact never causes combat impacts.
                 }
             }
             if (Vector2.Distance(c.Motor.CurrentMapPosition, goals[index]) <= c.Config.ArrivalDistanceMeters)
@@ -110,19 +107,29 @@ namespace AnimalGame.Animals
         internal SparringAction(SparringSession session) { this.session = session; }
         public override string Name => "Sparring/" + (session == null ? "Unavailable" : session.Phase.ToString());
         public override AnimalState PhotoState => AnimalState.Moving;
+        public static bool CanStart(AnimalContext c)
+        {
+            if (c.Agent.Behaviour.IsJuvenile || c.Runtime.Group == null || c.Runtime.Sparring != null
+                || c.Runtime.Time < c.Runtime.SparringCooldownUntil) return false;
+            foreach (AnimalAgent member in c.Runtime.Group.Members)
+                if (member != null && member != c.Agent && member.Behaviour.GetType() == c.Agent.Behaviour.GetType() && member.IsPresent
+                    && !member.Behaviour.IsJuvenile && member.CanAcceptSocialAction && member.Runtime.Sparring == null
+                    && member.Runtime.Time >= member.Runtime.SparringCooldownUntil
+                    && Vector2.Distance(c.Motor.CurrentMapPosition, member.Motor.CurrentMapPosition) <= c.Config.ActivityRadiusMeters)
+                    return true;
+            return false;
+        }
         public override void Enter(AnimalContext c)
         {
             if (session != null) { if (!session.Ended) session.Enter(c.Agent); return; }
-            var goat = c.Agent.GetComponent<MountainGoatBehaviour>();
-            if (goat == null || goat.IsJuvenile || c.Runtime.Group == null || c.Runtime.Sparring != null
+            if (c.Agent.Behaviour.IsJuvenile || c.Runtime.Group == null || c.Runtime.Sparring != null
                 || c.Runtime.Time < c.Runtime.SparringCooldownUntil) return;
             var candidates = new List<AnimalAgent>();
             foreach (AnimalAgent member in c.Runtime.Group.Members)
             {
                 if (member == null || member == c.Agent || !member.IsPresent || !member.CanAcceptSocialAction
                     || member.Runtime.Sparring != null || member.Runtime.Time < member.Runtime.SparringCooldownUntil) continue;
-                var other = member.GetComponent<MountainGoatBehaviour>();
-                if (other != null && !other.IsJuvenile
+                if (member.Behaviour.GetType() == c.Agent.Behaviour.GetType() && !member.Behaviour.IsJuvenile
                     && Vector2.Distance(c.Motor.CurrentMapPosition, member.Motor.CurrentMapPosition) <= c.Config.ActivityRadiusMeters)
                     candidates.Add(member);
             }

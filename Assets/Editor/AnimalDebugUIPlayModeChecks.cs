@@ -167,6 +167,27 @@ namespace AnimalGame.Editor
                 && root.Q("AnimalPreviewArrow").resolvedStyle.display == DisplayStyle.None, "Closing the list removed the selected marker or retained its preview");
             // Expand/select through real keyboard input and force a long virtualized
             // list so navigation must scroll to the selected specific daily entry.
+            var marmotObject = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/Animals/AmericanMarmot/AmericanMarmot_Placeholder.prefab"));
+            marmotObject.transform.position = map.MapPositionToWorld(new Vector2(16, 16));
+            var marmot = marmotObject.GetComponent<AnimalAgent>();
+            var marmotConfig = Object.Instantiate(marmot.Config); assets.Add(marmotConfig);
+            Set(marmotConfig, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>());
+            marmot.ConfigureEditorDefaults(marmotConfig, marmot.Behaviour, marmot.PlaceholderView);
+            Set(marmot.GetComponent<HeightMapPlacedObject>(), "map", map);
+            Require(marmot.TryInitialize(), "Could not initialize hidden-marmot inspector fixture");
+            ui.Select(marmot);
+            marmot.Brain.StartAction(new BurrowAction(30));
+            yield return new WaitForSecondsRealtime(.2f);
+            Require(marmot.IsHidden && !marmot.IsPresent && ui.Document.rootVisualElement.Q<ListView>("AnimalList").itemsSource.Contains(marmot),
+                "Daily hidden marmot disappeared from inspector list");
+            Require(root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.Flex && root.Q<Button>("AnimalName").text.Contains(marmot.name),
+                "Daily hidden marmot lost selection or arrow");
+            marmot.ReturnToDaily(); marmot.BeginHiding();
+            yield return new WaitForSecondsRealtime(.2f);
+            Require(marmot.IsHidden && root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.Flex
+                && root.Q<ListView>("AnimalList").itemsSource.Contains(marmot), "Frightened hidden marmot lost its inspector arrow/list entry");
+            Object.Destroy(marmotObject);
             ui.Select(first);
             var dailyEntries = new List<AnimalDailyBehaviourSettings>();
             for (int i = 0; i < 24; i++) dailyEntries.Add(new AnimalDailyBehaviourSettings(AnimalDailyBehaviourKind.Idle, 0, .1f, .1f));

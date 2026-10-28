@@ -56,6 +56,20 @@
 
 ## 验证
 
+## 新增五种动物
+
+- Prefab 位于 `Prefabs/Animals/` 下的 `AmericanBison`（美洲野牛）、`Pronghorn`（叉角羚）、`PrairieGrouse`（草原松鸡）、`AmericanMarmot`（美洲旱獭）、`NorthAmericanPorcupine`（北美豪猪）目录。前两者另有 `Juvenile` Prefab；沿用现有占位美术，不自动刷新动物。
+- 手动摆放群体时，在 `AnimalAgent` 填写相同且非空的 Group Id，幼体与成年放在同组。幼体不能打架或激怒，只会逃跑。野牛、叉角羚与雪羊的日常打架均不扣血、不击退、不影响第三方。
+- 配置位于 `Data/Animals/`，动作资产位于 `Data/Animals/SpeciesActions/`。时长、权重和冷却从物种的 Daily Behaviours 调整；新动物及其动作自动接入 Animal Inspector 的动物列表和 Daily 菜单。
+- 旱獭初始化时在出生点实例化 `Prefabs/Environment/Vegetation/MarmotBurrow.prefab`；洞穴没有贴图或碰撞。日常活动围绕自己的洞穴，逃跑可借用其他洞穴；洞口 Alert Radius 内连续 5 秒无威胁后出洞，期间保留身份和血量。
+- 松鸡继承 `GenericAnimalBehaviour`，日常短飞 3–6 米并选择可站立落点；逃跑持续飞行。飞行可拍照，地面近战不能命中。
+- 豪猪使用健康或枯死的 `TreeHabitat`；步行到树旁后直接切换到树上状态，无爬树动画。树上不激怒，现有地面捕猎者停止捕猎；地面激怒时背对威胁并竖刺，被捕猎者实际伤害时反伤 3 点，威胁离开 Alert Radius 后恢复日常。
+- 旱獭警报及豪猪进食、啃树皮分别对应 `AnimalSoundEmitter` 的 Alarm / Eating / Bark Eating Event。未提供新音频素材，事件引用可自行绑定；已有独立声波表现。豪猪竖刺使用现有指示器贴图组成的占位表现，可通过 Quill Visual 替换。
+- 重建资源：`Animal Game / Animals / Build Specific Animal Prototypes`。此菜单会覆盖这五种动物的配置与 Prefab，正常打开编辑器不会自动重建。
+- 专项检查：`Animal Game / Validation / Run Specific Animal AI Checks`。批处理入口 `SpecificAnimalRegressionChecks.RunBatch`；实际运行及暂停恢复检查入口 `SpecificAnimalRegressionChecks.RunPlayModeBatch`。
+
+## 通用验证
+
 Unity 菜单：Animal Game / Validation / Run Animal AI Checks。
 
 覆盖个体数据隔离、尸体连续降解、身体注册和移动后的四叉树更新、自身排除、延迟伤害及独立冷却、隐藏身份与自动照片状态、群体传播与领队替换、进食容量与比例冷却、最大空扇区、行为取消、暂停、飞行与玩家碰撞、两物种适配、视野移除条件，并运行现有空间索引与垃圾推动兼容性检查。

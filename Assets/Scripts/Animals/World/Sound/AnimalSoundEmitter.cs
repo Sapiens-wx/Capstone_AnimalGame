@@ -6,6 +6,12 @@ namespace AnimalGame.Animals
     [AddComponentMenu("Animal Game/Animals/Animal Sound Emitter")]
     public sealed class AnimalSoundEmitter : MonoBehaviour
     {
+        [Header("Optional Activity Audio")]
+        [SerializeField] private FMODUnity.EventReference alarmEvent;
+        [SerializeField] private FMODUnity.EventReference eatingEvent;
+        [SerializeField] private FMODUnity.EventReference barkEatingEvent;
+        [SerializeField] private AnimalSoundWaveSettings alarmSound = new AnimalSoundWaveSettings(3f, 1f, 6, 1f, 1f);
+        [SerializeField] private AnimalSoundWaveSettings barkEatingSound = new AnimalSoundWaveSettings(.7f, .4f, 3, .5f, .9f);
         [Header("Shared Sound-Wave Appearance")]
         [SerializeField] private Shader soundWaveShader;
         [SerializeField] private Color soundWaveColor =
@@ -125,6 +131,10 @@ namespace AnimalGame.Animals
         /// <summary>Emits a wave anchored at the contact point, rather than following the animal.</summary>
         public void EmitAt(AnimalSoundKind soundKind, Vector3 worldPosition)
         {
+            FMODUnity.EventReference audio = soundKind == AnimalSoundKind.Alarm ? alarmEvent
+                : soundKind == AnimalSoundKind.BarkEating ? barkEatingEvent
+                : soundKind == AnimalSoundKind.Eating ? eatingEvent : default;
+            if (!audio.IsNull) FMODUnity.RuntimeManager.PlayOneShot(audio, worldPosition);
             AnimalSoundWaveSettings settings = GetSettings(soundKind);
             if (settings == null || !settings.Enabled)
                 return;
@@ -197,6 +207,8 @@ namespace AnimalGame.Animals
         {
             switch (soundKind)
             {
+                case AnimalSoundKind.Alarm: return alarmSound;
+                case AnimalSoundKind.BarkEating: return barkEatingSound;
                 case AnimalSoundKind.Howling:
                     return howlingSound;
                 case AnimalSoundKind.Idle:
