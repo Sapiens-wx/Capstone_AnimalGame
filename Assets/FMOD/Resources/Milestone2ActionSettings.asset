@@ -141,7 +141,7 @@ MonoBehaviour:
         Data3: 784715660
         Data4: 1456026666
       Path: event:/Robot/Arm/Servo
-    gainDb: -4.436974992
+    gainDb: 0
     readBySoundUI: 1
     soundUIStrength: 0.35
   - eventReference:
@@ -298,6 +298,8 @@ MonoBehaviour:
   armJointMovementThresholdDegrees: 0.5
   armMinimumPitch: 0.75
   armMaximumPitch: 1.3
+  armMinimumGain: 0.5
+  armMaximumGain: 0.9
   armLoadPitchReduction: 0.2
   armPitchSmoothingSeconds: 0.06
   blockedCooldown: 0.35

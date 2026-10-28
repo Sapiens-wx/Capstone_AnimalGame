@@ -156,7 +156,7 @@ namespace AnimalGame.Animals
         public override void Enter(AnimalContext c) { target = c.Agent.Perception.PrimaryThreat; recharge = 0f; }
         public override AnimalActionStatus Tick(AnimalContext c, float dt)
         {
-            if (target == null || !target.gameObject.activeInHierarchy) return AnimalActionStatus.Succeeded;
+            if (target == null || c.Agent.Perception.IsIgnoredThreat(target) || !target.gameObject.activeInHierarchy) return AnimalActionStatus.Succeeded;
             AnimalAgent animal = target.GetComponent<AnimalAgent>();
             if (animal != null && animal.Health.IsDead) return AnimalActionStatus.Succeeded;
             Vector2 destination = InteractionShape.ToQuery(target.position, c.Agent.Map);

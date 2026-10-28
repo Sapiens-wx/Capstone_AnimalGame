@@ -217,7 +217,7 @@ namespace AnimalGame.MainUI
         public void OpenInventory()
         {
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
-            if (AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
+            if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap != null && bootstrap.photoMode != null && bootstrap.photoMode.IsActive) return;

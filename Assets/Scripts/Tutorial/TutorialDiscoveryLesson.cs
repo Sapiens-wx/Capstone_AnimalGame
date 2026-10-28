@@ -176,7 +176,7 @@ namespace AnimalGame.Tutorial
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
 
         private bool TargetModal() => Time.deltaTime <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay
-            || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+            || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
 
         private bool CanScan()

@@ -82,7 +82,7 @@ namespace AnimalGame.Tutorial
         }
 
         private bool IsPresentationPaused() => Time.deltaTime <= 0f
-            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
             || (bootstrap != null && ((bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing)
                 || (bootstrap.photoResultUi != null && bootstrap.photoResultUi.IsResultVisible)
                 || (bootstrap.photoMode != null && (bootstrap.photoMode.IsCapturing || bootstrap.photoMode.IsReviewing))));

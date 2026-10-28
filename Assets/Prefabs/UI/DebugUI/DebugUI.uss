@@ -1,4 +1,4 @@
-.animal-panel {
+.debug-panel {
     position: absolute;
     width: 33.333333%; height: 66.666667%; top: 16.666667%; right: 16px;
     border-width: 2px; border-color: white;
@@ -40,3 +40,36 @@ Button:disabled { opacity: 0.4; }
 .command-group { -unity-font-style: bold; }
 .command-child { margin-left: 22px; padding-left: 10px; }
 .command-popup .unity-scroll-view__vertical-scroller { min-width: 12px; }
+
+.animal-panel { position: relative; flex-grow: 1; min-height: 0; }
+
+#PlayerPanel .unity-base-text-field__input {
+    border-width: 1px;
+    border-color: #D4B854;
+    background-color: transparent;
+    color: white;
+    --unity-cursor-color: white;
+    --unity-selection-color: #D4B854;
+}
+#PlayerPanel .unity-base-text-field__input:focus {
+    border-color: #D4B854;
+    background-color: transparent;
+    color: white;
+}
+#PlayerPanel .unity-base-field__label { color: white; }
+#PlayerPanel Button:hover, #PlayerPanel Button:focus {
+    border-color: #D4B854;
+    color: #D4B854;
+}
+#PlayerPanel .unity-toggle:focus .unity-toggle__checkmark,
+#PlayerPanel .unity-toggle__input:focus .unity-toggle__checkmark {
+    border-color: #D4B854;
+    -unity-background-image-tint-color: #D4B854;
+}
+
+#PlayerPanel .unity-toggle__checkmark {
+    border-width: 1px;
+    border-color: #D4B854;
+    background-color: transparent;
+    -unity-background-image-tint-color: #D4B854;
+}

@@ -70,7 +70,7 @@ namespace Capstone.Audio.Editor
                 AssetDatabase.SaveAssetIfDirty(Settings.Instance);
             }
             Debug.Log("[Milestone 3 Audio] Bound " + bound + "/" + events.Length
-                + " slots. G01/G04/G12/S07 remain reserved pending public gameplay signals.");
+                + " slots. G01/G04/G12 remain reserved pending public gameplay signals.");
         }
     }
 }

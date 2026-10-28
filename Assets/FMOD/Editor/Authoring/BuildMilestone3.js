@@ -98,7 +98,7 @@
         { path: "event:/Robot/Contact/ClimbableLand", file: "Movement/M08_Land_Impact.wav", sourceRoot: reusedSourceRoot },
         { path: "event:/Robot/Scan/Deploy", file: "Scan/S02_Scan_Deploy.wav" },
         { path: "event:/Robot/Scan/Ready", file: "Scan/S04_Scan_Ready.wav" },
-        { path: "event:/Robot/Scan/Hit", file: "Scan/S07_Scan_Hit.wav", reserved: true },
+        { path: "event:/Robot/Scan/Hit", file: "Scan/S07_Scan_Hit.wav" },
         // Progressive compression is a single pass despite the delivery filename.
         // Medium uses the full original. Small retains loose, dense and compacted
         // stages in 350 ms using source windows and overlapping instrument fades.

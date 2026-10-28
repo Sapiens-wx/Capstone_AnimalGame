@@ -22,16 +22,17 @@ namespace AnimalGame.RobotMap
         }
         public void Damage(float damage)
         {
-            if (damage <= 0f) return;
+            if (damage <= 0f || (mover != null && mover.IgnoreAnimalDetection)) return;
             if (ui != null) CurrentHealth = ui.Integrity * maximumHealth;
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
             if (ui != null) ui.Integrity = CurrentHealth / maximumHealth;
             Damaged?.Invoke(damage);
         }
         public void Knockback(Vector2 worldDirection, float worldDistance)
-        { velocity += worldDirection.normalized * worldDistance * 5f; }
+        { if (mover == null || !mover.IgnoreAnimalDetection) velocity += worldDirection.normalized * worldDistance * 5f; }
         private void LateUpdate()
         {
+            if (mover != null && mover.IgnoreAnimalDetection) { velocity = Vector2.zero; return; }
             if (mover == null || Time.deltaTime <= 0f || velocity.sqrMagnitude <= .00001f) return;
             float damping = Mathf.Exp(-5f * Time.deltaTime);
             Vector2 displacement = velocity * ((1f - damping) / 5f);

@@ -236,7 +236,7 @@ namespace AnimalGame.Tutorial
         }
 
         private bool WorldModal() => Time.timeScale <= 0f || Time.deltaTime <= 0f
-            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
             || (bootstrap.photoMode != null && ((bootstrap.photoMode.IsActive && !IsCameraPractice)
                 || bootstrap.photoMode.IsCapturing || bootstrap.photoMode.IsReviewing))
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);

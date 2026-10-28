@@ -205,7 +205,7 @@ namespace AnimalGame.Animals
         }
         public void NotifyThreat(Transform threat, bool broadcast = true)
         {
-            if (!CanAct) return;
+            if (!CanAct || Perception.IsIgnoredThreat(threat)) return;
             Perception.Remember(threat);
             if (CurrentState != AnimalState.Fleeing && CurrentState != AnimalState.Aggressive && CurrentState != AnimalState.Curious)
                 Brain.Request(ThreatResponse);
@@ -213,7 +213,7 @@ namespace AnimalGame.Animals
         }
         public void ForceGroupReaction(Transform threat)
         {
-            if (!CanAct) return;
+            if (!CanAct || Perception.IsIgnoredThreat(threat)) return;
             Perception.Remember(threat);
             float flee = config.BaseFleeChancePerCheck, aggression = SupportsAggression ? config.BaseAggressionChancePerCheck : 0f;
             float total = flee + aggression;

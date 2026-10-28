@@ -75,7 +75,7 @@ namespace AnimalGame.Tutorial
             bool allowDuringTutorialPause = false)
         {
             if (panel == null || panel.gameObject.scene.path != TutorialDrivingLesson.ScenePath
-                || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+                || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
                 || NativeArmOwnsSouth(bootstrap)
                 || (bootstrap != null && bootstrap.gameObject.scene != panel.gameObject.scene)) return false;
             var recovery = allowDuringTutorialPause && panel.ShowDuringTutorialPause
@@ -94,7 +94,7 @@ namespace AnimalGame.Tutorial
                 || bootstrap.armController.State == RobotArmState.Recycling);
 
         private static bool IsModal() => Time.deltaTime <= 0f || Time.timeScale <= 0f
-            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels;
+            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels;
 
         private static HeightMapPlayerSceneBootstrap FindBootstrap(Scene scene)
         {

@@ -113,7 +113,7 @@ namespace AnimalGame.Tutorial
         }
 
         private bool IsModal() => Time.deltaTime <= 0f || AnimalGame.MainUI.MainUI.BlocksGameplay
-            || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+            || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
             || (bootstrap.photoMode != null && (bootstrap.photoMode.IsActive || bootstrap.photoMode.IsInputLocked))
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
 

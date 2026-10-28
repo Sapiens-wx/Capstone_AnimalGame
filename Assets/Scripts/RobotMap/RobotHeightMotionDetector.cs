@@ -127,6 +127,7 @@ namespace AnimalGame.RobotMap
             if (!enableHeightMotionDetection || map == null || mover == null)
                 return;
 
+            if (mover.IgnoreCollisionAndTerrain) { ResetDetectorState(); return; }
             bool onClimbable = mover.CurrentClimbableSurface.IsActive;
             if (onClimbable || wasOnClimbable)
             {

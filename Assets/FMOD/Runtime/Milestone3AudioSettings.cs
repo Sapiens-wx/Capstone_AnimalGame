@@ -47,7 +47,7 @@ namespace Capstone.Audio
         internal float GarbageImpactPitchVariation => Mathf.Clamp(garbageImpactPitchVariation, 0f, .12f);
         internal bool HasWorldEvents => HasEvents(Milestone3Cue.HeavyPullStart, Milestone3Cue.ClimbableLand)
             || HasCue(Milestone3Cue.HeavyTearMiddle) || HasCue(Milestone3Cue.HeavyTearLate);
-        internal bool HasScanEvents => HasEvents(Milestone3Cue.ScanDeploy, Milestone3Cue.ScanReady);
+        internal bool HasScanEvents => HasEvents(Milestone3Cue.ScanDeploy, Milestone3Cue.ScanHit);
         private bool HasEvents(Milestone3Cue first, Milestone3Cue last)
         {
             for (int i = (int)first; i <= (int)last; i++)

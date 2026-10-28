@@ -23,6 +23,7 @@ namespace AnimalGame.Animals
         {
             if (target == null || attacker == null || !attacker.IsInitialized || attacker.Health.IsDead
                 || attacker.Runtime.Removed || target.gameObject.scene != gameObject.scene) return false;
+            if (attacker.Perception.IsIgnoredThreat(target)) return false;
             AnimalAgent animal = target.GetComponent<AnimalAgent>();
             if (animal != null && (!animal.IsInitialized || animal.Health.IsDead || animal.Runtime.Removed)) return false;
             int id = target.GetInstanceID();

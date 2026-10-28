@@ -11,6 +11,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 using MouseButton = UnityEngine.InputSystem.LowLevel.MouseButton;
@@ -49,6 +50,7 @@ namespace AnimalGame.Editor
         private Gamepad pad;
         private Mouse mouse;
         private AnimalDebugUI ui;
+        private DebugUI shell;
         private KeyboardState heldKeyboard;
         private GamepadState heldPad;
         private MouseState heldMouse;
@@ -68,7 +70,7 @@ namespace AnimalGame.Editor
                 catch (Exception error) { Debug.LogException(error); EditorApplication.Exit(1); yield break; }
                 yield return wait;
             }
-            Debug.Log("Animal inspector PlayMode checks PASS: M/Up opening, open-panel Up navigation, A/B list selection, circular world sampling, live details, proportional layout, late arrow, UI mutual exclusion unpaused simulation, indented daily commands, scrolling and one-shot execution.");
+            Debug.Log("Debug UI PlayMode checks PASS: keyboard/mouse input, mouse tab switching, ignored gamepad input, world sampling, live details, layout, arrows, modal ownership and daily commands.");
             EditorApplication.Exit(0);
         }
         private IEnumerator Checks()
@@ -80,6 +82,7 @@ namespace AnimalGame.Editor
             originalBackground = Application.runInBackground; Application.runInBackground = true;
             InputSystem.settings = testInput;
             InputSystem.onBeforeUpdate += QueueInput;
+            new GameObject("UI input", typeof(UnityEngine.EventSystems.EventSystem), typeof(InputSystemUIInputModule));
             var map = new GameObject("Flat map").AddComponent<MapTestSceneController>(); map.enabled = false;
             texture = new Texture2D(2, 2); texture.SetPixels(new[] { Color.gray, Color.gray, Color.gray, Color.gray }); texture.Apply();
             tile = new TiledMapTestFixture(map, texture, 32, .25f);
@@ -87,17 +90,21 @@ namespace AnimalGame.Editor
             AnimalAgent second = Animal(map, "Second", new Vector2(18, 12));
             Camera camera = new GameObject("Game camera").AddComponent<Camera>(); camera.tag = "MainCamera";
             camera.transform.position = new Vector3(0, 0, -10); camera.orthographic = true; camera.orthographicSize = 5;
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/AnimalAi/AnimalAi.prefab");
-            ui = Object.Instantiate(prefab).GetComponent<AnimalDebugUI>();
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/DebugUI/DebugUI.prefab");
+            var parent = new GameObject("Inactive inspector setup"); parent.SetActive(false);
+            ui = Object.Instantiate(prefab, parent.transform).GetComponent<AnimalDebugUI>();
+            Require(ui.gameObject.AddComponent<DebugUITestTab>() != null, "Cannot create the test tab");
+            ui.transform.SetParent(null); Object.Destroy(parent);
+            shell = ui.GetComponent<DebugUI>();
             yield return null;
             heldKeyboard = new KeyboardState(Key.M);
             yield return null;
             heldKeyboard = new KeyboardState();
             yield return null;
-            Require(AnimalDebugUI.IsOpen, "M did not open the inspector");
+            Require(DebugUI.IsOpen, "M did not open the inspector");
             Require(Mathf.Approximately(Time.timeScale, 1), "Inspector paused gameplay");
             yield return new WaitForSecondsRealtime(.2f);
-            VisualElement root = ui.Document.rootVisualElement, panel = root.Q("AnimalPanel");
+            VisualElement root = ui.Document.rootVisualElement, panel = root.Q("DebugPanel");
             Require(root.panel != null && panel.resolvedStyle.display == DisplayStyle.Flex, "Inspector document is not attached");
             Require(Mathf.Abs(panel.layout.width / root.layout.width - 1f / 3) < .015f, "Panel width is not one third");
             Require(Mathf.Abs(panel.layout.height / root.layout.height - 2f / 3) < .015f, "Panel height is not two thirds");
@@ -117,8 +124,8 @@ namespace AnimalGame.Editor
             heldKeyboard = new KeyboardState(); heldPad = new GamepadState(); yield return null;
             heldPad = new GamepadState().WithButton(GamepadButton.DpadUp);
             yield return null;
-            heldPad = new GamepadState(); yield return null;
-            Require(AnimalDebugUI.IsOpen, "D-pad Up closed the panel instead of navigating");
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
+            Require(DebugUI.IsOpen && root.focusController.focusedElement == originalFocus, "D-pad Up changed the open debug UI");
             Invoke("ToggleAnimals"); yield return null;
             Require(root.Q<ListView>("AnimalList").itemsSource.Count == 2, "Scene animal catalog is incorrect");
             int originalAnimalIndex = (int)typeof(AnimalDebugUI).GetField("animalIndex", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(ui);
@@ -130,26 +137,35 @@ namespace AnimalGame.Editor
             heldKeyboard = new KeyboardState(); heldPad = new GamepadState();
             yield return null;
             Require(root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.Flex, "Focused animal has no arrow");
-            heldPad = new GamepadState().WithButton(GamepadButton.South);
+            foreach (GamepadButton button in new[] { GamepadButton.South, GamepadButton.East, GamepadButton.DpadUp, GamepadButton.DpadDown })
+            {
+                heldPad = new GamepadState().WithButton(button); yield return null;
+                heldPad = new GamepadState(); yield return null;
+                Require(ui.Selected == null && root.Q("AnimalPopup").resolvedStyle.display == DisplayStyle.Flex,
+                    "Gamepad selected an animal or dismissed the popup");
+                Require((int)typeof(AnimalDebugUI).GetField("animalIndex", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(ui) == originalAnimalIndex,
+                    "Gamepad navigated the animal list");
+            }
+            heldKeyboard = new KeyboardState(Key.Enter);
             yield return null;
-            heldPad = new GamepadState(); yield return null;
-            Require(ui.Selected != null && root.Q("AnimalPopup").resolvedStyle.display == DisplayStyle.None, "A did not select and close the list");
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
+            Require(ui.Selected != null && root.Q("AnimalPopup").resolvedStyle.display == DisplayStyle.None, "Enter did not select and close the list");
             Require(root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.Flex, "Selected animal lost its persistent arrow");
             Require(root.Q("AnimalArrow").resolvedStyle.color == gold, "Arrow does not use D4B854");
             Require(root.Q<Label>("Group").text == "Group size: 1", "Live group details are incorrect");
             Invoke("ToggleAnimals"); yield return null;
-            heldPad = new GamepadState().WithButton(GamepadButton.DpadDown);
+            heldKeyboard = new KeyboardState(Key.DownArrow);
             yield return null;
-            heldPad = new GamepadState(); yield return null;
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
             Require(root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.Flex
                 && root.Q("AnimalPreviewArrow").resolvedStyle.display == DisplayStyle.Flex, "Preview replaced the selected animal marker");
-            heldPad = new GamepadState().WithButton(GamepadButton.East);
+            heldKeyboard = new KeyboardState(Key.Escape);
             yield return null;
-            heldPad = new GamepadState(); yield return null;
-            Require(AnimalDebugUI.IsOpen && root.Q("AnimalPopup").resolvedStyle.display == DisplayStyle.None, "B did not close only the list");
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
+            Require(DebugUI.IsOpen && root.Q("AnimalPopup").resolvedStyle.display == DisplayStyle.None, "Esc did not close only the list");
             Require(root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.Flex
                 && root.Q("AnimalPreviewArrow").resolvedStyle.display == DisplayStyle.None, "Closing the list removed the selected marker or retained its preview");
-            // Expand/select through real gamepad input and force a long virtualized
+            // Expand/select through real keyboard input and force a long virtualized
             // list so navigation must scroll to the selected specific daily entry.
             ui.Select(first);
             var dailyEntries = new List<AnimalDailyBehaviourSettings>();
@@ -158,22 +174,22 @@ namespace AnimalGame.Editor
             Invoke("ToggleCommands"); yield return null;
             ListView commands = root.Q<ListView>("CommandList");
             Require(commands.itemsSource.Count == 6, "Closed groups did not show only general behaviours");
-            heldPad = new GamepadState().WithButton(GamepadButton.South); yield return null;
-            heldPad = new GamepadState(); yield return null;
+            heldKeyboard = new KeyboardState(Key.Enter); yield return null;
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
             Require(commands.itemsSource.Count == 31, "Daily expansion lost automatic mode or configured entries");
             for (int i = 0; i < 25; i++)
             {
-                heldPad = new GamepadState().WithButton(GamepadButton.DpadDown); yield return null;
-                heldPad = new GamepadState(); yield return null;
+                heldKeyboard = new KeyboardState(Key.DownArrow); yield return null;
+                heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
             }
             yield return new WaitForSecondsRealtime(.1f);
             ScrollView commandScroll = commands.Q<ScrollView>();
             Require(commandScroll.scrollOffset.y > 0 && commandScroll.verticalScroller.resolvedStyle.display == DisplayStyle.Flex,
-                "Long behaviour list did not expose its scrollbar or scroll with D-pad navigation");
-            heldPad = new GamepadState().WithButton(GamepadButton.South); yield return null;
-            heldPad = new GamepadState(); yield return null;
+                "Long behaviour list did not expose its scrollbar or scroll with arrow-key navigation");
+            heldKeyboard = new KeyboardState(Key.Enter); yield return null;
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
             Require(root.Q("CommandPopup").resolvedStyle.display == DisplayStyle.None
-                && root.Q<Button>("Command").text.Contains("Element 23"), "A did not select the indented daily item");
+                && root.Q<Button>("Command").text.Contains("Element 23"), "Enter did not select the indented daily item");
             Require(!first.Brain.HasOverrideAction, "Selecting a child immediately executed it");
             Invoke("Execute");
             Require(first.Brain.HasOverrideAction, "Execute did not start the specific daily behaviour");
@@ -183,8 +199,8 @@ namespace AnimalGame.Editor
             ui.Select(second); Invoke("ToggleCommands"); yield return null;
             Require(commands.itemsSource.Count == 6 && root.Q<Button>("Command").text.Contains("autonomous"),
                 "Switching animals retained stale daily actions");
-            heldPad = new GamepadState().WithButton(GamepadButton.East); yield return null;
-            heldPad = new GamepadState(); yield return null;
+            heldKeyboard = new KeyboardState(Key.Escape); yield return null;
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
             Invoke("ToggleSampling"); yield return null;
             AnimalDebugSelection.TryBounds(first, out Bounds bounds);
             Vector2 point = camera.WorldToScreenPoint(bounds.center);
@@ -192,20 +208,78 @@ namespace AnimalGame.Editor
             yield return null;
             heldMouse = new MouseState { position = point }; yield return null;
             Require(ui.Selected == first && root.Q<Button>("Sample").text == "Pick", "World click did not finish sampling");
-            ui.Close(); yield return null;
+            shell.Close(); yield return null;
             heldPad = new GamepadState().WithButton(GamepadButton.DpadUp);
             yield return null;
-            heldPad = new GamepadState(); yield return null;
-            Require(AnimalDebugUI.IsOpen, "D-pad Up did not open the closed inspector");
+            heldPad = new GamepadState(); heldKeyboard = new KeyboardState(); yield return null;
+            Require(!DebugUI.IsOpen, "D-pad Up opened the debug UI");
+            heldKeyboard = new KeyboardState(Key.M); yield return null;
+            heldKeyboard = new KeyboardState(); yield return null;
+            Require(DebugUI.IsOpen, "M did not reopen the debug UI");
+            Invoke("ToggleSampling"); yield return null;
+            Require(root.Q("DebugTabs").Query<Button>().ToList().Count == 4, "Three tabs and Close were not registered");
+            Button testTab = root.Q("DebugTabs").Query<Button>().ToList().Find(button => button.text == "Test Tab");
+            yield return Click(testTab);
+            Require(shell.SelectedTab is DebugUITestTab && root.Q("AnimalPanel").resolvedStyle.display == DisplayStyle.None,
+                "Mouse did not switch away from Animal Inspector");
+            Require(root.Q("AnimalArrow").resolvedStyle.display == DisplayStyle.None, "Inactive animal tab retained its arrow");
+            yield return Click(root.Q("DebugTabs").Query<Button>().ToList()[0]);
+            Require(shell.SelectedTab == ui && root.Q<Button>("Sample").text == "Pick" && ui.Selected == first,
+                "Returning to Animal Inspector retained sampling or lost selection");
+            yield return Click(root.Q<Button>("DebugClose"));
+            Require(!DebugUI.IsOpen, "Mouse close button did not close DebugUI");
+            heldKeyboard = new KeyboardState(Key.M); yield return null;
+            heldKeyboard = new KeyboardState(); yield return null;
             var tutorial = new GameObject("Tutorial ownership check").AddComponent<TutorialDialoguePanel>();
             yield return null;
             Require(tutorial.IsCollapsed, "New tutorial expanded over the inspector");
             tutorial.SetCollapsed(false);
             Require(tutorial.IsCollapsed, "Tutorial expanded while the inspector owned the UI");
-            ui.Close(); yield return null;
+            shell.Close(); yield return null;
             tutorial.SetCollapsed(false);
-            Require(!ui.Open(), "Inspector opened over the tutorial");
+            Require(!shell.Open(), "Inspector opened over the tutorial");
             Object.Destroy(tutorial.gameObject);
+            yield return null;
+            var player = new GameObject("Player debug check").AddComponent<AnimalGame.RobotMap.RobotMover>();
+            player.enabled = false;
+            player.Teleport(map.MapPositionToWorld(new Vector2(16, 16)));
+            Require(shell.Open(), "Cannot reopen DebugUI for player checks");
+            shell.SelectTab(1);
+            root.Q<Vector2Field>("PlayerCoordinates").value = new Vector2(.5f, .5f);
+            yield return null;
+            VisualElement marker = root.Q("PlayerPositionMarker");
+            Require(marker.resolvedStyle.display == DisplayStyle.Flex, "Player target cross is hidden");
+            float markerX = marker.style.left.value.value;
+            root.Q<Vector2Field>("PlayerCoordinates").value = new Vector2(.65f, .5f);
+            yield return null;
+            Require(Mathf.Abs(marker.style.left.value.value - markerX) > 1, "Coordinate changes did not move the cross");
+            yield return Click(root.Q<Button>("TeleportPlayer"));
+            Require(map.TryGeographicToWorldPosition(new Vector2(.65f, .5f), out Vector3 destination)
+                && Vector2.Distance(player.transform.position, destination) < .001f, "Mouse teleport missed the geographic target");
+            root.Q<Toggle>("IgnoreCollisionAndTerrain").value = true;
+            root.Q<Toggle>("DisablePlayerDetection").value = true;
+            root.Q<Toggle>("OverridePlayerSpeed").value = true;
+            root.Q<FloatField>("PlayerSpeed").value = player.DefaultMoveSpeed * 2;
+            shell.Close(); yield return null;
+            Require(marker.resolvedStyle.display == DisplayStyle.None && player.IgnoreCollisionAndTerrain
+                && player.IgnoreAnimalDetection && player.DebugMoveSpeed.HasValue, "Closing DebugUI lost overrides or retained the cross");
+            Require(shell.Open(), "Cannot reopen player tab");
+            root.Q<Toggle>("IgnoreCollisionAndTerrain").value = false;
+            root.Q<Toggle>("DisablePlayerDetection").value = false;
+            root.Q<Toggle>("OverridePlayerSpeed").value = false;
+            Require(!player.IgnoreCollisionAndTerrain && !player.IgnoreAnimalDetection && !player.DebugMoveSpeed.HasValue,
+                "Player toggles did not restore normal behaviour");
+            shell.Close(); Object.Destroy(player.gameObject);
+        }
+        private IEnumerator Click(VisualElement element)
+        {
+            Vector2 panelPoint = element.worldBound.center;
+            Vector2 point = new Vector2(panelPoint.x * Screen.width / ui.Document.rootVisualElement.layout.width,
+                Screen.height - panelPoint.y * Screen.height / ui.Document.rootVisualElement.layout.height);
+            heldMouse = new MouseState { position = point }; yield return null;
+            heldMouse = new MouseState { position = point }.WithButton(MouseButton.Left); yield return null;
+            heldMouse = new MouseState { position = point }; yield return null;
+            yield return new WaitForSecondsRealtime(.1f);
         }
         private AnimalAgent Animal(MapTestSceneController map, string name, Vector2 position)
         {
@@ -241,5 +315,21 @@ namespace AnimalGame.Editor
             foreach (Object asset in assets) if (asset != null) Object.Destroy(asset);
             if (texture != null) Object.Destroy(texture);
         }
+    }
+    // A second page used only by the isolated PlayMode input checks.
+    public sealed class DebugUITestTab : DebugUITab
+    {
+        public override string Title => "Test Tab";
+        public override VisualElement Content => content;
+        private VisualElement content;
+        public override void Bind(VisualElement root)
+        {
+            content = new Label("Second debug page");
+            root.Add(content);
+        }
+        public override void Show() => content.style.display = DisplayStyle.Flex;
+        public override void Hide() => content.style.display = DisplayStyle.None;
+        public override bool Back() => false;
+        public override void HandleInput(int move, bool submit, bool click, Vector2 mouse) { }
     }
 }

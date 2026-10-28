@@ -118,7 +118,7 @@ namespace AnimalGame.Tutorial
 
         private void Awake()
         {
-            collapsed = startCollapsed || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels;
+            collapsed = startCollapsed || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels;
             BuildDocument();
         }
 
@@ -200,7 +200,7 @@ namespace AnimalGame.Tutorial
         public void SetVisible(bool value)
         {
             if (!value) ClearRecoveryDirectionGuide();
-            if (value && !collapsed && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) SetCollapsed(true);
+            if (value && !collapsed && AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) SetCollapsed(true);
             if (value && !visible) reopenedFrame = Time.frameCount;
             visible = value;
             RefreshVisibility();
@@ -288,7 +288,7 @@ namespace AnimalGame.Tutorial
         public void SetCollapsed(bool value)
         {
             if (value && !collapseEnabled) return;
-            if (!value && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels) return;
+            if (!value && AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             if (collapsed == value) return;
             if (value) ClearRecoveryDirectionGuide();
             collapsed = value;
@@ -603,7 +603,7 @@ namespace AnimalGame.Tutorial
                 && !TutorialTipOverLesson.BlocksMainline(gameObject);
             bool obscured = (Time.timeScale <= 0f && !tutorialPause && !inventoryPause)
                 || (AnimalGame.MainUI.MainUI.BlocksGameplay && !inventoryPause)
-                || ((tutorialPause || inventoryPause) && AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels);
+                || ((tutorialPause || inventoryPause) && AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels);
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap != null)
                 obscured |= ((!showDuringPhotoMode || tutorialPause) && bootstrap.photoMode != null && bootstrap.photoMode.IsActive)

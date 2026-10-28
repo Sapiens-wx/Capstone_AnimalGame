@@ -457,6 +457,7 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
+            if (mover != null && mover.IgnoreCollisionAndTerrain) return;
             if (IsBalanceRecoveryActive)
             {
                 UpdateUprightBalanceRecovery();

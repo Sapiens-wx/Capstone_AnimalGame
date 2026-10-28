@@ -193,7 +193,7 @@ namespace AnimalGame.Tutorial
         }
 
         private bool IsModal() => Time.timeScale <= 0f || Time.deltaTime <= 0f
-            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+            || AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
             || (bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
             || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing);
 
@@ -244,7 +244,7 @@ namespace AnimalGame.Tutorial
             bool inventoryPause = inventoryUi != null && GameMainUI.BlocksGameplay
                 && (inventoryUi.IsInventoryOpen || inventoryUi.InventoryProgress > 0f);
             bool valid = inventoryUi != null && inventoryUi.isActiveAndEnabled && CanPractice()
-                && !AnimalGame.AnimalDebug.AnimalDebugUI.BlocksOtherPanels
+                && !AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
                 && (bootstrap.photoMode == null || !bootstrap.photoMode.IsActive)
                 && (bootstrap.photoResultView == null || !bootstrap.photoResultView.IsShowing)
                 && (Time.timeScale > 0f || inventoryPause);
