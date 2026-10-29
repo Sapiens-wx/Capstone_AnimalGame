@@ -1,0 +1,98 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8831b4092902886339dfc33b6cf41ab, type: 3}
+  m_Name: Greater Prairie-Chicken
+  m_EditorClassIdentifier: 
+  species: 7
+  states:
+  - state: 0
+    photos:
+    - image: {fileID: 2800000, guid: b73dbda4eaf397a4983b4d01e25d3051, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.22109376
+        y: 0.26938778
+        width: 0.55781245
+        height: 0.71836734
+      saturation: 1
+    - image: {fileID: 2800000, guid: 52bc3ca0243810247ac7e6a57b1b1142, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.13844466
+        y: 0.3102041
+        width: 0.36155534
+        height: 0.59183675
+      saturation: 1
+    - image: {fileID: 2800000, guid: 041c3b47989668e409407f0237b24322, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.30285892
+        y: 0.25306123
+        width: 0.6060866
+        height: 0.6489796
+      saturation: 1
+    - image: {fileID: 2800000, guid: 9a3dcbf1365048a47aa2f16514b83727, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.35526744
+        y: 0.29387754
+        width: 0.51103103
+        height: 0.6204082
+      saturation: 1
+    - image: {fileID: 2800000, guid: cd0765a066dd87142b8d0a2823537fee, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.18651149
+        y: 0.32244897
+        width: 0.47203442
+        height: 0.5591837
+      saturation: 1
+    - image: {fileID: 2800000, guid: 5f17def29ee694f45967c48440fba239, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.40562695
+        y: 0.4653061
+        width: 0.5242945
+        height: 0.522449
+      saturation: 1
+    - image: {fileID: 2800000, guid: 103f9a4064ef4e64b997fddda6e4bd5d, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.068622425
+        y: 0.29387754
+        width: 0.44485813
+        height: 0.5469388
+      saturation: 1
+    - image: {fileID: 2800000, guid: 7532e4365736ecb48b0df17afe955da5, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.5
+        y: 0.22040814
+        width: 0.47851562
+        height: 0.6530612
+      saturation: 1
+    - image: {fileID: 2800000, guid: 13a052177cfbbf24b9ef13d78cea2c73, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.37531888
+        y: 0.22857141
+        width: 0.49560744
+        height: 0.722449
+      saturation: 1
+    - image: {fileID: 2800000, guid: 7994d3dadd1dbfb42a8b2b6769e46e1a, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.13237998
+        y: 0.36734694
+        width: 0.50497246
+        height: 0.4571429
+      saturation: 1

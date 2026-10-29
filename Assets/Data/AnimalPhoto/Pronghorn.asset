@@ -1,0 +1,130 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8831b4092902886339dfc33b6cf41ab, type: 3}
+  m_Name: Pronghorn
+  m_EditorClassIdentifier: 
+  species: 6
+  states:
+  - state: 0
+    photos:
+    - image: {fileID: 2800000, guid: 5e25762313b5c9d47a5593e1dd9a1829, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.1300472
+        y: 0.22448975
+        width: 0.5630501
+        height: 0.30204087
+      saturation: 1
+    - image: {fileID: 2800000, guid: 5ec19c56604d8ae4ab712155945699f0, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.23214288
+        y: 0.28163272
+        width: 0.49897957
+        height: 0.632653
+      saturation: 1
+    - image: {fileID: 2800000, guid: df892d1197831d14eb1de5a70c4308e9, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.31742865
+        y: 0.26530606
+        width: 0.52783006
+        height: 0.70204085
+      saturation: 1
+    - image: {fileID: 2800000, guid: 64f78c816f6b9774ca4ae86956512658, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.22679766
+        y: 0.27346933
+        width: 0.41048312
+        height: 0.4081633
+      saturation: 1
+    - image: {fileID: 2800000, guid: be6be1a85a2550340b69581e99a0f90f, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.27847975
+        y: 0.26530612
+        width: 0.47257656
+        height: 0.45306122
+      saturation: 1
+    - image: {fileID: 2800000, guid: 92a20b2c4521be143ac66f1d6ac590b3, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.20770088
+        y: 0.20816326
+        width: 0.50727046
+        height: 0.522449
+      saturation: 1
+    - image: {fileID: 2800000, guid: 319b4c785d2f5984e925c040bb2469d5, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.17915536
+        y: 0.17142856
+        width: 0.5071867
+        height: 0.42857146
+      saturation: 1
+    - image: {fileID: 2800000, guid: 5c201365eed7ccd45ab9b4bc308bcf20, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.11032167
+        y: 0.15918368
+        width: 0.54980075
+        height: 0.8163265
+      saturation: 1
+    - image: {fileID: 2800000, guid: 9216e0a3f230a934dbe4b1bf28fecd4a, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.14709722
+        y: 0.16734695
+        width: 0.58867186
+        height: 0.74693877
+      saturation: 1
+    - image: {fileID: 2800000, guid: ca1fdfa8d56d38849a72fc04d89cba74, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.18834104
+        y: 0.29387754
+        width: 0.45896047
+        height: 0.4571429
+      saturation: 1
+    - image: {fileID: 2800000, guid: 1b2327042924dc741ac7f034ae821988, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.13800623
+        y: 0.1102041
+        width: 0.4777583
+        height: 0.8163265
+      saturation: 1
+    - image: {fileID: 2800000, guid: ebf306b4dfc29d442bbea2d0fd944c83, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.3174735
+        y: 0.29387754
+        width: 0.41035154
+        height: 0.47755104
+      saturation: 1
+    - image: {fileID: 2800000, guid: 609af08e1ef3f4b479826c6d92513de9, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2008849
+        y: 0.15102041
+        width: 0.4380979
+        height: 0.49387753
+      saturation: 1
+    - image: {fileID: 2800000, guid: 15a0dcb86b270ba4a80af33d0b500af3, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2228316
+        y: 0.23673463
+        width: 0.5961735
+        height: 0.5959184
+      saturation: 1

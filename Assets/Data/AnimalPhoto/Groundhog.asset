@@ -1,0 +1,114 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8831b4092902886339dfc33b6cf41ab, type: 3}
+  m_Name: Groundhog
+  m_EditorClassIdentifier: 
+  species: 8
+  states:
+  - state: 0
+    photos:
+    - image: {fileID: 2800000, guid: 7679eba1aea8e754fb9ffbc733d0388b, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.15406866
+        y: 0.23265302
+        width: 0.58593154
+        height: 0.60408163
+      saturation: 1
+    - image: {fileID: 2800000, guid: 507f82d3af00886428dd11ce5256874f, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.21452875
+        y: 0.15510201
+        width: 0.5855821
+        height: 0.6816327
+      saturation: 1
+    - image: {fileID: 2800000, guid: b370436fd8fd28b46933a897989a4b35, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.23090719
+        y: 0.2448979
+        width: 0.34622133
+        height: 0.55102044
+      saturation: 1
+    - image: {fileID: 2800000, guid: b9dd8309c550895408153b81367b82df, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.10691405
+        y: 0.19999999
+        width: 0.5552062
+        height: 0.6204082
+      saturation: 1
+    - image: {fileID: 2800000, guid: be9df582ae77e544b8cb754f9b51045b, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.35129246
+        y: 0.23673475
+        width: 0.40659276
+        height: 0.53061223
+      saturation: 1
+    - image: {fileID: 2800000, guid: 2e70906431049694b9dc9a4313c80a5c, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2668898
+        y: 0.19591844
+        width: 0.5471347
+        height: 0.5918367
+      saturation: 1
+    - image: {fileID: 2800000, guid: 99d80526e627f3041b613ea20dd3acec, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.1606306
+        y: 0.19591832
+        width: 0.5725674
+        height: 0.6571429
+      saturation: 1
+    - image: {fileID: 2800000, guid: 5485ac2c479233a40835cce42a6d4e04, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.20316286
+        y: 0.13877559
+        width: 0.5415976
+        height: 0.69387746
+      saturation: 1
+    - image: {fileID: 2800000, guid: 01370e9b085164c45afe5bcfdb9ef81a, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.12902585
+        y: 0.1795919
+        width: 0.65043044
+        height: 0.7428571
+      saturation: 1
+    - image: {fileID: 2800000, guid: 877e8105c7e45864ebb789a0110dc1a0, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.16989197
+        y: 0.25714278
+        width: 0.54757255
+        height: 0.5306123
+      saturation: 1
+    - image: {fileID: 2800000, guid: 25680fd0c3dc7bb4f800b1ce0b37d250, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2331802
+        y: 0.2040816
+        width: 0.49579284
+        height: 0.5591837
+      saturation: 1
+    - image: {fileID: 2800000, guid: fd65dacab6e79b344b359ff122bf9497, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.28960198
+        y: 0.25306123
+        width: 0.39715582
+        height: 0.5346939
+      saturation: 1

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e8831b4092902886339dfc33b6cf41ab, type: 3}
-  m_Name: Species3
+  m_Name: Mountain Goat
   m_EditorClassIdentifier: 
   species: 3
   states:

@@ -1,0 +1,130 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8831b4092902886339dfc33b6cf41ab, type: 3}
+  m_Name: American Bison
+  m_EditorClassIdentifier: 
+  species: 5
+  states:
+  - state: 0
+    photos:
+    - image: {fileID: 2800000, guid: ed43b466231ed4f4e9e5a8df3d718724, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.3262755
+        y: 0.10204083
+        width: 0.48317125
+        height: 0.8244898
+      saturation: 1
+    - image: {fileID: 2800000, guid: f2c71aa4c61c1dc40a21e8f8a74a7487, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.320452
+        y: 0.22448981
+        width: 0.33461216
+        height: 0.5918367
+      saturation: 1
+    - image: {fileID: 2800000, guid: 023d3db327801e54cb0618fc10802d22, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.3775809
+        y: 0.13469386
+        width: 0.47879466
+        height: 0.6857143
+      saturation: 1
+    - image: {fileID: 2800000, guid: 8d0a2e0164450c44daf90a59420d2d0a, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.16538784
+        y: 0.14285713
+        width: 0.59849334
+        height: 0.78775513
+      saturation: 1
+    - image: {fileID: 2800000, guid: 899bfe40f86856d4b86702f3f57f2153, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2959682
+        y: 0.19999999
+        width: 0.3182896
+        height: 0.47755104
+      saturation: 1
+    - image: {fileID: 2800000, guid: e55f16f91709a8249acd36cc7b5fe412, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.25510207
+        y: 0.12653065
+        width: 0.44693872
+        height: 0.7346939
+      saturation: 1
+    - image: {fileID: 2800000, guid: 9caa87915b4fbe1488816bf946fd117c, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.24409279
+        y: 0.37959182
+        width: 0.5227041
+        height: 0.43673468
+      saturation: 1
+    - image: {fileID: 2800000, guid: 50cf45915b3e32340a9ce70528f78cbb, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.21435547
+        y: 0.32653064
+        width: 0.41350448
+        height: 0.48163265
+      saturation: 1
+    - image: {fileID: 2800000, guid: 69d71da20188c6c4e81f13e77938065b, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.34754464
+        y: 0.26530612
+        width: 0.39202806
+        height: 0.5714286
+      saturation: 1
+    - image: {fileID: 2800000, guid: b3a6d62813599ea489b7d9d67c26079d, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.070173
+        y: 0.21224487
+        width: 0.46519253
+        height: 0.6612245
+      saturation: 1
+    - image: {fileID: 2800000, guid: 7a69db6b0a6ff874bab6e764b9bbc62e, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.39654815
+        y: 0.044897974
+        width: 0.50092477
+        height: 0.8367347
+      saturation: 1
+    - image: {fileID: 2800000, guid: e2ca622e2a949a647b0d9a6bf7c57fcf, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.18004625
+        y: 0.118367374
+        width: 0.37281567
+        height: 0.51836735
+      saturation: 1
+    - image: {fileID: 2800000, guid: 2503d760e82ea6545ac7874a45a526a4, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2948242
+        y: 0.21224487
+        width: 0.43433318
+        height: 0.59183675
+      saturation: 1
+    - image: {fileID: 2800000, guid: 1f063f44b45f56844ae8b2ef2eb4a743, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.3639788
+        y: 0.30204082
+        width: 0.35637552
+        height: 0.48979592
+      saturation: 1

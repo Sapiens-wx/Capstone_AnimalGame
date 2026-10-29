@@ -1,0 +1,122 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8831b4092902886339dfc33b6cf41ab, type: 3}
+  m_Name: North American Porcupine
+  m_EditorClassIdentifier: 
+  species: 9
+  states:
+  - state: 0
+    photos:
+    - image: {fileID: 2800000, guid: d192cdad2da8faa4fbb1bcd17221132c, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.35774273
+        y: 0.21632653
+        width: 0.4397043
+        height: 0.67755103
+      saturation: 1
+    - image: {fileID: 2800000, guid: 1d164f4c34c68c24c81236bc644c8cf6, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.22037825
+        y: 0.11428565
+        width: 0.5236846
+        height: 0.8367348
+      saturation: 1
+    - image: {fileID: 2800000, guid: 0bae6e52cb02dcb4bad57b99b6e5763a, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.20036015
+        y: 0.21632653
+        width: 0.67098844
+        height: 0.6979592
+      saturation: 1
+    - image: {fileID: 2800000, guid: d988ba869f829c54fab9be05c6518802, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.24816637
+        y: 0.22448981
+        width: 0.57138723
+        height: 0.6653061
+      saturation: 1
+    - image: {fileID: 2800000, guid: 5b631cdf5276a8145b81e60969f9a785, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.06824491
+        y: 0.08979595
+        width: 0.5897142
+        height: 0.7714285
+      saturation: 1
+    - image: {fileID: 2800000, guid: d4a1bef41782a514f83e425a572d0fa3, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.1886204
+        y: 0.20816326
+        width: 0.64783674
+        height: 0.7346939
+      saturation: 1
+    - image: {fileID: 2800000, guid: 57ac936a6b101b64daaf3bdbd834d8df, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.21940716
+        y: 0.19999999
+        width: 0.61627144
+        height: 0.67346936
+      saturation: 1
+    - image: {fileID: 2800000, guid: 42f706e5bbb026e4fbdf173cb0896b36, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2244898
+        y: 0.12653059
+        width: 0.39999998
+        height: 0.6571429
+      saturation: 1
+    - image: {fileID: 2800000, guid: a2d2f6ea524304b4ea84c6f7f2ea6eb3, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.16622858
+        y: 0.07755101
+        width: 0.6637714
+        height: 0.78775513
+      saturation: 1
+    - image: {fileID: 2800000, guid: 884d8fc7d5e768c418422189917dbba2, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.14766026
+        y: 0.20816326
+        width: 0.6749043
+        height: 0.75102043
+      saturation: 1
+    - image: {fileID: 2800000, guid: 349616f4b3b3e8f4db5f6797865d7b70, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.2805949
+        y: 0.23265302
+        width: 0.54035306
+        height: 0.7265307
+      saturation: 1
+    - image: {fileID: 2800000, guid: bfe761159815aa54a8138c112c13fe71, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.118886724
+        y: 0.044897974
+        width: 0.5834327
+        height: 0.8979592
+      saturation: 1
+    - image: {fileID: 2800000, guid: 0e6a9372b59074e40b33619e4a6b2d20, type: 3}
+      subjectRect:
+        serializedVersion: 2
+        x: 0.16613519
+        y: 0.1469388
+        width: 0.74076253
+        height: 0.6897959
+      saturation: 1
