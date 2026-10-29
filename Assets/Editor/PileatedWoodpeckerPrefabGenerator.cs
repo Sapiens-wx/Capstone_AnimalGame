@@ -129,8 +129,8 @@ namespace AnimalGame.Editor
         private static void ConfigureNewConfig(AnimalSpeciesConfig config)
         {
             var serialized = new SerializedObject(config);
-            serialized.FindProperty("speciesName").stringValue =
-                "Pileated Woodpecker";
+            serialized.FindProperty("species").intValue =
+                (int)AnimalSpecies.PileatedWoodpecker;
 
             serialized.FindProperty("activityRadiusMeters").floatValue = 45f;
             serialized.FindProperty("dailyMoveSpeedMetersPerSecond")

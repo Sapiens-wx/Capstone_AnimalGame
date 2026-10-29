@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e42ea6af259ac874fabc89fccca67a0b, type: 3}
   m_Name: PrairieGrouseConfig
   m_EditorClassIdentifier: 
-  speciesName: PrairieGrouse
+  species: 7
   maximumHealth: 3
   initialHealthRange: {x: 3, y: 3}
   corpseNutrition: 3

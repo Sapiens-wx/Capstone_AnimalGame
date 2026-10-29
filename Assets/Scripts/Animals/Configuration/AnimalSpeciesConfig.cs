@@ -9,7 +9,7 @@ namespace AnimalGame.Animals
     public sealed class AnimalSpeciesConfig : ScriptableObject
     {
         [Header("Identity")]
-        [SerializeField] private string speciesName = "Muskrat";
+        [SerializeField] private AnimalSpecies species = AnimalSpecies.Unknown;
 
         [Header("Life And Corpse")]
         [SerializeField, Min(1f)] private float maximumHealth = 100f;
@@ -152,7 +152,7 @@ namespace AnimalGame.Animals
         [SerializeField, Min(0f)]
         private float postReappearGraceDurationSeconds = 1.5f;
 
-        public string SpeciesName => speciesName;
+        public AnimalSpecies Species => species;
         public float ActivityRadiusMeters => activityRadiusMeters;
         public float DailyMoveSpeedMetersPerSecond => dailyMoveSpeedMetersPerSecond;
         public float FleeSpeedMetersPerSecond => fleeSpeedMetersPerSecond;

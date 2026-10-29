@@ -16,7 +16,7 @@ namespace AnimalGame.AnimalDebug
         {
             if (animal == null) return "Select an animal";
             AnimalPhotoSubject photo = animal.GetComponent<AnimalPhotoSubject>();
-            string species = photo != null ? library.GetAnimal(photo.Species).DisplayName : animal.Config.SpeciesName;
+            string species = library.GetAnimal(photo != null ? photo.Species : animal.Config.Species).DisplayName;
             return species + " / " + animal.name + " #" + animal.GetInstanceID();
         }
 

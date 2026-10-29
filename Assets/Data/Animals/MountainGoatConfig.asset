@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e42ea6af259ac874fabc89fccca67a0b, type: 3}
   m_Name: MountainGoatConfig
   m_EditorClassIdentifier: 
-  speciesName: MountainGoat
+  species: 3
   maximumHealth: 10
   initialHealthRange: {x: 10, y: 10}
   corpseNutrition: 100

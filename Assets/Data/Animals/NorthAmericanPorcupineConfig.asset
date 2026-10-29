@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e42ea6af259ac874fabc89fccca67a0b, type: 3}
   m_Name: NorthAmericanPorcupineConfig
   m_EditorClassIdentifier: 
-  speciesName: NorthAmericanPorcupine
+  species: 9
   maximumHealth: 5
   initialHealthRange: {x: 5, y: 5}
   corpseNutrition: 5

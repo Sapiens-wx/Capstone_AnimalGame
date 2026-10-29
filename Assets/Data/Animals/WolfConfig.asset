@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e42ea6af259ac874fabc89fccca67a0b, type: 3}
   m_Name: WolfConfig
   m_EditorClassIdentifier: 
-  speciesName: Wolf
+  species: 4
   maximumHealth: 100
   initialHealthRange: {x: 60, y: 100}
   corpseNutrition: 100

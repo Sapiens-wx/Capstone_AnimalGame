@@ -37,7 +37,7 @@ namespace AnimalGame.Animals
 
     public readonly struct AnimalSnapshot
     {
-        public readonly string Species;
+        public readonly AnimalSpecies Species;
         public readonly AnimalState State;
         public readonly AnimalState PhotoState;
         public readonly string Action;
@@ -47,7 +47,7 @@ namespace AnimalGame.Animals
         public readonly float GroundHeightMeters, WaterDepthMeters;
         public AnimalSnapshot(AnimalAgent agent)
         {
-            Species = agent.Config != null ? agent.Config.SpeciesName : "";
+            Species = agent.Config != null ? agent.Config.Species : AnimalSpecies.Unknown;
             State = agent.CurrentState;
             PhotoState = State == AnimalState.Daily ? agent.DailyPhotoState : State;
             Action = agent.Brain?.CurrentActionName ?? "";

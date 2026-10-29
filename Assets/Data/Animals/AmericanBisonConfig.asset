@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e42ea6af259ac874fabc89fccca67a0b, type: 3}
   m_Name: AmericanBisonConfig
   m_EditorClassIdentifier: 
-  speciesName: AmericanBison
+  species: 5
   maximumHealth: 20
   initialHealthRange: {x: 20, y: 20}
   corpseNutrition: 20

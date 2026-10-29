@@ -94,7 +94,7 @@ namespace AnimalGame.Editor
             string id = species.ToString();
             var config = LoadOrCreate<AnimalSpeciesConfig>(Data + id + "Config.asset");
             var s = new SerializedObject(config);
-            s.FindProperty("speciesName").stringValue = id;
+            s.FindProperty("species").intValue = (int)species;
             s.FindProperty("maximumHealth").floatValue = health;
             s.FindProperty("initialHealthRange").vector2Value = Vector2.one * health;
             s.FindProperty("maximumWalkSlopeDegrees").floatValue = 38f;
