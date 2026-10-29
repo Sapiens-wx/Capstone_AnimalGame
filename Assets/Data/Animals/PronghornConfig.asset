@@ -29,7 +29,7 @@ MonoBehaviour:
   attackPaddingMeters: 0.1
   impactRadiusMeters: 0.5
   knockbackDamageRange: {x: 0, y: 100}
-  knockbackDistanceRange: {x: 0.1, y: 2}
+  knockbackDistanceRange: {x: 2, y: 4}
   groupFollowRadiusMeters: 8
   maximumWalkWaterDepthMeters: 0.01
   maximumWalkSlopeDegrees: 38

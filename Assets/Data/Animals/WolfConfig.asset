@@ -13,6 +13,29 @@ MonoBehaviour:
   m_Name: WolfConfig
   m_EditorClassIdentifier: 
   speciesName: Wolf
+  maximumHealth: 100
+  initialHealthRange: {x: 60, y: 100}
+  corpseNutrition: 100
+  corpseSprite: {fileID: 0}
+  canClimbTrees: 0
+  escapeAction: {fileID: 0}
+  preySpecies:
+  - {fileID: 11400000, guid: 5777bd6aebd0b124587566d577746815, type: 2}
+  - {fileID: 11400000, guid: 2183b6fd67924de69a50c06581135737, type: 2}
+  huntingRadiusMeters: 20
+  chaseRadiusMeters: 30
+  huntTimeoutSeconds: 180
+  attackDamage: 3
+  aggressiveSpeedMetersPerSecond: 3
+  aggressiveRadiusMeters: 15
+  attackPaddingMeters: 0.1
+  impactRadiusMeters: 0.5
+  knockbackDamageRange: {x: 0, y: 100}
+  knockbackDistanceRange: {x: 2, y: 4}
+  groupFollowRadiusMeters: 8
+  maximumWalkWaterDepthMeters: 1000
+  maximumWalkSlopeDegrees: 38
+  slideSlopeDegrees: 38
   activityRadiusMeters: 20
   dailyMoveSpeedMetersPerSecond: 1.6
   fleeSpeedMetersPerSecond: 5
@@ -93,14 +116,3 @@ MonoBehaviour:
   hideSafetyCheckIntervalSeconds: 0.75
   reappearSafeDistanceMultiplier: 1.1
   postReappearGraceDurationSeconds: 1.5
-  maximumHealth: 100
-  initialHealthRange: {x: 60, y: 100}
-  maximumWalkSlopeDegrees: 38
-  slideSlopeDegrees: 38
-  attackDamage: 3
-  aggressiveSpeedMetersPerSecond: 3
-  impactRadiusMeters: 0.5
-  attackPaddingMeters: 0.1
-  preySpecies:
-  - {fileID: 11400000, guid: 5777bd6aebd0b124587566d577746815, type: 2}
-  - {fileID: 11400000, guid: 2183b6fd67924de69a50c06581135737, type: 2}

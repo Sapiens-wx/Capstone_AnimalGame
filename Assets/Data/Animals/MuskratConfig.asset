@@ -13,6 +13,27 @@ MonoBehaviour:
   m_Name: MuskratConfig
   m_EditorClassIdentifier: 
   speciesName: Muskrat
+  maximumHealth: 100
+  initialHealthRange: {x: 60, y: 100}
+  corpseNutrition: 100
+  corpseSprite: {fileID: 0}
+  canClimbTrees: 0
+  escapeAction: {fileID: 0}
+  preySpecies: []
+  huntingRadiusMeters: 20
+  chaseRadiusMeters: 30
+  huntTimeoutSeconds: 180
+  attackDamage: 15
+  aggressiveSpeedMetersPerSecond: 3
+  aggressiveRadiusMeters: 15
+  attackPaddingMeters: 0.1
+  impactRadiusMeters: 0.5
+  knockbackDamageRange: {x: 0, y: 100}
+  knockbackDistanceRange: {x: 2, y: 4}
+  groupFollowRadiusMeters: 8
+  maximumWalkWaterDepthMeters: 1000
+  maximumWalkSlopeDegrees: 90
+  slideSlopeDegrees: 55
   activityRadiusMeters: 20
   dailyMoveSpeedMetersPerSecond: 1.8
   fleeSpeedMetersPerSecond: 8
@@ -24,15 +45,39 @@ MonoBehaviour:
   - behaviour: 0
     selectionWeight: 1.5
     durationSeconds: {x: 3, y: 6}
+    action: {fileID: 0}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 0
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
   - behaviour: 1
     selectionWeight: 1.35
     durationSeconds: {x: 3, y: 7}
+    action: {fileID: 0}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 0
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
   - behaviour: 2
     selectionWeight: 1.5
     durationSeconds: {x: 4, y: 8}
+    action: {fileID: 0}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 0
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
   - behaviour: 3
     selectionWeight: 1
     durationSeconds: {x: 3, y: 6}
+    action: {fileID: 0}
+    seasonMultiplier: 1
+    timeOfDayMultiplier: 1
+    cooldownSeconds: 0
+    seasonalWeights: {x: 1, y: 1, z: 1, w: 1}
+    timeOfDayWeights: {x: 1, y: 1, z: 1, w: 1}
   foodPreferences:
   - foodType: 0
     selectionWeight: 1

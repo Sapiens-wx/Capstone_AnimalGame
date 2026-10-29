@@ -9,6 +9,7 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(1f)] private float maximumHealth = 100f;
         public float CurrentHealth { get; private set; }
         public event Action<float> Damaged;
+        public event Action<Vector2> Impacted;
         private RobotMover mover;
         private AnimalGame.MainUI.MainUI ui;
         private Vector2 velocity;
@@ -29,7 +30,11 @@ namespace AnimalGame.RobotMap
             Damaged?.Invoke(damage);
         }
         public void Knockback(Vector2 worldDirection, float worldDistance)
-        { if (mover == null || !mover.IgnoreAnimalDetection) velocity += worldDirection.normalized * worldDistance * 5f; }
+        {
+            if (mover != null && mover.IgnoreAnimalDetection) return;
+            velocity += worldDirection.normalized * worldDistance * 5f;
+            Impacted?.Invoke(worldDirection);
+        }
         private void LateUpdate()
         {
             if (mover != null && mover.IgnoreAnimalDetection) { velocity = Vector2.zero; return; }

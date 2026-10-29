@@ -468,6 +468,7 @@ namespace AnimalGame.RobotMap
 
         private Camera attachedCamera;
         private RobotMover mover;
+        private PlayerCombatReceiver playerCombat;
         private RobotBalanceController balance;
         private RobotTumbleController tumble;
         private RobotSelfRightingController selfRighting;
@@ -998,7 +999,10 @@ namespace AnimalGame.RobotMap
             UnsubscribeFromTumbleEvents();
             UnsubscribeFromSelfRightingEvents();
 
+            if (playerCombat != null) playerCombat.Impacted -= HandleAnimalImpact;
             mover = robotMover;
+            playerCombat = mover != null ? mover.GetComponent<PlayerCombatReceiver>() : null;
+            if (isActiveAndEnabled && playerCombat != null) playerCombat.Impacted += HandleAnimalImpact;
             balance = balanceController;
             tumble = mover != null
                 ? mover.GetComponent<RobotTumbleController>()
@@ -1021,6 +1025,13 @@ namespace AnimalGame.RobotMap
             previousLevelThreePhase = mover != null
                 ? mover.CurrentLevelThreeClimbPhase
                 : LevelThreeClimbFailurePhase.None;
+        }
+
+        private void HandleAnimalImpact(Vector2 worldDirection)
+        {
+            if (!isActiveAndEnabled || !enableCameraShake || Time.timeScale <= 0.0001f) return;
+            AddObstacleCollisionImpact(worldDirection, 1f);
+            nextDiscreteImpactTime = Time.time + impactCooldownSeconds;
         }
 
         private bool IsTumbleFeedbackSuppressed =>
@@ -2438,6 +2449,7 @@ namespace AnimalGame.RobotMap
 
         private void OnDisable()
         {
+            if (playerCombat != null) playerCombat.Impacted -= HandleAnimalImpact;
             InvalidateMediumRecycleSession();
             UnsubscribeFromTumbleEvents();
             UnsubscribeFromSelfRightingEvents();
@@ -2481,6 +2493,7 @@ namespace AnimalGame.RobotMap
 
         private void OnEnable()
         {
+            if (playerCombat != null) playerCombat.Impacted += HandleAnimalImpact;
             SubscribeToTumbleEvents();
             SubscribeToSelfRightingEvents();
         }

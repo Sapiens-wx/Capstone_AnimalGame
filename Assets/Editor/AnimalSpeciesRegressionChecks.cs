@@ -161,9 +161,14 @@ namespace AnimalGame.Editor
             GameObject player = f.New("Impact player", f.Map.MapPositionToWorld(new Vector2(15.4f, 14.5f)));
             player.AddComponent<AnimalGame.RobotMap.PlayerWorldBody>();
             var receiver = player.AddComponent<AnimalGame.RobotMap.PlayerCombatReceiver>();
+            var playerMover = player.AddComponent<AnimalGame.RobotMap.RobotMover>();
+            var cameraShake = f.New("Impact camera", Vector3.zero).AddComponent<AnimalGame.RobotMap.RobotCameraShake>();
+            cameraShake.Initialize(playerMover, null, null);
             int playerHits = 0; receiver.Damaged += _ => playerHits++;
             AnimalImpact.Apply(impact.Context, Vector2.right);
             Require(receiver.IsDisplaced, "Area impact omitted player knockback");
+            Require((float)typeof(AnimalGame.RobotMap.RobotCameraShake).GetField("springZoom", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(cameraShake) > 0f,
+                "Animal collision did not immediately trigger solid-obstacle camera feedback");
             f.Tick(1.05f);
             Require(first.Health.CurrentHealth < firstHealth && second.Health.CurrentHealth < secondHealth, "Impact missed bystanders in radius");
             Require(playerHits == 1, "Area impact omitted delayed player damage");
