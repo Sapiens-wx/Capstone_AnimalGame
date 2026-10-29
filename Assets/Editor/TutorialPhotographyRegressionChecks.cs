@@ -166,7 +166,7 @@ namespace AnimalGame.Editor
                     .GetMethod("CanPractice", flags).Invoke(lesson, null);
                 Require(!valid(), "A missing teaching animal still blocks unsaved photography practice.");
 
-                var recordedPhoto = new PhotoResultSnapshot("pileated_woodpecker", "Teaching bird", "Woodpecker",
+                var recordedPhoto = new PhotoResultSnapshot("Woodpecker",
                     "Dryocopus pileatus", "Tutorial", Color.yellow, 1, 2, 3, null, Vector2.zero, 0f, 1f,
                     new DateTime(2026, 1, 1), AnimalSpecies.PileatedWoodpecker, AnimalState.Eating, true, true);
                 typeof(TutorialPhotographyLesson).GetField("acceptedSnapshot", flags).SetValue(lesson, recordedPhoto);

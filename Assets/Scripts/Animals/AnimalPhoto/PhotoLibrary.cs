@@ -26,6 +26,13 @@ namespace AnimalGame.Animals
         [SerializeField] private List<AnimalPhotoLibrary> animals = new List<AnimalPhotoLibrary>();
         public IReadOnlyList<AnimalPhotoLibrary> Animals => animals;
 
+        public AnimalPhotoLibrary GetAnimal(AnimalSpecies species)
+        {
+            foreach (AnimalPhotoLibrary animal in animals)
+                if (animal != null && animal.Species == species) return animal;
+            throw new System.InvalidOperationException($"No animal photo library configured for {species}.");
+        }
+
         /// <summary>Select and consume a photo once its random crop has been created successfully.</summary>
         public bool TryChoosePhoto(AnimalSpecies species, AnimalPhotoEnvironment environment, out AnimalPhoto photo)
         {

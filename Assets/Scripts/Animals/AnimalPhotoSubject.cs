@@ -52,16 +52,9 @@ namespace AnimalGame.Animals
     {
         private static readonly HashSet<AnimalPhotoSubject> ActiveSubjects =
             new HashSet<AnimalPhotoSubject>();
-        private static readonly Dictionary<string, int>
-            LastPhotoIndexBySpecies = new Dictionary<string, int>();
 
         [Header("Species Result Identity")]
         [SerializeField] private AnimalSpecies species = AnimalSpecies.Unknown;
-        [SerializeField] private string speciesId = "unknown";
-        [SerializeField] private string displayName = "Unknown Animal";
-        [SerializeField] private string englishName = "Unknown Animal";
-        [SerializeField] private string scientificName = "Species unknown";
-        [SerializeField] private string regionName = "Rocky Mountains";
         [SerializeField] private Color accentColor =
             new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
 
@@ -81,10 +74,6 @@ namespace AnimalGame.Animals
 
         public static IReadOnlyCollection<AnimalPhotoSubject> Active =>
             ActiveSubjects;
-        public string SpeciesId => string.IsNullOrWhiteSpace(speciesId)
-            ? gameObject.name
-            : speciesId;
-        public string DisplayName => displayName;
         public AnimalSpecies Species => species;
         public AnimalPhotoEnvironment PhotoEnvironment
         {
@@ -119,9 +108,6 @@ namespace AnimalGame.Animals
                 return agent != null ? agent.Snapshot.PhotoState : AnimalState.Daily;
             }
         }
-        public string EnglishName => englishName;
-        public string ScientificName => scientificName;
-        public string RegionName => regionName;
         public Color AccentColor => accentColor;
         public int CognitionDegrees => Mathf.Max(0, cognitionDegrees);
         public int BaseReward => Mathf.Max(0, baseReward);
@@ -213,21 +199,6 @@ namespace AnimalGame.Animals
 
         private void OnValidate()
         {
-            speciesId = string.IsNullOrWhiteSpace(speciesId)
-                ? "unknown"
-                : speciesId.Trim();
-            displayName = string.IsNullOrWhiteSpace(displayName)
-                ? "Unknown Animal"
-                : displayName.Trim();
-            englishName = string.IsNullOrWhiteSpace(englishName)
-                ? displayName
-                : englishName.Trim();
-            scientificName = string.IsNullOrWhiteSpace(scientificName)
-                ? "Species unknown"
-                : scientificName.Trim();
-            regionName = string.IsNullOrWhiteSpace(regionName)
-                ? "Unknown Region"
-                : regionName.Trim();
             cognitionDegrees = Mathf.Max(0, cognitionDegrees);
             baseReward = Mathf.Max(0, baseReward);
             cognitionReward = Mathf.Max(0, cognitionReward);

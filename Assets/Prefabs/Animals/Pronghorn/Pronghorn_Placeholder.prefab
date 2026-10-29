@@ -486,11 +486,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 6
-  speciesId: Pronghorn
-  displayName: "\u53C9\u89D2\u7F9A"
-  englishName: Pronghorn
-  scientificName: Antilocapra americana
-  regionName: Rocky Mountains
   accentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
   cognitionDegrees: 100
   baseReward: 10

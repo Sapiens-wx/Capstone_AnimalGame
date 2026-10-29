@@ -147,6 +147,10 @@ namespace AnimalGame.EditorTools
             }
             selectionScroll = EditorGUILayout.BeginScrollView(selectionScroll);
             EditorGUILayout.PropertyField(serializedLibrary.FindProperty("species"));
+            EditorGUILayout.PropertyField(serializedLibrary.FindProperty("displayName"));
+            EditorGUILayout.PropertyField(serializedLibrary.FindProperty("chineseName"));
+            EditorGUILayout.PropertyField(serializedLibrary.FindProperty("scientificName"));
+            EditorGUILayout.PropertyField(serializedLibrary.FindProperty("regionName"));
             SerializedProperty states = serializedLibrary.FindProperty("states");
             for (int s = 0; s < states.arraySize; s++)
             {

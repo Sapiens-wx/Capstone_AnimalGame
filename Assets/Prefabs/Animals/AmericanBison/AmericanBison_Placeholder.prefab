@@ -573,11 +573,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 5
-  speciesId: AmericanBison
-  displayName: "\u7F8E\u6D32\u91CE\u725B"
-  englishName: American bison
-  scientificName: Bison bison
-  regionName: Rocky Mountains
   accentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
   cognitionDegrees: 100
   baseReward: 10

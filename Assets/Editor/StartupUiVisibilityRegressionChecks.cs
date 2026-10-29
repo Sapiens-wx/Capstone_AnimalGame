@@ -171,14 +171,14 @@ namespace AnimalGame.Editor
             for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++)
                 pixels[y * 64 + x] = new Color(.15f + .7f * x / 63f, .25f + .5f * y / 63f, .4f);
             photoSource.SetPixels(pixels); photoSource.Apply();
-            var snapshot = new PhotoResultSnapshot("startup-validation", "Validation woodpecker", "Validation woodpecker",
+            var snapshot = new PhotoResultSnapshot("Validation woodpecker",
                 "Validation scientific name", "Validation region", Color.yellow, 1, 2, 3,
                 new AnimalPhoto(photoSource, new Rect(0, 0, 1, 1), 1), new Vector2(12, 34), 56, 1,
                 new DateTime(2026, 10, 25, 12, 0, 0), AnimalSpecies.PileatedWoodpecker, AnimalState.Daily, true, true);
             Invoke(result, "ShowCore", snapshot, Texture2D.blackTexture);
             yield return new WaitForSecondsRealtime(1.4f);
             Require(result.IsShowing && IsDisplayed(resultDocument.rootVisualElement)
-                && resultDocument.rootVisualElement.Q<Label>("animal-name").text == snapshot.EnglishName,
+                && resultDocument.rootVisualElement.Q<Label>("animal-name").text == snapshot.DisplayName,
                 "A genuine result opens with its captured identity instead of the authored Muskrat example.");
             result.SetSaved();
             yield return new WaitForSecondsRealtime(1.2f);
@@ -193,7 +193,7 @@ namespace AnimalGame.Editor
             for (int i = 0; i < 3; i++) yield return null;
             Require(before != resultDocument.rootVisualElement.Q("stage"), "The live-review check exercises a genuine new result tree.");
             Require(result.IsShowing && IsDisplayed(resultDocument.rootVisualElement)
-                && resultDocument.rootVisualElement.Q<Label>("animal-name").text == snapshot.EnglishName
+                && resultDocument.rootVisualElement.Q<Label>("animal-name").text == snapshot.DisplayName
                 && resultDocument.rootVisualElement.Q<Label>("save-label").text == "Photo Saved"
                 && ReferenceEquals(resultDocument.rootVisualElement.Q<Image>("photo-image").image, savedTexture),
                 "A live result survives root replacement with identity, saved feedback and the existing photograph intact.");

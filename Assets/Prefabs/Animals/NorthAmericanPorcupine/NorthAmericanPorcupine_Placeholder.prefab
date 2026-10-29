@@ -1447,11 +1447,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 9
-  speciesId: NorthAmericanPorcupine
-  displayName: "\u5317\u7F8E\u8C6A\u732A"
-  englishName: North American porcupine
-  scientificName: Erethizon dorsatum
-  regionName: Rocky Mountains
   accentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
   cognitionDegrees: 100
   baseReward: 10

@@ -580,11 +580,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 1
-  speciesId: muskrat
-  displayName: "\u9E9D\u9F20"
-  englishName: Muskrat
-  scientificName: Ondatra zibethicus
-  regionName: Rocky Mountains
   accentColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
   cognitionDegrees: 100
   baseReward: 10

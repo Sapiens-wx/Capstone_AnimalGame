@@ -28,29 +28,29 @@ namespace AnimalGame.Editor
         public static void Build()
         {
             AnimalBurrow burrow = BuildBurrow();
-            BuildSpecies<AmericanBisonBehaviour>(AnimalSpecies.AmericanBison, "美洲野牛", "American bison", "Bison bison", 20f, .36f, 1.2f, 4f, true, burrow,
+            BuildSpecies<AmericanBisonBehaviour>(AnimalSpecies.AmericanBison, 20f, .36f, 1.2f, 4f, true, burrow,
                 Terrain("BisonGraze", TerrainAnimalActionDefinition.ActionKind.Graze, 12, 20),
                 Specific("BisonWander", SpecificAnimalActionDefinition.ActionKind.SlowWander, 6, 10),
                 Terrain("BisonLook", TerrainAnimalActionDefinition.ActionKind.LookAround, 4, 8),
                 Terrain("BisonSpar", TerrainAnimalActionDefinition.ActionKind.Spar, 10, 15, .35f, 15));
-            BuildSpecies<PronghornBehaviour>(AnimalSpecies.Pronghorn, "叉角羚", "Pronghorn", "Antilocapra americana", 10f, .22f, 1.4f, 5f, true, burrow,
+            BuildSpecies<PronghornBehaviour>(AnimalSpecies.Pronghorn, 10f, .22f, 1.4f, 5f, true, burrow,
                 Specific("PronghornEat", SpecificAnimalActionDefinition.ActionKind.BushOrGrassEating, 10, 16),
                 Terrain("PronghornLook", TerrainAnimalActionDefinition.ActionKind.LookAround, 4, 8),
                 Specific("PronghornRest", SpecificAnimalActionDefinition.ActionKind.RestOnGrass, 25, 40),
                 Specific("PronghornWander", SpecificAnimalActionDefinition.ActionKind.SlowWander, 6, 10),
                 Terrain("PronghornSpar", TerrainAnimalActionDefinition.ActionKind.Spar, 8, 12, .35f, 15));
-            BuildSpecies<PrairieGrouseBehaviour>(AnimalSpecies.PrairieGrouse, "草原松鸡", "Prairie grouse", "Tympanuchus sp.", 3f, .12f, .9f, 4f, false, burrow,
+            BuildSpecies<PrairieGrouseBehaviour>(AnimalSpecies.GreaterPrairieChicken, 3f, .12f, .9f, 4f, false, burrow,
                 Specific("GrouseForage", SpecificAnimalActionDefinition.ActionKind.ZigzagForaging, 10, 16),
                 Specific("GrouseWander", SpecificAnimalActionDefinition.ActionKind.SlowWander, 4, 7),
                 Terrain("GrouseLook", TerrainAnimalActionDefinition.ActionKind.LookAround, 4, 8, 1f, 3f, 720f),
                 Specific("GrouseShortFlight", SpecificAnimalActionDefinition.ActionKind.ShortFlight, 1, 2, .4f, 12));
-            BuildSpecies<AmericanMarmotBehaviour>(AnimalSpecies.AmericanMarmot, "美洲旱獭", "American marmot", "Marmota sp.", 3f, .14f, .8f, 2.8f, false, burrow,
+            BuildSpecies<AmericanMarmotBehaviour>(AnimalSpecies.Groundhog, 3f, .14f, .8f, 2.8f, false, burrow,
                 Terrain("MarmotGraze", TerrainAnimalActionDefinition.ActionKind.Graze, 8, 14),
                 Specific("MarmotWander", SpecificAnimalActionDefinition.ActionKind.SlowWander, 4, 8),
                 Terrain("MarmotLook", TerrainAnimalActionDefinition.ActionKind.LookAround, 4, 8, 1f, 3f, 720f),
                 Specific("MarmotHide", SpecificAnimalActionDefinition.ActionKind.HideInBurrow, 10, 18),
                 Specific("MarmotAtBurrow", SpecificAnimalActionDefinition.ActionKind.RestAtBurrow, 6, 12));
-            BuildSpecies<NorthAmericanPorcupineBehaviour>(AnimalSpecies.NorthAmericanPorcupine, "北美豪猪", "North American porcupine", "Erethizon dorsatum", 5f, .18f, .75f, 2f, false, burrow,
+            BuildSpecies<NorthAmericanPorcupineBehaviour>(AnimalSpecies.NorthAmericanPorcupine, 5f, .18f, .75f, 2f, false, burrow,
                 Specific("PorcupineTreeEat", SpecificAnimalActionDefinition.ActionKind.TreeEating, 15, 25),
                 Specific("PorcupineBarkEat", SpecificAnimalActionDefinition.ActionKind.BarkEating, 12, 20),
                 Specific("PorcupineChangeTree", SpecificAnimalActionDefinition.ActionKind.ChangeTree, 1, 2, .5f, 12),
@@ -88,7 +88,7 @@ namespace AnimalGame.Editor
             try { return PrefabUtility.SaveAsPrefabAsset(root, BurrowPath).GetComponent<AnimalBurrow>(); }
             finally { Object.DestroyImmediate(root); }
         }
-        private static void BuildSpecies<T>(AnimalSpecies species, string chinese, string english, string scientific,
+        private static void BuildSpecies<T>(AnimalSpecies species,
             float health, float radius, float walk, float flee, bool juvenile, AnimalBurrow burrow, params Daily[] daily) where T : GenericAnimalBehaviour
         {
             string id = species.ToString();
@@ -111,7 +111,7 @@ namespace AnimalGame.Editor
             s.FindProperty("aggressiveSpeedMetersPerSecond").floatValue = flee;
             s.FindProperty("baseAggressionChancePerCheck").floatValue = species == AnimalSpecies.AmericanBison || species == AnimalSpecies.NorthAmericanPorcupine ? .035f : 0f;
             s.FindProperty("corpseNutrition").floatValue = health;
-            bool quickLook = species == AnimalSpecies.PrairieGrouse || species == AnimalSpecies.AmericanMarmot;
+            bool quickLook = species == AnimalSpecies.GreaterPrairieChicken || species == AnimalSpecies.Groundhog;
             s.FindProperty("lookIntervalSeconds").vector2Value = quickLook ? new Vector2(.5f, 2f) : new Vector2(1f, 2f);
             var foods = s.FindProperty("foodPreferences"); foods.arraySize = species == AnimalSpecies.Pronghorn ? 1 : 0;
             if (foods.arraySize > 0) { foods.GetArrayElementAtIndex(0).FindPropertyRelative("foodType").enumValueIndex = 0; foods.GetArrayElementAtIndex(0).FindPropertyRelative("selectionWeight").floatValue = 1f; }
@@ -129,10 +129,10 @@ namespace AnimalGame.Editor
             }
             s.ApplyModifiedPropertiesWithoutUndo();
             if (!AssetDatabase.IsValidFolder(Prefabs + id)) AssetDatabase.CreateFolder("Assets/Prefabs/Animals", id);
-            BuildPrefab<T>(config, species, chinese, english, scientific, false, burrow);
-            if (juvenile) BuildPrefab<T>(config, species, chinese, english, scientific, true, burrow);
+            BuildPrefab<T>(config, species, false, burrow);
+            if (juvenile) BuildPrefab<T>(config, species, true, burrow);
         }
-        private static void BuildPrefab<T>(AnimalSpeciesConfig config, AnimalSpecies species, string chinese, string english, string scientific, bool juvenile, AnimalBurrow burrow) where T : GenericAnimalBehaviour
+        private static void BuildPrefab<T>(AnimalSpeciesConfig config, AnimalSpecies species, bool juvenile, AnimalBurrow burrow) where T : GenericAnimalBehaviour
         {
             // Reuse the established placeholder artwork, discovery field and photo components.
             var template = AssetDatabase.LoadAssetAtPath<GameObject>(Prefabs + "MountainGoat/MountainGoat_Placeholder.prefab");
@@ -185,10 +185,6 @@ namespace AnimalGame.Editor
                 discovery.ConfigureEditorDefaults(DiscoverableKind.Animal, species.ToString(), false);
                 var photo = new SerializedObject(root.GetComponent<AnimalPhotoSubject>());
                 photo.FindProperty("species").enumValueIndex = (int)species;
-                photo.FindProperty("speciesId").stringValue = species.ToString();
-                photo.FindProperty("displayName").stringValue = chinese;
-                photo.FindProperty("englishName").stringValue = english;
-                photo.FindProperty("scientificName").stringValue = scientific;
                 photo.ApplyModifiedPropertiesWithoutUndo();
                 var sound = new SerializedObject(root.GetComponent<AnimalSoundEmitter>());
                 foreach (string field in new[] { "flyingSound", "takeoffSound", "landingSound", "peckingSound" })

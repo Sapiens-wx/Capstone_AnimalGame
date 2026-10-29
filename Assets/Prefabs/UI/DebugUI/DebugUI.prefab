@@ -66,6 +66,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aec8c125425b4e4c864ec72ee2c033e4, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  photoLibrary: {fileID: 11400000, guid: 31cc7cf493f858a4eba15aea2638b632, type: 2}
 --- !u!114 &11400003
 MonoBehaviour:
   m_ObjectHideFlags: 0

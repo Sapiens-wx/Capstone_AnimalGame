@@ -9,8 +9,8 @@ namespace AnimalGame.Animals
         Wolf = 4,
         AmericanBison = 5,
         Pronghorn = 6,
-        PrairieGrouse = 7,
-        AmericanMarmot = 8,
+        GreaterPrairieChicken = 7,
+        Groundhog = 8,
         NorthAmericanPorcupine = 9
     }
 }

@@ -208,10 +208,9 @@ namespace AnimalGame.Editor
                         }
                         else Require(lesson.Progress.Step == DiscoveryTutorialStep.Charge, "Discovery must start by requesting a fresh charge.");
                         var subject = lesson.Targets.Animal.GetComponent<AnimalPhotoSubject>();
-                        Require(subject != null && subject.Species == AnimalSpecies.PileatedWoodpecker
-                            && subject.SpeciesId == "pileated_woodpecker",
+                        Require(subject != null && subject.Species == AnimalSpecies.PileatedWoodpecker,
                             "The designated scan subject must be the requested woodpecker.");
-                        report.species = subject.SpeciesId;
+                        report.species = subject.Species.ToString();
                         Require(lesson.Targets.GetComponentsInChildren<AnimalGame.Discovery.DiscoverableEntity>(true).Length == 1
                             && lesson.Targets.GetComponentsInChildren<AnimalGame.World.ScannableInteractable>(true).Length == 1,
                             "The tutorial owner must contain exactly one animal and one object, without duplicate runtime clones.");

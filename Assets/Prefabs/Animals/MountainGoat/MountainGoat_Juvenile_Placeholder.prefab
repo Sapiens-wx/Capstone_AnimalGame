@@ -610,11 +610,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 3
-  speciesId: mountain_goat
-  displayName: "\u96EA\u7F8A"
-  englishName: Mountain Goat
-  scientificName: Oreamnos americanus
-  regionName: Rocky Mountains
   accentColor: {r: 1, g: 0.82, b: 0.18, a: 1}
   cognitionDegrees: 100
   baseReward: 10

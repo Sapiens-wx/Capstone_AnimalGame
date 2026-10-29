@@ -581,11 +581,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   species: 2
-  speciesId: pileated_woodpecker
-  displayName: "\u5317\u7F8E\u9ED1\u5544\u6728\u9E1F"
-  englishName: Pileated Woodpecker
-  scientificName: Dryocopus pileatus
-  regionName: Rocky Mountains
   accentColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
   cognitionDegrees: 100
   baseReward: 10

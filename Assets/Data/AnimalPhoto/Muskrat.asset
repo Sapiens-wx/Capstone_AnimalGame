@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: Muskrat
   m_EditorClassIdentifier: 
   species: 1
+  displayName: Muskrat
+  chineseName: "\u9E9D\u9F20"
+  scientificName: Ondatra zibethicus
+  regionName: Rocky Mountains
   states:
   - state: 0
     photos:

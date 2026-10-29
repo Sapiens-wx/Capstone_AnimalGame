@@ -210,8 +210,7 @@ namespace AnimalGame.Editor
                             "A fixed teaching woodpecker must start at its authored dry-land anchor.");
                         Require(bootstrap.map.TrySampleStaticWaterMapPosition(report.initialAnchor, out float initialAnimalDepth)
                             && initialAnimalDepth <= .01f, "The teaching woodpecker must begin on actual dry map ground.");
-                        Require(Subject != null && Subject.Species == AnimalSpecies.PileatedWoodpecker
-                            && Subject.SpeciesId == "pileated_woodpecker",
+                        Require(Subject != null && Subject.Species == AnimalSpecies.PileatedWoodpecker,
                             "The actual photo subject must be the same owned tutorial woodpecker.");
                         Require(!Targets.Animal.IsPermanentlyDiscovered && !Targets.HasAnimalMotionStarted,
                             "The animal must begin unknown and remain stationary throughout scanning and photography.");
@@ -699,7 +698,7 @@ namespace AnimalGame.Editor
             report.travelledMeters = Targets.AnimalTravelledMeters; report.sawAnimalMove |= report.travelledMeters >= 2f;
             report.animalMapPosition = Targets.AnimalMapPosition;
             if (Subject != null)
-            { report.species = Subject.SpeciesId; report.subjectPhotoState = Subject.PhotoState.ToString(); }
+            { report.species = Subject.Species.ToString(); report.subjectPhotoState = Subject.PhotoState.ToString(); }
             bootstrap.map.TrySampleStaticWaterMapPosition(report.animalMapPosition, out report.animalWaterDepth);
             if (Targets.AnimalActor == null || !Targets.AnimalActor.HasStartedDepartureFlight)
                 report.animalOnDryGround = report.animalWaterDepth <= .01f;
@@ -785,7 +784,7 @@ namespace AnimalGame.Editor
             object[] selectedArguments = { null, 0f };
             report.nativeSelectionFound = (bool)typeof(PhotoResultUI).GetMethod("TrySelectMainSubject", Flags).Invoke(results, selectedArguments);
             AnimalPhotoSubject selected = selectedArguments[0] as AnimalPhotoSubject;
-            report.nativeSelectedSubject = selected != null ? selected.name + " / " + selected.SpeciesId : string.Empty;
+            report.nativeSelectedSubject = selected != null ? selected.name + " / " + selected.Species.ToString() : string.Empty;
             report.selectedCoverage = (float)selectedArguments[1];
         }
 

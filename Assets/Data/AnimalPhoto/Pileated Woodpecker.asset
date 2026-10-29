@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: Pileated Woodpecker
   m_EditorClassIdentifier: 
   species: 2
+  displayName: Pileated Woodpecker
+  chineseName: "\u5317\u7F8E\u9ED1\u5544\u6728\u9E1F"
+  scientificName: Dryocopus pileatus
+  regionName: Rocky Mountains
   states:
   - state: 0
     photos:

@@ -863,18 +863,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: AmericanMarmot_Placeholder
       objectReference: {fileID: 0}
-    - target: {fileID: 353233392117933693, guid: bbc5eea579ab6334495448951350ff2d, type: 3}
-      propertyPath: speciesId
-      value: Groundhog
-      objectReference: {fileID: 0}
-    - target: {fileID: 353233392117933693, guid: bbc5eea579ab6334495448951350ff2d, type: 3}
-      propertyPath: englishName
-      value: Groundhog
-      objectReference: {fileID: 0}
-    - target: {fileID: 353233392117933693, guid: bbc5eea579ab6334495448951350ff2d, type: 3}
-      propertyPath: scientificName
-      value: Marmota monax
-      objectReference: {fileID: 0}
     - target: {fileID: 2231577620671773943, guid: bbc5eea579ab6334495448951350ff2d, type: 3}
       propertyPath: m_LocalPosition.x
       value: 11.667268

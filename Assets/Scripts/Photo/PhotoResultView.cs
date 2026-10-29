@@ -206,7 +206,7 @@ namespace AnimalGame.RobotMap
                     ? controller.CurrentCamera.Capture(0) : PhotoCaptureSettings.Basic();
                 var sample = new AnimalPhoto(Texture2D.whiteTexture,
                     new Rect(0, 0, 1, 1), 1, settings);
-                var result = new PhotoResultSnapshot("warmup", "Animal", "Animal", "Scientific name",
+                var result = new PhotoResultSnapshot("Animal", "Scientific name",
                     "Region", Color.white, 1, 1, 1, sample, new Vector2(12, 34), 56, 1,
                     new DateTime(2026, 1, 1, 12, 0, 0), AnimalSpecies.Muskrat, AnimalState.Daily, true, true);
                 ShowCore(result, Texture2D.blackTexture);
@@ -360,7 +360,7 @@ namespace AnimalGame.RobotMap
 
         private void PopulateResultText(PhotoResultSnapshot result)
         {
-            root.Q<Label>("animal-name").text = result.EnglishName;
+            root.Q<Label>("animal-name").text = result.DisplayName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             UpdateLocation(result);
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";

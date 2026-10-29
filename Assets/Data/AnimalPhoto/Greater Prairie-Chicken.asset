@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: Greater Prairie-Chicken
   m_EditorClassIdentifier: 
   species: 7
+  displayName: Greater Prairie-Chicken
+  chineseName: "\u8349\u539F\u677E\u9E21"
+  scientificName: Tympanuchus cupido
+  regionName: Rocky Mountains
   states:
   - state: 0
     photos:

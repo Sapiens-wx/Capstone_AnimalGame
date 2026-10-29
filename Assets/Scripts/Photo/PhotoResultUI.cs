@@ -464,6 +464,7 @@ namespace AnimalGame.RobotMap
             AnimalPhoto selectedPhoto,
             float frameCoverage)
         {
+            AnimalPhotoLibrary animalLibrary = photoLibrary.GetAnimal(subject.Species);
             Vector2 mapPosition = subject.transform.position;
             float heightMeters = 0f;
             float latitude = 0f, longitude = 0f;
@@ -482,15 +483,13 @@ namespace AnimalGame.RobotMap
 
             string levelName = map != null && map.LevelAsset != null
                 ? map.LevelAsset.name.Replace('_', ' ')
-                : subject.RegionName;
+                : animalLibrary.RegionName;
             return new PhotoResultSnapshot(
-                subject.SpeciesId,
-                subject.DisplayName,
-                subject.EnglishName,
-                subject.ScientificName,
-                string.IsNullOrWhiteSpace(subject.RegionName)
+                animalLibrary.DisplayName,
+                animalLibrary.ScientificName,
+                string.IsNullOrWhiteSpace(animalLibrary.RegionName)
                     ? levelName
-                    : subject.RegionName,
+                    : animalLibrary.RegionName,
                 subject.AccentColor,
                 subject.CognitionDegrees,
                 subject.BaseReward,
@@ -594,9 +593,7 @@ namespace AnimalGame.RobotMap
     public sealed class PhotoResultSnapshot
     {
         public PhotoResultSnapshot(
-            string speciesId,
             string displayName,
-            string englishName,
             string scientificName,
             string regionName,
             Color accentColor,
@@ -616,9 +613,7 @@ namespace AnimalGame.RobotMap
             float longitude = 0f,
             bool hasGeographicCoordinates = false)
         {
-            SpeciesId = speciesId;
             DisplayName = displayName;
-            EnglishName = englishName;
             ScientificName = scientificName;
             RegionName = regionName;
             AccentColor = accentColor;
@@ -639,9 +634,7 @@ namespace AnimalGame.RobotMap
             HasGeographicCoordinates = hasGeographicCoordinates;
         }
 
-        public string SpeciesId { get; }
         public string DisplayName { get; }
-        public string EnglishName { get; }
         public string ScientificName { get; }
         public string RegionName { get; }
         public Color AccentColor { get; }

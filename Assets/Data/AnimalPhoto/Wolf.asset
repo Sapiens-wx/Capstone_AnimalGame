@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: Wolf
   m_EditorClassIdentifier: 
   species: 4
+  displayName: Wolf
+  chineseName: "\u72FC"
+  scientificName: Canis lupus
+  regionName: Rocky Mountains
   states:
   - state: 0
     photos:

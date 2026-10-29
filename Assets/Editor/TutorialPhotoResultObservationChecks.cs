@@ -149,7 +149,7 @@ namespace AnimalGame.Editor
         }
 
         private static PhotoResultSnapshot Snapshot(string name) => new PhotoResultSnapshot(
-            "pileated_woodpecker", name, name, "Dryocopus pileatus", "Tutorial", Color.yellow,
+            name, "Dryocopus pileatus", "Tutorial", Color.yellow,
             1, 2, 3, null, Vector2.zero, 0f, 1f, new DateTime(2026, 1, 1),
             AnimalSpecies.PileatedWoodpecker, AnimalState.Daily, true, true);
 

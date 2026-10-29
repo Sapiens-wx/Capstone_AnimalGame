@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: American Bison
   m_EditorClassIdentifier: 
   species: 5
+  displayName: American bison
+  chineseName: "\u7F8E\u6D32\u91CE\u725B"
+  scientificName: Bison bison
+  regionName: Rocky Mountains
   states:
   - state: 0
     photos:

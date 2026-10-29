@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: Groundhog
   m_EditorClassIdentifier: 
   species: 8
+  displayName: Groundhog
+  chineseName: "\u7F8E\u6D32\u65F1\u736D"
+  scientificName: Marmota monax
+  regionName: Rocky Mountains
   states:
   - state: 0
     photos:

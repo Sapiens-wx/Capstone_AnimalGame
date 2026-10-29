@@ -462,15 +462,23 @@ namespace AnimalGame.Editor
             try
             {
                 var subject = subjectObject.AddComponent<AnimalPhotoSubject>();
+                var serializedSubject = new SerializedObject(subject);
+                serializedSubject.FindProperty("species").enumValueIndex = (int)AnimalSpecies.PileatedWoodpecker;
+                serializedSubject.ApplyModifiedPropertiesWithoutUndo();
                 subject.transform.position = map.WorldBounds.max;
                 robot.transform.position = map.WorldBounds.min;
                 var controller = robot.gameObject.AddComponent<PhotoModeController>();
                 controller.enabled = false;
                 var resultUI = resultObject.AddComponent<PhotoResultUI>();
+                resultUI.Library = AssetDatabase.LoadAssetAtPath<PhotoLibrary>("Assets/Data/AnimalPhoto/AnimalPhotoLibrary.asset");
                 typeof(PhotoResultUI).GetField("map", Flags).SetValue(resultUI, map);
                 typeof(PhotoResultUI).GetField("controller", Flags).SetValue(resultUI, controller);
                 var create = typeof(PhotoResultUI).GetMethod("CreateSnapshot", Flags);
                 var snapshot = (PhotoResultSnapshot)create.Invoke(resultUI, new object[] { subject, null, .5f });
+                AnimalPhotoLibrary identity = resultUI.Library.GetAnimal(subject.Species);
+                Assert(snapshot.DisplayName == identity.DisplayName && snapshot.ScientificName == identity.ScientificName
+                    && snapshot.RegionName == identity.RegionName && snapshot.Species == subject.Species,
+                    "Photo identity comes from the species library");
                 Assert(snapshot.HasGeographicCoordinates && snapshot.Latitude == 30 && snapshot.Longitude == -110,
                     "Photo samples player coordinates rather than animal coordinates");
                 Assert(snapshot.MapPositionMeters == map.MapSizeMeters,
