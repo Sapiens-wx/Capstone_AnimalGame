@@ -72,7 +72,6 @@ MonoBehaviour:
   surfaceScatterStrength: 0.35
   surfaceNoiseSeed: 1337
   surfaceBakeResolution: 2048
-  surfaceMaskResolution: 512
   surfacePatternAlphaNormalizationStrength: 0.75
   surfaceClosedContourAlphaEnabled: 1
   surfaceClosedContourAlphaResolution: 512
@@ -83,12 +82,13 @@ MonoBehaviour:
   surfaceClosedContourDistanceCurve: 2
   surfaceClosedContourMinimumAreaSquareMeters: 4
   surfaceOutsideClosedContourAlphaMultiplier: 0
-  surfaceMask: 
-  surfaceDataVersion: 0
   surfacePatternTexture: {fileID: 0}
   surfaceTint: {r: 1, g: 1, b: 1, a: 1}
   surfaceOpacity: 0.35
   surfaceTileSizeMeters: 8
+  surfaceMaskResolution: 512
+  surfaceMask: 
+  surfaceDataVersion: 0
   bakedSurfaceVisual: {fileID: 0}
   surfaceRevealEdgePixels: 4
   surfaceBakeRevision: 0

@@ -1690,10 +1690,10 @@ MonoBehaviour:
     - {x: 3256.781, y: 1367.8938}
     LabelPositionMeters: {x: 3347.9524, y: 610.2294}
     ElevationRangeMeters: {x: 30, y: 55}
-  showPlan: 1
+  showPlan: 0
   showGrid: 0
   showLabels: 1
-  showHeightReferences: 1
+  showHeightReferences: 0
   showAreaReferences: 0
 --- !u!4 &531352771
 Transform:
@@ -4430,7 +4430,7 @@ Transform:
   m_GameObject: {fileID: 1823106657}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2310.7, y: 81.7, z: 795.9}
+  m_LocalPosition: {x: 2310.7, y: 97.3, z: 795.9}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []

@@ -165,12 +165,12 @@ MonoBehaviour:
   elevationFilterKeyboardToggleKey: 104
   elevationFilterStartsEnabled: 0
   lowerElevationFilterColor: {r: 0.12, g: 0.54, b: 0.78, a: 1}
-  higherElevationFilterColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
+  higherElevationFilterColor: {r: 1, g: 0.82, b: 0.38, a: 1}
   elevationFilterMaximumOpacity: 0.44
   elevationFilterRelativeRangeMeters: 15
   elevationFilterNeutralBandMeters: 1.5
   elevationFilterResponseExponent: 1.15
-  playerHeightReferenceColor: {r: 0.83137256, g: 0.72156864, b: 0.32941177, a: 1}
+  playerHeightReferenceColor: {r: 1, g: 0.96, b: 0.7, a: 1}
   playerHeightReferenceLineWidth: 2.4
   playerHeightReferenceOpacity: 0.95
   elevationFilterHillshadeStrength: 0.16
@@ -237,9 +237,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f904736fbae4fc1972054c8b2cc7d49, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerSpawnMapPositionMeters: {x: 472.21, y: 180.3}
+  playerSpawnMapPositionMeters: {x: 600, y: 330}
+  playerSpawnRotationDegrees: 0
   showRobotTerrainData: 1
   photoLibrary: {fileID: 0}
+  initialPhotoCamera: {fileID: 0}
   showFrameRate: 1
   frameRateRefreshInterval: 0.25
   map: {fileID: 12194373}
