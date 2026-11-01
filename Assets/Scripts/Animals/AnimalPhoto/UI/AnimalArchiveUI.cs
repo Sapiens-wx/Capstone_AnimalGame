@@ -29,7 +29,8 @@ namespace AnimalGame.Animals.UI
         }
         private readonly Stack<Location> history = new();
         private readonly PhotoCollection photos = new();
-        private readonly List<AnimalSpecies> collections = new(), catalogSpecies = new();
+        private readonly List<AnimalSpecies?> collections = new();
+        private readonly List<AnimalSpecies> catalogSpecies = new();
         private readonly List<string> regions = new();
         private Page page;
         private AnimalSpecies species;
@@ -68,7 +69,6 @@ namespace AnimalGame.Animals.UI
             if (bootstrap == null || bootstrap.photoMode.IsActive
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             collections.Clear();
-            collections.AddRange(AnimalArchiveAssets.Active.Photos.Keys.OrderBy(s => (int)s));
             regions.Clear(); regions.AddRange(AnimalArchiveAssets.Active.Info.Values.Select(i => i.Region).Distinct());
             history.Clear(); page = Page.Photos; collection = region = catalogIndex = 0;
             photos.Selected = photos.TopRow = 0; photos.SortFocused = false;
@@ -126,6 +126,12 @@ namespace AnimalGame.Animals.UI
         private void Refresh()
         {
             if (!BlocksGameplay || root == null) return;
+            var selectedCollection = collections.Count == 0 ? null : collections[collection];
+            collections.Clear();
+            collections.Add(null); // All Collection has no species filter.
+            collections.AddRange(SaveSystem.Current.photos.Select(p => p.species).Distinct()
+                .OrderBy(s => (int)s).Select(s => (AnimalSpecies?)s));
+            collection = Math.Max(0, collections.IndexOf(selectedCollection));
             bool isPhotos = page == Page.Photos || page == Page.Inspection;
             if (page == Page.Species) region = regions.IndexOf(AnimalArchiveAssets.Active.Info[species].Region);
             root.Q("photos-page").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
@@ -142,10 +148,12 @@ namespace AnimalGame.Animals.UI
                 {
                     int chosen = i; var animal = collections[i];
                     var button = new Button(() => { collection = chosen; photos.SortFocused = false; Refresh(); });
-                    button.text = $"{AnimalArchiveAssets.Active.Photos[animal].DisplayName}\n{SaveSystem.Current.photos.Count(p => p.species == animal):00} RECORDS";
+                    string name = animal.HasValue ? AnimalArchiveAssets.Active.Photos[animal.Value].DisplayName : "All Collection";
+                    int count = animal.HasValue ? SaveSystem.Current.photos.Count(p => p.species == animal.Value) : SaveSystem.Current.photos.Count;
+                    button.text = $"{name}\n{count:00} RECORDS";
                     button.focusable = false; button.AddToClassList("collection"); button.EnableInClassList("selected", i == collection); sidebar.Add(button);
                 }
-                photos.Bind(SaveSystem.Current.photos, collections.Count == 0 ? AnimalSpecies.Unknown : collections[collection]);
+                photos.Bind(SaveSystem.Current.photos, collections[collection]);
                 RenderPhotos();
             }
             else
@@ -208,7 +216,6 @@ namespace AnimalGame.Animals.UI
         {
             if (page == Page.Photos || page == Page.Inspection)
             {
-                if (collections.Count == 0) return;
                 collection = (collection + direction + collections.Count) % collections.Count; photos.SortFocused = false;
             }
             else if (page == Page.Species)

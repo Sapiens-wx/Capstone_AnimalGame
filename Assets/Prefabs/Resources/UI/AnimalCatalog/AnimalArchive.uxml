@@ -1,73 +1,110 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:archive="AnimalGame.Animals.UI">
-  <Style src="AnimalArchive.uss" />
-  <ui:VisualElement name="archive-shell">
-    <archive:ArchiveGridElement name="archive-grid" picking-mode="Ignore" />
-    <ui:VisualElement class="tabs"><ui:Button name="photos-tab" text="[LB] Photos"/><ui:Button name="catalog-tab" text="Catalog [RB]"/></ui:VisualElement>
-    <ui:VisualElement class="body">
-      <ui:VisualElement class="sidebar">
-        <ui:Label name="sidebar-title" class="heading" text="COLLECTION"/>
-        <ui:Button name="previous" text="[LT] Previous"/>
-        <ui:ScrollView name="collections"/>
-        <ui:Button name="next" text="Next [RT]"/>
-        <ui:Label name="local-count"/>
-      </ui:VisualElement>
-      <ui:VisualElement class="workspace">
-        <ui:VisualElement name="photos-page" class="page row">
-          <ui:VisualElement name="photo-index">
-            <ui:VisualElement class="row index-header"><ui:Label class="heading" text="PHOTO INDEX"/><ui:Button name="photo-sort" text="Newest first ?"/></ui:VisualElement>
-            <ui:Label class="hint" text="LEFT STICK / D-PAD  SELECT PHOTO"/>
-            <ui:VisualElement name="photo-tiles"/>
-          </ui:VisualElement>
-          <ui:VisualElement name="photo-preview">
-            <ui:Label name="photo-name" class="title"/>
-            <ui:Label name="photo-scientific" class="scientific"/>
-            <ui:VisualElement class="preview-body">
-              <ui:Image name="photo-image" scale-mode="ScaleToFit"/>
-              <ui:VisualElement class="photo-information">
-                <ui:Label class="heading" text="LOCATION"/><ui:Label name="photo-region"/>
-                <ui:Label name="photo-metadata"/>
-                <ui:Label name="photo-status"/>
-                <ui:Button name="photo-open" text="[A] VIEW PHOTOGRAPH"/>
-                <ui:Button name="photo-catalog" text="[Y] VIEW CATALOG"/>
-              </ui:VisualElement>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:archive="AnimalGame.Animals.UI" editor-extension-mode="False">
+    <Style src="project://database/Assets/Prefabs/Resources/UI/AnimalCatalog/AnimalArchive.uss?fileID=7433441132597879392&amp;guid=1e2249d0c9d4e954b9e38285620aee36&amp;type=3#AnimalArchive" />
+    <ui:VisualElement name="archive-viewport" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0;">
+        <ui:VisualElement name="archive-shell">
+            <archive:ArchiveGridElement name="archive-grid" picking-mode="Ignore" />
+            <ui:VisualElement class="tabs">
+                <ui:Button name="photos-tab" class="active-tab tab-action">
+                    <ui:Label text="LB" picking-mode="Ignore" class="key-badge" />
+                    <ui:Label text="Photos" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Button name="catalog-tab" class="tab-action">
+                    <ui:Label text="Catalog" picking-mode="Ignore" />
+                    <ui:Label text="RB" picking-mode="Ignore" class="key-badge" />
+                </ui:Button>
             </ui:VisualElement>
-          </ui:VisualElement>
-        </ui:VisualElement>
-        <ui:VisualElement name="catalog-page" class="page">
-          <ui:Label class="heading" text="MAIN CATALOG"/><ui:Label name="region-title" class="title"/>
-          <ui:Label class="hint" text="LEFT STICK / D-PAD  SELECT SPECIES     LT / RT  CHANGE REGION"/>
-          <ui:ScrollView name="catalog-list"/>
-        </ui:VisualElement>
-        <ui:VisualElement name="species-page" class="page">
-          <ui:Button name="main-catalog" text="[Y] Main Catalog"/>
-          <ui:Label name="catalog-name" class="title"/><ui:Label name="catalog-scientific" class="scientific"/>
-          <ui:Label name="catalog-region"/>
-          <ui:ScrollView name="catalog-details">
-            <ui:VisualElement class="row catalog-columns">
-              <ui:VisualElement class="catalog-column narrow">
-                <ui:Label class="heading" text="Classification"/><ui:Label name="classification"/>
-                <ui:Label class="heading" text="Lifespan"/><ui:Label name="lifespan"/>
-                <ui:Label class="heading" text="Conservation Status (21st c.)"/><ui:Label name="conservation"/>
-              </ui:VisualElement>
-              <ui:VisualElement class="catalog-column illustration-column">
-                <ui:Label class="heading" text="Physical Characteristics"/><ui:Label name="physical"/>
-                <ui:Image name="catalog-illustration" scale-mode="ScaleToFit"/>
-              </ui:VisualElement>
-              <ui:VisualElement class="catalog-column narrow">
-                <ui:Label class="heading" text="Distribution"/><ui:Image name="distribution-map" scale-mode="ScaleToFit"/><ui:Label name="distribution"/>
-                <ui:Label class="heading" text="Habitat"/><ui:Label name="habitat"/>
-                <ui:Label class="heading" text="Diet"/><ui:Label name="diet"/>
-                <ui:Label class="heading" text="Social Behavior"/><ui:Label name="social"/>
-                <ui:Label class="heading" text="Activity Pattern"/><ui:Label name="activity"/>
-              </ui:VisualElement>
+            <ui:VisualElement class="body">
+                <ui:VisualElement class="sidebar">
+                    <archive:ArchiveHeadingElement name="sidebar-title" text="COLLECTION" end-length="8" bottom-offset="0" class="heading" />
+                    <ui:Button name="previous" text="LT" class="key-action" style="width: 44px; height: auto;" />
+                    <ui:ScrollView name="collections" />
+                    <ui:Button name="next" text="RT" class="key-action" style="width: 44px; height: auto;" />
+                    <ui:Label name="local-count" />
+                </ui:VisualElement>
+                <ui:VisualElement class="workspace">
+                    <ui:VisualElement name="photos-page" class="page row">
+                        <ui:VisualElement name="photo-index">
+                            <ui:VisualElement class="row index-header">
+                                <archive:ArchiveHeadingElement text="PHOTO INDEX" end-length="8" bottom-offset="0" class="heading" />
+                                <ui:Button name="photo-sort" text="Newest first ↓" />
+                            </ui:VisualElement>
+                            <ui:Label text="LEFT STICK / D-PAD  SELECT PHOTO" class="hint" />
+                            <ui:VisualElement name="photo-tiles" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="photo-preview">
+                            <ui:Label name="photo-name" class="title" />
+                            <ui:Label name="photo-scientific" class="scientific" />
+                            <ui:VisualElement class="preview-body">
+                                <ui:Image name="photo-image" scale-mode="ScaleToFit" />
+                                <ui:VisualElement class="photo-information">
+                                    <ui:Label text="LOCATION" class="heading" />
+                                    <ui:Label name="photo-region" />
+                                    <ui:Label name="photo-metadata" />
+                                    <ui:Label name="photo-status" />
+                                    <ui:Button name="photo-open" text="[A] VIEW PHOTOGRAPH" />
+                                    <ui:Button name="photo-catalog" text="[Y] VIEW CATALOG" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="catalog-page" class="page" style="display: none;">
+                        <ui:Label text="MAIN CATALOG" class="heading" />
+                        <ui:Label name="region-title" class="title" />
+                        <ui:VisualElement class="hint key-action">
+                            <ui:Label text="LEFT STICK / D-PAD  SELECT SPECIES" />
+                            <ui:Label text="LT" class="key-badge" />
+                            <ui:Label text="/" />
+                            <ui:Label text="RT" class="key-badge" />
+                            <ui:Label text="CHANGE REGION" />
+                        </ui:VisualElement>
+                        <ui:ScrollView name="catalog-list" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="species-page" class="page" style="display: none;">
+                        <ui:Button name="main-catalog" text="[Y] Main Catalog" />
+                        <ui:Label name="catalog-name" class="title" />
+                        <ui:Label name="catalog-scientific" class="scientific" />
+                        <ui:Label name="catalog-region" />
+                        <ui:ScrollView name="catalog-details">
+                            <ui:VisualElement class="row catalog-columns">
+                                <ui:VisualElement class="catalog-column narrow">
+                                    <ui:Label text="Classification" class="heading" />
+                                    <ui:Label name="classification" />
+                                    <ui:Label text="Lifespan" class="heading" />
+                                    <ui:Label name="lifespan" />
+                                    <ui:Label text="Conservation Status (21st c.)" class="heading" />
+                                    <ui:Label name="conservation" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="catalog-column illustration-column">
+                                    <ui:Label text="Physical Characteristics" class="heading" />
+                                    <ui:Label name="physical" />
+                                    <ui:Image name="catalog-illustration" scale-mode="ScaleToFit" style="display: none;" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="catalog-column narrow">
+                                    <ui:Label text="Distribution" class="heading" />
+                                    <ui:Image name="distribution-map" scale-mode="ScaleToFit" style="display: none;" />
+                                    <ui:Label name="distribution" />
+                                    <ui:Label text="Habitat" class="heading" />
+                                    <ui:Label name="habitat" />
+                                    <ui:Label text="Diet" class="heading" />
+                                    <ui:Label name="diet" />
+                                    <ui:Label text="Social Behavior" class="heading" />
+                                    <ui:Label name="social" />
+                                    <ui:Label text="Activity Pattern" class="heading" />
+                                    <ui:Label name="activity" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                            <ui:Label text="Description" class="heading" />
+                            <ui:Label name="description" />
+                        </ui:ScrollView>
+                        <ui:Button name="species-photos" text="View Animal Photo [X]" />
+                        <ui:ProgressBar name="recognition" low-value="0" high-value="100" title="Species Recognition" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="footer">
+                        <ui:Label name="record-count" />
+                        <ui:Button name="back" text="Last Menu [B]" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
             </ui:VisualElement>
-            <ui:Label class="heading" text="Description"/><ui:Label name="description"/>
-          </ui:ScrollView>
-          <ui:Button name="species-photos" text="View Animal Photo [X]"/>
-          <ui:ProgressBar name="recognition" low-value="0" high-value="100" title="Species Recognition"/>
         </ui:VisualElement>
-        <ui:VisualElement class="footer"><ui:Label name="record-count"/><ui:Button name="back" text="Last Menu [B]"/></ui:VisualElement>
-      </ui:VisualElement>
     </ui:VisualElement>
-  </ui:VisualElement>
 </ui:UXML>

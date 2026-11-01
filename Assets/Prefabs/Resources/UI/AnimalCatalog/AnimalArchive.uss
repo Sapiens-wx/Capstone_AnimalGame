@@ -3,7 +3,9 @@
 #archive-grid { position: absolute; left: 300px; right: 0; top: 70px; bottom: 75px; }
 .row, .tabs, .body, .footer, .preview-body { flex-direction: row; }
 .tabs { height: 70px; background-color: #060706; }
-.tabs Button { font-size: 34px; width: 235px; border-color: #78796f; border-width: 1px; }
+#photos-tab, #catalog-tab { font-size: 34px; width: 235px; border-color: #9b9c93; border-width: 1px; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; }
+.tab-action > Label { white-space: nowrap; margin-left: 5px; margin-right: 5px; flex-shrink: 0; }
+.tab-action > .key-badge { color: #D4B854; border-width: 1px; border-color: white; font-size: 20px; -unity-font-style: bold; -unity-text-align: middle-center; padding-left: 10px; padding-right: 10px; padding-top: 4px; padding-bottom: 4px; }
 .active-tab { color: #D4B854; }
 .body { flex-grow: 1; min-height: 0; border-top-width: 1px; border-top-color: #a7a79b; }
 .sidebar { width: 280px; padding: 18px; border-right-width: 1px; border-right-color: #9b9c93; background-color: #060706; }
@@ -13,7 +15,7 @@
 .workspace { flex-grow: 1; min-width: 0; }
 .page { flex-grow: 1; min-height: 0; padding: 20px; }
 #photo-index { width: 47%; padding-right: 18px; border-right-width: 1px; border-right-color: #74756c; }
-.index-header { justify-content: space-between; align-items: center; height: 40px; }
+.index-header { justify-content: space-between; align-items: center; min-height: 40px; flex-shrink: 0; }
 #photo-sort { font-size: 16px; }
 .hint { font-size: 15px; margin-top: 10px; margin-bottom: 16px; }
 #photo-tiles { flex-direction: row; flex-wrap: wrap; flex-grow: 1; min-height: 0; }
@@ -57,3 +59,7 @@ Button:disabled { opacity: 0.35; }
 #species-photos, #main-catalog { align-self: flex-end; }
 #recognition { height: 30px; margin-top: 12px; }
 .unity-progress-bar__progress { background-color: #D4B854; }
+
+.heading.archive-heading { border-width: 0; align-self: flex-start; white-space: nowrap; }
+.key-action { color: #D4B854; border-width: 1px; border-color: white; font-size: 20px;-unity-font-style: bold; -unity-text-align: middle-center; padding-left: 10px; padding-right: 10px; padding-top: 4px; padding-bottom: 4px; }
+.hint.key-action { justify-content: flex-start; }

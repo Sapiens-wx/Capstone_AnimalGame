@@ -12,11 +12,11 @@ namespace AnimalGame.Animals.UI
         public bool SortFocused, OldestFirst;
         public AnimalPhotoRecord Current => Photos.Count == 0 ? null : Photos[Selected];
 
-        public void Bind(IEnumerable<AnimalPhotoRecord> photos, AnimalSpecies species)
+        public void Bind(IEnumerable<AnimalPhotoRecord> photos, AnimalSpecies? species = null)
         {
             string selectedId = Current?.id;
             Photos.Clear();
-            foreach (var photo in photos) if (photo.species == species) Photos.Add(photo);
+            foreach (var photo in photos) if (!species.HasValue || photo.species == species.Value) Photos.Add(photo);
             Sort(selectedId);
         }
 
