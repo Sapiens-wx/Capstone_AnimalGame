@@ -465,14 +465,14 @@ namespace AnimalGame.RobotMap
             float frameCoverage)
         {
             AnimalPhotoLibrary animalLibrary = photoLibrary.GetAnimal(subject.Species);
-            Vector2 mapPosition = subject.transform.position;
+            Vector2 mapPosition = controller.transform.position;
             float heightMeters = 0f;
             float latitude = 0f, longitude = 0f;
             bool hasMapPosition = false;
             bool hasHeight = false;
             if (map != null)
             {
-                hasMapPosition = map.TrySampleWorldPosition(subject.transform.position,
+                hasMapPosition = map.TrySampleWorldPosition(controller.transform.position,
                     out Vector2 sampledPosition, out _);
                 if (hasMapPosition) mapPosition = sampledPosition;
                 // PhotoModeController lives on the robot: freeze the player's shutter location.
@@ -498,14 +498,15 @@ namespace AnimalGame.RobotMap
                 mapPosition,
                 heightMeters,
                 Mathf.Clamp01(frameCoverage),
-                DateTime.Now,
+                AnimalGame.MainUI.MainUI.Active.CurrentGameTime,
                 subject.Species,
                 subject.PhotoState,
                 hasMapPosition,
                 hasHeight,
                 latitude,
                 longitude,
-                hasHeight);
+                hasHeight,
+                controller.transform.position);
         }
 
         private void ShowPendingResult()
@@ -611,8 +612,10 @@ namespace AnimalGame.RobotMap
             bool hasHeight,
             float latitude = 0f,
             float longitude = 0f,
-            bool hasGeographicCoordinates = false)
+            bool hasGeographicCoordinates = false,
+            Vector3 playerPosition = default)
         {
+            PlayerPosition = playerPosition;
             DisplayName = displayName;
             ScientificName = scientificName;
             RegionName = regionName;
@@ -634,6 +637,7 @@ namespace AnimalGame.RobotMap
             HasGeographicCoordinates = hasGeographicCoordinates;
         }
 
+        public Vector3 PlayerPosition { get; }
         public string DisplayName { get; }
         public string ScientificName { get; }
         public string RegionName { get; }
@@ -656,29 +660,14 @@ namespace AnimalGame.RobotMap
         public DateTime CapturedAt { get; }
     }
 
-    public sealed class SavedAnimalPhotoRecord
-    {
-        internal SavedAnimalPhotoRecord(PhotoResultSnapshot snapshot)
-        {
-            Snapshot = snapshot;
-        }
-
-        public PhotoResultSnapshot Snapshot { get; }
-    }
-
     public static class PhotoAlbumService
     {
-        private static readonly List<SavedAnimalPhotoRecord> SavedPhotos =
-            new List<SavedAnimalPhotoRecord>();
-
-        public static IReadOnlyList<SavedAnimalPhotoRecord> Photos =>
-            SavedPhotos;
-
+        public static IReadOnlyList<AnimalGame.Save.AnimalPhotoRecord> Photos
+        { get { AnimalGame.Save.SaveSystem.Initialize(); return AnimalGame.Save.SaveSystem.Current.photos; } }
         public static void Save(PhotoResultSnapshot snapshot)
         {
-            if (snapshot != null)
-                SavedPhotos.Add(new SavedAnimalPhotoRecord(snapshot));
+            AnimalGame.Save.SaveSystem.Initialize();
+            AnimalGame.Save.SaveSystem.StorePhoto(AnimalGame.Save.AnimalPhotoRecord.Capture(snapshot));
         }
     }
-
 }

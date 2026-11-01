@@ -157,6 +157,7 @@ namespace AnimalGame.MapTest
                 mainUiObject.GetComponentInChildren<ScanChargeUI>(true);
             photoModeUi =
                 mainUiObject.GetComponent<PhotoModeUI>();
+            Instantiate(Resources.Load<GameObject>("UI/AnimalCatalog/AnimalArchiveUI"), transform);
             photoResultUi =
                 mainUiObject.GetComponent<PhotoResultUI>();
             if (photoResultUi == null)

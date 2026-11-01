@@ -362,7 +362,8 @@ namespace AnimalGame.Editor
                         if (!report.exactResultSaved || !bootstrap.photoResultUi.HasSavedDisplayedResult || !Settled(4)) return;
                         report.albumAfter = PhotoAlbumService.Photos.Count;
                         Require(report.albumAfter == report.albumBefore + 1
-                            && ReferenceEquals(PhotoAlbumService.Photos[report.albumAfter - 1].Snapshot, acceptedResult),
+                            && PhotoAlbumService.Photos[report.albumAfter - 1].capturedTicks == acceptedResult.CapturedAt.Ticks
+                            && PhotoAlbumService.Photos[report.albumAfter - 1].species == acceptedResult.Species,
                             "The real Y save must add this exact result once to the native album.");
                         report.albumRecordAdded = true;
                         Require(lesson.Progress.HasSavedPhoto && lesson.Progress.IsComplete,

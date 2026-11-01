@@ -1,0 +1,59 @@
+:root { color: #e7e7df; font-size: 19px; -unity-font-definition: resource('UI/Photo/GeosansLightStatic'); }
+#archive-shell { position: absolute; left: 25px; right: 25px; top: 18px; bottom: 24px; background-color: #060706; border-width: 1px; border-color: #9b9c93; }
+#archive-grid { position: absolute; left: 300px; right: 0; top: 70px; bottom: 75px; }
+.row, .tabs, .body, .footer, .preview-body { flex-direction: row; }
+.tabs { height: 70px; background-color: #060706; }
+.tabs Button { font-size: 34px; width: 235px; border-color: #78796f; border-width: 1px; }
+.active-tab { color: #D4B854; }
+.body { flex-grow: 1; min-height: 0; border-top-width: 1px; border-top-color: #a7a79b; }
+.sidebar { width: 280px; padding: 18px; border-right-width: 1px; border-right-color: #9b9c93; background-color: #060706; }
+#collections { flex-grow: 1; min-height: 0; margin-top: 14px; margin-bottom: 14px; }
+.collection { white-space: normal; min-height: 96px; -unity-text-align: middle-left; margin-bottom: 9px; padding-left: 12px; border-width: 1px; border-color: #36372e; }
+#local-count { white-space: normal; margin-top: 25px; padding-top: 18px; border-top-width: 1px; border-top-color: #47483f; font-size: 17px; }
+.workspace { flex-grow: 1; min-width: 0; }
+.page { flex-grow: 1; min-height: 0; padding: 20px; }
+#photo-index { width: 47%; padding-right: 18px; border-right-width: 1px; border-right-color: #74756c; }
+.index-header { justify-content: space-between; align-items: center; height: 40px; }
+#photo-sort { font-size: 16px; }
+.hint { font-size: 15px; margin-top: 10px; margin-bottom: 16px; }
+#photo-tiles { flex-direction: row; flex-wrap: wrap; flex-grow: 1; min-height: 0; }
+.photo-tile { width: 31.5%; height: 48%; margin-right: 1.5%; margin-bottom: 2%; border-width: 1px; border-color: #5b5c52; padding: 4px; justify-content: flex-start; }
+.photo-tile Image { width: 100%; flex-grow: 1; min-height: 0; }
+.photo-tile Label { white-space: normal; font-size: 15px; -unity-text-align: upper-left; }
+.selected { border-color: #D4B854; border-width: 2px; color: #D4B854; background-color: rgba(212,184,84,0.06); }
+.unity-button.selected { background-color: rgba(212,184,84,0.06); }
+#photo-preview { flex-grow: 1; min-width: 0; padding-left: 20px; }
+.title { font-size: 43px; -unity-font-style: bold; margin-bottom: 12px; white-space: normal; }
+.scientific { font-size: 26px; padding: 5px; border-bottom-width: 1px; border-bottom-color: #929387; margin-bottom: 20px; }
+.preview-body { flex-grow: 1; min-height: 0; }
+#photo-image { width: 54%; height: 75%; margin-right: 15px; border-width: 1px; border-color: #88897c; }
+.photo-information { flex-grow: 1; min-width: 0; }
+#photo-region { margin-bottom: 30px; white-space: normal; }
+#photo-metadata { white-space: normal; font-size: 17px; }
+#photo-status { font-size: 15px; margin-top: 18px; }
+#photo-open, #photo-catalog { margin-top: 35px; -unity-text-align: middle-left; white-space: normal; }
+#photo-preview.inspection { padding-left: 0; }
+#photo-preview.inspection #photo-name, #photo-preview.inspection #photo-scientific { margin-left: 53%; }
+#photo-preview.inspection .preview-body { margin-top: -130px; }
+#photo-preview.inspection #photo-image { width: 52%; height: 100%; border-width: 0; }
+#photo-preview.inspection .photo-information { padding-top: 145px; }
+.heading { color: #D4B854; font-size: 22px; margin-top: 6px; margin-bottom: 10px; border-bottom-width: 1px; border-bottom-color: #8a783c; white-space: normal; }
+.footer { height: 72px; flex-shrink: 0; border-top-width: 1px; border-top-color: #939487; padding: 18px; justify-content: space-between; align-items: center; background-color: #060706; }
+Button { color: #e7e7df; background-color: transparent; border-width: 0; border-radius: 0; padding: 6px; margin: 0; }
+Button:hover { color: #D4B854; background-color: rgba(212,184,84,0.07); }
+Button:focus { border-color: #D4B854; }
+Button:disabled { opacity: 0.35; }
+#catalog-list { flex-grow: 1; }
+.catalog-entry { min-height: 95px; -unity-text-align: middle-left; white-space: normal; border-width: 1px; border-color: #737468; padding: 15px; margin-bottom: 12px; font-size: 26px; }
+#catalog-details { flex-grow: 1; min-height: 0; margin-top: 12px; }
+#catalog-details .unity-scroll-view__content-container { width: 100%; }
+.catalog-columns { min-height: 400px; }
+.catalog-column { padding: 14px; }
+.catalog-column Label, #description { white-space: normal; }
+.narrow { width: 27%; }
+.illustration-column { width: 46%; }
+#catalog-illustration { height: 320px; }
+#distribution-map { height: 140px; }
+#species-photos, #main-catalog { align-self: flex-end; }
+#recognition { height: 30px; margin-top: 12px; }
+.unity-progress-bar__progress { background-color: #D4B854; }

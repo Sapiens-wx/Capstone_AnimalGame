@@ -26,12 +26,17 @@ namespace AnimalGame.Animals
         [SerializeField] private List<AnimalPhotoLibrary> animals = new List<AnimalPhotoLibrary>();
         public IReadOnlyList<AnimalPhotoLibrary> Animals => animals;
 
-        public AnimalPhotoLibrary GetAnimal(AnimalSpecies species)
+        private Dictionary<AnimalSpecies, AnimalPhotoLibrary> bySpecies;
+        public IReadOnlyDictionary<AnimalSpecies, AnimalPhotoLibrary> BySpecies { get { BuildIndex(); return bySpecies; } }
+        public void BuildIndex()
         {
-            foreach (AnimalPhotoLibrary animal in animals)
-                if (animal != null && animal.Species == species) return animal;
-            throw new System.InvalidOperationException($"No animal photo library configured for {species}.");
+            if (bySpecies != null) return;
+            bySpecies = new();
+            foreach (var animal in animals) bySpecies.Add(animal.Species, animal);
         }
+        private void OnEnable() => bySpecies = null;
+        private void OnValidate() => bySpecies = null;
+        public AnimalPhotoLibrary GetAnimal(AnimalSpecies species) => BySpecies[species];
 
         /// <summary>Select and consume a photo once its random crop has been created successfully.</summary>
         public bool TryChoosePhoto(AnimalSpecies species, AnimalPhotoEnvironment environment, out AnimalPhoto photo)
@@ -39,22 +44,18 @@ namespace AnimalGame.Animals
             photo = null;
             var candidates = new Dictionary<Texture2D, AnimalPhotoEntry>();
             var images = new List<Texture2D>();
-            if (animals == null) return false;
+            if (!BySpecies.TryGetValue(species, out var animal)) return false;
             // A source image is one photo, even if authored in several matching groups.
-            foreach (AnimalPhotoLibrary animal in animals)
+            foreach (AnimalStatePhotos group in animal.States)
             {
-                if (animal == null || animal.Species != species || animal.States == null) continue;
-                foreach (AnimalStatePhotos group in animal.States)
+                if (group == null || group.State != environment || group.Photos == null) continue;
+                foreach (AnimalPhotoEntry entry in group.Photos)
                 {
-                    if (group == null || group.State != environment || group.Photos == null) continue;
-                    foreach (AnimalPhotoEntry entry in group.Photos)
-                    {
-                        if (entry == null || entry.Image == null) continue;
-                        if (!AnimalPhotoProcessing.CanSquareCrop(entry.SubjectRect, entry.Image.width, entry.Image.height)) continue;
-                        if (candidates.ContainsKey(entry.Image)) continue;
-                        candidates.Add(entry.Image, entry);
-                        images.Add(entry.Image);
-                    }
+                    if (entry == null || entry.Image == null) continue;
+                    if (!AnimalPhotoProcessing.CanSquareCrop(entry.SubjectRect, entry.Image.width, entry.Image.height)) continue;
+                    if (candidates.ContainsKey(entry.Image)) continue;
+                    candidates.Add(entry.Image, entry);
+                    images.Add(entry.Image);
                 }
             }
             if (images.Count == 0) return false;
