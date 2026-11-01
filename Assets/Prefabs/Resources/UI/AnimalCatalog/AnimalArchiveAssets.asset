@@ -13,18 +13,7 @@ MonoBehaviour:
   m_Name: AnimalArchiveAssets
   m_EditorClassIdentifier: 
   defaultSave: {fileID: 11400000, guid: 8b4f5129038568d42b2e3f7b6366b5ca, type: 2}
-  photoLibrary: {fileID: 11400000, guid: 31cc7cf493f858a4eba15aea2638b632, type: 2}
   animalInfo: {fileID: 11400000, guid: 62482c67885b0b940acca9f5e07160f0, type: 2}
-  speciesConfigs:
-  - {fileID: 11400000, guid: 57e50a4edfc6d7a47ab62e76d4b1edbf, type: 2}
-  - {fileID: 11400000, guid: 9a781126ce1997540bb1c74ba2351208, type: 2}
-  - {fileID: 11400000, guid: 2183b6fd67924de69a50c06581135737, type: 2}
-  - {fileID: 11400000, guid: 5777bd6aebd0b124587566d577746815, type: 2}
-  - {fileID: 11400000, guid: f7a7333141eb383479ff47e6c527cd44, type: 2}
-  - {fileID: 11400000, guid: a4a57fbf1da5c684699955b72fccc327, type: 2}
-  - {fileID: 11400000, guid: 6d04c2cecb79982458d6669ac5e39c95, type: 2}
-  - {fileID: 11400000, guid: 6044d8e1caf700547b53a4dbca3c3c3a, type: 2}
-  - {fileID: 11400000, guid: 49035b27c45042489393e1d8effff8f5, type: 2}
   images:
   - id: 45bfbd840d5576e498400a0257d253c2
     image: {fileID: 2800000, guid: 45bfbd840d5576e498400a0257d253c2, type: 3}

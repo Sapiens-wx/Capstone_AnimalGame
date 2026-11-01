@@ -256,7 +256,7 @@ namespace AnimalGame.EditorTools
 
         private static void ValidateDefaultAssets()
         {
-            const string directory = "Assets/Data/AnimalPhoto/Rendering/";
+            const string directory = "Assets/Data/Animals/Photo/Rendering/";
             var basic = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>(directory + "BasicCamera.asset");
             var instant = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>(directory + "InstantCamera.asset");
             var robot = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Resources/Robot/RobotMarker.prefab");

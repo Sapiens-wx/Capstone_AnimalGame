@@ -15,7 +15,7 @@ namespace AnimalGame.RobotMap
         [SerializeField] private PhotoResultView resultView;
 
         [Header("Animal Photos")]
-        [SerializeField] private PhotoLibrary photoLibrary;
+        [SerializeField] private AnimalInfoLibrary animalInfoLibrary;
 
         [Header("Subject Detection")]
         [Tooltip("Shrinks the visible camera frame slightly before evaluating subjects, preventing a barely touching animal from counting as photographed.")]
@@ -61,7 +61,7 @@ namespace AnimalGame.RobotMap
         public PhotoResultSnapshot DisplayedResult => displayedResult;
         public AnimalPhotoSubject DisplayedSubject => displayedSubject;
         public bool HasSavedDisplayedResult => saved && displayedResult != null;
-        public PhotoLibrary Library { get => photoLibrary; set => photoLibrary = value; }
+        public AnimalInfoLibrary Library { get => animalInfoLibrary; set => animalInfoLibrary = value; }
 
         public event Action<AnimalPhotoSubject, PhotoResultSnapshot> ResultShown;
         public event Action<AnimalPhotoSubject, PhotoResultSnapshot> PhotoSaved;
@@ -160,12 +160,12 @@ namespace AnimalGame.RobotMap
 
             AnimalPhoto selectedPhoto = null;
             AnimalPhotoEnvironment environment = subject.PhotoEnvironment;
-            bool hasLibraryPhoto = photoLibrary != null && photoLibrary.TryChoosePhoto(
+            bool hasLibraryPhoto = animalInfoLibrary != null && animalInfoLibrary.TryChoosePhoto(
                 subject.Species, environment, out selectedPhoto);
             if (!hasLibraryPhoto)
             {
                 Debug.LogWarning(
-                    $"Photo result skipped: assign PhotoLibrary on PhotoResultUI and add a photo for {subject.Species}/{environment} ('{subject.name}').",
+                    $"Photo result skipped: assign AnimalInfoLibrary on PhotoResultUI and add a photo for {subject.Species}/{environment} ('{subject.name}').",
                     subject);
                 return;
             }
@@ -464,7 +464,7 @@ namespace AnimalGame.RobotMap
             AnimalPhoto selectedPhoto,
             float frameCoverage)
         {
-            AnimalPhotoLibrary animalLibrary = photoLibrary.GetAnimal(subject.Species);
+            AnimalPhotoLibrary animalLibrary = animalInfoLibrary.GetPhotoLibrary(subject.Species);
             Vector2 mapPosition = controller.transform.position;
             float heightMeters = 0f;
             float latitude = 0f, longitude = 0f;

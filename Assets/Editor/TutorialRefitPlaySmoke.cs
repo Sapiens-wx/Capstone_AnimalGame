@@ -443,7 +443,7 @@ namespace AnimalGame.Editor
             Vector2 inward = -machine.transform.up;
             bootstrap.robot.transform.rotation = Quaternion.Euler(0f, 0f, Vector2.SignedAngle(Vector2.up, inward));
             bootstrap.cameraFollow?.SnapToTarget();
-            damagedCamera = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/HalflyBrokenPrimeCamera50.asset");
+            damagedCamera = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/Animals/Photo/Rendering/HalflyBrokenPrimeCamera50.asset");
             Require(damagedCamera != null && bootstrap.photoMode.CurrentCamera == damagedCamera,
                 "The tutorial's existing damaged prime camera must remain equipped before assembly.");
             fixturePrepared = true;

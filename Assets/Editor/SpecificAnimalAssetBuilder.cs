@@ -11,7 +11,7 @@ namespace AnimalGame.Editor
     // Explicit menu only: opening the editor never overwrites authored assets.
     public static class SpecificAnimalAssetBuilder
     {
-        private const string Data = "Assets/Data/Animals/";
+        private const string Data = "Assets/Data/Animals/Behaviour/";
         private const string Actions = Data + "SpeciesActions/";
         private const string Prefabs = "Assets/Prefabs/Animals/";
         public const string BurrowPath = "Assets/Prefabs/Environment/Vegetation/MarmotBurrow.prefab";
@@ -94,7 +94,8 @@ namespace AnimalGame.Editor
             string id = species.ToString();
             var config = LoadOrCreate<AnimalSpeciesConfig>(Data + id + "Config.asset");
             var s = new SerializedObject(config);
-            s.FindProperty("species").intValue = (int)species;
+            AnimalInfoLibrary.Active.SetBehaviour(species, config);
+            EditorUtility.SetDirty(AnimalInfoLibrary.Active);
             s.FindProperty("maximumHealth").floatValue = health;
             s.FindProperty("initialHealthRange").vector2Value = Vector2.one * health;
             s.FindProperty("maximumWalkSlopeDegrees").floatValue = 38f;

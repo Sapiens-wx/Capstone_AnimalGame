@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e51a28958e53bd46b97d8880e9f6c2d, type: 3}
+  m_Name: AnimalInfoLibrary
+  m_EditorClassIdentifier: 
+  animals:
+  - Species: 1
+    photo: {fileID: 11400000, guid: 16074c70366b33a4083b9d3816fb0fbd, type: 2}
+    behaviour: {fileID: 11400000, guid: 5777bd6aebd0b124587566d577746815, type: 2}
+    info: {fileID: 11400000, guid: cf03a51f3da04daa9011253db12a6b9a, type: 2}
+  - Species: 2
+    photo: {fileID: 11400000, guid: b7f189c0665abfd40ac5001ceb2cb8d7, type: 2}
+    behaviour: {fileID: 11400000, guid: a4a57fbf1da5c684699955b72fccc327, type: 2}
+    info: {fileID: 11400000, guid: 4d2801305258497d8fa5e1918fed8132, type: 2}
+  - Species: 3
+    photo: {fileID: 11400000, guid: 648028a02ff449a4c84b3ac692df20e7, type: 2}
+    behaviour: {fileID: 11400000, guid: 2183b6fd67924de69a50c06581135737, type: 2}
+    info: {fileID: 11400000, guid: ef9dbc52144143ec9d01d25d994f64fd, type: 2}
+  - Species: 4
+    photo: {fileID: 11400000, guid: 851d7e2fc33f74342ae8acbc7efe94cf, type: 2}
+    behaviour: {fileID: 11400000, guid: 49035b27c45042489393e1d8effff8f5, type: 2}
+    info: {fileID: 11400000, guid: 91054d38ded94e5e8db68fec5784d4ad, type: 2}
+  - Species: 5
+    photo: {fileID: 11400000, guid: ee7acbc3012e0964d8a2748a2eb172ea, type: 2}
+    behaviour: {fileID: 11400000, guid: 57e50a4edfc6d7a47ab62e76d4b1edbf, type: 2}
+    info: {fileID: 11400000, guid: dc1b6c09bf3d4b7998aa53c7afe6051c, type: 2}
+  - Species: 7
+    photo: {fileID: 11400000, guid: e396cd63d132ac84abae6cec60a11edc, type: 2}
+    behaviour: {fileID: 11400000, guid: 6d04c2cecb79982458d6669ac5e39c95, type: 2}
+    info: {fileID: 11400000, guid: a9c9924262494b5fb0a55c8434fdb220, type: 2}
+  - Species: 9
+    photo: {fileID: 11400000, guid: a71fb7e377be44045b9fbfb39f3903d9, type: 2}
+    behaviour: {fileID: 11400000, guid: f7a7333141eb383479ff47e6c527cd44, type: 2}
+    info: {fileID: 11400000, guid: d095d93bb0ea49d996bac88591dd10b3, type: 2}
+  - Species: 6
+    photo: {fileID: 11400000, guid: 108080188ad8d4e4094e56d6df9a100f, type: 2}
+    behaviour: {fileID: 11400000, guid: 6044d8e1caf700547b53a4dbca3c3c3a, type: 2}
+    info: {fileID: 11400000, guid: 83f540fc4be84bb1a8db8d3a2bc260c7, type: 2}
+  - Species: 8
+    photo: {fileID: 11400000, guid: 05ec34ca388aecb4fb2de21e661f0a23, type: 2}
+    behaviour: {fileID: 11400000, guid: 9a781126ce1997540bb1c74ba2351208, type: 2}
+    info: {fileID: 11400000, guid: 8394339a2bfc4f82b171db0388f81a9e, type: 2}

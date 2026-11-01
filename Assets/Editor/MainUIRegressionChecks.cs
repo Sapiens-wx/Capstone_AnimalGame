@@ -470,12 +470,12 @@ namespace AnimalGame.Editor
                 var controller = robot.gameObject.AddComponent<PhotoModeController>();
                 controller.enabled = false;
                 var resultUI = resultObject.AddComponent<PhotoResultUI>();
-                resultUI.Library = AssetDatabase.LoadAssetAtPath<PhotoLibrary>("Assets/Data/AnimalPhoto/AnimalPhotoLibrary.asset");
+                resultUI.Library = AssetDatabase.LoadAssetAtPath<AnimalInfoLibrary>("Assets/Data/Animals/AnimalInfoLibrary.asset");
                 typeof(PhotoResultUI).GetField("map", Flags).SetValue(resultUI, map);
                 typeof(PhotoResultUI).GetField("controller", Flags).SetValue(resultUI, controller);
                 var create = typeof(PhotoResultUI).GetMethod("CreateSnapshot", Flags);
                 var snapshot = (PhotoResultSnapshot)create.Invoke(resultUI, new object[] { subject, null, .5f });
-                AnimalPhotoLibrary identity = resultUI.Library.GetAnimal(subject.Species);
+                AnimalPhotoLibrary identity = resultUI.Library.GetPhotoLibrary(subject.Species);
                 Assert(snapshot.DisplayName == identity.DisplayName && snapshot.ScientificName == identity.ScientificName
                     && snapshot.RegionName == identity.RegionName && snapshot.Species == subject.Species,
                     "Photo identity comes from the species library");

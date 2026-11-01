@@ -37,14 +37,13 @@ namespace AnimalGame.Animals
     [CreateAssetMenu(fileName = "AnimalPhotoLibrary", menuName = "Animal Game/Photos/Animal Photo Library")]
     public sealed class AnimalPhotoLibrary : ScriptableObject
     {
-        [SerializeField] private AnimalSpecies species;
         [SerializeField] private string displayName;
         [Tooltip("Chinese name for Inspector reference only.")]
         [SerializeField] private string chineseName;
         [SerializeField] private string scientificName;
         [SerializeField] private string regionName;
         [SerializeField] private List<AnimalStatePhotos> states = new List<AnimalStatePhotos>();
-        public AnimalSpecies Species => species;
+        public AnimalSpecies Species => AnimalInfoLibrary.Active.GetSpecies(this);
         public string DisplayName => displayName;
         public string ScientificName => scientificName;
         public string RegionName => regionName;

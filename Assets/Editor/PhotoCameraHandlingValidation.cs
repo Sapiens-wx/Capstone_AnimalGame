@@ -20,8 +20,8 @@ namespace AnimalGame.Editor
     public sealed class PhotoCameraHandlingValidation : ScriptableObject
     {
         private const string SourceProject = "C:/Users/30791/Documents/GitHub/Capstone_AnimalGame";
-        private const string DamagedPath = "Assets/Data/AnimalPhoto/Rendering/HalflyBrokenPrimeCamera50.asset";
-        private const string ZoomPath = "Assets/Data/AnimalPhoto/Rendering/InstantCamera.asset";
+        private const string DamagedPath = "Assets/Data/Animals/Photo/Rendering/HalflyBrokenPrimeCamera50.asset";
+        private const string ZoomPath = "Assets/Data/Animals/Photo/Rendering/InstantCamera.asset";
         private const string UiPath = "Assets/Prefabs/Resources/UI/MainUI.prefab";
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 

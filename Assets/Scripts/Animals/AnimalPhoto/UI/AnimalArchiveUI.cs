@@ -170,9 +170,9 @@ namespace AnimalGame.Animals.UI
                 photosView.Clear();
                 if (page == Page.Species)
                 {
-                    foreach (var info in AnimalArchiveAssets.Active.Info.Values.Where(i => i.Region == regions[region]))
+                    foreach (var info in AnimalArchiveAssets.Active.Info.Where(i => i.Value.Region == regions[region]))
                     {
-                        var chosen = info.Species;
+                        var chosen = info.Key;
                         var progress = SaveSystem.Current.Progress(chosen);
                         var button = new Button(() => { species = chosen; Refresh(); }) {
                             text = progress != null && progress.Tier > 0 ? AnimalArchiveAssets.Active.Photos[chosen].DisplayName : "Unidentified species" };
@@ -211,8 +211,8 @@ namespace AnimalGame.Animals.UI
         {
             if (regions.Count == 0) return;
             if (page == Page.Species) region = regions.IndexOf(AnimalArchiveAssets.Active.Info[species].Region);
-            catalogSpecies.Clear(); catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info.Values
-                .Where(i => i.Region == regions[region]).Select(i => i.Species));
+            catalogSpecies.Clear(); catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info
+                .Where(i => i.Value.Region == regions[region]).Select(i => i.Key));
             var list = root.Q<ScrollView>("catalog-list"); list.Clear();
             root.Q<Label>("region-title").text = regions[region];
             for (int i = 0; i < catalogSpecies.Count; i++)

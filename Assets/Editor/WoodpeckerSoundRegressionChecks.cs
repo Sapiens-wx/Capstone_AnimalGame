@@ -19,7 +19,7 @@ namespace AnimalGame.Editor
     public static class WoodpeckerSoundRegressionChecks
     {
         private const string WoodPrefab = "Assets/Prefabs/Animals/PileatedWoodpecker/PileatedWoodpecker_Placeholder.prefab";
-        private const string WoodConfig = "Assets/Data/Animals/PileatedWoodpeckerConfig.asset";
+        private const string WoodConfig = "Assets/Data/Animals/Behaviour/PileatedWoodpeckerConfig.asset";
         private const string MuskratPrefab = "Assets/Prefabs/Animals/Muskrat/Muskrat_Placeholder.prefab";
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -123,8 +123,8 @@ namespace AnimalGame.Editor
                 Require(!Profile(f.Emitter, name).Enabled, "Bird acquired an unrelated land/water/eating profile: " + name);
             Near((float)Get(f.Emitter, "overallEmissionFrequencyMultiplier"), 1f, "Bird cadence multiplier");
             Require(!f.Behaviour.SupportsAggression, "Sound integration changed woodpecker aggression support");
-            var flight = AssetDatabase.LoadAssetAtPath<FlyToTreeActionDefinition>("Assets/Data/Animals/SpeciesActions/FlyToTree.asset");
-            var peck = AssetDatabase.LoadAssetAtPath<PeckAtTreeActionDefinition>("Assets/Data/Animals/SpeciesActions/PeckAtTree.asset");
+            var flight = AssetDatabase.LoadAssetAtPath<FlyToTreeActionDefinition>("Assets/Data/Animals/Behaviour/SpeciesActions/FlyToTree.asset");
+            var peck = AssetDatabase.LoadAssetAtPath<PeckAtTreeActionDefinition>("Assets/Data/Animals/Behaviour/SpeciesActions/PeckAtTree.asset");
             Near(flight.MinimumTreeStaySeconds, 15f, "Minimum tree stay");
             Require((int)Get(peck, "pecksPerSoundWave") == 3, "Default peck grouping is not three contacts");
         }

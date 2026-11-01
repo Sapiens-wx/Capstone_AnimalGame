@@ -341,7 +341,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerSpawnMapPositionMeters: {x: 330, y: 190}
   showRobotTerrainData: 1
-  photoLibrary: {fileID: 0}
+  animalInfoLibrary: {fileID: 0}
   showFrameRate: 1
   frameRateRefreshInterval: 0.25
   map: {fileID: 1322867318}
