@@ -9,8 +9,8 @@ namespace AnimalGame.Animals.UI
 {
     public sealed class PhotosView : IDisposable
     {
-        private readonly VisualElement root, index, tiles, preview;
-        private readonly Image image;
+        private readonly VisualElement root, index, tiles, preview, heading, information;
+        private readonly ArchivePhotoImageElement image;
         private readonly List<RenderTexture> thumbnails = new();
         private RenderTexture processed, card;
         private Material cardMaterial;
@@ -20,7 +20,8 @@ namespace AnimalGame.Animals.UI
         public PhotosView(VisualElement root, Shader compositeShader)
         {
             this.root = root; index = root.Q("photo-index"); tiles = root.Q("photo-tiles");
-            preview = root.Q("photo-preview"); image = root.Q<Image>("photo-image");
+            preview = root.Q("photo-preview"); image = root.Q<ArchivePhotoImageElement>("photo-image");
+            heading = root.Q("photo-heading"); information = root.Q(className: "photo-information");
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             cardMaterial.SetVector("_Crop", new Vector4(0, 0, 1, 1));
             card = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave };
@@ -36,6 +37,9 @@ namespace AnimalGame.Animals.UI
             ReleaseThumbnails(); tiles.Clear();
             index.style.display = inspection ? DisplayStyle.None : DisplayStyle.Flex;
             preview.EnableInClassList("inspection", inspection);
+            var headingParent = inspection ? information : preview;
+            if (heading.parent != headingParent) headingParent.Insert(0, heading);
+            image.Square = !inspection;
             var sortButton = root.Q<Button>("photo-sort");
             sortButton.text = collection.OldestFirst ? "Oldest first ↑" : "Newest first ↓";
             sortButton.EnableInClassList("selected", collection.SortFocused);
@@ -46,9 +50,26 @@ namespace AnimalGame.Animals.UI
                 var button = new Button(() => select(photoIndex)) { focusable = false }; button.AddToClassList("photo-tile");
                 button.EnableInClassList("selected", i == collection.Selected && !collection.SortFocused);
                 var thumbnail = record.RestorePhoto().Render(256); thumbnails.Add(thumbnail);
-                button.Add(new Image { image = thumbnail, scaleMode = ScaleMode.ScaleToFit });
-                button.Add(new Label($"{i + 1:000}  {record.displayName}"));
-                button.Add(new Label(record.CapturedAt.ToString("yyyy.MM.dd\nHH:mm", CultureInfo.InvariantCulture)));
+                var picture = new VisualElement { pickingMode = PickingMode.Ignore };
+                picture.AddToClassList("photo-tile-picture");
+                var thumbnailImage = new Image { image = thumbnail, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
+                thumbnailImage.AddToClassList("photo-tile-image");
+                float thumbnailAspect = (float)thumbnail.height / thumbnail.width;
+                thumbnailImage.RegisterCallback<GeometryChangedEvent>(evt => {
+                    if (evt.newRect.width != evt.oldRect.width)
+                        thumbnailImage.style.height = evt.newRect.width * thumbnailAspect;
+                });
+                picture.Add(thumbnailImage);
+                var number = new Label($"{i + 1:000}") { pickingMode = PickingMode.Ignore };
+                number.AddToClassList("photo-tile-number");
+                picture.Add(number);
+                button.Add(picture);
+                var name = new Label(record.displayName) { pickingMode = PickingMode.Ignore };
+                name.AddToClassList("photo-tile-name");
+                button.Add(name);
+                var date = new Label(record.CapturedAt.ToString("yyyy.MM.dd\nHH:mm", CultureInfo.InvariantCulture)) { pickingMode = PickingMode.Ignore };
+                date.AddToClassList("photo-tile-date");
+                button.Add(date);
                 if (record.sent) button.Add(new Label("✓ UPLOADED"));
                 button.RegisterCallback<ClickEvent>(e => { if (e.clickCount == 2) open(); });
                 tiles.Add(button);
