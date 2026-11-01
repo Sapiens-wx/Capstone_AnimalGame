@@ -150,7 +150,13 @@ namespace AnimalGame.Animals.UI
                     var button = new Button(() => { collection = chosen; photos.SortFocused = false; Refresh(); });
                     string name = animal.HasValue ? AnimalArchiveAssets.Active.Photos[animal.Value].DisplayName : "All Collection";
                     int count = animal.HasValue ? SaveSystem.Current.photos.Count(p => p.species == animal.Value) : SaveSystem.Current.photos.Count;
-                    button.text = $"{name}\n{count:00} RECORDS";
+                    button.AddToClassList("photo-collection");
+                    var nameLabel = new Label(name) { pickingMode = PickingMode.Ignore };
+                    nameLabel.AddToClassList("collection-name");
+                    var recordsLabel = new Label($"{count:00} RECORDS") { pickingMode = PickingMode.Ignore };
+                    recordsLabel.AddToClassList("collection-records");
+                    button.Add(nameLabel);
+                    button.Add(recordsLabel);
                     button.focusable = false; button.AddToClassList("collection"); button.EnableInClassList("selected", i == collection); sidebar.Add(button);
                 }
                 photos.Bind(SaveSystem.Current.photos, collections[collection]);
