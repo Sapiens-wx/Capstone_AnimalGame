@@ -136,10 +136,15 @@
                     </ui:VisualElement>
                     <ui:VisualElement class="footer">
                         <ui:Label name="record-count" />
-                        <ui:Button name="back" text="Last Menu [B]" />
+                        <ui:Button name="back" class="photo-action">
+                            <ui:Label text="B" class="photo-action-circle" picking-mode="Ignore" />
+                            <ui:Label text="Last Menu" class="photo-action-caption" picking-mode="Ignore" />
+                            <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                        </ui:Button>
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
+            <ui:VisualElement name="tab-selection" picking-mode="Ignore" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
