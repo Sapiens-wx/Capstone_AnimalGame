@@ -15,6 +15,8 @@ namespace AnimalGame.Animals.UI
         private RenderTexture processed, card;
         private Material cardMaterial;
         private Vector2 tilt;
+        private PhotoCollection currentCollection;
+        private Action<int> selectPhoto;
         public PhotosView(VisualElement root, Shader compositeShader)
         {
             this.root = root; index = root.Q("photo-index"); tiles = root.Q("photo-tiles");
@@ -23,10 +25,14 @@ namespace AnimalGame.Animals.UI
             cardMaterial.SetVector("_Crop", new Vector4(0, 0, 1, 1));
             card = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave };
             card.Create();
+            root.Q<Button>("photo-previous").clicked += () => selectPhoto(currentCollection.Selected - 1);
+            root.Q<Button>("photo-next").clicked += () => selectPhoto(currentCollection.Selected + 1);
         }
 
         public void Render(PhotoCollection collection, bool inspection, Action<int> select, Action open, Action catalog, Action sort)
         {
+            currentCollection = collection;
+            selectPhoto = select;
             ReleaseThumbnails(); tiles.Clear();
             index.style.display = inspection ? DisplayStyle.None : DisplayStyle.Flex;
             preview.EnableInClassList("inspection", inspection);
@@ -43,7 +49,7 @@ namespace AnimalGame.Animals.UI
                 button.Add(new Image { image = thumbnail, scaleMode = ScaleMode.ScaleToFit });
                 button.Add(new Label($"{i + 1:000}  {record.displayName}"));
                 button.Add(new Label(record.CapturedAt.ToString("yyyy.MM.dd\nHH:mm", CultureInfo.InvariantCulture)));
-                button.Add(new Label(record.sent ? "✓ UPLOADED" : "STORED"));
+                if (record.sent) button.Add(new Label("✓ UPLOADED"));
                 button.RegisterCallback<ClickEvent>(e => { if (e.clickCount == 2) open(); });
                 tiles.Add(button);
             }
@@ -51,8 +57,15 @@ namespace AnimalGame.Animals.UI
             root.Q<Label>("photo-name").text = current?.displayName ?? "No saved photographs";
             root.Q<Label>("photo-scientific").text = current?.scientificName ?? "";
             root.Q<Label>("photo-region").text = current?.regionName ?? "";
-            root.Q<Label>("photo-metadata").text = current == null ? "Take a photograph and save it from the result screen." : Metadata(current);
-            root.Q<Label>("photo-status").text = current == null ? "" : current.sent ? "✓ UPLOADED" : "STORED";
+            root.Q<Label>("photo-date").text = current?.CapturedAt.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture) ?? "";
+            root.Q("photo-uploaded").style.display = current != null && current.sent ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q<Label>("photo-captured").text = current?.CapturedAt.ToString("yyyy.MM.dd  HH:mm", CultureInfo.InvariantCulture) ?? "";
+            root.Q<Label>("photo-altitude").text = current == null ? "" : current.hasHeight ? $"{current.altitude:0} m" : "- m";
+            root.Q<Label>("photo-position").text = current == null ? "" : Position(current);
+            root.Q<Label>("photo-camera").text = current?.cameraName ?? "";
+            root.Q("photo-navigation").style.display = inspection ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q<Button>("photo-previous").SetEnabled(current != null && collection.Selected > 0);
+            root.Q<Button>("photo-next").SetEnabled(current != null && collection.Selected < collection.Photos.Count - 1);
             var view = root.Q<Button>("photo-open"); view.style.display = inspection ? DisplayStyle.None : DisplayStyle.Flex;
             view.SetEnabled(current != null); view.clicked -= openHandler; openHandler = open; view.clicked += openHandler;
             var guide = root.Q<Button>("photo-catalog"); guide.SetEnabled(current != null);
@@ -63,12 +76,11 @@ namespace AnimalGame.Animals.UI
         }
         private Action sortHandler, openHandler, catalogHandler;
 
-        public static string Metadata(AnimalPhotoRecord p)
+        private static string Position(AnimalPhotoRecord p)
         {
-            string position = p.hasCoordinates
+            return p.hasCoordinates
                 ? $"{Mathf.Abs(p.latitude).ToString("F5", CultureInfo.InvariantCulture)}° {(p.latitude < 0 ? "S" : "N")} / {Mathf.Abs(p.longitude).ToString("F5", CultureInfo.InvariantCulture)}° {(p.longitude < 0 ? "W" : "E")}" 
                 : $"Coordinates ({p.mapPosition.x:0.0}, {p.mapPosition.y:0.0})";
-            return $"Captured:  {p.CapturedAt:yyyy.MM.dd  HH:mm}\nAltitude:  {(p.hasHeight ? $"{p.altitude:0}m" : "- m")}\nPosition:  {position}\nCamera:  {p.cameraName}";
         }
 
         public void Tilt(Vector2 input)

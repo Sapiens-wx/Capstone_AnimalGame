@@ -32,17 +32,46 @@
                             <ui:VisualElement name="photo-tiles" />
                         </ui:VisualElement>
                         <ui:VisualElement name="photo-preview">
-                            <ui:Label name="photo-name" class="title" />
-                            <ui:Label name="photo-scientific" class="scientific" />
                             <ui:VisualElement class="preview-body">
                                 <ui:Image name="photo-image" scale-mode="ScaleToFit" />
                                 <ui:VisualElement class="photo-information">
-                                    <ui:Label text="LOCATION" class="heading" />
-                                    <ui:Label name="photo-region" />
-                                    <ui:Label name="photo-metadata" />
-                                    <ui:Label name="photo-status" />
+                                    <ui:Label name="photo-name" class="title" />
+                                    <archive:ArchiveScientificNameElement name="photo-scientific" bottom-line-ratio="0.4" />
+                                    <ui:VisualElement class="photo-date-row">
+                                        <ui:Label name="photo-date" />
+                                        <ui:VisualElement name="photo-uploaded" class="photo-uploaded" style="display: none;">
+                                            <ui:Label text="&#10003;" class="uploaded-check" />
+                                            <ui:Label text="UPLOADED" />
+                                        </ui:VisualElement>
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="photo-location-row">
+                                        <ui:Label text="LOCATION" class="photo-location-title" />
+                                        <ui:Label name="photo-region" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="photo-metadata">
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Captured:" class="photo-field" /><ui:Label name="photo-captured" class="photo-value" /></ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Altitude:" class="photo-field" /><ui:Label name="photo-altitude" class="photo-value" /></ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Position:" class="photo-field" /><ui:Label name="photo-position" class="photo-value" /></ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Camera:" class="photo-field" /><ui:Label name="photo-camera" class="photo-value" /></ui:VisualElement>
+                                    </ui:VisualElement>
                                     <ui:Button name="photo-open" text="[A] VIEW PHOTOGRAPH" />
-                                    <ui:Button name="photo-catalog" text="[Y] VIEW CATALOG" />
+                                    <ui:VisualElement name="photo-navigation" class="photo-navigation">
+                                        <ui:Button name="photo-previous" class="photo-action">
+                                            <ui:Label text="&#8592;" class="photo-action-circle" picking-mode="Ignore" />
+                                            <ui:Label text="Previous" class="photo-action-caption" picking-mode="Ignore" />
+                                            <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                                        </ui:Button>
+                                        <ui:Button name="photo-next" class="photo-action">
+                                            <ui:Label text="&#8594;" class="photo-action-circle" picking-mode="Ignore" />
+                                            <ui:Label text="Next" class="photo-action-caption" picking-mode="Ignore" />
+                                            <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                                        </ui:Button>
+                                    </ui:VisualElement>
+                                    <ui:Button name="photo-catalog" class="photo-action">
+                                        <ui:Label text="Y" class="photo-action-circle" picking-mode="Ignore" />
+                                        <ui:Label text="VIEW CATALOG" class="photo-action-caption" picking-mode="Ignore" />
+                                        <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                                    </ui:Button>
                                 </ui:VisualElement>
                             </ui:VisualElement>
                         </ui:VisualElement>
