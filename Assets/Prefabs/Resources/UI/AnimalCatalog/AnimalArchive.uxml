@@ -1,0 +1,145 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:archive="AnimalGame.Animals.UI" editor-extension-mode="False">
+    <Style src="project://database/Assets/Prefabs/Resources/UI/AnimalCatalog/AnimalArchive.uss?fileID=7433441132597879392&amp;guid=1e2249d0c9d4e954b9e38285620aee36&amp;type=3#AnimalArchive" />
+    <ui:VisualElement name="archive-viewport" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0;">
+        <ui:VisualElement name="archive-shell">
+            <archive:ArchiveGridElement name="archive-grid" picking-mode="Ignore" />
+            <ui:VisualElement class="tabs">
+                <ui:Button name="photos-tab" class="active-tab tab-action">
+                    <ui:Label text="LB" picking-mode="Ignore" class="key-badge" />
+                    <ui:Label text="Photos" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Button name="catalog-tab" class="tab-action">
+                    <ui:Label text="Catalog" picking-mode="Ignore" />
+                    <ui:Label text="RB" picking-mode="Ignore" class="key-badge" />
+                </ui:Button>
+            </ui:VisualElement>
+            <ui:VisualElement class="body">
+                <ui:VisualElement class="sidebar">
+                    <archive:ArchiveHeadingElement name="sidebar-title" text="COLLECTION" end-length="8" bottom-offset="0" class="heading" />
+                    <ui:Button name="previous" text="LT" class="key-action" style="width: 44px; height: auto;" />
+                    <ui:ScrollView name="collections" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" />
+                    <ui:Button name="next" text="RT" class="key-action" style="width: 44px; height: auto;" />
+                    <ui:Label name="local-count" />
+                </ui:VisualElement>
+                <ui:VisualElement class="workspace">
+                    <ui:VisualElement name="photos-page" class="page row">
+                        <ui:VisualElement name="photo-index">
+                            <ui:VisualElement class="row index-header">
+                                <archive:ArchiveHeadingElement text="PHOTO INDEX" end-length="8" bottom-offset="0" class="heading" />
+                                <ui:Button name="photo-sort" text="Newest first ↓" />
+                            </ui:VisualElement>
+                            <ui:Label text="LEFT STICK / D-PAD  SELECT PHOTO" class="hint" />
+                            <ui:VisualElement name="photo-tiles" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="photo-preview">
+                            <ui:VisualElement name="photo-heading">
+                                <ui:Label name="photo-name" class="title" />
+                                <archive:ArchiveScientificNameElement name="photo-scientific" bottom-line-ratio="0.4" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="preview-body">
+                                <archive:ArchivePhotoImageElement name="photo-image" scale-mode="ScaleToFit" />
+                                <ui:VisualElement class="photo-information">
+                                    <ui:VisualElement class="photo-date-row">
+                                        <ui:Label name="photo-date" />
+                                        <ui:VisualElement name="photo-uploaded" class="photo-uploaded" style="display: none;">
+                                            <ui:Label text="&#10003;" class="uploaded-check" />
+                                            <ui:Label text="UPLOADED" />
+                                        </ui:VisualElement>
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="photo-location-row">
+                                        <ui:Label text="LOCATION" class="photo-location-title" />
+                                        <ui:Label name="photo-region" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="photo-metadata">
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Captured:" class="photo-field" /><ui:Label name="photo-captured" class="photo-value" /></ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Altitude:" class="photo-field" /><ui:Label name="photo-altitude" class="photo-value" /></ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Position:" class="photo-field" /><ui:Label name="photo-position" class="photo-value" /></ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact"><ui:Label text="Camera:" class="photo-field" /><ui:Label name="photo-camera" class="photo-value" /></ui:VisualElement>
+                                    </ui:VisualElement>
+                                    <ui:Button name="photo-open" class="photo-action">
+                                        <ui:Label text="A" class="photo-action-circle" picking-mode="Ignore" />
+                                        <ui:Label text="VIEW PHOTOGRAPH" class="photo-action-caption" picking-mode="Ignore" />
+                                        <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                                    </ui:Button>
+                                    <ui:VisualElement name="photo-navigation" class="photo-navigation">
+                                        <ui:Button name="photo-previous" class="photo-action">
+                                            <ui:Label text="&#8592;" class="photo-action-circle" picking-mode="Ignore" />
+                                            <ui:Label text="Previous" class="photo-action-caption" picking-mode="Ignore" />
+                                            <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                                        </ui:Button>
+                                        <ui:Button name="photo-next" class="photo-action">
+                                            <ui:Label text="&#8594;" class="photo-action-circle" picking-mode="Ignore" />
+                                            <ui:Label text="Next" class="photo-action-caption" picking-mode="Ignore" />
+                                            <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                                        </ui:Button>
+                                    </ui:VisualElement>
+                                    <ui:Button name="photo-catalog" class="photo-action">
+                                        <ui:Label text="Y" class="photo-action-circle" picking-mode="Ignore" />
+                                        <ui:Label text="VIEW CATALOG" class="photo-action-caption" picking-mode="Ignore" />
+                                        <ui:VisualElement class="photo-action-underline" picking-mode="Ignore" />
+                                    </ui:Button>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="catalog-page" class="page" style="display: none;">
+                        <ui:Label text="MAIN CATALOG" class="heading" />
+                        <ui:Label name="region-title" class="title" />
+                        <ui:VisualElement class="hint key-action">
+                            <ui:Label text="LEFT STICK / D-PAD  SELECT SPECIES" />
+                            <ui:Label text="LT" class="key-badge" />
+                            <ui:Label text="/" />
+                            <ui:Label text="RT" class="key-badge" />
+                            <ui:Label text="CHANGE REGION" />
+                        </ui:VisualElement>
+                        <ui:ScrollView name="catalog-list" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="species-page" class="page" style="display: none;">
+                        <ui:Button name="main-catalog" text="[Y] Main Catalog" />
+                        <ui:Label name="catalog-name" class="title" />
+                        <ui:Label name="catalog-scientific" class="scientific" />
+                        <ui:Label name="catalog-region" />
+                        <ui:ScrollView name="catalog-details">
+                            <ui:VisualElement class="row catalog-columns">
+                                <ui:VisualElement class="catalog-column narrow">
+                                    <ui:Label text="Classification" class="heading" />
+                                    <ui:Label name="classification" />
+                                    <ui:Label text="Lifespan" class="heading" />
+                                    <ui:Label name="lifespan" />
+                                    <ui:Label text="Conservation Status (21st c.)" class="heading" />
+                                    <ui:Label name="conservation" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="catalog-column illustration-column">
+                                    <ui:Label text="Physical Characteristics" class="heading" />
+                                    <ui:Label name="physical" />
+                                    <ui:Image name="catalog-illustration" scale-mode="ScaleToFit" style="display: none;" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="catalog-column narrow">
+                                    <ui:Label text="Distribution" class="heading" />
+                                    <ui:Image name="distribution-map" scale-mode="ScaleToFit" style="display: none;" />
+                                    <ui:Label name="distribution" />
+                                    <ui:Label text="Habitat" class="heading" />
+                                    <ui:Label name="habitat" />
+                                    <ui:Label text="Diet" class="heading" />
+                                    <ui:Label name="diet" />
+                                    <ui:Label text="Social Behavior" class="heading" />
+                                    <ui:Label name="social" />
+                                    <ui:Label text="Activity Pattern" class="heading" />
+                                    <ui:Label name="activity" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                            <ui:Label text="Description" class="heading" />
+                            <ui:Label name="description" />
+                        </ui:ScrollView>
+                        <ui:Button name="species-photos" text="View Animal Photo [X]" />
+                        <ui:ProgressBar name="recognition" low-value="0" high-value="100" title="Species Recognition" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="footer">
+                        <ui:Label name="record-count" />
+                        <ui:Button name="back" text="Last Menu [B]" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

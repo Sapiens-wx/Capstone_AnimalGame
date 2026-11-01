@@ -5,6 +5,7 @@ using System.Reflection;
 using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using AnimalGame.Tutorial;
+using AnimalGame.Save;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -27,8 +28,9 @@ namespace AnimalGame.Editor
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Result observation checks run in Edit Mode.");
             Scene scene = EditorSceneManager.NewPreviewScene();
             GameObject root = null;
-            var album = (List<SavedAnimalPhotoRecord>)typeof(PhotoAlbumService)
-                .GetField("SavedPhotos", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            SaveSystem.Initialize();
+            var album = SaveSystem.Current.photos;
+            byte[] originalDiskSave = File.Exists(SaveSystem.SavePath) ? File.ReadAllBytes(SaveSystem.SavePath) : null;
             int originalAlbumCount = album.Count;
             try
             {
@@ -54,7 +56,8 @@ namespace AnimalGame.Editor
                     notifiedResult = result;
                     Require(ui.HasSavedDisplayedResult, "Save observers see the committed saved state.");
                     Require(album.Count == originalAlbumCount + saved, "Save notification follows the real album append.");
-                    Require(ReferenceEquals(album[album.Count - 1].Snapshot, result), "Save notification carries the exact stored snapshot.");
+                    Require(album[album.Count - 1].capturedTicks == result.CapturedAt.Ticks
+                        && album[album.Count - 1].species == result.Species, "Save notification carries the stored exposure identity.");
                 };
 
                 Require(!ui.IsVisible && !ui.IsResultVisible && ui.DisplayedResult == null
@@ -123,6 +126,8 @@ namespace AnimalGame.Editor
             {
                 if (album.Count > originalAlbumCount)
                     album.RemoveRange(originalAlbumCount, album.Count - originalAlbumCount);
+                if (originalDiskSave == null) File.Delete(SaveSystem.SavePath);
+                else File.WriteAllBytes(SaveSystem.SavePath, originalDiskSave);
                 if (root != null) Object.DestroyImmediate(root);
                 EditorSceneManager.ClosePreviewScene(scene);
             }
@@ -148,9 +153,15 @@ namespace AnimalGame.Editor
             return item.AddComponent<AnimalPhotoSubject>();
         }
 
+        private static AnimalPhoto TestPhoto()
+        {
+            AnimalArchiveAssets.Active.photoLibrary.TryChoosePhoto(AnimalSpecies.PileatedWoodpecker, AnimalPhotoEnvironment.Ground, out var photo);
+            return photo;
+        }
+
         private static PhotoResultSnapshot Snapshot(string name) => new PhotoResultSnapshot(
             name, "Dryocopus pileatus", "Tutorial", Color.yellow,
-            1, 2, 3, null, Vector2.zero, 0f, 1f, new DateTime(2026, 1, 1),
+            1, 2, 3, TestPhoto(), Vector2.zero, 0f, 1f, new DateTime(2026, 1, 1),
             AnimalSpecies.PileatedWoodpecker, AnimalState.Daily, true, true);
 
         private static void Set(object target, string name, object value) =>

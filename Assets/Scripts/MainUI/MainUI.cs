@@ -92,7 +92,8 @@ namespace AnimalGame.MainUI
         private const float DesignWidth = 1920, DesignHeight = 1080;
 
         public static MainUI Active { get; private set; }
-        public static bool BlocksGameplay => Active != null && Active.isActiveAndEnabled && Active.pauseOwned;
+        public static bool BlocksGameplay => AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay
+            || (Active != null && Active.isActiveAndEnabled && Active.pauseOwned);
         public bool IsInventoryOpen => inventoryOpen;
         public float InventoryProgress => progress;
         public int SelectedIndex => InventoryController.SelectedIndex;
@@ -217,6 +218,7 @@ namespace AnimalGame.MainUI
         public void OpenInventory()
         {
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
+            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
