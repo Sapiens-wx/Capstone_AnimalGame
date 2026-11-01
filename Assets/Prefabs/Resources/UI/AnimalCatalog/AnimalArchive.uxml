@@ -17,7 +17,7 @@
                 <ui:VisualElement class="sidebar">
                     <archive:ArchiveHeadingElement name="sidebar-title" text="COLLECTION" end-length="8" bottom-offset="0" class="heading" />
                     <ui:Button name="previous" text="LT" class="key-action" style="width: 44px; height: auto;" />
-                    <ui:ScrollView name="collections" />
+                    <ui:ScrollView name="collections" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" />
                     <ui:Button name="next" text="RT" class="key-action" style="width: 44px; height: auto;" />
                     <ui:Label name="local-count" />
                 </ui:VisualElement>
