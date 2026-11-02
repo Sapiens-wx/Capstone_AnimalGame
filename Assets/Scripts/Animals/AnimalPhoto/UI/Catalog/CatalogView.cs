@@ -17,8 +17,6 @@ namespace AnimalGame.Animals.UI
             root.Q<Label>("catalog-name").text = tier >= 1 ? photo.DisplayName : "Unidentified species";
             root.Q<Label>("catalog-scientific").text = tier >= 1 ? photo.ScientificName : "LOCKED — send a photograph to unlock";
             root.Q<Label>("catalog-region").text = info.Region;
-            root.Q<ProgressBar>("recognition").value = progress?.recognition ?? 0;
-            root.Q<ProgressBar>("recognition").title = $"Species Recognition  {progress?.recognition ?? 0} / 100";
             Field("physical", info.PhysicalCharacteristics, tier, 1);
             Field("classification", info.Classification, tier, 2);
             Field("distribution", info.Distribution, tier, 2);

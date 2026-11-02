@@ -23,7 +23,7 @@ namespace AnimalGame.Animals.UI
         private sealed class Location
         {
             public Page page;
-            public int collection, selected, topRow, region, catalogIndex;
+            public int collection, selected, topRow, catalogIndex;
             public bool oldest, sortFocused;
             public AnimalSpecies species;
         }
@@ -31,13 +31,13 @@ namespace AnimalGame.Animals.UI
         private readonly PhotoCollection photos = new();
         private readonly List<AnimalSpecies?> collections = new();
         private readonly List<AnimalSpecies> catalogSpecies = new();
-        private readonly List<string> regions = new();
         private Page page;
         private AnimalSpecies species;
-        private int collection, region, catalogIndex;
+        private int collection, catalogIndex;
         private VisualElement root;
         private PhotosView photosView;
         private CatalogView catalogView;
+        private CatalogSidebarView catalogSidebar;
         private float savedTimeScale, holdTime, nextMove;
         private CursorLockMode cursorLock;
         private bool holdLatched, triggerLeft, triggerRight, leftShoulder;
@@ -52,11 +52,14 @@ namespace AnimalGame.Animals.UI
             root.Query<Button>().ForEach(button => button.focusable = false);
             photosView = new PhotosView(root, compositeShader);
             catalogView = new CatalogView(root);
+            catalogSidebar = new CatalogSidebarView(root.Q<ScrollView>("catalog-sidebar"));
             root.Q<Button>("photos-tab").clicked += () => Navigate(Page.Photos);
             root.Q<Button>("catalog-tab").clicked += () => Navigate(Page.Catalog);
             root.Q("photos-tab").RegisterCallback<GeometryChangedEvent>(_ => UpdateTabSelection());
             root.Q("catalog-tab").RegisterCallback<GeometryChangedEvent>(_ => UpdateTabSelection());
             root.Q<Button>("back").clicked += Back;
+            root.Q<Button>("species-previous").clicked += () => StepCollection(-1);
+            root.Q<Button>("species-next").clicked += () => StepCollection(1);
             root.Q<Button>("main-catalog").clicked += () => Navigate(Page.Catalog);
             root.Q<Button>("species-photos").clicked += ViewSpeciesPhotos;
             root.Q<Button>("previous").clicked += () => StepCollection(-1);
@@ -71,8 +74,8 @@ namespace AnimalGame.Animals.UI
             if (bootstrap == null || bootstrap.photoMode.IsActive
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             collections.Clear();
-            regions.Clear(); regions.AddRange(AnimalArchiveAssets.Active.Info.Values.Select(i => i.Region).Distinct());
-            history.Clear(); page = Page.Photos; collection = region = catalogIndex = 0;
+            history.Clear(); page = Page.Photos; collection = 0; catalogIndex = -1;
+            catalogSidebar.Reset();
             photos.Selected = photos.TopRow = 0; photos.SortFocused = false;
             savedTimeScale = Time.timeScale; cursorLock = Cursor.lockState;
             BlocksGameplay = true; Time.timeScale = 0; Cursor.lockState = CursorLockMode.None;
@@ -86,17 +89,19 @@ namespace AnimalGame.Animals.UI
             BlocksGameplay = false;
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             Cursor.lockState = cursorLock;
+            catalogSidebar.StopAnimation();
             root.style.display = DisplayStyle.None; photosView.Clear(); history.Clear();
         }
 
         private Location CaptureLocation() => new Location { page = page, species = species,
             collection = collection, selected = photos.Selected, topRow = photos.TopRow,
-            oldest = photos.OldestFirst, sortFocused = photos.SortFocused, region = region, catalogIndex = catalogIndex };
+            oldest = photos.OldestFirst, sortFocused = photos.SortFocused, catalogIndex = catalogIndex };
 
         private void Navigate(Page target)
         {
             if (target == page) return;
             history.Push(CaptureLocation()); page = target;
+            if (target == Page.Catalog) { catalogIndex = -1; species = AnimalSpecies.Unknown; }
             Refresh();
         }
 
@@ -104,7 +109,7 @@ namespace AnimalGame.Animals.UI
         {
             if (history.Count == 0) { Close(); return; }
             var location = history.Pop(); page = location.page; species = location.species;
-            collection = location.collection; region = location.region; catalogIndex = location.catalogIndex;
+            collection = location.collection; catalogIndex = location.catalogIndex;
             photos.OldestFirst = location.oldest; photos.SortFocused = location.sortFocused;
             Refresh();
             photos.Selected = location.selected; photos.TopRow = location.topRow;
@@ -115,6 +120,7 @@ namespace AnimalGame.Animals.UI
         {
             if (photos.Current == null) return;
             var selectedSpecies = photos.Current.species;
+            if (!IsIdentified(selectedSpecies)) { Navigate(Page.Catalog); return; }
             history.Push(CaptureLocation()); species = selectedSpecies; page = Page.Species; Refresh();
         }
 
@@ -135,14 +141,20 @@ namespace AnimalGame.Animals.UI
                 .OrderBy(s => (int)s).Select(s => (AnimalSpecies?)s));
             collection = Math.Max(0, collections.IndexOf(selectedCollection));
             bool isPhotos = page == Page.Photos || page == Page.Inspection;
-            if (page == Page.Species) region = regions.IndexOf(AnimalArchiveAssets.Active.Info[species].Region);
             root.Q("photos-page").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("catalog-page").style.display = page == Page.Catalog ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("species-page").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q<Button>("photos-tab").EnableInClassList("active-tab", isPhotos);
             root.Q<Button>("catalog-tab").EnableInClassList("active-tab", !isPhotos);
             UpdateTabSelection();
-            root.Q<Label>("sidebar-title").text = isPhotos ? "COLLECTION" : "CATALOG";
+            root.Q("archive-shell").EnableInClassList("catalog-mode", !isPhotos);
+            foreach (string name in new[] { "sidebar-title", "previous", "next", "collections", "local-count" })
+                root.Q(name).style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q("main-catalog").style.display = isPhotos ? DisplayStyle.None : DisplayStyle.Flex;
+            root.Q("catalog-sidebar").style.display = isPhotos ? DisplayStyle.None : DisplayStyle.Flex;
+            root.Q("species-navigation").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q("species-recognition").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q("record-count").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q<Label>("local-count").text = $"LOCAL COLLECTION\n{SaveSystem.Current.photos.Count} photographs\n{SaveSystem.Current.photos.Select(p => p.species).Distinct().Count()} observed species";
             var sidebar = root.Q<ScrollView>("collections"); sidebar.Clear();
             if (isPhotos)
@@ -168,22 +180,6 @@ namespace AnimalGame.Animals.UI
             else
             {
                 photosView.Clear();
-                if (page == Page.Species)
-                {
-                    foreach (var info in AnimalArchiveAssets.Active.Info.Where(i => i.Value.Region == regions[region]))
-                    {
-                        var chosen = info.Key;
-                        var progress = SaveSystem.Current.Progress(chosen);
-                        var button = new Button(() => { species = chosen; Refresh(); }) {
-                            text = progress != null && progress.Tier > 0 ? AnimalArchiveAssets.Active.Photos[chosen].DisplayName : "Unidentified species" };
-                        button.focusable = false; button.AddToClassList("collection"); button.EnableInClassList("selected", chosen == species); sidebar.Add(button);
-                    }
-                }
-                else for (int i = 0; i < regions.Count; i++)
-                {
-                    int chosen = i; var button = new Button(() => { region = chosen; catalogIndex = 0; Refresh(); }) { text = regions[i] };
-                    button.focusable = false; button.AddToClassList("collection"); button.EnableInClassList("selected", i == region); sidebar.Add(button);
-                }
                 RenderCatalog();
             }
             sidebar.schedule.Execute(() => {
@@ -207,28 +203,45 @@ namespace AnimalGame.Animals.UI
             () => { if (photos.Current != null) Navigate(Page.Inspection); }, OpenPhotoCatalog,
             () => { photos.ToggleSort(); RenderPhotos(); });
 
+        private bool IsIdentified(AnimalSpecies animal) => SaveSystem.Current.Progress(animal)?.Tier > 0;
+
         private void RenderCatalog()
         {
-            if (regions.Count == 0) return;
-            if (page == Page.Species) region = regions.IndexOf(AnimalArchiveAssets.Active.Info[species].Region);
-            catalogSpecies.Clear(); catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info
-                .Where(i => i.Value.Region == regions[region]).Select(i => i.Key));
-            var list = root.Q<ScrollView>("catalog-list"); list.Clear();
-            root.Q<Label>("region-title").text = regions[region];
-            for (int i = 0; i < catalogSpecies.Count; i++)
-            {
-                int chosen = i; var animal = catalogSpecies[i]; var progress = SaveSystem.Current.Progress(animal);
-                var button = new Button(() => { catalogIndex = chosen; species = animal; Navigate(Page.Species); }) {
-                    text = $"{(progress != null && progress.Tier > 0 ? AnimalArchiveAssets.Active.Photos[animal].DisplayName : "Unidentified species")}\n{progress?.recognition ?? 0} recognition" };
-                button.focusable = false; button.AddToClassList("catalog-entry"); button.EnableInClassList("selected", catalogIndex == i); list.Add(button);
-            }
+            catalogSpecies.Clear();
+            catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info.Keys.OrderBy(s => (int)s));
+            if (page == Page.Species) catalogIndex = catalogSpecies.IndexOf(species);
+            catalogSidebar.Bind(catalogSpecies, IsIdentified,
+                animal => AnimalArchiveAssets.Active.Photos[animal].DisplayName,
+                catalogIndex, SelectCatalogSpecies);
             if (page == Page.Species)
             {
-                catalogIndex = catalogSpecies.IndexOf(species); catalogView.Render(species);
+                catalogView.Render(species);
                 root.Q<Button>("species-photos").SetEnabled(SaveSystem.Current.photos.Exists(p => p.species == species));
-                root.Q<Label>("record-count").text = $"{catalogIndex + 1:00} / {catalogSpecies.Count:00} SPECIES";
+                UpdateSpeciesNeighbor(-1, "species-previous", "previous-species-name");
+                UpdateSpeciesNeighbor(1, "species-next", "next-species-name");
             }
-            else root.Q<Label>("record-count").text = $"{catalogSpecies.Count:00} SPECIES   A  VIEW SPECIES";
+        }
+
+        private void SelectCatalogSpecies(int index)
+        {
+            if (!IsIdentified(catalogSpecies[index])) return;
+            if (page == Page.Catalog)
+            {
+                history.Push(CaptureLocation());
+                page = Page.Species;
+            }
+            catalogIndex = index; species = catalogSpecies[index];
+            Refresh();
+        }
+
+        private void UpdateSpeciesNeighbor(int direction, string buttonName, string labelName)
+        {
+            int next = catalogSidebar.FindNextSelectable(catalogIndex, direction);
+            bool available = next >= 0;
+            var button = root.Q<Button>(buttonName);
+            button.SetEnabled(available);
+            button.EnableInClassList("unavailable", !available);
+            root.Q<Label>(labelName).text = available ? AnimalArchiveAssets.Active.Photos[catalogSpecies[next]].DisplayName : "";
         }
 
         private void StepCollection(int direction)
@@ -237,12 +250,12 @@ namespace AnimalGame.Animals.UI
             {
                 collection = (collection + direction + collections.Count) % collections.Count; photos.SortFocused = false;
             }
-            else if (page == Page.Species)
+            else
             {
-                catalogIndex = (catalogIndex + direction + catalogSpecies.Count) % catalogSpecies.Count;
-                species = catalogSpecies[catalogIndex];
+                int next = catalogSidebar.FindNextSelectable(catalogIndex, direction);
+                if (next >= 0) SelectCatalogSpecies(next);
+                return;
             }
-            else { if (regions.Count == 0) return; region = (region + direction + regions.Count) % regions.Count; catalogIndex = 0; }
             Refresh();
         }
 
@@ -253,7 +266,7 @@ namespace AnimalGame.Animals.UI
                 if (photos.SortFocused) { photos.ToggleSort(); RenderPhotos(); }
                 else if (photos.Current != null) Navigate(Page.Inspection);
             }
-            else if (page == Page.Catalog && catalogSpecies.Count > 0) { species = catalogSpecies[catalogIndex]; Navigate(Page.Species); }
+            else if (page == Page.Catalog) StepCollection(1);
         }
 
         private void Update()
@@ -314,13 +327,7 @@ namespace AnimalGame.Animals.UI
             if (direction == previousDirection && Time.unscaledTime < nextMove) return;
             nextMove = Time.unscaledTime + (direction == previousDirection ? .15f : .35f); previousDirection = direction;
             if (page == Page.Photos || page == Page.Inspection) { photos.Move((int)direction.x, (int)direction.y, page == Page.Inspection); RenderPhotos(); }
-            else if (page == Page.Catalog)
-            {
-                catalogIndex = Mathf.Clamp(catalogIndex + (direction.x != 0 ? (int)direction.x : -(int)direction.y), 0, Math.Max(0, catalogSpecies.Count - 1));
-                RenderCatalog(); var list = root.Q<ScrollView>("catalog-list");
-                if (list.childCount > 0) list.ScrollTo(list[catalogIndex]);
-            }
-            else root.Q<ScrollView>("catalog-details").scrollOffset += new Vector2(0, -direction.y * 100);
+            else if (direction.y != 0) StepCollection(-(int)direction.y);
         }
 
         private void OnDisable() { if (root != null) Close(); }
