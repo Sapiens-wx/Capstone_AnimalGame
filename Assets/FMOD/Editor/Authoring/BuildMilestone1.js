@@ -135,8 +135,8 @@
     var masterBanks = instances("Bank").filter(function (bank) { return bank.isMasterBank; });
     requireCondition(masterBanks.length === 1, "Expected exactly one preserved master bank.");
     masterBanks[0].name = "Master";
-    // Offline renders require this headroom for overlapping full-level pulses.
-    workspace.mixer.masterBus.volume = -7;
+    // AG-134: twice the previous linear master gain (-7 dB + 6.0206 dB).
+    workspace.mixer.masterBus.volume = -0.979400086720376;
 
     var robotFolder = folder("Robot", workspace.masterEventFolder);
     var scanFolder = folder("Scan", robotFolder);
