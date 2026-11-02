@@ -44,7 +44,6 @@ namespace AnimalGame.Animals.UI
         private CursorLockMode cursorLock;
         private bool holdLatched, triggerLeft, triggerRight, leftShoulder;
         private Vector2 previousDirection;
-        private bool previousCollectionInput;
 
         private void Start()
         {
@@ -325,17 +324,13 @@ namespace AnimalGame.Animals.UI
             if (x && page == Page.Species) { ViewSpeciesPhotos(); return; }
             if (lt || rt) { StepCollection(lt ? -1 : 1); return; }
             if (confirm) { Confirm(); return; }
-            bool collectionInput = page == Page.Photos && Mathf.Abs(direction.y) >= .5f
-                && Mathf.Abs(direction.y) >= Mathf.Abs(direction.x) && direction.sqrMagnitude >= right.sqrMagnitude;
             if (page == Page.Inspection) photosView.Tilt(right);
-            else if (page == Page.Photos && !collectionInput && right.sqrMagnitude > direction.sqrMagnitude) direction = right;
+            else if (page == Page.Photos && right.sqrMagnitude > direction.sqrMagnitude) direction = right;
             if (direction.magnitude < .5f) { previousDirection = Vector2.zero; nextMove = 0; return; }
             direction = Mathf.Abs(direction.x) > Mathf.Abs(direction.y) ? new Vector2(Mathf.Sign(direction.x), 0) : new Vector2(0, Mathf.Sign(direction.y));
-            if (direction == previousDirection && collectionInput == previousCollectionInput && Time.unscaledTime < nextMove) return;
+            if (direction == previousDirection && Time.unscaledTime < nextMove) return;
             nextMove = Time.unscaledTime + (direction == previousDirection ? .15f : .35f); previousDirection = direction;
-            previousCollectionInput = collectionInput;
-            if (collectionInput) StepCollection(-(int)direction.y);
-            else if (page == Page.Photos || page == Page.Inspection) { photos.Move((int)direction.x, (int)direction.y, page == Page.Inspection); RenderPhotos(); }
+            if (page == Page.Photos || page == Page.Inspection) { photos.Move((int)direction.x, (int)direction.y, page == Page.Inspection); RenderPhotos(); }
             else if (direction.y != 0) StepCollection(-(int)direction.y);
         }
 
