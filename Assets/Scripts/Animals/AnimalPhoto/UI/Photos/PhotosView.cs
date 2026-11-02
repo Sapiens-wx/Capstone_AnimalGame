@@ -30,7 +30,7 @@ namespace AnimalGame.Animals.UI
             root.Q<Button>("photo-next").clicked += () => selectPhoto(currentCollection.Selected + 1);
         }
 
-        public void Render(PhotoCollection collection, bool inspection, Action<int> select, Action open, Action catalog, Action sort, bool indexFocused = true)
+        public void Render(PhotoCollection collection, bool inspection, Action<int> select, Action open, Action catalog, Action sort)
         {
             currentCollection = collection;
             selectPhoto = select;
@@ -42,13 +42,13 @@ namespace AnimalGame.Animals.UI
             image.Square = !inspection;
             var sortButton = root.Q<Button>("photo-sort");
             sortButton.text = collection.OldestFirst ? "Oldest first ↑" : "Newest first ↓";
-            sortButton.EnableInClassList("selected", indexFocused && collection.SortFocused);
+            sortButton.EnableInClassList("selected", collection.SortFocused);
             sortButton.clicked -= sortHandler; sortHandler = sort; sortButton.clicked += sortHandler;
             for (int i = collection.TopRow * 3; i < Math.Min(collection.Photos.Count, collection.TopRow * 3 + 6); i++)
             {
                 int photoIndex = i; var record = collection.Photos[i];
                 var button = new Button(() => select(photoIndex)) { focusable = false }; button.AddToClassList("photo-tile");
-                button.EnableInClassList("selected", indexFocused && i == collection.Selected && !collection.SortFocused);
+                button.EnableInClassList("selected", i == collection.Selected && !collection.SortFocused);
                 var thumbnail = record.RestorePhoto().Render(256); thumbnails.Add(thumbnail);
                 var picture = new VisualElement { pickingMode = PickingMode.Ignore };
                 picture.AddToClassList("photo-tile-picture");
