@@ -421,10 +421,11 @@ MonoBehaviour:
   kind: 1
   box: {fileID: 0}
   sprite: {fileID: 0}
-  colliderType: 0
-  colliderShape: 0
+  colliderType: 2
+  colliderShape: 2
   colliderCenter: {x: 0, y: 0}
-  colliderRadius: 0.5
+  colliderRadius: 0.14
+  colliderLength: 0.6
   localSize: {x: 1, y: 1}
   climbableRadius: 1
   slopeStrength01: 0.5
@@ -555,7 +556,7 @@ SpriteRenderer:
   m_Size: {x: 1.28, y: 1.28}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &2765247328976709505
@@ -642,7 +643,7 @@ SpriteRenderer:
   m_Size: {x: 1.28, y: 1.28}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &4352193044678581871
@@ -816,7 +817,7 @@ SpriteRenderer:
   m_Size: {x: 1.28, y: 1.28}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &7598731692507349732

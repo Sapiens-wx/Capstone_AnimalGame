@@ -238,27 +238,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &7392156480314278092
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3409958733117504358}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  visualRoot: {fileID: 3351961163244372313}
-  bodyRenderers:
-  - {fileID: 6051157855037081251}
-  - {fileID: 1874912894510113343}
-  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
-  followTimeSeconds: 0.12
-  maximumBendDegrees: 22
-  headAnchor: {x: 0, y: 0.432}
-  tailAnchor: {x: 0, y: -0.5316}
 --- !u!4 &4641402971349804924
 Transform:
   m_ObjectHideFlags: 0
@@ -345,6 +324,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d6091ada3b14b5aa88ccb6667656ffe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  juvenileIndividual: 0
+  juvenileSizeMultiplier: 0.65
   retreatSpeedMultiplier: 0.4
 --- !u!114 &950923351353688800
 MonoBehaviour:
@@ -375,6 +356,47 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7d6e4f31c2b4a5f8e9d0c1b2a3f4e56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  alarmEvent:
+    Guid:
+      Data1: 0
+      Data2: 0
+      Data3: 0
+      Data4: 0
+    Path: 
+  eatingEvent:
+    Guid:
+      Data1: 0
+      Data2: 0
+      Data3: 0
+      Data4: 0
+    Path: 
+  barkEatingEvent:
+    Guid:
+      Data1: 0
+      Data2: 0
+      Data3: 0
+      Data4: 0
+    Path: 
+  alarmSound:
+    enabled: 1
+    maximumRadiusMeters: 3
+    durationSeconds: 1
+    ringCount: 6
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.82
+    repeatIntervalSeconds: {x: 1, y: 1}
+    radiusVariation: 0.08
+  barkEatingSound:
+    enabled: 1
+    maximumRadiusMeters: 0.7
+    durationSeconds: 0.4
+    ringCount: 3
+    innerRadiusRatio: 0.23
+    lineWidthNormalized: 0.014
+    opacity: 0.82
+    repeatIntervalSeconds: {x: 0.5, y: 0.9}
+    radiusVariation: 0.08
   soundWaveShader: {fileID: 4800000, guid: e6f2a8c1d4b7457e90a3c5b8f1d6e2a9, type: 3}
   soundWaveColor: {r: 0.88, g: 0.88, b: 0.88, a: 0.9}
   ringBreakup: 0.38
@@ -624,10 +646,11 @@ MonoBehaviour:
   kind: 1
   box: {fileID: 0}
   sprite: {fileID: 0}
-  colliderType: 0
-  colliderShape: 0
+  colliderType: 2
+  colliderShape: 2
   colliderCenter: {x: 0, y: 0}
-  colliderRadius: 0.5
+  colliderRadius: 0.14
+  colliderLength: 0.85
   localSize: {x: 1, y: 1}
   climbableRadius: 1
   slopeStrength01: 0.5
@@ -657,6 +680,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4fbd2374a71125419c537991b0785f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &7392156480314278092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3409958733117504358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  visualRoot: {fileID: 3351961163244372313}
+  bodyRenderers:
+  - {fileID: 6051157855037081251}
+  - {fileID: 1874912894510113343}
+  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
+  followTimeSeconds: 0.12
+  maximumBendDegrees: 22
+  headAnchor: {x: 0, y: 0.432}
+  tailAnchor: {x: 0, y: -0.5316}
 --- !u!1 &3470056907385243293
 GameObject:
   m_ObjectHideFlags: 0

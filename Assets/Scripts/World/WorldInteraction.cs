@@ -19,7 +19,7 @@ namespace AnimalGame.World
         Actor = 1 << 5 // Bodies: flight ignores props while retaining actor separation.
     }
     public enum RecyclableSize { Small, Medium, Big }
-    public enum WorldInteractionColliderShape { Box, Circle }
+    public enum WorldInteractionColliderShape { Box, Circle, Capsule }
     public enum ColliderType { Sprite, Collider2D, Custom }
 
     // Multiple components are intentional: a prop can have separate solid and grab bounds.
@@ -31,7 +31,7 @@ namespace AnimalGame.World
         private static readonly List<WorldInteraction> hierarchyItems = new();
         private static readonly List<WorldInteraction> rootItems = new();
         private static readonly List<WorldInteraction> ownerItems = new();
-        // SPATIAL INDEX: kind, colliderType, shape, box, sprite, colliderCenter, colliderRadius and localSize affect the cache. Use the
+        // SPATIAL INDEX: kind, colliderType, shape, box, sprite, colliderCenter, colliderRadius, colliderLength and localSize affect the cache. Use the
         // public setters at runtime; direct/serialized writes require MarkSpatialDirty().
         [SerializeField] private WorldInteractionKind kind = WorldInteractionKind.Collision;
         // Changes to the referenced collider/renderer (including their transforms,
@@ -43,8 +43,10 @@ namespace AnimalGame.World
         [SerializeField] private WorldInteractionColliderShape colliderShape = WorldInteractionColliderShape.Box;
         [FormerlySerializedAs("localCenter")]
         [SerializeField] private Vector2 colliderCenter;
-        [Tooltip("Custom circle radius in this Transform's local units. Uses the largest XY scale in query coordinates.")]
+        [Tooltip("Custom circle/capsule radius in this Transform's local units. Uses the largest XY scale in query coordinates.")]
         [SerializeField, Min(0f)] private float colliderRadius = .5f;
+        [Tooltip("Total capsule length along local Y, including round caps. Minimum effective length is the diameter.")]
+        [SerializeField, Min(0f)] private float colliderLength = 2f;
         [SerializeField] private Vector2 localSize = Vector2.one;
         [Tooltip("Circular climbable radius in local units. Uses the largest XY scale in map coordinates; remains circular.")]
         [SerializeField, Min(0.001f)] private float climbableRadius = 1f;
@@ -115,6 +117,7 @@ namespace AnimalGame.World
         public Vector2 ColliderCenter { get => colliderCenter; set { colliderCenter = value; MarkSpatialDirty(); } }
         public float ColliderRadius { get => Mathf.Max(0f, colliderRadius); set { colliderRadius = Mathf.Max(0f, value); MarkSpatialDirty(); } }
         public Vector2 LocalSize { get => localSize; set { localSize = value; MarkSpatialDirty(); } }
+        public float ColliderLength { get => Mathf.Max(0f, colliderLength); set { colliderLength = Mathf.Max(0f, value); MarkSpatialDirty(); } }
 
         // SPATIAL INDEX: transform position/rotation/scale, ancestors, and scene
         // membership also affect the index. Wrappers notify siblings and descendants.
@@ -235,6 +238,8 @@ namespace AnimalGame.World
             }
             if (colliderShape == WorldInteractionColliderShape.Circle)
                 return CircleShape(transform.localToWorldMatrix, ColliderRadius, map);
+            if (colliderShape == WorldInteractionColliderShape.Capsule)
+                return CapsuleShape(transform.localToWorldMatrix, map);
             return InteractionShape.Box(transform, colliderCenter, localSize, map);
         }
 
@@ -276,7 +281,61 @@ namespace AnimalGame.World
             }
             if (colliderShape == WorldInteractionColliderShape.Circle)
                 return CircleShape(worldDelta * transform.localToWorldMatrix, ColliderRadius, map);
+            if (colliderShape == WorldInteractionColliderShape.Capsule)
+                return CapsuleShape(worldDelta * transform.localToWorldMatrix, map);
             return InteractionPushPlan.TransformShape(current, worldDelta, map);
+        }
+
+        private InteractionShape CapsuleShape(Matrix4x4 matrix, MapTestSceneController map)
+        {
+            Vector2 offset = Vector2.up * Mathf.Max(0f, ColliderLength * .5f - ColliderRadius);
+            return InteractionShape.Capsule(
+                InteractionShape.ToQuery(matrix.MultiplyPoint3x4(colliderCenter - offset), map),
+                InteractionShape.ToQuery(matrix.MultiplyPoint3x4(colliderCenter + offset), map),
+                CircleShape(matrix, ColliderRadius, map).Radius);
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            if (colliderType != ColliderType.Custom) return;
+            InteractionShape shape = colliderShape == WorldInteractionColliderShape.Box
+                ? InteractionShape.Box(transform, colliderCenter, localSize, null)
+                : colliderShape == WorldInteractionColliderShape.Capsule
+                    ? CapsuleShape(transform.localToWorldMatrix, null)
+                    : CircleShape(transform.localToWorldMatrix, ColliderRadius, null);
+            Color previousColor = Gizmos.color;
+            Matrix4x4 previousMatrix = Gizmos.matrix;
+            Gizmos.color = Color.green;
+            Gizmos.matrix = Matrix4x4.identity;
+            Vector3 ToWorld(Vector2 p) => new Vector3(p.x, p.y, transform.position.z);
+            if (shape.IsBox)
+            {
+                for (int i = 0; i < 4; i++)
+                    Gizmos.DrawLine(ToWorld(shape.Vertex(i)), ToWorld(shape.Vertex((i + 1) % 4)));
+            }
+            else
+            {
+                Vector2 axis = shape.B - shape.A;
+                float angle = axis.sqrMagnitude > 0f ? Mathf.Atan2(axis.y, axis.x) : Mathf.PI * .5f;
+                Vector2 normal = new Vector2(Mathf.Sin(angle), -Mathf.Cos(angle)) * shape.Radius;
+                Gizmos.DrawLine(ToWorld(shape.A + normal), ToWorld(shape.B + normal));
+                Gizmos.DrawLine(ToWorld(shape.A - normal), ToWorld(shape.B - normal));
+                for (int cap = 0; cap < 2; cap++)
+                {
+                    Vector2 center = cap == 0 ? shape.B : shape.A;
+                    float start = angle - Mathf.PI * .5f + cap * Mathf.PI;
+                    Vector2 last = center + new Vector2(Mathf.Cos(start), Mathf.Sin(start)) * shape.Radius;
+                    for (int i = 1; i <= 32; i++)
+                    {
+                        float theta = start + i * Mathf.PI / 32f;
+                        Vector2 next = center + new Vector2(Mathf.Cos(theta), Mathf.Sin(theta)) * shape.Radius;
+                        Gizmos.DrawLine(ToWorld(last), ToWorld(next));
+                        last = next;
+                    }
+                }
+            }
+            Gizmos.color = previousColor;
+            Gizmos.matrix = previousMatrix;
         }
 
         private InteractionShape CircleShape(Matrix4x4 matrix, float radius, MapTestSceneController map)
