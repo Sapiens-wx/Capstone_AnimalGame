@@ -28,7 +28,7 @@ namespace AnimalGame.MapTest
 
         [Header("Animal Photos")]
         [Tooltip("Passed to the PhotoResultUI created at runtime. Leave empty to use its prefab reference.")]
-        [SerializeField] private PhotoLibrary photoLibrary;
+        [SerializeField] private AnimalInfoLibrary animalInfoLibrary;
         [Tooltip("Camera equipped when this scene creates the player. Leave empty to keep the robot prefab's default camera.")]
         [SerializeField] private PhotoCameraDefinition initialPhotoCamera;
 
@@ -195,7 +195,7 @@ namespace AnimalGame.MapTest
             mainUiObject.GetComponent<AnimalGame.MainUI.MainUIProjection>()?.Initialize(mapCamera);
             bioScan.Initialize(scanChargeUi, mapCamera);
             photoModeUi.Initialize(photoMode, mapCamera);
-            if (photoLibrary != null) photoResultUi.Library = photoLibrary;
+            if (animalInfoLibrary != null) photoResultUi.Library = animalInfoLibrary;
             photoResultUi.Initialize(photoMode, photoModeUi, mapCamera, map);
             uiRotation =
                 mainUiObject.GetComponent<RobotTumbleUiRotation>();

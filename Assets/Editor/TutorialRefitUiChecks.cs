@@ -264,8 +264,8 @@ namespace AnimalGame.Editor
                 var document = ui.AddComponent<UIDocument>(); document.panelSettings = menuSettings; document.visualTreeAsset = profile.visualTreeAsset;
                 View = ui.AddComponent<CheckpointRefitView>(); Set(Terminal, "view", View);
                 var camera = fixture.AddComponent<PhotoModeController>();
-                Zoom = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/InstantCamera.asset");
-                var damaged = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/HalflyBrokenPrimeCamera50.asset");
+                Zoom = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/Animals/Photo/Rendering/InstantCamera.asset");
+                var damaged = AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/Animals/Photo/Rendering/HalflyBrokenPrimeCamera50.asset");
                 Require(Zoom != null && damaged != null, "The menu fixture uses both real camera definitions.");
                 camera.SetCamera(damaged); Equipment = fixture.AddComponent<RefitCameraEquipment>(); Equipment.Configure(camera, Zoom); Equipment.Unlock(damaged);
                 View.BindCameraEquipment(Equipment, Zoom, damaged);

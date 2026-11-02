@@ -121,7 +121,7 @@ MonoBehaviour:
         Data3: -2089050993
         Data4: 922751772
       Path: event:/Robot/Arm/Deploy
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.5
   - eventReference:
@@ -131,7 +131,7 @@ MonoBehaviour:
         Data3: 0
         Data4: 0
       Path:
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.5
   - eventReference:
@@ -141,7 +141,7 @@ MonoBehaviour:
         Data3: 784715660
         Data4: 1456026666
       Path: event:/Robot/Arm/Servo
-    gainDb: 0
+    gainDb: -1.93820026
     readBySoundUI: 1
     soundUIStrength: 0.35
   - eventReference:
@@ -151,7 +151,7 @@ MonoBehaviour:
         Data3: -427704954
         Data4: -1354302477
       Path: event:/Robot/Arm/Blocked
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.55
   - eventReference:
@@ -161,7 +161,7 @@ MonoBehaviour:
         Data3: -1415981671
         Data4: -470298585
       Path: event:/Robot/Arm/HandClose
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.4
   - eventReference:
@@ -171,7 +171,7 @@ MonoBehaviour:
         Data3: 0
         Data4: 0
       Path:
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.5
   - eventReference:
@@ -181,7 +181,7 @@ MonoBehaviour:
         Data3: 387070599
         Data4: 1716410144
       Path: event:/Robot/Arm/GrabSmall
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.45
   - eventReference:
@@ -191,7 +191,7 @@ MonoBehaviour:
         Data3: -382681930
         Data4: -1997134385
       Path: event:/Robot/Arm/GrabMedium
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.6
   - eventReference:
@@ -201,7 +201,7 @@ MonoBehaviour:
         Data3: 322743471
         Data4: -388241116
       Path: event:/Robot/Arm/GrabLarge
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.8
   - eventReference:
@@ -211,7 +211,7 @@ MonoBehaviour:
         Data3: 265566086
         Data4: 753279838
       Path: event:/Robot/Arm/Drop
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.6
   - eventReference:
@@ -221,7 +221,7 @@ MonoBehaviour:
         Data3: -156119113
         Data4: -1174354338
       Path: event:/Robot/Arm/Retract
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.5
   - eventReference:
@@ -231,7 +231,7 @@ MonoBehaviour:
         Data3: 0
         Data4: 0
       Path:
-    gainDb: -4.436974992
+    gainDb: -6.375175252
     readBySoundUI: 1
     soundUIStrength: 0.5
   - eventReference:
@@ -296,10 +296,10 @@ MonoBehaviour:
   armReferenceSpeed: 1
   armJointReferenceSpeed: 90
   armJointMovementThresholdDegrees: 0.5
-  armMinimumPitch: 0.75
-  armMaximumPitch: 1.3
-  armMinimumGain: 0.5
-  armMaximumGain: 0.9
+  armMinimumPitch: 0.4
+  armMaximumPitch: 1.2
+  armMinimumGain: 0.2
+  armMaximumGain: 1
   armLoadPitchReduction: 0.2
   armPitchSmoothingSeconds: 0.06
   blockedCooldown: 0.35

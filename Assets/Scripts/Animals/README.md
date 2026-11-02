@@ -3,8 +3,8 @@
 ## 雪羊与狼
 
 - 手动摆放 `Prefabs/Animals/MountainGoat/MountainGoat_Placeholder.prefab`、`MountainGoat_Juvenile_Placeholder.prefab` 或 `Prefabs/Animals/Wolf/Wolf_Placeholder.prefab`。沿用现有占位图形，不自动生成动物，也不修改场景。同群个体在 AnimalAgent 中填写相同的非空 Group Id；幼羊请与成年羊同组摆放。
-- 物种参数位于 `Data/Animals/MountainGoatConfig.asset`、`WolfConfig.asset`。雪羊固定 10 血，最大可走坡度/滑落阈值 80°；狼为 38°，捕猎伤害 3，食谱为麝鼠和雪羊（含幼羊）。雪羊冲撞伤害暂配为 2，可在配置调整；打架与激怒共用此伤害、范围、击退和一秒延迟结算。
-- 日常动作引用 `Data/Animals/SpeciesActions/` 的动作资产，权重、持续 X 秒、冷却在物种配置的 Daily Behaviours 中调整。动作资产提供速度等参数；通过日常条目创建时，以条目的时长为准。灌木进食仍使用原 EatPlantAction，乔木/灌木目标分别使用 TreeHabitat、Bush 类型 AnimalFoodSource，草地接受 Grass/Grassland/GrassTest，岩石为 Rock。
+- 物种参数位于 `Data/Animals/Behaviour/MountainGoatConfig.asset`、`WolfConfig.asset`。雪羊固定 10 血，最大可走坡度/滑落阈值 80°；狼为 38°，捕猎伤害 3，食谱为麝鼠和雪羊（含幼羊）。雪羊冲撞伤害暂配为 2，可在配置调整；打架与激怒共用此伤害、范围、击退和一秒延迟结算。
+- 日常动作引用 `Data/Animals/Behaviour/SpeciesActions/` 的动作资产，权重、持续 X 秒、冷却在物种配置的 Daily Behaviours 中调整。动作资产提供速度等参数；通过日常条目创建时，以条目的时长为准。灌木进食仍使用原 EatPlantAction，乔木/灌木目标分别使用 TreeHabitat、Bush 类型 AnimalFoodSource，草地接受 Grass/Grassland/GrassTest，岩石为 Rock。
 - 成年雪羊支持灌木/草地进食、观察、平坦岩石休息、岩石踱步、成对冲撞。幼体复用同一物种配置及战斗逻辑，仅缩小视觉并排除成年打架，可在 MountainGoatBehaviour 上指定幼体 Sprite。双方预期互撞不会触发普通惊扰；旁观者正常受伤并惊扰，外界威胁或死亡会取消双方会话。成员进入逃跑等状态时不会被取消操作拉回日常。
 - 雪羊逃跑优先避开近距离威胁，再选可通行上坡；无上坡后反向下坡，保持方向越过谷底再开始上坡，规划间隔默认 0.7–0.9 秒。参数在 MountainGoatBehaviour 调整。所有移动继续使用现有局部避障，受阻时有限重选，不包含全局寻路；一直保持逃离，直至通用移除条件生效。
 - 狼复用原日常调度、群体捕猎、逃跑、尸体预约和进食冷却。嗅探一个短段后寻找食谱内尸体，使用 CorpseOnly 捕猎策略靠近并进食，途中不会改追活猎物。惊扰时朝威胁慢退，所有激怒入口均被能力检查拦截。
@@ -60,7 +60,7 @@
 
 - Prefab 位于 `Prefabs/Animals/` 下的 `AmericanBison`（美洲野牛）、`Pronghorn`（叉角羚）、`PrairieGrouse`（草原松鸡）、`AmericanMarmot`（美洲旱獭）、`NorthAmericanPorcupine`（北美豪猪）目录。前两者另有 `Juvenile` Prefab；沿用现有占位美术，不自动刷新动物。
 - 手动摆放群体时，在 `AnimalAgent` 填写相同且非空的 Group Id，幼体与成年放在同组。幼体不能打架或激怒，只会逃跑。野牛、叉角羚与雪羊的日常打架均不扣血、不击退、不影响第三方。
-- 配置位于 `Data/Animals/`，动作资产位于 `Data/Animals/SpeciesActions/`。时长、权重和冷却从物种的 Daily Behaviours 调整；新动物及其动作自动接入 Animal Inspector 的动物列表和 Daily 菜单。
+- 配置位于 `Data/Animals/Behaviour/`，动作资产位于 `Data/Animals/Behaviour/SpeciesActions/`。时长、权重和冷却从物种的 Daily Behaviours 调整；新动物及其动作自动接入 Animal Inspector 的动物列表和 Daily 菜单。
 - 旱獭初始化时在出生点实例化 `Prefabs/Environment/Vegetation/MarmotBurrow.prefab`；洞穴没有贴图或碰撞。日常活动围绕自己的洞穴，逃跑可借用其他洞穴；洞口 Alert Radius 内连续 5 秒无威胁后出洞，期间保留身份和血量。
 - 松鸡继承 `GenericAnimalBehaviour`，日常短飞 3–6 米并选择可站立落点；逃跑持续飞行。飞行可拍照，地面近战不能命中。
 - 豪猪使用健康或枯死的 `TreeHabitat`；步行到树旁后直接切换到树上状态，无爬树动画。树上不激怒，现有地面捕猎者停止捕猎；地面激怒时背对威胁并竖刺，被捕猎者实际伤害时反伤 3 点，威胁离开 Alert Radius 后恢复日常。

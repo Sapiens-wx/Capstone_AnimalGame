@@ -54,6 +54,8 @@ namespace AnimalGame.Animals.UI
             catalogView = new CatalogView(root);
             root.Q<Button>("photos-tab").clicked += () => Navigate(Page.Photos);
             root.Q<Button>("catalog-tab").clicked += () => Navigate(Page.Catalog);
+            root.Q("photos-tab").RegisterCallback<GeometryChangedEvent>(_ => UpdateTabSelection());
+            root.Q("catalog-tab").RegisterCallback<GeometryChangedEvent>(_ => UpdateTabSelection());
             root.Q<Button>("back").clicked += Back;
             root.Q<Button>("main-catalog").clicked += () => Navigate(Page.Catalog);
             root.Q<Button>("species-photos").clicked += ViewSpeciesPhotos;
@@ -139,6 +141,7 @@ namespace AnimalGame.Animals.UI
             root.Q("species-page").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q<Button>("photos-tab").EnableInClassList("active-tab", isPhotos);
             root.Q<Button>("catalog-tab").EnableInClassList("active-tab", !isPhotos);
+            UpdateTabSelection();
             root.Q<Label>("sidebar-title").text = isPhotos ? "COLLECTION" : "CATALOG";
             root.Q<Label>("local-count").text = $"LOCAL COLLECTION\n{SaveSystem.Current.photos.Count} photographs\n{SaveSystem.Current.photos.Select(p => p.species).Distinct().Count()} observed species";
             var sidebar = root.Q<ScrollView>("collections"); sidebar.Clear();
@@ -167,9 +170,9 @@ namespace AnimalGame.Animals.UI
                 photosView.Clear();
                 if (page == Page.Species)
                 {
-                    foreach (var info in AnimalArchiveAssets.Active.Info.Values.Where(i => i.Region == regions[region]))
+                    foreach (var info in AnimalArchiveAssets.Active.Info.Where(i => i.Value.Region == regions[region]))
                     {
-                        var chosen = info.Species;
+                        var chosen = info.Key;
                         var progress = SaveSystem.Current.Progress(chosen);
                         var button = new Button(() => { species = chosen; Refresh(); }) {
                             text = progress != null && progress.Tier > 0 ? AnimalArchiveAssets.Active.Photos[chosen].DisplayName : "Unidentified species" };
@@ -189,6 +192,16 @@ namespace AnimalGame.Animals.UI
             });
         }
 
+        private void UpdateTabSelection()
+        {
+            var tab = root.Q<Button>(className: "active-tab");
+            var indicator = root.Q("tab-selection");
+            Vector2 bottomLeft = tab.ChangeCoordinatesTo(indicator.parent, new Vector2(0, tab.layout.height));
+            indicator.style.left = bottomLeft.x;
+            indicator.style.top = bottomLeft.y - 5f;
+            indicator.style.width = tab.layout.width;
+        }
+
         private void RenderPhotos() => photosView.Render(photos, page == Page.Inspection,
             index => { photos.Selected = index; photos.SortFocused = false; RenderPhotos(); },
             () => { if (photos.Current != null) Navigate(Page.Inspection); }, OpenPhotoCatalog,
@@ -198,8 +211,8 @@ namespace AnimalGame.Animals.UI
         {
             if (regions.Count == 0) return;
             if (page == Page.Species) region = regions.IndexOf(AnimalArchiveAssets.Active.Info[species].Region);
-            catalogSpecies.Clear(); catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info.Values
-                .Where(i => i.Region == regions[region]).Select(i => i.Species));
+            catalogSpecies.Clear(); catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info
+                .Where(i => i.Value.Region == regions[region]).Select(i => i.Key));
             var list = root.Q<ScrollView>("catalog-list"); list.Clear();
             root.Q<Label>("region-title").text = regions[region];
             for (int i = 0; i < catalogSpecies.Count; i++)
@@ -282,6 +295,7 @@ namespace AnimalGame.Animals.UI
             if (!upHeld) { holdTime = 0; holdLatched = false; }
             if (!BlocksGameplay)
             {
+                if (Input.GetKeyDown(KeyCode.V)) { Open(); return; }
                 if (upHeld && !holdLatched) { holdTime += Time.unscaledDeltaTime; if (holdTime >= .5f) { holdLatched = true; Open(); } }
                 return;
             }

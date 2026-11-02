@@ -8,6 +8,6 @@
 - 新物种必须继承适用的通用 AI：鸟类优先继承鸟类通用 Behaviour（当前为树栖鸟类的 `TreeBirdBehaviour`）；其他动物直接继承 `GenericAnimalBehaviour`。不要直接继承 `AnimalBehaviourSet` 重写整套流程；可复用的类别逻辑提取到通用 Behaviour。
 - 动作执行类继承 `AnimalAction`，负责执行与生命周期；动作配置类继承 `AnimalActionDefinition`（树栖鸟类用 `TreeBirdActionDefinition`），通过 `CreateRuntime()` 创建独立动作实例。
 - ScriptableObject 只保存共享配置；目标、计时器等运行状态保存在个体或动作实例中，不能写入共享资产。
-- 物种配置资产放在 `Data/Animals/`，动作配置资产放在 `Data/Animals/SpeciesActions/`，通过 `AnimalSpeciesConfig.DailyBehaviours` 引用；权重、时长、冷却沿用现有日常调度。
+- 物种配置资产放在 `Data/Animals/Behaviour/`，动作配置资产放在 `Data/Animals/Behaviour/SpeciesActions/`，通过 `AnimalSpeciesConfig.DailyBehaviours` 引用；权重、时长、冷却沿用现有日常调度。
 - 复用 `AnimalAgent`、`AnimalSimulation` 及现有移动、感知、地形查询接口，不为新物种另建独立 Update/Tick 调度。
 - 同时要在Animal Inspector的DebugUI中加上这个动物以及它相应的行为。

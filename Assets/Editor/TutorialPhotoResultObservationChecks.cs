@@ -155,7 +155,7 @@ namespace AnimalGame.Editor
 
         private static AnimalPhoto TestPhoto()
         {
-            AnimalArchiveAssets.Active.photoLibrary.TryChoosePhoto(AnimalSpecies.PileatedWoodpecker, AnimalPhotoEnvironment.Ground, out var photo);
+            AnimalArchiveAssets.Active.animalInfo.TryChoosePhoto(AnimalSpecies.PileatedWoodpecker, AnimalPhotoEnvironment.Ground, out var photo);
             return photo;
         }
 

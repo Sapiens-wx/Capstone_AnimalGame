@@ -11,7 +11,7 @@ namespace AnimalGame.AnimalDebug
     {
         public override string Title => "Animal Inspector";
         public override VisualElement Content => panel;
-        [SerializeField] private PhotoLibrary photoLibrary;
+        [SerializeField] private AnimalInfoLibrary animalInfoLibrary;
         private UIDocument document;
         private VisualElement root, panel, animalPopup, commandPopup, healthFill;
         private Button animalButton, sampleButton, commandButton, executeButton;
@@ -105,7 +105,7 @@ namespace AnimalGame.AnimalDebug
             animalList.bindItem = (element, index) =>
             {
                 var row = (Button)element;
-                row.userData = animals[index]; row.text = AnimalDebugSelection.DisplayName(animals[index], photoLibrary);
+                row.userData = animals[index]; row.text = AnimalDebugSelection.DisplayName(animals[index], animalInfoLibrary);
                 row.EnableInClassList("highlight", animals[index] == highlighted);
             };
             animalList.unbindItem = (element, _) => { element.userData = null; element.RemoveFromClassList("highlight"); };
@@ -316,7 +316,7 @@ namespace AnimalGame.AnimalDebug
         {
             if (panel == null) return;
             bool valid = IsValid(selected);
-            animalButton.text = (valid ? AnimalDebugSelection.DisplayName(selected, photoLibrary) : "Select an animal") + "  ▼";
+            animalButton.text = (valid ? AnimalDebugSelection.DisplayName(selected, animalInfoLibrary) : "Select an animal") + "  ▼";
             sampleButton.text = sampling ? "Cancel pick" : "Pick";
             if (selectedDailyIndex >= 0 && (!valid || selectedDailyIndex >= selected.Config.DailyBehaviours.Count
                 || !ReferenceEquals(selected.Config.DailyBehaviours[selectedDailyIndex], selectedDaily))) ResetCommandSelection();

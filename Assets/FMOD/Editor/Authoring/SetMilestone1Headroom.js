@@ -18,9 +18,10 @@
         }
         return event.id;
     });
-    studio.project.workspace.mixer.masterBus.volume = -7;
+    // AG-134: twice the previous linear master gain (-7 dB + 6.0206 dB).
+    studio.project.workspace.mixer.masterBus.volume = -0.979400086720376;
     if (!studio.project.save()) {
-        throw new Error("Saving the -7 dB master headroom failed.");
+        throw new Error("Saving the master mix failed.");
     }
     paths.forEach(function (path, index) {
         var event = studio.project.lookup("event:/" + path);

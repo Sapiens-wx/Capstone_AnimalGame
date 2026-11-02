@@ -267,7 +267,7 @@ namespace AnimalGame.Editor
         public static AnimalDailyBehaviourSettings DailySettings(AnimalDailyBehaviourKind kind, float weight, float min, float max)
         {
             var settings = new AnimalDailyBehaviourSettings(kind, weight, min, max);
-            var action = AssetDatabase.LoadAssetAtPath<TreeBirdActionDefinition>("Assets/Data/Animals/SpeciesActions/" + kind + ".asset");
+            var action = AssetDatabase.LoadAssetAtPath<TreeBirdActionDefinition>("Assets/Data/Animals/Behaviour/SpeciesActions/" + kind + ".asset");
             Require(action != null, "Missing tree bird action asset: " + kind);
             var copy = Object.Instantiate(action);
             copy.hideFlags = HideFlags.HideAndDontSave;
@@ -339,7 +339,7 @@ namespace AnimalGame.Editor
             using var f = new Fixture(true);
             f.Tree(new Vector2(70f, 50f), TreeHealthState.Dead);
             f.Tree(new Vector2(30f, 30f), TreeHealthState.Healthy);
-            var shipped = AssetDatabase.LoadAssetAtPath<AnimalSpeciesConfig>("Assets/Data/Animals/PileatedWoodpeckerConfig.asset");
+            var shipped = AssetDatabase.LoadAssetAtPath<AnimalSpeciesConfig>("Assets/Data/Animals/Behaviour/PileatedWoodpeckerConfig.asset");
             Require(shipped != null && shipped.DailyBehaviours.Count == 3, "Shipped woodpecker config must have three daily entries");
             Set(f.Config, "dailyBehaviours", new List<AnimalDailyBehaviourSettings>(shipped.DailyBehaviours));
             foreach (var entry in shipped.DailyBehaviours)

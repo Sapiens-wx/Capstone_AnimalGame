@@ -12,11 +12,11 @@ namespace AnimalGame.AnimalDebug
             && !animal.Runtime.Removed && !animal.Health.IsDead && animal.CurrentState != AnimalState.Despawned
             && (animal.IsPresent || animal.Behaviour is AmericanMarmotBehaviour);
 
-        public static string DisplayName(AnimalAgent animal, PhotoLibrary library)
+        public static string DisplayName(AnimalAgent animal, AnimalInfoLibrary library)
         {
             if (animal == null) return "Select an animal";
             AnimalPhotoSubject photo = animal.GetComponent<AnimalPhotoSubject>();
-            string species = library.GetAnimal(photo != null ? photo.Species : animal.Config.Species).DisplayName;
+            string species = library.GetPhotoLibrary(photo != null ? photo.Species : animal.Config.Species).DisplayName;
             return species + " / " + animal.name + " #" + animal.GetInstanceID();
         }
 

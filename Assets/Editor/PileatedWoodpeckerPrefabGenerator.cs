@@ -14,7 +14,7 @@ namespace AnimalGame.Editor
     [InitializeOnLoad]
     public static class PileatedWoodpeckerPrefabGenerator
     {
-        private const string DataFolder = "Assets/Data/Animals";
+        private const string DataFolder = "Assets/Data/Animals/Behaviour";
         private const string AnimalPrefabFolder = "Assets/Prefabs/Animals";
         private const string WoodpeckerPrefabFolder =
             AnimalPrefabFolder + "/PileatedWoodpecker";
@@ -129,8 +129,8 @@ namespace AnimalGame.Editor
         private static void ConfigureNewConfig(AnimalSpeciesConfig config)
         {
             var serialized = new SerializedObject(config);
-            serialized.FindProperty("species").intValue =
-                (int)AnimalSpecies.PileatedWoodpecker;
+            AnimalInfoLibrary.Active.SetBehaviour(AnimalSpecies.PileatedWoodpecker, config);
+            EditorUtility.SetDirty(AnimalInfoLibrary.Active);
 
             serialized.FindProperty("activityRadiusMeters").floatValue = 45f;
             serialized.FindProperty("dailyMoveSpeedMetersPerSecond")
@@ -221,7 +221,7 @@ namespace AnimalGame.Editor
                 (int)behaviour;
             property.FindPropertyRelative("action").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<AnimalActionDefinition>(
-                    "Assets/Data/Animals/SpeciesActions/" + behaviour + ".asset");
+                    "Assets/Data/Animals/Behaviour/SpeciesActions/" + behaviour + ".asset");
             property.FindPropertyRelative("selectionWeight").floatValue =
                 weight;
             property.FindPropertyRelative("durationSeconds").vector2Value =

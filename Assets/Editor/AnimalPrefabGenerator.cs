@@ -8,7 +8,7 @@ namespace AnimalGame.Editor
     [InitializeOnLoad]
     public static class AnimalPrefabGenerator
     {
-        private const string AnimalDataFolder = "Assets/Data/Animals";
+        private const string AnimalDataFolder = "Assets/Data/Animals/Behaviour";
         private const string AnimalPrefabFolder = "Assets/Prefabs/Animals";
         private const string MuskratPrefabFolder =
             AnimalPrefabFolder + "/Muskrat";
@@ -99,6 +99,8 @@ namespace AnimalGame.Editor
             config = ScriptableObject.CreateInstance<AnimalSpeciesConfig>();
             config.name = "Muskrat Config";
             AssetDatabase.CreateAsset(config, MuskratConfigPath);
+            AnimalInfoLibrary.Active.SetBehaviour(AnimalSpecies.Muskrat, config);
+            EditorUtility.SetDirty(AnimalInfoLibrary.Active);
             return config;
         }
 

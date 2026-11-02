@@ -168,7 +168,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   resultView: {fileID: 982787043808481228}
-  photoLibrary: {fileID: 11400000, guid: 31cc7cf493f858a4eba15aea2638b632, type: 2}
+  animalInfoLibrary: {fileID: 11400000, guid: 62482c67885b0b940acca9f5e07160f0, type: 2}
   frameInsetNormalized: 0.025
   minimumSubjectCoverage: 0.18
   minimumSubjectLongestSidePixels: 18

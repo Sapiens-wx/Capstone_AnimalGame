@@ -17,7 +17,7 @@ namespace AnimalGame.EditorTools
     public static class DamagedPrimePhotoValidation
     {
         private static readonly Rect Full = new Rect(0, 0, 1, 1);
-        private const string AssetDirectory = "Assets/Data/AnimalPhoto/Rendering/";
+        private const string AssetDirectory = "Assets/Data/Animals/Photo/Rendering/";
 
         [Serializable]
         private sealed class Report
