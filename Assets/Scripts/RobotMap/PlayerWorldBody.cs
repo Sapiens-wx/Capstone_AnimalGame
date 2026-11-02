@@ -13,8 +13,9 @@ namespace AnimalGame.RobotMap
         public override InteractionShape GetShape(MapTestSceneController map)
         {
             if (mover == null) mover = GetComponent<RobotMover>();
-            float radius = mover != null ? mover.BodyRadiusInQuery(map) : .75f;
-            return InteractionShape.Circle(InteractionShape.ToQuery(transform.position, map), radius);
+            return mover.GetCollisionShape(map);
         }
+        public override InteractionShape GetShapeAfterMotion(Matrix4x4 worldDelta, MapTestSceneController map) =>
+            InteractionPushPlan.TransformShape(GetShape(map), worldDelta, map);
     }
 }

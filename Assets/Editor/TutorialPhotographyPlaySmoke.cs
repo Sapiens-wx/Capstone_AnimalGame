@@ -549,7 +549,7 @@ namespace AnimalGame.Editor
             if (!ahead.HasData || !ahead.IsPassable || ahead.RequiresHardStop
                 || !behind.HasData || !behind.IsPassable || behind.RequiresHardStop)
             { reason = "Native forward/reverse movement probe is blocked: " + ahead.BlockReason + "/" + behind.BlockReason; return false; }
-            float radius = Mathf.Max(1.25f, bootstrap.traversalEvaluator.RobotObstacleCollisionRadiusMeters + .3f);
+            float radius = Mathf.Max(1.25f, bootstrap.traversalEvaluator.CollisionBody.BodyRadiusInQuery(bootstrap.traversalEvaluator.Map) + .3f);
             Vector2 mapForward = map.WorldDirectionToMapDirection(forward);
             var kinds = WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision
                 | WorldInteractionKind.Grabbable | WorldInteractionKind.Climbable;

@@ -26,7 +26,6 @@ namespace AnimalGame.Demos.WasteRobot
         private bool pendingCrossing;
         private bool targetWasAutoBound;
         private RobotMover trackedRobot;
-        private RobotMarkerView trackedMarker;
         private HeightMapPlayerSceneBootstrap playerBootstrap;
         private float nextPlayerSearch;
         private readonly List<GameObject> sceneRoots = new List<GameObject>();
@@ -66,7 +65,6 @@ namespace AnimalGame.Demos.WasteRobot
             target = player;
             targetWasAutoBound = false;
             trackedRobot = player != null ? player.GetComponent<RobotMover>() : null;
-            trackedMarker = player != null ? player.GetComponent<RobotMarkerView>() : null;
             playerBootstrap = FindPlayerBootstrap(trackedRobot);
             IsInside = inside;
             TransitionCount = 0;
@@ -202,13 +200,12 @@ namespace AnimalGame.Demos.WasteRobot
                     Vector2 right = transform.right;
                     // Map collision circles are measured in logical metres. Use
                     // their projected world-space extent across the portal.
-                    return (evaluator.RobotObstacleCollisionRadiusMeters + .02f)
+                    return (evaluator.CollisionBody.BodyRadiusInQuery(map) + evaluator.CollisionBody.CollisionSkin)
                         * Mathf.Sqrt(right.x * right.x * x * x + right.y * right.y * y * y);
                 }
             }
-            if (trackedMarker != null)
-                return trackedMarker.BodyDiameter * .5f * Mathf.Max(Mathf.Abs(target.lossyScale.x),
-                    Mathf.Abs(target.lossyScale.y)) + .02f;
+            if (trackedRobot != null)
+                return trackedRobot.BodyRadiusInQuery(null) + trackedRobot.CollisionSkin;
             return bodyClearance;
         }
 

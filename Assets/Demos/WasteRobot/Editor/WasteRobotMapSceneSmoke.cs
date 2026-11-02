@@ -335,7 +335,7 @@ namespace AnimalGame.Demos.WasteRobot.Editor
             float x = Mathf.Abs(map.MapMetersToWorldDistance(Vector2.right, 1f));
             float y = Mathf.Abs(map.MapMetersToWorldDistance(Vector2.up, 1f));
             Vector2 right = machine.transform.right;
-            float expected = (evaluator.RobotObstacleCollisionRadiusMeters + .02f)
+            float expected = (evaluator.CollisionBody.BodyRadiusInQuery(map) + evaluator.CollisionBody.CollisionSkin)
                 * Mathf.Sqrt(right.x * right.x * x * x + right.y * right.y * y * y);
             Record(Mathf.Abs(machine.BodyClearanceWorld - expected) < .0001f,
                 "Portal body clearance uses the real map-metres-to-world projection, not the visual robot diameter.");
@@ -438,7 +438,7 @@ namespace AnimalGame.Demos.WasteRobot.Editor
                         || ground.MaximumSurfaceSlopeAngle > flatLimit) terrain = false;
                 }
             }
-            float radius = evaluator.RobotObstacleCollisionRadiusMeters + .02f;
+            float radius = evaluator.CollisionBody.BodyRadiusInQuery(map) + evaluator.CollisionBody.CollisionSkin;
             var contacts = new List<WorldInteraction>();
             WorldInteractionQuery.Query(InteractionShape.Capsule(startMap, endMap, radius), Solids,
                 map, player.gameObject.scene, contacts, player.transform);

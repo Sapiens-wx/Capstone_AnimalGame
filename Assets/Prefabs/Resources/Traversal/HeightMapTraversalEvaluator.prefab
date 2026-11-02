@@ -58,5 +58,3 @@ MonoBehaviour:
   movementProbeDistanceMeters: 6
   pathEvaluationSpacingMeters: 1
   hardStopProbeDistanceMeters: 2
-  robotObstacleCollisionRadiusMeters: 0.75
-  obstacleContactSkinMeters: 0.02

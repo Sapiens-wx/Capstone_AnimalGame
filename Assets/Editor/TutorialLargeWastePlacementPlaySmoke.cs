@@ -193,7 +193,7 @@ namespace AnimalGame.Editor
 
         private bool FindDryBodyPoint(Vector2 seed, out Vector2 point)
         {
-            float radius = Mathf.Max(.1f, bootstrap.traversalEvaluator.RobotObstacleCollisionRadiusMeters);
+            float radius = Mathf.Max(.1f, bootstrap.traversalEvaluator.CollisionBody.BodyRadiusInQuery(bootstrap.traversalEvaluator.Map));
             for (int ring = 0; ring <= 8; ring++)
                 for (int y = -ring; y <= ring; y++)
                     for (int x = -ring; x <= ring; x++)

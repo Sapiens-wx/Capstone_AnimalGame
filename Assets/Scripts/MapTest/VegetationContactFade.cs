@@ -216,8 +216,8 @@ namespace AnimalGame.MapTest
                     FindObjectOfType<HeightMapTraversalEvaluator>();
             }
 
-            float playerRadius = cachedTraversalEvaluator != null
-                ? cachedTraversalEvaluator.RobotObstacleCollisionRadiusMeters
+            float playerRadius = cachedTraversalEvaluator != null && cachedTraversalEvaluator.CollisionBody != null
+                ? cachedTraversalEvaluator.CollisionBody.BodyRadiusInQuery(cachedTraversalEvaluator.Map)
                 : fallbackPlayerRadiusMeters;
             return CalculateActorAlphaReduction(
                 plantMapPosition,

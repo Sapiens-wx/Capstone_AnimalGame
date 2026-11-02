@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 using AnimalGame.World;
+using AnimalGame.RobotMap;
 
 namespace AnimalGame.MapTest
 {
@@ -257,13 +258,6 @@ namespace AnimalGame.MapTest
         [Tooltip("Short look-ahead used only for hard blockers (steps, unsafe drops and map boundaries) during real movement. Keep this near the robot footprint so a blocker several meters ahead does not feel like an invisible wall.")]
         [SerializeField, Min(0.25f)] private float hardStopProbeDistanceMeters = 2f;
 
-        [Header("Map Obstacles")]
-        [Tooltip("Circular player radius used when sweeping against solid map props. This is independent from the terrain contact footprint so collisions stop at the visible core instead of at the terrain look-ahead distance.")]
-        [SerializeField, Min(0.05f)]
-        private float robotObstacleCollisionRadiusMeters = 0.75f;
-
-        [Tooltip("Small extra separation kept between the player and a solid prop to avoid numerical re-entry at exact contact.")]
-        [SerializeField, Min(0f)] private float obstacleContactSkinMeters = 0.02f;
 
         private MapTestSceneController map;
         private readonly List<WorldInteraction> pushContacts = new();
@@ -288,8 +282,7 @@ namespace AnimalGame.MapTest
         public float MaximumStepHeightMeters => maximumStepHeightMeters;
         public float MovementProbeDistanceMeters => movementProbeDistanceMeters;
         public float HardStopProbeDistanceMeters => hardStopProbeDistanceMeters;
-        public float RobotObstacleCollisionRadiusMeters =>
-            robotObstacleCollisionRadiusMeters;
+        public RobotMover CollisionBody => CollisionQueryIgnore != null ? CollisionQueryIgnore.GetComponent<RobotMover>() : null;
         public Transform CollisionQueryIgnore { get; set; }
         public float PathSampleSpacingMeters => pathEvaluationSpacingMeters;
         public bool IsInitialized => map != null && map.HasGeneratedMap;
@@ -416,8 +409,7 @@ namespace AnimalGame.MapTest
                                                 * requestedWorldDistance;
             bool hasMapObstacle = IsObstacleSweepBlocked(
                 startMapPosition,
-                requestedEndMapPosition,
-                sweepWidth * 0.5f);
+                requestedEndMapPosition);
             Vector2 mapRight = new Vector2(mapDirection.y, -mapDirection.x);
             int lateralSampleCount = CalculateTumbleLateralSampleCount(
                 sweepWidth);
@@ -772,8 +764,7 @@ namespace AnimalGame.MapTest
 
             return IsObstacleSweepBlocked(
                     startMapPosition,
-                    endMapPosition,
-                    robotObstacleCollisionRadiusMeters)
+                    endMapPosition)
                 ? SlopeTraversalResult.BlockedObstacle
                 : SlopeTraversalResult.NoData;
         }
@@ -788,12 +779,7 @@ namespace AnimalGame.MapTest
                 || !map.TrySampleWorldPosition(endWorld, out Vector2 end, out _)) return false;
             Vector2 delta = end - start;
             if (delta.sqrMagnitude <= 0.0000001f) return true;
-            float radius = robotObstacleCollisionRadiusMeters + obstacleContactSkinMeters;
-            InteractionShape before = InteractionShape.Capsule(start, start, radius);
-            pushContacts.Clear();
-            WorldInteractionQuery.Query(InteractionShape.Capsule(start, end, radius),
-                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
-                map, map.gameObject.scene, pushContacts, ignore: CollisionQueryIgnore, previous: before, ignoreHeld: ignoreHeld);
+            CollisionBody.QueryCollisionSweep(startWorld, endWorld, map, pushContacts, ignoreHeld);
             foreach (WorldInteraction item in pushContacts)
             {
                 if ((item.Kind & WorldInteractionKind.Pushable) == 0 || item.Owner != null)
@@ -837,12 +823,7 @@ namespace AnimalGame.MapTest
             if (!IsInitialized || !map.TrySampleWorldPosition(startWorld, out Vector2 start, out _)
                 || !map.TrySampleWorldPosition(endWorld, out Vector2 end, out _)) return 1f;
             if ((end - start).sqrMagnitude <= 0.0000001f) return 1f;
-            float radius = robotObstacleCollisionRadiusMeters + obstacleContactSkinMeters;
-            pushContacts.Clear();
-            WorldInteractionQuery.Query(InteractionShape.Capsule(start, end, radius),
-                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision,
-                map, map.gameObject.scene, pushContacts,
-                ignore: CollisionQueryIgnore, previous: InteractionShape.Capsule(start, start, radius), ignoreHeld: ignoreHeld);
+            CollisionBody.QueryCollisionSweep(startWorld, endWorld, map, pushContacts, ignoreHeld);
             float multiplier = 1f;
             foreach (WorldInteraction item in pushContacts)
                 if ((item.Kind & WorldInteractionKind.Pushable) != 0 && item.Owner == null)
@@ -850,20 +831,13 @@ namespace AnimalGame.MapTest
             return multiplier;
         }
 
-        private bool IsObstacleSweepBlocked(
-            Vector2 startMapPosition,
-            Vector2 endMapPosition,
-            float movingRadiusMeters)
+        private bool IsObstacleSweepBlocked(Vector2 startMapPosition, Vector2 endMapPosition)
         {
-            if ((endMapPosition - startMapPosition).sqrMagnitude <= 0.0000001f)
+            if (CollisionBody == null || (endMapPosition - startMapPosition).sqrMagnitude <= .0000001f)
                 return false;
-            float radius = Mathf.Max(0f, movingRadiusMeters) + obstacleContactSkinMeters;
-            return WorldInteractionQuery.Query(
-                InteractionShape.Capsule(startMapPosition, endMapPosition, radius),
-                WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision, map, map.gameObject.scene,
-                ignore: CollisionQueryIgnore, previous: InteractionShape.Capsule(startMapPosition, startMapPosition, radius));
+            return CollisionBody.QueryCollisionSweep(
+                map.MapPositionToWorld(startMapPosition), map.MapPositionToWorld(endMapPosition), map);
         }
-
         public SlopeTraversalResult EvaluateMovement(
             Vector2 startWorld,
             Vector2 worldDirection)
@@ -962,8 +936,7 @@ namespace AnimalGame.MapTest
             if (includeMapObstacles
                 && IsObstacleSweepBlocked(
                     startMapPosition,
-                    endMapPosition,
-                    robotObstacleCollisionRadiusMeters))
+                    endMapPosition))
             {
                 return SlopeTraversalResult.BlockedObstacle;
             }
@@ -1572,12 +1545,6 @@ namespace AnimalGame.MapTest
             hardStopProbeDistanceMeters = Mathf.Max(
                 0.25f,
                 hardStopProbeDistanceMeters);
-            robotObstacleCollisionRadiusMeters = Mathf.Max(
-                0.05f,
-                robotObstacleCollisionRadiusMeters);
-            obstacleContactSkinMeters = Mathf.Max(
-                0f,
-                obstacleContactSkinMeters);
         }
 
         private readonly struct SurfaceAnalysis

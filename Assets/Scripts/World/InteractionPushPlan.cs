@@ -259,7 +259,7 @@ namespace AnimalGame.World
 
         // Swept convex hull catches thin obstacles between endpoints. Initial overlaps
         // may escape, but are never deepened. Callers subdivide curved/rotating paths.
-        private bool Blocks(InteractionShape before, InteractionShape after, InteractionShape obstacle)
+        public bool Blocks(InteractionShape before, InteractionShape after, InteractionShape obstacle)
         {
             float previous = WorldInteractionQuery.Penetration(before, obstacle);
             float next = WorldInteractionQuery.Penetration(after, obstacle);

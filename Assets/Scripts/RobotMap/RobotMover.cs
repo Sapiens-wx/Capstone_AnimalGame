@@ -7,6 +7,8 @@ using UnityEngine;
 
 namespace AnimalGame.RobotMap
 {
+    public enum CollisionShape { Box, Circle, Capsule }
+
     public enum RobotMovementMode
     {
         Driven,
@@ -25,6 +27,79 @@ namespace AnimalGame.RobotMap
     public sealed class RobotMover : MonoBehaviour
     {
         private PlayerCombatReceiver animalCombat;
+        [Header("Collision")]
+        [SerializeField] private CollisionShape collisionShape = CollisionShape.Circle;
+        [Tooltip("Collision center in local Transform units.")]
+        [SerializeField] private Vector2 colliderCenter;
+        [SerializeField] private Vector2 localSize = Vector2.one * 1.5f;
+        [Tooltip("Circle/capsule radius in local Transform units, scaled by the largest XY scale.")]
+        [SerializeField, Min(0f)] private float colliderRadius = .75f;
+        [Tooltip("Total length along local Y, including round caps. Minimum effective length is the diameter.")]
+        [SerializeField, Min(0f)] private float colliderLength = 2f;
+        [SerializeField, Min(0f)] private float collisionSkin = .02f;
+        private readonly List<WorldInteraction> bodySweepCandidates = new();
+        private readonly InteractionPushPlan bodySweepGeometry = new();
+
+        public CollisionShape CollisionShape { get => collisionShape; set { collisionShape = value; MarkBodyDirty(); } }
+        public Vector2 ColliderCenter { get => colliderCenter; set { colliderCenter = value; MarkBodyDirty(); } }
+        public Vector2 LocalSize { get => localSize; set { localSize = value; MarkBodyDirty(); } }
+        public float ColliderRadius { get => Mathf.Max(0f, colliderRadius); set { colliderRadius = Mathf.Max(0f, value); MarkBodyDirty(); } }
+        public float ColliderLength { get => Mathf.Max(0f, colliderLength); set { colliderLength = Mathf.Max(0f, value); MarkBodyDirty(); } }
+        public float CollisionSkin => Mathf.Max(0f, collisionSkin);
+        private void MarkBodyDirty()
+        {
+            if (TryGetComponent<PlayerWorldBody>(out var body)) body.MarkSpatialDirty();
+        }
+
+        public InteractionShape GetCollisionShape(MapTestSceneController map) =>
+            GetCollisionShapeAt(transform.position, transform.rotation, map);
+
+        public InteractionShape GetCollisionShapeAt(Vector2 position, Quaternion rotation,
+            MapTestSceneController map, float padding = 0f)
+        {
+            Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(position.x, position.y, transform.position.z), rotation, Vector3.one)
+                * Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one).inverse * transform.localToWorldMatrix;
+            Vector2 Point(Vector2 p) => InteractionShape.ToQuery(matrix.MultiplyPoint3x4(p), map);
+            Vector2 center = Point(colliderCenter);
+            if (collisionShape == CollisionShape.Box)
+            {
+                Vector2 h = new Vector2(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y)) * .5f;
+                // Padding is expressed in query units.
+                Vector2 right = (Point(colliderCenter + Vector2.right) - center).normalized * padding;
+                Vector2 up = (Point(colliderCenter + Vector2.up) - center).normalized * padding;
+                return new InteractionShape { IsBox = true,
+                    A = Point(colliderCenter - h) - right - up,
+                    B = Point(colliderCenter + new Vector2(h.x, -h.y)) + right - up,
+                    C = Point(colliderCenter + h) + right + up,
+                    D = Point(colliderCenter + new Vector2(-h.x, h.y)) - right + up };
+            }
+            float scale = Mathf.Max((Point(colliderCenter + Vector2.right) - center).magnitude,
+                (Point(colliderCenter + Vector2.up) - center).magnitude);
+            Vector2 offset = collisionShape == CollisionShape.Capsule
+                ? Vector2.up * Mathf.Max(0f, ColliderLength * .5f - ColliderRadius) : Vector2.zero;
+            return InteractionShape.Capsule(Point(colliderCenter - offset), Point(colliderCenter + offset),
+                ColliderRadius * scale + padding);
+        }
+
+        // Uses the same continuous convex sweep as pushing, including thin obstacles.
+        public bool QueryCollisionSweep(Vector2 startWorld, Vector2 endWorld, MapTestSceneController map,
+            List<WorldInteraction> results = null, Transform ignoreHeld = null)
+        {
+            InteractionShape before = GetCollisionShapeAt(startWorld, transform.rotation, map, CollisionSkin);
+            InteractionShape after = GetCollisionShapeAt(endWorld, transform.rotation, map, CollisionSkin);
+            Rect a = WorldInteractionQuadTree.BoundsOf(before), b = WorldInteractionQuadTree.BoundsOf(after);
+            Vector2 min = Vector2.Min(a.min, b.min), max = Vector2.Max(a.max, b.max);
+            WorldInteractionQuery.Query(new InteractionShape { IsBox = true, A = min,
+                B = new Vector2(max.x, min.y), C = max, D = new Vector2(min.x, max.y) },
+                InteractionPushPlan.Solids, map, gameObject.scene, bodySweepCandidates,
+                ignore: transform, ignoreHeld: ignoreHeld);
+            results?.Clear();
+            bool blocked = false;
+            foreach (var item in bodySweepCandidates)
+                if (bodySweepGeometry.Blocks(before, after, item.GetShape(map)))
+                { blocked = true; results?.Add(item); }
+            return blocked;
+        }
         [Header("Base Movement")]
         [Tooltip("Global scale applied once to every absolute movement speed, linear/angular acceleration, terrain slide rate and recovery rate. Relative slope multipliers and phase durations are intentionally unchanged. Set to 0.85 for an overall 15 percent reduction.")]
         [SerializeField, Range(0f, 2f)] private float overallMotionScale = 1f;
@@ -608,7 +683,7 @@ namespace AnimalGame.RobotMap
                 return true;
             }
             MapTestSceneController climbableMap = traversalEvaluator != null ? traversalEvaluator.Map : null;
-            float bodyRadius = GetClimbableBodyRadius(climbableMap);
+            float bodyRadius = BodyRadiusInQuery(climbableMap);
             Vector2 movementStart = transform.position;
             float normalSpeedLimit = climbableNormalSpeedLimit;
             if (float.IsPositiveInfinity(normalSpeedLimit))
@@ -697,11 +772,13 @@ namespace AnimalGame.RobotMap
 
         public void AppendBodyShape(InteractionPushPlan plan, Vector2 start, Vector2 end, MapTestSceneController sceneMap)
         {
-            float radius = GetClimbableBodyRadius(sceneMap) + .02f;
-            Vector2 a = InteractionShape.ToQuery(start, sceneMap), b = InteractionShape.ToQuery(end, sceneMap);
-            plan.Add(InteractionShape.Capsule(a, a, radius), InteractionShape.Capsule(b, b, radius), true);
+            AppendBodyShape(plan, start, end, transform.rotation, sceneMap);
         }
-        public float BodyRadiusInQuery(MapTestSceneController map) => GetClimbableBodyRadius(map);
+        public void AppendBodyShape(InteractionPushPlan plan, Vector2 start, Vector2 end,
+            Quaternion endRotation, MapTestSceneController sceneMap) =>
+            plan.Add(GetCollisionShapeAt(start, transform.rotation, sceneMap, CollisionSkin),
+                GetCollisionShapeAt(end, endRotation, sceneMap, CollisionSkin), true);
+
 
         public bool ApplyAnimalImpact(Vector2 displacement)
         {
@@ -719,7 +796,30 @@ namespace AnimalGame.RobotMap
             Quaternion desired = Quaternion.Euler(0f, 0f, transform.eulerAngles.z + angle);
             if (!IgnoreCollisionAndTerrain && armController != null && armController.isActiveAndEnabled)
                 armController.ConstrainBodyRotation(desired);
-            else transform.rotation = desired;
+            else if (IgnoreCollisionAndTerrain) transform.rotation = desired;
+            else ConstrainCollisionPose(transform.position, desired);
+        }
+
+        public void ConstrainCollisionPose(Vector3 end, Quaternion endRotation)
+        {
+            Vector3 start = transform.position;
+            Quaternion rotation = transform.rotation;
+            MapTestSceneController map = traversalEvaluator != null ? traversalEvaluator.Map : null;
+            float travel = Vector2.Distance(InteractionShape.ToQuery(start, map), InteractionShape.ToQuery(end, map))
+                + Quaternion.Angle(rotation, endRotation) * Mathf.Deg2Rad
+                * (BodyRadiusInQuery(map) + ColliderCenter.magnitude);
+            int steps = Mathf.Clamp(Mathf.CeilToInt(travel / .005f), 1, 8192);
+            for (int i = 1; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                Vector3 position = Vector3.Lerp(start, end, t);
+                Quaternion heading = Quaternion.Slerp(rotation, endRotation, t);
+                movementPlan.Begin(map, gameObject.scene, transform, null);
+                AppendBodyShape(movementPlan, transform.position, position, heading, map);
+                if (!movementPlan.Evaluate() || !movementPlan.Commit()) break;
+                transform.SetPositionAndRotation(position, heading);
+                WorldInteraction.MarkHierarchySpatialDirty(transform);
+            }
         }
 
         public void SetHeavyPullConstraint(Object owner, Vector2 targetPosition,
@@ -861,27 +961,21 @@ namespace AnimalGame.RobotMap
         private void RefreshClimbableSurface()
         {
             MapTestSceneController map = traversalEvaluator != null ? traversalEvaluator.Map : null;
-            float bodyRadius = GetClimbableBodyRadius(map);
+            float bodyRadius = BodyRadiusInQuery(map);
             CurrentClimbableSurface = ClimbableSurface.Sample(transform.position,
                 map, gameObject.scene, climbableScratch, CurrentClimbableSurface.Source, bodyRadius);
             CurrentClimbableAreaSpeedMultiplier = ClimbableSurface.AreaSpeedMultiplier(
                 transform.position, map, gameObject.scene, climbableScratch, bodyRadius);
         }
 
-        private float GetClimbableBodyRadius(MapTestSceneController map)
+        public float BodyRadiusInQuery(MapTestSceneController map)
         {
-            // Match the existing physical body circle, not the terrain footprint
-            // or padded artwork. Query coordinates are metres only on generated maps.
-            if (map != null && map.HasGeneratedMap && traversalEvaluator != null)
-                return traversalEvaluator.RobotObstacleCollisionRadiusMeters;
-            RobotMarkerView marker = GetComponent<RobotMarkerView>();
-            float worldRadius = marker != null
-                ? marker.BodyDiameter * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.y)) * .5f
-                : .75f;
-            if (map == null || !map.HasGeneratedMap) return worldRadius;
-            float metresToWorld = Mathf.Min(Mathf.Abs(map.MapMetersToWorldDistance(Vector2.right, 1f)),
-                Mathf.Abs(map.MapMetersToWorldDistance(Vector2.up, 1f)));
-            return worldRadius / Mathf.Max(.000001f, metresToWorld);
+            InteractionShape shape = GetCollisionShape(map);
+            // Radial effects use a circumscribed radius derived from the body geometry.
+            if (!shape.IsBox) return Vector2.Distance(shape.A, shape.B) * .5f + shape.Radius;
+            float radius = 0f;
+            for (int i = 0; i < 4; i++) radius = Mathf.Max(radius, Vector2.Distance(shape.Center, shape.Vertex(i)));
+            return radius;
         }
 
         private void ResetClimbableContact()
@@ -1630,6 +1724,7 @@ namespace AnimalGame.RobotMap
 
         private void OnValidate()
         {
+            MarkBodyDirty();
             overallMotionScale = Mathf.Clamp(overallMotionScale, 0f, 2f);
             stickDeadZone = Mathf.Clamp(stickDeadZone, 0f, 0.9f);
             triggerDeadZone = Mathf.Clamp(triggerDeadZone, 0f, 0.9f);

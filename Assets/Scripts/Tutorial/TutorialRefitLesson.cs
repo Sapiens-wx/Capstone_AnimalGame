@@ -305,7 +305,7 @@ namespace AnimalGame.Tutorial
             Vector2 direction = (InteriorEntranceMapPosition - center).normalized;
             if (direction.sqrMagnitude < .001f) direction = Vector2.up;
             float radius = Mathf.Min(.65f, terminal.InteractionRadiusMeters * .65f);
-            float body = bootstrap.traversalEvaluator != null ? bootstrap.traversalEvaluator.RobotObstacleCollisionRadiusMeters : .5f;
+            float body = bootstrap.traversalEvaluator != null ? bootstrap.traversalEvaluator.CollisionBody.BodyRadiusInQuery(bootstrap.traversalEvaluator.Map) : .5f;
             for (int i = 0; i < 16; i++)
             {
                 float angle = i * 22.5f * Mathf.Deg2Rad;

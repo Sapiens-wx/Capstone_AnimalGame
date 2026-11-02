@@ -555,13 +555,13 @@ namespace AnimalGame.RobotArm
         }
         private void ConstrainBodyPose(Vector3 start, Quaternion rotation, Vector3 end, Quaternion endRotation)
         {
-            if (!initialized || deploymentTime <= 0f) { transform.SetPositionAndRotation(end, endRotation); return; }
+            if (!initialized || deploymentTime <= 0f) { mover.ConstrainCollisionPose(end, endRotation); return; }
             float scale = Mathf.Max(.0001f, marker.MarkerVisualRoot.lossyScale.x);
             float distance = Vector3.Distance(start, end) / scale
                 + Quaternion.Angle(rotation, endRotation) * Mathf.Deg2Rad * (diameter + upperLength + lowerLength);
             // A held prop can extend far beyond the hands. Its radius participates in
             // the angular subdivision, independently of the arm's visual width.
-            float heldRadius = 0f;
+            float heldRadius = mover.BodyRadiusInQuery(map) + mover.ColliderCenter.magnitude;
             if (FollowsHands)
             {
                 HeldMotionRoot.GetComponentsInChildren(false, heldSolids);
@@ -676,7 +676,7 @@ namespace AnimalGame.RobotArm
         private void BuildBodyPlan(Vector3 position, Quaternion rotation)
         {
             contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot);
-            mover.AppendBodyShape(contactPlan, transform.position, position, map);
+            mover.AppendBodyShape(contactPlan, transform.position, position, rotation, map);
             AppendBodyMotion(contactPlan, position, rotation);
         }
 

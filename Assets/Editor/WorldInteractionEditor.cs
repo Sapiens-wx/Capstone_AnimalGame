@@ -33,6 +33,11 @@ namespace AnimalGame.Editor
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
+            if (target is AnimalGame.RobotMap.PlayerWorldBody)
+            {
+                EditorGUILayout.HelpBox("Player collision geometry is configured on Robot Mover.", MessageType.Info);
+                return;
+            }
             if (target is HeightMapObstacleFootprint)
             {
                 EditorGUILayout.HelpBox("Blocks Traversal controls hard collision. Sight Blocking independently controls animal cover; Match Traversal preserves the original behaviour. Add a separate WorldInteraction for grabbing or climbing.", MessageType.Info);
