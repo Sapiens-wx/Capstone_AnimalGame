@@ -11,7 +11,7 @@
 .body { flex-grow: 1; min-height: 0; border-top-width: 1px; border-top-color: #a7a79b; }
 .sidebar { width: 280px; padding: 18px; border-right-width: 1px; border-right-color: #9b9c93; background-color: #060706; }
 #collections { flex-grow: 0; flex-shrink: 1; min-height: 0; max-height: 100%; margin-top: 14px; margin-bottom: 14px; }
-#sidebar-title, #previous, #next, #local-count { flex-shrink: 0; }
+#sidebar-title, #local-count { flex-shrink: 0; }
 .collection { white-space: normal; min-height: 40px; -unity-text-align: middle-left; margin-bottom: 9px; padding-left: 12px; border-width: 1px; border-color: #36372e; }
 .photo-collection { flex-direction: column; align-items: stretch; justify-content: space-between; padding: 12px; }
 .photo-collection > Label { margin: 0; padding: 0; flex-shrink: 0; }
