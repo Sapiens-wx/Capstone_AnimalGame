@@ -75,6 +75,7 @@ namespace AnimalGame.Animals.UI
                 tiles.Add(button);
             }
             var current = collection.Current;
+            root.Q("photo-delete").style.display = current != null ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q<Label>("photo-name").text = current?.displayName ?? "No saved photographs";
             root.Q<Label>("photo-scientific").text = current?.scientificName ?? "";
             root.Q<Label>("photo-region").text = current?.regionName ?? "";
@@ -96,6 +97,8 @@ namespace AnimalGame.Animals.UI
             root.Q<Label>("record-count").text = $"{collection.Photos.Count:00} RECORDS   {collection.Selected + (current == null ? 0 : 1):00} / {collection.Photos.Count:00}";
         }
         private Action sortHandler, openHandler, catalogHandler;
+
+        public void SetDeleteProgress(float progress) => root.Q<ArchiveHoldCircleElement>("photo-delete-progress").Progress = progress;
 
         private static string Position(AnimalPhotoRecord p)
         {

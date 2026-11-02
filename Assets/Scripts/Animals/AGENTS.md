@@ -29,4 +29,4 @@
 - `Photos/PhotoCollection` 管理照片筛选、排序和选择；`PhotosView` 渲染照片，`PhotosSidebarView` 管理无滚动条的 collection 列表及滚动动画；普通页面由左摇杆/D-pad 在侧栏和 Photo Index 间切换焦点并导航，全屏时上下切 collection、左右切照片，右摇杆控制倾斜。
 - Catalog 与物种详情共用六格可见侧栏；`CatalogSidebarView` 跳过未识别物种并动画滚动，摇杆上下或 LT/RT 选择，Main Catalog 清除选择并显示空白页；`CatalogView` 填充详情，底部识别条仅为静态占位。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
-- 已保存照片来自 `SaveSystem.Current.photos`；`AnimalPhotoRecord` 保存原图标识、效果与裁剪参数，界面监听 `SaveSystem.Changed` 刷新数据。
+- 已保存照片来自 `SaveSystem.Current.photos`；`AnimalPhotoRecord` 保存原图标识、效果与裁剪参数，界面监听 `SaveSystem.Changed` 刷新；`PhotoDeleteHold` 管理长按 X 1.5 秒删除，`ArchiveHoldCircleElement` 显示环形进度，删除通过 `SaveSystem.DeletePhoto` 持久化。

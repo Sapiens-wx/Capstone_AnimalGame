@@ -55,5 +55,17 @@ namespace AnimalGame.Save
             catch { Current.photos.Remove(photo); throw; }
             Changed?.Invoke();
         }
+
+        public static void DeletePhoto(string photoId)
+        {
+            Initialize();
+            int index = Current.photos.FindIndex(photo => photo.id == photoId);
+            if (index < 0) throw new InvalidOperationException($"Photo does not exist: {photoId}");
+            var photo = Current.photos[index];
+            Current.photos.RemoveAt(index);
+            try { WriteTo(SavePath, Current); }
+            catch { Current.photos.Insert(index, photo); throw; }
+            Changed?.Invoke();
+        }
     }
 }

@@ -193,6 +193,18 @@ namespace AnimalGame.RobotMap
                 : Input.GetKeyDown(KeyCode.JoystickButton2);
         }
 
+        public static bool IsWestFaceButtonHeld()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemGamepad(out Gamepad gamepad))
+                return gamepad.buttonWest.isPressed;
+#endif
+            RefreshDeviceIfNeeded();
+            return ActiveFamily == LegacyGamepadFamily.Sony
+                ? Input.GetKey(KeyCode.JoystickButton0)
+                : Input.GetKey(KeyCode.JoystickButton2);
+        }
+
         public static bool WasEastFaceButtonPressedThisFrame()
         {
 #if ENABLE_INPUT_SYSTEM

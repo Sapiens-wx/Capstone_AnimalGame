@@ -29,6 +29,7 @@ namespace AnimalGame.Animals.UI
         }
         private readonly Stack<Location> history = new();
         private readonly PhotoCollection photos = new();
+        private readonly PhotoDeleteHold deleteHold = new();
         private readonly List<AnimalSpecies?> collections = new();
         private readonly List<AnimalSpecies> catalogSpecies = new();
         private Page page;
@@ -89,6 +90,7 @@ namespace AnimalGame.Animals.UI
         {
             if (!BlocksGameplay) return;
             BlocksGameplay = false;
+            deleteHold.Cancel(); photosView.SetDeleteProgress(0);
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             Cursor.lockState = cursorLock;
             catalogSidebar.StopAnimation(); photosSidebar.StopAnimation();
@@ -112,11 +114,12 @@ namespace AnimalGame.Animals.UI
         {
             if (history.Count == 0) { Close(); return; }
             var location = history.Pop(); page = location.page; species = location.species;
-            collection = location.collection; catalogIndex = location.catalogIndex;
+            collection = Mathf.Clamp(location.collection, 0, collections.Count - 1); catalogIndex = location.catalogIndex;
             photos.OldestFirst = location.oldest; photos.SortFocused = location.sortFocused;
             indexFocused = location.indexFocused;
             Refresh();
-            photos.Selected = location.selected; photos.TopRow = location.topRow;
+            photos.Selected = Mathf.Clamp(location.selected, 0, Math.Max(0, photos.Photos.Count - 1));
+            photos.TopRow = Math.Min(location.topRow, photos.Selected / 3);
             if (page == Page.Photos || page == Page.Inspection) RenderPhotos();
         }
 
@@ -314,6 +317,16 @@ namespace AnimalGame.Animals.UI
             {
                 if (Input.GetKeyDown(KeyCode.V)) { Open(); return; }
                 if (upHeld && !holdLatched) { holdTime += Time.unscaledDeltaTime; if (holdTime >= .5f) { holdLatched = true; Open(); } }
+                return;
+            }
+            bool deleteHeld = Input.GetKey(KeyCode.X) || AdaptiveLegacyGamepadInput.IsWestFaceButtonHeld();
+            string deleteTarget = page == Page.Photos || page == Page.Inspection ? photos.Current?.id : null;
+            bool delete = deleteHold.Update(deleteHeld, deleteTarget, Time.unscaledDeltaTime);
+            photosView.SetDeleteProgress(deleteHold.Progress);
+            if (delete)
+            {
+                deleteHold.Cancel(); photosView.SetDeleteProgress(0);
+                SaveSystem.DeletePhoto(deleteTarget);
                 return;
             }
             if (holdLatched && upHeld) return;
