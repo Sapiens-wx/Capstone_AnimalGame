@@ -17,9 +17,21 @@
     var expectedProject = "c:/users/pc/fmodprojects/capstone_animalgame/capstone_animalgame.fspro";
     var sourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone3/PlayerActions/";
     var reusedSourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone2/PlayerActions/";
+    var inventorySourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone3/UI/Inventory/";
     var bankName = "RobotFoley";
     var parameterKinds = ["Speed", "Progress", "Effort", "Impact"];
     var definitions = [
+        // Six inventory deliveries. C06 stays reserved until a public discard action signal exists.
+        { path: "event:/Robot/Inventory/Open", file: "C01_Inventory_Open.wav", sourceRoot: inventorySourceRoot,
+            trimEnd: 0.50, fadeOut: 0.04 },
+        { path: "event:/Robot/Inventory/Close", file: "C02_Inventory_Close.wav", sourceRoot: inventorySourceRoot,
+            trimEnd: 0.50, fadeOut: 0.04 },
+        { path: "event:/Robot/Inventory/Navigate", file: "C03_Inventory_Navigate.wav", sourceRoot: inventorySourceRoot,
+            fadeOut: 0.005 },
+        { path: "event:/Robot/Inventory/MoveSelect", file: "C04_Inventory_Move_Select.wav", sourceRoot: inventorySourceRoot,
+            fadeOut: 0.005 },
+        { path: "event:/Robot/Inventory/MoveConfirm", file: "C05_Inventory_Move_Confirm.wav", sourceRoot: inventorySourceRoot },
+        { path: "event:/Robot/Inventory/Discard", file: "C06_Inventory_Discard.wav", sourceRoot: inventorySourceRoot, reserved: true },
         // B01 reuses the existing M2 Slide event with a runtime pitch adjustment.
         // No separate B01 source is required; any older TumbleStart event survives.
         { path: "event:/Robot/Balance/TumbleMove", file: "Balance/B02_Tumble_Move_Loop.wav", loop: true,
