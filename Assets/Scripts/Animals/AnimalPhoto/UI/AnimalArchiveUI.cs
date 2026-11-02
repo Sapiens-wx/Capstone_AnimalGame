@@ -27,7 +27,7 @@ namespace AnimalGame.Animals.UI
             public bool oldest, sortFocused, indexFocused;
             public AnimalSpecies species;
         }
-        private readonly Stack<Location> history = new();
+        private Location previousLocation;
         private readonly PhotoCollection photos = new();
         private readonly PhotoDeleteHold deleteHold = new();
         private readonly List<AnimalSpecies?> collections = new();
@@ -76,7 +76,7 @@ namespace AnimalGame.Animals.UI
             if (bootstrap == null || bootstrap.photoMode.IsActive
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             collections.Clear();
-            history.Clear(); page = Page.Photos; collection = 0; catalogIndex = -1;
+            previousLocation = null; page = Page.Photos; collection = 0; catalogIndex = -1;
             catalogSidebar.Reset(); photosSidebar.Reset();
             photos.Selected = photos.TopRow = 0; photos.SortFocused = false;
             indexFocused = false;
@@ -94,7 +94,7 @@ namespace AnimalGame.Animals.UI
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             Cursor.lockState = cursorLock;
             catalogSidebar.StopAnimation(); photosSidebar.StopAnimation();
-            root.style.display = DisplayStyle.None; photosView.Clear(); history.Clear();
+            root.style.display = DisplayStyle.None; photosView.Clear(); previousLocation = null;
         }
 
         private Location CaptureLocation() => new Location { page = page, species = species,
@@ -104,7 +104,7 @@ namespace AnimalGame.Animals.UI
         private void Navigate(Page target)
         {
             if (target == page) return;
-            history.Push(CaptureLocation()); page = target;
+            previousLocation = CaptureLocation(); page = target;
             if (target == Page.Photos) indexFocused = false;
             if (target == Page.Catalog) { catalogIndex = -1; species = AnimalSpecies.Unknown; }
             Refresh();
@@ -112,8 +112,9 @@ namespace AnimalGame.Animals.UI
 
         private void Back()
         {
-            if (history.Count == 0) { Close(); return; }
-            var location = history.Pop(); page = location.page; species = location.species;
+            if (previousLocation == null) { Close(); return; }
+            var location = previousLocation; previousLocation = null;
+            page = location.page; species = location.species;
             collection = Mathf.Clamp(location.collection, 0, collections.Count - 1); catalogIndex = location.catalogIndex;
             photos.OldestFirst = location.oldest; photos.SortFocused = location.sortFocused;
             indexFocused = location.indexFocused;
@@ -128,14 +129,14 @@ namespace AnimalGame.Animals.UI
             if (photos.Current == null) return;
             var selectedSpecies = photos.Current.species;
             if (!IsIdentified(selectedSpecies)) { Navigate(Page.Catalog); return; }
-            history.Push(CaptureLocation()); species = selectedSpecies; page = Page.Species; Refresh();
+            previousLocation = CaptureLocation(); species = selectedSpecies; page = Page.Species; Refresh();
         }
 
         private void ViewSpeciesPhotos()
         {
             int index = collections.IndexOf(species);
             if (index < 0) return;
-            history.Push(CaptureLocation()); page = Page.Photos; SelectPhotoCollection(index);
+            previousLocation = CaptureLocation(); page = Page.Photos; SelectPhotoCollection(index);
         }
 
         private void Refresh() => Refresh(false);
@@ -231,7 +232,7 @@ namespace AnimalGame.Animals.UI
             if (!IsIdentified(catalogSpecies[index])) return;
             if (page == Page.Catalog)
             {
-                history.Push(CaptureLocation());
+                previousLocation = CaptureLocation();
                 page = Page.Species;
             }
             catalogIndex = index; species = catalogSpecies[index];

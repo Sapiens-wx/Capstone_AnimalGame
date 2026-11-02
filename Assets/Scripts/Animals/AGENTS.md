@@ -25,7 +25,7 @@
 # AnimalUI 结构（Photos / Catalog）
 
 - 界面代码位于 `AnimalPhoto/UI/`，其中 `Photos/` 和 `Catalog/` 分别组织照片界面与图鉴界面代码。
-- `AnimalArchiveUI` 统一管理输入、页面切换、返回历史及打开界面时的游戏暂停；页面包含 Photos、照片全屏查看、Catalog 和物种详情。
+- `AnimalArchiveUI` 统一管理输入、页面切换及打开界面时的游戏暂停；仅保留上一个界面，B 返回一次后再次按 B 关闭；页面包含 Photos、照片全屏查看、Catalog 和物种详情。
 - `Photos/PhotoCollection` 管理照片筛选、排序和选择；`PhotosView` 渲染照片，`PhotosSidebarView` 管理无滚动条的 collection 列表及滚动动画；普通页面由左摇杆/D-pad 在侧栏和 Photo Index 间切换焦点并导航，全屏时上下切 collection、左右切照片，右摇杆控制倾斜。
 - Catalog 与物种详情共用六格可见侧栏；`CatalogSidebarView` 跳过未识别物种并动画滚动，摇杆上下或 LT/RT 选择，Main Catalog 清除选择并显示空白页；`CatalogView` 填充详情，底部识别条仅为静态占位。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
