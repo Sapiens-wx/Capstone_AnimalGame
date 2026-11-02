@@ -26,7 +26,7 @@
 
 - 界面代码位于 `AnimalPhoto/UI/`，其中 `Photos/` 和 `Catalog/` 分别组织照片界面与图鉴界面代码。
 - `AnimalArchiveUI` 统一管理输入、页面切换、返回历史及打开界面时的游戏暂停；页面包含 Photos、照片全屏查看、Catalog 和物种详情。
-- `Photos/PhotoCollection` 管理筛选、排序、选择和滚动位置；`PhotosView` 负责缩略图、照片还原及普通预览／全屏布局。
+- `Photos/PhotoCollection` 管理照片筛选、排序和选择；`PhotosView` 渲染照片，`PhotosSidebarView` 管理无滚动条的 collection 列表及越界滚动动画；左摇杆上下选择 collection，右摇杆选择照片。
 - Catalog 与物种详情共用六格可见侧栏；`CatalogSidebarView` 跳过未识别物种并动画滚动，摇杆上下或 LT/RT 选择，Main Catalog 清除选择并显示空白页；`CatalogView` 填充详情，底部识别条仅为静态占位。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
 - 已保存照片来自 `SaveSystem.Current.photos`；`AnimalPhotoRecord` 保存原图标识、效果与裁剪参数，界面监听 `SaveSystem.Changed` 刷新数据。

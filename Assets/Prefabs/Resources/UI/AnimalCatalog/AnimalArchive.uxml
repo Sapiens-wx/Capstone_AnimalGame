@@ -34,7 +34,7 @@
                     </ui:Button>
                     <archive:ArchiveHeadingElement name="sidebar-title" text="COLLECTION" end-length="8" bottom-offset="0" class="heading" />
                     <ui:Button name="previous" text="LT" class="key-action" style="width: 44px; height: auto;" />
-                    <ui:ScrollView name="collections" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" />
+                    <ui:ScrollView name="collections" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" />
                     <ui:ScrollView name="catalog-sidebar" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" style="display: none;" />
                     <ui:Button name="next" text="RT" class="key-action" style="width: 44px; height: auto;" />
                     <ui:Label name="local-count" />
@@ -46,7 +46,7 @@
                                 <archive:ArchiveHeadingElement text="PHOTO INDEX" end-length="8" bottom-offset="0" class="heading" />
                                 <ui:Button name="photo-sort" text="Newest first ↓" />
                             </ui:VisualElement>
-                            <ui:Label text="LEFT STICK / D-PAD  SELECT PHOTO" class="hint" />
+                            <ui:Label text="RIGHT STICK  SELECT PHOTO" class="hint" />
                             <ui:VisualElement name="photo-tiles" />
                         </ui:VisualElement>
                         <ui:VisualElement name="photo-preview">
