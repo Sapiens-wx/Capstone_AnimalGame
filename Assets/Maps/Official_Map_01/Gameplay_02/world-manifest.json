@@ -14,13 +14,13 @@
         "y": 2250.0
     },
     "spawnMapPositionMeters": {
-        "x": 600.0,
-        "y": 330.0
+        "x": 610.0,
+        "y": 440.0
     },
     "tileSizeMeters": 250.0,
     "worldUnitsPerMeter": 0.2730666697025299,
-    "minimumHeightMeters": 71.5594711303711,
-    "maximumHeightMeters": 115.63057708740235,
+    "minimumHeightMeters": 71.90127563476563,
+    "maximumHeightMeters": 114.88288879394531,
     "encodingMinimumHeightMeters": 0.0,
     "encodingMaximumHeightMeters": 350.0,
     "contourIntervalMeters": 7.0,
@@ -31,7 +31,7 @@
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_0_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_1_0_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_1_0_MapData.asset",
-            "quantizedSamplesSha256": "9eb2e9385ce874b7aeede39c102d52f8ecda62325306c7f3b9a1768b3fc8af39",
+            "quantizedSamplesSha256": "81cb13ac3b7eac37a881c339b8e04ee32fa62f7ac6203ac8358244aa95cd44eb",
             "coordinate": {
                 "x": 1,
                 "y": 0
@@ -46,14 +46,14 @@
                 "y": 0.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 93.22117614746094
+            "maximumHeightMeters": 104.5113296508789
         },
         {
             "name": "Plains_8_0",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_0_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_2_0_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_2_0_MapData.asset",
-            "quantizedSamplesSha256": "d5dfc9f7d01165394f83b13590f1ccf9cc63cb3d024d24431140ea4be0a9ab57",
+            "quantizedSamplesSha256": "f5fe2daecfe4ab9f5d548373adcba35684f549830f7a91158f1f5f65c2378c35",
             "coordinate": {
                 "x": 2,
                 "y": 0
@@ -68,14 +68,14 @@
                 "y": 0.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 97.81414794921875
+            "maximumHeightMeters": 104.3617935180664
         },
         {
             "name": "Plains_9_0",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_0_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_3_0_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_3_0_MapData.asset",
-            "quantizedSamplesSha256": "29b443512dc1f0e18a88b49aaef175b21620b83bbb9dc5baaa1eb8f98dd6a6a2",
+            "quantizedSamplesSha256": "e5e8b0e3e52cd9a37e3edc0191c0230ccf3116848b0fb706dd6353a006b71561",
             "coordinate": {
                 "x": 3,
                 "y": 0
@@ -89,15 +89,15 @@
                 "x": 750.0,
                 "y": 0.0
             },
-            "minimumHeightMeters": 79.70931243896485,
-            "maximumHeightMeters": 97.67528533935547
+            "minimumHeightMeters": 79.83749389648438,
+            "maximumHeightMeters": 99.11726379394531
         },
         {
             "name": "Plains_10_0",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_0_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_4_0_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_4_0_MapData.asset",
-            "quantizedSamplesSha256": "0493181e90ce097210ac700089046ec5c7e72a30157fe02fef7a25e6c9c43642",
+            "quantizedSamplesSha256": "36a230ddfb131975c7111db37401b173fd4a3dc13f0975b89810c64b444cdd4d",
             "coordinate": {
                 "x": 4,
                 "y": 0
@@ -112,14 +112,14 @@
                 "y": 0.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 82.00579833984375
+            "maximumHeightMeters": 83.50118255615235
         },
         {
             "name": "Plains_7_1",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_1_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_1_1_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_1_1_MapData.asset",
-            "quantizedSamplesSha256": "eca49142908a6a20441e8d0568481f35f3d861850042c0bde584c588ffef9780",
+            "quantizedSamplesSha256": "c23e34ceb2b29de03e3c125607f857fdc1c74aa78118e51e808648ef135a0a07",
             "coordinate": {
                 "x": 1,
                 "y": 1
@@ -133,15 +133,15 @@
                 "x": 250.0,
                 "y": 250.0
             },
-            "minimumHeightMeters": 71.5594711303711,
-            "maximumHeightMeters": 100.08926391601563
+            "minimumHeightMeters": 71.90127563476563,
+            "maximumHeightMeters": 98.55115509033203
         },
         {
             "name": "Plains_8_1",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_1_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_2_1_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_2_1_MapData.asset",
-            "quantizedSamplesSha256": "53073cd5d9d3e302d1ee40c1bc86864d5fd15909e3e490957e2df8acd536826f",
+            "quantizedSamplesSha256": "d8cb59b2cef716bbf40b8cdf35af3e82a27638928be326f7634c5821204ede42",
             "coordinate": {
                 "x": 2,
                 "y": 1
@@ -155,15 +155,15 @@
                 "x": 500.0,
                 "y": 250.0
             },
-            "minimumHeightMeters": 73.80255126953125,
-            "maximumHeightMeters": 115.63057708740235
+            "minimumHeightMeters": 73.84527587890625,
+            "maximumHeightMeters": 114.88288879394531
         },
         {
             "name": "Plains_9_1",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_1_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_3_1_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_3_1_MapData.asset",
-            "quantizedSamplesSha256": "27b2c67052398c5b39464caa5d0cba7fa01a482128c8c906fe965dfc772ab026",
+            "quantizedSamplesSha256": "06e419ec7779569d9171efdda31fd73d2436630abf57bacef935471e03027255",
             "coordinate": {
                 "x": 3,
                 "y": 1
@@ -177,15 +177,15 @@
                 "x": 750.0,
                 "y": 250.0
             },
-            "minimumHeightMeters": 73.18302917480469,
-            "maximumHeightMeters": 96.09445190429688
+            "minimumHeightMeters": 73.62096405029297,
+            "maximumHeightMeters": 95.56038665771485
         },
         {
             "name": "Plains_10_1",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_1_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_4_1_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_4_1_MapData.asset",
-            "quantizedSamplesSha256": "bcf8d36d5f3588c0a98c82a76b00d3f62f608bc778825b5b5139946671676184",
+            "quantizedSamplesSha256": "c1c4b941688235647afcbdba8cb498d1844e5f90aa15289df4748deb661bd29d",
             "coordinate": {
                 "x": 4,
                 "y": 1
@@ -199,15 +199,15 @@
                 "x": 1000.0,
                 "y": 250.0
             },
-            "minimumHeightMeters": 76.6224136352539,
-            "maximumHeightMeters": 84.51590728759766
+            "minimumHeightMeters": 75.74654388427735,
+            "maximumHeightMeters": 97.04508972167969
         },
         {
             "name": "Plains_7_2",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_2_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_1_2_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_1_2_MapData.asset",
-            "quantizedSamplesSha256": "bc2a50f91c2d317a230521a6f191a6a0b69211c3ad55759bdb9438a72a8500bb",
+            "quantizedSamplesSha256": "b5906f107a3a0215ebed77c77715146e7862e30ea3dda313d3f63987ed3800d8",
             "coordinate": {
                 "x": 1,
                 "y": 2
@@ -221,15 +221,15 @@
                 "x": 250.0,
                 "y": 500.0
             },
-            "minimumHeightMeters": 78.54505157470703,
-            "maximumHeightMeters": 97.53643035888672
+            "minimumHeightMeters": 78.80140686035156,
+            "maximumHeightMeters": 97.33348846435547
         },
         {
             "name": "Plains_8_2",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_2_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_2_2_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_2_2_MapData.asset",
-            "quantizedSamplesSha256": "47143bb9c18e77023184a0871e67c83efac3bedca64a35ccfd36b2adf0415c43",
+            "quantizedSamplesSha256": "cf0cabfce9619b7ebab2da41c23dee1f30f00a55e84defff92171d8f0a9f9a31",
             "coordinate": {
                 "x": 2,
                 "y": 2
@@ -243,15 +243,15 @@
                 "x": 500.0,
                 "y": 500.0
             },
-            "minimumHeightMeters": 72.3178482055664,
-            "maximumHeightMeters": 100.98649597167969
+            "minimumHeightMeters": 72.71305084228516,
+            "maximumHeightMeters": 100.78355407714844
         },
         {
             "name": "Plains_9_2",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_2_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_3_2_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_3_2_MapData.asset",
-            "quantizedSamplesSha256": "2c0400c0054956ccc0df656f8a690d9f5be1164131dd4f6c8c0db70a9ced9c19",
+            "quantizedSamplesSha256": "db67cc68e4701f05edba28be263864364639abb0454c86a1b45cff8cfc56cbc8",
             "coordinate": {
                 "x": 3,
                 "y": 2
@@ -265,15 +265,15 @@
                 "x": 750.0,
                 "y": 500.0
             },
-            "minimumHeightMeters": 77.30602264404297,
-            "maximumHeightMeters": 106.69031524658203
+            "minimumHeightMeters": 78.42755889892578,
+            "maximumHeightMeters": 106.51941680908203
         },
         {
             "name": "Plains_10_2",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_2_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_4_2_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_4_2_MapData.asset",
-            "quantizedSamplesSha256": "0352f9167146bcfc21b855519baf44651b7ae374eecd7ae12e2aea132048cd84",
+            "quantizedSamplesSha256": "f7afe184fbeef7a8a5872b901d632d4bcba6af7a8df6b0e60ea4fc647b945aaf",
             "coordinate": {
                 "x": 4,
                 "y": 2
@@ -287,15 +287,15 @@
                 "x": 1000.0,
                 "y": 500.0
             },
-            "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 107.68367767333985
+            "minimumHeightMeters": 78.224609375,
+            "maximumHeightMeters": 107.36324310302735
         },
         {
             "name": "Plains_6_3",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_6_3_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_0_3_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_0_3_MapData.asset",
-            "quantizedSamplesSha256": "be8f6ed9302d81efc3b01651e443b1765d1ea37179d384f208fefdb866a41488",
+            "quantizedSamplesSha256": "86ba919764df8557b2e5aae2fd486305fa55072e4666f0aed789d91f1cafc306",
             "coordinate": {
                 "x": 0,
                 "y": 3
@@ -310,14 +310,14 @@
                 "y": 750.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 84.03524780273438
+            "maximumHeightMeters": 83.99252319335938
         },
         {
             "name": "Plains_7_3",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_3_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_1_3_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_1_3_MapData.asset",
-            "quantizedSamplesSha256": "b6f8c02ee51108f728f469d491d0802112a8e6f30ad6db0766bd076d52f7d96e",
+            "quantizedSamplesSha256": "73eb55243779da91f39fef41b9a196abe0670c2b09b9209ae67731b1325e1a82",
             "coordinate": {
                 "x": 1,
                 "y": 3
@@ -332,14 +332,14 @@
                 "y": 750.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 100.09994506835938
+            "maximumHeightMeters": 103.12275695800781
         },
         {
             "name": "Plains_8_3",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_3_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_2_3_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_2_3_MapData.asset",
-            "quantizedSamplesSha256": "0aa52a494c776f208d3b396f3049ce15b789d1217b203cd3f75d717e2234024b",
+            "quantizedSamplesSha256": "029e1e97686bfe65d35214cb1de237c351f9f727d2beb6b1099e9c0eadbfce6c",
             "coordinate": {
                 "x": 2,
                 "y": 3
@@ -354,14 +354,14 @@
                 "y": 750.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 102.98390197753906
+            "maximumHeightMeters": 103.4966049194336
         },
         {
             "name": "Plains_9_3",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_3_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_3_3_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_3_3_MapData.asset",
-            "quantizedSamplesSha256": "ef3fe27946777c04addd738b1a6e65af753c77a687c44fb2f99e796109093e31",
+            "quantizedSamplesSha256": "aa3d48ff8c769fa61ccfde25b1de8a21b9217f70d488250d21b2d64ee4f071a4",
             "coordinate": {
                 "x": 3,
                 "y": 3
@@ -376,14 +376,14 @@
                 "y": 750.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 100.86900329589844
+            "maximumHeightMeters": 104.58609771728516
         },
         {
             "name": "Plains_10_3",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_10_3_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_4_3_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_4_3_MapData.asset",
-            "quantizedSamplesSha256": "920d00a39e7d5c69b5432915202944d4828bdfb597801fbf71de74dc146e561a",
+            "quantizedSamplesSha256": "ca0353e4638a1f20ddab82b93bc2486c9e3c53664686a4c88ed3e50140f197a8",
             "coordinate": {
                 "x": 4,
                 "y": 3
@@ -398,7 +398,7 @@
                 "y": 750.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 86.90852355957031
+            "maximumHeightMeters": 86.86579895019531
         },
         {
             "name": "Plains_6_4",
@@ -427,7 +427,7 @@
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_7_4_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_1_4_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_1_4_MapData.asset",
-            "quantizedSamplesSha256": "8971f39d3cc403d0526f51c2b2856100cda5509d0860a7c96b22655015260a84",
+            "quantizedSamplesSha256": "833f06021875fdb3ac2c1e16e86b65b0f4a94c4f61744ad86c9217b20b16b5c2",
             "coordinate": {
                 "x": 1,
                 "y": 4
@@ -442,14 +442,14 @@
                 "y": 1000.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 81.22605895996094
+            "maximumHeightMeters": 81.18333435058594
         },
         {
             "name": "Plains_8_4",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_8_4_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_2_4_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_2_4_MapData.asset",
-            "quantizedSamplesSha256": "4a3f5dba8141b91e3cb15743399cbcc06c3af3eff3164d7fc2e3464ba4eb5d08",
+            "quantizedSamplesSha256": "b25d7d95b2bfc3f6c5fc59f4e9a6106fbe3e63bac44966cd2afbe434f1579c1d",
             "coordinate": {
                 "x": 2,
                 "y": 4
@@ -464,14 +464,14 @@
                 "y": 1000.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 82.88166809082031
+            "maximumHeightMeters": 82.79621887207031
         },
         {
             "name": "Plains_9_4",
             "sourceTerrainData": "Assets/Maps/Official_Map_01/Plains/data/Plains_9_4_TerrainData.asset",
             "heightMapAsset": "Assets/Maps/Official_Map_01/Gameplay_02/data/Plains_3_4_height_R16.png",
             "mapDataAsset": "Assets/Maps/Official_Map_01/Gameplay_02/Plains_3_4_MapData.asset",
-            "quantizedSamplesSha256": "ab64073d1527ac87c3a469f2ead9ce6afa0e5a4db581b1518ce7b170e6e3ec42",
+            "quantizedSamplesSha256": "9c767cc2574a130b799ff74038fc9363b6fa391b3fd0b9b3cc14d3fbc2822e61",
             "coordinate": {
                 "x": 3,
                 "y": 4
@@ -486,7 +486,7 @@
                 "y": 1000.0
             },
             "minimumHeightMeters": 79.99771118164063,
-            "maximumHeightMeters": 80.87358093261719
+            "maximumHeightMeters": 80.85221862792969
         },
         {
             "name": "Plains_10_4",
