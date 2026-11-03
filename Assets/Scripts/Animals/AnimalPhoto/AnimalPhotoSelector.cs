@@ -28,21 +28,39 @@ namespace AnimalGame.Animals
             photo = null;
             var candidates = new Dictionary<Texture2D, AnimalPhotoEntry>();
             var images = new List<Texture2D>();
-            if (!library.Photos.TryGetValue(species, out var animal)) return false;
-            // A source image is one photo, even if authored in several matching groups.
-            foreach (AnimalStatePhotos group in animal.States)
+            if (!library.Photos.TryGetValue(species, out var animal))
             {
-                if (group == null || group.State != environment || group.Photos == null) continue;
-                foreach (AnimalPhotoEntry entry in group.Photos)
+                Debug.LogError($"Cannot photograph {species}: no photo library is assigned.", library);
+                return false;
+            }
+            CollectCandidates(true);
+            if (images.Count == 0)
+            {
+                CollectCandidates(false);
+                if (images.Count == 0)
                 {
-                    if (entry == null || entry.Image == null) continue;
-                    if (!AnimalPhotoProcessing.CanSquareCrop(entry.SubjectRect, entry.Image.width, entry.Image.height)) continue;
-                    if (candidates.ContainsKey(entry.Image)) continue;
-                    candidates.Add(entry.Image, entry);
-                    images.Add(entry.Image);
+                    Debug.LogError($"Cannot photograph {species}: no usable photos in any environment.", animal);
+                    return false;
+                }
+                Debug.LogWarning($"No usable photos for {species}/{environment}; choosing a random photo from other environments.", animal);
+            }
+
+            void CollectCandidates(bool matchingEnvironment)
+            {
+                // A source image is one photo, even if authored in several matching groups.
+                foreach (AnimalStatePhotos group in animal.States)
+                {
+                    if (group == null || (group.State == environment) != matchingEnvironment || group.Photos == null) continue;
+                    foreach (AnimalPhotoEntry entry in group.Photos)
+                    {
+                        if (entry == null || entry.Image == null) continue;
+                        if (!AnimalPhotoProcessing.CanSquareCrop(entry.SubjectRect, entry.Image.width, entry.Image.height)) continue;
+                        if (candidates.ContainsKey(entry.Image)) continue;
+                        candidates.Add(entry.Image, entry);
+                        images.Add(entry.Image);
+                    }
                 }
             }
-            if (images.Count == 0) return false;
             var key = (library, species, environment);
             if (!SessionBags.TryGetValue(key, out ShuffleBag bag))
             {

@@ -160,15 +160,13 @@ namespace AnimalGame.RobotMap
 
             AnimalPhoto selectedPhoto = null;
             AnimalPhotoEnvironment environment = subject.PhotoEnvironment;
-            bool hasLibraryPhoto = animalInfoLibrary != null && animalInfoLibrary.TryChoosePhoto(
-                subject.Species, environment, out selectedPhoto);
-            if (!hasLibraryPhoto)
+            if (animalInfoLibrary == null)
             {
-                Debug.LogWarning(
-                    $"Photo result skipped: assign AnimalInfoLibrary on PhotoResultUI and add a photo for {subject.Species}/{environment} ('{subject.name}').",
-                    subject);
+                Debug.LogError("Cannot photograph animal: assign AnimalInfoLibrary on PhotoResultUI.", this);
                 return;
             }
+
+            if (!animalInfoLibrary.TryChoosePhoto(subject.Species, environment, out selectedPhoto)) return;
 
             pendingResult = CreateSnapshot(
                 subject,
