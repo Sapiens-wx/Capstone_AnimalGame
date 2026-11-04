@@ -30,7 +30,6 @@ namespace AnimalGame.Editor
             GameObject root = null;
             SaveSystem.Initialize();
             var album = SaveSystem.Current.photos;
-            byte[] originalDiskSave = File.Exists(SaveSystem.SavePath) ? File.ReadAllBytes(SaveSystem.SavePath) : null;
             int originalAlbumCount = album.Count;
             try
             {
@@ -126,8 +125,7 @@ namespace AnimalGame.Editor
             {
                 if (album.Count > originalAlbumCount)
                     album.RemoveRange(originalAlbumCount, album.Count - originalAlbumCount);
-                if (originalDiskSave == null) File.Delete(SaveSystem.SavePath);
-                else File.WriteAllBytes(SaveSystem.SavePath, originalDiskSave);
+                SaveSystem.Save();
                 if (root != null) Object.DestroyImmediate(root);
                 EditorSceneManager.ClosePreviewScene(scene);
             }

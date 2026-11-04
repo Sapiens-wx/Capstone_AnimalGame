@@ -29,12 +29,15 @@ namespace AnimalGame.Editor
             Require(assets.images.Count > 0, "Source image manifest is populated.");
             foreach (var source in assets.images)
                 Require(ReferenceEquals(assets.Source(assets.SourceId(source.image)), source.image), "Source identity round trip.");
-            var data = ScriptableObject.CreateInstance<GameSave>();
-            var loaded = ScriptableObject.CreateInstance<GameSave>();
             string folder = Path.Combine(Application.dataPath, "output/validation/animal-archive");
-            Directory.CreateDirectory(folder); string path = Path.Combine(folder, "roundtrip.json");
+            Directory.CreateDirectory(folder);
+            string path = Path.Combine(folder, "roundtrip-" + Guid.NewGuid().ToString("N") + ".bin");
+            var data = SaveSystem.LoadOrCreate(path);
             try
             {
+                Require(File.Exists(path) && data.photos.Count == 0 && data.speciesProgress.Count == 0,
+                    "Missing save creates an empty binary save.");
+                Require(!ReferenceEquals(data, SaveSystem.LoadOrCreate(path)), "Binary load creates independent save data.");
                 var source = assets.Photos[AnimalSpecies.AmericanBison].States[0].Photos[0].Image;
                 var snapshots = new PhotoRenderSnapshot[] {
                     new BasicPhotoRenderSnapshot("basic", 2, 42, .7f),
@@ -51,8 +54,8 @@ namespace AnimalGame.Editor
                 }
                 data.speciesProgress.Add(new SpeciesProgress { species = AnimalSpecies.AmericanBison, sentPhotos = 1, recognition = 30 });
                 SaveSystem.WriteTo(path, data);
-                // Exercise both initial creation and replacement of an existing disk file.
-                SaveSystem.WriteTo(path, data); SaveSystem.LoadFrom(path, loaded);
+                SaveSystem.WriteTo(path, data);
+                var loaded = SaveSystem.LoadOrCreate(path);
                 Require(loaded.photos.Count == 3 && loaded.Progress(AnimalSpecies.AmericanBison).Tier == 2, "Disk load restores photos and progress.");
                 for (int i = 0; i < snapshots.Length; i++)
                 {
@@ -60,10 +63,31 @@ namespace AnimalGame.Editor
                     Require(record.id == original.id && record.sourceId == original.sourceId, "Persistent photo and source identities.");
                     Require(record.capturedTicks == original.capturedTicks && record.altitude == 112 && record.playerPosition == new Vector3(4, 5, 6), "Frozen shutter telemetry.");
                     Require(record.crop == original.crop && record.seed == original.seed && record.shaderName == original.shaderName, "Render metadata survives disk round trip.");
+                    Require(record.instantFilm.Equals(original.instantFilm) && record.damagedPrime.Equals(original.damagedPrime),
+                        "Every film and damaged-camera parameter survives binary load.");
+                    Require(record.mapPosition == original.mapPosition && record.latitude == original.latitude
+                        && record.longitude == original.longitude && record.hasHeight == original.hasHeight
+                        && record.hasCoordinates == original.hasCoordinates && record.sent == original.sent
+                        && record.displayName == original.displayName && record.scientificName == original.scientificName
+                        && record.regionName == original.regionName && record.cameraId == original.cameraId
+                        && record.cameraName == original.cameraName && record.renderSetId == original.renderSetId
+                        && record.renderVersion == original.renderVersion && record.recognitionValue == original.recognitionValue
+                        && record.species == original.species && record.effect == original.effect
+                        && record.saturation == original.saturation && record.basicSaturation == original.basicSaturation,
+                        "Photo metadata and flags survive binary load.");
                     var a = original.RestorePhoto().Render(128); var b = record.RestorePhoto().Render(128);
                     try { Require(Pixels(a).SequenceEqual(Pixels(b)), "Saved render produces identical pixels after disk reload."); }
                     finally { AnimalPhotoProcessing.Release(a); AnimalPhotoProcessing.Release(b); }
                 }
+                byte[] binary = File.ReadAllBytes(path);
+                Require(binary[0] != (byte)'{', "Save file contains binary data.");
+                File.WriteAllBytes(path, new byte[] { 0, 0, 0, 0 });
+                RequireInvalidSave(path, "Invalid binary signature is rejected.");
+                var unsupported = (byte[])binary.Clone(); unsupported[4] = 99;
+                File.WriteAllBytes(path, unsupported);
+                RequireInvalidSave(path, "Unsupported binary version is rejected.");
+                File.WriteAllBytes(path, binary.Take(binary.Length - 1).ToArray());
+                RequireInvalidSave(path, "Truncated binary save is rejected.");
                 var progress = loaded.speciesProgress[0];
                 foreach (var pair in new[] { (0, 1), (29, 1), (30, 2), (99, 2), (100, 3) })
                 { progress.recognition = pair.Item1; Require(progress.Tier == pair.Item2, "Recognition tier boundary."); }
@@ -90,9 +114,17 @@ namespace AnimalGame.Editor
                 File.WriteAllText(Path.Combine(folder, "checks.txt"), $"PASS: {checks} archive assertions.\nRender pixels matched for Basic, InstantFilm and DamagedPrime after disk reload.\n");
                 Debug.Log($"ANIMAL ARCHIVE CHECKS PASSED: {checks} assertions.");
             }
-            finally { Object.DestroyImmediate(data); Object.DestroyImmediate(loaded); }
+            finally { File.Delete(path); }
         }
 
+        private static void RequireInvalidSave(string path, string message)
+        {
+            bool rejected = false;
+            try { SaveSystem.LoadOrCreate(path); }
+            catch (InvalidDataException) { rejected = true; }
+            catch (EndOfStreamException) { rejected = true; }
+            Require(rejected, message);
+        }
         private static Color32[] Pixels(RenderTexture texture)
         {
             var previous = RenderTexture.active; var readback = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
