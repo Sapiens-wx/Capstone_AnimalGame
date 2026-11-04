@@ -184,6 +184,8 @@ namespace AnimalGame.RobotMap
             }
             // Freeze at the shutter event, before the review transition.
             contourCapture.Capture(mapCamera, map, resultView.SnapshotResolution);
+            if (subject.TryGetComponent(out AnimalAgent photographedAnimal))
+                photographedAnimal.NotifyPhotographed(controller.transform);
         }
 
         private bool TrySelectMainSubject(

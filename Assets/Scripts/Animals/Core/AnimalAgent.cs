@@ -209,6 +209,13 @@ namespace AnimalGame.Animals
                 Runtime.Group?.Reaction(this, Perception.PrimaryThreat);
             }
         }
+        public void NotifyPhotographed(Transform photographer)
+        {
+            if (!CanAct) return;
+            Perception.Remember(photographer);
+            Brain.Request(AnimalState.Fleeing);
+        }
+
         public void NotifyThreat(Transform threat, bool broadcast = true)
         {
             if (!CanAct || IsHidden || behaviourSet.IgnoresThreats || Perception.IsIgnoredThreat(threat)) return;
