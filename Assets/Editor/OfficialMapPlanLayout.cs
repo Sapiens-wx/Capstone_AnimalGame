@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AnimalGame.MapTest;
 using UnityEngine;
 
@@ -10,7 +11,7 @@ namespace AnimalGame.Editor
     {
         private const double SourceMinX = 157.0;
         private const double SourceMaxX = 1395.0;
-        private const double SourceMinY = 240.0;
+        private const double BaseSketchMinY = 240.0;
         private const double SourceMaxY = 943.0;
         private const double MinimumMarginMeters = 100.0;
         private const double TileSizeMeters = 250.0;
@@ -19,8 +20,8 @@ namespace AnimalGame.Editor
         {
             // Every shared border is defined once, then reused in the opposite direction.
             Vector2[] outerMountains = Chain(
-                323, 398, 375, 355, 450, 309, 516, 282, 565, 267, 590, 255,
-                621, 260, 672, 243, 703, 240, 732, 250, 752, 273);
+                323, 398, 278, 299, 279, 231, 297, 137, 317, 118, 542, 80,
+                619, 79, 662, 90, 699, 104, 746, 141, 754, 173, 752, 273);
             Vector2[] outerForest = Chain(
                 752, 273, 800, 267, 853, 269, 915, 266, 958, 275, 1018, 279,
                 1075, 291, 1114, 308, 1144, 337, 1158, 378, 1168, 431, 1170, 472, 1158, 510);
@@ -59,12 +60,15 @@ namespace AnimalGame.Editor
                 Reverse(desertPlains), Reverse(mountainsPlains));
             double scale = Math.Sqrt(OfficialMapPlan.TargetPlainsAreaSquareMeters / OfficialMapPlan.PolygonArea(plains));
             double width = (SourceMaxX - SourceMinX) * scale;
-            double height = (SourceMaxY - SourceMinY) * scale;
-            worldSize = new Vector2(
-                (float)(Math.Ceiling((width + MinimumMarginMeters * 2) / TileSizeMeters) * TileSizeMeters),
-                (float)(Math.Ceiling((height + MinimumMarginMeters * 2) / TileSizeMeters) * TileSizeMeters));
-            double offsetX = (worldSize.x - width) * 0.5;
-            double offsetZ = (worldSize.y - height) * 0.5;
+            double baseHeight = (SourceMaxY - BaseSketchMinY) * scale;
+            double envelopeWidth = FitGrid(width + MinimumMarginMeters * 2);
+            double baseEnvelopeHeight = FitGrid(baseHeight + MinimumMarginMeters * 2);
+            double offsetX = (envelopeWidth - width) * 0.5;
+            // Anchor the sketch to the existing terrain grid when the northern envelope grows.
+            double offsetZ = (baseEnvelopeHeight - baseHeight) * 0.5;
+            double northEdge = (SourceMaxY - outerMountains.Min(point => point.y)) * scale + offsetZ;
+            double envelopeHeight = Math.Max(baseEnvelopeHeight, FitGrid(northEdge + MinimumMarginMeters));
+            worldSize = new Vector2((float)envelopeWidth, (float)envelopeHeight);
             referenceOrigin = new Vector2(-350f, 200f);
 
             OfficialMapRegion Region(string id, string name, Color color, Vector2[] polygon,
@@ -93,7 +97,7 @@ namespace AnimalGame.Editor
                     new Vector2(760, 630), new Vector2(60, 100)),
                 Region("mountains", "落基山脉", new Color(0.51f, 0.55f, 0.57f, 1f),
                     Polygon(outerMountains, mountainsForest, mountainsPlains, Reverse(mountainsDesert)),
-                    new Vector2(510, 480), new Vector2(100, 300)),
+                    new Vector2(515, 345), new Vector2(100, 300)),
                 Region("forest", "落叶林", new Color(0.33f, 0.51f, 0.37f, 1f),
                     Polygon(outerForest, Reverse(forestWetland), Reverse(forestPlains), Reverse(mountainsForest)),
                     new Vector2(1000, 405), new Vector2(70, 150)),
@@ -105,6 +109,8 @@ namespace AnimalGame.Editor
                     new Vector2(1165, 795), new Vector2(30, 55))
             };
         }
+
+        private static double FitGrid(double meters) => Math.Ceiling(meters / TileSizeMeters) * TileSizeMeters;
 
         private static Vector2[] Chain(params float[] coordinates)
         {

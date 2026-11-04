@@ -268,14 +268,15 @@ namespace AnimalGame.Editor
             RenderSettings.ambientGroundColor = new Color(0.22f, 0.24f, 0.19f);
         }
 
-        private static void Reconnect(GameObject root, OfficialMapPlan plan)
+        internal static void Reconnect(GameObject root, OfficialMapPlan plan)
         {
             Terrain[] terrains = root.GetComponentsInChildren<Terrain>(true);
             bool single = terrains.Length == 1 && terrains[0].name == "Plains Terrain";
             Dictionary<Vector2Int, Terrain> byCell = TileDictionary(root, plan, single);
-            foreach (Terrain terrain in terrains)
+            foreach (var pair in byCell)
             {
-                Vector2Int cell = CellOf(terrain, plan);
+                Vector2Int cell = pair.Key;
+                Terrain terrain = pair.Value;
                 terrain.SetNeighbors(single ? null : At(byCell, cell + Vector2Int.left),
                     single ? null : At(byCell, cell + Vector2Int.up),
                     single ? null : At(byCell, cell + Vector2Int.right),
@@ -284,13 +285,16 @@ namespace AnimalGame.Editor
             }
         }
 
-        private static Dictionary<Vector2Int, Terrain> TileDictionary(GameObject root, OfficialMapPlan plan, bool single)
+        internal static Dictionary<Vector2Int, Terrain> TileDictionary(GameObject root, OfficialMapPlan plan, bool single)
         {
             var result = new Dictionary<Vector2Int, Terrain>();
-            foreach (Terrain terrain in root.GetComponentsInChildren<Terrain>(true))
+            Terrain[] terrains = single ? root.GetComponentsInChildren<Terrain>(true)
+                : root.scene.GetRootGameObjects().SelectMany(obj => obj.GetComponentsInChildren<Terrain>(true))
+                    .Where(terrain => terrain.groupingID == GroupingId).ToArray();
+            foreach (Terrain terrain in terrains)
             {
                 Vector2Int cell = single ? Vector2Int.zero : CellOf(terrain, plan);
-                Require(!result.ContainsKey(cell), "Multiple plains Terrain objects occupy one cell.");
+                Require(!result.ContainsKey(cell), "Multiple official Terrain objects occupy one cell.");
                 result.Add(cell, terrain);
             }
             return result;
