@@ -1,9 +1,153 @@
+using System;
+using System.Collections.Generic;
 using AnimalGame.Save;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace AnimalGame.Animals.UI
 {
+    public sealed class MainCatalogView
+    {
+        private const int Columns = 4;
+        private readonly ScrollView scroll;
+        private readonly VisualElement grid, tree;
+        private readonly List<AnimalSpecies> animals = new();
+        private readonly List<Button> tiles = new();
+        private Action<AnimalSpecies> open;
+        private int selected, topRow;
+        private float rowHeight;
+
+        public MainCatalogView(VisualElement root)
+        {
+            scroll = root.Q<ScrollView>("catalog-grid-scroll");
+            grid = root.Q("catalog-species-grid");
+            tree = root.Q("catalog-progress-tree");
+            scroll.contentViewport.RegisterCallback<GeometryChangedEvent>(_ => Resize());
+        }
+
+        public void Reset() { selected = topRow = 0; scroll.scrollOffset = Vector2.zero; }
+
+        public void Render(IEnumerable<AnimalSpecies> species, Action<AnimalSpecies> onOpen)
+        {
+            animals.Clear(); animals.AddRange(species); open = onOpen;
+            int slots = Math.Max(8, ((animals.Count + Columns - 1) / Columns) * Columns);
+            selected = Mathf.Clamp(selected, 0, slots - 1);
+            topRow = Mathf.Clamp(topRow, 0, slots / Columns - 1);
+            grid.Clear(); tiles.Clear();
+            for (int i = 0; i < slots; i++)
+            {
+                int index = i;
+                var tile = new Button { focusable = false };
+                tile.AddToClassList("catalog-card");
+                var square = new VisualElement(); square.AddToClassList("catalog-card-square");
+                var highlight = new VisualElement { pickingMode = PickingMode.Ignore };
+                highlight.AddToClassList("catalog-card-highlight"); square.Add(highlight);
+                tile.Add(square);
+                if (i < animals.Count && SaveSystem.Current.Progress(animals[i])?.Tier > 0)
+                {
+                    var animal = animals[i];
+                    var progress = SaveSystem.Current.Progress(animal);
+                    int tier = progress?.Tier ?? 0;
+                    var preview = new Image { image = AnimalArchiveAssets.Active.Info[animal].CatalogPreview, scaleMode = ScaleMode.ScaleToFit };
+                    preview.AddToClassList("catalog-card-preview"); square.Add(preview);
+                    var name = new Label(AnimalArchiveAssets.Active.Photos[animal].DisplayName);
+                    name.AddToClassList("catalog-card-name"); tile.Add(name);
+                    var status = new VisualElement(); status.AddToClassList("catalog-card-status");
+                    for (int level = 0; level < 3; level++)
+                    {
+                        var circle = level < tier ? RewardIcon() : new VisualElement();
+                        if (level >= tier) circle.AddToClassList("catalog-tier-circle");
+                        status.Add(circle);
+                    }
+                    var percent = new Label($"{Mathf.Clamp(progress?.recognition ?? 0, 0, 100)}%  Identified");
+                    percent.AddToClassList("catalog-card-percent"); status.Add(percent); tile.Add(status);
+                }
+                highlight.BringToFront();
+                tile.clicked += () => { selected = index; UpdateSelection(); Confirm(); };
+                grid.Add(tile); tiles.Add(tile);
+            }
+            Resize(); UpdateSelection();
+        }
+
+        public void Move(int x, int y)
+        {
+            int row = selected / Columns, column = selected % Columns;
+            int nextRow = Mathf.Clamp(row - y, 0, tiles.Count / Columns - 1);
+            selected = nextRow * Columns + Mathf.Clamp(column + x, 0, Columns - 1);
+            // Both vertical directions place an out-of-view target row at the top.
+            if (nextRow < topRow || nextRow >= topRow + 2) topRow = nextRow;
+            UpdateSelection();
+        }
+
+        public void Confirm() { if (selected < animals.Count) open(animals[selected]); }
+
+        private void Resize()
+        {
+            float height = scroll.contentViewport.layout.height;
+            float width = scroll.contentViewport.layout.width;
+            if (float.IsNaN(height) || float.IsNaN(width) || height <= 0 || width <= 0) return;
+            rowHeight = height / 2;
+            float side = Mathf.Max(0, Mathf.Min(width / Columns - 32, rowHeight - 80));
+            foreach (var tile in tiles)
+            {
+                tile.style.height = rowHeight;
+                var square = tile.Q(className: "catalog-card-square");
+                square.style.width = square.style.height = side;
+            }
+            // Allow the last row to reach the top too.
+            grid.style.paddingBottom = rowHeight;
+            scroll.scrollOffset = new Vector2(0, topRow * rowHeight);
+        }
+
+        private void UpdateSelection()
+        {
+            for (int i = 0; i < tiles.Count; i++) tiles[i].EnableInClassList("catalog-card-selected", i == selected);
+            scroll.scrollOffset = new Vector2(0, topRow * rowHeight);
+        }
+
+        public void RenderProgress(int count)
+        {
+            tree.Clear();
+            for (int tick = 0; tick <= 9; tick++)
+            {
+                var row = new VisualElement(); row.AddToClassList("catalog-tree-tick");
+                row.style.top = Length.Percent(tick * 100f / 9);
+                row.EnableInClassList("reached", tick <= count);
+                bool milestone = tick == 3 || tick == 7;
+                row.EnableInClassList("milestone", milestone);
+                row.EnableInClassList("origin", tick == 0);
+                row.EnableInClassList("current", tick == count && !milestone && tick != 0);
+                foreach (string part in new[] { "left", "right" })
+                {
+                    var line = new VisualElement(); line.AddToClassList("tree-tick-" + part); row.Add(line);
+                }
+                if (tick < 9)
+                {
+                    var segment = new VisualElement(); segment.AddToClassList("tree-trunk");
+                    segment.EnableInClassList("filled", tick < count); row.Add(segment);
+                }
+                if (milestone)
+                {
+                    var frame = new VisualElement(); frame.AddToClassList("tree-reward-frame"); row.Add(frame);
+                }
+                if (tick == 0 || milestone || tick == count)
+                {
+                    var label = new Label(tick.ToString()); label.AddToClassList("tree-tick-number"); row.Add(label);
+                    if (milestone) { var icon = RewardIcon(); icon.AddToClassList("tree-reward-icon"); row.Add(icon); }
+                }
+                tree.Add(row);
+            }
+        }
+
+        private static VisualElement RewardIcon()
+        {
+            var icon = new VisualElement(); icon.AddToClassList("catalog-reward-icon");
+            var inner = new VisualElement(); inner.AddToClassList("catalog-reward-inner");
+            var dot = new VisualElement(); dot.AddToClassList("catalog-reward-dot");
+            inner.Add(dot); icon.Add(inner); return icon;
+        }
+    }
+
     public sealed class CatalogView
     {
         private readonly VisualElement root;

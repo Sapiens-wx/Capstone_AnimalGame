@@ -32,6 +32,14 @@
                         <ui:Label text="Main Catalog" picking-mode="Ignore" class="photo-action-caption" />
                         <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                     </ui:Button>
+                    <ui:VisualElement name="main-catalog-summary" style="display: none;">
+                        <ui:Label text="Main Catalog" class="main-catalog-heading" />
+                        <ui:VisualElement class="catalog-reward-caption">
+                            <ui:Label text="Identify More&#10;Species for" />
+                            <ui:VisualElement class="catalog-reward-icon"><ui:VisualElement class="catalog-reward-inner"><ui:VisualElement class="catalog-reward-dot" /></ui:VisualElement></ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="catalog-progress-tree" />
+                    </ui:VisualElement>
                     <archive:ArchiveHeadingElement name="sidebar-title" text="COLLECTION" end-length="8" bottom-offset="0" class="heading" />
                     <ui:Button name="previous" text="LT" class="key-action" style="width: 44px; height: auto;" />
                     <ui:ScrollView name="collections" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" />
@@ -117,7 +125,11 @@
                             </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
-                    <ui:VisualElement name="catalog-page" class="page" style="display: none;" />
+                    <ui:VisualElement name="catalog-page" class="page" style="display: none;">
+                        <ui:ScrollView name="catalog-grid-scroll" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden">
+                            <ui:VisualElement name="catalog-species-grid" />
+                        </ui:ScrollView>
+                    </ui:VisualElement>
                     <ui:VisualElement name="species-page" class="page" style="display: none;">
                         <ui:Label name="catalog-name" class="title" />
                         <archive:ArchiveScientificNameElement name="catalog-scientific" bottom-line-ratio="0.1" />

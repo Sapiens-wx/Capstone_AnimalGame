@@ -6,12 +6,14 @@ using InventoryUI = AnimalGame.MainUI.MainUI;
 namespace Capstone.Audio
 {
     // Read-only observation of the existing controller and committed store.
-    // Eight fixed snapshot slots; no input reads, UI callbacks or frame allocations.
+    // Fixed eight-slot snapshots; no input reads, UI callbacks or frame allocations.
     internal sealed class InventoryAudioObserver
     {
         private readonly InventoryAudioVoices voices;
         private readonly InventoryItem[] beforeItems = new InventoryItem[InventoryController.SlotCount];
         private readonly int[] beforeQuantities = new int[InventoryController.SlotCount];
+        private readonly InventoryItem[] observedItems = new InventoryItem[InventoryController.SlotCount];
+        private readonly int[] observedQuantities = new int[InventoryController.SlotCount];
         private InventoryUI source;
         private InventoryStore store;
         private InventoryInteractionState previousState;
@@ -30,8 +32,14 @@ namespace Capstone.Audio
             moving = false;
             confirmedFrame = -1;
             System.Array.Clear(beforeItems, 0, beforeItems.Length);
+            System.Array.Clear(observedItems, 0, observedItems.Length);
             if (source == null) return;
             store = source.Inventory;
+            for (int i = 0; i < observedItems.Length; i++)
+            {
+                observedItems[i] = store.Items[i];
+                observedQuantities[i] = store.Quantity(i);
+            }
             store.Changed += OnStoreChanged;
             // Binding, source replacement and pause recovery never synthesize actions.
             previousOpen = source.IsInventoryOpen;
@@ -87,7 +95,13 @@ namespace Capstone.Audio
         }
         private void OnStoreChanged(int changedIndex)
         {
-            if (!moving || source == null || !source.isActiveAndEnabled || !Ready) return;
+            // Deletion now means an actual inventory quantity loss. Synchronize
+            // the baseline even while feedback is inactive, so reopening cannot
+            // replay a removal that occurred while the inventory was closed.
+            bool deleted = ObserveDeletion(changedIndex);
+            if (source == null || !source.isActiveAndEnabled || !Ready) return;
+            if (deleted) voices.Play(InventoryCue.Discard);
+            if (!moving) return;
             // Move commits both stacks before notifying. The controller has reset
             // Move to Browse. Source confirmation, failure and cancellation have
             // no transfer; MarkViewed changes no item identity or quantity.
@@ -104,6 +118,23 @@ namespace Capstone.Audio
                     moving = false;
                     return;
                 }
+        }
+        private bool ObserveDeletion(int changedIndex)
+        {
+            InventoryItem oldItem = observedItems[changedIndex];
+            long previousTotal = 0, currentTotal = 0;
+            for (int i = 0; i < observedItems.Length; i++)
+            {
+                if (observedItems[i] == oldItem) previousTotal += observedQuantities[i];
+                InventoryItem currentItem = store.Items[i];
+                int currentQuantity = store.Quantity(i);
+                if (currentItem == oldItem) currentTotal += currentQuantity;
+                observedItems[i] = currentItem;
+                observedQuantities[i] = currentQuantity;
+            }
+            // Move commits source and destination before either Changed event.
+            // Its item total is conserved; the first event refreshes both slots.
+            return oldItem != null && currentTotal < previousTotal;
         }
         private bool IsCommittedMove()
         {

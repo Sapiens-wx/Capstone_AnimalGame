@@ -1,0 +1,481 @@
+fileFormatVersion: 2
+guid: a27f99798ddfdc4429f4922b30a329c2
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 1821998437094144274
+    second: DistributionBison_0
+  - first:
+      213: 8260000892593886795
+    second: DistributionBison_1
+  - first:
+      213: 815817546746826304
+    second: DistributionBison_2
+  - first:
+      213: 4389936583098421232
+    second: DistributionBison_3
+  - first:
+      213: 1104172251572117724
+    second: DistributionBison_4
+  - first:
+      213: 5888325639003718044
+    second: DistributionBison_5
+  - first:
+      213: -4310297524525277370
+    second: DistributionBison_6
+  - first:
+      213: 4495712824324797662
+    second: DistributionBison_7
+  - first:
+      213: -4372474677032155985
+    second: DistributionBison_8
+  - first:
+      213: 8169469722458939424
+    second: DistributionBison_9
+  - first:
+      213: 417882978585568689
+    second: DistributionBison_10
+  - first:
+      213: 6212096636193133971
+    second: DistributionBison_11
+  - first:
+      213: 8681007754301651228
+    second: DistributionBison_12
+  - first:
+      213: 3770188000456980433
+    second: DistributionBison_13
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: DistributionBison_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 1522
+        height: 1020
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2193058dce9094910800000000000000
+      internalID: 1821998437094144274
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_1
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 890
+        width: 12
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b46d7776c0b61a270800000000000000
+      internalID: 8260000892593886795
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_2
+      rect:
+        serializedVersion: 2
+        x: 1505
+        y: 878
+        width: 26
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 04e00638cbd525b00800000000000000
+      internalID: 815817546746826304
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_3
+      rect:
+        serializedVersion: 2
+        x: 38
+        y: 849
+        width: 11
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0ffc21e30103cec30800000000000000
+      internalID: 4389936583098421232
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_4
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 809
+        width: 14
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cd0acc900dec25f00800000000000000
+      internalID: 1104172251572117724
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_5
+      rect:
+        serializedVersion: 2
+        x: 32
+        y: 761
+        width: 11
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c9144a298f887b150800000000000000
+      internalID: 5888325639003718044
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_6
+      rect:
+        serializedVersion: 2
+        x: 56
+        y: 755
+        width: 26
+        height: 46
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 64fdc660d3fbe24c0800000000000000
+      internalID: -4310297524525277370
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_7
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 719
+        width: 16
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ed43c029efaf36e30800000000000000
+      internalID: 4495712824324797662
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_8
+      rect:
+        serializedVersion: 2
+        x: 52
+        y: 741
+        width: 10
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fa48b169279d153c0800000000000000
+      internalID: -4372474677032155985
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_9
+      rect:
+        serializedVersion: 2
+        x: 32
+        y: 685
+        width: 11
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 020697acd69cf5170800000000000000
+      internalID: 8169469722458939424
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_10
+      rect:
+        serializedVersion: 2
+        x: 46
+        y: 695
+        width: 18
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1b56640ea5e9cc500800000000000000
+      internalID: 417882978585568689
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_11
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 675
+        width: 16
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 395d0be3afcc53650800000000000000
+      internalID: 6212096636193133971
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_12
+      rect:
+        serializedVersion: 2
+        x: 56
+        y: 601
+        width: 8
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c19bf8ffe82297870800000000000000
+      internalID: 8681007754301651228
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DistributionBison_13
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 563
+        width: 13
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1d7bda7d206625430800000000000000
+      internalID: 3770188000456980433
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      DistributionBison_0: 1821998437094144274
+      DistributionBison_1: 8260000892593886795
+      DistributionBison_10: 417882978585568689
+      DistributionBison_11: 6212096636193133971
+      DistributionBison_12: 8681007754301651228
+      DistributionBison_13: 3770188000456980433
+      DistributionBison_2: 815817546746826304
+      DistributionBison_3: 4389936583098421232
+      DistributionBison_4: 1104172251572117724
+      DistributionBison_5: 5888325639003718044
+      DistributionBison_6: -4310297524525277370
+      DistributionBison_7: 4495712824324797662
+      DistributionBison_8: -4372474677032155985
+      DistributionBison_9: 8169469722458939424
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
