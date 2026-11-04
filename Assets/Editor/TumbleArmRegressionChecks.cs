@@ -528,12 +528,9 @@ namespace AnimalGame.Editor
 
             public void RequireVisualAttachment(string name)
             {
-                object arm = Get(Arms, name), pose = Get(arm, "Pose");
+                object arm = Get(Arms, name);
                 var lower = (SpriteRenderer)Get(arm, "LowerSprite");
-                float growth = (float)Get(pose, "LowerLength") / (float)Get(arm, "LowerLength");
-                float bottom = (float)Get(arm, "LowerBottom");
-                Vector3 start = lower.transform.localPosition
-                    + lower.transform.localRotation * new Vector3(0f, bottom * growth);
+                Vector3 start = lower.transform.localPosition;
                 Require(Vector2.Distance(start, Socket(name)) < .0001f,
                     "The visible body-side arm detached from its moving socket");
                 var hand = (Transform)Get(arm, "Hand");

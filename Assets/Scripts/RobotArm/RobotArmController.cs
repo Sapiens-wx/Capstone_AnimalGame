@@ -32,10 +32,10 @@ namespace AnimalGame.RobotArm
         [SerializeField, Min(.01f)] private float handScale = .7f;
         [Header("Fixed geometry (cached when created)")]
         [SerializeField, Range(0f, 1.2f)] private float socketRadiusOfBody = .88f;
+        [Tooltip("Additional outward X offset of each Lower Arm pivot from its body socket, in robot-local units. Negative values move inward; the two arms are mirrored. Cached when created.")]
+        [SerializeField] private float lowerArmXOffset;
         [Tooltip("Deployed Y scale multiplier of Lower Arm/Loopable. The body-side end stays at its authored attachment while the other end extends forward.")]
         [SerializeField, Min(0f)] private float lowerArmScale = 1f;
-        [Tooltip("Forearm pivot offset from the body-side arm's tip, in its unscaled artwork-local coordinates. X is mirrored between arms; the offset follows Arm Scale and is cached when created.")]
-        [SerializeField] private Vector2 forearmAnchorOffset = Vector2.zero;
         [SerializeField, Range(.05f, 1f)] private float staticArmLengthPercent = .4f;
         [Tooltip("Total distance between hands, measured along robot-local X in body diameters.")]
         [SerializeField, Min(0f)] private float handSpacingOfBodyDiameter = .28f;
@@ -196,8 +196,7 @@ namespace AnimalGame.RobotArm
             public Quaternion LoopRotation;
             public Sprite OpenHandSprite;
             public float HandBottom;
-            public float UpperLength, LowerLength, LowerBaseLength, UpperBottom, LowerBottom, DeployedLoopScale;
-            public float LowerAnchorAngle;
+            public float UpperLength, LowerLength, LowerBaseLength, DeployedLoopScale;
             public RobotHandAnimation Animation;
         }
 
@@ -523,7 +522,7 @@ namespace AnimalGame.RobotArm
             + Mathf.Abs(Mathf.DeltaAngle(a.LowerAngle, b.LowerAngle)) * Mathf.Deg2Rad * lowerLength
             + Mathf.Abs(a.UpperLength - b.UpperLength) + Mathf.Abs(a.LowerLength - b.LowerLength)
             + (a.HasSocket || b.HasSocket ? Mathf.Abs(b.SocketAngle - a.SocketAngle) * Mathf.Deg2Rad
-                * diameter * .5f * socketRadiusOfBody : 0f);
+                * Mathf.Max(left.Socket.magnitude, right.Socket.magnitude) : 0f);
         private bool PoseBlocked(Arm arm, Pose before, Pose after)
         {
             for (int segment = 0; segment < 2; segment++)
@@ -1146,7 +1145,8 @@ namespace AnimalGame.RobotArm
 
         private Arm BindArm(string name, float side)
         {
-            var arm = new Arm { Side = side, Socket = Vector2.right * side * diameter * .5f * socketRadiusOfBody };
+            var arm = new Arm { Side = side,
+                Socket = new Vector2(side * (diameter * .5f * socketRadiusOfBody + lowerArmXOffset), 0f) };
             arm.Root = marker.MarkerVisualRoot.Find(name);
             arm.UpperSprite = BindSprite(arm.Root, "Upper Arm", null);
             arm.LowerSprite = BindSprite(arm.Root, "Lower Arm", null);
@@ -1171,16 +1171,11 @@ namespace AnimalGame.RobotArm
                 ? arm.LoopSprite.sprite.bounds.min.y : arm.LoopSprite.sprite.bounds.max.y, 0f);
             arm.Upper.localScale = arm.UpperScale;
             arm.Lower.localScale = arm.LowerScale;
-            arm.UpperBottom = SpriteBottom(arm.UpperSprite);
-            arm.LowerBottom = SpriteBottom(arm.LowerSprite);
-            arm.UpperLength = Mathf.Max(.0001f, SpriteTop(arm.UpperSprite) - arm.UpperBottom);
-            arm.LowerBaseLength = Mathf.Max(.0001f, SpriteTop(arm.LowerSprite) - arm.LowerBottom);
+            // Sprite-local zero is the authored pivot; measure from it to the hand attachment.
+            arm.UpperLength = Mathf.Max(.0001f, SpriteTop(arm.UpperSprite));
+            arm.LowerBaseLength = Mathf.Max(.0001f, SpriteTop(arm.LowerSprite));
             arm.DeployedLoopScale = lowerArmScale;
-            // IK uses the socket-to-pivot vector; the artwork retains its own longitudinal axis.
-            Vector2 lowerAnchor = new Vector2(forearmAnchorOffset.x * arm.LowerScale.x,
-                LowerLengthAtScale(arm, arm.DeployedLoopScale) + forearmAnchorOffset.y * arm.LowerScale.y);
-            arm.LowerLength = Mathf.Max(.0001f, lowerAnchor.magnitude);
-            arm.LowerAnchorAngle = Vector2.SignedAngle(Vector2.up, lowerAnchor);
+            arm.LowerLength = LowerLengthAtScale(arm, arm.DeployedLoopScale);
             arm.Pose = default;
             arm.Animation = arm.Hand.GetComponent<RobotHandAnimation>();
             arm.Root.gameObject.SetActive(false);
@@ -1206,9 +1201,9 @@ namespace AnimalGame.RobotArm
                     out visualPose.LowerAngle, out visualPose.UpperAngle);
             }
             Vector2 elbow = socket + Direction(visualPose.LowerAngle) * visualPose.LowerLength;
-            SetSegmentVisual(arm.LowerSprite, socket, visualPose.LowerAngle - arm.LowerAnchorAngle, arm.LowerBottom,
+            SetSegmentVisual(arm.LowerSprite, socket, visualPose.LowerAngle,
                 arm.LowerScale, visualPose.LowerLength / arm.LowerLength);
-            SetSegmentVisual(arm.UpperSprite, elbow, visualPose.UpperAngle, arm.UpperBottom,
+            SetSegmentVisual(arm.UpperSprite, elbow, visualPose.UpperAngle,
                 arm.UpperScale, visualPose.UpperLength / arm.UpperLength);
             Vector3 scale = arm.LoopScale;
             scale.y *= arm.DeployedLoopScale;
@@ -1222,9 +1217,6 @@ namespace AnimalGame.RobotArm
             // Keep the open hand's attachment offset when swapping sprites of different sizes/pivots.
             arm.Hand.localPosition = elbow + Direction(visualPose.UpperAngle) * visualPose.UpperLength;
         }
-        private static float SpriteBottom(SpriteRenderer renderer) => Mathf.Min(
-            renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
-            renderer.sprite.bounds.max.y * renderer.transform.localScale.y);
         private static float SpriteTop(SpriteRenderer renderer) => Mathf.Max(
             renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
             renderer.sprite.bounds.max.y * renderer.transform.localScale.y);
@@ -1246,15 +1238,15 @@ namespace AnimalGame.RobotArm
         }
         private static float LowerLengthAtScale(Arm arm, float multiplier) =>
             multiplier <= 0f ? arm.LowerBaseLength
-                : Mathf.Max(arm.LowerBaseLength, LoopTip(arm, multiplier) - arm.LowerBottom);
-        private void SetSegmentVisual(SpriteRenderer renderer, Vector2 start, float angle, float bottom,
+                : Mathf.Max(arm.LowerBaseLength, LoopTip(arm, multiplier));
+        private void SetSegmentVisual(SpriteRenderer renderer, Vector2 start, float angle,
             Vector3 targetScale, float growth)
         {
             renderer.enabled = growth > 0f;
             targetScale.y *= growth;
             renderer.transform.localScale = targetScale;
             renderer.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
-            renderer.transform.localPosition = start - Direction(angle) * (bottom * growth);
+            renderer.transform.localPosition = start;
         }
         private static Vector2 Direction(float angle) => Rotate(Vector2.up, angle);
         private static Vector2 Rotate(Vector2 vector, float angle)
