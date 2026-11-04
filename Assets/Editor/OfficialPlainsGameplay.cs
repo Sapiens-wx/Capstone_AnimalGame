@@ -70,9 +70,9 @@ namespace AnimalGame.Editor
             ExportCurrent(new ExportDestination(1));
         }
 
-        public static void ExportCurrent(ExportDestination destination)
+        public static void ExportCurrent(ExportDestination destination, Vector2? spawnMapPositionMeters = null)
         {
-            Export(GetSourceTerrains(), destination);
+            Export(GetSourceTerrains(), destination, spawnMapPositionMeters);
             Deploy(destination);
         }
 
@@ -94,7 +94,7 @@ namespace AnimalGame.Editor
             Export(terrains, new ExportDestination(1));
         }
 
-        public static void Export(Terrain[] terrains, ExportDestination destination)
+        public static void Export(Terrain[] terrains, ExportDestination destination, Vector2? spawnMapPositionMeters = null)
         {
             Require(destination != null, "An official prairie export destination is required.");
             Terrain[] source = GetSourceTerrains();
@@ -188,7 +188,9 @@ namespace AnimalGame.Editor
                 EditorUtility.SetDirty(level); AssetDatabase.SaveAssetIfDirty(level);
                 ValidateLevel(level, destination);
                 manifest.mapSizeMeters = level.MapSizeMeters;
-                manifest.spawnMapPositionMeters = ChooseSpawn(level);
+                manifest.spawnMapPositionMeters = spawnMapPositionMeters ?? ChooseSpawn(level);
+                Require(new ExportSampler(level).TrySample(manifest.spawnMapPositionMeters, out _),
+                    "The official prairie spawn must be on an exported tile.");
                 manifest.minimumHeightMeters = manifest.tiles.Min(tile => tile.minimumHeightMeters);
                 manifest.maximumHeightMeters = manifest.tiles.Max(tile => tile.maximumHeightMeters);
                 File.WriteAllText(destination.Folder + "/world-manifest.json", JsonUtility.ToJson(manifest, true), new UTF8Encoding(false));
@@ -235,7 +237,7 @@ namespace AnimalGame.Editor
                 Require(camera.name == "Main Camera" && camera.transform.parent == null && camera.transform.childCount == 0
                     && camera.GetComponents<Component>().All(c => c is Transform || c is Camera || c is AudioListener || c is UniversalAdditionalCameraData),
                     "An authored active camera must be disabled before deploying this gameplay scene.");
-            Vector2 spawn = ChooseSpawn(level);
+            Vector2 spawn = ReadExportedSpawn(destination);
             Scene template = EditorSceneManager.OpenScene(TemplateScenePath, OpenSceneMode.Additive);
             try
             {
@@ -319,8 +321,8 @@ namespace AnimalGame.Editor
             Require(events.Length == 1 && events[0].enabled && events[0].GetComponent<StandaloneInputModule>() != null,
                 "Expected one complete EventSystem.");
             Vector2 spawn = player.PlayerSpawnMapPositionMeters;
-            Require((spawn - ChooseSpawn(level)).sqrMagnitude < 0.01f && map.TrySampleMapPosition(spawn, out _),
-                "The player start no longer matches the exported gentle terrain position.");
+            Require((spawn - ReadExportedSpawn(destination)).sqrMagnitude < 0.01f && map.TrySampleMapPosition(spawn, out _),
+                "The player start no longer matches the exported spawn position.");
             Camera resourceCamera = RequirePlayerResources();
             var sampler = new ExportSampler(level);
             float maximumProbeError = 0;
@@ -405,6 +407,12 @@ namespace AnimalGame.Editor
                     && data.SurfaceSmoothingSigmaMeters == 0 && data.DetailSmoothingSigmaMeters == 0 && data.PrebakedHeightField == null,
                     "An exported prairie tile lost its fixed metre scale, R16 precision, 7 m contours or unsmoothed data.");
             }
+        }
+
+        private static Vector2 ReadExportedSpawn(ExportDestination destination)
+        {
+            string path = destination.Folder + "/world-manifest.json";
+            return JsonUtility.FromJson<ExportManifest>(File.ReadAllText(path)).spawnMapPositionMeters;
         }
 
         private static Vector2 ChooseSpawn(TiledLevelAsset level)

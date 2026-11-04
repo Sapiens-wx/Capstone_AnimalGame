@@ -33,6 +33,8 @@ namespace AnimalGame.RobotMap
     [RequireComponent(typeof(RobotMover))]
     public sealed class RobotHeightMotionDetector : MonoBehaviour
     {
+        private const float MotionStepSeconds = 1f / 60f;
+
         [Header("Height Motion Detection")]
         [SerializeField] private bool enableHeightMotionDetection = true;
 
@@ -71,7 +73,7 @@ namespace AnimalGame.RobotMap
         [Tooltip("Smoothing time applied to sampled ground vertical speed. This affects telemetry while takeoff still reacts to the unfiltered ground change.")]
         [SerializeField, Min(0.001f)] private float groundVerticalSpeedSmoothingTime = 0.06f;
 
-        [Tooltip("Maximum absolute sampled ground vertical speed accepted from one frame. Prevents teleports and frame hitches from becoming impacts.")]
+        [Tooltip("Maximum absolute sampled ground vertical speed accepted from one motion sample.")]
         [SerializeField, Min(0.1f)] private float maximumGroundVerticalSpeed = 20f;
 
         [Tooltip("Maximum absolute vertical acceleration exposed by the detector.")]
@@ -84,7 +86,9 @@ namespace AnimalGame.RobotMap
             && lastAirborneTime > float.NegativeInfinity
             && Time.time - lastAirborneTime <= recentAirborneMemorySeconds;
         public float CurrentGroundHeightMeters { get; private set; }
-        public float VirtualBodyHeightMeters { get; private set; }
+        public float VirtualBodyHeightMeters => IsAirborne
+            ? airborneBodyHeight
+            : CurrentGroundHeightMeters;
         public float HeightChangeThisFrameMeters { get; private set; }
         public float GroundVerticalSpeedMetersPerSecond { get; private set; }
         public float VerticalSpeedMetersPerSecond { get; private set; }
@@ -104,8 +108,11 @@ namespace AnimalGame.RobotMap
         private MapTestSceneController map;
         private bool initialized;
         private bool wasOnClimbable;
+        private Vector2 previousFramePosition;
+        private float motionTimeRemainder;
         private float previousGroundHeight;
         private float filteredGroundVerticalSpeed;
+        private float airborneBodyHeight;
         private float airborneStartGroundHeight;
         private float lastAirborneTime = float.NegativeInfinity;
         private Vector2 lastTravelWorldDirection;
@@ -144,14 +151,10 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            if (!map.TrySampleWorldPosition(
-                    transform.position,
-                    out _,
-                    out float sampledGroundHeight))
+            Vector2 position = transform.position;
+            if (!map.TrySampleWorldPosition(position, out _, out float sampledGroundHeight))
             {
-                HasData = false;
-                initialized = false;
-                IsAirborne = false;
+                ResetDetectorState();
                 return;
             }
 
@@ -166,85 +169,97 @@ namespace AnimalGame.RobotMap
 
             if (!initialized)
             {
-                InitializeAtHeight(sampledGroundHeight);
+                InitializeAtHeight(position, sampledGroundHeight);
                 return;
             }
 
+            HeightChangeThisFrameMeters = sampledGroundHeight - CurrentGroundHeightMeters;
+            CurrentGroundHeightMeters = sampledGroundHeight;
+            float planarSpeed = planarVelocity.magnitude;
+
+            // The takeoff clearance applies to a fixed interval. Sample the path
+            // between render frames so the interval also works below 60 FPS.
+            motionTimeRemainder += deltaTime;
+            while (motionTimeRemainder >= MotionStepSeconds)
+            {
+                motionTimeRemainder -= MotionStepSeconds;
+                float stepHeight = sampledGroundHeight;
+                if (motionTimeRemainder > 0f)
+                {
+                    float progress = 1f - motionTimeRemainder / deltaTime;
+                    Vector2 stepPosition = Vector2.Lerp(previousFramePosition, position, progress);
+                    if (!map.TrySampleWorldPosition(stepPosition, out _, out stepHeight))
+                    {
+                        ResetDetectorState();
+                        InitializeAtHeight(position, sampledGroundHeight);
+                        return;
+                    }
+                }
+
+                AdvanceMotion(stepHeight, planarSpeed);
+            }
+
+            previousFramePosition = position;
+        }
+
+        private void AdvanceMotion(float groundHeight, float planarSpeed)
+        {
             float previousVerticalSpeed = VerticalSpeedMetersPerSecond;
-            HeightChangeThisFrameMeters = sampledGroundHeight
-                                          - previousGroundHeight;
+            float groundChange = groundHeight - previousGroundHeight;
             float rawGroundVerticalSpeed = Mathf.Clamp(
-                HeightChangeThisFrameMeters / deltaTime,
+                groundChange / MotionStepSeconds,
                 -maximumGroundVerticalSpeed,
                 maximumGroundVerticalSpeed);
             float filterResponse = 1f - Mathf.Exp(
-                -deltaTime / Mathf.Max(0.001f, groundVerticalSpeedSmoothingTime));
+                -MotionStepSeconds / Mathf.Max(0.001f, groundVerticalSpeedSmoothingTime));
             filteredGroundVerticalSpeed = Mathf.Lerp(
                 filteredGroundVerticalSpeed,
                 rawGroundVerticalSpeed,
                 filterResponse);
             GroundVerticalSpeedMetersPerSecond = filteredGroundVerticalSpeed;
-            CurrentGroundHeightMeters = sampledGroundHeight;
-
             if (IsAirborne)
             {
-                UpdateAirborneMotion(deltaTime, rawGroundVerticalSpeed);
+                UpdateAirborneMotion(groundHeight, rawGroundVerticalSpeed);
             }
             else
             {
-                UpdateSupportedMotion(
-                    deltaTime,
-                    rawGroundVerticalSpeed,
-                    planarVelocity.magnitude);
+                UpdateSupportedMotion(groundHeight, rawGroundVerticalSpeed, planarSpeed);
             }
 
             VerticalAccelerationMetersPerSecondSquared = Mathf.Clamp(
                 (VerticalSpeedMetersPerSecond - previousVerticalSpeed)
-                / deltaTime,
+                / MotionStepSeconds,
                 -maximumVerticalAcceleration,
                 maximumVerticalAcceleration);
-            previousGroundHeight = sampledGroundHeight;
-            HasData = true;
+            previousGroundHeight = groundHeight;
         }
 
         private void SynchronizeToCurrentGround()
         {
-            if (map == null
-                || !map.TrySampleWorldPosition(
-                    transform.position,
-                    out _,
-                    out float sampledGroundHeight))
-            {
-                ResetDetectorState();
-                return;
-            }
-
-            InitializeAtHeight(sampledGroundHeight);
-            IsAirborne = false;
-            LandedThisFrame = false;
-            AirborneDurationSeconds = 0f;
-            lastAirborneTime = float.NegativeInfinity;
-            LastLandingImpact = default;
+            ResetDetectorState();
+            Vector2 position = transform.position;
+            if (map.TrySampleWorldPosition(position, out _, out float sampledGroundHeight))
+                InitializeAtHeight(position, sampledGroundHeight);
         }
 
         private void UpdateSupportedMotion(
-            float deltaTime,
+            float groundHeight,
             float rawGroundVerticalSpeed,
             float planarSpeed)
         {
             float predictedVerticalSpeed = VerticalSpeedMetersPerSecond
                                            - virtualGravityMetersPerSecondSquared
-                                           * deltaTime;
-            float predictedHeight = VirtualBodyHeightMeters
-                                    + VerticalSpeedMetersPerSecond * deltaTime
+                                           * MotionStepSeconds;
+            float predictedHeight = previousGroundHeight
+                                    + VerticalSpeedMetersPerSecond * MotionStepSeconds
                                     - 0.5f
                                     * virtualGravityMetersPerSecondSquared
-                                    * deltaTime
-                                    * deltaTime;
-            float separation = predictedHeight - CurrentGroundHeightMeters;
+                                    * MotionStepSeconds
+                                    * MotionStepSeconds;
+            float separation = predictedHeight - groundHeight;
             float relativeFallAwaySpeed = VerticalSpeedMetersPerSecond
                                           - rawGroundVerticalSpeed;
-            bool groundActuallyFell = HeightChangeThisFrameMeters < 0f;
+            bool groundActuallyFell = groundHeight < previousGroundHeight;
             bool shouldTakeOff = groundActuallyFell
                                  && planarSpeed >= minimumTakeoffPlanarSpeed
                                  && relativeFallAwaySpeed
@@ -254,34 +269,33 @@ namespace AnimalGame.RobotMap
             if (shouldTakeOff)
             {
                 IsAirborne = true;
-                AirborneDurationSeconds = deltaTime;
+                AirborneDurationSeconds = MotionStepSeconds;
                 airborneStartGroundHeight = previousGroundHeight;
-                VirtualBodyHeightMeters = predictedHeight;
+                airborneBodyHeight = predictedHeight;
                 VerticalSpeedMetersPerSecond = predictedVerticalSpeed;
                 lastAirborneTime = Time.time;
                 return;
             }
 
-            VirtualBodyHeightMeters = CurrentGroundHeightMeters;
             VerticalSpeedMetersPerSecond = filteredGroundVerticalSpeed;
             AirborneDurationSeconds = 0f;
         }
 
         private void UpdateAirborneMotion(
-            float deltaTime,
+            float groundHeight,
             float rawGroundVerticalSpeed)
         {
             VerticalSpeedMetersPerSecond -=
-                virtualGravityMetersPerSecondSquared * deltaTime;
-            VirtualBodyHeightMeters +=
-                VerticalSpeedMetersPerSecond * deltaTime;
-            AirborneDurationSeconds += deltaTime;
+                virtualGravityMetersPerSecondSquared * MotionStepSeconds;
+            airborneBodyHeight +=
+                VerticalSpeedMetersPerSecond * MotionStepSeconds;
+            AirborneDurationSeconds += MotionStepSeconds;
             lastAirborneTime = Time.time;
 
             float relativeApproachSpeed = rawGroundVerticalSpeed
                                           - VerticalSpeedMetersPerSecond;
-            bool reachedGround = VirtualBodyHeightMeters
-                                 <= CurrentGroundHeightMeters
+            bool reachedGround = airborneBodyHeight
+                                 <= groundHeight
                                  + landingClearanceMeters;
             if (!reachedGround || relativeApproachSpeed <= 0f)
                 return;
@@ -289,9 +303,8 @@ namespace AnimalGame.RobotMap
             float completedAirborneDuration = AirborneDurationSeconds;
             float groundDrop = Mathf.Max(
                 0f,
-                airborneStartGroundHeight - CurrentGroundHeightMeters);
+                airborneStartGroundHeight - groundHeight);
             IsAirborne = false;
-            VirtualBodyHeightMeters = CurrentGroundHeightMeters;
             VerticalSpeedMetersPerSecond = filteredGroundVerticalSpeed;
             AirborneDurationSeconds = 0f;
 
@@ -321,6 +334,7 @@ namespace AnimalGame.RobotMap
         {
             HasData = false;
             initialized = false;
+            motionTimeRemainder = 0f;
             IsAirborne = false;
             LandedThisFrame = false;
             AirborneDurationSeconds = 0f;
@@ -334,13 +348,13 @@ namespace AnimalGame.RobotMap
             LastLandingImpact = default;
         }
 
-        private void InitializeAtHeight(float heightMeters)
+        private void InitializeAtHeight(Vector2 position, float heightMeters)
         {
             initialized = true;
             HasData = true;
+            previousFramePosition = position;
             previousGroundHeight = heightMeters;
             CurrentGroundHeightMeters = heightMeters;
-            VirtualBodyHeightMeters = heightMeters;
             HeightChangeThisFrameMeters = 0f;
             GroundVerticalSpeedMetersPerSecond = 0f;
             VerticalSpeedMetersPerSecond = 0f;
