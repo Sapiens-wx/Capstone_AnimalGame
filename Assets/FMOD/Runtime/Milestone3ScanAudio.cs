@@ -137,9 +137,10 @@ namespace Capstone.Audio
             if (!hitAnimals.Add(animal.GetInstanceID())) return;
             double now = Time.unscaledTimeAsDouble;
             if (hasHitTime && now < lastHitTime + HitIntervalSeconds) return;
-            // Start at +2 semitones and add two per audible hit. FMOD caps pitch at 100x;
+            // Shift the +2/+4/+6 ladder down five semitones: -3/-1/+1.
+            // FMOD caps pitch at 100x;
             // bound the exponent as well, so an unusually long scan cannot overflow.
-            float pitch = Mathf.Pow(2f, Mathf.Min(audibleHits + 1, 40) / 6f);
+            float pitch = Mathf.Pow(2f, (Mathf.Min(audibleHits + 1, 40) * 2f - 5f) / 12f);
             if (!voices.PlayScanHit(pitch)) return;
             audibleHits = Mathf.Min(audibleHits + 1, 40);
             lastHitTime = now;

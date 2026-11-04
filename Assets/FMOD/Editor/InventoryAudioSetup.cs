@@ -65,7 +65,7 @@ namespace Capstone.Audio.Editor
                 EditorUtility.SetDirty(Settings.Instance);
                 AssetDatabase.SaveAssetIfDirty(Settings.Instance);
             }
-            Debug.Log("[Inventory Audio] Bound " + bound + "/5 observable cues. C06 remains reserved; no public discard action signal.");
+            Debug.Log("[Inventory Audio] Bound " + bound + "/6 observable cues. C06 follows actual inventory item quantity loss.");
         }
     }
 }

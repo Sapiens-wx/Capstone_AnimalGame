@@ -41,8 +41,7 @@ namespace Capstone.Audio
         };
         public static string EventPath(int index) => "event:/Robot/Inventory/" + Names[index];
         internal static string SourceFile(int index) => SourceDirectory + Files[index];
-        // DiscardRequested overrides the default deletion command. It is not an
-        // observable event; subscribing to it would change gameplay behavior.
-        public static bool HasObservableTrigger(int index) => index != (int)InventoryCue.Discard;
+        // Discard observes actual item quantity loss through InventoryStore.Changed.
+        public static bool HasObservableTrigger(int index) => index >= 0 && index < CueCount;
     }
 }

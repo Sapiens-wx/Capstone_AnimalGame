@@ -30,8 +30,9 @@ namespace Capstone.Audio
             internal float Gain, Envelope = 1f, LastVolume = -1f, PollTime;
         }
         private readonly Milestone3AudioSettings settings;
-        // 1.673 s source / 0.15 s hit interval, plus the 0.1 s release poll.
-        private const int ScanHitVoiceCount = 12;
+        // At -3 semitones the 1.673 s source lasts about 1.99 s. Include
+        // the 0.1 s release poll and event-before-poll frame boundary.
+        private const int ScanHitVoiceCount = 15;
         private readonly Slot[] slots;
         private readonly Milestone3Cue[] impacts =
             { Milestone3Cue.TumbleImpact, Milestone3Cue.TumbleImpact03 };
@@ -53,7 +54,7 @@ namespace Capstone.Audio
         {
             // FMOD's final combined pitch is limited to 100x. Preserve every
             // two-semitone step up to that native limit, including values >4x.
-            pitch = Mathf.Clamp(pitch, 1f, 100f);
+            pitch = Mathf.Clamp(pitch, 0.01f, 100f);
             Slot first = slots[(int)Milestone3Cue.ScanHit];
             if (!first.Active) return Start(first, 1f, pitch: pitch);
             for (int i = Milestone3AudioCatalog.CueCount; i < slots.Length; i++)

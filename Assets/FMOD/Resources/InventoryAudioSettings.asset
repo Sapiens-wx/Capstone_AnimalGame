@@ -66,10 +66,10 @@ MonoBehaviour:
     soundUIStrength: 0
   - eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
+        Data1: 1272168258
+        Data2: 1325557783
+        Data3: -1174516081
+        Data4: -1054621275
       Path: event:/Robot/Inventory/Discard
     gainDb: 0
     readBySoundUI: 0
