@@ -33,12 +33,14 @@ namespace AnimalGame.Animals.UI
         private readonly List<AnimalSpecies?> collections = new();
         private readonly List<AnimalSpecies> catalogSpecies = new();
         private Page page;
+        private Page? lastRenderedPage;
         private AnimalSpecies species;
         private int collection, catalogIndex;
         private VisualElement root;
         private PhotosView photosView;
         private PhotosSidebarView photosSidebar;
         private CatalogView catalogView;
+        private MainCatalogView mainCatalogView;
         private CatalogSidebarView catalogSidebar;
         private float savedTimeScale, holdTime, nextMove;
         private CursorLockMode cursorLock;
@@ -55,6 +57,7 @@ namespace AnimalGame.Animals.UI
             photosView = new PhotosView(root, compositeShader);
             photosSidebar = new PhotosSidebarView(root.Q<ScrollView>("collections"));
             catalogView = new CatalogView(root);
+            mainCatalogView = new MainCatalogView(root);
             catalogSidebar = new CatalogSidebarView(root.Q<ScrollView>("catalog-sidebar"));
             root.Q<Button>("photos-tab").clicked += () => Navigate(Page.Photos);
             root.Q<Button>("catalog-tab").clicked += () => Navigate(Page.Catalog);
@@ -78,7 +81,9 @@ namespace AnimalGame.Animals.UI
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             collections.Clear();
             previousLocation = null; page = Page.Photos; collection = 0; catalogIndex = -1;
+            lastRenderedPage = null;
             catalogSidebar.Reset(); photosSidebar.Reset();
+            mainCatalogView.Reset();
             photos.Selected = photos.TopRow = 0; photos.SortFocused = false;
             savedTimeScale = Time.timeScale; cursorLock = Cursor.lockState;
             BlocksGameplay = true; Time.timeScale = 0; Cursor.lockState = CursorLockMode.None;
@@ -156,8 +161,9 @@ namespace AnimalGame.Animals.UI
             root.Q("archive-shell").EnableInClassList("catalog-mode", !isPhotos);
             foreach (string name in new[] { "sidebar-title", "previous", "next", "collections", "local-count" })
                 root.Q(name).style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
-            root.Q("main-catalog").style.display = isPhotos ? DisplayStyle.None : DisplayStyle.Flex;
-            root.Q("catalog-sidebar").style.display = isPhotos ? DisplayStyle.None : DisplayStyle.Flex;
+            root.Q("main-catalog").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q("catalog-sidebar").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q("main-catalog-summary").style.display = page == Page.Catalog ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("species-navigation").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("species-recognition").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("record-count").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
@@ -177,7 +183,7 @@ namespace AnimalGame.Animals.UI
                 photosView.Clear();
                 RenderCatalog();
             }
-
+            lastRenderedPage = page;
         }
 
         private void UpdateTabSelection()
@@ -195,7 +201,8 @@ namespace AnimalGame.Animals.UI
             () => { if (photos.Current != null) Navigate(Page.Inspection); }, OpenPhotoCatalog,
             () => { photos.ToggleSort(); RenderPhotos(); });
 
-        private bool IsIdentified(AnimalSpecies animal) => SaveSystem.Current.Progress(animal)?.Tier > 0;
+        private bool IsIdentified(AnimalSpecies animal) => SaveSystem.Current.photos.Exists(photo => photo.species == animal)
+            || SaveSystem.Current.Progress(animal)?.Tier > 0;
 
         private void RenderCatalog()
         {
@@ -205,6 +212,13 @@ namespace AnimalGame.Animals.UI
             catalogSidebar.Bind(catalogSpecies, IsIdentified,
                 animal => AnimalArchiveAssets.Active.Photos[animal].DisplayName,
                 catalogIndex, SelectCatalogSpecies);
+            if (page == Page.Catalog)
+            {
+                catalogSidebar.StopAnimation();
+                if (lastRenderedPage != Page.Catalog)
+                    mainCatalogView.RenderProgress(catalogSpecies.Count(IsIdentified));
+                mainCatalogView.Render(catalogSpecies.Where(IsIdentified), animal => SelectCatalogSpecies(catalogSpecies.IndexOf(animal)));
+            }
             if (page == Page.Species)
             {
                 catalogView.Render(species);
@@ -260,7 +274,7 @@ namespace AnimalGame.Animals.UI
                 if (photos.SortFocused) { photos.ToggleSort(); RenderPhotos(); }
                 else if (photos.Current != null) Navigate(Page.Inspection);
             }
-            else if (page == Page.Catalog) StepCollection(1);
+            else if (page == Page.Catalog) mainCatalogView.Confirm();
         }
 
         private void Update()
@@ -331,6 +345,7 @@ namespace AnimalGame.Animals.UI
             if (direction == previousDirection && Time.unscaledTime < nextMove) return;
             nextMove = Time.unscaledTime + (direction == previousDirection ? .15f : .35f); previousDirection = direction;
             if (page == Page.Photos || page == Page.Inspection) { photos.Move((int)direction.x, (int)direction.y, page == Page.Inspection); RenderPhotos(); }
+            else if (page == Page.Catalog) mainCatalogView.Move((int)direction.x, (int)direction.y);
             else if (direction.y != 0) StepCollection(-(int)direction.y);
         }
 

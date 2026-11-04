@@ -27,12 +27,13 @@ MonoBehaviour:
   Habitat: Grasslands and prairies
   ConservationStatus: Near Threatened
   Lifespan: "15\u201320 years"
-  Description: The American bison is the largest land mammal in North America.
-    Once roaming the Great Plains in vast herds, it is a powerful herbivore known
-    for its massive shoulder hump and thick fur. As a keystone species, it plays
-    a vital role in maintaining grassland ecosystems.
+  Description: The American bison is the largest land mammal in North America. Once
+    roaming the Great Plains in vast herds, it is a powerful herbivore known for
+    its massive shoulder hump and thick fur. As a keystone species, it plays a vital
+    role in maintaining grassland ecosystems.
   ActivityPattern: Primarily diurnal
   Diet: Herbivorous
   SocialBehavior: Gregarious
-  Illustration: {fileID: 0}
-  DistributionMap: {fileID: 0}
+  Illustration: {fileID: 2800000, guid: a2f2b1ee99e19d34db838bafa6fe6582, type: 3}
+  DistributionMap: {fileID: 2800000, guid: a27f99798ddfdc4429f4922b30a329c2, type: 3}
+  CatalogPreview: {fileID: 0}
