@@ -44,7 +44,7 @@
 .preview-body { flex-grow: 1; min-height: 0; align-items: flex-start; }
 #photo-image { width: 48%; flex-shrink: 0; margin-right: 15px; border-width: 1px; border-color: #88897c; border-radius: 0; }
 .photo-information { flex-grow: 1; flex-basis: 0; min-width: 0; }
-.photo-scientific-name { font-size: 26px; white-space: normal; border-top-width: 1px; border-left-width: 1px; border-color: #929387; padding: 5px 8px; }
+.photo-scientific-name { font-size: 26px; white-space: normal; border-left-width: 1px; border-color: #929387; padding: 10px 8px; }
 .photo-date-row, .photo-location-row { flex-direction: row; justify-content: space-between; align-items: center; padding-top: 12px; padding-bottom: 10px; }
 .photo-date-row { font-size: 15px; display: none; }
 .photo-location-row { padding-bottom: 4px; border-bottom-width: 1px; border-bottom-color: #929387; }

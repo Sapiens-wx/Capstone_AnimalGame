@@ -15,10 +15,10 @@ MonoBehaviour:
   contacts:
   - contact: 0
     profession: Ecologist
-    portrait: {fileID: 21300000, guid: de08dfa53e67a454c853fd63d1753e07, type: 2}
+    portrait: {fileID: 21300000, guid: f446094e75314a4e847320dffe3c29fb, type: 3}
   - contact: 1
     profession: Habitat engineer
-    portrait: {fileID: 21300000, guid: c204f8b970c4cef41897d409bc9b4256, type: 2}
+    portrait: {fileID: 21300000, guid: f446094e75314a4e847320dffe3c29fb, type: 3}
   - contact: 2
     profession: Group channel
-    portrait: {fileID: 21300000, guid: b6849b674b9ec5a4fad5363f8640ad13, type: 2}
+    portrait: {fileID: 21300000, guid: b98260d3823a457794cdcda77f298101, type: 3}
