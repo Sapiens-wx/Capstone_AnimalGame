@@ -151,7 +151,25 @@ namespace AnimalGame.Animals.UI
     public sealed class CatalogView
     {
         private readonly VisualElement root;
-        public CatalogView(VisualElement root) => this.root = root;
+        public CatalogView(VisualElement root)
+        {
+            this.root = root;
+            root.RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
+            root.Q("species-page").RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
+            root.Q("catalog-name").RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
+        }
+
+        private void ResizeHeader()
+        {
+            var name = root.Q<Label>("catalog-name");
+            if (float.IsNaN(name.layout.width)) return;
+            var page = root.Q("species-page");
+            var nameRight = name.ChangeCoordinatesTo(page, new Vector2(name.layout.width, 0));
+            root.Q("species-navigation").style.left = nameRight.x - page.resolvedStyle.borderLeftWidth + root.layout.width * .03f;
+            var scientific = root.Q<ArchiveScientificNameElement>("catalog-scientific");
+            scientific.style.width = name.layout.width;
+            scientific.TopLineRatio = 1f;
+        }
         public void Render(AnimalSpecies species)
         {
             var assets = AnimalArchiveAssets.Active;
@@ -161,7 +179,7 @@ namespace AnimalGame.Animals.UI
             root.Q<Label>("catalog-name").text = tier >= 1 ? photo.DisplayName : "Unidentified species";
             root.Q<Label>("catalog-scientific").text = tier >= 1 ? photo.ScientificName : "LOCKED — send a photograph to unlock";
             root.Q<Label>("catalog-region").text = info.Region;
-            Field("physical", info.PhysicalCharacteristics, tier, 1);
+            root.Q<CatalogRulerElement>("physical-ruler").Bind(info, root.Q<CatalogHeadingElement>("physical-heading"));
             Field("classification", info.Classification, tier, 2);
             Field("distribution", info.Distribution, tier, 2);
             Field("habitat", info.Habitat, tier, 2);
@@ -171,16 +189,18 @@ namespace AnimalGame.Animals.UI
             Field("activity", info.ActivityPattern, tier, 3);
             Field("diet", info.Diet, tier, 3);
             Field("social", info.SocialBehavior, tier, 3);
-            var illustration = root.Q<Image>("catalog-illustration");
-            illustration.image = tier >= 1 ? info.Illustration : null;
-            illustration.style.display = illustration.image != null ? DisplayStyle.Flex : DisplayStyle.None;
             var distribution = root.Q<Image>("distribution-map");
             distribution.image = tier >= 2 ? info.DistributionMap : null;
             distribution.style.display = distribution.image != null ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q<Label>("distribution-unidentified").style.display = tier < 2 ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q<Label>("distribution").style.display = tier < 2 ? DisplayStyle.None : DisplayStyle.Flex;
         }
-        private void Field(string name, string value, int tier, int required) =>
-            root.Q<Label>(name).text = tier < required
-                ? required == 1 ? "Send 1 photograph to unlock" : $"Requires {(required == 2 ? 30 : 100)} recognition"
+        private void Field(string name, string value, int tier, int required)
+        {
+            bool locked = tier < required;
+            root.Q(name + "-section").style.opacity = locked ? .7f : 1f;
+            root.Q<Label>(name).text = locked ? "Unidentified"
                 : string.IsNullOrWhiteSpace(value) ? "Not documented" : value;
+        }
     }
 }

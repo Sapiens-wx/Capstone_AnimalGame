@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: AmericanBisonInfo
   m_EditorClassIdentifier: 
   Region: Rocky Mountains
-  PhysicalCharacteristics: "Shoulder height: 1.5\u20132.0 m\nBody mass: 320\u20131000
-    kg\nTotal length: 2.4\u20134.4 m"
+  ShoulderHeight: "1.5\u20132.0 m"
+  TotalLength: "2.4\u20134.4 m"
+  BodyMass: "320\u20131000 kg"
   Classification: 'Mammalia Class
 
     Artiodactyla Order

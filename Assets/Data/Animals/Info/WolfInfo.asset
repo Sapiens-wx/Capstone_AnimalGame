@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: WolfInfo
   m_EditorClassIdentifier: 
   Region: Rocky Mountains
-  PhysicalCharacteristics: 
+  ShoulderHeight:
+  TotalLength:
+  BodyMass:
   Classification: 
   Distribution: 
   Habitat: 
