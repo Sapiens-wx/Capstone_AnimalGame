@@ -25,6 +25,7 @@
 # AnimalUI 结构（Photos / Catalog）
 
 - 界面代码位于 `AnimalPhoto/UI/`，其中 `Photos/` 和 `Catalog/` 分别组织照片界面与图鉴界面代码。
+- 拍照立即自动保存；结果页 X 打开 Catalog、Y 打开 Photos，相册覆盖结果页，关闭后回到结果页。
 - `AnimalArchiveUI` 统一管理输入、页面切换及打开界面时的游戏暂停；仅保留上一个界面，B 返回一次后再次按 B 关闭；页面包含 Photos、照片全屏查看、Catalog 和物种详情。
 - `Photos/PhotoCollection` 管理照片筛选、排序和选择；`PhotosView` 渲染照片，`PhotosSidebarView` 管理无滚动条的 collection 列表及越界滚动动画；Photos 页的手柄侧栏导航仅由 LT/RT 切换 collection，左摇杆和 D-pad 导航 Photo Index，右摇杆也可选择照片。
 - 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，Y 返回主 Catalog；`CatalogView` 填充详情。上传至少一张照片、已解锁一级信息的物种可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`，底部详情识别条仍为静态占位。
