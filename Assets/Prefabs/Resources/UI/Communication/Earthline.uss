@@ -7,13 +7,13 @@
 .connection-state { color: #D4B854; }
 #earthline-body { flex-direction: row; flex-grow: 1; min-height: 0; border-top-width: 1px; border-top-color: #9b9c93; }
 #contacts-sidebar { width: 280px; flex-shrink: 0; padding: 16px 18px; border-right-width: 1px; border-right-color: #9b9c93; }
-#contacts-heading { font-size: 21px; align-self: flex-end; margin-top: 0; margin-bottom: 20px; }
+#contacts-heading { font-size: 21px; align-self: flex-start; -unity-text-align: middle-left; margin-top: 0; margin-bottom: 20px; }
 #contact-portrait { width: 242px; height: 242px; border-width: 1px; border-color: white; background-color: #080908; flex-shrink: 0; padding: 24px; }
 #contact-name { font-size: 26px; margin-top: 12px; margin-bottom: 2px; }
 #contact-profession { font-size: 18px; margin-bottom: 18px; }
 #contacts-list { flex-grow: 1; min-height: 0; }
 .contact-item, .contact-item:hover { min-height: 76px; flex-shrink: 0; flex-direction: row; padding: 8px; margin-bottom: 10px; align-items: center; border-width: 1px; border-color: white; background-color: transparent; color: white; }
-.contact-item.current { background-color: rgba(212,184,84,0.06); border-color: #9b9c93; border-left-width: 2px; border-left-color: #D4B854; }
+.contact-item.current { border-color: #9b9c93; border-left-width: 2px; border-left-color: #D4B854; }
 .contacts-focused .contact-item.current { border-width: 2px; border-color: #D4B854; }
 .contact-avatar { width: 48px; height: 48px; border-width: 1px; border-color: white; padding: 5px; flex-shrink: 0; margin-right: 10px; }
 .contact-details { flex-grow: 1; min-width: 0; }
@@ -55,13 +55,16 @@
 #reply-options { width: 70%; padding: 14px 26px; }
 .reply-heading { color: #D4B854; font-size: 23px; margin-bottom: 10px; }
 .reply-option, .reply-option:hover { color: white; font-size: 24px; white-space: normal; flex-grow: 1; -unity-text-align: middle-left; padding: 8px 10px; border-width: 0; background-color: transparent; }
-.reply-option.reply-selected, .reply-option.reply-selected:hover { border-width: 1px; border-color: #D4B854; background-color: #D4B854; color: white; }
+.reply-option.reply-selected, .reply-option.reply-selected:hover { border-width: 1px; border-color: #D4B854; color: white; }
+.contact-item.current, .reply-option.reply-selected, .reply-option.reply-selected:hover { background-color: rgba(212,184,84,0.06); }
 #share-area { width: 30%; align-items: center; justify-content: center; }
 #reply-divider { position: absolute; left: 0; top: 10%; bottom: 10%; width: 1px; background-color: #9b9c93; }
 .earthline-action, .earthline-action:hover { flex-direction: row; align-items: center; justify-content: center; font-size: 23px; color: white; border-width: 0; background-color: transparent; padding: 5px; flex-shrink: 0; }
 .earthline-key { width: 30px; height: 30px; border-radius: 15px; border-width: 1px; border-color: white; color: #D4B854; -unity-text-align: middle-center; padding: 0; margin-right: 10px; flex-shrink: 0; font-size: 23px; }
 .share-caption { border-bottom-width: 1px; border-bottom-color: white; }
-.action-frame { border-width: 1px; border-color: white; padding: 6px 12px; }
+.earthline-action.action-frame, .earthline-action.action-frame:hover { border-width: 1px; border-color: white; padding: 6px 12px; }
+#photo-picker .earthline-action > Label { margin: 0; }
+#photo-picker .earthline-action > .earthline-key { margin-right: 4px; }
 #photo-picker { position: absolute; left: 3%; right: 3%; top: 20px; bottom: 20px; border-width: 1px; border-color: white; background-color: #060706; padding: 18px 22px; }
 #picker-header { height: 60px; flex-shrink: 0; flex-direction: row; align-items: center; justify-content: space-between; }
 #picker-title { font-size: 34px; }

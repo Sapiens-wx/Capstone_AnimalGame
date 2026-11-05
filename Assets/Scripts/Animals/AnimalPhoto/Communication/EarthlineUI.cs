@@ -214,6 +214,16 @@ namespace AnimalGame.Animals.Communication
             if (y) { if (Focus == EarthlineFocus.Photos) picker.ToggleAll(); else OpenPhotoPicker(); return; }
             if (x && Focus == EarthlineFocus.Photos) { SendSelectedPhotos(); return; }
             if (confirm) { Confirm(); return; }
+            // Chat scrolling uses analog input every frame, before menu repeat/sign conversion.
+            if (Focus == EarthlineFocus.Chat && Mathf.Abs(direction.y) > .1f
+                && Mathf.Abs(direction.y) > Mathf.Abs(direction.x)
+                && (direction.y > 0 || !conversation.AtBottom))
+            {
+                conversation.Scroll(direction.y);
+                previousDirection = new Vector2(0, Mathf.Sign(direction.y));
+                nextMove = Time.unscaledTime + .15f;
+                return;
+            }
             if (direction.magnitude < .5f) { previousDirection = Vector2.zero; nextMove = 0; return; }
             direction = Mathf.Abs(direction.x) > Mathf.Abs(direction.y)
                 ? new Vector2(Mathf.Sign(direction.x), 0) : new Vector2(0, Mathf.Sign(direction.y));

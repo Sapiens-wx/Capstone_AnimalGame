@@ -12,7 +12,7 @@
             </ui:VisualElement>
             <ui:VisualElement name="earthline-body">
                 <ui:VisualElement name="contacts-sidebar">
-                    <archive:CatalogHeadingElement text="CONTACTS &amp; CHANNELS" flip="true" name="contacts-heading" />
+                    <archive:CatalogHeadingElement text="CONTACTS &amp; CHANNELS" name="contacts-heading" />
                     <ui:Image name="contact-portrait" scale-mode="ScaleToFit" />
                     <ui:Label name="contact-name" />
                     <ui:Label name="contact-profession" />
@@ -59,13 +59,13 @@
                         <ui:Label name="picker-empty" text="No unsent photographs. Take a photograph to share it here." />
                         <ui:VisualElement name="picker-footer">
                             <ui:Label name="picker-count" text="0 selected" />
-                            <ui:Button name="picker-select-all" class="earthline-action">
+                            <ui:Button name="picker-select-all" class="earthline-action action-frame">
                                 <ui:Label text="Y" class="earthline-key" picking-mode="Ignore" />
-                                <ui:Label name="picker-select-caption" text="Select all" class="action-frame" picking-mode="Ignore" />
+                                <ui:Label name="picker-select-caption" text="Select all" picking-mode="Ignore" />
                             </ui:Button>
-                            <ui:Button name="picker-send" class="earthline-action">
+                            <ui:Button name="picker-send" class="earthline-action action-frame">
                                 <ui:Label text="X" class="earthline-key" picking-mode="Ignore" />
-                                <ui:Label name="picker-send-caption" text="Send 0 photos" class="action-frame" picking-mode="Ignore" />
+                                <ui:Label name="picker-send-caption" text="Send 0 photos" picking-mode="Ignore" />
                             </ui:Button>
                         </ui:VisualElement>
                     </ui:VisualElement>

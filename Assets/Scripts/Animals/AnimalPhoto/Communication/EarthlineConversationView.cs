@@ -9,6 +9,7 @@ namespace AnimalGame.Animals.Communication
 {
     public sealed class EarthlineConversationView : IDisposable
     {
+        private const float ScrollSpeed = 1000f;
         private readonly VisualElement root, messages;
         private readonly ScrollView scroll;
         private readonly List<RenderTexture> thumbnails = new();
@@ -17,14 +18,19 @@ namespace AnimalGame.Animals.Communication
         {
             this.root = root; messages = root.Q("chat-messages"); scroll = root.Q<ScrollView>("chat-scroll");
             scroll.contentViewport.RegisterCallback<GeometryChangedEvent>(_ => ResizePhotos());
+            scroll.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => scroll.schedule.Execute(ScrollToBottom));
         }
         public bool AtBottom => scroll.verticalScroller.highValue <= 0 || scroll.scrollOffset.y >= scroll.verticalScroller.highValue - 2;
-        public void Scroll(int direction)
+        public void Scroll(float direction)
         {
-            float next = Mathf.Clamp(scroll.scrollOffset.y - direction * 100, 0, Mathf.Max(0, scroll.verticalScroller.highValue));
+            float next = Mathf.Clamp(scroll.scrollOffset.y - direction * ScrollSpeed * Time.unscaledDeltaTime,
+                0, Mathf.Max(0, scroll.verticalScroller.highValue));
             scroll.scrollOffset = new Vector2(0, next);
         }
         public void Focus(bool focused) => scroll.EnableInClassList("chat-focused", focused);
+
+        private void ScrollToBottom() =>
+            scroll.scrollOffset = new Vector2(0, Mathf.Max(0, scroll.verticalScroller.highValue));
 
         public void Render(GameSave save, ContactDefinition contact, DateTime time)
         {
@@ -39,7 +45,7 @@ namespace AnimalGame.Animals.Communication
             }
             else foreach (var message in conversation.messages) AddMessage(save, contact, message);
             ResizePhotos();
-            scroll.schedule.Execute(() => { ResizePhotos(); scroll.scrollOffset = new Vector2(0, Mathf.Max(0, scroll.verticalScroller.highValue)); });
+            scroll.schedule.Execute(() => { ResizePhotos(); ScrollToBottom(); });
         }
 
         private void AddMessage(GameSave save, ContactDefinition contact, ChatMessage message)
