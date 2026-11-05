@@ -46,7 +46,6 @@ namespace AnimalGame.Animals.UI
         private CursorLockMode cursorLock;
         private bool holdLatched, triggerLeft, triggerRight, leftShoulder;
         private Vector2 previousDirection;
-        private int openedFrame;
 
         private void Start()
         {
@@ -74,20 +73,14 @@ namespace AnimalGame.Animals.UI
             SaveSystem.Changed += Refresh;
         }
 
-        public void Open() => Open(Page.Photos, false);
-
-        public void OpenFromPhotoResult(bool catalog) => Open(catalog ? Page.Catalog : Page.Photos, true);
-
-        private void Open(Page initialPage, bool fromPhotoResult)
+        public void Open()
         {
-            if (BlocksGameplay) return;
             if (AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
-            if (bootstrap == null || (bootstrap.photoMode.IsActive
-                    && !(fromPhotoResult && bootstrap.photoResultUi.IsResultVisible))
+            if (bootstrap == null || bootstrap.photoMode.IsActive
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             collections.Clear();
-            previousLocation = null; page = initialPage; collection = 0; catalogIndex = -1;
+            previousLocation = null; page = Page.Photos; collection = 0; catalogIndex = -1;
             lastRenderedPage = null;
             catalogSidebar.Reset(); photosSidebar.Reset();
             mainCatalogView.Reset();
@@ -95,7 +88,6 @@ namespace AnimalGame.Animals.UI
             savedTimeScale = Time.timeScale; cursorLock = Cursor.lockState;
             BlocksGameplay = true; Time.timeScale = 0; Cursor.lockState = CursorLockMode.None;
             root.style.display = DisplayStyle.Flex; nextMove = Time.unscaledTime + .2f;
-            openedFrame = Time.frameCount;
             Refresh();
         }
 
@@ -286,8 +278,7 @@ namespace AnimalGame.Animals.UI
 
         private void Update()
         {
-            if (root == null || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
-                || (BlocksGameplay && Time.frameCount == openedFrame)) return;
+            if (root == null || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             Vector2 direction = AdaptiveLegacyGamepadInput.ReadLeftStick();
             Vector2 right = AdaptiveLegacyGamepadInput.ReadRightStick();
             bool upHeld = Input.GetKey(KeyCode.G), confirm = Input.GetKeyDown(KeyCode.Return),

@@ -35,8 +35,7 @@ namespace AnimalGame.RobotMap
         [Header("Keyboard Result Controls")]
         [SerializeField] private KeyCode closeKey = KeyCode.B;
         [SerializeField] private KeyCode alternateCloseKey = KeyCode.Escape;
-        [SerializeField] private KeyCode photosKey = KeyCode.Y;
-        [SerializeField] private KeyCode catalogKey = KeyCode.X;
+        [SerializeField] private KeyCode saveKey = KeyCode.Y;
 
         private readonly Vector2[] captureFrameCorners = new Vector2[4];
         private readonly Vector3[] subjectWorldCorners = new Vector3[4];
@@ -54,13 +53,14 @@ namespace AnimalGame.RobotMap
         private AnimalPhotoSubject pendingSubject;
         private AnimalPhotoSubject displayedSubject;
         private bool visible;
+        private bool saved;
         private PhotoResultView subscribedView;
 
         public bool IsVisible => visible;
         public bool IsResultVisible => visible;
         public PhotoResultSnapshot DisplayedResult => displayedResult;
         public AnimalPhotoSubject DisplayedSubject => displayedSubject;
-        public bool HasSavedDisplayedResult => displayedResult != null;
+        public bool HasSavedDisplayedResult => saved && displayedResult != null;
         public AnimalInfoLibrary Library { get => animalInfoLibrary; set => animalInfoLibrary = value; }
 
         public event Action<AnimalPhotoSubject, PhotoResultSnapshot> ResultShown;
@@ -135,19 +135,14 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            if (resultView == null || resultView.IsClosing
-                || AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
+            if (resultView == null || resultView.IsClosing) return;
             bool closePressed = Input.GetKeyDown(closeKey)
                 || Input.GetKeyDown(alternateCloseKey)
                 || AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame();
             if (closePressed) { resultView.Close(); return; }
-            bool photosPressed = Input.GetKeyDown(photosKey)
+            bool savePressed = Input.GetKeyDown(saveKey)
                 || AdaptiveLegacyGamepadInput.WasNorthFaceButtonPressedThisFrame();
-            bool catalogPressed = Input.GetKeyDown(catalogKey)
-                || AdaptiveLegacyGamepadInput.WasWestFaceButtonPressedThisFrame();
-            if (photosPressed || catalogPressed)
-                FindFirstObjectByType<AnimalGame.Animals.UI.AnimalArchiveUI>()
-                    .OpenFromPhotoResult(catalogPressed);
+            if (savePressed) SaveDisplayedResult();
         }
 
         private void HandlePhotoCaptured()
@@ -179,7 +174,6 @@ namespace AnimalGame.RobotMap
                     ? controller.LastCaptureSettings : null),
                 frameCoverage);
             pendingSubject = subject;
-            PhotoAlbumService.Save(pendingResult);
             if (resultView != null) resultView.HasPendingReview = true;
             if (resultView == null || controller == null || !controller.RequestPhotoReview())
             {
@@ -526,6 +520,7 @@ namespace AnimalGame.RobotMap
             pendingResult = null;
             pendingSubject = null;
             visible = true;
+            saved = false;
             try { resultView.Show(displayedResult, contourCapture); }
             catch (Exception exception)
             {
@@ -534,6 +529,14 @@ namespace AnimalGame.RobotMap
                 return;
             }
             ResultShown?.Invoke(displayedSubject, displayedResult);
+        }
+
+        private void SaveDisplayedResult()
+        {
+            if (saved || displayedResult == null) return;
+            PhotoAlbumService.Save(displayedResult);
+            saved = true;
+            resultView.SetSaved();
             PhotoSaved?.Invoke(displayedSubject, displayedResult);
         }
 
@@ -547,6 +550,7 @@ namespace AnimalGame.RobotMap
             displayedResult = null;
             pendingSubject = null;
             displayedSubject = null;
+            saved = false;
             if (resultView != null && !resultView.IsWarmingUp) resultView.HideImmediately();
             contourCapture.Dispose();
             if (returnToCamera) controller?.EndPhotoReview();

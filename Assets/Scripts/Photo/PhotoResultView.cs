@@ -48,7 +48,7 @@ namespace AnimalGame.RobotMap
             && root != null && root == document.rootVisualElement && root.panel != null
             && stage != null && zoomContent != null && backdrop != null && vectors != null
             && photo != null && textContent != null && snapshotCircle != null
-            && snapshotCloseBadge != null && snapshotImg != null && photosLabel != null
+            && snapshotCloseBadge != null && snapshotImg != null && saveLabel != null
             && photoImage != null && snapshotImage != null
             && root.Q<Label>("animal-name") != null && root.Q<Label>("scientific-name") != null
             && root.Q<Label>("region") != null && root.Q<Label>("altitude") != null
@@ -62,7 +62,7 @@ namespace AnimalGame.RobotMap
 
         private VisualElement root, stage, zoomContent, backdrop, vectors, photo, textContent;
         private VisualElement snapshotCircle, snapshotCloseBadge, snapshotImg;
-        private Label photosLabel;
+        private Label saveLabel;
         private Image photoImage, snapshotImage;
         private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
         private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
@@ -81,6 +81,7 @@ namespace AnimalGame.RobotMap
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
         private PhotoResultSnapshot currentResult;
+        private bool currentPhotoSaved;
         private RobotBalanceView hiddenBalanceView;
         private bool previousBalanceDisplayVisible;
         private float MaximumTiltDegrees => Mathf.Max(interactiveTiltDegrees,
@@ -140,7 +141,7 @@ namespace AnimalGame.RobotMap
             snapshotImg = root.Q("snapshot-image");
             photo = root.Q("photo");
             textContent = root.Q("text-content");
-            photosLabel = root.Q<Label>("save-label");
+            saveLabel = root.Q<Label>("save-label");
             photoImage = root.Q<Image>("photo-image");
             snapshotImage = root.Q<Image>("snapshot-image");
             foreach (VisualElement element in root.Query<VisualElement>().ToList())
@@ -237,6 +238,7 @@ namespace AnimalGame.RobotMap
             photoSource = processedPhoto;
             contourSource = contours;
             currentResult = result;
+            currentPhotoSaved = false;
             PopulateResultText(result);
             if (!IsWarmingUp) PrepareTextReveal();
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
@@ -363,9 +365,20 @@ namespace AnimalGame.RobotMap
             UpdateLocation(result);
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
             root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
-            photosLabel.text = "Photo";
+            saveLabel.text = currentPhotoSaved ? "Photo Saved" : "Save Photo";
         }
 
+        public void SetSaved()
+        {
+            currentPhotoSaved = true;
+            if (revealTargets.ContainsKey(saveLabel))
+            {
+                revealTargets[saveLabel] = "Photo Saved";
+                if (textRevealStarted && textRevealSequence == null && !revealingLabels.Contains(saveLabel))
+                    saveLabel.text = "Photo Saved";
+            }
+            else saveLabel.text = "Photo Saved";
+        }
         public void Close() { if (showing && !IsWarmingUp) animationSettings.Close(); }
 
         public void HideImmediately()
@@ -374,6 +387,7 @@ namespace AnimalGame.RobotMap
             RestoreBalanceDisplay();
             showing = false;
             currentResult = null;
+            currentPhotoSaved = false;
             textRevealStarted = false;
             HasPendingReview = false;
             if (!IsWarmingUp && mainUIAnimation != null) mainUIAnimation.Restore();
@@ -474,7 +488,6 @@ namespace AnimalGame.RobotMap
 
         private void UpdateTilt()
         {
-            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
             Vector2 input = Vector2.zero;
             bool gamepadConnected = false;
 #if ENABLE_INPUT_SYSTEM

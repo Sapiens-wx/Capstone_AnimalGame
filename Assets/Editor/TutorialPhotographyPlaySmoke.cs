@@ -346,7 +346,7 @@ namespace AnimalGame.Editor
                         Require(report.hiddenResultFrames >= 5 && report.resultHiddenAllFrames,
                             "Both expanded card and collapsed tab must stay hidden throughout the real result screen.");
                         Require(lesson.Progress.IsComplete && lesson.Progress.HasCapturedPhoto
-                            && !lesson.Progress.CanContinue && lesson.Progress.HasSavedPhoto && !lesson.IsComplete,
+                            && !lesson.Progress.CanContinue && !lesson.Progress.HasSavedPhoto && !lesson.IsComplete,
                             "A valid shot finishes photo practice while native results defer chapter handoff and hide all tutorial UI.");
                         Require(Targets.AnimalActor != null && Targets.AnimalActor.IsDeparting,
                             "The accepted shot must immediately queue the teaching bird's departure.");
@@ -358,17 +358,17 @@ namespace AnimalGame.Editor
                         Begin(Phase.SavePhoto); break;
                     case Phase.SavePhoto:
                         CheckResultPanelHidden();
-                        Require(report.resultFullyOpened, "Automatic saving remains observable after the result animation.");
+                        Require(report.resultFullyOpened, "Save input must follow the fully opened native result animation.");
                         if (!report.exactResultSaved || !bootstrap.photoResultUi.HasSavedDisplayedResult || !Settled(4)) return;
                         report.albumAfter = PhotoAlbumService.Photos.Count;
                         Require(report.albumAfter == report.albumBefore + 1
                             && PhotoAlbumService.Photos[report.albumAfter - 1].capturedTicks == acceptedResult.CapturedAt.Ticks
                             && PhotoAlbumService.Photos[report.albumAfter - 1].species == acceptedResult.Species,
-                            "The shutter must automatically add this exact result once to the native album.");
+                            "The real Y save must add this exact result once to the native album.");
                         report.albumRecordAdded = true;
                         Require(lesson.Progress.HasSavedPhoto && lesson.Progress.IsComplete,
-                            "The capture automatically saves the photograph without a tutorial save step.");
-                        Record("The shutter automatically saved the same woodpecker snapshot to the album.");
+                            "The normal optional album save remains available without a tutorial save step.");
+                        Record("A real controller Y press saves the same woodpecker snapshot to the album.");
                         Begin(Phase.CloseResult); break;
                     case Phase.CloseResult:
                         if (bootstrap.photoResultUi.IsResultVisible) { CheckResultPanelHidden(); return; }
@@ -595,7 +595,7 @@ namespace AnimalGame.Editor
             if (gamepad == null) return;
             var state = new GamepadState();
             if (phase == Phase.ScanCharge || phase == Phase.RefreshCharge) state = state.WithButton(GamepadButton.LeftShoulder);
-            if ((phase == Phase.EnterPhoto || phase == Phase.Collapse
+            if ((phase == Phase.EnterPhoto || phase == Phase.Collapse || phase == Phase.SavePhoto
                 || phase == Phase.CloseResult || phase == Phase.NeutralAfterResult || phase == Phase.ExitPhoto))
             {
                 if (lastTapPhase != (int)phase)
@@ -604,7 +604,8 @@ namespace AnimalGame.Editor
                 {
                     GamepadButton button = phase == Phase.EnterPhoto ? GamepadButton.West
                         : phase == Phase.Collapse ? GamepadButton.DpadRight
-                        : phase == Phase.NeutralAfterResult ? GamepadButton.DpadLeft : GamepadButton.East;
+                        : phase == Phase.NeutralAfterResult ? GamepadButton.DpadLeft
+                        : phase == Phase.SavePhoto ? GamepadButton.North : GamepadButton.East;
                     state = state.WithButton(button);
                 }
             }

@@ -180,10 +180,11 @@ namespace AnimalGame.Editor
             Require(result.IsShowing && IsDisplayed(resultDocument.rootVisualElement)
                 && resultDocument.rootVisualElement.Q<Label>("animal-name").text == snapshot.DisplayName,
                 "A genuine result opens with its captured identity instead of the authored Muskrat example.");
+            result.SetSaved();
             yield return new WaitForSecondsRealtime(1.2f);
             var savedTexture = resultDocument.rootVisualElement.Q<Image>("photo-image").image;
-            Require(savedTexture != null && resultDocument.rootVisualElement.Q<Label>("save-label").text == "Photo",
-                "The shown result renders a native photo and shows the Photo navigation label.");
+            Require(savedTexture != null && resultDocument.rootVisualElement.Q<Label>("save-label").text == "Photo Saved",
+                "The shown result renders a native photo and supports saved feedback.");
 
             // Unity rebuilds from the real source without disabling the result presenter.
             before = resultDocument.rootVisualElement.Q("stage");
@@ -193,9 +194,9 @@ namespace AnimalGame.Editor
             Require(before != resultDocument.rootVisualElement.Q("stage"), "The live-review check exercises a genuine new result tree.");
             Require(result.IsShowing && IsDisplayed(resultDocument.rootVisualElement)
                 && resultDocument.rootVisualElement.Q<Label>("animal-name").text == snapshot.DisplayName
-                && resultDocument.rootVisualElement.Q<Label>("save-label").text == "Photo"
+                && resultDocument.rootVisualElement.Q<Label>("save-label").text == "Photo Saved"
                 && ReferenceEquals(resultDocument.rootVisualElement.Q<Image>("photo-image").image, savedTexture),
-                "A live result survives root replacement with identity, the Photo label and the existing photograph intact.");
+                "A live result survives root replacement with identity, saved feedback and the existing photograph intact.");
             Capture("Real-Photo-Result");
             bool closed = false;
             result.Closed += () => closed = true;
@@ -218,7 +219,7 @@ namespace AnimalGame.Editor
             Require(root.panel != null && ReferenceEquals(Get(result, "root"), root)
                 && ReferenceEquals(Get(result, "stage"), root.Q("stage")), context + ": presenter is bound to the actual current tree.");
             Require(!result.IsShowing && !result.IsWarmingUp && !IsDisplayed(root),
-                context + ": the photograph result is hidden, including its Catalog, Photo and Muskrat example.");
+                context + ": the photograph result is hidden, including its Catalog, Save Photo and Muskrat example.");
             Require(hudDocument.rootVisualElement.Query("HudView").ToList().Count == 1
                 && hudDocument.rootVisualElement.Query("InnerRing").ToList().Count == 1,
                 context + ": exactly one gameplay HUD view and inner ring remain in the actual panel.");
