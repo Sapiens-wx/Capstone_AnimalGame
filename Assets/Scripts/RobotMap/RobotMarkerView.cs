@@ -44,8 +44,8 @@ namespace AnimalGame.RobotMap
         [SerializeField] private Sprite indicatorSprite;
         [SerializeField, Min(0.1f)] private float indicatorScale = 1.35f;
         [SerializeField] private float indicatorRotationOffsetDegrees;
-        [Tooltip("Moves the visible direction indicator inward toward the chassis, relative to the visible body diameter. This affects only artwork spacing.")]
-        [SerializeField, Range(0f, 0.5f)]
+        [Tooltip("Moves the direction indicator inward relative to the visible body diameter. Negative values move it outward, allowing cropped arrow sprites to retain their authored position.")]
+        [SerializeField, Range(-1f, 0.5f)]
         private float indicatorBodyInsetRatio = 0.2f;
         [SerializeField] private Color indicatorColor = new Color(0.92f, 0.98f, 1f, 1f);
 
@@ -1031,7 +1031,7 @@ namespace AnimalGame.RobotMap
             indicatorScale = Mathf.Max(0.1f, indicatorScale);
             indicatorBodyInsetRatio = Mathf.Clamp(
                 indicatorBodyInsetRatio,
-                0f,
+                -1f,
                 0.5f);
             indicatorArmModeFadeOutDuration = Mathf.Max(
                 0.01f,
