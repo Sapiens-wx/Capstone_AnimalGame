@@ -124,7 +124,10 @@ Button:disabled { opacity: 0.35; }
 .catalog-right-column > .catalog-section > .catalog-heading { align-self: flex-end; }
 #species-recognition { flex-grow: 1; min-width: 0; flex-direction: row; align-items: center; margin-right: 30px; }
 #species-recognition > Label { color: #D4B854; font-size: 23px; margin-right: 20px; flex-shrink: 0; }
-#recognition { height: 24px; flex-grow: 1; border-width: 1px; border-color: white; background-color: black; }
+#recognition { height: 24px; flex-grow: 1; min-width: 0; border-width: 1px; border-color: white; background-color: black; overflow: hidden; }
+#recognition > Label { position: absolute; top: 0; bottom: 0; margin: 0; padding: 0; color: white; font-size: 18px; white-space: nowrap; }
+#recognition-percent { -unity-text-align: middle-center; }
+#recognition-hint { right: 0; -unity-text-align: middle-left; }
 #species-navigation { position: absolute; top: -1px; right: -1px; min-width: 0; flex-direction: row; border-width: 1px; border-color: white; }
 .species-neighbor { width: 50%; min-width: 0; flex-direction: row; align-items: center; color: white; font-size: 20px; }
 .species-neighbor > Label { margin-left: 5px; margin-right: 5px; }

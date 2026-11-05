@@ -204,7 +204,10 @@
                         <ui:Label name="record-count" />
                         <ui:VisualElement name="species-recognition" style="display: none;">
                             <ui:Label text="Species Recognition" />
-                            <ui:VisualElement name="recognition" picking-mode="Ignore" />
+                            <ui:VisualElement name="recognition" picking-mode="Ignore">
+                                <ui:Label name="recognition-percent" text="0%" picking-mode="Ignore" />
+                                <ui:Label name="recognition-hint" text="Upload more photos for recognition" picking-mode="Ignore" />
+                            </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:Button name="back" class="photo-action">
                             <ui:Label text="B" picking-mode="Ignore" class="photo-action-circle" />
