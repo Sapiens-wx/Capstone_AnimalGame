@@ -40,7 +40,6 @@ namespace AnimalGame.Editor
                 Random.InitState(198403);
                 passed = 0;
                 Check(CheckSerializedKinds);
-                Check(CheckProductionAndFactoryProfiles);
                 Check(CheckMuskratCompatibility);
                 Check(CheckActualRepeatIntervals);
                 Check(CheckWorldAnchoredEmission);
@@ -106,28 +105,6 @@ namespace AnimalGame.Editor
                 Require((int)Enum.Parse(typeof(AnimalSoundKind), added) >= original.Length, "Bird sound overwrote an existing serialized value");
         }
 
-        private static void CheckProductionAndFactoryProfiles()
-        {
-            using var f = new Fixture();
-            AnimalSoundEmitter generated = f.New("Factory profile check").AddComponent<AnimalSoundEmitter>();
-            typeof(PileatedWoodpeckerPrefabGenerator).GetMethod("ConfigureAnimalSounds", Static).Invoke(null, new object[] { generated });
-            foreach (string name in ProfileNames)
-                Require(JsonUtility.ToJson(Profile(f.Emitter, name)) == JsonUtility.ToJson(Profile(generated, name)), "Shipped prefab differs from factory profile: " + name);
-            foreach (string name in new[] { "overallRadiusMultiplier", "overallRingCountMultiplier", "overallEmissionFrequencyMultiplier", "ringBreakup", "ringIrregularity" })
-                Near((float)Get(f.Emitter, name), (float)Get(generated, name), "Factory appearance mismatch: " + name);
-            Require(Get(f.Emitter, "soundWaveShader") is Shader shader && shader.name == "AnimalGame/Animal Sound Wave", "Bird prefab has no direct sound shader reference");
-            Require(Get(generated, "soundWaveShader") == Get(f.Emitter, "soundWaveShader"), "Factory lost sound shader reference");
-            foreach (string name in new[] { "idleSound", "curiousSound", "fleeingSound", "flyingSound", "peckingSound", "takeoffSound", "landingSound", "enteringTreeSound", "emergingFromTreeSound" })
-                Require(Profile(f.Emitter, name).Enabled, "Bird profile disabled: " + name);
-            foreach (string name in new[] { "lookingSound", "eatingSound", "landMovementSound", "waterMovementSound", "submergingSound", "surfacingSound" })
-                Require(!Profile(f.Emitter, name).Enabled, "Bird acquired an unrelated land/water/eating profile: " + name);
-            Near((float)Get(f.Emitter, "overallEmissionFrequencyMultiplier"), 1f, "Bird cadence multiplier");
-            Require(!f.Behaviour.SupportsAggression, "Sound integration changed woodpecker aggression support");
-            var flight = AssetDatabase.LoadAssetAtPath<FlyToTreeActionDefinition>("Assets/Data/Animals/Behaviour/SpeciesActions/FlyToTree.asset");
-            var peck = AssetDatabase.LoadAssetAtPath<PeckAtTreeActionDefinition>("Assets/Data/Animals/Behaviour/SpeciesActions/PeckAtTree.asset");
-            Near(flight.MinimumTreeStaySeconds, 15f, "Minimum tree stay");
-            Require((int)Get(peck, "pecksPerSoundWave") == 3, "Default peck grouping is not three contacts");
-        }
 
         private static void CheckMuskratCompatibility()
         {

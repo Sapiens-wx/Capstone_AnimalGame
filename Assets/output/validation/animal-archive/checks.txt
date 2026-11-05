@@ -1,2 +1,0 @@
-PASS: 178 archive assertions.
-Render pixels matched for Basic, InstantFilm and DamagedPrime after disk reload.

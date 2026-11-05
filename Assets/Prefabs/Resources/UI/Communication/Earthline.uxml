@@ -1,0 +1,76 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:archive="AnimalGame.Animals.UI">
+    <Style src="../AnimalCatalog/AnimalArchive.uss" />
+    <Style src="Earthline.uss" />
+    <ui:VisualElement name="earthline-viewport">
+        <ui:VisualElement name="earthline-shell">
+            <ui:VisualElement name="earthline-top">
+                <ui:Button name="earthline-tab" text="Earthline" />
+                <ui:VisualElement name="earthline-connection">
+                    <ui:Label text="WEATHER TOWER · WX-03" />
+                    <ui:Label text="●  Connected" class="connection-state" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="earthline-body">
+                <ui:VisualElement name="contacts-sidebar">
+                    <archive:CatalogHeadingElement text="CONTACTS &amp; CHANNELS" flip="true" name="contacts-heading" />
+                    <ui:Image name="contact-portrait" scale-mode="ScaleToFit" />
+                    <ui:Label name="contact-name" />
+                    <ui:Label name="contact-profession" />
+                    <ui:ScrollView name="contacts-list" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" />
+                </ui:VisualElement>
+                <ui:VisualElement name="earthline-workspace">
+                    <archive:ArchiveGridElement name="earthline-grid" picking-mode="Ignore" />
+                    <ui:VisualElement name="conversation-panel">
+                        <ui:VisualElement name="conversation-header">
+                            <ui:Label name="conversation-name" />
+                            <ui:Label name="conversation-profession" />
+                            <ui:Label name="conversation-date" />
+                        </ui:VisualElement>
+                        <ui:ScrollView name="chat-scroll" mode="Vertical" vertical-scroller-visibility="AlwaysVisible" horizontal-scroller-visibility="Hidden">
+                            <ui:VisualElement name="chat-messages" />
+                        </ui:ScrollView>
+                        <ui:VisualElement name="reply-panel">
+                            <ui:VisualElement name="reply-options">
+                                <ui:Label text="REPLY" class="reply-heading" />
+                                <ui:Button name="reply-0" class="reply-option" />
+                                <ui:Button name="reply-1" class="reply-option" />
+                                <ui:Button name="reply-2" class="reply-option" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="share-area">
+                                <ui:VisualElement name="reply-divider" />
+                                <ui:Button name="share-photo" class="earthline-action">
+                                    <ui:Label text="Y" class="earthline-key" picking-mode="Ignore" />
+                                    <ui:Label text="Share a photo" class="share-caption" picking-mode="Ignore" />
+                                </ui:Button>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="photo-picker" style="display: none;">
+                        <ui:VisualElement name="picker-header">
+                            <ui:Label name="picker-title" />
+                            <ui:Button name="picker-close" class="earthline-action">
+                                <ui:Label text="B" class="earthline-key" picking-mode="Ignore" />
+                                <ui:Label text="Close" picking-mode="Ignore" />
+                            </ui:Button>
+                        </ui:VisualElement>
+                        <ui:ScrollView name="picker-scroll" mode="Vertical" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden">
+                            <ui:VisualElement name="picker-tiles" />
+                        </ui:ScrollView>
+                        <ui:Label name="picker-empty" text="No unsent photographs. Take a photograph to share it here." />
+                        <ui:VisualElement name="picker-footer">
+                            <ui:Label name="picker-count" text="0 selected" />
+                            <ui:Button name="picker-select-all" class="earthline-action">
+                                <ui:Label text="Y" class="earthline-key" picking-mode="Ignore" />
+                                <ui:Label name="picker-select-caption" text="Select all" class="action-frame" picking-mode="Ignore" />
+                            </ui:Button>
+                            <ui:Button name="picker-send" class="earthline-action">
+                                <ui:Label text="X" class="earthline-key" picking-mode="Ignore" />
+                                <ui:Label name="picker-send-caption" text="Send 0 photos" class="action-frame" picking-mode="Ignore" />
+                            </ui:Button>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

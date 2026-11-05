@@ -201,8 +201,7 @@ namespace AnimalGame.Animals.UI
             () => { if (photos.Current != null) Navigate(Page.Inspection); }, OpenPhotoCatalog,
             () => { photos.ToggleSort(); RenderPhotos(); });
 
-        private bool IsIdentified(AnimalSpecies animal) => SaveSystem.Current.photos.Exists(photo => photo.species == animal)
-            || SaveSystem.Current.Progress(animal)?.Tier > 0;
+        private bool IsIdentified(AnimalSpecies animal) => SaveSystem.Current.Progress(animal)?.Tier > 0;
 
         private void RenderCatalog()
         {
@@ -279,7 +278,7 @@ namespace AnimalGame.Animals.UI
 
         private void Update()
         {
-            if (root == null) return;
+            if (root == null || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             Vector2 direction = AdaptiveLegacyGamepadInput.ReadLeftStick();
             Vector2 right = AdaptiveLegacyGamepadInput.ReadRightStick();
             bool upHeld = Input.GetKey(KeyCode.G), confirm = Input.GetKeyDown(KeyCode.Return),

@@ -6,6 +6,9 @@
 - 只有用户明确要求导入游戏时，才将生成素材放入 `Assets/`、创建 Unity 导入元数据，或修改场景、Prefab 和资源引用。
 - 黄色用#D4B854
 
+## Editor Window创建
+- 如果只是为了一次性完成任务创建的EditorWindow (MenuItem), 用完之后把它删除，不要留着
+
 ## Engineering Principles
 
 - Do not restore working directories when implementing new tasks.

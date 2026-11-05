@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using AnimalGame.Animals.Communication;
 using AnimalGame.Animals;
 using UnityEngine;
 
@@ -8,7 +10,7 @@ namespace AnimalGame.Save
     public static class SaveSystem
     {
         private const int FileSignature = 0x41475356; // AGSV
-        private const int FileVersion = 1;
+        private const int FileVersion = 2;
         public static GameSave Current { get; private set; }
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
         public static event Action Changed;
@@ -36,7 +38,7 @@ namespace AnimalGame.Save
             using var reader = new BinaryReader(stream);
             if (reader.ReadInt32() != FileSignature) throw new InvalidDataException("Invalid game save signature.");
             int version = reader.ReadInt32();
-            if (version != FileVersion) throw new InvalidDataException($"Unsupported save version: {version}");
+            if (version != 1 && version != FileVersion) throw new InvalidDataException($"Unsupported save version: {version}");
             var save = new GameSave();
             int photoCount = ReadCount(reader);
             for (int i = 0; i < photoCount; i++) save.photos.Add(ReadPhoto(reader));
@@ -44,6 +46,34 @@ namespace AnimalGame.Save
             for (int i = 0; i < progressCount; i++)
                 save.speciesProgress.Add(new SpeciesProgress {
                     species = (AnimalSpecies)reader.ReadInt32(), recognition = reader.ReadInt32(), sentPhotos = reader.ReadInt32() });
+            if (version >= 2)
+            {
+                int conversationCount = ReadCount(reader);
+                for (int i = 0; i < conversationCount; i++)
+                {
+                    var conversation = new ContactConversation { contact = (ContactId)reader.ReadInt32() };
+                    int messageCount = ReadCount(reader);
+                    for (int j = 0; j < messageCount; j++)
+                    {
+                        var message = new ChatMessage { fromPlayer = reader.ReadBoolean(), hour = reader.ReadInt32(),
+                            minute = reader.ReadInt32(), kind = (MessageKind)reader.ReadInt32() };
+                        if (message.kind == MessageKind.Text) message.text = ReadString(reader);
+                        else if (message.kind == MessageKind.Photos)
+                        {
+                            message.photoIndices = new int[ReadCount(reader)];
+                            for (int k = 0; k < message.photoIndices.Length; k++)
+                            {
+                                int index = reader.ReadInt32();
+                                if (index < 0 || index >= save.photos.Count) throw new InvalidDataException("Invalid message photo index.");
+                                message.photoIndices[k] = index;
+                            }
+                        }
+                        else throw new InvalidDataException("Unknown chat message kind.");
+                        conversation.messages.Add(message);
+                    }
+                    save.conversations.Add(conversation);
+                }
+            }
             if (stream.Position != stream.Length) throw new InvalidDataException("Unexpected trailing game save data.");
             return save;
         }
@@ -74,6 +104,24 @@ namespace AnimalGame.Save
                         writer.Write((int)progress.species);
                         writer.Write(progress.recognition);
                         writer.Write(progress.sentPhotos);
+                    }
+                    writer.Write(data.conversations.Count);
+                    foreach (var conversation in data.conversations)
+                    {
+                        writer.Write((int)conversation.contact);
+                        writer.Write(conversation.messages.Count);
+                        foreach (var message in conversation.messages)
+                        {
+                            writer.Write(message.fromPlayer); writer.Write(message.hour); writer.Write(message.minute);
+                            writer.Write((int)message.kind);
+                            if (message.kind == MessageKind.Text) WriteString(writer, message.text);
+                            else if (message.kind == MessageKind.Photos)
+                            {
+                                writer.Write(message.photoIndices.Length);
+                                foreach (int index in message.photoIndices) writer.Write(index);
+                            }
+                            else throw new InvalidDataException("Unknown chat message kind.");
+                        }
                     }
                     writer.Flush();
                     stream.Flush(true);
@@ -107,12 +155,74 @@ namespace AnimalGame.Save
             int index = Current.photos.FindIndex(photo => photo.id == photoId);
             if (index < 0) throw new InvalidOperationException($"Photo does not exist: {photoId}");
             var photo = Current.photos[index];
+            var messages = Current.conversations.SelectMany(c => c.messages).Where(m => m.kind == MessageKind.Photos).ToArray();
+            var previousIndices = messages.Select(m => m.photoIndices).ToArray();
+            foreach (var message in messages)
+                message.photoIndices = message.photoIndices.Where(i => i != index).Select(i => i > index ? i - 1 : i).ToArray();
             Current.photos.RemoveAt(index);
             try { WriteTo(SavePath, Current); }
-            catch { Current.photos.Insert(index, photo); throw; }
+            catch
+            {
+                Current.photos.Insert(index, photo);
+                for (int i = 0; i < messages.Length; i++) messages[i].photoIndices = previousIndices[i];
+                throw;
+            }
             Changed?.Invoke();
         }
 
+        public static void SendText(ContactId contact, string text, DateTime time)
+        {
+            Initialize();
+            AppendMessage(contact, new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute,
+                kind = MessageKind.Text, text = text });
+            Changed?.Invoke();
+        }
+
+        public static void SharePhotos(ContactId contact, int[] indices, DateTime time)
+        {
+            Initialize();
+            if (indices.Length == 0) return;
+            if (indices.Distinct().Count() != indices.Length) throw new ArgumentException("Duplicate photo selection.");
+            foreach (int index in indices)
+                if (index < 0 || index >= Current.photos.Count || Current.photos[index].sent)
+                    throw new InvalidOperationException("Only unsent photos can be shared.");
+            var oldProgress = Current.speciesProgress.Select(p => new SpeciesProgress {
+                species = p.species, recognition = p.recognition, sentPhotos = p.sentPhotos }).ToList();
+            foreach (int index in indices)
+            {
+                var photo = Current.photos[index]; photo.sent = true;
+                var progress = Current.Progress(photo.species);
+                if (progress == null) { progress = new SpeciesProgress { species = photo.species }; Current.speciesProgress.Add(progress); }
+                progress.sentPhotos++; progress.recognition += photo.recognitionValue;
+            }
+            try
+            {
+                AppendMessage(contact, new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute,
+                    kind = MessageKind.Photos, photoIndices = (int[])indices.Clone() });
+            }
+            catch
+            {
+                foreach (int index in indices) Current.photos[index].sent = false;
+                Current.speciesProgress = oldProgress;
+                throw;
+            }
+            Changed?.Invoke();
+        }
+
+        private static void AppendMessage(ContactId contact, ChatMessage message)
+        {
+            var conversation = Current.conversations.Find(c => c.contact == contact);
+            bool created = conversation == null;
+            if (created) { conversation = new ContactConversation { contact = contact }; Current.conversations.Add(conversation); }
+            conversation.messages.Add(message);
+            try { WriteTo(SavePath, Current); }
+            catch
+            {
+                conversation.messages.Remove(message);
+                if (created) Current.conversations.Remove(conversation);
+                throw;
+            }
+        }
         private static void WriteString(BinaryWriter writer, string value)
         {
             writer.Write(value != null);

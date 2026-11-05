@@ -158,6 +158,7 @@ namespace AnimalGame.MapTest
             photoModeUi =
                 mainUiObject.GetComponent<PhotoModeUI>();
             Instantiate(Resources.Load<GameObject>("UI/AnimalCatalog/AnimalArchiveUI"), transform);
+            Instantiate(Resources.Load<GameObject>("UI/Communication/EarthlineUI"), transform);
             photoResultUi =
                 mainUiObject.GetComponent<PhotoResultUI>();
             if (photoResultUi == null)
