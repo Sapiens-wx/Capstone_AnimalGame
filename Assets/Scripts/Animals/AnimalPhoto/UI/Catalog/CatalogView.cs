@@ -6,6 +6,79 @@ using UnityEngine.UIElements;
 
 namespace AnimalGame.Animals.UI
 {
+    public sealed class CatalogRecognitionView
+    {
+        private static readonly Color Yellow = new Color32(212, 184, 84, 255);
+        private readonly VisualElement bar;
+        private readonly Label percentage, hint;
+        private int percent;
+
+        public CatalogRecognitionView(VisualElement root)
+        {
+            bar = root.Q("recognition");
+            percentage = root.Q<Label>("recognition-percent");
+            hint = root.Q<Label>("recognition-hint");
+            bar.generateVisualContent += Draw;
+            bar.RegisterCallback<GeometryChangedEvent>(_ => Layout());
+        }
+
+        public void Bind(int recognition)
+        {
+            percent = Mathf.Clamp(recognition, 0, 100);
+            percentage.text = $"{percent}%";
+            hint.style.display = percent > 50 ? DisplayStyle.None : DisplayStyle.Flex;
+            Layout();
+            bar.MarkDirtyRepaint();
+        }
+
+        private void Layout()
+        {
+            float cellWidth = bar.contentRect.width / 105f;
+            percentage.style.left = percent * cellWidth;
+            percentage.style.width = 5 * cellWidth;
+            hint.style.left = (percent + 5) * cellWidth + 6;
+        }
+
+        private void Draw(MeshGenerationContext context)
+        {
+            Rect rect = bar.contentRect;
+            float cellWidth = rect.width / 105f;
+            if (cellWidth <= 0 || rect.height <= 0) return;
+            var painter = context.painter2D;
+            painter.strokeColor = Yellow;
+            painter.lineWidth = 1f;
+            float top = rect.yMin + .5f, bottom = rect.yMax - .5f;
+            // One outlined cell per percentage point; reserve five cells for the value.
+            for (int index = 0; index < percent; index++)
+                Box(painter, rect.xMin + index * cellWidth + .5f, top,
+                    rect.xMin + (index + 1) * cellWidth - .5f, bottom);
+            float start = rect.xMin + percent * cellWidth + .5f;
+            Box(painter, start, top, rect.xMin + (percent + 5) * cellWidth - .5f, bottom);
+            float tickHeight = rect.height * .2f;
+            painter.BeginPath();
+            for (int index = 1; index < 5; index++)
+            {
+                float x = rect.xMin + (percent + index) * cellWidth;
+                painter.MoveTo(new Vector2(x, top));
+                painter.LineTo(new Vector2(x, top + tickHeight));
+                painter.MoveTo(new Vector2(x, bottom));
+                painter.LineTo(new Vector2(x, bottom - tickHeight));
+            }
+            painter.Stroke();
+        }
+
+        private static void Box(Painter2D painter, float left, float top, float right, float bottom)
+        {
+            painter.BeginPath();
+            painter.MoveTo(new Vector2(left, top));
+            painter.LineTo(new Vector2(right, top));
+            painter.LineTo(new Vector2(right, bottom));
+            painter.LineTo(new Vector2(left, bottom));
+            painter.ClosePath();
+            painter.Stroke();
+        }
+    }
+
     public sealed class MainCatalogView
     {
         private const int Columns = 4;
@@ -151,9 +224,11 @@ namespace AnimalGame.Animals.UI
     public sealed class CatalogView
     {
         private readonly VisualElement root;
+        private readonly CatalogRecognitionView recognition;
         public CatalogView(VisualElement root)
         {
             this.root = root;
+            recognition = new CatalogRecognitionView(root);
             root.RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
             root.Q("species-page").RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
             root.Q("catalog-name").RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
@@ -175,6 +250,7 @@ namespace AnimalGame.Animals.UI
             var assets = AnimalArchiveAssets.Active;
             var photo = assets.Photos[species]; var info = assets.Info[species];
             var progress = SaveSystem.Current.Progress(species);
+            recognition.Bind(progress?.recognition ?? 0);
             int tier = progress?.Tier ?? 0;
             root.Q<CatalogRecognitionElement>("recognition").Value = progress?.recognition ?? 0;
             root.Q<Label>("catalog-name").text = tier >= 1 ? photo.DisplayName : "More Photos Required";

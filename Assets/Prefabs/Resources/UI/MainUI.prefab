@@ -178,7 +178,8 @@ MonoBehaviour:
   sizeScoreWeight: 0.15
   closeKey: 98
   alternateCloseKey: 27
-  saveKey: 121
+  photosKey: 121
+  catalogKey: 120
 --- !u!114 &7433652710412772339
 MonoBehaviour:
   m_ObjectHideFlags: 0
