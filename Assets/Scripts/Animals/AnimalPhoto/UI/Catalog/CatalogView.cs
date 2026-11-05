@@ -163,9 +163,9 @@ namespace AnimalGame.Animals.UI
         {
             var name = root.Q<Label>("catalog-name");
             if (float.IsNaN(name.layout.width)) return;
-            var page = root.Q("species-page");
-            var nameRight = name.ChangeCoordinatesTo(page, new Vector2(name.layout.width, 0));
-            root.Q("species-navigation").style.left = nameRight.x - page.resolvedStyle.borderLeftWidth + root.layout.width * .03f;
+            var navigation = root.Q("species-navigation");
+            var nameRight = name.ChangeCoordinatesTo(navigation.parent, new Vector2(name.layout.width, 0));
+            navigation.style.left = nameRight.x + root.layout.width * .03f;
             var scientific = root.Q<ArchiveScientificNameElement>("catalog-scientific");
             scientific.style.width = name.layout.width;
             scientific.TopLineRatio = 1f;
@@ -176,7 +176,9 @@ namespace AnimalGame.Animals.UI
             var photo = assets.Photos[species]; var info = assets.Info[species];
             var progress = SaveSystem.Current.Progress(species);
             int tier = progress?.Tier ?? 0;
-            root.Q<Label>("catalog-name").text = tier >= 1 ? photo.DisplayName : "Unidentified species";
+            root.Q<CatalogRecognitionElement>("recognition").Value = progress?.recognition ?? 0;
+            root.Q<Label>("catalog-name").text = tier >= 1 ? photo.DisplayName : "More Photos Required";
+            root.Q("catalog-name").style.opacity = tier >= 1 ? 1f : .4f;
             root.Q<Label>("catalog-scientific").text = tier >= 1 ? photo.ScientificName : "LOCKED — send a photograph to unlock";
             root.Q<Label>("catalog-region").text = info.Region;
             root.Q<CatalogRulerElement>("physical-ruler").Bind(info, root.Q<CatalogHeadingElement>("physical-heading"));
@@ -193,14 +195,22 @@ namespace AnimalGame.Animals.UI
             distribution.image = tier >= 2 ? info.DistributionMap : null;
             distribution.style.display = distribution.image != null ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q<Label>("distribution-unidentified").style.display = tier < 2 ? DisplayStyle.Flex : DisplayStyle.None;
-            root.Q<Label>("distribution").style.display = tier < 2 ? DisplayStyle.None : DisplayStyle.Flex;
+            root.Q<Label>("distribution").style.display = tier < 2 || distribution.image != null
+                ? DisplayStyle.None : DisplayStyle.Flex;
         }
         private void Field(string name, string value, int tier, int required)
         {
             bool locked = tier < required;
-            root.Q(name + "-section").style.opacity = locked ? .7f : 1f;
-            root.Q<Label>(name).text = locked ? "Unidentified"
+            var label = root.Q<Label>(name);
+            root.Q(name + "-section").style.opacity = locked ? .4f : 1f;
+            label.text = locked ? "More Photos Required"
                 : string.IsNullOrWhiteSpace(value) ? "Not documented" : value;
+            if (name == "classification" && !locked)
+            {
+                label.enableRichText = true;
+                foreach (string rank in new[] { "Class", "Order", "Family", "Genus" })
+                    label.text = label.text.Replace(" " + rank, " <color=#858585>" + rank + "</color>");
+            }
         }
     }
 }

@@ -77,7 +77,8 @@ namespace AnimalGame.Animals.UI
             style.top = anchor.y;
             style.height = height;
             style.width = illustration.image == null ? 0 : height * illustration.image.width / illustration.image.height;
-            parent.style.height = anchor.y + height + 52f;
+            // The description shares the row below the ruler with its length caption.
+            parent.style.height = anchor.y + height + 16f;
             MarkDirtyRepaint();
         }
 
