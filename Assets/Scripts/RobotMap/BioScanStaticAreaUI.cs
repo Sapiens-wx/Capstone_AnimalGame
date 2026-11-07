@@ -183,7 +183,7 @@ namespace AnimalGame.RobotMap
                 visibleAreas.Add(new VisibleArea(layout, anchor,
                     (Vector2)worldCenter * referencePixelsPerWorldUnit, worldCenter,
                     GetAreaTint(target), GetOutlineTint(target), target.LineWidthPixels, outlineWidth, target.GetInstanceID(),
-                    target.AreaColor.a * GetRevealEnvelope(target), target.ShowOutlineDots));
+                    target.AreaColor.a * target.RevealOpacity, target.ShowOutlineDots));
             }
 
             if (visibleAreas.Count == 0 || !EnsureCanvas()) return;
@@ -445,7 +445,7 @@ namespace AnimalGame.RobotMap
             float phase = Mathf.Repeat(pulseElapsed, target.BreathingPeriod)
                 / target.BreathingPeriod;
             float breath = .5f + .5f * Mathf.Cos(phase * Mathf.PI * 2f);
-            tint.a *= GetRevealEnvelope(target)
+            tint.a *= target.RevealOpacity
                 * Mathf.Lerp(target.BreathingMinAlpha, target.BreathingMaxAlpha, breath * breath);
             return tint;
         }
@@ -456,22 +456,9 @@ namespace AnimalGame.RobotMap
             float phase = Mathf.Repeat(target.RevealElapsed, target.OutlineBreathingPeriod)
                 / target.OutlineBreathingPeriod;
             float breath = .5f + .5f * Mathf.Cos(phase * Mathf.PI * 2f);
-            tint.a *= GetRevealEnvelope(target)
+            tint.a *= target.RevealOpacity
                 * Mathf.Lerp(target.OutlineBreathingMinAlpha, target.OutlineBreathingMaxAlpha, breath);
             return tint;
-        }
-
-        private static float GetRevealEnvelope(ScannableInteractable target)
-        {
-            if (target.RevealRemaining <= 0f)
-                return 0f;
-            float fadeDuration = Mathf.Min(target.FadeOutDuration, target.DisplayDuration);
-            bool fading = fadeDuration > 0f && target.RevealRemaining < fadeDuration;
-            float opacity = target.FadeInDuration > 0f
-                ? Mathf.SmoothStep(0f, 1f, target.RevealElapsed / target.FadeInDuration) : 1f;
-            if (fading)
-                opacity *= Mathf.SmoothStep(0f, 1f, target.RevealRemaining / fadeDuration);
-            return opacity;
         }
 
         private bool EnsureCanvas()

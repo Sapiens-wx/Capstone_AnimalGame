@@ -248,6 +248,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   size: 2
+  scanHitFlashDuration: 0.5
+  scanEchoDuration: 3
+  scanEchoInterval: 1.5
+  scanEchoFlashDuration: 0.75
+  scanEchoOpacity: 0.25
 --- !u!114 &6300000000000000002
 MonoBehaviour:
   m_ObjectHideFlags: 0

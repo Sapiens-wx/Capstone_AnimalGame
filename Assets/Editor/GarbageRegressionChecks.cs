@@ -18,13 +18,115 @@ namespace AnimalGame.Editor
             CheckFragmentPath();
             CheckMotionUpdatesSpatialIndex();
             CheckPushSpeedResponse();
-            Debug.Log("Garbage checks PASS: fragment path, movement index and push speed response");
+            CheckScanOutlineColor();
+            Debug.Log("Garbage checks PASS: fragment path, movement index, push speed response and scan outline tint lifecycle");
         }
 
         public static void RunBatch()
         {
             try { Run(); EditorApplication.Exit(0); }
             catch (Exception error) { Debug.LogException(error); EditorApplication.Exit(1); }
+        }
+
+        private static void CheckScanOutlineColor()
+        {
+            Scene scene = EditorSceneManager.NewPreviewScene();
+            float previousTimeScale = Time.timeScale;
+            Time.timeScale = 1f;
+            try
+            {
+                foreach (string name in new[] { "Small_Garbage", "Medium_Garbage", "Big_Garbage" })
+                {
+                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                        "Assets/Prefabs/Environment/Garbage/" + name + ".prefab");
+                    var go = UnityEngine.Object.Instantiate(prefab);
+                    SceneManager.MoveGameObjectToScene(go, scene);
+                    var item = go.GetComponent<GarbageItem>();
+                    var scan = go.GetComponent<ScannableInteractable>();
+                    var outline = scan.SpriteSource;
+                    Require(outline.sharedMaterial.shader.name == "AnimalGame/Player UI Clipped Sprite",
+                        name + " outline must retain the player-view clipping shader");
+                    Color initial = outline.color;
+                    initial.a = .37f;
+                    outline.color = initial;
+                    var sprites = go.GetComponentsInChildren<SpriteRenderer>(true);
+                    var iconColors = new Color[sprites.Length];
+                    for (int i = 0; i < sprites.Length; i++) iconColors[i] = sprites[i].color;
+                    Invoke(item, "Awake");
+                    float Setting(string field) => (float)typeof(GarbageItem).GetField(
+                        field, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item);
+                    float hitDuration = Setting("scanHitFlashDuration");
+                    float echoDuration = Setting("scanEchoDuration");
+                    float echoInterval = Setting("scanEchoInterval");
+                    float echoWidth = Setting("scanEchoFlashDuration");
+                    float echoOpacity = Setting("scanEchoOpacity");
+                    RequireNear(hitDuration, .5f, "Production scan hit flash must last half a second");
+                    RequireNear(echoDuration, 3f, "Production scan echoes must finish within three seconds");
+                    RequireNear(echoInterval - echoWidth, echoWidth,
+                        "Production scan echoes must allocate equal time to flashes and white gaps");
+                    Invoke(item, "LateUpdate");
+                    RequireNear(outline.color.r, initial.r, "Unscanned outline changed color");
+
+                    scan.Reveal();
+                    RequireNear(outline.color.r, initial.r * (212f / 255f), "Scanned outline red");
+                    RequireNear(outline.color.g, initial.g * (184f / 255f), "Scanned outline green");
+                    RequireNear(outline.color.b, initial.b * (84f / 255f), "Scanned outline blue");
+                    RequireNear(outline.color.a, .37f, "Scan tint overwrote garbage opacity");
+                    for (int i = 0; i < sprites.Length; i++)
+                        if (sprites[i] != outline)
+                            Require(sprites[i].color == iconColors[i], "Scan tint changed a child icon");
+
+                    Invoke(scan, "TickReveal", hitDuration * .5f);
+                    Invoke(item, "LateUpdate");
+                    Require(outline.color.r > initial.r * scan.AreaColor.r && outline.color.r < initial.r,
+                        "The initial scan flash must fade back to white");
+                    Invoke(scan, "TickReveal", hitDuration * .5f);
+                    Invoke(item, "LateUpdate");
+                    RequireNear(outline.color.r, initial.r, "Outline remained yellow after the hit flash");
+
+                    int echoes = 0;
+                    for (int echo = 0; (echo + 1) * echoInterval - echoWidth * .5f < echoDuration; echo++)
+                    {
+                        float peak = hitDuration + (echo + 1) * echoInterval - echoWidth * .5f;
+                        Invoke(scan, "TickReveal", peak - scan.RevealElapsed);
+                        Invoke(item, "LateUpdate");
+                        RequireNear(outline.color.r,
+                            Mathf.Lerp(initial.r, initial.r * scan.AreaColor.r, echoOpacity),
+                            "A scan echo did not use the configured low-opacity yellow");
+                        RequireNear(outline.color.a, .37f, "A scan echo changed the garbage opacity");
+                        Invoke(scan, "TickReveal", echoWidth * .5f + .05f);
+                        Invoke(item, "LateUpdate");
+                        RequireNear(outline.color.r, initial.r, "Outline did not return to white between echoes");
+                        echoes++;
+                    }
+                    Require(echoes == 2, "The three-second scan echo window must produce exactly two flashes");
+                    Invoke(scan, "TickReveal", hitDuration + echoDuration + .1f - scan.RevealElapsed);
+                    Invoke(item, "LateUpdate");
+                    RequireNear(outline.color.r, initial.r, "Outline kept flashing after the echo window");
+
+                    float elapsedBeforeRescan = scan.RevealElapsed;
+                    scan.Reveal();
+                    RequireNear(scan.RevealElapsed, elapsedBeforeRescan,
+                        "Retriggering the outline flash reset the scan-area presentation clock");
+                    RequireNear(outline.color.r, initial.r * scan.AreaColor.r,
+                        "A repeat scan did not immediately retrigger the strong flash");
+                    Invoke(scan, "TickReveal", scan.RevealRemaining);
+                    Invoke(item, "LateUpdate");
+                    RequireNear(outline.color.r, initial.r, "Expired scan left the outline yellow");
+                    RequireNear(outline.color.a, .37f, "Expiry changed garbage opacity");
+
+                    scan.Reveal();
+                    Invoke(item, "LateUpdate");
+                    Invoke(item, "OnDisable");
+                    RequireNear(outline.color.r, initial.r, "Disabled garbage retained its scan tint");
+                    UnityEngine.Object.DestroyImmediate(go);
+                }
+            }
+            finally
+            {
+                Time.timeScale = previousTimeScale;
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
         }
 
         private static void CheckFragmentPath()
