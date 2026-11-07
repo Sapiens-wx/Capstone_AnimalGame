@@ -23,10 +23,10 @@ namespace AnimalGame.Animals.UI
         private void DrawSelection(MeshGenerationContext context)
         {
             if (!selected) return;
-            const float inset = 2.5f;
+            const float inset = 4f;
             var painter = context.painter2D;
             painter.strokeColor = new Color32(212, 184, 84, 255);
-            painter.lineWidth = 3f;
+            painter.lineWidth = 6f;
             painter.BeginPath();
             painter.MoveTo(new Vector2(inset, inset));
             painter.LineTo(new Vector2(layout.width - inset, inset));

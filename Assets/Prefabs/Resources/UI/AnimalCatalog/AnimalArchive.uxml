@@ -12,18 +12,6 @@
                     <ui:Label text="Catalog" picking-mode="Ignore" />
                     <ui:Label text="RB" picking-mode="Ignore" class="key-badge" />
                 </ui:Button>
-                <ui:VisualElement name="species-navigation" style="display: none;">
-                    <ui:Button name="species-previous" class="species-neighbor">
-                        <ui:Label text="&lt;" picking-mode="Ignore" class="neighbor-arrow" />
-                        <ui:Label text="LT" picking-mode="Ignore" class="neighbor-key" />
-                        <ui:Label name="previous-species-name" picking-mode="Ignore" />
-                    </ui:Button>
-                    <ui:Button name="species-next" class="species-neighbor">
-                        <ui:Label name="next-species-name" picking-mode="Ignore" />
-                        <ui:Label text="RT" picking-mode="Ignore" class="neighbor-key" />
-                        <ui:Label text="&gt;" picking-mode="Ignore" class="neighbor-arrow" />
-                    </ui:Button>
-                </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement class="body">
                 <ui:VisualElement class="sidebar">
@@ -36,7 +24,11 @@
                         <ui:Label text="Main Catalog" class="main-catalog-heading" />
                         <ui:VisualElement class="catalog-reward-caption">
                             <ui:Label text="Identify More&#10;Species for" />
-                            <ui:VisualElement class="catalog-reward-icon"><ui:VisualElement class="catalog-reward-inner"><ui:VisualElement class="catalog-reward-dot" /></ui:VisualElement></ui:VisualElement>
+                            <ui:VisualElement class="catalog-reward-icon">
+                                <ui:VisualElement class="catalog-reward-inner">
+                                    <ui:VisualElement class="catalog-reward-dot" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:VisualElement name="catalog-progress-tree" />
                     </ui:VisualElement>
@@ -132,40 +124,64 @@
                     </ui:VisualElement>
                     <ui:VisualElement name="species-page" class="page" style="display: none;">
                         <ui:Label name="catalog-name" class="title" />
-                        <archive:ArchiveScientificNameElement name="catalog-scientific" bottom-line-ratio="0.1" />
                         <ui:Label name="catalog-region" />
-                        <ui:ScrollView name="catalog-details">
+                        <ui:VisualElement name="catalog-details">
                             <ui:VisualElement class="row catalog-columns">
-                                <ui:VisualElement class="catalog-column narrow">
-                                    <archive:CatalogHeadingElement text="Classification" />
-                                    <ui:Label name="classification" />
-                                    <archive:CatalogHeadingElement text="Lifespan" />
-                                    <ui:Label name="lifespan" />
-                                    <archive:CatalogHeadingElement text="Conservation Status (21st c.)" />
-                                    <ui:Label name="conservation" />
-                                </ui:VisualElement>
-                                <ui:VisualElement class="catalog-column illustration-column">
-                                    <archive:CatalogHeadingElement text="Physical Characteristics" />
-                                    <ui:Label name="physical" />
-                                    <ui:Image name="catalog-illustration" scale-mode="ScaleToFit" style="display: none;" />
+                                <ui:VisualElement name="catalog-primary">
+                                    <ui:VisualElement class="row catalog-primary-columns">
+                                        <ui:VisualElement class="catalog-column narrow">
+                                            <archive:ArchiveScientificNameElement name="catalog-scientific" bottom-line-ratio="0.1" text="Scientific Name" />
+                                            <ui:VisualElement name="classification-section" class="catalog-section">
+                                                <archive:CatalogHeadingElement text="Classification" />
+                                                <ui:Label name="classification" />
+                                            </ui:VisualElement>
+                                            <ui:VisualElement name="lifespan-section" class="catalog-section">
+                                                <archive:CatalogHeadingElement text="Lifespan" />
+                                                <ui:Label name="lifespan" />
+                                            </ui:VisualElement>
+                                            <ui:VisualElement name="conservation-section" class="catalog-section">
+                                                <archive:CatalogHeadingElement text="Conservation&#10;Status &lt;size=75%&gt;(21st c.)&lt;/size&gt;" enable-rich-text="true" />
+                                                <ui:Label name="conservation" />
+                                            </ui:VisualElement>
+                                        </ui:VisualElement>
+                                        <ui:VisualElement class="catalog-column illustration-column">
+                                            <archive:CatalogHeadingElement name="physical-heading" text="Physical Characteristics" />
+                                            <archive:CatalogRulerElement name="physical-ruler" height-ratio="0.42" />
+                                        </ui:VisualElement>
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="description-section" class="catalog-section">
+                                        <archive:CatalogHeadingElement text="Description" />
+                                        <ui:Label name="description" />
+                                    </ui:VisualElement>
                                 </ui:VisualElement>
                                 <ui:VisualElement class="catalog-column narrow catalog-right-column">
-                                    <archive:CatalogHeadingElement text="Distribution" flip="true" />
-                                    <ui:Image name="distribution-map" scale-mode="ScaleToFit" style="display: none;" />
-                                    <ui:Label name="distribution" />
-                                    <archive:CatalogHeadingElement text="Habitat" flip="true" />
-                                    <ui:Label name="habitat" />
-                                    <archive:CatalogHeadingElement text="Diet" flip="true" />
-                                    <ui:Label name="diet" />
-                                    <archive:CatalogHeadingElement text="Social Behavior" flip="true" />
-                                    <ui:Label name="social" />
-                                    <archive:CatalogHeadingElement text="Activity Pattern" flip="true" />
-                                    <ui:Label name="activity" />
+                                    <ui:VisualElement name="distribution-section" class="catalog-section">
+                                        <archive:CatalogHeadingElement name="distribution-heading" text="Distribution" flip="true" />
+                                        <ui:VisualElement name="distribution-frame">
+                                            <ui:Image name="distribution-map" scale-mode="ScaleToFit" style="display: none;" />
+                                            <ui:Label name="distribution-unidentified" text="More Photos Required" />
+                                        </ui:VisualElement>
+                                        <ui:Label name="distribution" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="habitat-section" class="catalog-section">
+                                        <archive:CatalogHeadingElement text="Habitat" flip="true" />
+                                        <ui:Label name="habitat" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="diet-section" class="catalog-section">
+                                        <archive:CatalogHeadingElement text="Diet" flip="true" />
+                                        <ui:Label name="diet" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="social-section" class="catalog-section">
+                                        <archive:CatalogHeadingElement text="Social Behavior" flip="true" />
+                                        <ui:Label name="social" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="activity-section" class="catalog-section">
+                                        <archive:CatalogHeadingElement text="Activity Pattern" flip="true" />
+                                        <ui:Label name="activity" />
+                                    </ui:VisualElement>
                                 </ui:VisualElement>
                             </ui:VisualElement>
-                            <archive:CatalogHeadingElement text="Description" />
-                            <ui:Label name="description" />
-                        </ui:ScrollView>
+                        </ui:VisualElement>
                         <ui:Button name="species-photos" class="photo-action action-key-right">
                             <ui:Label text="View Animal Photo" picking-mode="Ignore" class="photo-action-caption" />
                             <ui:Label text="X" picking-mode="Ignore" class="photo-action-circle" />
@@ -176,7 +192,7 @@
                         <ui:Label name="record-count" />
                         <ui:VisualElement name="species-recognition" style="display: none;">
                             <ui:Label text="Species Recognition" />
-                            <ui:VisualElement name="recognition" picking-mode="Ignore" />
+                            <archive:CatalogRecognitionElement name="recognition" picking-mode="Ignore" />
                         </ui:VisualElement>
                         <ui:Button name="back" class="photo-action">
                             <ui:Label text="B" picking-mode="Ignore" class="photo-action-circle" />
@@ -187,6 +203,18 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="tab-selection" picking-mode="Ignore" />
+            <ui:VisualElement name="species-navigation" style="display: none;">
+                <ui:Button name="species-previous" class="species-neighbor">
+                    <ui:Label text="&lt;" picking-mode="Ignore" class="neighbor-arrow" />
+                    <ui:Label text="LT" picking-mode="Ignore" class="neighbor-key" />
+                    <ui:Label name="previous-species-name" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Button name="species-next" class="species-neighbor">
+                    <ui:Label name="next-species-name" picking-mode="Ignore" />
+                    <ui:Label text="RT" picking-mode="Ignore" class="neighbor-key" />
+                    <ui:Label text="&gt;" picking-mode="Ignore" class="neighbor-arrow" />
+                </ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using AnimalGame.Animals;
 using AnimalGame.Animals.UI;
-using AnimalGame.Save;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -33,12 +32,10 @@ namespace AnimalGame.Editor
         [MenuItem("Animal Game/Photos/Create Archive Assets")]
         public static void CreateAssets()
         {
-            System.IO.Directory.CreateDirectory("Assets/Data/Saves");
             System.IO.Directory.CreateDirectory("Assets/Data/Animals/Info");
-            var save = GetOrCreate<GameSave>("Assets/Data/Saves/GameSave.asset");
             var info = GetOrCreate<AnimalInfoLibrary>("Assets/Data/Animals/AnimalInfoLibrary.asset");
             var assets = GetOrCreate<AnimalArchiveAssets>(Folder + "AnimalArchiveAssets.asset");
-            assets.defaultSave = save; assets.animalInfo = info;
+            assets.animalInfo = info;
             EditorUtility.SetDirty(assets);
             var panel = AssetDatabase.LoadAssetAtPath<PanelSettings>(Folder + "AnimalArchivePanel.asset");
             if (panel == null)

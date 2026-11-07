@@ -42,7 +42,7 @@ namespace AnimalGame.Editor
                 "Assets/Prefabs/Resources/Robot/RobotMarker.prefab");
             foreach (float size in new[] { .5f, 2f })
                 foreach (float loopSize in new[] { 0f, 1f, 8f })
-                foreach (Vector2 anchorOffset in new[] { Vector2.zero, new Vector2(.04f, -.06f) })
+                foreach (float xOffset in new[] { 0f, .12f, -.07f })
                 {
                     Scene scene = EditorSceneManager.NewPreviewScene();
                     try
@@ -58,7 +58,7 @@ namespace AnimalGame.Editor
                         Set(arms, "armScale", size);
                         Set(arms, "handScale", .37f);
                         Set(arms, "lowerArmScale", loopSize);
-                        Set(arms, "forearmAnchorOffset", anchorOffset);
+                        Set(arms, "lowerArmXOffset", xOffset);
                         Set(arms, "stepDelta", 1f);
                         Call(arms, "Awake");
                         Call(arms, "EnsureVisuals");
@@ -85,10 +85,12 @@ namespace AnimalGame.Editor
                             Require(upperTarget == expectedUpper && lowerTarget == expectedLower,
                                 "Arm Scale did not multiply both authored scales");
                             // Traverse the same phases forward and backward, including repeated deployment.
+                            foreach (Vector2 direction in new[] { Vector2.up, new Vector2(.6f, .8f), new Vector2(-.6f, .8f) })
                             foreach (float time in new[] { 0f, connector * .5f, connector,
                                 connector + extension * .5f, total, connector + extension * .5f,
                                 connector, connector * .5f, 0f, total })
                             {
+                                Set(arms, "targetLocal", direction * (float)Get(arms, "armLength") * .8f);
                                 object pose = typeof(RobotArmController).GetMethod("DesiredPose",
                                     BindingFlags.NonPublic | BindingFlags.Instance).Invoke(arms, new[] { arm, (object)time });
                                 arm.GetType().GetField("Pose").SetValue(arm, pose);
@@ -119,16 +121,22 @@ namespace AnimalGame.Editor
                                         && hand.transform.localScale == new Vector3(sign, 1f, 1f) * .37f,
                                         "Final arm/hand scales changed or accumulated across deployment");
                                 Vector3 upperTip = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.max.y, 0f));
-                                if (time == total)
                                 {
                                     float bodyLength = (float)typeof(RobotArmController).GetMethod("LowerLengthAtScale",
                                         BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new[] { arm, (object)loopSize });
                                     Vector3 socket = (Vector2)arm.GetType().GetField("Socket").GetValue(arm);
-                                    Vector3 expectedAnchor = socket + lower.transform.localRotation * new Vector3(
-                                        anchorOffset.x * lowerTarget.x, bodyLength + anchorOffset.y * lowerTarget.y, 0f);
-                                    Vector3 upperBase = upper.transform.TransformPoint(new Vector3(0f, upper.sprite.bounds.min.y, 0f));
-                                    Require(Vector3.Distance(upperBase, frame.TransformPoint(expectedAnchor)) < .0001f,
-                                        "Forearm pivot did not follow the mirrored body-side anchor offset");
+                                    float socketX = (float)Get(arms, "diameter") * .5f
+                                        * (float)Get(arms, "socketRadiusOfBody") + xOffset;
+                                    Require(Vector3.Distance(socket, new Vector3(-sign * socketX, 0f, 0f)) < .0001f,
+                                        "Lower Arm socket did not preserve mirrored X offset and player-local Y alignment");
+                                    Require(Vector3.Distance(lower.transform.localPosition, socket) < .0001f,
+                                        "Lower Arm sprite pivot detached from the body socket");
+                                    float lowerGrowth = lower.transform.localScale.y / lowerTarget.y;
+                                    Vector3 expectedAnchor = socket + lower.transform.localRotation
+                                        * new Vector3(0f, bodyLength * lowerGrowth, 0f);
+                                    Require(Vector3.Distance(upper.transform.position,
+                                        frame.TransformPoint(expectedAnchor)) < .0001f,
+                                        "Upper Arm sprite pivot detached from the Lower Arm tip");
                                 }
                                 Require(Vector3.Distance(upperTip, hand.transform.position) < .0001f,
                                     "Hand pivot detached from Upper Arm");

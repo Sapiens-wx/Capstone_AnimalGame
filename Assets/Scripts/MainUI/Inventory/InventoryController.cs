@@ -482,7 +482,7 @@ namespace AnimalGame.MainUI.Inventory
 
         private void HandleInput()
         {
-            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
+            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
             {
                 openHoldElapsed = closeHoldElapsed = 0f;

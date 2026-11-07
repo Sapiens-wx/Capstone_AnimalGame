@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45e9e8646d0d7504a987c3c88e2ec81c, type: 3}
   m_Name: AnimalArchiveAssets
   m_EditorClassIdentifier: 
-  defaultSave: {fileID: 11400000, guid: 8b4f5129038568d42b2e3f7b6366b5ca, type: 2}
   animalInfo: {fileID: 11400000, guid: 62482c67885b0b940acca9f5e07160f0, type: 2}
   images:
   - id: 45bfbd840d5576e498400a0257d253c2

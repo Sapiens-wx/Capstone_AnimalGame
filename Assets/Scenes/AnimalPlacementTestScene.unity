@@ -745,15 +745,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 184.22223
+      value: 170.96297
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 184.7037
+      value: 162.03703
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.951987
+      value: 14.654412
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -831,15 +831,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 127.7037
+      value: 127.703705
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 234.1852
+      value: 234.18518
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.079823
+      value: 30.079828
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -999,7 +999,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 200.55554
+      value: 200.55556
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -1155,15 +1155,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 174.77777
+      value: 143.85185
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 135.85185
+      value: 110.14815
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.437916
+      value: 18.502993
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1237,11 +1237,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 183.33334
+      value: 183.33333
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.168299
+      value: 14.168298
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -1279,15 +1279,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 2597949877729465580, guid: 849e9eb8108ba6e42b38eeb682e80cd0, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 125
+      value: 194.2963
       objectReference: {fileID: 0}
     - target: {fileID: 2597949877729465580, guid: 849e9eb8108ba6e42b38eeb682e80cd0, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 125
+      value: 172.96297
       objectReference: {fileID: 0}
     - target: {fileID: 2597949877729465580, guid: 849e9eb8108ba6e42b38eeb682e80cd0, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 32.23716
+      value: 14.208604
       objectReference: {fileID: 0}
     - target: {fileID: 6025079494640055615, guid: 849e9eb8108ba6e42b38eeb682e80cd0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1392,15 +1392,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 104.59259
+      value: 148.44444
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 95.88889
+      value: 99.666664
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 26.880852
+      value: 17.757696
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2081,15 +2081,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 167.62962
+      value: 178
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 133.96295
+      value: 129.55556
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.189162
+      value: 12.90976
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2393,15 +2393,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 169.37036
+      value: 104.59259
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 148.1111
+      value: 95.888885
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.841707
+      value: 26.88085
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2631,7 +2631,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 226.5926
+      value: 226.59259
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -2791,7 +2791,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 185.37038
+      value: 185.37036
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
@@ -2799,7 +2799,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 15.197229
+      value: 15.197234
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -3287,11 +3287,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 214.66667
+      value: 214.66666
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 31.069857
+      value: 31.06986
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3376,11 +3376,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 74.62962
+      value: 74.62963
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 17.26601
+      value: 17.266014
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -3544,7 +3544,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 137.74075
+      value: 137.74074
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
@@ -3552,7 +3552,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.959059
+      value: 20.959074
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3649,15 +3649,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 188.29631
+      value: 188.2963
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 121.259254
+      value: 121.25926
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.760683
+      value: 14.760679
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3725,6 +3725,18 @@ PrefabInstance:
       propertyPath: map
       value: 
       objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 165.59259
+      objectReference: {fileID: 0}
+    - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 116.111115
+      objectReference: {fileID: 0}
+    - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 13.8236475
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -4113,7 +4125,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 51.11111
+      value: 51.111107
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
@@ -4121,7 +4133,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.124228
+      value: 30.124226
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -4612,7 +4624,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 218.92592
+      value: 218.92593
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
@@ -4620,7 +4632,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 21.222992
+      value: 21.22299
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -4788,11 +4800,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 145.74075
+      value: 145.74074
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.687709
+      value: 13.68771
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -4948,15 +4960,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 165.59259
+      value: 167.62962
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 116.11111
+      value: 133.96297
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.8236475
+      value: 13.189163
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -5030,11 +5042,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 200.92593
+      value: 200.92592
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.626788
+      value: 14.626787
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -5279,11 +5291,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 87.5926
+      value: 87.59259
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.98092
+      value: 13.980919
       objectReference: {fileID: 0}
     - target: {fileID: 21200004, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: m_Sprite
@@ -5361,15 +5373,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 214.07408
+      value: 214.07407
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 19.185184
+      value: 19.185186
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.890097
+      value: 20.890095
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -5455,15 +5467,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 219.22221
+      value: 219.22223
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 25.037037
+      value: 25.037039
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 20.794144
+      value: 20.794142
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -6442,15 +6454,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 187.48148
+      value: 187.48149
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 154.33334
+      value: 154.33333
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 13.850452
+      value: 13.850453
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -6535,15 +6547,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 193.92593
+      value: 174.77777
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 177.92593
+      value: 135.85185
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 1f88457873894e67b7a38918b3098b2b, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.225958
+      value: 13.437916
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -7005,7 +7017,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 54.11111
+      value: 54.111115
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: bb4d4c60869f4cfa9e843b75ccfd4d3c, type: 3}
       propertyPath: sampledSurfaceHeightMeters
@@ -7337,15 +7349,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 63.66667
+      value: 63.666668
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 212.03705
+      value: 212.03703
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 30.298431
+      value: 30.298435
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -7657,15 +7669,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 204.55556
+      value: 73.22222
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 198.8889
+      value: 95.55556
       objectReference: {fileID: 0}
     - target: {fileID: 8192860856556802252, guid: 3ba40f32e1dc84747b30da6ed01e5063, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.911722
+      value: 39.867958
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -8064,15 +8076,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 203.03703
+      value: 169.37036
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 184.88889
+      value: 148.11111
       objectReference: {fileID: 0}
     - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.4243965
+      value: 13.841708
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -8227,11 +8239,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 206.1111
+      value: 206.11111
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 19.48352
+      value: 19.483528
       objectReference: {fileID: 0}
     - target: {fileID: 21200003, guid: 3753643229dc44bf9dde95f0ddce617a, type: 3}
       propertyPath: m_Sprite
@@ -8395,7 +8407,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 204.74075
+      value: 204.74074
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
@@ -8403,7 +8415,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.247463
+      value: 14.247461
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -8473,15 +8485,15 @@ PrefabInstance:
       objectReference: {fileID: 9100000000000000013}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.x
-      value: 196.48148
+      value: 223.88889
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: mapPositionMeters.y
-      value: 205
+      value: 193.48148
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: c8c2c648f0ad4f06a8b13e6a779c8f26, type: 3}
       propertyPath: sampledSurfaceHeightMeters
-      value: 14.547832
+      value: 14.309621
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -8554,6 +8566,18 @@ PrefabInstance:
       propertyPath: map
       value: 
       objectReference: {fileID: 9100000000000000013}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: mapPositionMeters.x
+      value: 121.703705
+      objectReference: {fileID: 0}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: mapPositionMeters.y
+      value: 83.44444
+      objectReference: {fileID: 0}
+    - target: {fileID: 8681653170865558031, guid: 6e55cb8bfb169e144b4f628f6ebecab9, type: 3}
+      propertyPath: sampledSurfaceHeightMeters
+      value: 23.303253
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

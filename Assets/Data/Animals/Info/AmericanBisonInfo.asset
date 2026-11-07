@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: AmericanBisonInfo
   m_EditorClassIdentifier: 
   Region: Rocky Mountains
-  PhysicalCharacteristics: "Shoulder height: 1.5\u20132.0 m\nBody mass: 320\u20131000
-    kg\nTotal length: 2.4\u20134.4 m"
+  ShoulderHeight: "1.5\u20132.0 m"
+  TotalLength: "2.4\u20134.4 m"
+  BodyMass: "320\u20131000 kg"
   Classification: 'Mammalia Class
 
     Artiodactyla Order
@@ -34,6 +35,6 @@ MonoBehaviour:
   ActivityPattern: Primarily diurnal
   Diet: Herbivorous
   SocialBehavior: Gregarious
-  Illustration: {fileID: 2800000, guid: a2f2b1ee99e19d34db838bafa6fe6582, type: 3}
+  Illustration: {fileID: 2800000, guid: 19bfc200862f97b45a07ec8184110c91, type: 3}
   DistributionMap: {fileID: 2800000, guid: a27f99798ddfdc4429f4922b30a329c2, type: 3}
-  CatalogPreview: {fileID: 0}
+  CatalogPreview: {fileID: 2800000, guid: 19bfc200862f97b45a07ec8184110c91, type: 3}

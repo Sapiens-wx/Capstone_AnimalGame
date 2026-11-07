@@ -5,7 +5,6 @@ using System.Reflection;
 using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using AnimalGame.Tutorial;
-using AnimalGame.Save;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -28,10 +27,7 @@ namespace AnimalGame.Editor
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Result observation checks run in Edit Mode.");
             Scene scene = EditorSceneManager.NewPreviewScene();
             GameObject root = null;
-            SaveSystem.Initialize();
-            var album = SaveSystem.Current.photos;
-            byte[] originalDiskSave = File.Exists(SaveSystem.SavePath) ? File.ReadAllBytes(SaveSystem.SavePath) : null;
-            int originalAlbumCount = album.Count;
+            AnimalArchiveAssets.Initialize();
             try
             {
                 root = new GameObject("Photo result observation fixture");
@@ -39,45 +35,26 @@ namespace AnimalGame.Editor
                 SceneManager.MoveGameObjectToScene(root, scene);
                 PhotoResultUI ui = root.AddComponent<PhotoResultUI>();
                 PhotoResultView view = root.AddComponent<PhotoResultView>();
-                Set(view, "saveLabel", new Label());
                 Set(ui, "resultView", view);
                 AnimalPhotoSubject first = Subject(root.transform, "Teaching woodpecker");
                 AnimalPhotoSubject second = Subject(root.transform, "Other woodpecker");
                 PhotoResultSnapshot firstResult = Snapshot("Teaching woodpecker");
                 PhotoResultSnapshot secondResult = Snapshot("Other woodpecker");
-                int shown = 0, saved = 0;
-                AnimalPhotoSubject notifiedSubject = null;
-                PhotoResultSnapshot notifiedResult = null;
+                int shown = 0;
                 ui.ResultShown += (subject, result) => shown++;
-                ui.PhotoSaved += (subject, result) =>
-                {
-                    saved++;
-                    notifiedSubject = subject;
-                    notifiedResult = result;
-                    Require(ui.HasSavedDisplayedResult, "Save observers see the committed saved state.");
-                    Require(album.Count == originalAlbumCount + saved, "Save notification follows the real album append.");
-                    Require(album[album.Count - 1].capturedTicks == result.CapturedAt.Ticks
-                        && album[album.Count - 1].species == result.Species, "Save notification carries the stored exposure identity.");
-                };
 
                 Require(!ui.IsVisible && !ui.IsResultVisible && ui.DisplayedResult == null
                     && ui.DisplayedSubject == null && !ui.HasSavedDisplayedResult,
                     "A fresh presenter has no displayed result or subject.");
                 Require(!ui.IsSubjectInCaptureFrame(null) && !ui.IsSubjectInCaptureFrame(first),
                     "Missing targets or a missing native camera frame cannot satisfy framing.");
-                Call(ui, "SaveDisplayedResult");
-                Require(saved == 0 && album.Count == originalAlbumCount, "No displayed photograph cannot create a save or notification.");
 
                 Set(ui, "displayedResult", firstResult);
                 Set(ui, "displayedSubject", first);
                 Set(ui, "visible", true);
                 Require(ui.IsVisible && ui.IsResultVisible && ReferenceEquals(ui.DisplayedSubject, first)
                     && ReferenceEquals(ui.DisplayedResult, firstResult), "Observation preserves the selected instance and immutable snapshot.");
-                Call(ui, "SaveDisplayedResult");
-                Require(saved == 1 && ReferenceEquals(notifiedSubject, first)
-                    && ReferenceEquals(notifiedResult, firstResult), "Saving the teaching subject reports that exact subject, not only its species.");
-                Call(ui, "SaveDisplayedResult");
-                Require(saved == 1 && album.Count == originalAlbumCount + 1, "Repeated save input neither appends nor notifies twice.");
+                Require(ui.HasSavedDisplayedResult, "Displayed captures are already saved without a manual save action.");
 
                 Call(ui, "HideResult", false);
                 Require(!ui.IsResultVisible && ui.DisplayedSubject == null && ui.DisplayedResult == null
@@ -85,9 +62,8 @@ namespace AnimalGame.Editor
                 Set(ui, "displayedResult", secondResult);
                 Set(ui, "displayedSubject", second);
                 Set(ui, "visible", true);
-                Call(ui, "SaveDisplayedResult");
-                Require(saved == 2 && ReferenceEquals(notifiedSubject, second)
-                    && !ReferenceEquals(notifiedSubject, first), "Another animal of the same species retains a distinct instance on the next save.");
+                Require(ui.HasSavedDisplayedResult && ReferenceEquals(ui.DisplayedSubject, second)
+                    && !ReferenceEquals(ui.DisplayedSubject, first), "Another animal of the same species retains a distinct captured identity.");
 
                 Set(ui, "pendingResult", firstResult);
                 Set(ui, "pendingSubject", first);
@@ -124,14 +100,9 @@ namespace AnimalGame.Editor
             }
             finally
             {
-                if (album.Count > originalAlbumCount)
-                    album.RemoveRange(originalAlbumCount, album.Count - originalAlbumCount);
-                if (originalDiskSave == null) File.Delete(SaveSystem.SavePath);
-                else File.WriteAllBytes(SaveSystem.SavePath, originalDiskSave);
                 if (root != null) Object.DestroyImmediate(root);
                 EditorSceneManager.ClosePreviewScene(scene);
             }
-            Require(album.Count == originalAlbumCount, "Checks restore the original in-memory album.");
             string output = Path.GetFullPath("output/validation/tutorial-photo");
             Directory.CreateDirectory(output);
             File.WriteAllText(Path.Combine(output, "photo-result-observation.txt"),

@@ -142,7 +142,7 @@ namespace AnimalGame.AnimalDebug
 
         private void Update()
         {
-            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
+            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             Bind();
             bool toggle = false, back = false, submit = false, click = false;
             int move = 0; Vector2 mouse = Vector2.zero;

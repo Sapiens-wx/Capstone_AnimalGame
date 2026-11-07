@@ -35,7 +35,7 @@
 .selected { border-color: #D4B854; border-width: 2px; color: #D4B854; background-color: rgba(212,184,84,0.06); }
 .unity-button.selected { background-color: rgba(212,184,84,0.06); }
 .photo-tile:hover { background-color: transparent; }
-.photo-tile.selected { color: white; background-color: transparent; border-color: #8B805B; border-bottom-color: #D4B854; }
+.photo-tile.selected { color: white; background-color: transparent; border-color: #D4B854; }
 .photo-tile.selected .photo-tile-name { color: #D4B854; }
 #photo-preview { flex-grow: 1; min-width: 0; padding-left: 20px; }
 .title { font-size: 43px; -unity-font-style: bold; margin-bottom: 12px; white-space: normal; }
@@ -44,7 +44,7 @@
 .preview-body { flex-grow: 1; min-height: 0; align-items: flex-start; }
 #photo-image { width: 48%; flex-shrink: 0; margin-right: 15px; border-width: 1px; border-color: #88897c; border-radius: 0; }
 .photo-information { flex-grow: 1; flex-basis: 0; min-width: 0; }
-.photo-scientific-name { font-size: 26px; white-space: normal; border-top-width: 1px; border-left-width: 1px; border-color: #929387; padding: 5px 8px; }
+.photo-scientific-name { font-size: 26px; white-space: normal; border-left-width: 1px; border-color: #929387; padding: 10px 8px; }
 .photo-date-row, .photo-location-row { flex-direction: row; justify-content: space-between; align-items: center; padding-top: 12px; padding-bottom: 10px; }
 .photo-date-row { font-size: 15px; display: none; }
 .photo-location-row { padding-bottom: 4px; border-bottom-width: 1px; border-bottom-color: #929387; }
@@ -70,7 +70,7 @@
 #photo-preview.inspection .photo-information { border-left-width: 1px; border-left-color: white; padding-left: 18px; }
 #photo-preview.inspection .photo-date-row { display: flex; }
 #photo-preview.inspection #photo-image { width: 50%; height: 100%; border-width: 0; }
-.heading { color: #D4B854; font-size: 22px; margin-top: 6px; margin-bottom: 10px; border-bottom-width: 1px; border-bottom-color: #8a783c; white-space: normal; }
+.heading { color: #D4B854; font-size: 22px; margin-top: 6px; margin-bottom: 10px; border-bottom-width: 1px; border-bottom-color: #D4B854; white-space: normal; }
 .footer { height: 72px; flex-shrink: 0; border-top-width: 1px; border-top-color: #939487; padding: 18px; justify-content: space-between; align-items: center; background-color: #060706; }
 .footer .photo-action { align-self: center; margin: 0; }
 #back { margin-left: auto; }
@@ -80,38 +80,71 @@ Button:focus { border-color: #D4B854; }
 Button:disabled { opacity: 0.35; }
 .collection { border-left-width: 0; background-image: none; }
 .collection.selected { border-width: 1px; border-color: #9b9c93; border-left-width: 2px; border-left-color: #D4B854; }
-#catalog-details { flex-grow: 1; min-height: 0; margin-top: 12px; }
-#catalog-details .unity-scroll-view__content-container { width: 100%; }
-.catalog-columns { min-height: 400px; }
-.catalog-column { padding: 14px; }
+#catalog-details { flex-grow: 1; min-height: 0; margin-top: 0; }
+.catalog-columns { min-height: 0; align-items: flex-start; }
+#catalog-primary { width: 73%; flex-shrink: 0; }
+.catalog-primary-columns { align-items: flex-start; flex-shrink: 0; }
+#catalog-primary .narrow { width: 33.3333%; }
+/* Let Description follow the taxonomy sections without a gap imposed by the illustration. */
+#catalog-primary .illustration-column { position: absolute; left: 33.3333%; top: 0; width: 66.6667%; padding-left: 8px; }
+.catalog-column { padding: 0; }
 .catalog-column Label, #description { white-space: normal; }
 .narrow { width: 27%; }
 .illustration-column { width: 46%; }
-#catalog-illustration { height: 320px; }
-#distribution-map { height: 140px; }
-#species-photos { align-self: flex-end; margin-top: 18px; }
+.catalog-section { flex-shrink: 0; }
+.catalog-ruler { position: absolute; flex-shrink: 0; color: #858585; overflow: visible; }
+.catalog-ruler > .ruler-illustration { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.catalog-ruler > Label { position: absolute; font-size: 22px; color: white; white-space: nowrap; margin: 0; padding: 0; }
+.catalog-ruler > .ruler-shoulder { left: -40px; top: 50%; translate: -50% -50%; rotate: -90deg; transform-origin: 50% 50%; }
+.catalog-ruler > .ruler-length { top: 100%; left: 0; width: 100%; margin-top: 18px; -unity-text-align: upper-center; }
+.catalog-ruler > .ruler-mass { left: 10px; bottom: 8px; }
+#distribution-frame { height: 225px; width: 300px; max-width: 100%; align-self: flex-end; background-image: url("/Assets/Arts/Animals/Animal_Catalog/DistributionBison.png"); -unity-background-scale-mode: scale-to-fit; }
+#distribution-map, #distribution-unidentified { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+#distribution-unidentified { -unity-text-align: middle-center; }
+#description-section { width: 110%; padding: 0; }
+#species-photos { align-self: flex-end; flex-shrink: 0; margin-top: 18px; margin-bottom: 12px; }
 .action-key-right > .photo-action-circle { margin-left: 8px; margin-right: 0; }
 .action-key-right > .photo-action-underline { left: 0; right: 15px; }
 #main-catalog { align-self: flex-start; flex-shrink: 0; margin-bottom: 20px; }
-#main-catalog .photo-action-caption { font-size: 25px; }
+#main-catalog .photo-action-caption { font-size: 30px; -unity-font-style: bold; }
 #catalog-sidebar { flex-grow: 1; min-height: 0; }
-.catalog-sidebar-item, .catalog-sidebar-item:hover, .catalog-sidebar-item:focus { min-height: 0; flex-shrink: 0; margin: 0; padding: 16px; border-width: 1px; border-color: white; background-color: black; background-image: none; color: white; font-size: 24px; white-space: normal; -unity-text-align: middle-left; }
+.catalog-sidebar-item, .catalog-sidebar-item:hover, .catalog-sidebar-item:focus { min-height: 0; flex-shrink: 0; margin: 0; padding: 16px; border-width: 1px; border-color: white; background-color: black; background-image: none; color: white; font-size: 30px; white-space: normal; -unity-text-align: middle-left; }
 .catalog-sidebar-item:disabled { opacity: 1; }
-.catalog-mode .sidebar { padding: 16px 12px 72px; border-right-width: 0; }
+#archive-shell.catalog-mode { left: 50px; right: 50px; top: 45px; bottom: 26px; background-color: black; }
+.catalog-mode #archive-grid { left: 298px; top: 64px; bottom: 68px; }
+.catalog-mode .tabs { height: 64px; background-color: black; }
+.catalog-mode #photos-tab, .catalog-mode #catalog-tab { font-size: 48px; border-color: white; }
+.catalog-mode .tab-action > .key-badge { font-size: 24px; }
+.catalog-mode .sidebar { width: 298px; padding: 50px 8px 114px 26px; border-right-width: 0; background-color: black; }
 .catalog-mode .workspace { padding: 16px 16px 0 0; }
-.catalog-mode .footer { border-top-width: 0; padding-left: 0; padding-right: 0; }
+.catalog-mode .footer { height: 68px; border-top-width: 0; padding: 12px 0; background-color: black; }
+.catalog-mode .photo-action > .photo-action-circle { width: 42px; height: 42px; border-radius: 21px; font-size: 28px; }
+.catalog-mode .photo-action-caption { font-size: 28px; }
+.catalog-mode #back { flex-direction: row-reverse; }
+.catalog-mode #back > .photo-action-circle { margin-left: 8px; margin-right: 0; }
+.catalog-mode #back > .photo-action-underline { left: 0; right: 21px; }
+.catalog-mode #back > .photo-action-caption, #species-photos > .photo-action-caption { -unity-font-style: bold; }
 #catalog-page, #species-page { border-width: 1px; border-color: white; }
 #catalog-region { display: none; }
-#catalog-scientific { flex-shrink: 0; }
-.catalog-heading { color: #D4B854; font-size: 26px; margin-top: 12px; margin-bottom: 6px; padding-left: 6px; padding-bottom: 7px; align-self: flex-start; max-width: 100%; white-space: normal; flex-shrink: 0; }
+#species-page { padding: 12px 56px 28px; font-size: 28px; color: white; }
+.catalog-section > Label { margin-left: 0; margin-right: 0; }
+#catalog-name { align-self: flex-start; flex-shrink: 0; font-size: 56px; margin: 0 0 12px; padding: 0; white-space: nowrap; }
+#catalog-scientific { flex-shrink: 0; align-self: flex-start; font-size: 36px; padding: 2px 6px; margin: 0; border-color: white; }
+.catalog-heading { color: #D4B854; font-size: 36px; margin-top: 10px; margin-bottom: 8px; padding: 0; align-self: flex-start; max-width: 100%; white-space: normal; flex-shrink: 0; }
+#physical-heading { margin-top: 0; }
 .catalog-right-column { align-items: flex-end; }
-.catalog-right-column > Label { -unity-text-align: upper-right; }
-.catalog-right-column > .catalog-heading { align-self: flex-end; }
+.catalog-right-column > .catalog-section { width: 100%; margin-bottom: 0; }
+.catalog-right-column > .catalog-section > Label { -unity-text-align: upper-right; }
+.catalog-right-column > .catalog-section > .catalog-heading { align-self: flex-end; margin-top: 2px; margin-bottom: 6px; }
+#distribution-section { margin-bottom: 8px; }
+#distribution-heading { margin-top: 0; }
 #species-recognition { flex-grow: 1; min-width: 0; flex-direction: row; align-items: center; margin-right: 30px; }
-#species-recognition > Label { color: #D4B854; font-size: 23px; margin-right: 20px; flex-shrink: 0; }
-#recognition { height: 24px; flex-grow: 1; border-width: 1px; border-color: white; background-color: black; }
-#species-navigation { margin-left: auto; width: 52%; min-width: 0; flex-direction: row; border-width: 1px; border-color: white; }
-.species-neighbor { width: 50%; min-width: 0; flex-direction: row; align-items: center; color: white; font-size: 20px; }
+#species-recognition > Label { color: #D4B854; font-size: 30px; margin-right: 20px; flex-shrink: 0; }
+#recognition { height: 30px; flex-grow: 1; min-width: 0; border-width: 1px; border-color: white; background-color: black; overflow: hidden; }
+#recognition-percent { position: absolute; top: 0; bottom: 0; font-size: 24px; color: white; background-color: black; -unity-text-align: middle-center; margin: 0; padding: 0 4px; white-space: nowrap; }
+#recognition-caption { position: absolute; top: 0; bottom: 0; font-size: 24px; color: white; -unity-text-align: middle-left; margin: 0; padding: 0; white-space: nowrap; }
+#species-navigation { position: absolute; top: 64px; right: 0; height: 72px; min-width: 0; flex-direction: row; margin: 0; padding: 0; border-width: 1px; border-color: white; background-color: black; overflow: hidden; }
+.species-neighbor { width: 50%; min-width: 0; flex-direction: row; align-items: center; color: #b4b4b4; font-size: 28px; }
 .species-neighbor > Label { margin-left: 5px; margin-right: 5px; }
 #species-next { justify-content: flex-end; }
 .neighbor-key { color: #D4B854; border-width: 1px; border-color: white; padding: 0 5px; flex-shrink: 0; }
@@ -119,6 +152,7 @@ Button:disabled { opacity: 0.35; }
 #previous-species-name, #next-species-name { min-width: 0; white-space: normal; }
 .species-neighbor:disabled { opacity: 1; }
 .species-neighbor.unavailable > Label { color: black; }
+.species-neighbor.unavailable > .neighbor-key { border-color: transparent; }
 
 .heading.archive-heading { border-width: 0; align-self: flex-start; white-space: nowrap; }
 .key-action { color: #D4B854; border-width: 1px; border-color: white; font-size: 20px;-unity-font-style: bold; -unity-text-align: middle-center; padding-left: 10px; padding-right: 10px; padding-top: 4px; padding-bottom: 4px; }

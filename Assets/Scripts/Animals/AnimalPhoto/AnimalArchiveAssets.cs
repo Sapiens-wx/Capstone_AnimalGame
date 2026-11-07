@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using AnimalGame.Save;
 using UnityEngine;
 
 namespace AnimalGame.Animals
@@ -9,7 +8,6 @@ namespace AnimalGame.Animals
     public sealed class AnimalArchiveAssets : ScriptableObject
     {
         [Serializable] public sealed class ImageReference { public string id; public Texture2D image; }
-        public GameSave defaultSave;
         public AnimalInfoLibrary animalInfo;
         public List<ImageReference> images = new();
         public static AnimalArchiveAssets Active { get; private set; }

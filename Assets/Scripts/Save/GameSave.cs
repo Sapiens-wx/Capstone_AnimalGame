@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using AnimalGame.Animals;
-using UnityEngine;
+using AnimalGame.Animals.Communication;
 
 namespace AnimalGame.Save
 {
-    [CreateAssetMenu(menuName = "Animal Game/Save/Single Game Save")]
-    public sealed class GameSave : ScriptableObject
+    [Serializable]
+    public sealed class GameSave
     {
-        public int version = 1;
         public List<AnimalPhotoRecord> photos = new();
         public List<SpeciesProgress> speciesProgress = new();
+        public List<ContactConversation> conversations = new();
         public SpeciesProgress Progress(AnimalSpecies species) => speciesProgress.Find(p => p.species == species);
     }
 

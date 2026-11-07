@@ -93,6 +93,7 @@ namespace AnimalGame.MainUI
 
         public static MainUI Active { get; private set; }
         public static bool BlocksGameplay => AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay
+            || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
             || (Active != null && Active.isActiveAndEnabled && Active.pauseOwned);
         public bool IsInventoryOpen => inventoryOpen;
         public float InventoryProgress => progress;
@@ -218,7 +219,7 @@ namespace AnimalGame.MainUI
         public void OpenInventory()
         {
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
-            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
+            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
