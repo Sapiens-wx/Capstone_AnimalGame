@@ -980,13 +980,14 @@ MonoBehaviour:
   bodyFillDiameterRatio: 1
   bodyFillColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
   matchBodyFillToCameraBackground: 1
-  bodyOutlineColor: {r: 0.89622635, g: 0.97395486, b: 1, a: 1}
+  bodyOutlineColor: {r: 1, g: 1, b: 1, a: 1}
   visualDepthOffset: -0.1
   indicatorSprite: {fileID: 9045892446735897415, guid: bd252cf81efc3e146be5b7cc6d698063, type: 3}
   indicatorScale: 0.13304348
+  indicatorWidthRatio: 1.2
   indicatorRotationOffsetDegrees: 0
-  indicatorBodyInsetRatio: -0.6097826
-  indicatorColor: {r: 0.92, g: 0.98, b: 1, a: 1}
+  indicatorBodyInsetRatio: -0.6597826
+  indicatorColor: {r: 1, g: 1, b: 1, a: 1}
   indicatorArmModeFadeOutDuration: 0.16
   indicatorArmModeFadeInDuration: 0.2
   indicatorTumbleEdgeOffsetRatio: 0.18
@@ -1398,7 +1399,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 1
   m_Sprite: {fileID: -6594272025908228505, guid: bbef86fba99331d4fb55903874277a62, type: 3}
-  m_Color: {r: 0.89622635, g: 0.97395486, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -2614,8 +2615,8 @@ Transform:
   m_GameObject: {fileID: 8473997469354547722}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.37318696, z: 0.001}
-  m_LocalScale: {x: 0.13304348, y: 0.13304348, z: 0.13304348}
+  m_LocalPosition: {x: 0, y: 0.40378696, z: 0.001}
+  m_LocalScale: {x: 0.15965218, y: 0.13304348, z: 0.13304348}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 550757652716184728}
@@ -2665,7 +2666,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 2
   m_Sprite: {fileID: 9045892446735897415, guid: bd252cf81efc3e146be5b7cc6d698063, type: 3}
-  m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0

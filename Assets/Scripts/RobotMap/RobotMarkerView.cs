@@ -36,18 +36,20 @@ namespace AnimalGame.RobotMap
         [SerializeField] private Color bodyFillColor = new Color(0.008f, 0.011f, 0.014f, 1f);
         [Tooltip("When enabled, robot_body_fill always uses the active game camera's background color. Body Fill Color remains the fallback when no camera is active.")]
         [SerializeField] private bool matchBodyFillToCameraBackground = true;
-        [SerializeField] private Color bodyOutlineColor = new Color(0.92f, 0.98f, 1f, 1f);
+        [SerializeField] private Color bodyOutlineColor = Color.white;
         [Tooltip("Camera-facing depth offset used by the complete robot visual. A small negative value places it in front of the map camera's Z=0 map plane.")]
         [SerializeField] private float visualDepthOffset = -0.1f;
 
         [Header("Direction Indicator")]
         [SerializeField] private Sprite indicatorSprite;
         [SerializeField, Min(0.1f)] private float indicatorScale = 1.35f;
+        [Tooltip("Horizontal stretch of the direction indicator, independent of its height and distance from the body.")]
+        [SerializeField, Min(0.1f)] private float indicatorWidthRatio = 1.1f;
         [SerializeField] private float indicatorRotationOffsetDegrees;
         [Tooltip("Moves the direction indicator inward relative to the visible body diameter. Negative values move it outward, allowing cropped arrow sprites to retain their authored position.")]
         [SerializeField, Range(-1f, 0.5f)]
         private float indicatorBodyInsetRatio = 0.2f;
-        [SerializeField] private Color indicatorColor = new Color(0.92f, 0.98f, 1f, 1f);
+        [SerializeField] private Color indicatorColor = Color.white;
 
         [Tooltip("Time used to fade the direction arrow out after entering arm-control mode or beginning a biological scan charge.")]
         [SerializeField, Min(0.01f)]
@@ -289,14 +291,6 @@ namespace AnimalGame.RobotMap
             SynchronizeRolloverSignVisibility();
 
             bool movementLocked = mover != null && mover.IsMovementLocked;
-            float pulse = 1f + Mathf.Sin(Time.time * 3.2f) * 0.035f;
-            if (bodyVisualRoot != null)
-            {
-                bodyVisualRoot.localScale = movementLocked
-                    ? Vector3.one
-                    : Vector3.one * pulse;
-            }
-
             UpdateDriveBob();
             ApplyMediumRecycleVisualRecoil();
             if (tail != null)
@@ -502,6 +496,7 @@ namespace AnimalGame.RobotMap
         private void BindBodySpriteRenderers()
         {
             bodyVisualRoot = markerVisualRoot.Find("Body Visual");
+            bodyVisualRoot.localScale = Vector3.one;
             mediumRecycleBodyBasePosition = bodyVisualRoot.localPosition;
             mediumRecycleBodyBaseRotation = bodyVisualRoot.localRotation;
 
@@ -585,6 +580,9 @@ namespace AnimalGame.RobotMap
             bodyFill.color = targetColor;
         }
 
+        private Vector3 DirectionIndicatorBaseScale => new Vector3(
+            indicatorScale * indicatorWidthRatio, indicatorScale, indicatorScale);
+
         private void BindDirectionIndicatorRenderer()
         {
             var indicatorObject = markerVisualRoot.Find("Direction Indicator").gameObject;
@@ -592,7 +590,7 @@ namespace AnimalGame.RobotMap
                 0f,
                 0f,
                 indicatorRotationOffsetDegrees);
-            indicatorObject.transform.localScale = Vector3.one * indicatorScale;
+            indicatorObject.transform.localScale = DirectionIndicatorBaseScale;
 
             directionIndicator = indicatorObject.GetComponent<SpriteRenderer>();
             directionIndicator.sprite = indicatorSprite;
@@ -886,7 +884,7 @@ namespace AnimalGame.RobotMap
                 indicatorMinimumProjectedScale,
                 1f,
                 safeVisibility);
-            Vector3 scale = Vector3.one * indicatorScale;
+            Vector3 scale = DirectionIndicatorBaseScale;
             if (tumble != null
                 && tumble.State != RobotTumbleState.Upright
                 && tumble.Axis == RobotTumbleAxis.ForwardBack)
@@ -1029,6 +1027,7 @@ namespace AnimalGame.RobotMap
             bodyScreenDiameterPixels = Mathf.Max(1f, bodyScreenDiameterPixels);
             bodyFillDiameterRatio = Mathf.Clamp(bodyFillDiameterRatio, 0.1f, 1f);
             indicatorScale = Mathf.Max(0.1f, indicatorScale);
+            indicatorWidthRatio = Mathf.Max(0.1f, indicatorWidthRatio);
             indicatorBodyInsetRatio = Mathf.Clamp(
                 indicatorBodyInsetRatio,
                 -1f,
