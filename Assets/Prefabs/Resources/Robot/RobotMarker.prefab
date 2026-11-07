@@ -1037,21 +1037,21 @@ MonoBehaviour:
   robotHandOpenSprite: {fileID: 21300000, guid: 2be79543e21a3a64ca8d16059771bfb1, type: 3}
   robotHandClosedSprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
   armColor: {r: 1, g: 1, b: 1, a: 1}
-  armScale: 3
-  handScale: 2
+  armScale: 2.4
+  handScale: 1.6
   socketRadiusOfBody: 0.88
-  lowerArmXOffset: 0.18
+  lowerArmXOffset: 0.1
   lowerArmScale: 6
   staticArmLengthPercent: 0.4
-  handSpacingOfBodyDiameter: 0.7
-  collisionWidthOfBodyDiameter: 0.08
+  handSpacingOfBodyDiameter: 0.56
+  collisionWidthOfBodyDiameter: 0.064
   connectorExtendDuration: 0.24
   extendDuration: 0.3
   handExtendDuration: 0.12
   retractDuration: 0.4
   dockEnterMagnitude: 0.4
   maximumMagnitude: 0.95
-  followAngle: 70
+  followAngle: 55
   maximumAimSpeedDegreesPerSecond: 240
   aimSmoothingTime: 0.37
   smallDockPosition: {x: 0, y: 0.65}
@@ -1084,8 +1084,8 @@ MonoBehaviour:
   normalAxisDeadZone: 0.1
   normalFullTravelDuration: 0.27
   normalSpeedExponent: 1.5
-  normalFollowEnterMagnitude: 0.55
-  normalFollowExitMagnitude: 0.45
+  normalFollowEnterMagnitude: 0.45
+  normalFollowExitMagnitude: 0.35
   tumbleSocketQuarterTurnDuration: 0.35
 --- !u!114 &775533119844220011
 MonoBehaviour:
