@@ -6,8 +6,9 @@
 .tabs { height: 70px; background-color: #060706; }
 #photos-tab, #catalog-tab { color: #e7e7df; font-size: 34px; width: 235px; border-color: #9b9c93; border-width: 1px; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; }
 .tab-action > Label { white-space: nowrap; margin-left: 5px; margin-right: 5px; flex-shrink: 0; }
-.tab-action > .key-badge { color: #D4B854; border-width: 1px; border-color: white; font-size: 20px; -unity-font-style: bold; -unity-text-align: middle-center; padding-left: 10px; padding-right: 10px; padding-top: 4px; padding-bottom: 4px; }
-#tab-selection { position: absolute; width: 235px; height: 10px; left: 1px; top: 66px; background-color: #D4B854; }
+.key-badge, .neighbor-key { color: #D4B854; border-width: 1px; border-color: white; font-size: 20px; -unity-font-style: bold; -unity-text-align: middle-center; padding-left: 10px; padding-right: 10px; padding-top: 4px; padding-bottom: 4px; }
+#tab-selection { position: absolute; height: 8px; translate: 0 -50%; background-color: #D4B854; }
+#tab-selection-border { position: absolute; left: 0; right: 0; top: 50%; translate: 0 -50%; }
 .body { flex-grow: 1; min-height: 0; border-top-width: 1px; border-top-color: #a7a79b; }
 .sidebar { width: 280px; padding: 18px; border-right-width: 1px; border-right-color: #9b9c93; background-color: #060706; }
 #collections { flex-grow: 0; flex-shrink: 1; min-height: 0; max-height: 100%; margin-top: 14px; margin-bottom: 14px; }
@@ -61,6 +62,7 @@
 .photo-action { flex-direction: row; align-items: center; align-self: flex-start; padding: 0; margin-right: 18px; margin-bottom: 10px; white-space: nowrap; }
 .photo-action > .photo-action-circle, .photo-action > .photo-action-caption { margin: 0; padding: 0; flex-shrink: 0; }
 .photo-action > .photo-action-circle { width: 30px; height: 30px; border-width: 1px; border-color: white; border-radius: 15px; color: #D4B854; font-size: 20px; -unity-text-align: middle-center; margin-right: 8px; }
+.photo-action > .key-badge { height: 42px; flex-shrink: 0; margin: 0 8px 0 0; }
 .photo-action-caption { font-size: 17px; }
 .photo-action-underline { position: absolute; left: 15px; right: 0; bottom: 0; height: 1px; background-color: white; }
 #photo-catalog, #photo-delete { margin-top: 8px; }
@@ -80,7 +82,7 @@ Button:focus { border-color: #D4B854; }
 Button:disabled { opacity: 0.35; }
 .collection { border-left-width: 0; background-image: none; }
 .collection.selected { border-width: 1px; border-color: #9b9c93; border-left-width: 2px; border-left-color: #D4B854; }
-#catalog-details { flex-grow: 1; min-height: 0; margin-top: 0; }
+#catalog-details { flex-grow: 1; min-height: 0; margin-top: 12px; }
 .catalog-columns { min-height: 0; align-items: flex-start; }
 #catalog-primary { width: 73%; flex-shrink: 0; }
 .catalog-primary-columns { align-items: flex-start; flex-shrink: 0; }
@@ -106,7 +108,7 @@ Button:disabled { opacity: 0.35; }
 .action-key-right > .photo-action-circle { margin-left: 8px; margin-right: 0; }
 .action-key-right > .photo-action-underline { left: 0; right: 15px; }
 #main-catalog { align-self: flex-start; flex-shrink: 0; margin-bottom: 20px; }
-#main-catalog .photo-action-caption { font-size: 30px; -unity-font-style: bold; }
+#main-catalog .photo-action-caption, .main-catalog-heading-content > Label { height: 42px; font-size: 30px; -unity-font-style: bold; -unity-text-align: middle-center; }
 #catalog-sidebar { flex-grow: 1; min-height: 0; }
 .catalog-sidebar-item, .catalog-sidebar-item:hover, .catalog-sidebar-item:focus { min-height: 0; flex-shrink: 0; margin: 0; padding: 16px; border-width: 1px; border-color: white; background-color: black; background-image: none; color: white; font-size: 30px; white-space: normal; -unity-text-align: middle-left; }
 .catalog-sidebar-item:disabled { opacity: 1; }
@@ -114,11 +116,11 @@ Button:disabled { opacity: 0.35; }
 .catalog-mode #archive-grid { left: 298px; top: 64px; bottom: 68px; }
 .catalog-mode .tabs { height: 64px; background-color: black; }
 .catalog-mode #photos-tab, .catalog-mode #catalog-tab { font-size: 48px; border-color: white; }
-.catalog-mode .tab-action > .key-badge { font-size: 24px; }
+.catalog-mode .key-badge, .catalog-mode .neighbor-key { font-size: 24px; }
 .catalog-mode .sidebar { width: 298px; padding: 50px 8px 114px 26px; border-right-width: 0; background-color: black; }
 .catalog-mode .workspace { padding: 16px 16px 0 0; }
 .catalog-mode .footer { height: 68px; border-top-width: 0; padding: 12px 0; background-color: black; }
-.catalog-mode .photo-action > .photo-action-circle { width: 42px; height: 42px; border-radius: 21px; font-size: 28px; }
+.catalog-mode .photo-action > .photo-action-circle { width: 42px; height: 42px; border-radius: 21px; font-size: 28px; -unity-font-style: bold; }
 .catalog-mode .photo-action-caption { font-size: 28px; }
 .catalog-mode #back { flex-direction: row-reverse; }
 .catalog-mode #back > .photo-action-circle { margin-left: 8px; margin-right: 0; }
@@ -128,14 +130,14 @@ Button:disabled { opacity: 0.35; }
 #catalog-region { display: none; }
 #species-page { padding: 12px 56px 28px; font-size: 28px; color: white; }
 .catalog-section > Label { margin-left: 0; margin-right: 0; }
-#catalog-name { align-self: flex-start; flex-shrink: 0; font-size: 56px; margin: 0 0 12px; padding: 0; white-space: nowrap; }
-#catalog-scientific { flex-shrink: 0; align-self: flex-start; font-size: 36px; padding: 2px 6px; margin: 0; border-color: white; }
-.catalog-heading { color: #D4B854; font-size: 36px; margin-top: 10px; margin-bottom: 8px; padding: 0; align-self: flex-start; max-width: 100%; white-space: normal; flex-shrink: 0; }
+#catalog-name { align-self: flex-start; flex-shrink: 0; font-size: 56px; margin: 0 0 12px; padding: 0; translate: 0 10px; white-space: nowrap; }
+#catalog-scientific { flex-shrink: 0; align-self: flex-start; font-size: 36px; padding: 2px 6px; margin: 0; border-color: white; overflow: visible; }
+.catalog-heading { color: #D4B854; font-size: 36px; margin-top: 10px; margin-bottom: 3px; padding: 0; align-self: flex-start; max-width: 100%; white-space: normal; flex-shrink: 0; }
 #physical-heading { margin-top: 0; }
 .catalog-right-column { align-items: flex-end; }
 .catalog-right-column > .catalog-section { width: 100%; margin-bottom: 0; }
 .catalog-right-column > .catalog-section > Label { -unity-text-align: upper-right; }
-.catalog-right-column > .catalog-section > .catalog-heading { align-self: flex-end; margin-top: 2px; margin-bottom: 6px; }
+.catalog-right-column > .catalog-section > .catalog-heading { align-self: flex-end; margin-top: 2px; }
 #distribution-section { margin-bottom: 8px; }
 #distribution-heading { margin-top: 0; }
 #species-recognition { flex-grow: 1; min-width: 0; flex-direction: row; align-items: center; margin-right: 30px; }
@@ -147,7 +149,7 @@ Button:disabled { opacity: 0.35; }
 .species-neighbor { width: 50%; min-width: 0; flex-direction: row; align-items: center; color: #b4b4b4; font-size: 28px; }
 .species-neighbor > Label { margin-left: 5px; margin-right: 5px; }
 #species-next { justify-content: flex-end; }
-.neighbor-key { color: #D4B854; border-width: 1px; border-color: white; padding: 0 5px; flex-shrink: 0; }
+.neighbor-key { flex-shrink: 0; }
 .neighbor-arrow { font-size: 30px; flex-shrink: 0; }
 #previous-species-name, #next-species-name { min-width: 0; white-space: normal; }
 .species-neighbor:disabled { opacity: 1; }
@@ -159,12 +161,15 @@ Button:disabled { opacity: 0.35; }
 .hint.key-action { justify-content: flex-start; }
 
 #main-catalog-summary { flex-grow: 1; min-height: 0; color: white; }
-.main-catalog-heading { border-width: 1px; border-color: white; padding: 10px; min-height: 100px; -unity-text-align: middle-center; font-size: 27px; flex-shrink: 0; margin: 0; }
+.main-catalog-heading { height: 42px; flex-shrink: 0; align-items: center; justify-content: center; margin: 0 -8px 20px -26px; }
+.main-catalog-heading-content { height: 42px; flex-shrink: 0; }
+.main-catalog-heading-content > Label { white-space: nowrap; margin: 0; padding: 0; }
+.main-catalog-heading .photo-action-underline { left: 0; }
 .catalog-reward-caption { flex-direction: row; align-items: flex-end; justify-content: center; margin-top: 32px; margin-bottom: 16px; flex-shrink: 0; }
 .catalog-reward-caption > Label { white-space: normal; font-size: 25px; margin: 0 6px 0 0; padding: 0; }
 .catalog-reward-icon { width: 20px; height: 20px; border-radius: 10px; border-width: 2px; border-color: #D4B854; align-items: center; justify-content: center; flex-shrink: 0; }
-.catalog-reward-inner { width: 16px; height: 16px; border-radius: 8px; border-width: 2px; border-color: white; align-items: center; justify-content: center; background-color: #D4B854; }
-.catalog-reward-dot { width: 10px; height: 10px; border-radius: 5px; border-width: 3px; border-color: #060706; background-color: #D4B854; }
+.catalog-reward-inner { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 16px; height: 16px; border-radius: 8px; border-width: 2px; border-color: white; background-color: #D4B854; }
+.catalog-reward-dot { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 10px; height: 10px; border-radius: 5px; border-width: 3px; border-color: #060706; background-color: #D4B854; }
 #catalog-progress-tree { flex-grow: 1; min-height: 0; margin: 0 42px 4px 12px; }
 .catalog-tree-tick { position: absolute; left: 0; right: 0; height: 11.1111%; color: white; }
 .tree-trunk { position: absolute; left: 85%; top: 0; height: 100%; width: 2px; background-color: white; }
@@ -193,6 +198,6 @@ Button:disabled { opacity: 0.35; }
 .catalog-card-selected .catalog-card-highlight { display: flex; }
 .catalog-card-name { font-size: 25px; -unity-text-align: middle-right; white-space: normal; margin: 4px 0 0; padding: 0; }
 .catalog-card-status { flex-direction: row; align-items: center; justify-content: flex-end; margin-top: 3px; }
-.catalog-tier-circle { width: 18px; height: 18px; border-width: 2px; border-color: white; border-radius: 9px; flex-shrink: 0; margin-right: 5px; }
+.catalog-tier-circle { width: 20px; height: 20px; border-width: 2px; border-color: white; border-radius: 10px; flex-shrink: 0; margin-right: 5px; }
 .catalog-card-status > .catalog-reward-icon { margin-right: 5px; }
 .catalog-card-percent { font-size: 21px; margin: 0; padding: 0; }

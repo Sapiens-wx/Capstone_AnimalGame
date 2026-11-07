@@ -16,12 +16,17 @@
             <ui:VisualElement class="body">
                 <ui:VisualElement class="sidebar">
                     <ui:Button name="main-catalog" class="photo-action" style="display: none;">
-                        <ui:Label text="Y" picking-mode="Ignore" class="photo-action-circle" />
+                        <ui:Label text="RB" picking-mode="Ignore" class="key-badge" />
                         <ui:Label text="Main Catalog" picking-mode="Ignore" class="photo-action-caption" />
                         <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                     </ui:Button>
                     <ui:VisualElement name="main-catalog-summary" style="display: none;">
-                        <ui:Label text="Main Catalog" class="main-catalog-heading" />
+                        <ui:VisualElement class="main-catalog-heading">
+                            <ui:VisualElement class="main-catalog-heading-content">
+                                <ui:Label text="Main Catalog" />
+                                <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
                         <ui:VisualElement class="catalog-reward-caption">
                             <ui:Label text="Identify More&#10;Species for" />
                             <ui:VisualElement class="catalog-reward-icon">
@@ -140,7 +145,7 @@
                                                 <ui:Label name="lifespan" />
                                             </ui:VisualElement>
                                             <ui:VisualElement name="conservation-section" class="catalog-section">
-                                                <archive:CatalogHeadingElement text="Conservation&#10;Status &lt;size=75%&gt;(21st c.)&lt;/size&gt;" enable-rich-text="true" />
+                                                <archive:CatalogHeadingElement text="&lt;line-height=90%&gt;Conservation&#10;Status &lt;size=75%&gt;(21st c.)&lt;/size&gt;&lt;/line-height&gt;" enable-rich-text="true" />
                                                 <ui:Label name="conservation" />
                                             </ui:VisualElement>
                                         </ui:VisualElement>
@@ -184,7 +189,7 @@
                         </ui:VisualElement>
                         <ui:Button name="species-photos" class="photo-action action-key-right">
                             <ui:Label text="View Animal Photo" picking-mode="Ignore" class="photo-action-caption" />
-                            <ui:Label text="X" picking-mode="Ignore" class="photo-action-circle" />
+                            <ui:Label text="Y" picking-mode="Ignore" class="photo-action-circle" />
                             <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         </ui:Button>
                     </ui:VisualElement>
@@ -202,7 +207,9 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="tab-selection" picking-mode="Ignore" />
+            <ui:VisualElement name="tab-selection" picking-mode="Ignore">
+                <ui:VisualElement name="tab-selection-border" picking-mode="Ignore" />
+            </ui:VisualElement>
             <ui:VisualElement name="species-navigation" style="display: none;">
                 <ui:Button name="species-previous" class="species-neighbor">
                     <ui:Label text="&lt;" picking-mode="Ignore" class="neighbor-arrow" />

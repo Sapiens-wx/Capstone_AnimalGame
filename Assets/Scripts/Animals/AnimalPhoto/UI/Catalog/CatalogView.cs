@@ -53,7 +53,7 @@ namespace AnimalGame.Animals.UI
                     var name = new Label(AnimalArchiveAssets.Active.Photos[animal].DisplayName);
                     name.AddToClassList("catalog-card-name"); tile.Add(name);
                     var status = new VisualElement(); status.AddToClassList("catalog-card-status");
-                    for (int level = 0; level < 3; level++)
+                    for (int level = 2; level >= 0; level--)
                     {
                         var circle = level < tier ? RewardIcon() : new VisualElement();
                         if (level >= tier) circle.AddToClassList("catalog-tier-circle");
@@ -157,6 +157,9 @@ namespace AnimalGame.Animals.UI
             root.RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
             root.Q("species-page").RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
             root.Q("catalog-name").RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
+            root.Q("catalog-details").RegisterCallback<GeometryChangedEvent>(_ => AlignScientificTop());
+            root.Q("catalog-sidebar").RegisterCallback<GeometryChangedEvent>(_ => AlignScientificTop());
+            root.Q("catalog-scientific").RegisterCallback<GeometryChangedEvent>(_ => AlignScientificTop());
         }
 
         private void ResizeHeader()
@@ -169,6 +172,15 @@ namespace AnimalGame.Animals.UI
             var scientific = root.Q<ArchiveScientificNameElement>("catalog-scientific");
             scientific.style.width = name.layout.width;
             scientific.TopLineRatio = 1f;
+            AlignScientificTop();
+        }
+
+        private void AlignScientificTop()
+        {
+            if (root.Q("species-page").resolvedStyle.display == DisplayStyle.None) return;
+            var scientific = root.Q<ArchiveScientificNameElement>("catalog-scientific");
+            var sidebar = root.Q<ScrollView>("catalog-sidebar");
+            scientific.TopLineOffset = sidebar.contentViewport.ChangeCoordinatesTo(scientific, Vector2.zero).y;
         }
         public void Render(AnimalSpecies species)
         {

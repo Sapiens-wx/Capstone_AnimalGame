@@ -198,10 +198,15 @@ namespace AnimalGame.Animals.UI
         {
             var tab = root.Q<Button>(className: "active-tab");
             var indicator = root.Q("tab-selection");
-            Vector2 bottomLeft = tab.ChangeCoordinatesTo(indicator.parent, new Vector2(0, tab.layout.height));
+            var border = indicator.Q("tab-selection-border");
+            var tabStyle = tab.resolvedStyle;
+            Vector2 bottomLeft = tab.ChangeCoordinatesTo(indicator.parent,
+                new Vector2(tabStyle.borderLeftWidth, tab.layout.height - tabStyle.borderBottomWidth * .5f));
             indicator.style.left = bottomLeft.x;
-            indicator.style.top = bottomLeft.y - 5f;
-            indicator.style.width = tab.layout.width;
+            indicator.style.top = bottomLeft.y;
+            indicator.style.width = tab.layout.width - tabStyle.borderLeftWidth - tabStyle.borderRightWidth;
+            border.style.height = tabStyle.borderBottomWidth;
+            border.style.backgroundColor = tabStyle.borderBottomColor;
         }
 
         private void RenderPhotos() => photosView.Render(photos, page == Page.Inspection,
@@ -292,7 +297,7 @@ namespace AnimalGame.Animals.UI
             Vector2 right = AdaptiveLegacyGamepadInput.ReadRightStick();
             bool upHeld = Input.GetKey(KeyCode.G), confirm = Input.GetKeyDown(KeyCode.Return),
                 back = Input.GetKeyDown(KeyCode.B) || Input.GetKeyDown(KeyCode.Escape),
-                y = Input.GetKeyDown(KeyCode.Y), x = Input.GetKeyDown(KeyCode.X),
+                y = Input.GetKeyDown(KeyCode.Y),
                 lb = Input.GetKeyDown(KeyCode.Q), rb = Input.GetKeyDown(KeyCode.E),
                 lt = Input.GetKeyDown(KeyCode.LeftBracket), rt = Input.GetKeyDown(KeyCode.RightBracket);
             if (Input.GetKey(KeyCode.LeftArrow)) direction.x = -1;
@@ -306,7 +311,7 @@ namespace AnimalGame.Animals.UI
                 upHeld |= pad.dpad.up.isPressed;
                 if (pad.dpad.ReadValue().sqrMagnitude > .1f) direction = pad.dpad.ReadValue();
                 confirm |= pad.buttonSouth.wasPressedThisFrame; back |= pad.buttonEast.wasPressedThisFrame;
-                y |= pad.buttonNorth.wasPressedThisFrame; x |= pad.buttonWest.wasPressedThisFrame;
+                y |= pad.buttonNorth.wasPressedThisFrame;
                 lb |= pad.leftShoulder.wasPressedThisFrame; rb |= pad.rightShoulder.wasPressedThisFrame;
                 bool l = pad.leftTrigger.ReadValue() > .5f, r = pad.rightTrigger.ReadValue() > .5f;
                 lt |= l && !triggerLeft; rt |= r && !triggerRight; triggerLeft = l; triggerRight = r;
@@ -317,7 +322,6 @@ namespace AnimalGame.Animals.UI
                 confirm |= Input.GetKeyDown(KeyCode.JoystickButton0);
                 back |= AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame();
                 y |= AdaptiveLegacyGamepadInput.WasNorthFaceButtonPressedThisFrame();
-                x |= AdaptiveLegacyGamepadInput.WasWestFaceButtonPressedThisFrame();
                 rb |= AdaptiveLegacyGamepadInput.WasRightShoulderPressedThisFrame();
                 bool shoulder = Input.GetKey(KeyCode.JoystickButton4); lb |= shoulder && !leftShoulder; leftShoulder = shoulder;
             }
@@ -342,8 +346,12 @@ namespace AnimalGame.Animals.UI
             if (back) { Back(); return; }
             if (rb) { Navigate(Page.Catalog); return; }
             if (lb && page != Page.Photos) { Navigate(Page.Photos); return; }
-            if (y) { if (page == Page.Photos || page == Page.Inspection) OpenPhotoCatalog(); else Navigate(Page.Catalog); return; }
-            if (x && page == Page.Species) { ViewSpeciesPhotos(); return; }
+            if (y)
+            {
+                if (page == Page.Photos || page == Page.Inspection) OpenPhotoCatalog();
+                else if (page == Page.Species) ViewSpeciesPhotos();
+                return;
+            }
             if (lt || rt) { StepCollection(lt ? -1 : 1); return; }
             if (confirm) { Confirm(); return; }
             if (page == Page.Inspection) photosView.Tilt(right);
