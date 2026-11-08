@@ -2531,7 +2531,7 @@ MonoBehaviour:
   showPlan: 0
   showGrid: 0
   showLabels: 1
-  showHeightReferences: 0
+  showHeightReferences: 1
   showAreaReferences: 0
 --- !u!4 &531352771
 Transform:
