@@ -16,7 +16,7 @@ using UnityEngine.SceneManagement;
 
 namespace AnimalGame.Editor
 {
-    /// <summary>Exports the currently authored official prairie without modifying its height samples.</summary>
+    /// <summary>Exports authored official Terrain into the V1 gameplay format.</summary>
     public static class OfficialPlainsGameplay
     {
         public const string AuthoringScenePath = "Assets/Scenes/GameMaps/Official_Map_01.unity";
@@ -70,22 +70,27 @@ namespace AnimalGame.Editor
             ExportCurrent(new ExportDestination(1));
         }
 
-        public static void ExportCurrent(ExportDestination destination, Vector2? spawnMapPositionMeters = null)
+        public static void ExportCurrent(ExportDestination destination, Vector2? spawnMapPositionMeters = null, bool includeMountains = false)
         {
-            Export(GetSourceTerrains(), destination, spawnMapPositionMeters);
+            Export(GetSourceTerrains(includeMountains), destination, spawnMapPositionMeters, includeMountains);
             Deploy(destination);
         }
 
-        public static Terrain[] GetSourceTerrains()
+        public static Terrain[] GetSourceTerrains(bool includeMountains = false)
         {
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Exit Play before exporting the official prairie.");
             Scene scene = SceneManager.GetActiveScene();
             Require(scene.path == AuthoringScenePath, "Open Official_Map_01 before exporting its current prairie.");
-            var roots = scene.GetRootGameObjects().Where(root => root.name == OfficialPlainsTerrainBuilder.RootName).ToArray();
-            Require(roots.Length == 1, "Expected one official editable prairie root.");
-            Terrain[] terrains = roots[0].GetComponentsInChildren<Terrain>(true);
-            Require(terrains.Length == 40 && terrains.Select(t => t.terrainData).Distinct().Count() == terrains.Length,
-                "The current official prairie must have 40 distinct TerrainData tiles.");
+            GameObject plains = scene.GetRootGameObjects().Single(root => root.name == OfficialPlainsTerrainBuilder.RootName);
+            Terrain[] terrains = plains.GetComponentsInChildren<Terrain>(true);
+            Require(terrains.Length == 40, "The current official prairie must have 40 Terrain tiles.");
+            if (includeMountains)
+            {
+                GameObject mountains = scene.GetRootGameObjects().Single(root => root.name == OfficialMountainTerrainBuilder.RootName);
+                terrains = terrains.Concat(mountains.GetComponentsInChildren<Terrain>(true)).ToArray();
+            }
+            Require(terrains.Select(t => t.terrainData).Distinct().Count() == terrains.Length,
+                "Each official Terrain must use independent TerrainData.");
             return terrains.OrderBy(t => t.transform.position.z).ThenBy(t => t.transform.position.x).ToArray();
         }
 
@@ -94,12 +99,13 @@ namespace AnimalGame.Editor
             Export(terrains, new ExportDestination(1));
         }
 
-        public static void Export(Terrain[] terrains, ExportDestination destination, Vector2? spawnMapPositionMeters = null)
+        public static void Export(Terrain[] terrains, ExportDestination destination, Vector2? spawnMapPositionMeters = null,
+            bool includeMountains = false)
         {
             Require(destination != null, "An official prairie export destination is required.");
-            Terrain[] source = GetSourceTerrains();
+            Terrain[] source = GetSourceTerrains(includeMountains);
             Require(terrains != null && terrains.Length == source.Length && terrains.Distinct().Count() == source.Length
-                && terrains.All(source.Contains), "Export only the current official prairie Terrain objects.");
+                && terrains.All(source.Contains), "Export exactly the selected official Terrain roots.");
             foreach (Terrain terrain in source)
             {
                 TerrainData data = terrain.terrainData;
@@ -126,6 +132,7 @@ namespace AnimalGame.Editor
             Directory.CreateDirectory(destination.ReportFolder);
             var report = new StringBuilder("Official prairie: current native Terrain exported without resculpting.\n");
             var manifest = new ExportManifest { sourceOrigin = new Vector3(west, 0, south), tileCount = source.Length };
+            if (includeMountains) manifest.format = "Official map V1 sparse terrain tiles";
             CheckSeams(byCell, report, manifest);
             var entries = new List<TiledLevelAsset.Tile>();
             try
@@ -134,7 +141,7 @@ namespace AnimalGame.Editor
                 foreach (var pair in byCell.OrderBy(pair => pair.Key.y).ThenBy(pair => pair.Key.x))
                 {
                     Terrain terrain = pair.Value;
-                    string stem = $"Plains_{pair.Key.x}_{pair.Key.y}";
+                    string stem = includeMountains ? $"Terrain_{pair.Key.x}_{pair.Key.y}" : $"Plains_{pair.Key.x}_{pair.Key.y}";
                     EditorUtility.DisplayProgressBar("Export current official prairie", $"{++index}/{source.Length}: {terrain.name}", index / (float)source.Length);
                     float[,] heights = terrain.terrainData.GetHeights(0, 0, Resolution, Resolution);
                     float sourceY = terrain.transform.position.y;
@@ -186,7 +193,7 @@ namespace AnimalGame.Editor
                 level.Configure(Vector2.one * TileSize, Vector2.one * WorldScale, entries[0].level, entries, true);
                 if (create) AssetDatabase.CreateAsset(level, destination.LevelPath);
                 EditorUtility.SetDirty(level); AssetDatabase.SaveAssetIfDirty(level);
-                ValidateLevel(level, destination);
+                ValidateLevel(level, destination, source.Length);
                 manifest.mapSizeMeters = level.MapSizeMeters;
                 manifest.spawnMapPositionMeters = spawnMapPositionMeters ?? ChooseSpawn(level);
                 Require(new ExportSampler(level).TrySample(manifest.spawnMapPositionMeters, out _),
@@ -387,14 +394,19 @@ namespace AnimalGame.Editor
 
         private static TiledLevelAsset LoadLevel(ExportDestination destination)
         {
-            var level = AssetDatabase.LoadAssetAtPath<TiledLevelAsset>(destination.LevelPath); ValidateLevel(level, destination); return level;
+            var level = AssetDatabase.LoadAssetAtPath<TiledLevelAsset>(destination.LevelPath);
+            string path = destination.Folder + "/world-manifest.json";
+            var manifest = JsonUtility.FromJson<ExportManifest>(File.ReadAllText(path));
+            ValidateLevel(level, destination, manifest.tileCount);
+            return level;
         }
 
-        private static void ValidateLevel(TiledLevelAsset level, ExportDestination destination)
+        private static void ValidateLevel(TiledLevelAsset level, ExportDestination destination, int expectedTileCount)
         {
-            Require(level != null && level.IsValid && level.AllowMissingTiles && level.Tiles.Count == 40
+            Require(level != null && level.IsValid && level.AllowMissingTiles && expectedTileCount > 0
+                && level.Tiles.Count == expectedTileCount
                 && level.TileSizeMeters == Vector2.one * TileSize && (level.WorldUnitsPerMeter - Vector2.one * WorldScale).sqrMagnitude < 0.00000001f,
-                "Export the current 40 official prairie tiles before deploying gameplay.");
+                "The official gameplay tile count or V1 configuration differs from its export manifest.");
             foreach (var tile in level.Tiles)
             {
                 HeightMapLevelAsset data = tile.level;
