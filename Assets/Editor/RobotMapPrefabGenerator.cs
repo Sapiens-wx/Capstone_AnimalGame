@@ -269,6 +269,7 @@ namespace AnimalGame.Editor
             cameraObject.AddComponent<AudioListener>();
             cameraObject.AddComponent<RobotCameraFollow>();
             cameraObject.AddComponent<RobotCameraShake>();
+            cameraObject.AddComponent<RobotCameraElevationZoom>();
             PrefabUtility.SaveAsPrefabAsset(cameraObject, CameraPath);
             Object.DestroyImmediate(cameraObject);
         }

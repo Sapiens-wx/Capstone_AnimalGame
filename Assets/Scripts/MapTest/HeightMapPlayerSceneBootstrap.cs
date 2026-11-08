@@ -191,6 +191,7 @@ namespace AnimalGame.MapTest
             tumble.Initialize(traversalEvaluator);
             heightMotion.Initialize(map);
             cameraShake.Initialize(robot, balance, heightMotion);
+            cameraObject.GetComponent<RobotCameraElevationZoom>().Initialize(map, robot.transform);
             photoMode.InitializeCamera(cameraFollow, cameraShake);
             scanChargeUi.SetPhotoModeController(photoMode);
             mainUiObject.GetComponent<AnimalGame.MainUI.MainUIProjection>()?.Initialize(mapCamera);

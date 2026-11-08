@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 81200000}
   - component: {fileID: 114200000}
   - component: {fileID: 114250000}
+  - component: {fileID: 114270000}
   - component: {fileID: 9082400791978122201}
   m_Layer: 0
   m_Name: RobotCamera
@@ -110,6 +111,27 @@ MonoBehaviour:
   positionDamping: 0
   rotationDamping: 0.28
   followTargetRotation: 1
+--- !u!114 &114270000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100200000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4df8c6735a04b1e91af3a72ab40e679, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  minimumHeightDifference: 3
+  fullHeightDifference: 30
+  distanceFalloffMeters: 60
+  lowlandAreaFraction: 0.25
+  maximumZoomMultiplier: 1.5
+  viewportSampleRows: 24
+  sampleInterval: 0.1
+  zoomOutSmoothTime: 0.5
+  zoomInSmoothTime: 0.8
 --- !u!114 &114250000
 MonoBehaviour:
   m_ObjectHideFlags: 0

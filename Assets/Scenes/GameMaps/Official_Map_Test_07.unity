@@ -271,7 +271,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f904736fbae4fc1972054c8b2cc7d49, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerSpawnMapPositionMeters: {x: 1700, y: 372}
+  playerSpawnMapPositionMeters: {x: 1700, y: 1299.76}
   playerSpawnRotationDegrees: 0
   showRobotTerrainData: 1
   animalInfoLibrary: {fileID: 0}

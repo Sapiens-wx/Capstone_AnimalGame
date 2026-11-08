@@ -465,6 +465,7 @@ namespace AnimalGame.RobotMap
         public float CurrentRotationOffsetDegrees { get; private set; }
         public float CurrentZoomOffsetFraction { get; private set; }
         public float BaseOrthographicSize => Mathf.Max(0.01f, baseOrthographicSize);
+        public float ElevationAdjustedOrthographicSize => BaseOrthographicSize * elevationZoomMultiplier;
 
         private Camera attachedCamera;
         private RobotMover mover;
@@ -474,6 +475,7 @@ namespace AnimalGame.RobotMap
         private RobotSelfRightingController selfRighting;
         private RobotHeightMotionDetector heightMotion;
         private float baseOrthographicSize;
+        private float elevationZoomMultiplier = 1f;
         private float scanZoomMultiplier = 1f;
         private float photoFocusMagnification = 1f;
         private float scanChargeShakeStrength;
@@ -951,6 +953,11 @@ namespace AnimalGame.RobotMap
             noiseSeedRotation = Random.Range(10f, 1000f);
         }
 
+        public void SetElevationZoomMultiplier(float multiplier)
+        {
+            elevationZoomMultiplier = Mathf.Max(1f, multiplier);
+        }
+
         public void SetScanZoomMultiplier(float multiplier)
         {
             scanZoomMultiplier = Mathf.Clamp(multiplier, 0.05f, 4f);
@@ -1258,8 +1265,16 @@ namespace AnimalGame.RobotMap
             if (!enableHeavyGarbageBreakFeedback || !enableHeavyGarbageBreakRumble)
                 ClearHeavyGarbageBreakFeedback();
             float deltaTime = Mathf.Min(Time.deltaTime, 0.05f);
-            if (deltaTime <= 0.000001f || attachedCamera == null)
+            if (attachedCamera == null)
                 return;
+            if (deltaTime <= 0.000001f)
+            {
+                // Keep submitted zoom channels and interior normalization in sync
+                // while paused, without advancing the impact spring.
+                attachedCamera.orthographicSize = Mathf.Max(0.01f,
+                    GetComposedBaseOrthographicSize() * (1f + CurrentZoomOffsetFraction));
+                return;
+            }
 
             if (!enableCameraShake)
             {
@@ -1936,7 +1951,7 @@ namespace AnimalGame.RobotMap
         {
             return Mathf.Max(
                 0.01f,
-                baseOrthographicSize
+                ElevationAdjustedOrthographicSize
                 * scanZoomMultiplier
                 / Mathf.Max(1f, photoFocusMagnification));
         }
@@ -2455,6 +2470,7 @@ namespace AnimalGame.RobotMap
             UnsubscribeFromSelfRightingEvents();
             ResetShakeState();
             StopGamepadRumble();
+            elevationZoomMultiplier = 1f;
             scanZoomMultiplier = 1f;
             photoFocusMagnification = 1f;
             SetScanChargeShake(0f, 0f, 0f, 1f);

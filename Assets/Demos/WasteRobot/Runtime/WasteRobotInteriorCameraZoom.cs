@@ -139,7 +139,9 @@ namespace AnimalGame.Demos.WasteRobot
             RefreshBaseSize();
             float nextTarget = DesiredInterior ? requestedInteriorSize / BaseSize : 1f;
             if (Mathf.Abs(nextTarget - targetMultiplier) > MultiplierEpsilon)
-                BeginBlend(nextTarget, lastRequestedDuration);
+                // Height changes move the endpoint without restarting the transition.
+                // A completed blend immediately compensates for its new base size.
+                targetMultiplier = Mathf.Max(MultiplierEpsilon, nextTarget);
 
             if (IsBlending)
             {
@@ -192,9 +194,9 @@ namespace AnimalGame.Demos.WasteRobot
         {
             if (ownedCamera == null) return;
             if (cameraShake == null) cameraShake = ownedCamera.GetComponent<RobotCameraShake>();
-            // The shake component owns the normal base size even when its effect
-            // is temporarily disabled; its scan and focus channels remain untouched.
-            float shakeBase = cameraShake != null ? cameraShake.BaseOrthographicSize : 0f;
+            // Include environmental height zoom so the settled interior size stays
+            // fixed, while the independent scan and focus channels remain untouched.
+            float shakeBase = cameraShake != null ? cameraShake.ElevationAdjustedOrthographicSize : 0f;
             baseSize = IsFinite(shakeBase) && shakeBase > MinimumSize
                 ? shakeBase : fallbackBaseSize;
         }
