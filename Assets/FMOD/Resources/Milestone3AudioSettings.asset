@@ -424,6 +424,66 @@ MonoBehaviour:
     gainDb: 0
     readBySoundUI: 1
     soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 340862475
+        Data2: 1251219264
+        Data3: -1133203566
+        Data4: -1052516672
+      Path: event:/Robot/Terrain/WaterMove
+    gainDb: -3.0980392
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -138653152
+        Data2: 1312516954
+        Data3: 996548997
+        Data4: 1234096517
+      Path: event:/Robot/Terrain/BushCrush
+    gainDb: -3.0980392
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -1983192578
+        Data2: 1329111484
+        Data3: -680509816
+        Data4: -564585612
+      Path: event:/Robot/Terrain/DeadTreeImpact
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 2123761777
+        Data2: 1104814427
+        Data3: -517566796
+        Data4: 1502438
+      Path: event:/Robot/Terrain/LiveTreeImpact
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 1464708368
+        Data2: 1171580204
+        Data3: 1318389388
+        Data4: 924096627
+      Path: event:/Robot/Terrain/ReedRustle
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 713607660
+        Data2: 1262144929
+        Data3: -859380859
+        Data4: -114158460
+      Path: event:/Robot/Terrain/RuinImpact
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
   fadeOutSeconds: 0.05
   parameterEpsilon: 0.005
   tumbleMotionThreshold: 0.01
@@ -441,3 +501,7 @@ MonoBehaviour:
   garbageImpactReferenceSpeed: 3
   garbageImpactMaximumGain: 1.5
   garbageImpactPitchVariation: 0.06
+  waterMinimumPitch: 0.9
+  waterPitchSmoothingSeconds: 0.06
+  terrainFadeInSeconds: 0.02
+  reedLoopCrossfadeMilliseconds: 100

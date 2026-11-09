@@ -17,6 +17,11 @@ namespace Capstone.Audio
         [SerializeField, Min(0.000001f)] private float progressEpsilon = 0.00001f;
         [SerializeField, Min(0f)] private float worldMotionThreshold = 0.01f;
         [SerializeField, Min(0.01f)] private float worldReferenceSpeed = 3f;
+        [SerializeField, Range(0.01f, 1f)] private float waterMinimumPitch = 0.9f;
+        [SerializeField, Min(0f)] private float waterPitchSmoothingSeconds = 0.06f;
+        [SerializeField, Min(0f)] private float terrainFadeInSeconds = 0.02f;
+        [Tooltip("Matches the authored ReedRustle loop overlap; excludes its end from random entry points.")]
+        [SerializeField, Min(0)] private int reedLoopCrossfadeMilliseconds = 100;
         [SerializeField, Min(1f)] private float worldObservationRadius = 12f;
         [SerializeField, Min(0.1f)] private float worldDiscoveryInterval = 0.25f;
         [Tooltip("Audio-only threshold along the garbage's actual movement direction.")]
@@ -37,6 +42,10 @@ namespace Capstone.Audio
         internal float ProgressEpsilon => Mathf.Max(0.000001f, progressEpsilon);
         internal float WorldMotionThreshold => Mathf.Max(0f, worldMotionThreshold);
         internal float WorldReferenceSpeed => Mathf.Max(0.01f, worldReferenceSpeed);
+        internal float WaterMinimumPitch => Mathf.Clamp(waterMinimumPitch, 0.01f, 1f);
+        internal float WaterPitchSmoothingSeconds => Mathf.Max(0f, waterPitchSmoothingSeconds);
+        internal float TerrainFadeInSeconds => Mathf.Max(0f, terrainFadeInSeconds);
+        internal int ReedLoopCrossfadeMilliseconds => Mathf.Max(0, reedLoopCrossfadeMilliseconds);
         internal float WorldObservationRadius => Mathf.Max(1f, worldObservationRadius);
         internal float WorldDiscoveryInterval => Mathf.Max(0.1f, worldDiscoveryInterval);
         internal float WorldSlideSteepAngle => Mathf.Clamp(worldSlideSteepAngle, 0f, 89f);
@@ -46,7 +55,8 @@ namespace Capstone.Audio
         internal float GarbageImpactMaximumGain => Mathf.Clamp(garbageImpactMaximumGain, 1f, 2f);
         internal float GarbageImpactPitchVariation => Mathf.Clamp(garbageImpactPitchVariation, 0f, .12f);
         internal bool HasWorldEvents => HasEvents(Milestone3Cue.HeavyPullStart, Milestone3Cue.ClimbableLand)
-            || HasCue(Milestone3Cue.HeavyTearMiddle) || HasCue(Milestone3Cue.HeavyTearLate);
+            || HasCue(Milestone3Cue.HeavyTearMiddle) || HasCue(Milestone3Cue.HeavyTearLate)
+            || HasEvents(Milestone3Cue.WaterMove, Milestone3Cue.RuinImpact);
         internal bool HasScanEvents => HasEvents(Milestone3Cue.ScanDeploy, Milestone3Cue.ScanHit);
         private bool HasEvents(Milestone3Cue first, Milestone3Cue last)
         {

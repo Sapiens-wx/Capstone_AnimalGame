@@ -13,7 +13,8 @@ namespace Capstone.Audio
         HeavyPullStart, HeavyPullLoop, HeavyPullBlocked, HeavyPullTension, HeavyPullCancel,
         HeavyBreak, FragmentScatter, GarbageSlide, GarbageBreak, GarbageImpact,
         BushRustle, SmallGarbageClimb, ClimbableLand, ScanDeploy, ScanReady, ScanHit,
-        RecycleCrush, RecycleCrushSmall, HeavyTearMiddle, HeavyTearLate, Count
+        RecycleCrush, RecycleCrushSmall, HeavyTearMiddle, HeavyTearLate,
+        WaterMove, BushCrush, DeadTreeImpact, LiveTreeImpact, ReedRustle, RuinImpact, Count
     }
 
     internal enum Milestone3Parameter { Speed, Progress, Effort, Impact, Count }
@@ -48,7 +49,10 @@ namespace Capstone.Audio
             "event:/Robot/Contact/ClimbableLand", "event:/Robot/Scan/Deploy",
             "event:/Robot/Scan/Ready", "event:/Robot/Scan/Hit",
             "event:/Robot/Recycle/Crush", "event:/Robot/Recycle/CrushSmall",
-            "event:/Robot/Garbage/HeavyTearMiddle", "event:/Robot/Garbage/HeavyTearLate"
+            "event:/Robot/Garbage/HeavyTearMiddle", "event:/Robot/Garbage/HeavyTearLate",
+            "event:/Robot/Terrain/WaterMove", "event:/Robot/Terrain/BushCrush",
+            "event:/Robot/Terrain/DeadTreeImpact", "event:/Robot/Terrain/LiveTreeImpact",
+            "event:/Robot/Terrain/ReedRustle", "event:/Robot/Terrain/RuinImpact"
         };
 
         private static readonly string[] Files =
@@ -72,7 +76,10 @@ namespace Capstone.Audio
             "World/G14_Bush_Rustle_Loop.wav", "World/G15_SmallGarbage_Climb_Loop.wav",
             null, "Scan/S02_Scan_Deploy.wav", "Scan/S04_Scan_Ready.wav", "Scan/S07_Scan_Hit.wav",
             "Recycling/G03_Recycle_Crush_Loop.wav", "Recycling/G03_Recycle_Crush_Loop.wav",
-            "HeavyGarbage/G05_G09_HeavyPull_Tear.wav", "HeavyGarbage/G05_G09_HeavyPull_Tear.wav"
+            "HeavyGarbage/G05_G09_HeavyPull_Tear.wav", "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
+            "Terrain/T01_Water_Move_Loop.wav", "Terrain/T02_Bush_Crush_Loop.wav",
+            "Terrain/T03_DeadTree_Impact.wav", "Terrain/T04_LiveTree_Impact.wav",
+            "Terrain/T05_Reed_Rustle_Loop.wav", "Terrain/T06_Ruin_Metal_Impact.wav"
         };
 
         private static readonly string[,] ParameterNames = CreateParameterNames();
@@ -87,6 +94,7 @@ namespace Capstone.Audio
                 case Milestone3Cue.PullBalance:
                 case Milestone3Cue.SupportFailed: return -4.436975f;
                 case Milestone3Cue.ClimbableLand: return -6.0206f;
+                case Milestone3Cue.WaterMove: return -4.436975f;
                 default: return 0f;
             }
         }
@@ -129,7 +137,9 @@ namespace Capstone.Audio
             || index == (int)Milestone3Cue.HeavyPullLoop || index == (int)Milestone3Cue.HeavyPullTension
             || index == (int)Milestone3Cue.GarbageSlide || index == (int)Milestone3Cue.BushRustle
             || index == (int)Milestone3Cue.SmallGarbageClimb
-            || index == (int)Milestone3Cue.HeavyTearMiddle || index == (int)Milestone3Cue.HeavyTearLate;
+            || index == (int)Milestone3Cue.HeavyTearMiddle || index == (int)Milestone3Cue.HeavyTearLate
+            || index == (int)Milestone3Cue.WaterMove || index == (int)Milestone3Cue.BushCrush
+            || index == (int)Milestone3Cue.ReedRustle;
 
         internal static string ParameterName(Milestone3Cue cue, Milestone3Parameter parameter) =>
             ParameterNames[(int)cue, (int)parameter];

@@ -16,6 +16,8 @@ namespace Capstone.Audio
         private Milestone3GarbageAudio garbage;
         private Milestone3WorldAudio world;
         private Milestone3WorldMotionSampler worldMotionSampler;
+        private Milestone3TerrainCollisionAudio terrainCollision;
+        private Milestone3TerrainMotionSampler terrainMotionSampler;
         private Milestone3ScanAudio scan;
         private RobotMover mover;
         private RobotArmController arm;
@@ -67,6 +69,15 @@ namespace Capstone.Audio
                     worldMotionSampler = gameObject.AddComponent<Milestone3WorldMotionSampler>();
                 worldMotionSampler.Bind(world);
             }
+            terrainCollision = config.HasCue(Milestone3Cue.DeadTreeImpact)
+                || config.HasCue(Milestone3Cue.LiveTreeImpact) || config.HasCue(Milestone3Cue.RuinImpact)
+                ? new Milestone3TerrainCollisionAudio(config, voices) : null;
+            if (terrainCollision != null)
+            {
+                if (terrainMotionSampler == null)
+                    terrainMotionSampler = gameObject.AddComponent<Milestone3TerrainMotionSampler>();
+                terrainMotionSampler.Bind(terrainCollision);
+            }
             scan = config.HasScanEvents ? new Milestone3ScanAudio(config, voices) : null;
             needsScanChargeSource = config.HasCue(Milestone3Cue.ScanDeploy) || config.HasCue(Milestone3Cue.ScanReady);
             needsScanHitSource = config.HasCue(Milestone3Cue.ScanHit);
@@ -98,6 +109,7 @@ namespace Capstone.Audio
             balance.Tick(Time.deltaTime);
             garbage.Tick(Time.deltaTime);
             world?.Tick(Time.deltaTime);
+            terrainCollision?.Tick(Time.deltaTime);
             scan?.Tick(Time.deltaTime);
             voices.Tick(Time.unscaledDeltaTime);
         }
@@ -117,6 +129,8 @@ namespace Capstone.Audio
             garbage.Bind(mover, arm);
             world?.Bind(mover, arm);
             worldMotionSampler?.Bind(world);
+            terrainCollision?.Bind(mover, arm);
+            terrainMotionSampler?.Bind(terrainCollision);
             if (scan != null)
             {
                 if (needsScanChargeSource && !Usable(scanSource)) scanSource = FindScanSource();
@@ -160,6 +174,8 @@ namespace Capstone.Audio
             garbage?.Bind(null, null);
             world?.Bind(null, null);
             worldMotionSampler?.Bind(null);
+            terrainCollision?.Bind(null, null);
+            terrainMotionSampler?.Bind(null);
             if (preserveScanHitState) scan?.Suspend();
             else scan?.Bind(null);
             voices?.StopAllImmediately();
