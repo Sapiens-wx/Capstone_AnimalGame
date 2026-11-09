@@ -28,6 +28,8 @@ namespace Capstone.Audio
         private readonly Milestone3AudioSettings settings;
         private readonly Milestone3AudioVoices voices;
         private readonly bool observeHeavy, observeLoose, observeClimb;
+        private readonly bool observeWater, observeBushCrush;
+        private readonly Milestone3ReedContactObserver reeds;
         private readonly List<WorldInteraction> nearby = new List<WorldInteraction>(64);
         private readonly TrackedGarbage[] tracked = new TrackedGarbage[MaximumTrackedGarbage];
         private RobotMover mover;
@@ -44,6 +46,8 @@ namespace Capstone.Audio
         private float previousAngle, bodyRadius, previousProgress, discoveryRemaining;
         private int heightLandingFrame = -1, climbLandingFrame = -1;
         private bool slideEpisode;
+        private bool waterMoving;
+        private float waterPitch;
 
         internal bool NeedsMotionSampling => observeLoose;
 
@@ -56,7 +60,11 @@ namespace Capstone.Audio
                 || settings.HasCue(Milestone3Cue.HeavyBreak) || settings.HasCue(Milestone3Cue.FragmentScatter);
             observeLoose = settings.HasCue(Milestone3Cue.GarbageSlide) || settings.HasCue(Milestone3Cue.GarbageImpact);
             observeClimb = settings.HasCue(Milestone3Cue.BushRustle)
-                || settings.HasCue(Milestone3Cue.SmallGarbageClimb) || settings.HasCue(Milestone3Cue.ClimbableLand);
+                || settings.HasCue(Milestone3Cue.SmallGarbageClimb) || settings.HasCue(Milestone3Cue.ClimbableLand)
+                || settings.HasCue(Milestone3Cue.BushCrush);
+            observeWater = settings.HasCue(Milestone3Cue.WaterMove);
+            observeBushCrush = settings.HasCue(Milestone3Cue.BushCrush);
+            if (settings.HasCue(Milestone3Cue.ReedRustle)) reeds = new Milestone3ReedContactObserver();
         }
 
         internal void Bind(RobotMover source, RobotArmController armSource)
@@ -68,14 +76,15 @@ namespace Capstone.Audio
             arm = armSource;
             height = null;
             map = null;
-            if (!Usable(mover) || (!observeHeavy && !observeLoose && !observeClimb)) return;
-            if (observeClimb)
+            reeds?.Bind(Usable(mover) ? mover : null);
+            if (!Usable(mover) || (!observeHeavy && !observeLoose && !observeClimb && !observeWater && reeds == null)) return;
+            if (observeClimb || observeWater || reeds != null)
             {
                 mover.TryGetComponent(out RobotMarkerView marker);
                 bodyRadius = (marker != null ? marker.BodyDiameter * .5f : .75f)
                     * Mathf.Max(Mathf.Abs(mover.transform.lossyScale.x), Mathf.Abs(mover.transform.lossyScale.y));
                 mover.TryGetComponent(out height);
-                if (height != null) height.Landed += OnHeightLanded;
+                if (height != null && observeClimb) height.Landed += OnHeightLanded;
             }
             // Once per robot binding, only when nearby garbage cues actually have events.
             // Per-frame observation uses the existing spatial index and fixed tracked slots.
@@ -87,7 +96,7 @@ namespace Capstone.Audio
 
         internal void Tick(float deltaTime)
         {
-            if (!observeHeavy && !observeLoose && !observeClimb) return;
+            if (!observeHeavy && !observeLoose && !observeClimb && !observeWater && reeds == null) return;
             if (deltaTime <= 0f || !Usable(mover)) { StopAllImmediately(); return; }
             bool first = !hasBaseline;
             Vector2 position = mover.transform.position;
@@ -101,6 +110,47 @@ namespace Capstone.Audio
             if (observeHeavy) TickHeavy(first);
             if (observeLoose) TickLoose(deltaTime);
             if (observeClimb) TickClimb((distance + turnDistance) / deltaTime, first);
+            if (observeWater || reeds != null)
+                TickTerrain(distance / deltaTime, (distance + turnDistance) / deltaTime, first, deltaTime);
+        }
+
+        private void TickTerrain(float travelSpeed, float contactSpeed, bool first, float deltaTime)
+        {
+            bool airborne = Usable(height) && height.IsAirborne;
+            bool inWater = mover.CurrentWaterSpeedMultiplier < 1f && !mover.IgnoreCollisionAndTerrain;
+            bool available = !first && !airborne && mover.MovementMode == RobotMovementMode.Driven;
+            if (observeWater)
+            {
+                bool moving = available && inWater && travelSpeed > settings.WorldMotionThreshold;
+                // DefaultMoveSpeed is dry, scaled forward speed. Apply the public
+                // water multiplier once; extra resistance still reduces the sound's pitch.
+                float referenceSpeed = (mover.DebugMoveSpeed ?? mover.DefaultMoveSpeed)
+                    * mover.CurrentWaterSpeedMultiplier;
+                float strength = Mathf.Clamp01(travelSpeed / Mathf.Max(settings.WorldMotionThreshold, referenceSpeed));
+                voices.SetParameter(Milestone3Cue.WaterMove, Milestone3Parameter.Speed, strength);
+                if (moving)
+                {
+                    float target = Mathf.Lerp(settings.WaterMinimumPitch, 1f, strength);
+                    float blend = settings.WaterPitchSmoothingSeconds > 0f
+                        ? 1f - Mathf.Exp(-deltaTime / settings.WaterPitchSmoothingSeconds) : 1f;
+                    waterPitch = waterMoving ? Mathf.Lerp(waterPitch, target, blend) : target;
+                    if (Mathf.Abs(waterPitch - target) < 0.0001f) waterPitch = target;
+                }
+                if (airborne) voices.Stop(Milestone3Cue.WaterMove, true);
+                else voices.SetWaterMove(moving, waterPitch);
+                waterMoving = moving;
+            }
+            if (reeds != null)
+            {
+                // Footprint contact uses the player's actual position, never visual
+                // fading (animals can also fade plants) or a predicted input path.
+                bool touching = available && inWater && contactSpeed > settings.WorldMotionThreshold
+                    && reeds.IsTouching(deltaTime);
+                float strength = Mathf.Clamp01(contactSpeed / settings.WorldReferenceSpeed);
+                voices.SetParameter(Milestone3Cue.ReedRustle, Milestone3Parameter.Speed, strength);
+                if (airborne) voices.Stop(Milestone3Cue.ReedRustle, true);
+                else voices.SetTerrainContact(Milestone3Cue.ReedRustle, touching);
+            }
         }
 
         private void TickHeavy(bool first)
@@ -376,7 +426,15 @@ namespace Capstone.Audio
             float strength = Mathf.Clamp01(speed / settings.WorldReferenceSpeed);
             voices.SetParameter(Milestone3Cue.BushRustle, Milestone3Parameter.Speed, strength);
             voices.SetParameter(Milestone3Cue.SmallGarbageClimb, Milestone3Parameter.Speed, strength);
-            voices.SetLoop(Milestone3Cue.BushRustle, moving && surfaceIsBush, strength);
+            // T02 replaces the same contact layer only after its own delivery is
+            // bound. An empty T02 slot preserves the currently delivered G14.
+            voices.SetLoop(Milestone3Cue.BushRustle, !observeBushCrush && moving && surfaceIsBush, strength);
+            if (observeBushCrush)
+            {
+                voices.SetParameter(Milestone3Cue.BushCrush, Milestone3Parameter.Speed, strength);
+                voices.SetTerrainContact(Milestone3Cue.BushCrush, moving && surfaceIsBush
+                    && mover.CurrentClimbableAreaSpeedMultiplier < 1f);
+            }
             voices.SetLoop(Milestone3Cue.SmallGarbageClimb, moving && surfaceIsSmallGarbage, strength);
             if (!first && mover.ClimbableLandedThisFrame && climbLandingFrame != Time.frameCount
                 && heightLandingFrame != Time.frameCount
@@ -407,6 +465,10 @@ namespace Capstone.Audio
             // Include onsets so binding, disable and pause cannot leave any world voice alive.
             for (int cue = (int)Milestone3Cue.HeavyPullStart; cue <= (int)Milestone3Cue.ClimbableLand; cue++)
                 voices.Stop((Milestone3Cue)cue, true);
+            for (int cue = (int)Milestone3Cue.WaterMove; cue <= (int)Milestone3Cue.RuinImpact; cue++)
+                voices.Stop((Milestone3Cue)cue, true);
+            reeds?.Clear();
+            waterMoving = false;
             for (int i = 0; i < tracked.Length; i++) tracked[i] = default;
             nearby.Clear();
             heavyItem = surfaceItem = null;

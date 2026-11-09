@@ -28,6 +28,8 @@ namespace Capstone.Audio
             internal bool Active, Failed, Fading, Paused, RecycleHolding;
             internal PARAMETER_ID RecycleHoldId;
             internal float Gain, Envelope = 1f, LastVolume = -1f, PollTime;
+            internal float AppliedPitch = 1f, FadeInSeconds;
+            internal int LengthMilliseconds;
         }
         private readonly Milestone3AudioSettings settings;
         // At -3 semitones the 1.673 s source lasts about 1.99 s. Include
@@ -167,12 +169,43 @@ namespace Capstone.Audio
                 maximumIntensity: settings.GarbageImpactMaximumGain);
         }
 
+        // Water changes playback rate only. Its cue gain stays fixed at every speed.
+        internal void SetWaterMove(bool active, float pitch)
+        {
+            Slot slot = slots[(int)Milestone3Cue.WaterMove];
+            if (!active) { Stop(Milestone3Cue.WaterMove); return; }
+            pitch = Mathf.Clamp(pitch, settings.WaterMinimumPitch, 1f);
+            if (!slot.Active)
+            {
+                Start(slot, 1f, pitch: pitch, fadeInSeconds: settings.TerrainFadeInSeconds);
+                return;
+            }
+            slot.Fading = false;
+            if (pitch == slot.AppliedPitch || (pitch != 1f
+                && Mathf.Abs(pitch - slot.AppliedPitch) < 0.001f)) return;
+            RESULT applied = slot.Instance.setPitch(pitch);
+            if (applied == RESULT.OK) slot.AppliedPitch = pitch;
+            else Fail(slot, applied.ToString());
+        }
+
+        // Each new contact starts at the source beginning (bush) or one random
+        // point in the full authored loop (reeds), including quick re-entries.
+        internal void SetTerrainContact(Milestone3Cue cue, bool active)
+        {
+            Slot slot = slots[(int)cue];
+            if (!active) { Stop(cue); return; }
+            if (!slot.Active || slot.Fading)
+                Start(slot, 1f, randomLoopStart: cue == Milestone3Cue.ReedRustle,
+                    fadeInSeconds: settings.TerrainFadeInSeconds);
+        }
+
         private bool Start(Milestone3Cue cue, float intensity, bool recycleFeed = false,
             int startPositionMs = 0, float pitch = 1f, float maximumIntensity = 1f)
             => Start(slots[(int)cue], intensity, recycleFeed, startPositionMs, pitch, maximumIntensity);
 
         private bool Start(Slot slot, float intensity, bool recycleFeed = false,
-            int startPositionMs = 0, float pitch = 1f, float maximumIntensity = 1f)
+            int startPositionMs = 0, float pitch = 1f, float maximumIntensity = 1f,
+            bool randomLoopStart = false, float fadeInSeconds = 0f)
         {
             Milestone3Cue cue = slot.Cue;
             AudioCueSettings config = settings.GetCue(cue);
@@ -182,11 +215,20 @@ namespace Capstone.Audio
             {
                 slot.Instance = RuntimeManager.CreateInstance(config.EventReference);
                 slot.Gain = config.LinearGain * Mathf.Clamp(intensity, 0f, maximumIntensity);
-                slot.Envelope = 1f;
-                Check(slot.Instance.setVolume(slot.Gain));
-                slot.LastVolume = slot.Gain;
+                slot.FadeInSeconds = fadeInSeconds;
+                slot.Envelope = fadeInSeconds > 0f ? 0f : 1f;
+                Check(slot.Instance.setVolume(slot.Gain * slot.Envelope));
+                slot.LastVolume = slot.Gain * slot.Envelope;
                 if (pitch != 1f) Check(slot.Instance.setPitch(pitch));
+                slot.AppliedPitch = pitch;
                 Check(slot.Instance.getDescription(out slot.Description));
+                if (randomLoopStart)
+                {
+                    if (slot.LengthMilliseconds == 0)
+                        Check(slot.Description.getLength(out slot.LengthMilliseconds));
+                    startPositionMs = random.Next(Math.Max(1,
+                        slot.LengthMilliseconds - settings.ReedLoopCrossfadeMilliseconds));
+                }
                 if (recycleFeed)
                 {
                     Check(slot.Description.getParameterDescriptionByName(
@@ -282,7 +324,8 @@ namespace Capstone.Audio
                 if (slot.Fading || slot.Envelope < 1f)
                 {
                     slot.Envelope = Mathf.MoveTowards(slot.Envelope, slot.Fading ? 0f : 1f,
-                        deltaTime / Mathf.Max(0.001f, settings.FadeOutSeconds));
+                        deltaTime / Mathf.Max(0.001f, !slot.Fading && slot.FadeInSeconds > 0f
+                            ? slot.FadeInSeconds : settings.FadeOutSeconds));
                     ApplyVolume(slot);
                     if (!slot.Active) continue;
                     if (slot.Envelope <= 0f) { Release(slot); continue; }

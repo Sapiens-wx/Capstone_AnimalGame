@@ -21,6 +21,19 @@
     var bankName = "RobotFoley";
     var parameterKinds = ["Speed", "Progress", "Effort", "Impact"];
     var definitions = [
+        // Long original recordings retain their progression. The transition
+        // reads the final source margin while restarting the sustained texture.
+        { path: "event:/Robot/Terrain/WaterMove", file: "Terrain/T01_Water_Move_Loop.wav", loop: true,
+            loopStart: 0.08, loopEnd: 54.4473242630, crossfade: 0.20 },
+        { path: "event:/Robot/Terrain/BushCrush", file: "Terrain/T02_Bush_Crush_Loop.wav", loop: true,
+            loopStart: 0, loopEnd: 18.6410657596, crossfade: 0.10 },
+        { path: "event:/Robot/Terrain/DeadTreeImpact", file: "Terrain/T03_DeadTree_Impact.wav" },
+        { path: "event:/Robot/Terrain/LiveTreeImpact", file: "Terrain/T04_LiveTree_Impact.wav" },
+        // Exclude only the exact two-second silent export tail in event metadata.
+        // The WAV remains complete. Runtime randomizes within this audible loop.
+        { path: "event:/Robot/Terrain/ReedRustle", file: "Terrain/T05_Reed_Rustle_Loop.wav", loop: true,
+            trimEnd: 32.1167800453, loopStart: 0, loopEnd: 32.0167, crossfade: 0.10 },
+        { path: "event:/Robot/Terrain/RuinImpact", file: "Terrain/T06_Ruin_Metal_Impact.wav" },
         // Six inventory deliveries; Discard follows the confirmed inventory deletion.
         { path: "event:/Robot/Inventory/Open", file: "C01_Inventory_Open.wav", sourceRoot: inventorySourceRoot,
             trimEnd: 0.50, fadeOut: 0.04 },
