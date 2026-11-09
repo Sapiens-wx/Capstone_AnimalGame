@@ -30,6 +30,7 @@ Shader "AnimalGame/Dynamic Height Contours"
         _WaterWaveSpeed ("Water Wave Speed", Float) = 0.8
         _WaterWaveLengthMeters ("Water Wave Length Meters", Float) = 12
         _WaterDeepSpeedMultiplier ("Water Deep Speed Multiplier", Float) = 0.65
+        _WaterFlowSpeed ("Local Water Flow Speed (m/s)", Float) = 10
         _ContourColor ("Contour Color", Color) = (1, 1, 1, 1)
         _MinimumHeight ("Minimum Height", Float) = 0
         _MaximumHeight ("Maximum Height", Float) = 200
@@ -100,6 +101,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             sampler2D _HeightTex;
             sampler2D _SurfaceTex;
             sampler2D _WaterMaskTex;
+            float4 _WaterMaskTex_TexelSize;
             float4 _WaterMaskBounds;
             sampler2D _WaterPatternTex;
             float4 _HeightTex_TexelSize;
@@ -120,6 +122,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _WaterWaveSpeed;
             float _WaterWaveLengthMeters;
             float _WaterDeepSpeedMultiplier;
+            float _WaterFlowSpeed;
             fixed4 _ContourColor;
             float _MinimumHeight;
             float _MaximumHeight;
@@ -167,9 +170,27 @@ Shader "AnimalGame/Dynamic Height Contours"
                     value.x * 0.390731 + value.y * 0.920505);
             }
 
+            float2 DecodeWaterFlow(float4 data)
+            {
+                // Mask packing: R = range, G = depth, B = angle, A = speed.
+                // Authoring uses 256 distinct angles, with +X at byte zero.
+                float angle = data.b * (255.0 / 256.0) * 6.283185307;
+                return float2(cos(angle), sin(angle)) * data.a;
+            }
+
+            float2 SampleWaterFlow(float2 uv)
+            {
+                // Sample the nearest texel at its centre so the mask's bilinear
+                // filter does not blend authored flow angles or speeds.
+                float2 pixel = floor(uv * _WaterMaskTex_TexelSize.zw);
+                float2 centreUv = (pixel + 0.5) * _WaterMaskTex_TexelSize.xy;
+                return DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(centreUv, 0, 0)));
+            }
+
             fixed4 SampleWaterPattern(
                 float2 mapMeters,
                 float normalizedDepth,
+                float2 localFlow,
                 float animationTime)
             {
                 float depth = saturate(normalizedDepth);
@@ -194,8 +215,14 @@ Shader "AnimalGame/Dynamic Height Contours"
                         * max(0.1, _WaterLayerTwoScale))
                     + _WaterLayerTwoSpeed.xy * animationTime / tileSize
                     - distortion * 0.73);
-                fixed4 primary = tex2D(_WaterPatternTex, primaryUv);
-                fixed4 secondary = tex2D(_WaterPatternTex, secondaryUv);
+                // Continuous local-flow displacement, added to the existing
+                // fixed-direction animation without phase resets or blending.
+                float2 flowUv = localFlow * max(0.0, _WaterFlowSpeed) * animationTime / tileSize;
+                fixed4 primary = tex2D(_WaterPatternTex, frac(primaryUv - flowUv));
+                // Match the existing second layer's fixed coordinate transform.
+                // Its orientation never depends on local flow direction.
+                fixed4 secondary = tex2D(_WaterPatternTex, frac(secondaryUv
+                    - RotateWaterUv(flowUv * max(0.1, _WaterLayerTwoScale))));
                 float secondaryStrength = 0.65;
                 float combinedAlpha = 1.0
                     - (1.0 - primary.a)
@@ -272,22 +299,19 @@ Shader "AnimalGame/Dynamic Height Contours"
 
                     if (_WaterEnabled > 0.5)
                     {
-                        // R is a binary authored range. G preserves normalized
-                        // depth so deeper water can move more slowly and remain
-                        // more opaque without changing traversal data.
+                        // R/G retain range/depth; B/A provide local angle/speed.
                         float2 mapMeters = input.uv * _MapSizeMeters.xy
                                            + _WaterOriginMeters.xy;
-                        float depthSpeed = lerp(
-                            1.0,
-                            saturate(_WaterDeepSpeedMultiplier),
-                            saturate(waterData.g));
+                        float2 localFlow = SampleWaterFlow(waterUv);
                         fixed4 staticWater = SampleWaterPattern(
                             mapMeters,
                             waterData.g,
+                            localFlow,
                             0.0);
                         fixed4 animatedWater = SampleWaterPattern(
                             mapMeters,
                             waterData.g,
+                            localFlow,
                             _Time.y);
                         fixed4 visibleWater = lerp(
                             staticWater,
