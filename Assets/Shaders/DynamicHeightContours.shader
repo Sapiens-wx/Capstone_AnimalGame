@@ -17,6 +17,7 @@ Shader "AnimalGame/Dynamic Height Contours"
         _SurfaceRevealEdgePixels ("Surface UI Edge", Float) = 4
         _OutsideRevealDarkening ("Outside Reveal Darkening", Range(0, 1)) = 0.3
         _WaterMaskTex ("Static Water Range And Depth", 2D) = "black" {}
+        _WaterMaskBounds ("Water Mask Map UV Bounds", Vector) = (0, 0, 1, 1)
         _WaterPatternTex ("Animated Water Pattern", 2D) = "black" {}
         _WaterEnabled ("Animated Water Enabled", Float) = 0
         _MapSizeMeters ("Map Size Meters", Vector) = (250, 250, 0, 0)
@@ -99,6 +100,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             sampler2D _HeightTex;
             sampler2D _SurfaceTex;
             sampler2D _WaterMaskTex;
+            float4 _WaterMaskBounds;
             sampler2D _WaterPatternTex;
             float4 _HeightTex_TexelSize;
             float _SurfaceEnabled;
@@ -239,8 +241,13 @@ Shader "AnimalGame/Dynamic Height Contours"
                 // selects whether its pattern is static or animated.
                 if (_SurfaceEnabled > 0.5 || _WaterEnabled > 0.5)
                 {
+                    float2 waterUv = (input.uv - _WaterMaskBounds.xy)
+                                     / _WaterMaskBounds.zw;
+                    float insideWaterBounds = step(0.0, waterUv.x)
+                        * step(0.0, waterUv.y)
+                        * step(waterUv.x, 1.0) * step(waterUv.y, 1.0);
                     fixed4 waterData = _WaterEnabled > 0.5
-                        ? tex2D(_WaterMaskTex, input.uv)
+                        ? tex2D(_WaterMaskTex, waterUv) * insideWaterBounds
                         : fixed4(0.0, 0.0, 0.0, 0.0);
                     float waterRange = _WaterEnabled > 0.5
                         ? smoothstep(0.02, 0.98, waterData.r)

@@ -919,6 +919,34 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
 internal static class HeightMapStaticWaterMaskBaker
 {
+    // Keep the original texel density. Pad each cropped edge with one dry
+    // source pixel; map boundaries are clamped so edge water is never erased.
+    internal static RectInt CalculatePixelBounds(byte[] depthMap, int resolution)
+    {
+        int minX = resolution, minY = resolution, maxX = -1, maxY = -1;
+        for (int y = 0; y < resolution; y++)
+        {
+            for (int x = 0; x < resolution; x++)
+            {
+                if (depthMap[y * resolution + x] == 0)
+                    continue;
+                minX = Mathf.Min(minX, x);
+                minY = Mathf.Min(minY, y);
+                maxX = Mathf.Max(maxX, x);
+                maxY = Mathf.Max(maxY, y);
+            }
+        }
+
+        // A dry map only needs a single black texel.
+        if (maxX < 0)
+            return new RectInt(0, 0, 1, 1);
+        minX = Mathf.Max(0, minX - 1);
+        minY = Mathf.Max(0, minY - 1);
+        return new RectInt(minX, minY,
+            Mathf.Min(resolution, maxX + 2) - minX,
+            Mathf.Min(resolution, maxY + 2) - minY);
+    }
+
     public static bool Bake(HeightMapLevelAsset level, bool registerUndo)
     {
         if (level == null)
@@ -941,23 +969,31 @@ internal static class HeightMapStaticWaterMaskBaker
 
         byte[] depthMap = level.GetOrCreateStaticWaterDepthMap();
         int resolution = level.StaticWaterResolution;
-        var pixels = new Color32[depthMap.Length];
-        for (int index = 0; index < depthMap.Length; index++)
+        RectInt pixelBounds = CalculatePixelBounds(depthMap, resolution);
+        var bounds = new Rect(
+            pixelBounds.x / (float)resolution,
+            pixelBounds.y / (float)resolution,
+            pixelBounds.width / (float)resolution,
+            pixelBounds.height / (float)resolution);
+        var pixels = new Color32[pixelBounds.width * pixelBounds.height];
+        for (int y = 0; y < pixelBounds.height; y++)
         {
-            byte encodedDepth = depthMap[index];
-            pixels[index] = new Color32(
-                encodedDepth > 0 ? byte.MaxValue : (byte)0,
-                encodedDepth,
-                0,
-                byte.MaxValue);
+            for (int x = 0; x < pixelBounds.width; x++)
+            {
+                byte encodedDepth = depthMap[
+                    (pixelBounds.y + y) * resolution + pixelBounds.x + x];
+                pixels[y * pixelBounds.width + x] = new Color32(
+                    encodedDepth > 0 ? byte.MaxValue : (byte)0,
+                    encodedDepth, 0, byte.MaxValue);
+            }
         }
 
         Texture2D output = null;
         try
         {
             output = new Texture2D(
-                resolution,
-                resolution,
+                pixelBounds.width,
+                pixelBounds.height,
                 TextureFormat.RGBA32,
                 false,
                 true)
@@ -994,7 +1030,7 @@ internal static class HeightMapStaticWaterMaskBaker
 
             if (registerUndo)
                 Undo.RecordObject(level, "Bake Static Water Mask");
-            level.SetBakedStaticWaterMask(bakedMask);
+            level.SetBakedStaticWaterMask(bakedMask, bounds);
             EditorUtility.SetDirty(level);
             AssetDatabase.SaveAssets();
             Debug.Log($"Baked static-water range and depth: {outputPath}", level);
@@ -1022,6 +1058,7 @@ internal static class HeightMapStaticWaterMaskBaker
         importer.wrapMode = TextureWrapMode.Clamp;
         importer.filterMode = FilterMode.Bilinear;
         importer.textureCompression = TextureImporterCompression.Uncompressed;
+        importer.npotScale = TextureImporterNPOTScale.None;
         importer.maxTextureSize = Mathf.Clamp(resolution, 64, 8192);
         importer.SaveAndReimport();
     }

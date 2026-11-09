@@ -126,7 +126,7 @@ namespace AnimalGame.MapTest
     {
 #if UNITY_EDITOR
         public const int CurrentSurfaceBakeGeneratorVersion = 10;
-        public const int CurrentStaticWaterMaskBakeGeneratorVersion = 1;
+        public const int CurrentStaticWaterMaskBakeGeneratorVersion = 2;
 #endif
 
         [Header("Height Source")]
@@ -237,6 +237,9 @@ namespace AnimalGame.MapTest
 
         [Tooltip("Editor-generated range/depth texture consumed directly by the runtime map shader.")]
         [SerializeField] private Texture2D bakedStaticWaterMask;
+        // Normalized map-space rectangle including the dry padding pixels.
+        [SerializeField, HideInInspector]
+        private Rect bakedStaticWaterBounds = new Rect(0f, 0f, 1f, 1f);
 
         [Tooltip("Map-space size of one animated water-pattern tile.")]
         [SerializeField, Min(0.1f)]
@@ -467,6 +470,7 @@ namespace AnimalGame.MapTest
             maximumPassableStaticWaterDepthMeters;
         public Texture2D StaticWaterTexture => staticWaterEditorTexture;
         public Texture2D BakedStaticWaterMask => bakedStaticWaterMask;
+        public Rect BakedStaticWaterBounds => bakedStaticWaterBounds;
         public float StaticWaterTileSizeMeters =>
             staticWaterEditorTileSizeMeters;
         public Vector2 StaticWaterLayerOneSpeedMetersPerSecond =>
@@ -1330,9 +1334,10 @@ namespace AnimalGame.MapTest
             grasslandAlphaNormalization = alphaNormalization;
         }
 
-        public void SetBakedStaticWaterMask(Texture2D texture)
+        public void SetBakedStaticWaterMask(Texture2D texture, Rect bounds)
         {
             bakedStaticWaterMask = texture;
+            bakedStaticWaterBounds = bounds;
             staticWaterMaskBakeGeneratorVersion =
                 CurrentStaticWaterMaskBakeGeneratorVersion;
             unchecked
