@@ -19,3 +19,9 @@
 - Do not preserve legacy implementations unless compatibility is required.
 - Prefer fail-fast behavior over silently hiding unexpected errors.
 - Make the smallest change that fully solves the problem.
+
+## 玩家标记
+
+- `RobotMarkerView.InnerRing.cs` 管理独立的三段内圈：静止呼吸、按带方向的移动速度旋转、侧翻时偶发 0.4 秒内左右左右各 12° 的抖转并回到原角度；外圈固定。源 SVG 和渲染脚本位于 `output/imagegen/`，导入贴图位于 `Assets/Arts/Robot/`。
+- 内圈通过 `Shaders/RobotInnerRing.shader` 绘制等长三段圆弧；按绝对移动速度平滑从静止的 68% 尺寸 / 每段 50° 过渡到移动的 82% / 每段 90°，静止呼吸幅度 ±6%；正反向按各自额定速度归一化。
+- `Tumbling` 翻滚阶段内圈保留 100% 基础尺寸 / 每段 100°，以 900°/秒快转，按 0.28 秒周期做 ±12% 缩放；进入落地收尾 `FinalRocking` / `Fallen` 后切回小角度间歇抖转。

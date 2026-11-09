@@ -5,7 +5,7 @@ using AnimalGame.RobotArm;
 
 namespace AnimalGame.RobotMap
 {
-    public sealed class RobotMarkerView : MonoBehaviour
+    public sealed partial class RobotMarkerView : MonoBehaviour
     {
         private const int MarkerSortingOrder = 1000;
         // The camera looks along +Z. Larger local Z values are farther from it.
@@ -199,6 +199,7 @@ namespace AnimalGame.RobotMap
             BindMarkerVisualRoot();
             CreateForegroundSpriteMaterial();
             BindBodySpriteRenderers();
+            BindInnerRing();
             BindDirectionIndicatorRenderer();
             BindPhotoCameraRenderers();
             BindRolloverSignRenderer();
@@ -286,6 +287,7 @@ namespace AnimalGame.RobotMap
         private void Update()
         {
             SynchronizeBodyFillColor();
+            UpdateInnerRing();
             UpdatePhotoCameraForm();
             UpdateDirectionIndicatorSurfaceProjection();
             SynchronizeRolloverSignVisibility();
@@ -1003,6 +1005,9 @@ namespace AnimalGame.RobotMap
 
         private void OnDestroy()
         {
+            if (innerRingMaterial != null)
+                Destroy(innerRingMaterial);
+
             if (generatedBodySprite != null)
                 Destroy(generatedBodySprite);
 
