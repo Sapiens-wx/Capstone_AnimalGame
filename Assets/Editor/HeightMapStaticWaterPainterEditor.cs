@@ -13,6 +13,20 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private const string PreviewShaderName =
         "Hidden/AnimalGame/StaticWaterEditorPreview";
 
+    private static readonly string[] WaterAuthoringProperties =
+    {
+        "staticWaterDepthMap", "staticWaterResolution",
+        "maximumStaticWaterDepthMeters", "maximumPassableStaticWaterDepthMeters",
+        "staticWaterEditorTexture", "staticWaterEditorTint",
+        "staticWaterEditorTileSizeMeters",
+        "staticWaterLayerOneSpeedMetersPerSecond",
+        "staticWaterLayerTwoSpeedMetersPerSecond", "staticWaterLayerTwoScale",
+        "staticWaterWaveDistortion", "staticWaterWaveSpeed",
+        "staticWaterWaveLengthMeters", "staticWaterDeepSpeedMultiplier"
+    };
+
+    private HeightMapLevelAsset sourceLevelAsset;
+    // All editing and Undo operate on a temporary copy until Save is clicked.
     private HeightMapLevelAsset levelAsset;
     private MapTestSceneController mapController;
     private SerializedObject serializedLevel;
@@ -85,6 +99,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         Undo.undoRedoPerformed -= HandleUndoRedo;
         EditorApplication.playModeStateChanged -= HandlePlayModeStateChanged;
         DestroyPreviewResources();
+        DestroyWorkingCopy();
         serializedLevel = null;
     }
 
@@ -104,21 +119,24 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private void OnGUI()
     {
+        using (new EditorGUI.DisabledScope(sourceLevelAsset == null))
+        {
+            if (GUILayout.Button("Save", GUILayout.Height(28f)))
+                SaveWater();
+        }
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
         EditorGUILayout.LabelField("Static Water Authoring", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
-            "Paints static-water range and depth directly into the fixed map " +
-            "asset. Water at or below the passable-depth threshold remains " +
-            "traversable; deeper water blocks movement. The Scene overlay is " +
-            "temporary. At runtime, an independently baked range/depth mask " +
-            "drives animated water above every terrain texture.",
+            "Edits appear only in the Scene preview until you click Save. " +
+            "Save writes the water data and updates the runtime Water Mask. " +
+            "Closing this window or switching maps discards unsaved edits.",
             MessageType.Info);
 
         EditorGUI.BeginChangeCheck();
         HeightMapLevelAsset selectedAsset = (HeightMapLevelAsset)
             EditorGUILayout.ObjectField(
                 "Fixed Map Asset",
-                levelAsset,
+                sourceLevelAsset,
                 typeof(HeightMapLevelAsset),
                 false);
         if (EditorGUI.EndChangeCheck())
@@ -243,15 +261,11 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         if (!settingsChanged)
             return;
 
-        bool resized = levelAsset.EnsureStaticWaterAuthoringData();
+        levelAsset.EnsureStaticWaterAuthoringData();
         targetDepthMeters = Mathf.Clamp(
             targetDepthMeters,
             0f,
             levelAsset.MaximumStaticWaterDepthMeters);
-        EditorUtility.SetDirty(levelAsset);
-        if (resized)
-            AssetDatabase.SaveAssetIfDirty(levelAsset);
-        BakeRuntimeWaterMask();
         RefreshPreview(true);
     }
 
@@ -556,8 +570,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
         if (strokeChanged)
         {
-            AssetDatabase.SaveAssetIfDirty(levelAsset);
-            BakeRuntimeWaterMask();
             RefreshPreview(true);
         }
 
@@ -574,8 +586,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         if (levelAsset.FillStaticWaterDepth(depthMeters))
         {
             EditorUtility.SetDirty(levelAsset);
-            AssetDatabase.SaveAssetIfDirty(levelAsset);
-            BakeRuntimeWaterMask();
             RefreshPreview(true);
         }
 
@@ -800,16 +810,24 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         if (currentHash == lastObservedAuthoringHash)
             return;
 
-        BakeRuntimeWaterMask();
         RefreshPreview(true);
     }
 
-    private void BakeRuntimeWaterMask()
+    private void SaveWater()
     {
         if (levelAsset == null)
             return;
 
-        HeightMapStaticWaterMaskBaker.Bake(levelAsset, false);
+        EndStroke();
+        // Copy only water authoring fields so other map edits remain intact.
+        serializedLevel.Update();
+        var destination = new SerializedObject(sourceLevelAsset);
+        foreach (string property in WaterAuthoringProperties)
+            destination.CopyFromSerializedProperty(serializedLevel.FindProperty(property));
+        destination.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(sourceLevelAsset);
+        HeightMapStaticWaterMaskBaker.Bake(sourceLevelAsset, false);
+        RefreshPreview(true);
     }
 
     private void HandlePlayModeStateChanged(PlayModeStateChange state)
@@ -847,21 +865,24 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private void SetLevelAsset(HeightMapLevelAsset asset)
     {
-        if (levelAsset == asset && mapController != null)
+        if (sourceLevelAsset == asset && levelAsset != null)
             return;
 
         if (strokeActive)
             EndStroke();
         DestroyPreviewResources();
-        levelAsset = asset;
+        DestroyWorkingCopy();
+        sourceLevelAsset = asset;
+        levelAsset = asset != null ? Instantiate(asset) : null;
+        if (levelAsset != null)
+        {
+            levelAsset.name = asset.name + " (Water Preview)";
+            levelAsset.hideFlags = HideFlags.HideAndDontSave;
+            levelAsset.EnsureStaticWaterAuthoringData();
+        }
         serializedLevel = levelAsset != null
             ? new SerializedObject(levelAsset)
             : null;
-        if (levelAsset != null && levelAsset.EnsureStaticWaterAuthoringData())
-        {
-            EditorUtility.SetDirty(levelAsset);
-            AssetDatabase.SaveAssetIfDirty(levelAsset);
-        }
 
         ResolveSceneMap();
         lastObservedAuthoringHash = levelAsset != null
@@ -874,7 +895,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private Vector3 TilePositionToWorld(Vector2 position)
     {
-        mapController.TryGetTileOrigin(levelAsset, out var origin);
+        mapController.TryGetTileOrigin(sourceLevelAsset, out var origin);
         return mapController.MapPositionToWorld(origin + position);
     }
 
@@ -883,7 +904,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         local = default;
         height = 0;
         if (!mapController.TrySampleWorldPosition(world, out var global, out height)
-            || !mapController.TryGetTileOrigin(levelAsset, out var origin)) return false;
+            || !mapController.TryGetTileOrigin(sourceLevelAsset, out var origin)) return false;
         local = global - origin;
         return local.x >= 0 && local.y >= 0
             && local.x <= levelAsset.MapSizeMeters.x && local.y <= levelAsset.MapSizeMeters.y;
@@ -901,7 +922,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             {
                 if (candidate != null
                     && !EditorUtility.IsPersistent(candidate)
-                    && candidate.ContainsLevel(levelAsset))
+                    && candidate.ContainsLevel(sourceLevelAsset))
                 {
                     mapController = candidate;
                     break;
@@ -915,6 +936,17 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             previewDirty = true;
         }
     }
+
+    private void DestroyWorkingCopy()
+    {
+        if (levelAsset == null)
+            return;
+        Undo.ClearUndo(levelAsset);
+        DestroyImmediate(levelAsset);
+        levelAsset = null;
+        sourceLevelAsset = null;
+    }
+
 }
 
 internal static class HeightMapStaticWaterMaskBaker
@@ -1032,7 +1064,7 @@ internal static class HeightMapStaticWaterMaskBaker
                 Undo.RecordObject(level, "Bake Static Water Mask");
             level.SetBakedStaticWaterMask(bakedMask, bounds);
             EditorUtility.SetDirty(level);
-            AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssetIfDirty(level);
             Debug.Log($"Baked static-water range and depth: {outputPath}", level);
             return true;
         }
