@@ -56,6 +56,8 @@ namespace AnimalGame.MapTest
             material.SetTexture("_WaterPatternTex", water ? level.StaticWaterTexture : Texture2D.blackTexture);
             material.SetFloat("_WaterEnabled", water ? 1 : 0);
             if (!water) return;
+            Vector2 waterOrigin = Vector2.Scale((Vector2)tile.Coordinate, level.MapSizeMeters);
+            material.SetVector("_WaterOriginMeters", new Vector4(waterOrigin.x, waterOrigin.y, 0, 0));
             material.SetFloat("_WaterTileSizeMeters", level.StaticWaterTileSizeMeters);
             Vector2 one = level.StaticWaterLayerOneSpeedMetersPerSecond;
             Vector2 two = level.StaticWaterLayerTwoSpeedMetersPerSecond;

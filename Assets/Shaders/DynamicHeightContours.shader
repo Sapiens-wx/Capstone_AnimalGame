@@ -16,6 +16,7 @@ Shader "AnimalGame/Dynamic Height Contours"
         _WaterPatternTex ("Animated Water Pattern", 2D) = "black" {}
         _WaterEnabled ("Animated Water Enabled", Float) = 0
         _MapSizeMeters ("Map Size Meters", Vector) = (250, 250, 0, 0)
+        _WaterOriginMeters ("Water Pattern Origin Meters", Vector) = (0, 0, 0, 0)
         _WaterTileSizeMeters ("Water Tile Size Meters", Float) = 8
         _WaterLayerOneSpeed ("Water Primary Speed", Vector) = (0.36, 0.04, 0, 0)
         _WaterLayerTwoSpeed ("Water Secondary Speed", Vector) = (-0.14, 0.22, 0, 0)
@@ -104,6 +105,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _OutsideRevealDarkening;
             float _WaterEnabled;
             float4 _MapSizeMeters;
+            float4 _WaterOriginMeters;
             float _WaterTileSizeMeters;
             float4 _WaterLayerOneSpeed;
             float4 _WaterLayerTwoSpeed;
@@ -257,7 +259,8 @@ Shader "AnimalGame/Dynamic Height Contours"
                         // R is a binary authored range. G preserves normalized
                         // depth so deeper water can move more slowly and remain
                         // more opaque without changing traversal data.
-                        float2 mapMeters = input.uv * _MapSizeMeters.xy;
+                        float2 mapMeters = input.uv * _MapSizeMeters.xy
+                                           + _WaterOriginMeters.xy;
                         float depthSpeed = lerp(
                             1.0,
                             saturate(_WaterDeepSpeedMultiplier),
