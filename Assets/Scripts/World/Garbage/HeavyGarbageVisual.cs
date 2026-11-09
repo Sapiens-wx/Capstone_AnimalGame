@@ -15,6 +15,7 @@ namespace AnimalGame.Garbage
         [SerializeField, Range(0f, .3f)] private float neckPinch = .08f;
 
         private SpriteRenderer sourceRenderer;
+        private GarbageItem garbage;
         private SpriteRenderer[] originalRenderers;
         private Color[] originalColors;
         private bool sourceWasEnabled;
@@ -49,6 +50,7 @@ namespace AnimalGame.Garbage
                     originalRenderers[i].color = color;
                 }
             }
+            garbage?.RefreshScanOutlineColor();
             if (visualRenderer == null || sourceRenderer == null) return;
 
             sourceRenderer.enabled = false;
@@ -64,6 +66,7 @@ namespace AnimalGame.Garbage
         {
             if (initialized) return;
             initialized = true;
+            garbage = GetComponent<GarbageItem>();
             WorldInteraction interaction = GetComponent<WorldInteraction>();
             sourceRenderer = interaction != null ? interaction.SpriteSource : null;
             if (sourceRenderer == null) sourceRenderer = GetComponent<SpriteRenderer>();

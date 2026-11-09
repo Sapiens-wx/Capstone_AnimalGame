@@ -5,14 +5,13 @@ using AnimalGame.RobotArm;
 
 namespace AnimalGame.RobotMap
 {
-    public sealed class RobotMarkerView : MonoBehaviour
+    public sealed partial class RobotMarkerView : MonoBehaviour
     {
         private const int MarkerSortingOrder = 1000;
         // The camera looks along +Z. Larger local Z values are farther from it.
         // These offsets avoid coplanar transparent-sprite sorting in URP.
         private const float FillDepth = 0.003f;
         private const float ArtworkDepth = 0.002f;
-        private const float IndicatorDepth = 0.001f;
         [Header("Body")]
         [SerializeField] private Sprite robotBodySprite;
         [Tooltip("Filled silhouette drawn directly beneath robot_body. Use Arts/robot_body_fill so both sprites share the same canvas, pivot and scale.")]
@@ -36,18 +35,17 @@ namespace AnimalGame.RobotMap
         [SerializeField] private Color bodyFillColor = new Color(0.008f, 0.011f, 0.014f, 1f);
         [Tooltip("When enabled, robot_body_fill always uses the active game camera's background color. Body Fill Color remains the fallback when no camera is active.")]
         [SerializeField] private bool matchBodyFillToCameraBackground = true;
-        [SerializeField] private Color bodyOutlineColor = new Color(0.92f, 0.98f, 1f, 1f);
+        [SerializeField] private Color bodyOutlineColor = Color.white;
         [Tooltip("Camera-facing depth offset used by the complete robot visual. A small negative value places it in front of the map camera's Z=0 map plane.")]
         [SerializeField] private float visualDepthOffset = -0.1f;
 
         [Header("Direction Indicator")]
         [SerializeField] private Sprite indicatorSprite;
         [SerializeField, Min(0.1f)] private float indicatorScale = 1.35f;
+        [Tooltip("Horizontal stretch of the direction indicator, independent of its height and distance from the body.")]
+        [SerializeField, Min(0.1f)] private float indicatorWidthRatio = 1.1f;
         [SerializeField] private float indicatorRotationOffsetDegrees;
-        [Tooltip("Moves the visible direction indicator inward toward the chassis, relative to the visible body diameter. This affects only artwork spacing.")]
-        [SerializeField, Range(0f, 0.5f)]
-        private float indicatorBodyInsetRatio = 0.2f;
-        [SerializeField] private Color indicatorColor = new Color(0.92f, 0.98f, 1f, 1f);
+        [SerializeField] private Color indicatorColor = Color.white;
 
         [Tooltip("Time used to fade the direction arrow out after entering arm-control mode or beginning a biological scan charge.")]
         [SerializeField, Min(0.01f)]
@@ -152,6 +150,8 @@ namespace AnimalGame.RobotMap
         private SpriteRenderer bodyFill;
         private SpriteRenderer bodyArtwork;
         private SpriteRenderer directionIndicator;
+        // Author the resting position on the Direction Indicator child Transform.
+        private Vector3 directionIndicatorBasePosition;
         private Transform photoCameraRoot;
         private SpriteRenderer cameraFirstPart;
         private SpriteRenderer cameraSecondPart;
@@ -197,6 +197,7 @@ namespace AnimalGame.RobotMap
             BindMarkerVisualRoot();
             CreateForegroundSpriteMaterial();
             BindBodySpriteRenderers();
+            BindInnerRing();
             BindDirectionIndicatorRenderer();
             BindPhotoCameraRenderers();
             BindRolloverSignRenderer();
@@ -284,19 +285,12 @@ namespace AnimalGame.RobotMap
         private void Update()
         {
             SynchronizeBodyFillColor();
+            UpdateInnerRing();
             UpdatePhotoCameraForm();
             UpdateDirectionIndicatorSurfaceProjection();
             SynchronizeRolloverSignVisibility();
 
             bool movementLocked = mover != null && mover.IsMovementLocked;
-            float pulse = 1f + Mathf.Sin(Time.time * 3.2f) * 0.035f;
-            if (bodyVisualRoot != null)
-            {
-                bodyVisualRoot.localScale = movementLocked
-                    ? Vector3.one
-                    : Vector3.one * pulse;
-            }
-
             UpdateDriveBob();
             ApplyMediumRecycleVisualRecoil();
             if (tail != null)
@@ -502,6 +496,7 @@ namespace AnimalGame.RobotMap
         private void BindBodySpriteRenderers()
         {
             bodyVisualRoot = markerVisualRoot.Find("Body Visual");
+            bodyVisualRoot.localScale = Vector3.one;
             mediumRecycleBodyBasePosition = bodyVisualRoot.localPosition;
             mediumRecycleBodyBaseRotation = bodyVisualRoot.localRotation;
 
@@ -585,14 +580,18 @@ namespace AnimalGame.RobotMap
             bodyFill.color = targetColor;
         }
 
+        private Vector3 DirectionIndicatorBaseScale => new Vector3(
+            indicatorScale * indicatorWidthRatio, indicatorScale, indicatorScale);
+
         private void BindDirectionIndicatorRenderer()
         {
             var indicatorObject = markerVisualRoot.Find("Direction Indicator").gameObject;
+            directionIndicatorBasePosition = indicatorObject.transform.localPosition;
             indicatorObject.transform.localRotation = Quaternion.Euler(
                 0f,
                 0f,
                 indicatorRotationOffsetDegrees);
-            indicatorObject.transform.localScale = Vector3.one * indicatorScale;
+            indicatorObject.transform.localScale = DirectionIndicatorBaseScale;
 
             directionIndicator = indicatorObject.GetComponent<SpriteRenderer>();
             directionIndicator.sprite = indicatorSprite;
@@ -607,9 +606,6 @@ namespace AnimalGame.RobotMap
                     "RobotMarkerView is missing its direction Indicator Sprite.",
                     this);
             }
-
-            directionIndicator.transform.localPosition =
-                Vector3.forward * IndicatorDepth;
         }
 
         private void BindPhotoCameraRenderers()
@@ -886,7 +882,7 @@ namespace AnimalGame.RobotMap
                 indicatorMinimumProjectedScale,
                 1f,
                 safeVisibility);
-            Vector3 scale = Vector3.one * indicatorScale;
+            Vector3 scale = DirectionIndicatorBaseScale;
             if (tumble != null
                 && tumble.State != RobotTumbleState.Upright
                 && tumble.Axis == RobotTumbleAxis.ForwardBack)
@@ -901,20 +897,11 @@ namespace AnimalGame.RobotMap
             }
 
             directionIndicator.transform.localScale = scale;
-            Vector3 rotatedArtworkForward = Quaternion.Euler(
-                0f,
-                0f,
-                indicatorRotationOffsetDegrees) * Vector3.up;
-            Vector2 artworkForward = new Vector2(
-                rotatedArtworkForward.x,
-                rotatedArtworkForward.y);
             float visibleSurfaceDirectionSign = forwardDirectionSign < 0f
                 ? -1f
                 : 1f;
-            Vector2 bodyInset = -artworkForward
-                                * VisualBodyDiameter
-                                * indicatorBodyInsetRatio
-                                * visibleSurfaceDirectionSign;
+            Vector2 basePosition = (Vector2)directionIndicatorBasePosition
+                                   * visibleSurfaceDirectionSign;
             Vector2 tumbleEdgeOffset = localTumbleDirection
                                        * VisualBodyDiameter
                                        * indicatorTumbleEdgeOffsetRatio
@@ -923,8 +910,8 @@ namespace AnimalGame.RobotMap
                                            -1f,
                                            1f);
             directionIndicator.transform.localPosition =
-                (Vector3)(bodyInset + tumbleEdgeOffset)
-                + Vector3.forward * IndicatorDepth;
+                (Vector3)(basePosition + tumbleEdgeOffset)
+                + Vector3.forward * directionIndicatorBasePosition.z;
             Color projectedColor = indicatorColor;
             float combinedVisibility = safeVisibility
                                        * indicatorArmModeVisibility
@@ -1005,6 +992,9 @@ namespace AnimalGame.RobotMap
 
         private void OnDestroy()
         {
+            if (innerRingMaterial != null)
+                Destroy(innerRingMaterial);
+
             if (generatedBodySprite != null)
                 Destroy(generatedBodySprite);
 
@@ -1029,10 +1019,7 @@ namespace AnimalGame.RobotMap
             bodyScreenDiameterPixels = Mathf.Max(1f, bodyScreenDiameterPixels);
             bodyFillDiameterRatio = Mathf.Clamp(bodyFillDiameterRatio, 0.1f, 1f);
             indicatorScale = Mathf.Max(0.1f, indicatorScale);
-            indicatorBodyInsetRatio = Mathf.Clamp(
-                indicatorBodyInsetRatio,
-                0f,
-                0.5f);
+            indicatorWidthRatio = Mathf.Max(0.1f, indicatorWidthRatio);
             indicatorArmModeFadeOutDuration = Mathf.Max(
                 0.01f,
                 indicatorArmModeFadeOutDuration);

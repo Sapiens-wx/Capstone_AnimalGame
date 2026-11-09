@@ -7,6 +7,10 @@ Shader "AnimalGame/Dynamic Height Contours"
         _HeightTex ("Height Map", 2D) = "black" {}
         _SurfaceTex ("Editor-Baked Terrain Surface", 2D) = "black" {}
         _SurfaceEnabled ("Surface Enabled", Float) = 0
+        _GrassMaskTex ("Grassland Coverage", 2D) = "black" {}
+        _GrassPatternTex ("Grassland Blades", 2D) = "black" {}
+        _GrassEnabled ("Grassland Enabled", Float) = 0
+        _GrassTileSize ("Grassland Tile Size", Float) = 3.2
         _SurfaceRevealEnabled ("Surface UI Reveal Enabled", Float) = 0
         _SurfaceRevealCenterPixels ("Surface UI Centre", Vector) = (0, 0, 0, 0)
         _SurfaceRevealRadiusPixels ("Surface UI Radius", Float) = 430
@@ -72,7 +76,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 3.0
+            #pragma target 3.5
             #include "UnityCG.cginc"
 
             struct appdata
@@ -139,6 +143,8 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _PlayerHeightReferenceLineWidth;
             float _PlayerHeightReferenceOpacity;
             float _ElevationFilterHillshadeStrength;
+
+            #include "GrasslandDynamics.cginc"
 
             v2f vert(appdata input)
             {
@@ -243,6 +249,9 @@ Shader "AnimalGame/Dynamic Height Contours"
                     fixed4 terrainSurface = _SurfaceEnabled > 0.5
                         ? tex2D(_SurfaceTex, input.uv)
                         : fixed4(0.0, 0.0, 0.0, 0.0);
+                    if (_GrassEnabled > .5)
+                        terrainSurface = CombineGrassland(terrainSurface,
+                            SampleGrassland(input.uv, _GrassActive * step(.001, revealMask)));
                     // Authored water owns its complete range, so terrain never
                     // leaks through transparent gaps in the water pattern.
                     float terrainBlend = saturate(

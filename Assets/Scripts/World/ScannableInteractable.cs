@@ -87,6 +87,21 @@ namespace AnimalGame.World
         public uint OutlinePatternSeed => outlinePatternSeed;
         public float RevealRemaining => CanScan ? revealRemaining : 0f;
         public float RevealElapsed => revealElapsed;
+        public SpriteRenderer SpriteSource => ResolveSprite();
+        public float RevealOpacity
+        {
+            get
+            {
+                float remaining = RevealRemaining;
+                if (remaining <= 0f) return 0f;
+                float opacity = FadeInDuration > 0f
+                    ? Mathf.SmoothStep(0f, 1f, RevealElapsed / FadeInDuration) : 1f;
+                float fadeDuration = Mathf.Min(FadeOutDuration, DisplayDuration);
+                if (fadeDuration > 0f && remaining < fadeDuration)
+                    opacity *= Mathf.SmoothStep(0f, 1f, remaining / fadeDuration);
+                return opacity;
+            }
+        }
         public bool HasCapturedScanOrientation => hasCapturedScanOrientation;
         public bool IsScanOrientationPending => isScanOrientationPending;
         public float CapturedScanWorldAngleDegrees => capturedScanWorldAngleDegrees;

@@ -58,7 +58,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5, y: 1.3, z: 1.3}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5064381510916539087}
@@ -107,8 +107,8 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 997
-  m_Sprite: {fileID: 21300000, guid: 399b16dd7fa06a64e85ff7c88b7605bd, type: 3}
+  m_SortingOrder: -3
+  m_Sprite: {fileID: -4580908267343999247, guid: 399b16dd7fa06a64e85ff7c88b7605bd, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -211,7 +211,7 @@ Transform:
   m_GameObject: {fileID: 1499506949254997708}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0145, y: 0.12, z: 0}
+  m_LocalPosition: {x: 0, y: 0.194, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -260,7 +260,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 998
+  m_SortingOrder: -2
   m_Sprite: {fileID: -2357000670700067177, guid: d03bc0edd01bae74e97afd21a9c701b8, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -348,7 +348,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 997
+  m_SortingOrder: -3
   m_Sprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -448,7 +448,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 997
+  m_SortingOrder: -3
   m_Sprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -578,8 +578,8 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 999
-  m_Sprite: {fileID: 21300000, guid: 1a33d045d43a2184ca68eb3460644555, type: 3}
+  m_SortingOrder: -1
+  m_Sprite: {fileID: 4351088966948985790, guid: 1a33d045d43a2184ca68eb3460644555, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -642,6 +642,7 @@ GameObject:
   - component: {fileID: 775533119844220011}
   - component: {fileID: 775533119844220012}
   - component: {fileID: 775533119844220013}
+  - component: {fileID: 4520809767759875930}
   m_Layer: 0
   m_Name: RobotMarker
   m_TagString: Untagged
@@ -970,23 +971,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9872b6121e68dda46b20083085d5b46d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  robotBodySprite: {fileID: 21300000, guid: d8a7a1ecebca36f4ba3b3f2b2c222603, type: 3}
+  robotBodySprite: {fileID: -6594272025908228505, guid: bbef86fba99331d4fb55903874277a62, type: 3}
   robotBodyFillSprite: {fileID: 21300000, guid: b202381eb90f91040a281a4f4577b9e1, type: 3}
   bodyDiameter: 0.72
   visualBodyDiameterRatio: 0.85
-  bodyArtworkVisibleDiameterPixels: 72.5
+  bodyArtworkVisibleDiameterPixels: 460
   bodyFillArtworkVisibleDiameterPixels: 82.5
   bodyScreenDiameterPixels: 45
   bodyFillDiameterRatio: 1
   bodyFillColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
   matchBodyFillToCameraBackground: 1
-  bodyOutlineColor: {r: 0.89622635, g: 0.97395486, b: 1, a: 1}
+  bodyOutlineColor: {r: 1, g: 1, b: 1, a: 1}
   visualDepthOffset: -0.1
-  indicatorSprite: {fileID: 21300000, guid: 8855a116fe17eeb4c913dbee10e1dc04, type: 3}
-  indicatorScale: 1.35
+  indicatorSprite: {fileID: 9045892446735897415, guid: bd252cf81efc3e146be5b7cc6d698063, type: 3}
+  indicatorScale: 0.13304348
+  indicatorWidthRatio: 1.2
   indicatorRotationOffsetDegrees: 0
-  indicatorBodyInsetRatio: 0.2
-  indicatorColor: {r: 0.92, g: 0.98, b: 1, a: 1}
+  indicatorColor: {r: 1, g: 1, b: 1, a: 1}
   indicatorArmModeFadeOutDuration: 0.16
   indicatorArmModeFadeInDuration: 0.2
   indicatorTumbleEdgeOffsetRatio: 0.18
@@ -1017,6 +1018,22 @@ MonoBehaviour:
   levelTwoDriveBobMultiplier: 1.4
   levelThreeGripDriveBobMultiplier: 1.8
   showMotionTail: 0
+  innerRingSprite: {fileID: 21300000, guid: 12e847744fcd4e5e8ec26503a83c972e, type: 3}
+  innerRingShader: {fileID: 4800000, guid: c19accc51f9549ca989cfec3aac2e096, type: 3}
+  innerRingVisibleDiameterPixels: 346
+  innerRingDegreesPerMeter: 180
+  innerRingBreathAmplitude: 0.06
+  innerRingBreathPeriod: 2.4
+  innerRingJamAmplitude: 12
+  innerRingJamDuration: 0.4
+  innerRingIdleScale: 0.68
+  innerRingMovingScale: 0.82
+  innerRingIdleArcDegrees: 50
+  innerRingMovingArcDegrees: 90
+  innerRingTumbleArcDegrees: 100
+  innerRingTumbleSpinSpeed: 900
+  innerRingTumbleScaleAmplitude: 0.12
+  innerRingTumbleScalePeriod: 0.28
 --- !u!114 &6128041736594210834
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1036,21 +1053,21 @@ MonoBehaviour:
   robotHandOpenSprite: {fileID: 21300000, guid: 2be79543e21a3a64ca8d16059771bfb1, type: 3}
   robotHandClosedSprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
   armColor: {r: 1, g: 1, b: 1, a: 1}
-  armScale: 3
+  armScale: 2
   handScale: 2
   socketRadiusOfBody: 0.88
-  lowerArmXOffset: 0.18
-  lowerArmScale: 6
+  lowerArmXOffset: 0.1
+  lowerArmScale: 4.5
   staticArmLengthPercent: 0.4
-  handSpacingOfBodyDiameter: 0.7
-  collisionWidthOfBodyDiameter: 0.08
+  handSpacingOfBodyDiameter: 0.68
+  collisionWidthOfBodyDiameter: 0.064
   connectorExtendDuration: 0.24
   extendDuration: 0.3
   handExtendDuration: 0.12
   retractDuration: 0.4
   dockEnterMagnitude: 0.4
   maximumMagnitude: 0.95
-  followAngle: 70
+  followAngle: 30
   maximumAimSpeedDegreesPerSecond: 240
   aimSmoothingTime: 0.37
   smallDockPosition: {x: 0, y: 0.65}
@@ -1083,8 +1100,8 @@ MonoBehaviour:
   normalAxisDeadZone: 0.1
   normalFullTravelDuration: 0.27
   normalSpeedExponent: 1.5
-  normalFollowEnterMagnitude: 0.55
-  normalFollowExitMagnitude: 0.45
+  normalFollowEnterMagnitude: 0.45
+  normalFollowExitMagnitude: 0.35
   tumbleSocketQuarterTurnDuration: 0.35
 --- !u!114 &775533119844220011
 MonoBehaviour:
@@ -1171,6 +1188,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   areaShader: {fileID: 4800000, guid: 26c8e1b303004a2eb0a476d9b74c9c0b, type: 3}
   alignOnScan: 1
+--- !u!114 &4520809767759875930
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4839072109466370475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c29e2b61439a441697a4d1aeb278572f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  recoverySeconds: 0.2
+  windTipOffset: 0.12
+  pressedTipOffset: 0.45
+  pressedLength: 0.45
+  trampleRadiusOfBodyDiameter: 0.9
+  windPeriodSeconds: {x: 1.1, y: 2}
 --- !u!1 &4976596186778311389
 GameObject:
   m_ObjectHideFlags: 0
@@ -1348,7 +1383,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0.002}
-  m_LocalScale: {x: 0.84413797, y: 0.84413797, z: 0.84413797}
+  m_LocalScale: {x: 0.13304348, y: 0.13304348, z: 0.13304348}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1091673641904028920}
@@ -1397,8 +1432,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1
-  m_Sprite: {fileID: 21300000, guid: d8a7a1ecebca36f4ba3b3f2b2c222603, type: 3}
-  m_Color: {r: 0.89622635, g: 0.97395486, b: 1, a: 1}
+  m_Sprite: {fileID: -6594272025908228505, guid: bbef86fba99331d4fb55903874277a62, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -1782,7 +1817,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5, y: 1.3, z: 1.3}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 9013884983814966449}
@@ -1831,8 +1866,8 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 997
-  m_Sprite: {fileID: 21300000, guid: 399b16dd7fa06a64e85ff7c88b7605bd, type: 3}
+  m_SortingOrder: -3
+  m_Sprite: {fileID: -4580908267343999247, guid: 399b16dd7fa06a64e85ff7c88b7605bd, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -1902,7 +1937,7 @@ Transform:
   m_GameObject: {fileID: 7005832308906668111}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0145, y: 0.12, z: 0}
+  m_LocalPosition: {x: 0, y: 0.194, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1951,7 +1986,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 998
+  m_SortingOrder: -2
   m_Sprite: {fileID: -2357000670700067177, guid: d03bc0edd01bae74e97afd21a9c701b8, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -2038,8 +2073,8 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 999
-  m_Sprite: {fileID: 21300000, guid: 1a33d045d43a2184ca68eb3460644555, type: 3}
+  m_SortingOrder: -1
+  m_Sprite: {fileID: 4351088966948985790, guid: 1a33d045d43a2184ca68eb3460644555, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -2614,8 +2649,8 @@ Transform:
   m_GameObject: {fileID: 8473997469354547722}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.001}
-  m_LocalScale: {x: 1.35, y: 1.35, z: 1.35}
+  m_LocalPosition: {x: 0, y: 0.40378696, z: 0.001}
+  m_LocalScale: {x: 0.15965217, y: 0.13304348, z: 0.13304348}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 550757652716184728}
@@ -2664,8 +2699,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 2
-  m_Sprite: {fileID: 21300000, guid: 8855a116fe17eeb4c913dbee10e1dc04, type: 3}
-  m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
+  m_Sprite: {fileID: 9045892446735897415, guid: bd252cf81efc3e146be5b7cc6d698063, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0

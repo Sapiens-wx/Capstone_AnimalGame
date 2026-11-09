@@ -28,8 +28,10 @@
 - 拍照立即自动保存；结果页 X 打开 Catalog、Y 打开 Photos，相册覆盖结果页，关闭后回到结果页。
 - `AnimalArchiveUI` 统一管理输入、页面切换及打开界面时的游戏暂停；仅保留上一个界面，B 返回一次后再次按 B 关闭；页面包含 Photos、照片全屏查看、Catalog 和物种详情。
 - `Photos/PhotoCollection` 管理照片筛选、排序和选择；`PhotosView` 渲染照片，`PhotosSidebarView` 管理无滚动条的 collection 列表及越界滚动动画；Photos 页的手柄侧栏导航仅由 LT/RT 切换 collection，左摇杆和 D-pad 导航 Photo Index，右摇杆也可选择照片。
-- 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，Y 返回主 Catalog；`CatalogView` 填充详情。上传至少一张照片、已解锁一级信息的物种可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`，底部详情识别条仍为静态占位。
+- 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，RB 返回主 Catalog、Y 查看该物种照片；`CatalogView` 填充详情。上传至少一张照片、已解锁一级信息的物种可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`，底部详情识别条仍为静态占位。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
+- Photos 和 Catalog 共用外框、标签栏、侧栏、内容边框及底栏尺寸；公共布局直接定义在共享样式中，不按页面切换尺寸。
+- 标签选中黄线位于内容背景上方，中心叠加与标签边框同色同宽的横线，避免跨越标签底边时被内容背景遮挡。
 - Species 页的 `CatalogRulerElement` 按屏幕高度和 `Illustration` 比例绘制标尺，读取 `AnimalInfo.ShoulderHeight/TotalLength/BodyMass`；未解锁区块透明度为 70%，内容为 `Unidentified`，分布图保留底图并在解锁后叠加 `DistributionMap`。
 - Species 页详情使用普通容器；学名、Physical Characteristics 和 Distribution 顶部对齐，LT/RT 条贴齐页面右上角，其左端距动物名称 Label 右缘为屏幕宽度的 3%。
 - Description 自然排在 Classification 与 Physical Characteristics 两栏下方；Distribution 等区块使用独立右栏。
