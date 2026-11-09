@@ -45,7 +45,7 @@
                     <ui:Label name="local-count" />
                 </ui:VisualElement>
                 <ui:VisualElement class="workspace" style="border-right-color: rgb(155, 156, 147); border-right-width: 1px;">
-                    <ui:VisualElement name="photos-page" class="page row" style="border-right-color: rgb(155, 156, 147); border-right-width: 0; display: flex;">
+                    <ui:VisualElement name="photos-page" class="page row" style="display: flex;">
                         <ui:VisualElement name="photo-index">
                             <ui:VisualElement class="row index-header">
                                 <archive:ArchiveHeadingElement text="PHOTO INDEX" end-length="8" bottom-offset="0" class="heading" />

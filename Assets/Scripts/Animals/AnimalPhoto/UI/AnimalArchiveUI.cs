@@ -166,7 +166,6 @@ namespace AnimalGame.Animals.UI
             root.Q<Button>("photos-tab").EnableInClassList("active-tab", isPhotos);
             root.Q<Button>("catalog-tab").EnableInClassList("active-tab", !isPhotos);
             UpdateTabSelection();
-            root.Q("archive-shell").EnableInClassList("catalog-mode", !isPhotos);
             foreach (string name in new[] { "sidebar-title", "previous", "next", "collections", "local-count" })
                 root.Q(name).style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("main-catalog").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
