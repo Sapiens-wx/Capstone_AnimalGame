@@ -281,7 +281,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                         fixed4 animatedWater = SampleWaterPattern(
                             mapMeters,
                             waterData.g,
-                            _Time.y * depthSpeed);
+                            _Time.y);
                         fixed4 visibleWater = lerp(
                             staticWater,
                             animatedWater,
