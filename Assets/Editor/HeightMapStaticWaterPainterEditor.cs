@@ -15,7 +15,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private static readonly string[] WaterAuthoringProperties =
     {
-        "staticWaterDepthMap", "staticWaterResolution",
+        "staticWaterDepthMap", "staticWaterFlowAngleMap", "staticWaterFlowSpeedMap", "staticWaterResolution",
         "maximumStaticWaterDepthMeters", "maximumPassableStaticWaterDepthMeters",
         "staticWaterEditorTexture", "staticWaterEditorTint",
         "staticWaterEditorTileSizeMeters",
@@ -31,6 +31,12 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private MapTestSceneController mapController;
     private SerializedObject serializedLevel;
     private Vector2 scrollPosition;
+    private int brushPage;
+    private int strokeBrushPage;
+    private bool strokeErase;
+    private float flowAngleDegrees;
+    private float flowSpeed = 0.5f;
+    private float directionPointSpacingMeters = 20f;
     private StaticWaterDepthPaintMode paintMode =
         StaticWaterDepthPaintMode.Set;
     private float brushRadiusMeters = DefaultBrushRadiusMeters;
@@ -101,6 +107,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         DestroyPreviewResources();
         DestroyWorkingCopy();
         serializedLevel = null;
+        SceneView.RepaintAll();
     }
 
     private void OnFocus()
@@ -163,7 +170,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         DrawWaterMapSettings();
         DrawBrushSettings();
         DrawWaterStatistics();
-        DrawBulkActions();
+        if (brushPage == 0)
+            DrawBulkActions();
 
         if (mapController == null || !mapController.HasGeneratedMap)
         {
@@ -272,15 +280,35 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private void DrawBrushSettings()
     {
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Depth Brush", EditorStyles.boldLabel);
+        int selectedPage = GUILayout.Toolbar(brushPage, new[] { "Depth Brush", "Flow Brush" });
+        if (selectedPage != brushPage)
+        {
+            EndStroke();
+            brushPage = selectedPage;
+            RefreshPreview(true);
+        }
         paintInScene = EditorGUILayout.Toggle("Paint In Scene", paintInScene);
+        if (brushPage == 1)
+        {
+            flowAngleDegrees = EditorGUILayout.Slider("Direction (degrees)", flowAngleDegrees, 0f, 360f);
+            flowSpeed = EditorGUILayout.Slider("Flow Speed", flowSpeed, 0f, 1f);
+            EditorGUI.BeginChangeCheck();
+            directionPointSpacingMeters = Mathf.Max(0.25f, EditorGUILayout.FloatField(
+                new GUIContent("Direction Point Spacing (m)", "Smaller spacing displays denser direction lines. Maximum density is one point per authoring pixel."),
+                directionPointSpacingMeters));
+            if (EditorGUI.EndChangeCheck())
+                SceneView.RepaintAll();
+            DrawCommonBrushSettings();
+            EditorGUILayout.HelpBox(
+                "Paint direction and speed on existing water. 0 degrees points right (+X); " +
+                "90 degrees points up (+Y). Darker blue means faster flow. " +
+                "Shift paints zero speed without erasing water. White arrows show direction.",
+                MessageType.None);
+            return;
+        }
         paintMode = (StaticWaterDepthPaintMode)EditorGUILayout.EnumPopup(
             "Mode",
             paintMode);
-        brushRadiusMeters = Mathf.Max(
-            MinimumBrushRadiusMeters,
-            EditorGUILayout.FloatField("Radius (m)", brushRadiusMeters));
-
         using (new EditorGUI.DisabledScope(
                    paintMode != StaticWaterDepthPaintMode.Set))
         {
@@ -302,6 +330,18 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
                     depthStepMeters));
         }
 
+        DrawCommonBrushSettings();
+        EditorGUILayout.HelpBox(
+            "Left-drag applies the selected brush. Hold Shift while left-dragging " +
+            "to erase, regardless of the selected mode. Alt remains available " +
+            "for normal Scene-view navigation.",
+            MessageType.None);
+    }
+
+    private void DrawCommonBrushSettings()
+    {
+        brushRadiusMeters = Mathf.Max(MinimumBrushRadiusMeters,
+            EditorGUILayout.FloatField("Radius (m)", brushRadiusMeters));
         brushStrength = EditorGUILayout.Slider(
             "Strength",
             brushStrength,
@@ -312,11 +352,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             brushHardness,
             0f,
             1f);
-        EditorGUILayout.HelpBox(
-            "Left-drag applies the selected brush. Hold Shift while left-dragging " +
-            "to erase, regardless of the selected mode. Alt remains available " +
-            "for normal Scene-view navigation.",
-            MessageType.None);
     }
 
     private void DrawWaterStatistics()
@@ -387,6 +422,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             return;
 
         Event current = Event.current;
+        if (brushPage == 1 && current.type == EventType.Repaint)
+            DrawFlowDirections();
         int controlId = GUIUtility.GetControlID(
             "HeightMapStaticWaterPainter".GetHashCode(),
             FocusType.Passive);
@@ -459,6 +496,43 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             out _);
     }
 
+    private void DrawFlowDirections()
+    {
+        Vector2 size = levelAsset.MapSizeMeters;
+        int resolution = levelAsset.StaticWaterResolution;
+        float spacing = Mathf.Max(directionPointSpacingMeters,
+            Mathf.Max(size.x, size.y) / resolution);
+        byte[] depths = levelAsset.GetOrCreateStaticWaterDepthMap();
+        byte[] angles = levelAsset.GetOrCreateStaticWaterFlowAngleMap();
+        var lines = new System.Collections.Generic.List<Vector3>();
+        for (float y = spacing * 0.5f; y < size.y; y += spacing)
+        for (float x = spacing * 0.5f; x < size.x; x += spacing)
+        {
+            int ix = Mathf.Min(resolution - 1, (int)(x / size.x * resolution));
+            int iy = Mathf.Min(resolution - 1, (int)(y / size.y * resolution));
+            int index = iy * resolution + ix;
+            if (depths[index] == 0) continue;
+            float angle = angles[index] * (Mathf.PI * 2f / 256f);
+            Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            Vector2 side = new Vector2(-direction.y, direction.x);
+            Vector2 centre = new Vector2(x, y);
+            Vector2 tip = centre + direction * spacing * 0.3f;
+            lines.Add(TilePositionToWorld(centre - direction * spacing * 0.3f));
+            lines.Add(TilePositionToWorld(tip));
+            lines.Add(TilePositionToWorld(tip));
+            lines.Add(TilePositionToWorld(tip - direction * spacing * 0.14f + side * spacing * 0.1f));
+            lines.Add(TilePositionToWorld(tip));
+            lines.Add(TilePositionToWorld(tip - direction * spacing * 0.14f - side * spacing * 0.1f));
+        }
+        Color previousColor = Handles.color;
+        var previousZTest = Handles.zTest;
+        Handles.color = Color.white;
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        Handles.DrawLines(lines.ToArray());
+        Handles.color = previousColor;
+        Handles.zTest = previousZTest;
+    }
+
     private void DrawBrushOutline(Vector2 centreMapPosition, bool erase)
     {
         var points = new Vector3[BrushOutlineSegments + 1];
@@ -480,7 +554,9 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         Handles.color = outlineColor;
         Handles.DrawAAPolyLine(3f, points);
 
-        string label = erase
+        string label = brushPage == 1
+            ? (erase ? "Stop flow" : $"Flow {flowAngleDegrees:0.#} degrees / {flowSpeed:0.00}")
+            : erase
             ? "Erase water"
             : paintMode == StaticWaterDepthPaintMode.Set
                 ? $"Set {targetDepthMeters:0.00} m"
@@ -493,6 +569,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private void BeginStroke(Vector2 mapPosition, bool erase)
     {
+        strokeBrushPage = brushPage;
+        strokeErase = erase;
         strokeActive = true;
         strokeChanged = false;
         hasLastStrokePosition = false;
@@ -502,7 +580,9 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
         Undo.IncrementCurrentGroup();
         strokeUndoGroup = Undo.GetCurrentGroup();
-        string operationName = strokePaintMode
+        string operationName = strokeBrushPage == 1
+            ? "Paint Static Water Flow"
+            : strokePaintMode
                                == StaticWaterDepthPaintMode.Erase
             ? "Erase Static Water"
             : $"{strokePaintMode} Static Water Depth";
@@ -540,14 +620,19 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private void PaintDab(Vector2 mapPosition)
     {
-        if (!levelAsset.PaintStaticWaterDepth(
+        bool changed = strokeBrushPage == 1
+            ? levelAsset.PaintStaticWaterFlow(
+                mapPosition, brushRadiusMeters, flowAngleDegrees,
+                strokeErase ? 0f : flowSpeed, brushStrength, brushHardness)
+            : levelAsset.PaintStaticWaterDepth(
                 mapPosition,
                 brushRadiusMeters,
                 strokePaintMode,
                 targetDepthMeters,
                 depthStepMeters,
                 brushStrength,
-                brushHardness))
+                brushHardness);
+        if (!changed)
         {
             return;
         }
@@ -621,7 +706,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             previewDepthTexture = new Texture2D(
                 resolution,
                 resolution,
-                TextureFormat.R8,
+                TextureFormat.RGBA32,
                 false,
                 true)
             {
@@ -632,7 +717,12 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             };
         }
 
-        previewDepthTexture.LoadRawTextureData(depthMap);
+        byte[] flowAngles = levelAsset.GetOrCreateStaticWaterFlowAngleMap();
+        byte[] flowSpeeds = levelAsset.GetOrCreateStaticWaterFlowSpeedMap();
+        var pixels = new Color32[depthMap.Length];
+        for (int i = 0; i < pixels.Length; i++)
+            pixels[i] = new Color32(depthMap[i], flowAngles[i], flowSpeeds[i], 255);
+        previewDepthTexture.SetPixels32(pixels);
         previewDepthTexture.Apply(false, false);
         UpdateStatistics(depthMap);
         UpdatePreviewMaterial();
@@ -762,6 +852,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         }
 
         previewMaterial.SetTexture("_DepthTex", previewDepthTexture);
+        previewMaterial.SetFloat("_FlowPreview", brushPage == 1 ? 1f : 0f);
         previewMaterial.SetTexture("_MainTex", pattern != null
             ? pattern
             : Texture2D.whiteTexture);
@@ -1000,6 +1091,8 @@ internal static class HeightMapStaticWaterMaskBaker
         }
 
         byte[] depthMap = level.GetOrCreateStaticWaterDepthMap();
+        byte[] flowAngles = level.GetOrCreateStaticWaterFlowAngleMap();
+        byte[] flowSpeeds = level.GetOrCreateStaticWaterFlowSpeedMap();
         int resolution = level.StaticWaterResolution;
         RectInt pixelBounds = CalculatePixelBounds(depthMap, resolution);
         var bounds = new Rect(
@@ -1012,11 +1105,13 @@ internal static class HeightMapStaticWaterMaskBaker
         {
             for (int x = 0; x < pixelBounds.width; x++)
             {
-                byte encodedDepth = depthMap[
-                    (pixelBounds.y + y) * resolution + pixelBounds.x + x];
+                int sourceIndex = (pixelBounds.y + y) * resolution + pixelBounds.x + x;
+                byte encodedDepth = depthMap[sourceIndex];
                 pixels[y * pixelBounds.width + x] = new Color32(
                     encodedDepth > 0 ? byte.MaxValue : (byte)0,
-                    encodedDepth, 0, byte.MaxValue);
+                    encodedDepth,
+                    encodedDepth > 0 ? flowAngles[sourceIndex] : (byte)0,
+                    encodedDepth > 0 ? flowSpeeds[sourceIndex] : (byte)0);
             }
         }
 
@@ -1084,7 +1179,7 @@ internal static class HeightMapStaticWaterMaskBaker
 
         importer.textureType = TextureImporterType.Default;
         importer.sRGBTexture = false;
-        importer.alphaSource = TextureImporterAlphaSource.None;
+        importer.alphaSource = TextureImporterAlphaSource.FromInput;
         importer.alphaIsTransparency = false;
         importer.mipmapEnabled = false;
         importer.wrapMode = TextureWrapMode.Clamp;

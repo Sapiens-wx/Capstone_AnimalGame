@@ -153,6 +153,8 @@ namespace AnimalGame.Editor
                 SetObject(serialized, "bakedSurfaceVisual", null);
                 SetObject(serialized, "surfacePatternTexture", null);
                 Property(serialized, "staticWaterDepthMap").arraySize = 0;
+                Property(serialized, "staticWaterFlowAngleMap").arraySize = 0;
+                Property(serialized, "staticWaterFlowSpeedMap").arraySize = 0;
                 Property(serialized, "surfaceMask").arraySize = 0;
                 Property(serialized, "surfacePalette").arraySize = 0;
                 SetInt(serialized, "surfaceDataVersion", 0);

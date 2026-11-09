@@ -126,7 +126,7 @@ namespace AnimalGame.MapTest
     {
 #if UNITY_EDITOR
         public const int CurrentSurfaceBakeGeneratorVersion = 10;
-        public const int CurrentStaticWaterMaskBakeGeneratorVersion = 2;
+        public const int CurrentStaticWaterMaskBakeGeneratorVersion = 3;
 #endif
 
         [Header("Height Source")]
@@ -230,6 +230,12 @@ namespace AnimalGame.MapTest
 
         [SerializeField, HideInInspector]
         private byte[] staticWaterDepthMap = Array.Empty<byte>();
+        // Angle: byte * 360 / 256 degrees, counterclockwise from +X.
+        [SerializeField, HideInInspector]
+        private byte[] staticWaterFlowAngleMap = Array.Empty<byte>();
+        // Normalized speed: byte / 255.
+        [SerializeField, HideInInspector]
+        private byte[] staticWaterFlowSpeedMap = Array.Empty<byte>();
 
         [Header("Static Water Visual")]
         [Tooltip("Pattern animated by the runtime map shader inside the authored water range.")]
@@ -728,14 +734,21 @@ namespace AnimalGame.MapTest
                 64,
                 1024);
             int requestedLength = requestedResolution * requestedResolution;
-            if (staticWaterDepthMap != null
-                && staticWaterDepthMap.Length == requestedLength)
+            bool changed = ResizeStaticWaterMap(ref staticWaterDepthMap, requestedResolution, requestedLength);
+            changed |= ResizeStaticWaterMap(ref staticWaterFlowAngleMap, requestedResolution, requestedLength);
+            changed |= ResizeStaticWaterMap(ref staticWaterFlowSpeedMap, requestedResolution, requestedLength);
+            return changed;
+        }
+
+        private static bool ResizeStaticWaterMap(ref byte[] map, int requestedResolution, int requestedLength)
+        {
+            if (map != null && map.Length == requestedLength)
             {
                 return false;
             }
 
-            byte[] previousMap = staticWaterDepthMap;
-            staticWaterDepthMap = new byte[requestedLength];
+            byte[] previousMap = map;
+            map = new byte[requestedLength];
             if (previousMap == null || previousMap.Length == 0)
                 return true;
 
@@ -764,7 +777,7 @@ namespace AnimalGame.MapTest
                             * previousResolution),
                         0,
                         previousResolution - 1);
-                    staticWaterDepthMap[y * requestedResolution + x] =
+                    map[y * requestedResolution + x] =
                         previousMap[sourceY * previousResolution + sourceX];
                 }
             }
@@ -776,6 +789,18 @@ namespace AnimalGame.MapTest
         {
             EnsureStaticWaterAuthoringData();
             return staticWaterDepthMap;
+        }
+
+        public byte[] GetOrCreateStaticWaterFlowAngleMap()
+        {
+            EnsureStaticWaterAuthoringData();
+            return staticWaterFlowAngleMap;
+        }
+
+        public byte[] GetOrCreateStaticWaterFlowSpeedMap()
+        {
+            EnsureStaticWaterAuthoringData();
+            return staticWaterFlowSpeedMap;
         }
 
         public int CalculateStaticWaterAuthoringHash()
@@ -794,11 +819,47 @@ namespace AnimalGame.MapTest
                          index++)
                     {
                         hash = hash * 31 ^ staticWaterDepthMap[index];
+                        hash = hash * 31 ^ staticWaterFlowAngleMap[index];
+                        hash = hash * 31 ^ staticWaterFlowSpeedMap[index];
                     }
                 }
 
                 return hash;
             }
+        }
+
+        public bool PaintStaticWaterFlow(
+            Vector2 mapPositionMeters, float brushRadiusMeters,
+            float angleDegrees, float speed, float strength, float hardness)
+        {
+            EnsureStaticWaterAuthoringData();
+            int resolution = staticWaterResolution;
+            Vector2 size = MapSizeMeters;
+            float radius = Mathf.Max(0.01f, brushRadiusMeters);
+            int minX = Mathf.Clamp(Mathf.FloorToInt((mapPositionMeters.x - radius) / size.x * resolution), 0, resolution - 1);
+            int maxX = Mathf.Clamp(Mathf.CeilToInt((mapPositionMeters.x + radius) / size.x * resolution), 0, resolution - 1);
+            int minY = Mathf.Clamp(Mathf.FloorToInt((mapPositionMeters.y - radius) / size.y * resolution), 0, resolution - 1);
+            int maxY = Mathf.Clamp(Mathf.CeilToInt((mapPositionMeters.y + radius) / size.y * resolution), 0, resolution - 1);
+            bool changed = false;
+            for (int y = minY; y <= maxY; y++)
+            for (int x = minX; x <= maxX; x++)
+            {
+                int index = y * resolution + x;
+                if (staticWaterDepthMap[index] == 0) continue;
+                Vector2 pixel = new Vector2((x + 0.5f) / resolution * size.x, (y + 0.5f) / resolution * size.y);
+                float distance = Vector2.Distance(pixel, mapPositionMeters) / radius;
+                if (distance > 1f) continue;
+                float weight = CalculateStaticWaterBrushFalloff(distance, Mathf.Clamp01(hardness)) * Mathf.Clamp01(strength);
+                float angle = Mathf.LerpAngle(staticWaterFlowAngleMap[index] * (360f / 256f), angleDegrees, weight);
+                byte encodedAngle = (byte)(Mathf.RoundToInt(Mathf.Repeat(angle, 360f) * (256f / 360f)) & 255);
+                byte encodedSpeed = (byte)Mathf.RoundToInt(Mathf.Lerp(
+                    staticWaterFlowSpeedMap[index], Mathf.Clamp01(speed) * 255f, weight));
+                if (encodedAngle == staticWaterFlowAngleMap[index] && encodedSpeed == staticWaterFlowSpeedMap[index]) continue;
+                staticWaterFlowAngleMap[index] = encodedAngle;
+                staticWaterFlowSpeedMap[index] = encodedSpeed;
+                changed = true;
+            }
+            return changed;
         }
 
         public bool PaintStaticWaterDepth(
