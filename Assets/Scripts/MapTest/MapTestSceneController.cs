@@ -308,6 +308,15 @@ namespace AnimalGame.MapTest
             depth = 0;
             return runtimeMap != null && runtimeMap.TrySampleWater(position, out depth);
         }
+        public bool TrySampleStaticWaterFlowWorldPosition(Vector2 position, out Vector2 worldFlow)
+        {
+            worldFlow = Vector2.zero;
+            if (!TrySampleWorldPosition(position, out var mapPosition, out _)
+                || !runtimeMap.TrySampleWaterFlow(mapPosition, out var mapFlow))
+                return false;
+            worldFlow = MapDirectionToWorldDirection(mapFlow) * mapFlow.magnitude;
+            return true;
+        }
         public bool ContainsLevel(HeightMapLevelAsset level) => levelAsset != null && levelAsset.Contains(level);
         public bool TryGetTileOrigin(HeightMapLevelAsset level, out Vector2 origin)
         {

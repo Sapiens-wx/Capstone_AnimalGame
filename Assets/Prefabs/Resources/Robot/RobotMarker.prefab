@@ -734,6 +734,8 @@ MonoBehaviour:
   downhillFullBoostAngle: 35
   downhillMaximumSpeedMultiplier: 1.5
   downhillAccelerationBonus: 3
+  waterFlowForceMultiplier: 4
+  waterFlowDrag: 2
   shallowWaterSpeedReduction: 0.2
   deepWaterSpeedReduction: 0.3
 --- !u!114 &6754498989903123456
@@ -751,6 +753,7 @@ MonoBehaviour:
   centerOfMassHeightMeters: 0.9
   usableSupportFraction: 0.98
   slopeBalanceInfluence: 0.65
+  waterFlowBalanceMultiplier: 1
   accelerationForFullOffset: 8
   inertiaInfluence: 0.08
   accelerationSmoothingTime: 0.22
@@ -1198,8 +1201,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c29e2b61439a441697a4d1aeb278572f, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   recoverySeconds: 0.2
   windTipOffset: 0.12
   pressedTipOffset: 0.45

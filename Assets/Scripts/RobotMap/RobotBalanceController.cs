@@ -71,6 +71,10 @@ namespace AnimalGame.RobotMap
         [Tooltip("Multiplier applied to the static centre-of-mass projection caused by the fitted ground plane.")]
         [SerializeField, Min(0f)] private float slopeBalanceInfluence = 0.65f;
 
+        [Header("Static Water Flow")]
+        [Tooltip("Normalized balance offset along the authored water flow at speed 1. Independent of the mover's water force multiplier; player counterbalance can oppose it.")]
+        [SerializeField, Min(0f)] private float waterFlowBalanceMultiplier = 0.5f;
+
         [Header("Motion Inertia")]
         [Tooltip("Robot acceleration, in Unity world units per second squared, that produces a full-radius inertia offset before the influence multiplier is applied.")]
         [SerializeField, Min(0.1f)] private float accelerationForFullOffset = 8f;
@@ -223,6 +227,9 @@ namespace AnimalGame.RobotMap
         {
 
             Vector2 automaticBalance = CalculateSlopeBalanceLocal() + CalculateInertiaBalanceLocal();
+            Vector2 waterBalance = mover.CurrentWaterFlow * waterFlowBalanceMultiplier;
+            automaticBalance += new Vector2(Vector2.Dot(waterBalance, transform.right),
+                Vector2.Dot(waterBalance, transform.up));
             bool climbable = mover.CurrentClimbableSurface.IsActive;
             if (wasOnClimbable && !climbable && currentCounterbalanceLocal.sqrMagnitude < 0.000001f)
                 balanceVelocityLocal = Vector2.zero; // Do not carry automatic slope spring momentum off the prop.
@@ -448,7 +455,7 @@ namespace AnimalGame.RobotMap
         private void UpdateMeasuredAcceleration(float deltaTime)
         {
             Vector2 worldVelocity = (Vector2)transform.up * mover.CurrentSpeed
-                                    + mover.CurrentTerrainVelocity;
+                                    + mover.CurrentTerrainVelocity + mover.CurrentWaterFlowVelocity;
             if (!velocityInitialized)
             {
                 previousWorldVelocity = worldVelocity;
@@ -643,6 +650,7 @@ namespace AnimalGame.RobotMap
 
         private void OnValidate()
         {
+            waterFlowBalanceMultiplier = Mathf.Max(0f, waterFlowBalanceMultiplier);
             centerOfMassHeightMeters = Mathf.Max(0.05f, centerOfMassHeightMeters);
             usableSupportFraction = Mathf.Clamp(usableSupportFraction, 0.2f, 1f);
             slopeBalanceInfluence = Mathf.Max(0f, slopeBalanceInfluence);

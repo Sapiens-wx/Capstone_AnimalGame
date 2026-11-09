@@ -82,6 +82,12 @@ namespace AnimalGame.MapTest
             depth = tile.Level.SampleStaticWaterDepth(local);
             return true;
         }
+        public bool TrySampleWaterFlow(Vector2 position, out Vector2 flow)
+        {
+            flow = Vector2.zero;
+            return TrySample(position, out _) && TryLocate(position, out var tile, out var local)
+                && tile.Level.TrySampleStaticWaterFlow(local, out flow);
+        }
         public Vector2 SampleSpacing(Vector2 position)
         {
             return TryLocate(position, out var tile, out _) ? new Vector2(tile.Field.TexelSizeXMeters,

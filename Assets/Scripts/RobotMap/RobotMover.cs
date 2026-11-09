@@ -252,6 +252,12 @@ namespace AnimalGame.RobotMap
         [Tooltip("Additional acceleration applied while travelling downhill, scaled by the downhill-angle progress.")]
         [SerializeField, Min(0f)] private float downhillAccelerationBonus = 3f;
 
+        [Header("Static Water Flow")]
+        [Tooltip("Acceleration along the authored water direction at flow speed 1, in world units per second squared, before Overall Motion Scale.")]
+        [SerializeField, Min(0f)] private float waterFlowForceMultiplier = 2f;
+        [Tooltip("Drag on water drift, per second. Terminal drift speed is force / drag; prevents unlimited acceleration.")]
+        [SerializeField, Min(0.01f)] private float waterFlowDrag = 2f;
+
         [Header("Static Water Resistance")]
         [Tooltip("Linear movement-speed reduction applied as soon as the player enters traversable water.")]
         [SerializeField, Range(0f, 1f)]
@@ -299,6 +305,8 @@ namespace AnimalGame.RobotMap
         public bool HeavyPullMovementBlocked { get; private set; }
         public float CurrentTerrainTurnSpeed { get; private set; }
         public Vector2 CurrentTerrainVelocity { get; private set; }
+        public Vector2 CurrentWaterFlow { get; private set; }
+        public Vector2 CurrentWaterFlowVelocity { get; private set; }
         public Vector2 MapPosition => transform.position;
         public Vector2 Forward => transform.up;
         public bool IsSlopeBlocked { get; private set; }
@@ -395,6 +403,8 @@ namespace AnimalGame.RobotMap
             pendingDownhillRecoveryFromLevelThreeSlip = false;
             CurrentTraversalResult = SlopeTraversalResult.NoData;
             CurrentWaterSpeedMultiplier = 1f;
+            CurrentWaterFlow = Vector2.zero;
+            CurrentWaterFlowVelocity = Vector2.zero;
         }
 
         private void Update()
@@ -414,10 +424,12 @@ namespace AnimalGame.RobotMap
 
             if (hasCommittedPosition && ((Vector2)transform.position - lastCommittedPosition).sqrMagnitude > 0.000001f)
             {
+                CurrentWaterFlowVelocity = Vector2.zero;
                 ResetClimbableContact(); // External relocation is not a driven landing.
                 WorldInteraction.MarkHierarchySpatialDirty(transform);
             }
             if (!IgnoreCollisionAndTerrain) RefreshClimbableSurface();
+            UpdateWaterFlow(Time.deltaTime);
             lastCommittedPosition = transform.position;
             hasCommittedPosition = true;
             if (CurrentClimbableSurface.IsActive)
@@ -658,7 +670,7 @@ namespace AnimalGame.RobotMap
                     * (speedWithoutAreaResistance - CurrentSpeed);
 
             Vector2 desiredVelocity = (Vector2)transform.up * CurrentSpeed
-                                      + CurrentTerrainVelocity;
+                                      + CurrentTerrainVelocity + CurrentWaterFlowVelocity;
             Vector2 releaseStep = StepHeavyReleaseVelocity(Time.deltaTime);
             Vector2 desiredDisplacement = desiredVelocity * Time.deltaTime + releaseStep;
             bool reversing = Vector2.Dot(desiredDisplacement, transform.up) < 0f;
@@ -733,10 +745,11 @@ namespace AnimalGame.RobotMap
             // Camera motion observes drive and terrain velocity, excluding the
             // separate heavy-release step. Reconstruct only the observed loss.
             ClimbableResistanceVelocityLossThisFrame +=
-                ((Vector2)transform.up * CurrentSpeed + CurrentTerrainVelocity)
+                ((Vector2)transform.up * CurrentSpeed + CurrentTerrainVelocity + CurrentWaterFlowVelocity)
                 * (1f - climbableResistance.VelocityScale);
             CurrentSpeed *= climbableResistance.VelocityScale;
             CurrentTerrainVelocity *= climbableResistance.VelocityScale;
+            CurrentWaterFlowVelocity *= climbableResistance.VelocityScale;
             heavyReleaseVelocity *= climbableResistance.VelocityScale;
             // Track every committed move, including heavy pulling and release inertia.
             ClimbableLandedThisFrame = climbableContacts.Move(movementStart, transform.position,
@@ -902,6 +915,7 @@ namespace AnimalGame.RobotMap
 
         private void FreezeDrivenMotion()
         {
+            CurrentWaterFlowVelocity = Vector2.zero;
             CurrentSpeed = 0f;
             CurrentTurnSpeed = 0f;
             CurrentTerrainVelocity = Vector2.zero;
@@ -993,6 +1007,8 @@ namespace AnimalGame.RobotMap
 
         private void OnDisable()
         {
+            CurrentWaterFlow = Vector2.zero;
+            CurrentWaterFlowVelocity = Vector2.zero;
             ResetClimbableContact();
             ClearHeavyPullMotion();
         }
@@ -1000,7 +1016,7 @@ namespace AnimalGame.RobotMap
         internal Vector2 BeginExternalTumble()
         {
             Vector2 capturedWorldVelocity = (Vector2)transform.up * CurrentSpeed
-                                            + CurrentTerrainVelocity + heavyReleaseVelocity;
+                                            + CurrentTerrainVelocity + CurrentWaterFlowVelocity + heavyReleaseVelocity;
             if (MovementMode != RobotMovementMode.Driven)
                 return Vector2.zero;
 
@@ -1063,6 +1079,8 @@ namespace AnimalGame.RobotMap
 
         private void ClearMotionForExternalControl()
         {
+            CurrentWaterFlow = Vector2.zero;
+            CurrentWaterFlowVelocity = Vector2.zero;
             ResetClimbableContact();
             ClearHeavyPullMotion();
             HeavyPullMovementBlocked = false;
@@ -1609,6 +1627,7 @@ namespace AnimalGame.RobotMap
 
         private void HardStop(SlopeTraversalResult result)
         {
+            CurrentWaterFlowVelocity = Vector2.zero;
             ClearHeavyPullMotion();
             CurrentSpeed = 0f;
             CurrentTerrainTurnSpeed = 0f;
@@ -1694,6 +1713,30 @@ namespace AnimalGame.RobotMap
 
             return ScaleMotion(
                 Mathf.Lerp(launchAcceleration, runningAcceleration, normalizedSpeed));
+        }
+
+        private void UpdateWaterFlow(float deltaTime)
+        {
+            CurrentWaterFlow = Vector2.zero;
+            MapTestSceneController map = traversalEvaluator != null ? traversalEvaluator.Map : null;
+            Vector2 flow = Vector2.zero;
+            bool inWater = !IgnoreCollisionAndTerrain && !CurrentClimbableSurface.IsActive
+                && map != null && map.TrySampleStaticWaterFlowWorldPosition(transform.position, out flow);
+            if (inWater)
+            {
+                // Exact integration of dv/dt = current force - drag * velocity.
+                CurrentWaterFlow = flow;
+                float drag = waterFlowDrag;
+                Vector2 terminalVelocity = flow * ScaleMotion(waterFlowForceMultiplier)
+                    * GrabMovementMultiplier / drag;
+                CurrentWaterFlowVelocity = Vector2.Lerp(CurrentWaterFlowVelocity,
+                    terminalVelocity, 1f - Mathf.Exp(-drag * deltaTime));
+            }
+            else
+            {
+                CurrentWaterFlowVelocity = Vector2.MoveTowards(CurrentWaterFlowVelocity,
+                    Vector2.zero, ScaleMotion(coastDeceleration) * deltaTime);
+            }
         }
 
         private float CalculateStaticWaterSpeedMultiplier()
@@ -1807,6 +1850,8 @@ namespace AnimalGame.RobotMap
                 1f,
                 downhillMaximumSpeedMultiplier);
             downhillAccelerationBonus = Mathf.Max(0f, downhillAccelerationBonus);
+            waterFlowForceMultiplier = Mathf.Max(0f, waterFlowForceMultiplier);
+            waterFlowDrag = Mathf.Max(0.01f, waterFlowDrag);
             shallowWaterSpeedReduction = Mathf.Clamp01(
                 shallowWaterSpeedReduction);
             deepWaterSpeedReduction = Mathf.Clamp(

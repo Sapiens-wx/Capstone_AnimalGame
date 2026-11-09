@@ -605,6 +605,30 @@ namespace AnimalGame.MapTest
                    * Mathf.Max(0.1f, maximumStaticWaterDepthMeters);
         }
 
+        /// <summary>
+        /// Point-samples the same depth/angle/speed bytes baked into Water Mask.
+        /// Returns direction times normalized speed in logical map axes.
+        /// </summary>
+        public bool TrySampleStaticWaterFlow(Vector2 mapPositionMeters, out Vector2 flow)
+        {
+            flow = Vector2.zero;
+            if (staticWaterDepthMap.Length == 0
+                || mapPositionMeters.x < 0f || mapPositionMeters.x > mapWidthMeters
+                || mapPositionMeters.y < 0f || mapPositionMeters.y > mapHeightMeters)
+                return false;
+            int x = Mathf.Min(staticWaterResolution - 1,
+                Mathf.FloorToInt(mapPositionMeters.x / mapWidthMeters * staticWaterResolution));
+            int y = Mathf.Min(staticWaterResolution - 1,
+                Mathf.FloorToInt(mapPositionMeters.y / mapHeightMeters * staticWaterResolution));
+            int index = y * staticWaterResolution + x;
+            if (staticWaterDepthMap[index] == 0)
+                return false;
+            float angle = staticWaterFlowAngleMap[index] * (Mathf.PI * 2f / 256f);
+            flow = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle))
+                * (staticWaterFlowSpeedMap[index] / 255f);
+            return true;
+        }
+
         public bool HasStaticWaterAt(Vector2 mapPositionMeters)
         {
             return SampleStaticWaterDepth(mapPositionMeters) > 0.0001f;
