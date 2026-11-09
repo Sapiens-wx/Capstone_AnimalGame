@@ -384,6 +384,17 @@ namespace AnimalGame.MapTest
         [Header("Baked Terrain Surface Runtime")]
         [Tooltip("Permanent Editor-baked terrain visual. The runtime never composes or modifies this texture.")]
         [SerializeField] private Texture2D bakedSurfaceVisual;
+        [SerializeField] private Texture2D bakedGrasslandMask;
+        [SerializeField, HideInInspector] private Texture2D grasslandPattern;
+        [SerializeField, HideInInspector] private Vector4[] grasslandBladeRects = Array.Empty<Vector4>();
+        [SerializeField, HideInInspector] private float grasslandTileSizeMeters = 3.2f;
+        [SerializeField, HideInInspector] private Vector2 grasslandAlphaNormalization = Vector2.one;
+
+        public Texture2D BakedGrasslandMask => bakedGrasslandMask;
+        public Texture2D GrasslandPattern => grasslandPattern;
+        public Vector4[] GrasslandBladeRects => grasslandBladeRects;
+        public float GrasslandTileSizeMeters => grasslandTileSizeMeters;
+        public Vector2 GrasslandAlphaNormalization => grasslandAlphaNormalization;
 
         [Tooltip("Softness of the screen-space UI reveal boundary in pixels. This affects only the circular display cutoff, not painted terrain boundaries.")]
         [SerializeField, Min(0f)] private float surfaceRevealEdgePixels = 4f;
@@ -1307,6 +1318,16 @@ namespace AnimalGame.MapTest
             {
                 surfaceBakeRevision++;
             }
+        }
+
+        public void SetBakedGrassland(Texture2D mask, Texture2D pattern, Vector4[] rects,
+            float tileSize, Vector2 alphaNormalization)
+        {
+            bakedGrasslandMask = mask;
+            grasslandPattern = pattern;
+            grasslandBladeRects = rects;
+            grasslandTileSizeMeters = tileSize;
+            grasslandAlphaNormalization = alphaNormalization;
         }
 
         public void SetBakedStaticWaterMask(Texture2D texture)

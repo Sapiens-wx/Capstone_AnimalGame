@@ -11,6 +11,8 @@ namespace AnimalGame.MapTest
         private Sprite sprite;
         private Material material;
         private GameObject root;
+        private Matrix4x4 grassMetersToWorld;
+        private Vector4 grassTileOrigin;
 
         public TiledMapTileView(TiledMapRuntime.Tile tile) { this.tile = tile; }
 
@@ -26,6 +28,10 @@ namespace AnimalGame.MapTest
                 root = new GameObject("Map Tile " + tile.Coordinate) { hideFlags = HideFlags.DontSave };
                 root.transform.SetParent(parent, false);
                 Vector2 tileSize = definition.TileSizeMeters;
+                grassMetersToWorld = parent.localToWorldMatrix
+                    * Matrix4x4.Translate(-Vector2.Scale(definition.MapSizeMeters * .5f, definition.WorldUnitsPerMeter))
+                    * Matrix4x4.Scale(new Vector3(definition.WorldUnitsPerMeter.x, definition.WorldUnitsPerMeter.y, 1));
+                grassTileOrigin = new Vector4(tile.Coordinate.x * tileSize.x, tile.Coordinate.y * tileSize.y, 0, 0);
                 Vector2 center = Vector2.Scale((Vector2)tile.Coordinate + Vector2.one * 0.5f, tileSize)
                     - definition.MapSizeMeters * 0.5f;
                 root.transform.localPosition = Vector2.Scale(center, definition.WorldUnitsPerMeter);
@@ -51,6 +57,19 @@ namespace AnimalGame.MapTest
             material.SetVector("_MapSizeMeters", new Vector4(level.MapSizeMeters.x, level.MapSizeMeters.y, 0, 0));
             material.SetTexture("_SurfaceTex", level.BakedSurfaceVisual ?? Texture2D.blackTexture);
             material.SetFloat("_SurfaceEnabled", level.BakedSurfaceVisual != null ? 1 : 0);
+            bool grass = level.BakedGrasslandMask != null && level.GrasslandPattern != null;
+            material.SetFloat("_GrassEnabled", grass ? 1 : 0);
+            if (grass)
+            {
+                material.SetTexture("_GrassMaskTex", level.BakedGrasslandMask);
+                material.SetTexture("_GrassPatternTex", level.GrasslandPattern);
+                material.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
+                material.SetFloat("_GrassTileSize", level.GrasslandTileSizeMeters);
+                Vector2 normalization = level.GrasslandAlphaNormalization;
+                material.SetVector("_GrassAlphaNormalization", new Vector4(normalization.x, normalization.y, 0, 0));
+                material.SetMatrix("_GrassMetersToWorld", grassMetersToWorld);
+                material.SetVector("_GrassTileOrigin", grassTileOrigin);
+            }
             bool water = level.BakedStaticWaterMask != null && level.StaticWaterTexture != null;
             material.SetTexture("_WaterMaskTex", water ? level.BakedStaticWaterMask : Texture2D.blackTexture);
             material.SetTexture("_WaterPatternTex", water ? level.StaticWaterTexture : Texture2D.blackTexture);

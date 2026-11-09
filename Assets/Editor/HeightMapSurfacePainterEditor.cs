@@ -1024,6 +1024,7 @@ internal static class HeightMapSurfaceBaker
 
             if (registerUndo)
                 Undo.RecordObject(level, "Bake Terrain Surface");
+            BakeGrassland(level, bakeMaterial, renderTarget, readableOutput, directory, levelPath);
             level.SetBakedSurfaceVisual(bakedTexture);
             EditorUtility.SetDirty(level);
             AssetDatabase.SaveAssets();
@@ -1045,6 +1046,47 @@ internal static class HeightMapSurfaceBaker
             DestroyTemporary(paletteSettingsTexture);
             DestroyTemporary(readableOutput);
         }
+    }
+
+    private static void BakeGrassland(HeightMapLevelAsset level, Material material,
+        RenderTexture target, Texture2D readable, string directory, string levelPath)
+    {
+        TerrainSurfaceDefinition grass = null;
+        foreach (var entry in level.SurfacePalette)
+            if (entry.Terrain == TerrainKind.Grassland && entry.IsUsable) grass = entry;
+        if (grass == null)
+        {
+            level.SetBakedGrassland(null, null, Array.Empty<Vector4>(), 1f, Vector2.one);
+            return;
+        }
+        var blades = new List<Sprite>();
+        foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(grass.PatternTexture)))
+            if (asset is Sprite blade) blades.Add(blade);
+        if (blades.Count != 4)
+            throw new InvalidOperationException("Grassland requires exactly four authored blade sprites.");
+        blades.Sort((a, b) => a.rect.x.CompareTo(b.rect.x));
+        var rects = new Vector4[4];
+        for (int i = 0; i < 4; i++)
+        {
+            Rect rect = blades[i].rect;
+            rects[i] = new Vector4(rect.x / grass.PatternTexture.width, rect.y / grass.PatternTexture.height,
+                rect.width / grass.PatternTexture.width, rect.height / grass.PatternTexture.height);
+        }
+        float alphaReference;
+        var source = CreateReadableCopy(grass.PatternTexture);
+        try { alphaReference = CalculatePatternAlphaReference(source); }
+        finally { DestroyTemporary(source); }
+        material.SetFloat("_GrassBakeMode", 1f);
+        Graphics.Blit(Texture2D.whiteTexture, target, material);
+        RenderTexture.active = target;
+        readable.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0, false);
+        readable.Apply(false, false);
+        string path = Path.Combine(directory, Path.GetFileNameWithoutExtension(levelPath) + "_GrasslandMask.png").Replace('\\', '/');
+        File.WriteAllBytes(path, readable.EncodeToPNG());
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+        ConfigureBakedTextureImporter(path, target.width);
+        level.SetBakedGrassland(AssetDatabase.LoadAssetAtPath<Texture2D>(path), grass.PatternTexture,
+            rects, grass.TileSizeMeters, new Vector2(alphaReference, level.SurfacePatternAlphaNormalizationStrength));
     }
 
     private static Texture2D BuildPatternAtlas(HeightMapLevelAsset level)

@@ -51,6 +51,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
             float _ScatterStrength;
             float _NoiseSeed;
             float _StaticContourAlphaEnabled;
+            float _GrassBakeMode;
 
             float2 PaletteUv(float terrainId)
             {
@@ -119,6 +120,9 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                     return float4(0.0, 0.0, 0.0, 0.0);
 
                 float4 settings = ReadPaletteSettings(terrainId);
+                if (abs(terrainId - 4.0) < .5)
+                    return _GrassBakeMode > .5 ? ReadPaletteTint(terrainId) : float4(0, 0, 0, 0);
+                if (_GrassBakeMode > .5) return float4(0, 0, 0, 0);
                 float tileSizeMeters = max(0.01, settings.r);
                 float2 repeatedUv = frac(mapMeters / tileSizeMeters);
                 float cellX = fmod(terrainId, 16.0);
