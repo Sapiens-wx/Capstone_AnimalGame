@@ -32,9 +32,10 @@
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
 - Photos 和 Catalog 共用外框、标签栏、侧栏、内容边框及底栏尺寸；公共布局直接定义在共享样式中，不按页面切换尺寸。
 - Photos 列表与大图页共用右侧信息区和翻页栏定位；左侧区域宽度等于页面内容高度，分别显示 Photo Index 或正方形大图，列表页不重复显示小预览图。
-- 大图页切换照片时，`PhotosView` 保留上一张卡片快照，0.32 秒内左右滑出/滑入；`photo-frame` 裁切越界内容，动画使用非缩放时间，关闭时复位并在销毁时释放快照。
-- 大图页与照片结算页共用 `PhotoIdleTilt`，7 秒循环转动（两轴幅度 4.5° / 3°）；右摇杆超过死区时手动控制，松开后平滑恢复自动转动，换图或重新进入时重置相位。
+- 大图页切换照片时，`PhotosView` 保留上一张照片源图，0.32 秒内左右滑出/滑入；滑出照片随进度向移动方向的反侧后倾至 32°，左右镜像。`photo-frame` 裁切越界内容，动画使用非缩放时间，结束或关闭时释放旧图。
+- 大图页与照片结算页共用 `PhotoIdleTilt`，7 秒循环转动；结算页两轴幅度为 4.5° / 3°，大图页倍率 1.5（6.75° / 4.5°）。右摇杆超过死区时手动控制，松开后平滑恢复自动转动，换图或重新进入时重置相位。
 - Catalog 网格与物种侧栏只排列已解锁动物，不补空格，按英文显示名称 A–Z 排序；物种详情 LT/RT 在首尾循环。
+- Catalog 物种页与 Photos 侧栏列表上下各有 LT Previous Species / RT Next Species，复用同一切换逻辑；LT 顶边位于原列表顶边，列表下移 42 像素，保持六格条目高度。
 - Main Catalog 与 Photo Index 共用 `ArchiveColumnWave`：卡片按列以 4.8 秒周期、±4 像素浮动，各列错开相位；只改变视觉位移，离开页面或关闭时停止调度。
 - 标签选中黄线位于内容背景上方，中心叠加与标签边框同色同宽的横线，避免跨越标签底边时被内容背景遮挡。
 - Species 页的 `CatalogRulerElement` 按屏幕高度与统一的美洲野牛参考比例（1445:965）绘制所有物种标尺，不依赖是否配置插图；读取 `AnimalInfo.ShoulderHeight/TotalLength/BodyMass`。

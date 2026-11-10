@@ -71,6 +71,8 @@ namespace AnimalGame.Animals.UI
             root.Q<Button>("species-photos").clicked += ViewSpeciesPhotos;
             root.Q<Button>("collection-previous").clicked += () => StepCollection(-1);
             root.Q<Button>("collection-next").clicked += () => StepCollection(1);
+            root.Q<Button>("sidebar-species-previous").clicked += () => StepCollection(-1);
+            root.Q<Button>("sidebar-species-next").clicked += () => StepCollection(1);
             SaveSystem.Changed += Refresh;
         }
 
@@ -161,6 +163,10 @@ namespace AnimalGame.Animals.UI
                 .Select(s => (AnimalSpecies?)s));
             collection = Math.Max(0, collections.IndexOf(selectedCollection));
             bool isPhotos = page == Page.Photos || page == Page.Inspection;
+            bool hasSidebarList = isPhotos || page == Page.Species;
+            root.Q(className: "sidebar").EnableInClassList("species-list-visible", hasSidebarList);
+            root.Q("sidebar-species-previous").style.display = hasSidebarList ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q("sidebar-species-next").style.display = hasSidebarList ? DisplayStyle.Flex : DisplayStyle.None;
             if (page != Page.Catalog) mainCatalogView.StopAnimation();
             root.Q("photos-page").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("catalog-page").style.display = page == Page.Catalog ? DisplayStyle.Flex : DisplayStyle.None;
@@ -202,10 +208,10 @@ namespace AnimalGame.Animals.UI
             var border = indicator.Q("tab-selection-border");
             var tabStyle = tab.resolvedStyle;
             Vector2 bottomLeft = tab.ChangeCoordinatesTo(indicator.parent,
-                new Vector2(tabStyle.borderLeftWidth, tab.layout.height - tabStyle.borderBottomWidth * .5f));
+                new Vector2(0, tab.layout.height - tabStyle.borderBottomWidth * .5f));
             indicator.style.left = bottomLeft.x;
             indicator.style.top = bottomLeft.y;
-            indicator.style.width = tab.layout.width - tabStyle.borderLeftWidth - tabStyle.borderRightWidth;
+            indicator.style.width = tab.layout.width - tabStyle.borderRightWidth;
             border.style.height = tabStyle.borderBottomWidth;
             border.style.backgroundColor = tabStyle.borderBottomColor;
         }
@@ -225,6 +231,7 @@ namespace AnimalGame.Animals.UI
             int next = photosSidebar.FindNextSelectable(collection, direction);
             var button = root.Q<Button>(buttonName);
             button.SetEnabled(next >= 0);
+            root.Q<Button>(direction < 0 ? "sidebar-species-previous" : "sidebar-species-next").SetEnabled(next >= 0);
             button.EnableInClassList("unavailable", next < 0);
             root.Q<Label>(labelName).text = next >= 0 ? CollectionName(collections[next]) : "";
         }
@@ -272,6 +279,7 @@ namespace AnimalGame.Animals.UI
             bool available = next >= 0;
             var button = root.Q<Button>(buttonName);
             button.SetEnabled(available);
+            root.Q<Button>(direction < 0 ? "sidebar-species-previous" : "sidebar-species-next").SetEnabled(available);
             button.EnableInClassList("unavailable", !available);
             root.Q<Label>(labelName).text = available ? AnimalArchiveAssets.Active.Photos[catalogSpecies[next]].DisplayName : "";
         }
