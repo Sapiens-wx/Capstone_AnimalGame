@@ -1,6 +1,4 @@
-using AnimalGame.Animals;
 using AnimalGame.Rendering;
-using AnimalGame.RobotMap;
 using AnimalGame.World;
 using System.Collections.Generic;
 using UnityEngine;
@@ -33,11 +31,7 @@ namespace AnimalGame.MapTest
         [Tooltip("Small extra map-space margin used so solid plants fade at the same moment traversal reaches their contact edge.")]
         [SerializeField, Min(0f)] private float contactPaddingMeters = 0.05f;
 
-        [Tooltip("Player contact radius used only when the scene has no initialized Height Map Traversal Evaluator.")]
-        [SerializeField, Min(0f)] private float fallbackPlayerRadiusMeters = 0.75f;
-
-        private static RobotMover cachedPlayer;
-        private static HeightMapTraversalEvaluator cachedTraversalEvaluator;
+        private readonly List<WorldInteraction> nearbyActors = new();
 
         private HeightMapPlacedObject placedObject;
         private HeightMapObstacleFootprint solidFootprint;
@@ -71,9 +65,8 @@ namespace AnimalGame.MapTest
                 return;
 
             if (map == null || !map.HasGeneratedMap)
-                ResolveMap();
-            if (map == null || !map.HasGeneratedMap)
             {
+                ResolveMap();
                 ApplyAlphaReduction(0f);
                 return;
             }
@@ -109,8 +102,7 @@ namespace AnimalGame.MapTest
             float startDistanceMeters,
             float startAlphaReduction,
             float maximumAlphaReduction,
-            float paddingMeters,
-            float playerRadiusMeters)
+            float paddingMeters)
         {
             fadeStartDistanceMeters = Mathf.Max(0.01f, startDistanceMeters);
             fadeStartAlphaReduction = Mathf.Clamp01(startAlphaReduction);
@@ -119,7 +111,6 @@ namespace AnimalGame.MapTest
                 fadeStartAlphaReduction,
                 1f);
             contactPaddingMeters = Mathf.Max(0f, paddingMeters);
-            fallbackPlayerRadiusMeters = Mathf.Max(0f, playerRadiusMeters);
         }
 
         private void CacheReferences()
@@ -153,76 +144,27 @@ namespace AnimalGame.MapTest
 
         private float CalculateAlphaReduction()
         {
-            if (!map.TrySampleWorldPosition(
-                    transform.position,
-                    out Vector2 plantMapPosition,
-                    out _))
+            Vector2 plantPosition = InteractionShape.ToQuery(transform.position, map);
+            float contactRadius = GetPlantContactRadiusMeters() + contactPaddingMeters;
+            InteractionShape contactShape = InteractionShape.Circle(plantPosition, contactRadius);
+
+            // Actor body radii are already included by the shape overlap query.
+            WorldInteractionQuery.Query(
+                InteractionShape.Circle(plantPosition, contactRadius + fadeStartDistanceMeters),
+                WorldInteractionKind.Actor,
+                map,
+                gameObject.scene,
+                nearbyActors);
+
+            float greatestReduction = 0f;
+            foreach (WorldInteraction actor in nearbyActors)
             {
-                return 0f;
-            }
-
-            float plantRadius = GetPlantContactRadiusMeters();
-            float greatestReduction = CalculatePlayerAlphaReduction(
-                plantMapPosition,
-                plantRadius);
-
-            foreach (AnimalAgent animal in AnimalAgent.ActiveAgents)
-            {
-                if (animal == null
-                    || !animal.isActiveAndEnabled
-                    || !animal.IsPresent
-                    || !map.TrySampleWorldPosition(
-                        animal.transform.position,
-                        out Vector2 animalMapPosition,
-                        out _))
-                {
-                    continue;
-                }
-
-                float animalRadius = animal.Config != null
-                    ? animal.Config.BodyRadiusMeters
-                    : 0f;
                 greatestReduction = Mathf.Max(
                     greatestReduction,
-                    CalculateActorAlphaReduction(
-                        plantMapPosition,
-                        animalMapPosition,
-                        plantRadius
-                        + animalRadius
-                        + contactPaddingMeters));
+                    CalculateActorAlphaReduction(contactShape, actor.GetShape(map)));
             }
 
             return greatestReduction;
-        }
-
-        private float CalculatePlayerAlphaReduction(
-            Vector2 plantMapPosition,
-            float plantRadius)
-        {
-            if (cachedPlayer == null)
-                cachedPlayer = FindObjectOfType<RobotMover>();
-            if (cachedPlayer == null || !cachedPlayer.isActiveAndEnabled
-                || !map.TrySampleWorldPosition(
-                    cachedPlayer.transform.position,
-                    out Vector2 playerMapPosition,
-                    out _))
-            {
-                return 0f;
-            }
-
-            if (cachedTraversalEvaluator == null)
-            {
-                cachedTraversalEvaluator =
-                    FindObjectOfType<HeightMapTraversalEvaluator>();
-            }
-
-            float playerRadius = cachedTraversalEvaluator != null && cachedTraversalEvaluator.CollisionBody != null
-                ? cachedTraversalEvaluator.CollisionBody.BodyRadiusInQuery(cachedTraversalEvaluator.Map)
-                : fallbackPlayerRadiusMeters;
-            return CalculateActorAlphaReduction(
-                plantMapPosition,
-                playerMapPosition,
-                plantRadius + playerRadius + contactPaddingMeters);
         }
 
         private float GetPlantContactRadiusMeters()
@@ -261,14 +203,12 @@ namespace AnimalGame.MapTest
         }
 
         private float CalculateActorAlphaReduction(
-            Vector2 plantMapPosition,
-            Vector2 actorMapPosition,
-            float combinedContactRadius)
+            InteractionShape plantShape,
+            InteractionShape actorShape)
         {
             float edgeDistance = Mathf.Max(
                 0f,
-                Vector2.Distance(plantMapPosition, actorMapPosition)
-                - combinedContactRadius);
+                -WorldInteractionQuery.Penetration(plantShape, actorShape));
             if (edgeDistance > fadeStartDistanceMeters)
                 return 0f;
 
@@ -323,9 +263,6 @@ namespace AnimalGame.MapTest
                 fadeStartAlphaReduction,
                 1f);
             contactPaddingMeters = Mathf.Max(0f, contactPaddingMeters);
-            fallbackPlayerRadiusMeters = Mathf.Max(
-                0f,
-                fallbackPlayerRadiusMeters);
         }
     }
 }
