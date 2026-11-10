@@ -13,6 +13,7 @@ namespace AnimalGame.Animals.UI
         private readonly VisualElement grid, tree;
         private readonly List<AnimalSpecies> animals = new();
         private readonly List<Button> tiles = new();
+        private readonly ArchiveColumnWave waveAnimation;
         private Action<AnimalSpecies> open;
         private int selected, topRow;
         private float rowHeight;
@@ -22,10 +23,13 @@ namespace AnimalGame.Animals.UI
             scroll = root.Q<ScrollView>("catalog-grid-scroll");
             grid = root.Q("catalog-species-grid");
             tree = root.Q("catalog-progress-tree");
+            waveAnimation = new ArchiveColumnWave(grid, Columns);
             scroll.contentViewport.RegisterCallback<GeometryChangedEvent>(_ => Resize());
         }
 
-        public void Reset() { selected = topRow = 0; scroll.scrollOffset = Vector2.zero; }
+        public void Reset() { StopAnimation(); selected = topRow = 0; scroll.scrollOffset = Vector2.zero; }
+
+        public void StopAnimation() => waveAnimation.Stop();
 
         public void Render(IEnumerable<AnimalSpecies> species, Action<AnimalSpecies> onOpen)
         {
@@ -67,6 +71,7 @@ namespace AnimalGame.Animals.UI
                 grid.Add(tile); tiles.Add(tile);
             }
             Resize(); UpdateSelection();
+            waveAnimation.Start();
         }
 
         public void Move(int x, int y)

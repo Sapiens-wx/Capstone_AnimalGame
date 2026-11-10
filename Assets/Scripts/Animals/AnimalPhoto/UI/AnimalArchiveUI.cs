@@ -69,8 +69,8 @@ namespace AnimalGame.Animals.UI
             root.Q<Button>("species-next").clicked += () => StepCollection(1);
             root.Q<Button>("main-catalog").clicked += () => Navigate(Page.Catalog);
             root.Q<Button>("species-photos").clicked += ViewSpeciesPhotos;
-            root.Q<Button>("previous").clicked += () => StepCollection(-1);
-            root.Q<Button>("next").clicked += () => StepCollection(1);
+            root.Q<Button>("collection-previous").clicked += () => StepCollection(-1);
+            root.Q<Button>("collection-next").clicked += () => StepCollection(1);
             SaveSystem.Changed += Refresh;
         }
 
@@ -106,7 +106,7 @@ namespace AnimalGame.Animals.UI
             deleteHold.Cancel(); photosView.SetDeleteProgress(0);
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             Cursor.lockState = cursorLock;
-            catalogSidebar.StopAnimation(); photosSidebar.StopAnimation();
+            catalogSidebar.StopAnimation(); photosSidebar.StopAnimation(); mainCatalogView.StopAnimation();
             root.style.display = DisplayStyle.None; photosView.Clear(); previousLocation = null;
         }
 
@@ -157,16 +157,18 @@ namespace AnimalGame.Animals.UI
             collections.Clear();
             collections.Add(null); // All Collection has no species filter.
             collections.AddRange(SaveSystem.Current.photos.Select(p => p.species).Distinct()
-                .OrderBy(s => (int)s).Select(s => (AnimalSpecies?)s));
+                .OrderBy(s => AnimalArchiveAssets.Active.Photos[s].DisplayName, StringComparer.OrdinalIgnoreCase)
+                .Select(s => (AnimalSpecies?)s));
             collection = Math.Max(0, collections.IndexOf(selectedCollection));
             bool isPhotos = page == Page.Photos || page == Page.Inspection;
+            if (page != Page.Catalog) mainCatalogView.StopAnimation();
             root.Q("photos-page").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("catalog-page").style.display = page == Page.Catalog ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("species-page").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q<Button>("photos-tab").EnableInClassList("active-tab", isPhotos);
             root.Q<Button>("catalog-tab").EnableInClassList("active-tab", !isPhotos);
             UpdateTabSelection();
-            foreach (string name in new[] { "sidebar-title", "previous", "next", "collections", "local-count" })
+            foreach (string name in new[] { "sidebar-title", "collections", "collection-navigation", "photo-divider" })
                 root.Q(name).style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("main-catalog").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("catalog-sidebar").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
@@ -174,13 +176,13 @@ namespace AnimalGame.Animals.UI
             root.Q("species-navigation").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("species-recognition").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("record-count").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
-            root.Q<Label>("local-count").text = $"LOCAL COLLECTION\n{SaveSystem.Current.photos.Count} photographs\n{SaveSystem.Current.photos.Select(p => p.species).Distinct().Count()} observed species";
             if (isPhotos)
             {
                 photosSidebar.Bind(collections,
-                    animal => animal.HasValue ? AnimalArchiveAssets.Active.Photos[animal.Value].DisplayName : "All Collection",
-                    animal => animal.HasValue ? SaveSystem.Current.photos.Count(p => p.species == animal.Value) : SaveSystem.Current.photos.Count,
+                    CollectionName,
                     collection, index => { collection = index; photos.SortFocused = false; Refresh(); });
+                UpdateCollectionNeighbor(-1, "collection-previous", "previous-collection-name");
+                UpdateCollectionNeighbor(1, "collection-next", "next-collection-name");
                 photos.Bind(SaveSystem.Current.photos, collections[collection]);
                 RenderPhotos();
             }
@@ -214,6 +216,18 @@ namespace AnimalGame.Animals.UI
             () => { photos.ToggleSort(); RenderPhotos(); });
 
         private bool IsIdentified(AnimalSpecies animal) => SaveSystem.Current.Progress(animal)?.Tier > 0;
+
+        private static string CollectionName(AnimalSpecies? animal) => animal.HasValue
+            ? AnimalArchiveAssets.Active.Photos[animal.Value].DisplayName : "All Collection";
+
+        private void UpdateCollectionNeighbor(int direction, string buttonName, string labelName)
+        {
+            int next = photosSidebar.FindNextSelectable(collection, direction);
+            var button = root.Q<Button>(buttonName);
+            button.SetEnabled(next >= 0);
+            button.EnableInClassList("unavailable", next < 0);
+            root.Q<Label>(labelName).text = next >= 0 ? CollectionName(collections[next]) : "";
+        }
 
         private void RenderCatalog()
         {
@@ -266,8 +280,8 @@ namespace AnimalGame.Animals.UI
         {
             if (page == Page.Photos || page == Page.Inspection)
             {
-                int next = Mathf.Clamp(collection + direction, 0, collections.Count - 1);
-                if (next == collection) return;
+                int next = photosSidebar.FindNextSelectable(collection, direction);
+                if (next < 0) return;
                 collection = next; photos.SortFocused = false;
             }
             else

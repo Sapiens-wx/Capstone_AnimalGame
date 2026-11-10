@@ -37,21 +37,22 @@
                         </ui:VisualElement>
                         <ui:VisualElement name="catalog-progress-tree" />
                     </ui:VisualElement>
-                    <archive:ArchiveHeadingElement name="sidebar-title" text="COLLECTION" end-length="8" bottom-offset="0" class="heading" />
-                    <ui:Button name="previous" text="LT" class="key-action" style="width: 44px; height: auto;" />
+                    <ui:VisualElement name="sidebar-title" class="main-catalog-heading">
+                        <ui:VisualElement class="main-catalog-heading-content">
+                            <ui:Label text="Photo Collection" />
+                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                     <ui:ScrollView name="collections" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" />
                     <ui:ScrollView name="catalog-sidebar" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" style="display: none;" />
-                    <ui:Button name="next" text="RT" class="key-action" style="width: 44px; height: auto;" />
-                    <ui:Label name="local-count" />
                 </ui:VisualElement>
                 <ui:VisualElement class="workspace" style="border-right-color: rgb(155, 156, 147); border-right-width: 1px;">
                     <ui:VisualElement name="photos-page" class="page row" style="display: flex;">
                         <ui:VisualElement name="photo-index">
                             <ui:VisualElement class="row index-header">
-                                <archive:ArchiveHeadingElement text="PHOTO INDEX" end-length="8" bottom-offset="0" class="heading" />
+                                <archive:CatalogHeadingElement text="Photo Index" />
                                 <ui:Button name="photo-sort" text="Newest first ↓" />
                             </ui:VisualElement>
-                            <ui:Label text="RIGHT STICK  SELECT PHOTO" class="hint" />
                             <ui:VisualElement name="photo-tiles" />
                         </ui:VisualElement>
                         <ui:VisualElement name="photo-preview">
@@ -60,7 +61,10 @@
                                 <archive:ArchiveScientificNameElement name="photo-scientific" bottom-line-ratio="0.4" />
                             </ui:VisualElement>
                             <ui:VisualElement class="preview-body">
-                                <archive:ArchivePhotoImageElement name="photo-image" scale-mode="ScaleToFit" />
+                                <ui:VisualElement name="photo-frame">
+                                    <ui:Image name="photo-outgoing" picking-mode="Ignore" scale-mode="ScaleToFit" />
+                                    <archive:ArchivePhotoImageElement name="photo-image" scale-mode="ScaleToFit" />
+                                </ui:VisualElement>
                                 <ui:VisualElement class="photo-information">
                                     <ui:VisualElement class="photo-date-row">
                                         <ui:Label name="photo-date" />
@@ -93,7 +97,7 @@
                                     </ui:VisualElement>
                                     <ui:Button name="photo-open" class="photo-action">
                                         <ui:Label text="A" picking-mode="Ignore" class="photo-action-circle" />
-                                        <ui:Label text="VIEW PHOTOGRAPH" picking-mode="Ignore" class="photo-action-caption" />
+                                        <ui:Label text="View Photograph" picking-mode="Ignore" class="photo-action-caption" />
                                         <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                     <ui:VisualElement name="photo-navigation" class="photo-navigation">
@@ -110,12 +114,12 @@
                                     </ui:VisualElement>
                                     <ui:Button name="photo-catalog" class="photo-action">
                                         <ui:Label text="Y" picking-mode="Ignore" class="photo-action-circle" />
-                                        <ui:Label text="VIEW CATALOG" picking-mode="Ignore" class="photo-action-caption" />
+                                        <ui:Label text="View Catalog" picking-mode="Ignore" class="photo-action-caption" />
                                         <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                     <ui:Button name="photo-delete" class="photo-action">
                                         <archive:ArchiveHoldCircleElement name="photo-delete-progress" text="X" picking-mode="Ignore" class="photo-action-circle" />
-                                        <ui:Label text="Delete Image" picking-mode="Ignore" class="photo-action-caption" />
+                                        <ui:Label text="Hold to Delete Photo" picking-mode="Ignore" class="photo-action-caption" />
                                         <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                 </ui:VisualElement>
@@ -211,7 +215,20 @@
             <ui:VisualElement name="tab-selection" picking-mode="Ignore">
                 <ui:VisualElement name="tab-selection-border" picking-mode="Ignore" />
             </ui:VisualElement>
-            <ui:VisualElement name="species-navigation" style="display: none;">
+            <ui:VisualElement name="collection-navigation" class="archive-neighbor-navigation" style="display: none;">
+                <ui:Button name="collection-previous" class="species-neighbor">
+                    <ui:Label text="&lt;" picking-mode="Ignore" class="neighbor-arrow" />
+                    <ui:Label text="LT" picking-mode="Ignore" class="neighbor-key" />
+                    <ui:Label name="previous-collection-name" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Button name="collection-next" class="species-neighbor">
+                    <ui:Label name="next-collection-name" picking-mode="Ignore" />
+                    <ui:Label text="RT" picking-mode="Ignore" class="neighbor-key" />
+                    <ui:Label text="&gt;" picking-mode="Ignore" class="neighbor-arrow" />
+                </ui:Button>
+            </ui:VisualElement>
+            <ui:VisualElement name="photo-divider" picking-mode="Ignore" style="display: none;" />
+            <ui:VisualElement name="species-navigation" class="archive-neighbor-navigation" style="display: none;">
                 <ui:Button name="species-previous" class="species-neighbor">
                     <ui:Label text="&lt;" picking-mode="Ignore" class="neighbor-arrow" />
                     <ui:Label text="LT" picking-mode="Ignore" class="neighbor-key" />
