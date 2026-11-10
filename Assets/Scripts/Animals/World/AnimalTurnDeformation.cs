@@ -14,7 +14,7 @@ namespace AnimalGame.Animals
     public sealed class AnimalTurnDeformation : MonoBehaviour
     {
         [SerializeField] private Transform visualRoot;
-        [Tooltip("Body fill and outline only. Exclude arrows and the undiscovered field.")]
+        [Tooltip("Body fill and outline only. Exclude the undiscovered field.")]
         [SerializeField] private SpriteRenderer[] bodyRenderers = Array.Empty<SpriteRenderer>();
         [SerializeField] private Material turnMaterial;
         [SerializeField, Min(0.001f)] private float followTimeSeconds = 0.12f;

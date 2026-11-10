@@ -1,0 +1,481 @@
+fileFormatVersion: 2
+guid: 3b65eebaf3add654d8b02d149bee840c
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -5684832587605011315
+    second: NorthAmericanPorcupine_Base_0
+  - first:
+      213: -5834325037965431117
+    second: NorthAmericanPorcupine_Base_1
+  - first:
+      213: -3598641397592337656
+    second: NorthAmericanPorcupine_Base_2
+  - first:
+      213: -8480049667650040346
+    second: NorthAmericanPorcupine_Base_3
+  - first:
+      213: -3917701707917831186
+    second: NorthAmericanPorcupine_Base_4
+  - first:
+      213: 8304904886110049545
+    second: NorthAmericanPorcupine_Base_5
+  - first:
+      213: 4103848969892269198
+    second: NorthAmericanPorcupine_Base_6
+  - first:
+      213: -3434963702815061213
+    second: NorthAmericanPorcupine_Base_7
+  - first:
+      213: -1120496623818757939
+    second: NorthAmericanPorcupine_Base_8
+  - first:
+      213: -1041381902791486044
+    second: NorthAmericanPorcupine_Base_9
+  - first:
+      213: 492364963235066977
+    second: NorthAmericanPorcupine_Base_10
+  - first:
+      213: -3252074266260243258
+    second: NorthAmericanPorcupine_Base_11
+  - first:
+      213: 5111050548479126300
+    second: NorthAmericanPorcupine_Base_12
+  - first:
+      213: -1553441368923803485
+    second: NorthAmericanPorcupine_Base_13
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 940
+        height: 1348
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d841d3091ea6b11b0800000000000000
+      internalID: -5684832587605011315
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_1
+      rect:
+        serializedVersion: 2
+        x: 361
+        y: 1334
+        width: 92
+        height: 52
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3be27ef1a40580fa0800000000000000
+      internalID: -5834325037965431117
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_2
+      rect:
+        serializedVersion: 2
+        x: 337
+        y: 1285
+        width: 29
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8035e7e17be0f0ec0800000000000000
+      internalID: -3598641397592337656
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_3
+      rect:
+        serializedVersion: 2
+        x: 361
+        y: 1316
+        width: 9
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6edcc0aa1cfc05a80800000000000000
+      internalID: -8480049667650040346
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_4
+      rect:
+        serializedVersion: 2
+        x: 823
+        y: 860
+        width: 8
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ee3dd93bd0781a9c0800000000000000
+      internalID: -3917701707917831186
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_5
+      rect:
+        serializedVersion: 2
+        x: 830
+        y: 861
+        width: 11
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 905defd1ef2f04370800000000000000
+      internalID: 8304904886110049545
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_6
+      rect:
+        serializedVersion: 2
+        x: 838
+        y: 860
+        width: 35
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e8c084e15ecc3f830800000000000000
+      internalID: 4103848969892269198
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_7
+      rect:
+        serializedVersion: 2
+        x: 823
+        y: 809
+        width: 10
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 32b095526be8450d0800000000000000
+      internalID: -3434963702815061213
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_8
+      rect:
+        serializedVersion: 2
+        x: 870
+        y: 820
+        width: 205
+        height: 34
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dc8224dd1423370f0800000000000000
+      internalID: -1120496623818757939
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_9
+      rect:
+        serializedVersion: 2
+        x: 831
+        y: 715
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4a5d7984da44c81f0800000000000000
+      internalID: -1041381902791486044
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_10
+      rect:
+        serializedVersion: 2
+        x: 886
+        y: 721
+        width: 15
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 164797d435b35d600800000000000000
+      internalID: 492364963235066977
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_11
+      rect:
+        serializedVersion: 2
+        x: 854
+        y: 677
+        width: 27
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6cc7e506faf4ed2d0800000000000000
+      internalID: -3252074266260243258
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_12
+      rect:
+        serializedVersion: 2
+        x: 872
+        y: 361
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c1be923f4691ee640800000000000000
+      internalID: 5111050548479126300
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: NorthAmericanPorcupine_Base_13
+      rect:
+        serializedVersion: 2
+        x: 741
+        y: 97
+        width: 21
+        height: 50
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3a076e13e41117ae0800000000000000
+      internalID: -1553441368923803485
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      NorthAmericanPorcupine_Base_0: -5684832587605011315
+      NorthAmericanPorcupine_Base_1: -5834325037965431117
+      NorthAmericanPorcupine_Base_10: 492364963235066977
+      NorthAmericanPorcupine_Base_11: -3252074266260243258
+      NorthAmericanPorcupine_Base_12: 5111050548479126300
+      NorthAmericanPorcupine_Base_13: -1553441368923803485
+      NorthAmericanPorcupine_Base_2: -3598641397592337656
+      NorthAmericanPorcupine_Base_3: -8480049667650040346
+      NorthAmericanPorcupine_Base_4: -3917701707917831186
+      NorthAmericanPorcupine_Base_5: 8304904886110049545
+      NorthAmericanPorcupine_Base_6: 4103848969892269198
+      NorthAmericanPorcupine_Base_7: -3434963702815061213
+      NorthAmericanPorcupine_Base_8: -1120496623818757939
+      NorthAmericanPorcupine_Base_9: -1041381902791486044
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
