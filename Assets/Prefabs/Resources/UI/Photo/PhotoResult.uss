@@ -79,13 +79,13 @@ Label {
     color: rgb(133, 137, 133);
 }
 
-#catalog-label {
+#save-label {
     left: 1085px;
     top: 414px;
     font-size: 48px;
 }
 
-#save-label {
+#catalog-label {
     left: 1075px;
     top: 539px;
     font-size: 48px;
@@ -134,7 +134,7 @@ Label {
     -unity-text-align: middle-center;
 }
 
-#catalog-badge {
+#save-badge {
     position: absolute;
     align-items: center;
     justify-content: center;
@@ -142,7 +142,7 @@ Label {
     top: 416px;
 }
 
-#save-badge {
+#catalog-badge {
     left: 1003px;
     top: 537px;
 }

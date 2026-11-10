@@ -1,0 +1,377 @@
+fileFormatVersion: 2
+guid: 484eaf8d29461b5478c1634f0a8d307c
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 6770924104229852202
+    second: GreaterPrairieChicken_Line_0
+  - first:
+      213: -5922212203552415127
+    second: GreaterPrairieChicken_Line_1
+  - first:
+      213: -5451507928074765373
+    second: GreaterPrairieChicken_Line_2
+  - first:
+      213: -5704571796718725928
+    second: GreaterPrairieChicken_Line_3
+  - first:
+      213: 4928823712662683933
+    second: GreaterPrairieChicken_Line_4
+  - first:
+      213: -89641301439719583
+    second: GreaterPrairieChicken_Line_5
+  - first:
+      213: 6647496882357156438
+    second: GreaterPrairieChicken_Line_6
+  - first:
+      213: 7681438161981155241
+    second: GreaterPrairieChicken_Line_7
+  - first:
+      213: 757837823471773541
+    second: GreaterPrairieChicken_Line_8
+  - first:
+      213: 2445571573425473580
+    second: GreaterPrairieChicken_Line_9
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_0
+      rect:
+        serializedVersion: 2
+        x: 327
+        y: 15
+        width: 747
+        height: 1221
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a2410c1599727fd50800000000000000
+      internalID: 6770924104229852202
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_1
+      rect:
+        serializedVersion: 2
+        x: 723
+        y: 1158
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 96266cac06310dda0800000000000000
+      internalID: -5922212203552415127
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_2
+      rect:
+        serializedVersion: 2
+        x: 948
+        y: 1141
+        width: 30
+        height: 41
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3cbb0e83c6a5854b0800000000000000
+      internalID: -5451507928074765373
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_3
+      rect:
+        serializedVersion: 2
+        x: 856
+        y: 1099
+        width: 11
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8d45edccc2a45d0b0800000000000000
+      internalID: -5704571796718725928
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_4
+      rect:
+        serializedVersion: 2
+        x: 858
+        y: 1067
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d1108c97d03b66440800000000000000
+      internalID: 4928823712662683933
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_5
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 248
+        width: 319
+        height: 795
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1675b7616b781cef0800000000000000
+      internalID: -89641301439719583
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_6
+      rect:
+        serializedVersion: 2
+        x: 344
+        y: 246
+        width: 9
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 65a3a6ec137a04c50800000000000000
+      internalID: 6647496882357156438
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_7
+      rect:
+        serializedVersion: 2
+        x: 914
+        y: 730
+        width: 174
+        height: 180
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9a724017f43f99a60800000000000000
+      internalID: 7681438161981155241
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_8
+      rect:
+        serializedVersion: 2
+        x: 922
+        y: 964
+        width: 78
+        height: 81
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 567e3693c71648a00800000000000000
+      internalID: 757837823471773541
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GreaterPrairieChicken_Line_9
+      rect:
+        serializedVersion: 2
+        x: 852
+        y: 103
+        width: 9
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c2881da836a60f120800000000000000
+      internalID: 2445571573425473580
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      GreaterPrairieChicken_Line_0: 6770924104229852202
+      GreaterPrairieChicken_Line_1: -5922212203552415127
+      GreaterPrairieChicken_Line_2: -5451507928074765373
+      GreaterPrairieChicken_Line_3: -5704571796718725928
+      GreaterPrairieChicken_Line_4: 4928823712662683933
+      GreaterPrairieChicken_Line_5: -89641301439719583
+      GreaterPrairieChicken_Line_6: 6647496882357156438
+      GreaterPrairieChicken_Line_7: 7681438161981155241
+      GreaterPrairieChicken_Line_8: 757837823471773541
+      GreaterPrairieChicken_Line_9: 2445571573425473580
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

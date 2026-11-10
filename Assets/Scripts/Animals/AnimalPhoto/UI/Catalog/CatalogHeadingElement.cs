@@ -7,6 +7,13 @@ namespace AnimalGame.Animals.UI
     public partial class CatalogHeadingElement : Label
     {
         private bool flip;
+        private bool bothEnds;
+        [UxmlAttribute]
+        public bool BothEnds
+        {
+            get => bothEnds;
+            set { bothEnds = value; MarkDirtyRepaint(); }
+        }
         [UxmlAttribute]
         public bool Flip
         {
@@ -32,7 +39,12 @@ namespace AnimalGame.Animals.UI
             painter.lineWidth = 1f;
             painter.BeginPath();
             const float LINE_PADDING = 6;
-            if (flip) {
+            if (bothEnds) {
+                painter.MoveTo(new Vector2(x - LINE_PADDING, y - 7f));
+                painter.LineTo(new Vector2(x - LINE_PADDING, y));
+                painter.LineTo(new Vector2(x + width + LINE_PADDING, y));
+                painter.LineTo(new Vector2(x + width + LINE_PADDING, y - 7f));
+            } else if (flip) {
                 painter.MoveTo(new Vector2(x, y));
                 painter.LineTo(new Vector2(x + width + LINE_PADDING, y));
                 painter.LineTo(new Vector2(x + width + LINE_PADDING, y - 7f));

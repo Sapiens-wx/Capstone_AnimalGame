@@ -285,9 +285,19 @@ namespace AnimalGame.MainUI
         private void UpdateLevelIndicator()
         {
             if (levelIndicator == null) return;
-            RobotMover robot = HeightMapPlayerSceneBootstrap.inst.robot;
-            levelIndicator.SetDegree(robot != null && robot.CurrentTraversalResult.HasData
-                ? robot.CurrentTraversalResult.SignedSlopeAngle : 0);
+            var bootstrap = HeightMapPlayerSceneBootstrap.inst;
+            float degree = bootstrap != null && bootstrap.robot != null && bootstrap.mapCamera != null
+                ? SampleTerrainLevelDegree(bootstrap.traversalEvaluator, bootstrap.robot.MapPosition,
+                    bootstrap.mapCamera.transform.right) : 0f;
+            levelIndicator.SetDegree(degree);
+        }
+
+        public static float SampleTerrainLevelDegree(HeightMapTraversalEvaluator evaluator,
+            Vector2 worldPosition, Vector2 screenRight)
+        {
+            // UI Toolkit Y grows downward: terrain rising to screen-right needs a negative angle.
+            return evaluator != null && evaluator.TryGetSignedSurfaceSlope(worldPosition, screenRight, out float slope)
+                ? -slope : 0f;
         }
 
         private void AdvanceInventoryAnimation(float deltaTime)

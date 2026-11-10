@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 4544846648258311059}
   - component: {fileID: 6892187671072092332}
   - component: {fileID: 640179880362822033}
+  - component: {fileID: 7392156480314278092}
   m_Layer: 0
   m_Name: AmericanMarmot_Placeholder
   m_TagString: Untagged
@@ -100,7 +101,6 @@ MonoBehaviour:
   visualRoot: {fileID: 8079304306406987686}
   bodyFill: {fileID: 6098288482917200170}
   bodyOutline: {fileID: 8508841698747971814}
-  directionIndicator: {fileID: 4086949079635933383}
   discoveryVisual: {fileID: 4930886091584955232}
 --- !u!114 &1168321205630496828
 MonoBehaviour:
@@ -374,7 +374,6 @@ MonoBehaviour:
   knownRenderers:
   - {fileID: 6098288482917200170}
   - {fileID: 8508841698747971814}
-  - {fileID: 4086949079635933383}
   unknownRenderer: {fileID: 6651709899444584041}
   revealDuration: 0.4
   rollSpeedRange: {x: 0.6, y: 2.5}
@@ -472,93 +471,6 @@ MonoBehaviour:
   burrowPrefab: {fileID: 9017118805590984691, guid: 170a75c8aa824624fa355d8da1bafa1a, type: 3}
   safeEmergenceSeconds: 5
   alarmDelaySeconds: 1
---- !u!1 &2133515990941763374
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 3974495920980250800}
-  - component: {fileID: 4086949079635933383}
-  m_Layer: 0
-  m_Name: Direction Indicator
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &3974495920980250800
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2133515990941763374}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.15, z: 0}
-  m_LocalScale: {x: 0.16, y: 0.16, z: 0.16}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8079304306406987686}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!212 &4086949079635933383
-SpriteRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2133515990941763374}
-  m_Enabled: 1
-  m_CastShadows: 0
-  m_ReceiveShadows: 0
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 0
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 0
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 1152
-  m_Sprite: {fileID: 21300000, guid: d71ec271a67d86840aa8b573c9c8f37f, type: 3}
-  m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
-  m_FlipX: 0
-  m_FlipY: 0
-  m_DrawMode: 0
-  m_Size: {x: 1.28, y: 1.28}
-  m_AdaptiveModeThreshold: 0.5
-  m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
-  m_SpriteSortPoint: 0
 --- !u!1 &2765247328976709505
 GameObject:
   m_ObjectHideFlags: 0
@@ -585,7 +497,7 @@ Transform:
   m_GameObject: {fileID: 2765247328976709505}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.0312, y: 0.0408, z: 0}
   m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -635,12 +547,12 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1150
-  m_Sprite: {fileID: 21300000, guid: bb58e2979fa4f7b4b92a50f11e11b26b, type: 3}
+  m_Sprite: {fileID: -8144705665231519233, guid: 3f4c4a10a6cc0e841bd952dd050b32b3, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1.28, y: 1.28}
+  m_Size: {x: 12.01, y: 11.75}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -759,7 +671,7 @@ Transform:
   m_GameObject: {fileID: 7265666809499139898}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.0312, y: 0.0408, z: 0}
   m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -809,12 +721,12 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1151
-  m_Sprite: {fileID: 21300000, guid: 433e682e76005c345856c116d728c88f, type: 3}
-  m_Color: {r: 0.92, g: 0.98, b: 1, a: 1}
+  m_Sprite: {fileID: -2605236924292783448, guid: 0832e90f83cf57f479690d40016c70ab, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1.28, y: 1.28}
+  m_Size: {x: 12.01, y: 11.75}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -846,12 +758,32 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.6363636, y: 0.6363636, z: 0.6363636}
+  m_LocalScale: {x: 0.54857536, y: 0.54857536, z: 0.54857536}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 9004465664612131023}
   - {fileID: 809580593626513134}
-  - {fileID: 3974495920980250800}
   - {fileID: 7195384252360369766}
   m_Father: {fileID: 2231577620671773943}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7392156480314278092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 139671064437040807}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  visualRoot: {fileID: 8079304306406987686}
+  bodyRenderers:
+  - {fileID: 6098288482917200170}
+  - {fileID: 8508841698747971814}
+  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
+  followTimeSeconds: 0.12
+  maximumBendDegrees: 22
+  headAnchor: {x: 0, y: 0.5826}
+  tailAnchor: {x: 0, y: -0.5826}

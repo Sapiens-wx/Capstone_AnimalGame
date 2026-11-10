@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using AnimalGame.Save;
+using AnimalGame.RobotMap;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -11,23 +12,62 @@ namespace AnimalGame.Animals.UI
     {
         private readonly VisualElement root, index, tiles, preview, heading, information;
         private readonly ArchivePhotoImageElement image;
+        private readonly VisualElement photoFrame;
+        private readonly Image outgoingImage;
         private readonly List<RenderTexture> thumbnails = new();
-        private RenderTexture processed, card;
+        private readonly ArchiveColumnWave waveAnimation;
+        private RenderTexture processed, card, outgoingCard;
         private Material cardMaterial;
         private Vector2 tilt;
+        private readonly PhotoIdleTilt idleTilt = new PhotoIdleTilt();
+        private string motionPhotoId;
+        private bool viewingInspection;
+        private bool sliding;
+        private float slideElapsed, incomingOffset, outgoingStart;
+        private int slideDirection;
+        private const float SlideDuration = .32f;
         private PhotoCollection currentCollection;
         private Action<int> selectPhoto;
         public PhotosView(VisualElement root, Shader compositeShader)
         {
             this.root = root; index = root.Q("photo-index"); tiles = root.Q("photo-tiles");
+            waveAnimation = new ArchiveColumnWave(tiles, 3, 12f);
             preview = root.Q("photo-preview"); image = root.Q<ArchivePhotoImageElement>("photo-image");
+            photoFrame = root.Q("photo-frame"); outgoingImage = root.Q<Image>("photo-outgoing");
             heading = root.Q("photo-heading"); information = root.Q(className: "photo-information");
+            root.RegisterCallback<GeometryChangedEvent>(_ => AlignCollectionNavigation());
+            preview.RegisterCallback<GeometryChangedEvent>(_ => AlignCollectionNavigation());
+            information.RegisterCallback<GeometryChangedEvent>(_ => AlignCollectionNavigation());
+            root.Q("photos-page").RegisterCallback<GeometryChangedEvent>(_ => ResizePhotoRegions());
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             cardMaterial.SetVector("_Crop", new Vector4(0, 0, 1, 1));
             card = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave };
             card.Create();
+            outgoingCard = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave };
+            outgoingCard.Create();
             root.Q<Button>("photo-previous").clicked += () => selectPhoto(currentCollection.Selected - 1);
             root.Q<Button>("photo-next").clicked += () => selectPhoto(currentCollection.Selected + 1);
+        }
+
+        private void AlignCollectionNavigation()
+        {
+            var navigation = root.Q("collection-navigation");
+            float left = information.ChangeCoordinatesTo(navigation.parent, Vector2.zero).x;
+            if (!float.IsNaN(left))
+            {
+                navigation.style.left = left;
+                root.Q("photo-divider").style.left = left;
+            }
+        }
+
+        private void ResizePhotoRegions()
+        {
+            float side = root.Q("photos-page").contentRect.height;
+            if (side > 0 && !float.IsNaN(side))
+            {
+                index.style.width = side;
+                photoFrame.style.width = side;
+            }
         }
 
         public void Render(PhotoCollection collection, bool inspection, Action<int> select, Action open, Action catalog, Action sort)
@@ -36,10 +76,10 @@ namespace AnimalGame.Animals.UI
             selectPhoto = select;
             ReleaseThumbnails(); tiles.Clear();
             index.style.display = inspection ? DisplayStyle.None : DisplayStyle.Flex;
-            preview.EnableInClassList("inspection", inspection);
-            var headingParent = inspection ? information : preview;
-            if (heading.parent != headingParent) headingParent.Insert(0, heading);
-            image.Square = !inspection;
+            ResizePhotoRegions();
+            if (heading.parent != information) information.Insert(0, heading);
+            image.Square = false;
+            photoFrame.style.display = inspection ? DisplayStyle.Flex : DisplayStyle.None;
             var sortButton = root.Q<Button>("photo-sort");
             sortButton.text = collection.OldestFirst ? "Oldest first ↑" : "Newest first ↓";
             sortButton.EnableInClassList("selected", collection.SortFocused);
@@ -74,7 +114,20 @@ namespace AnimalGame.Animals.UI
                 button.RegisterCallback<ClickEvent>(e => { if (e.clickCount == 2) open(); });
                 tiles.Add(button);
             }
+            if (inspection) waveAnimation.Stop(); else waveAnimation.Start();
             var current = collection.Current;
+            bool changePhoto = inspection && viewingInspection && current != null
+                && motionPhotoId != null && motionPhotoId != current.id;
+            int previousIndex = changePhoto ? collection.Photos.FindIndex(p => p.id == motionPhotoId) : -1;
+            if (changePhoto)
+            {
+                Graphics.CopyTexture(card, outgoingCard);
+                outgoingStart = incomingOffset;
+            }
+            if (!inspection || current == null) StopSlide();
+            if (inspection && (!viewingInspection || motionPhotoId != current?.id)) idleTilt.Reset();
+            viewingInspection = inspection;
+            motionPhotoId = current?.id;
             root.Q("photo-delete").style.display = current != null ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q<Label>("photo-name").text = current?.displayName ?? "No saved photographs";
             root.Q<Label>("photo-scientific").text = current?.scientificName ?? "";
@@ -93,7 +146,13 @@ namespace AnimalGame.Animals.UI
             var guide = root.Q<Button>("photo-catalog"); guide.SetEnabled(current != null);
             guide.clicked -= catalogHandler; catalogHandler = catalog; guide.clicked += catalogHandler;
             AnimalPhotoProcessing.Release(processed); processed = null; image.image = null;
-            if (current != null) { processed = current.RestorePhoto().Render(1024); tilt = Vector2.zero; image.image = inspection ? card : processed; }
+            if (current != null)
+            {
+                processed = current.RestorePhoto().Render(1024); tilt = Vector2.zero;
+                if (inspection) RenderCard();
+                image.image = inspection ? card : processed;
+                if (changePhoto) StartSlide(previousIndex >= 0 && collection.Selected < previousIndex ? -1 : 1);
+            }
             root.Q<Label>("record-count").text = $"{collection.Photos.Count:00} RECORDS   {collection.Selected + (current == null ? 0 : 1):00} / {collection.Photos.Count:00}";
         }
         private Action sortHandler, openHandler, catalogHandler;
@@ -111,15 +170,54 @@ namespace AnimalGame.Animals.UI
         {
             if (processed == null) return;
             Vector2 target = input.magnitude < .16f ? Vector2.zero : new Vector2(-input.y, input.x) * 16;
+            if (idleTilt.TryGetTarget(input.magnitude > .16f, Time.unscaledDeltaTime, Vector2.zero, out Vector2 automatic))
+                target = automatic;
             tilt = Vector2.Lerp(tilt, target, 1 - Mathf.Exp(-3 * Time.unscaledDeltaTime));
+            RenderCard();
+            if (sliding)
+            {
+                slideElapsed += Time.unscaledDeltaTime;
+                UpdateSlide();
+            }
+        }
+
+        private void RenderCard()
+        {
             cardMaterial.SetFloat("_ImageAspect", (float)processed.width / processed.height);
             cardMaterial.SetVector("_Tilt", new Vector4(tilt.x * Mathf.Deg2Rad, tilt.y * Mathf.Deg2Rad, 0, 0));
             RenderTexture previous = RenderTexture.active; bool srgb = GL.sRGBWrite;
             try { GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear && card.sRGB; Graphics.Blit(processed, card, cardMaterial); }
             finally { RenderTexture.active = previous; GL.sRGBWrite = srgb; }
         }
+
+        private void StartSlide(int direction)
+        {
+            slideDirection = direction; slideElapsed = 0; sliding = true;
+            outgoingImage.image = outgoingCard;
+            outgoingImage.style.display = DisplayStyle.Flex;
+            UpdateSlide();
+        }
+
+        private void UpdateSlide()
+        {
+            float t = Mathf.Clamp01(slideElapsed / SlideDuration);
+            float eased = Mathf.SmoothStep(0, 1, t);
+            float width = photoFrame.contentRect.width;
+            incomingOffset = slideDirection * width * (1 - eased);
+            image.style.translate = new Translate(incomingOffset, 0);
+            outgoingImage.style.translate = new Translate(Mathf.Lerp(outgoingStart, -slideDirection * width, eased), 0);
+            if (t >= 1) StopSlide();
+        }
+
+        private void StopSlide()
+        {
+            sliding = false; incomingOffset = 0;
+            image.style.translate = new Translate(0, 0);
+            outgoingImage.style.display = DisplayStyle.None;
+            outgoingImage.image = null;
+        }
         private void ReleaseThumbnails() { foreach (var texture in thumbnails) AnimalPhotoProcessing.Release(texture); thumbnails.Clear(); }
-        public void Clear() { image.image = null; tiles.Clear(); ReleaseThumbnails(); AnimalPhotoProcessing.Release(processed); processed = null; }
-        public void Dispose() { Clear(); AnimalPhotoProcessing.Release(card); UnityEngine.Object.Destroy(cardMaterial); }
+        public void Clear() { waveAnimation.Stop(); StopSlide(); viewingInspection = false; image.image = null; tiles.Clear(); ReleaseThumbnails(); AnimalPhotoProcessing.Release(processed); processed = null; }
+        public void Dispose() { Clear(); AnimalPhotoProcessing.Release(card); AnimalPhotoProcessing.Release(outgoingCard); UnityEngine.Object.Destroy(cardMaterial); }
     }
 }

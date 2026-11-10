@@ -13,6 +13,7 @@ namespace AnimalGame.Animals.UI
         private readonly VisualElement grid, tree;
         private readonly List<AnimalSpecies> animals = new();
         private readonly List<Button> tiles = new();
+        private readonly ArchiveColumnWave waveAnimation;
         private Action<AnimalSpecies> open;
         private int selected, topRow;
         private float rowHeight;
@@ -22,17 +23,20 @@ namespace AnimalGame.Animals.UI
             scroll = root.Q<ScrollView>("catalog-grid-scroll");
             grid = root.Q("catalog-species-grid");
             tree = root.Q("catalog-progress-tree");
+            waveAnimation = new ArchiveColumnWave(grid, Columns);
             scroll.contentViewport.RegisterCallback<GeometryChangedEvent>(_ => Resize());
         }
 
-        public void Reset() { selected = topRow = 0; scroll.scrollOffset = Vector2.zero; }
+        public void Reset() { StopAnimation(); selected = topRow = 0; scroll.scrollOffset = Vector2.zero; }
+
+        public void StopAnimation() => waveAnimation.Stop();
 
         public void Render(IEnumerable<AnimalSpecies> species, Action<AnimalSpecies> onOpen)
         {
             animals.Clear(); animals.AddRange(species); open = onOpen;
-            int slots = Math.Max(8, ((animals.Count + Columns - 1) / Columns) * Columns);
-            selected = Mathf.Clamp(selected, 0, slots - 1);
-            topRow = Mathf.Clamp(topRow, 0, slots / Columns - 1);
+            int slots = animals.Count;
+            selected = Mathf.Clamp(selected, 0, Mathf.Max(0, slots - 1));
+            topRow = Mathf.Clamp(topRow, 0, Mathf.Max(0, (slots - 1) / Columns));
             grid.Clear(); tiles.Clear();
             for (int i = 0; i < slots; i++)
             {
@@ -67,13 +71,15 @@ namespace AnimalGame.Animals.UI
                 grid.Add(tile); tiles.Add(tile);
             }
             Resize(); UpdateSelection();
+            waveAnimation.Start();
         }
 
         public void Move(int x, int y)
         {
+            if (tiles.Count == 0) return;
             int row = selected / Columns, column = selected % Columns;
-            int nextRow = Mathf.Clamp(row - y, 0, tiles.Count / Columns - 1);
-            selected = nextRow * Columns + Mathf.Clamp(column + x, 0, Columns - 1);
+            int nextRow = Mathf.Clamp(row - y, 0, (tiles.Count - 1) / Columns);
+            selected = Mathf.Min(tiles.Count - 1, nextRow * Columns + Mathf.Clamp(column + x, 0, Columns - 1));
             // Both vertical directions place an out-of-view target row at the top.
             if (nextRow < topRow || nextRow >= topRow + 2) topRow = nextRow;
             UpdateSelection();
@@ -198,6 +204,7 @@ namespace AnimalGame.Animals.UI
             Field("distribution", info.Distribution, tier, 2);
             Field("habitat", info.Habitat, tier, 2);
             Field("conservation", info.ConservationStatus, tier, 2);
+            root.Q<CatalogConservationMeter>("conservation-meter").Bind(info.ConservationStatus, tier >= 2);
             Field("lifespan", info.Lifespan, tier, 3);
             Field("description", info.Description, tier, 3);
             Field("activity", info.ActivityPattern, tier, 3);

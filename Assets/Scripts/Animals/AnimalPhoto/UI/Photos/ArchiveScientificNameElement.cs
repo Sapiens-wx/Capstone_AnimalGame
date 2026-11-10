@@ -8,6 +8,7 @@ namespace AnimalGame.Animals.UI
     {
         private float topLineRatio = 1f;
         private float bottomLineRatio = .4f;
+        private float bottomLineLength = -1f;
         private float topLineOffset;
 
         public float TopLineOffset
@@ -26,6 +27,13 @@ namespace AnimalGame.Animals.UI
         {
             get => topLineRatio;
             set { topLineRatio = Mathf.Clamp01(value); MarkDirtyRepaint(); }
+        }
+
+        [UxmlAttribute]
+        public float BottomLineLength
+        {
+            get => bottomLineLength;
+            set { bottomLineLength = value; MarkDirtyRepaint(); }
         }
 
         [UxmlAttribute]
@@ -53,7 +61,8 @@ namespace AnimalGame.Animals.UI
             painter.Stroke();
             painter.BeginPath();
             painter.MoveTo(new Vector2(0, layout.height - .5f));
-            painter.LineTo(new Vector2(layout.width * bottomLineRatio, layout.height - .5f));
+            float bottomWidth = bottomLineLength >= 0 ? bottomLineLength : layout.width * bottomLineRatio;
+            painter.LineTo(new Vector2(bottomWidth, layout.height - .5f));
             painter.Stroke();
         }
     }

@@ -1072,6 +1072,19 @@ namespace AnimalGame.MapTest
             return EvaluateCurrentSurface(worldPosition, Vector2.up);
         }
 
+        /// <summary>Geometric slope along a fixed world axis, independent of driving and passability.</summary>
+        public bool TryGetSignedSurfaceSlope(Vector2 worldPosition, Vector2 worldDirection, out float slopeDegrees)
+        {
+            slopeDegrees = 0f;
+            if (!IsInitialized || worldDirection.sqrMagnitude < .000001f
+                || !map.TrySampleWorldPosition(worldPosition, out Vector2 mapPosition, out _)) return false;
+            Vector2 mapDirection = map.WorldDirectionToMapDirection(worldDirection);
+            if (mapDirection.sqrMagnitude < .000001f
+                || !TryAnalyzeSurface(mapPosition, mapDirection, out SurfaceAnalysis analysis)) return false;
+            slopeDegrees = analysis.SignedDirectionalSlopeAngle;
+            return true;
+        }
+
         public SlopeTraversalResult EvaluateCurrentSurface(
             Vector2 worldPosition,
             Vector2 worldDirection)

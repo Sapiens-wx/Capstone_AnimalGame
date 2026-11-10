@@ -37,7 +37,7 @@ namespace AnimalGame.Animals.UI
             if (rebuild)
             {
                 StopAnimation(); scroll.Clear(); items.Clear(); animals.Clear(); animals.AddRange(species);
-                for (int i = 0; i < Mathf.Max(VisibleSlots, animals.Count); i++)
+                for (int i = 0; i < animals.Count; i++)
                 {
                     int index = i;
                     var item = new CatalogSidebarItem { focusable = false };
@@ -64,9 +64,12 @@ namespace AnimalGame.Animals.UI
 
         public int FindNextSelectable(int current, int direction)
         {
-            int start = current < 0 ? (direction > 0 ? -1 : animals.Count) : current;
-            for (int i = start + direction; i >= 0 && i < animals.Count; i += direction)
-                if (selectable[i]) return i;
+            int start = current < 0 ? (direction > 0 ? -1 : 0) : current;
+            for (int step = 1; step <= animals.Count; step++)
+            {
+                int i = ((start + step * direction) % animals.Count + animals.Count) % animals.Count;
+                if (i != current && selectable[i]) return i;
+            }
             return -1;
         }
 

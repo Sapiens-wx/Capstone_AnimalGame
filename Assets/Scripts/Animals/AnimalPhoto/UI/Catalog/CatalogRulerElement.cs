@@ -7,6 +7,8 @@ namespace AnimalGame.Animals.UI
     public partial class CatalogRulerElement : VisualElement
     {
         private const int VerticalTicks = 20;
+        // Shared frame proportions match the American bison reference (1445 x 965).
+        private const float FrameAspectRatio = 1445f / 965f;
         private readonly Image illustration;
         private readonly Label shoulder, length, mass;
         private CatalogHeadingElement heading;
@@ -70,13 +72,17 @@ namespace AnimalGame.Animals.UI
             if (viewport == null || heading == null) return;
             float height = viewport.layout.height * heightRatio;
             if (float.IsNaN(height) || height <= 0) return;
-            // Use the exact starting point drawn by CatalogHeadingElement.
-            Vector2 anchor = heading.ChangeCoordinatesTo(parent,
+            // Follow the heading layout, excluding its visual-only translation.
+            Vector2 anchor = heading.parent.ChangeCoordinatesTo(parent, heading.layout.position +
                 new Vector2(heading.contentRect.xMin - 6f, heading.contentRect.yMax + 3f));
             style.left = anchor.x;
             style.top = anchor.y;
             style.height = height;
-            style.width = illustration.image == null ? 0 : height * illustration.image.width / illustration.image.height;
+            float width = height * FrameAspectRatio;
+            style.width = width;
+            // Center the title on the horizontal ruler without moving the illustration or rulers.
+            heading.style.translate = new Translate(anchor.x + width * .5f
+                - heading.layout.x - heading.layout.width * .5f, 0);
             // The description shares the row below the ruler with its length caption.
             parent.style.height = anchor.y + height + 16f;
             MarkDirtyRepaint();

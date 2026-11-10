@@ -77,6 +77,9 @@ namespace AnimalGame.RobotMap
         private RenderTexture processedPhoto;
         private Texture photoSource, contourSource;
         private Vector2 tilt;
+        private readonly PhotoIdleTilt idleTilt = new PhotoIdleTilt();
+        private Vector2 previousMousePosition;
+        private bool hasMousePosition;
         private float lastAnimationProgress = -1;
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private bool showing;
@@ -147,7 +150,24 @@ namespace AnimalGame.RobotMap
                 element.pickingMode = PickingMode.Ignore;
             CollectVectorElements();
             ConfigureDesignLayout();
+            BindActionUnderline("save-label", "catalog-rule");
+            BindActionUnderline("catalog-label", "photo-save-rule");
             root.style.display = DisplayStyle.None;
+        }
+
+        private void BindActionUnderline(string labelName, string lineName)
+        {
+            var label = root.Q<Label>(labelName);
+            var line = root.Q<PhotoResultLineElement>(lineName);
+            Vector2 authoredStart = line.startPoint;
+            label.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                float right = label.ChangeCoordinatesTo(line, new Vector2(label.contentRect.xMax, 0)).x;
+                float letterWidth = label.MeasureTextSize("n", 0, VisualElement.MeasureMode.Undefined,
+                    0, VisualElement.MeasureMode.Undefined).x;
+                line.startPoint = authoredStart;
+                line.endPoint = new Vector2(right + letterWidth, line.endPoint.y);
+            });
         }
 
         private void ConfigureDesignLayout()
@@ -251,6 +271,8 @@ namespace AnimalGame.RobotMap
             Blit(contourSource != null ? contourSource : Texture2D.blackTexture, circleOutput, circleMaterial);
             snapshotImage.image = circleOutput;
             tilt = restingTiltDegrees;
+            idleTilt.Reset();
+            hasMousePosition = false;
             lastAnimationProgress = -1;
             animationSettings.Open();
             textRevealStarted = false;
@@ -275,8 +297,8 @@ namespace AnimalGame.RobotMap
         private void PrepareTextReveal()
         {
             // Authored top-to-bottom order; the animal name intentionally stays visible.
-            string[] labelNames = { "metadata", "location-title", "catalog-label", "region", "altitude",
-                "save-label", "coordinates", "longitude", "latitude", "scientific-name" };
+            string[] labelNames = { "metadata", "location-title", "save-label", "region", "altitude",
+                "catalog-label", "coordinates", "longitude", "latitude", "scientific-name" };
             pendingTextRevealLabels.Clear();
             foreach (string name in labelNames)
             {
@@ -363,7 +385,7 @@ namespace AnimalGame.RobotMap
             UpdateLocation(result);
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
             root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
-            photosLabel.text = "Photo";
+            photosLabel.text = "Photos";
         }
 
         public void Close() { if (showing && !IsWarmingUp) animationSettings.Close(); }
@@ -477,23 +499,25 @@ namespace AnimalGame.RobotMap
             if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
             Vector2 input = Vector2.zero;
             bool gamepadConnected = false;
+            bool takeControl = false;
 #if ENABLE_INPUT_SYSTEM
             foreach (Gamepad pad in Gamepad.all)
             {
                 if (!pad.added) continue;
                 gamepadConnected = true;
-                Vector2 value = pad.leftStick.ReadValue();
+                Vector2 value = pad.rightStick.ReadValue();
                 if (value.sqrMagnitude > input.sqrMagnitude) input = value;
             }
 #endif
             if (!gamepadConnected)
             {
-                input = AdaptiveLegacyGamepadInput.ReadLeftStick();
+                input = AdaptiveLegacyGamepadInput.ReadRightStick();
                 gamepadConnected = AdaptiveLegacyGamepadInput.HasConnectedGamepad;
             }
             if (gamepadConnected)
             {
                 float magnitude = input.magnitude;
+                takeControl = magnitude > stickDeadZone;
                 input = magnitude <= stickDeadZone ? Vector2.zero
                     : input.normalized * Mathf.InverseLerp(stickDeadZone, 1, magnitude);
             }
@@ -506,6 +530,9 @@ namespace AnimalGame.RobotMap
 #if ENABLE_INPUT_SYSTEM
                 if (Mouse.current != null) mouse = Mouse.current.position.ReadValue();
 #endif
+                takeControl = hasMousePosition && (mouse - previousMousePosition).sqrMagnitude > 1f;
+                previousMousePosition = mouse;
+                hasMousePosition = true;
                 Vector2 point = RuntimePanelUtils.ScreenToPanel(root.panel, new Vector2(mouse.x, Screen.height - mouse.y));
                 Rect bounds = photo.worldBound;
                 input = new Vector2(Mathf.Clamp((point.x - bounds.center.x) / (bounds.width * 0.5f), -1, 1),
@@ -515,6 +542,8 @@ namespace AnimalGame.RobotMap
             Vector2 target = new Vector2(
                 MapTilt(-input.y, restingTiltDegrees.x, maximumTilt),
                 MapTilt(input.x, restingTiltDegrees.y, maximumTilt));
+            if (idleTilt.TryGetTarget(takeControl, Time.unscaledDeltaTime, restingTiltDegrees, out Vector2 automatic))
+                target = automatic;
             Vector2 next = Vector2.Lerp(tilt, target, 1 - Mathf.Exp(-tiltResponse * Time.unscaledDeltaTime));
             if ((next - tilt).sqrMagnitude < 0.000001f) return;
             tilt = next;
