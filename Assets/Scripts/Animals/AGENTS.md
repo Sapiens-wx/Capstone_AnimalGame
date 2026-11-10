@@ -31,10 +31,12 @@
 - 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，RB 返回主 Catalog、Y 查看该物种照片；`CatalogView` 填充详情。上传至少一张照片、已解锁一级信息的物种可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`，底部详情识别条仍为静态占位。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
 - Photos 和 Catalog 共用外框、标签栏、侧栏、内容边框及底栏尺寸；公共布局直接定义在共享样式中，不按页面切换尺寸。
+- Catalog 网格与物种侧栏只排列已解锁动物，不补空格，按英文显示名称 A–Z 排序；物种详情 LT/RT 在首尾循环。
 - 标签选中黄线位于内容背景上方，中心叠加与标签边框同色同宽的横线，避免跨越标签底边时被内容背景遮挡。
-- Species 页的 `CatalogRulerElement` 按屏幕高度和 `Illustration` 比例绘制标尺，读取 `AnimalInfo.ShoulderHeight/TotalLength/BodyMass`；未解锁区块透明度为 70%，内容为 `Unidentified`，分布图保留底图并在解锁后叠加 `DistributionMap`。
+- Species 页的 `CatalogRulerElement` 按屏幕高度与统一的美洲野牛参考比例（1445:965）绘制所有物种标尺，不依赖是否配置插图；读取 `AnimalInfo.ShoulderHeight/TotalLength/BodyMass`。
 - Species 页详情使用普通容器；学名、Physical Characteristics 和 Distribution 顶部对齐，LT/RT 条贴齐页面右上角，其左端距动物名称 Label 右缘为屏幕宽度的 3%。
 - Description 自然排在 Classification 与 Physical Characteristics 两栏下方；Distribution 等区块使用独立右栏。
+- Conservation Status 下方的 `CatalogConservationMeter` 绘制五档白色刻度；二级解锁后，按 `AnimalInfo.ConservationStatus` 显示黄色指针，从 Least Concern 到 Critically Endangered。
 - 已保存照片来自 `SaveSystem.Current.photos`；`AnimalPhotoRecord` 保存原图标识、效果与裁剪参数，界面监听 `SaveSystem.Changed` 刷新；`PhotoDeleteHold` 管理长按 X 1.5 秒删除，`ArchiveHoldCircleElement` 显示环形进度，删除通过 `SaveSystem.DeletePhoto` 持久化。
 
 - `SaveSystem` 统一读写 `Application.persistentDataPath/animal-save.bin`，缺失时创建空存档；`GameSave` 是普通数据类，二进制格式包含签名、版本、照片及物种进度，Editor 和独立 Player 使用同一逻辑。

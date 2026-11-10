@@ -218,7 +218,8 @@ namespace AnimalGame.Animals.UI
         private void RenderCatalog()
         {
             catalogSpecies.Clear();
-            catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info.Keys.OrderBy(s => (int)s));
+            catalogSpecies.AddRange(AnimalArchiveAssets.Active.Info.Keys.Where(IsIdentified).OrderBy(
+                s => AnimalArchiveAssets.Active.Photos[s].DisplayName, StringComparer.OrdinalIgnoreCase));
             if (page == Page.Species) catalogIndex = catalogSpecies.IndexOf(species);
             catalogSidebar.Bind(catalogSpecies, IsIdentified,
                 animal => AnimalArchiveAssets.Active.Photos[animal].DisplayName,
@@ -227,8 +228,8 @@ namespace AnimalGame.Animals.UI
             {
                 catalogSidebar.StopAnimation();
                 if (lastRenderedPage != Page.Catalog)
-                    mainCatalogView.RenderProgress(catalogSpecies.Count(IsIdentified));
-                mainCatalogView.Render(catalogSpecies.Where(IsIdentified), animal => SelectCatalogSpecies(catalogSpecies.IndexOf(animal)));
+                    mainCatalogView.RenderProgress(catalogSpecies.Count);
+                mainCatalogView.Render(catalogSpecies, animal => SelectCatalogSpecies(catalogSpecies.IndexOf(animal)));
             }
             if (page == Page.Species)
             {

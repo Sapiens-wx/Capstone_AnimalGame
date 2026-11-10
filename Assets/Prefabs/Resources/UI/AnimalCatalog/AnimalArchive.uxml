@@ -135,7 +135,7 @@
                                 <ui:VisualElement name="catalog-primary">
                                     <ui:VisualElement class="row catalog-primary-columns">
                                         <ui:VisualElement class="catalog-column narrow">
-                                            <archive:ArchiveScientificNameElement name="catalog-scientific" bottom-line-ratio="0.1" text="Scientific Name" />
+                                            <archive:ArchiveScientificNameElement name="catalog-scientific" bottom-line-length="40" text="Scientific Name" />
                                             <ui:VisualElement name="classification-section" class="catalog-section">
                                                 <archive:CatalogHeadingElement text="Classification" />
                                                 <ui:Label name="classification" />
@@ -147,10 +147,11 @@
                                             <ui:VisualElement name="conservation-section" class="catalog-section">
                                                 <archive:CatalogHeadingElement text="&lt;line-height=90%&gt;Conservation&#10;Status &lt;size=75%&gt;(21st c.)&lt;/size&gt;&lt;/line-height&gt;" enable-rich-text="true" />
                                                 <ui:Label name="conservation" />
+                                                <archive:CatalogConservationMeter name="conservation-meter" />
                                             </ui:VisualElement>
                                         </ui:VisualElement>
                                         <ui:VisualElement class="catalog-column illustration-column">
-                                            <archive:CatalogHeadingElement name="physical-heading" text="Physical Characteristics" />
+                                            <archive:CatalogHeadingElement name="physical-heading" text="Physical Characteristics" both-ends="true" />
                                             <archive:CatalogRulerElement name="physical-ruler" height-ratio="0.42" />
                                         </ui:VisualElement>
                                     </ui:VisualElement>

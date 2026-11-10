@@ -91,7 +91,7 @@ Button:disabled { opacity: 0.35; }
 .catalog-primary-columns { align-items: flex-start; flex-shrink: 0; }
 #catalog-primary .narrow { width: 33.3333%; }
 /* Let Description follow the taxonomy sections without a gap imposed by the illustration. */
-#catalog-primary .illustration-column { position: absolute; left: 33.3333%; top: 0; width: 66.6667%; padding-left: 8px; }
+#catalog-primary .illustration-column { position: absolute; left: 33.3333%; top: 0; width: 66.6667%; padding-left: 8px; translate: 28px 0; }
 .catalog-column { padding: 0; }
 .catalog-column Label, #description { white-space: normal; }
 .narrow { width: 27%; }
@@ -102,11 +102,13 @@ Button:disabled { opacity: 0.35; }
 .catalog-ruler > Label { position: absolute; font-size: 22px; color: white; white-space: nowrap; margin: 0; padding: 0; }
 .catalog-ruler > .ruler-shoulder { left: -40px; top: 50%; translate: -50% -50%; rotate: -90deg; transform-origin: 50% 50%; }
 .catalog-ruler > .ruler-length { top: 100%; left: 0; width: 100%; margin-top: 18px; -unity-text-align: upper-center; }
-.catalog-ruler > .ruler-mass { left: 10px; bottom: 8px; }
+.catalog-ruler > .ruler-mass { left: 10px; bottom: 8px; height: 32px; -unity-text-align: middle-left; }
 #distribution-frame { height: 225px; width: 300px; max-width: 100%; align-self: flex-end; background-image: url("/Assets/Arts/Animals/Animal_Catalog/DistributionBison.png"); -unity-background-scale-mode: scale-to-fit; }
 #distribution-map, #distribution-unidentified { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 #distribution-unidentified { -unity-text-align: middle-center; }
 #description-section { width: 110%; padding: 0; }
+#conservation-meter { width: 54%; height: 37.8px; flex-shrink: 0; margin-top: 0; margin-bottom: 0; }
+#description-section > .catalog-heading { margin-top: 4px; }
 #species-photos { align-self: flex-end; flex-shrink: 0; margin-top: 18px; margin-bottom: 12px; }
 .action-key-right > .photo-action-circle { margin-left: 8px; margin-right: 0; }
 .action-key-right > .photo-action-underline { left: 0; right: 15px; }
@@ -121,7 +123,8 @@ Button:disabled { opacity: 0.35; }
 #catalog-name { align-self: flex-start; flex-shrink: 0; font-size: 56px; margin: 0 0 12px; padding: 0; translate: 0 10px; white-space: nowrap; }
 #catalog-scientific { flex-shrink: 0; align-self: flex-start; font-size: 36px; padding: 2px 6px; margin: 0; border-color: white; overflow: visible; }
 .catalog-heading { color: #D4B854; font-size: 36px; margin-top: 10px; margin-bottom: 3px; padding: 0; align-self: flex-start; max-width: 100%; white-space: normal; flex-shrink: 0; }
-#physical-heading { margin-top: 0; }
+#physical-heading { margin-top: 0; white-space: nowrap; }
+#catalog-scientific { white-space: nowrap; }
 .catalog-right-column { align-items: flex-end; }
 .catalog-right-column > .catalog-section { width: 100%; margin-bottom: 0; }
 .catalog-right-column > .catalog-section > Label { -unity-text-align: upper-right; }
