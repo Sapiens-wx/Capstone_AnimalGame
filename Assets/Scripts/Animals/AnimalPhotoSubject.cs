@@ -64,7 +64,7 @@ namespace AnimalGame.Animals
         [SerializeField, Min(0)] private int cognitionReward;
 
         [Header("Photo Detection")]
-        [Tooltip("Only these authored body renderers define how much of the animal is inside the camera frame. Do not include the unknown-static field or direction indicator.")]
+        [Tooltip("Only these authored body renderers define how much of the animal is inside the camera frame. Do not include the unknown-static field.")]
         [SerializeField] private SpriteRenderer[] photoBoundsRenderers =
             Array.Empty<SpriteRenderer>();
 
@@ -112,8 +112,8 @@ namespace AnimalGame.Animals
         public int CognitionDegrees => Mathf.Max(0, cognitionDegrees);
         public int BaseReward => Mathf.Max(0, baseReward);
         public int CognitionReward => Mathf.Max(0, cognitionReward);
-        // Shared by scan markers so neither the uncertainty field nor the
-        // direction indicator can count as seeing the animal's actual body.
+        // Shared by scan markers so the uncertainty field cannot count as
+        // seeing the animal's actual body.
         public IReadOnlyList<SpriteRenderer> BodyRenderers => photoBoundsRenderers;
 
         private void Awake()

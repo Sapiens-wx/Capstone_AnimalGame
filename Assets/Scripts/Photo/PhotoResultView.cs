@@ -147,7 +147,24 @@ namespace AnimalGame.RobotMap
                 element.pickingMode = PickingMode.Ignore;
             CollectVectorElements();
             ConfigureDesignLayout();
+            BindActionUnderline("save-label", "catalog-rule");
+            BindActionUnderline("catalog-label", "photo-save-rule");
             root.style.display = DisplayStyle.None;
+        }
+
+        private void BindActionUnderline(string labelName, string lineName)
+        {
+            var label = root.Q<Label>(labelName);
+            var line = root.Q<PhotoResultLineElement>(lineName);
+            Vector2 authoredStart = line.startPoint;
+            label.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                float right = label.ChangeCoordinatesTo(line, new Vector2(label.contentRect.xMax, 0)).x;
+                float letterWidth = label.MeasureTextSize("n", 0, VisualElement.MeasureMode.Undefined,
+                    0, VisualElement.MeasureMode.Undefined).x;
+                line.startPoint = authoredStart;
+                line.endPoint = new Vector2(right + letterWidth, line.endPoint.y);
+            });
         }
 
         private void ConfigureDesignLayout()
@@ -275,8 +292,8 @@ namespace AnimalGame.RobotMap
         private void PrepareTextReveal()
         {
             // Authored top-to-bottom order; the animal name intentionally stays visible.
-            string[] labelNames = { "metadata", "location-title", "catalog-label", "region", "altitude",
-                "save-label", "coordinates", "longitude", "latitude", "scientific-name" };
+            string[] labelNames = { "metadata", "location-title", "save-label", "region", "altitude",
+                "catalog-label", "coordinates", "longitude", "latitude", "scientific-name" };
             pendingTextRevealLabels.Clear();
             foreach (string name in labelNames)
             {
@@ -363,7 +380,7 @@ namespace AnimalGame.RobotMap
             UpdateLocation(result);
             string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
             root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
-            photosLabel.text = "Photo";
+            photosLabel.text = "Photos";
         }
 
         public void Close() { if (showing && !IsWarmingUp) animationSettings.Close(); }

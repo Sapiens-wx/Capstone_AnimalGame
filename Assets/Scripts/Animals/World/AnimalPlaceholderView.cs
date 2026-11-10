@@ -9,13 +9,11 @@ namespace AnimalGame.Animals
         [SerializeField] private Transform visualRoot;
         [SerializeField] private SpriteRenderer bodyFill;
         [SerializeField] private SpriteRenderer bodyOutline;
-        [SerializeField] private SpriteRenderer directionIndicator;
         [SerializeField] private AnimalDiscoveryVisual discoveryVisual;
 
         private Vector3 baseVisualScale = Vector3.one;
         private Color baseBodyFillColor = Color.black;
         private Color baseBodyOutlineColor = Color.white;
-        private Color baseIndicatorColor = Color.white;
 
         private void Awake()
         {
@@ -25,13 +23,11 @@ namespace AnimalGame.Animals
         public void ConfigureEditorReferences(
             Transform root,
             SpriteRenderer fill,
-            SpriteRenderer outline,
-            SpriteRenderer indicator)
+            SpriteRenderer outline)
         {
             visualRoot = root;
             bodyFill = fill;
             bodyOutline = outline;
-            directionIndicator = indicator;
             CacheBaseAppearance();
         }
 
@@ -55,7 +51,6 @@ namespace AnimalGame.Animals
             {
                 ApplyAlpha(bodyFill, baseBodyFillColor, visibility);
                 ApplyAlpha(bodyOutline, baseBodyOutlineColor, visibility);
-                ApplyAlpha(directionIndicator, baseIndicatorColor, visibility);
             }
         }
 
@@ -79,8 +74,6 @@ namespace AnimalGame.Animals
                 baseBodyFillColor = bodyFill.color;
             if (bodyOutline != null)
                 baseBodyOutlineColor = bodyOutline.color;
-            if (directionIndicator != null)
-                baseIndicatorColor = directionIndicator.color;
         }
 
         public void ScaleVisuals(float factor)
