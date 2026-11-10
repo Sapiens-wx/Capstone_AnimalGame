@@ -237,6 +237,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                 // inside the player UI. Water is a persistent natural feature:
                 // it stays visible everywhere, while this same reveal mask only
                 // selects whether its pattern is static or animated.
+                float dryBankContourMask = 0.0;
                 if (_SurfaceEnabled > 0.5 || _WaterEnabled > 0.5)
                 {
                     fixed4 waterData = _WaterEnabled > 0.5
@@ -268,6 +269,9 @@ Shader "AnimalGame/Dynamic Height Contours"
                         // R is a binary authored range. G preserves normalized
                         // depth so deeper water can move more slowly and remain
                         // more opaque without changing traversal data.
+                        // B optionally enables a local 80 m contour on dry land.
+                        dryBankContourMask = waterData.b
+                            * (1.0 - smoothstep(0.02, 0.5, waterData.r));
                         float2 mapMeters = input.uv * _MapSizeMeters.xy
                                            + _WaterOriginMeters.xy;
                         float depthSpeed = lerp(
@@ -433,7 +437,8 @@ Shader "AnimalGame/Dynamic Height Contours"
                     _MinimumOpacity,
                     _MaximumOpacity,
                     visibleHeightProgress);
-                float derivativeWidth = max(fwidth(contourCoordinate), 0.00001);
+                float contourDerivative = fwidth(contourCoordinate);
+                float derivativeWidth = max(contourDerivative, 0.00001);
                 float requestedHalfWidth = derivativeWidth * lineWidth * 0.5;
                 float maximumHalfWidth = saturate(_MaximumCoverage) * 0.5;
                 float widestRequestedHalfWidth =
@@ -449,6 +454,16 @@ Shader "AnimalGame/Dynamic Height Contours"
                     nearestContourDistance);
 
                 float blendAmount = saturate(lineMask * lineOpacity * _ContourColor.a);
+                if (dryBankContourMask > 0.0 && _PhotoContoursOnly < 0.5)
+                {
+                    float heightDerivative = contourDerivative * interval;
+                    float distancePixels = abs(heightMeters - 80.0)
+                        / max(heightDerivative, 0.00001);
+                    float bankLine = 1.0 - smoothstep(0.25, 0.75, distancePixels);
+                    float gradientMask = smoothstep(0.00005, 0.002, heightDerivative);
+                    blendAmount = max(blendAmount, saturate(bankLine
+                        * gradientMask * dryBankContourMask * _ContourColor.a * 0.7));
+                }
                 baseColor.rgb = lerp(baseColor.rgb, _ContourColor.rgb, blendAmount);
 
                 if (_ElevationFilterEnabled > 0.5
