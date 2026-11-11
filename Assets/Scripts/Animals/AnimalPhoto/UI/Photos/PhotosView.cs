@@ -16,6 +16,7 @@ namespace AnimalGame.Animals.UI
         private readonly Image outgoingImage;
         private readonly List<RenderTexture> thumbnails = new();
         private readonly ArchiveColumnWave waveAnimation;
+        private readonly ArchiveButtonFeedback buttonFeedback;
         private RenderTexture processed, card, outgoingCard, outgoingProcessed;
         private Material cardMaterial, outgoingMaterial;
         private Vector2 tilt;
@@ -30,8 +31,9 @@ namespace AnimalGame.Animals.UI
         private const float SlideRetreatDegrees = 32f;
         private PhotoCollection currentCollection;
         private Action<int> selectPhoto;
-        public PhotosView(VisualElement root, Shader compositeShader)
+        public PhotosView(VisualElement root, Shader compositeShader, ArchiveButtonFeedback buttonFeedback)
         {
+            this.buttonFeedback = buttonFeedback;
             this.root = root; index = root.Q("photo-index"); tiles = root.Q("photo-tiles");
             waveAnimation = new ArchiveColumnWave(tiles, 3, 12f);
             preview = root.Q("photo-preview"); image = root.Q<ArchivePhotoImageElement>("photo-image");
@@ -48,8 +50,8 @@ namespace AnimalGame.Animals.UI
             card.Create();
             outgoingCard = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave };
             outgoingCard.Create();
-            root.Q<Button>("photo-previous").clicked += () => selectPhoto(currentCollection.Selected - 1);
-            root.Q<Button>("photo-next").clicked += () => selectPhoto(currentCollection.Selected + 1);
+            root.Q<Button>("photo-previous").clicked += () => buttonFeedback.Run("photo-previous", () => selectPhoto(currentCollection.Selected - 1));
+            root.Q<Button>("photo-next").clicked += () => buttonFeedback.Run("photo-next", () => selectPhoto(currentCollection.Selected + 1));
         }
 
         private void AlignCollectionNavigation()
@@ -151,9 +153,9 @@ namespace AnimalGame.Animals.UI
             root.Q<Button>("photo-previous").SetEnabled(current != null && collection.Selected > 0);
             root.Q<Button>("photo-next").SetEnabled(current != null && collection.Selected < collection.Photos.Count - 1);
             var view = root.Q<Button>("photo-open"); view.style.display = inspection ? DisplayStyle.None : DisplayStyle.Flex;
-            view.SetEnabled(current != null); view.clicked -= openHandler; openHandler = open; view.clicked += openHandler;
+            view.SetEnabled(current != null); view.clicked -= openHandler; openHandler = () => buttonFeedback.Run("photo-open", open); view.clicked += openHandler;
             var guide = root.Q<Button>("photo-catalog"); guide.SetEnabled(current != null);
-            guide.clicked -= catalogHandler; catalogHandler = catalog; guide.clicked += catalogHandler;
+            guide.clicked -= catalogHandler; catalogHandler = () => buttonFeedback.Run("photo-catalog", catalog); guide.clicked += catalogHandler;
             AnimalPhotoProcessing.Release(processed); processed = null; image.image = null;
             if (current != null)
             {

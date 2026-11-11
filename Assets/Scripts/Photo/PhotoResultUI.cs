@@ -160,7 +160,7 @@ namespace AnimalGame.RobotMap
 
         private IEnumerator CompleteResultAction(Action action)
         {
-            yield return new WaitForSecondsRealtime(PhotoUnlockPulse.RippleSeconds);
+            yield return new WaitForSecondsRealtime(PhotoUnlockPulse.ActionDelaySeconds);
             pendingAction = null;
             if (visible) action();
         }

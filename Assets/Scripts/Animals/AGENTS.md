@@ -31,6 +31,7 @@
 - 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，RB 返回主 Catalog、Y 查看该物种照片；`CatalogView` 填充详情。拍到物种即解锁一级并在图鉴可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
 - Photos 和 Catalog 共用外框、标签栏、侧栏、内容边框及底栏尺寸；公共布局直接定义在共享样式中，不按页面切换尺寸。
+- 两页的 A/B/X/Y 和方向箭头为黑底白字、黄色圆环（42 像素直径、4 像素描边），LT/RT/LB/RB 保留白色矩形边框和黄色文字；`ArchiveButtonFeedback` 复用结算页的挤压回弹和涟漪，0.05 秒后执行操作、动画独立持续 0.2 秒，鼠标/键盘/手柄走同一入口，关闭时取消待执行动作。照片操作下划线与按键圆环底部对齐；长按删除按下仅缩放，删除成功后才播放涟漪。
 - Photos 列表与大图页共用右侧信息区和翻页栏定位；左侧区域宽度等于页面内容高度，分别显示 Photo Index 或正方形大图，列表页不重复显示小预览图。
 - 大图页切换照片时，`PhotosView` 保留上一张照片源图，0.32 秒内左右滑出/滑入；滑出照片随进度向移动方向的反侧后倾至 32°，左右镜像。`photo-frame` 裁切越界内容，动画使用非缩放时间，结束或关闭时释放旧图。
 - 大图页与照片结算页共用 `PhotoIdleTilt`，7 秒循环转动；结算页两轴幅度为 4.5° / 3°，大图页倍率 1.5（6.75° / 4.5°）。右摇杆超过死区时手动控制，松开后平滑恢复自动转动，换图或重新进入时重置相位。
@@ -45,7 +46,7 @@
 - 已保存照片来自 `SaveSystem.Current.photos`；`AnimalPhotoRecord` 保存原图标识、效果与裁剪参数，界面监听 `SaveSystem.Changed` 刷新；`PhotoDeleteHold` 管理长按 X 1.5 秒删除，`ArchiveHoldCircleElement` 显示环形进度，删除通过 `SaveSystem.DeletePhoto` 持久化。
 
 - `SaveSystem` 统一读写 `Application.persistentDataPath/animal-save.bin`，缺失时创建空存档；`GameSave` 是普通数据类，二进制格式包含签名、版本、照片及物种进度，Editor 和独立 Player 使用同一逻辑。
-- `StorePhoto` 拍照保存时立即增加认知度（每张照片 1/5 点），首次大于 0、达到 30/100 时升级。结算快照 `UnlockAdvanced` 仅决定 Catalog 后黄色星号；星号随文字打印，使用 Cargo 的 Orbitron-Medium 47 号字体，复用 InventoryController 的透明度闪烁（50%–100%，共用 MainUI 的周期配置），不缩放。Y/X/B 按下立即触发独立涟漪和按键快速缩小回弹，0.2 秒后执行对应页面操作，与解锁度无关。涟漪半径上限 180、快速淡出，位于照片上层、文字下层。存档 v3 迁移 v1/v2 时仅补计未上传照片，不重复计分。
+- `StorePhoto` 拍照保存时立即增加认知度（每张照片 1/5 点），首次大于 0、达到 30/100 时升级。结算快照 `UnlockAdvanced` 仅决定 Catalog 后黄色星号；星号随文字打印，使用 Cargo 的 Orbitron-Medium 47 号字体，复用 InventoryController 的透明度闪烁（50%–100%，共用 MainUI 的周期配置），不缩放。Y/X/B 按下立即触发独立涟漪和按键快速缩小回弹，0.05 秒后执行对应页面操作，与解锁度无关。涟漪半径上限 108、快速淡出，位于照片上层、文字下层。存档 v3 迁移 v1/v2 时仅补计未上传照片，不重复计分。
 
 # Earthline 通信
 

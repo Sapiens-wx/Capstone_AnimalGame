@@ -5,6 +5,8 @@ namespace AnimalGame.RobotMap
 {
     public sealed class PhotoUnlockPulse : VisualElement
     {
+        public const float ActionDelaySeconds = .05f;
+        public const float MaximumRadius = 108f;
         public const float PressSeconds = .04f;
         public const float ReboundSeconds = .1f;
         public const float SettleSeconds = .06f;

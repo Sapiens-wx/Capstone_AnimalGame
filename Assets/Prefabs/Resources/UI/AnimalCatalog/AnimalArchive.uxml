@@ -16,9 +16,9 @@
             <ui:VisualElement class="body">
                 <ui:VisualElement class="sidebar">
                     <ui:Button name="main-catalog" class="photo-action" style="display: none;">
+                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         <ui:Label text="RB" picking-mode="Ignore" class="key-badge" />
                         <ui:Label text="Main Catalog" picking-mode="Ignore" class="photo-action-caption" />
-                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                     </ui:Button>
                     <ui:VisualElement name="main-catalog-summary" style="display: none;">
                         <ui:VisualElement class="main-catalog-heading">
@@ -105,31 +105,31 @@
                                         </ui:VisualElement>
                                     </ui:VisualElement>
                                     <ui:Button name="photo-open" class="photo-action">
+                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         <ui:Label text="A" picking-mode="Ignore" class="photo-action-circle" />
                                         <ui:Label text="View Photograph" picking-mode="Ignore" class="photo-action-caption" />
-                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                     <ui:VisualElement name="photo-navigation" class="photo-navigation">
                                         <ui:Button name="photo-previous" class="photo-action">
+                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                             <ui:Label text="←" picking-mode="Ignore" class="photo-action-circle" />
                                             <ui:Label text="Previous" picking-mode="Ignore" class="photo-action-caption" />
-                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         </ui:Button>
                                         <ui:Button name="photo-next" class="photo-action">
+                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                             <ui:Label text="→" picking-mode="Ignore" class="photo-action-circle" />
                                             <ui:Label text="Next" picking-mode="Ignore" class="photo-action-caption" />
-                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         </ui:Button>
                                     </ui:VisualElement>
                                     <ui:Button name="photo-catalog" class="photo-action">
+                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         <ui:Label text="Y" picking-mode="Ignore" class="photo-action-circle" />
                                         <ui:Label text="View Catalog" picking-mode="Ignore" class="photo-action-caption" />
-                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                     <ui:Button name="photo-delete" class="photo-action">
+                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         <archive:ArchiveHoldCircleElement name="photo-delete-progress" text="X" picking-mode="Ignore" class="photo-action-circle" />
                                         <ui:Label text="Hold to Delete Photo" picking-mode="Ignore" class="photo-action-caption" />
-                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                 </ui:VisualElement>
                             </ui:VisualElement>
@@ -202,9 +202,9 @@
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:Button name="species-photos" class="photo-action action-key-right">
+                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                             <ui:Label text="View Animal Photo" picking-mode="Ignore" class="photo-action-caption" />
                             <ui:Label text="Y" picking-mode="Ignore" class="photo-action-circle" />
-                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         </ui:Button>
                     </ui:VisualElement>
                     <ui:VisualElement class="footer" style="border-right-width: 0; border-right-color: rgb(155, 156, 147);">
@@ -214,9 +214,9 @@
                             <archive:CatalogRecognitionElement name="recognition" picking-mode="Ignore" />
                         </ui:VisualElement>
                         <ui:Button name="back" class="photo-action">
+                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                             <ui:Label text="B" picking-mode="Ignore" class="photo-action-circle" />
                             <ui:Label text="Last Menu" picking-mode="Ignore" class="photo-action-caption" />
-                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         </ui:Button>
                     </ui:VisualElement>
                 </ui:VisualElement>

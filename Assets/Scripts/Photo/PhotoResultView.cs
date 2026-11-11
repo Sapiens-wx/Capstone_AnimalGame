@@ -546,7 +546,7 @@ namespace AnimalGame.RobotMap
             unlockPulse.style.display = rippleVisible ? DisplayStyle.Flex : DisplayStyle.None;
             if (!rippleVisible) { feedbackBadge = null; return; }
             Vector2 center = feedbackBadge.ChangeCoordinatesTo(unlockPulse, feedbackBadge.layout.size * .5f);
-            unlockPulse.SetPulse(center, feedbackBadge.layout.width * .5f - 2f, 180f, expansion);
+            unlockPulse.SetPulse(center, feedbackBadge.layout.width * .5f - 2f, PhotoUnlockPulse.MaximumRadius, expansion);
         }
 
         private void UpdateTilt()
