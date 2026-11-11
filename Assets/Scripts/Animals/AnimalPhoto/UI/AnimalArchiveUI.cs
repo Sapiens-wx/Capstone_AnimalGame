@@ -37,6 +37,8 @@ namespace AnimalGame.Animals.UI
         private AnimalSpecies species;
         private int collection, catalogIndex;
         private VisualElement root;
+        private ArchiveButtonFeedback buttonFeedback;
+        private bool deleteWasHeld;
         private PhotosView photosView;
         private PhotosSidebarView photosSidebar;
         private CatalogView catalogView;
@@ -55,24 +57,31 @@ namespace AnimalGame.Animals.UI
             root.style.display = DisplayStyle.None;
             // Navigation belongs to this controller; native submit must not click a second time.
             root.Query<Button>().ForEach(button => button.focusable = false);
-            photosView = new PhotosView(root, compositeShader);
+            buttonFeedback = new ArchiveButtonFeedback(root);
+            photosView = new PhotosView(root, compositeShader, buttonFeedback);
             photosSidebar = new PhotosSidebarView(root.Q<ScrollView>("collections"));
             catalogView = new CatalogView(root);
             mainCatalogView = new MainCatalogView(root);
             catalogSidebar = new CatalogSidebarView(root.Q<ScrollView>("catalog-sidebar"));
-            root.Q<Button>("photos-tab").clicked += () => Navigate(Page.Photos);
-            root.Q<Button>("catalog-tab").clicked += () => Navigate(Page.Catalog);
+            BindFeedbackButton("photos-tab", () => Navigate(Page.Photos));
+            BindFeedbackButton("catalog-tab", () => Navigate(Page.Catalog));
             root.Q("photos-tab").RegisterCallback<GeometryChangedEvent>(_ => UpdateTabSelection());
             root.Q("catalog-tab").RegisterCallback<GeometryChangedEvent>(_ => UpdateTabSelection());
-            root.Q<Button>("back").clicked += Back;
-            root.Q<Button>("species-previous").clicked += () => StepCollection(-1);
-            root.Q<Button>("species-next").clicked += () => StepCollection(1);
-            root.Q<Button>("main-catalog").clicked += () => Navigate(Page.Catalog);
-            root.Q<Button>("species-photos").clicked += ViewSpeciesPhotos;
-            root.Q<Button>("collection-previous").clicked += () => StepCollection(-1);
-            root.Q<Button>("collection-next").clicked += () => StepCollection(1);
+            BindFeedbackButton("back", Back);
+            BindFeedbackButton("species-previous", () => StepCollection(-1));
+            BindFeedbackButton("species-next", () => StepCollection(1));
+            BindFeedbackButton("main-catalog", () => Navigate(Page.Catalog));
+            BindFeedbackButton("species-photos", ViewSpeciesPhotos);
+            BindFeedbackButton("collection-previous", () => StepCollection(-1));
+            BindFeedbackButton("collection-next", () => StepCollection(1));
+            BindFeedbackButton("sidebar-species-previous", () => StepCollection(-1));
+            BindFeedbackButton("sidebar-species-next", () => StepCollection(1));
+            root.Q("photo-delete").RegisterCallback<PointerDownEvent>(_ => buttonFeedback.Run("photo-delete", null, emitRipple: false));
             SaveSystem.Changed += Refresh;
         }
+
+        private void BindFeedbackButton(string name, Action action) =>
+            root.Q<Button>(name).clicked += () => buttonFeedback.Run(name, action);
 
         public void Open() => Open(Page.Photos, false);
 
@@ -103,6 +112,7 @@ namespace AnimalGame.Animals.UI
         {
             if (!BlocksGameplay) return;
             BlocksGameplay = false;
+            buttonFeedback.Stop(); deleteWasHeld = false;
             deleteHold.Cancel(); photosView.SetDeleteProgress(0);
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             Cursor.lockState = cursorLock;
@@ -161,6 +171,10 @@ namespace AnimalGame.Animals.UI
                 .Select(s => (AnimalSpecies?)s));
             collection = Math.Max(0, collections.IndexOf(selectedCollection));
             bool isPhotos = page == Page.Photos || page == Page.Inspection;
+            bool hasSidebarList = isPhotos || page == Page.Species;
+            root.Q(className: "sidebar").EnableInClassList("species-list-visible", hasSidebarList);
+            root.Q("sidebar-species-previous").style.display = hasSidebarList ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q("sidebar-species-next").style.display = hasSidebarList ? DisplayStyle.Flex : DisplayStyle.None;
             if (page != Page.Catalog) mainCatalogView.StopAnimation();
             root.Q("photos-page").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("catalog-page").style.display = page == Page.Catalog ? DisplayStyle.Flex : DisplayStyle.None;
@@ -202,10 +216,10 @@ namespace AnimalGame.Animals.UI
             var border = indicator.Q("tab-selection-border");
             var tabStyle = tab.resolvedStyle;
             Vector2 bottomLeft = tab.ChangeCoordinatesTo(indicator.parent,
-                new Vector2(tabStyle.borderLeftWidth, tab.layout.height - tabStyle.borderBottomWidth * .5f));
+                new Vector2(0, tab.layout.height - tabStyle.borderBottomWidth * .5f));
             indicator.style.left = bottomLeft.x;
             indicator.style.top = bottomLeft.y;
-            indicator.style.width = tab.layout.width - tabStyle.borderLeftWidth - tabStyle.borderRightWidth;
+            indicator.style.width = tab.layout.width - tabStyle.borderRightWidth;
             border.style.height = tabStyle.borderBottomWidth;
             border.style.backgroundColor = tabStyle.borderBottomColor;
         }
@@ -225,6 +239,7 @@ namespace AnimalGame.Animals.UI
             int next = photosSidebar.FindNextSelectable(collection, direction);
             var button = root.Q<Button>(buttonName);
             button.SetEnabled(next >= 0);
+            root.Q<Button>(direction < 0 ? "sidebar-species-previous" : "sidebar-species-next").SetEnabled(next >= 0);
             button.EnableInClassList("unavailable", next < 0);
             root.Q<Label>(labelName).text = next >= 0 ? CollectionName(collections[next]) : "";
         }
@@ -272,6 +287,7 @@ namespace AnimalGame.Animals.UI
             bool available = next >= 0;
             var button = root.Q<Button>(buttonName);
             button.SetEnabled(available);
+            root.Q<Button>(direction < 0 ? "sidebar-species-previous" : "sidebar-species-next").SetEnabled(available);
             button.EnableInClassList("unavailable", !available);
             root.Q<Label>(labelName).text = available ? AnimalArchiveAssets.Active.Photos[catalogSpecies[next]].DisplayName : "";
         }
@@ -348,35 +364,58 @@ namespace AnimalGame.Animals.UI
             }
             bool deleteHeld = Input.GetKey(KeyCode.X) || AdaptiveLegacyGamepadInput.IsWestFaceButtonHeld();
             string deleteTarget = page == Page.Photos || page == Page.Inspection ? photos.Current?.id : null;
+            if (deleteHeld && !deleteWasHeld && deleteTarget != null) buttonFeedback.Run("photo-delete", null, emitRipple: false);
+            deleteWasHeld = deleteHeld;
             bool delete = deleteHold.Update(deleteHeld, deleteTarget, Time.unscaledDeltaTime);
             photosView.SetDeleteProgress(deleteHold.Progress);
             if (delete)
             {
                 deleteHold.Cancel(); photosView.SetDeleteProgress(0);
-                SaveSystem.DeletePhoto(deleteTarget);
+                buttonFeedback.RunAfterSuccess("photo-delete", () => SaveSystem.DeletePhoto(deleteTarget));
                 return;
             }
             if (holdLatched && upHeld) return;
-            if (back) { Back(); return; }
-            if (rb) { Navigate(Page.Catalog); return; }
-            if (lb && page != Page.Photos) { Navigate(Page.Photos); return; }
+            if (buttonFeedback.IsWaitingForAction) return;
+            if (back) { buttonFeedback.Run("back", Back); return; }
+            if (rb) { buttonFeedback.Run(page == Page.Species ? "main-catalog" : "catalog-tab", () => Navigate(Page.Catalog)); return; }
+            if (lb && page != Page.Photos) { buttonFeedback.Run("photos-tab", () => Navigate(Page.Photos)); return; }
             if (y)
             {
-                if (page == Page.Photos || page == Page.Inspection) OpenPhotoCatalog();
-                else if (page == Page.Species) ViewSpeciesPhotos();
+                if (page == Page.Photos || page == Page.Inspection) buttonFeedback.Run("photo-catalog", OpenPhotoCatalog);
+                else if (page == Page.Species) buttonFeedback.Run("species-photos", ViewSpeciesPhotos);
                 return;
             }
-            if (lt || rt) { StepCollection(lt ? -1 : 1); return; }
-            if (confirm) { Confirm(); return; }
+            if (lt || rt)
+            {
+                string button = page == Page.Photos || page == Page.Inspection
+                    ? (lt ? "collection-previous" : "collection-next") : (lt ? "species-previous" : "species-next");
+                buttonFeedback.Run(button, () => StepCollection(lt ? -1 : 1)); return;
+            }
+            if (confirm)
+            {
+                if (page == Page.Photos) buttonFeedback.Run(photos.SortFocused ? "photo-sort" : "photo-open", Confirm);
+                else Confirm();
+                return;
+            }
             if (page == Page.Inspection) photosView.Tilt(right);
             else if (page == Page.Photos && right.sqrMagnitude > direction.sqrMagnitude) direction = right;
             if (direction.magnitude < .5f) { previousDirection = Vector2.zero; nextMove = 0; return; }
             direction = Mathf.Abs(direction.x) > Mathf.Abs(direction.y) ? new Vector2(Mathf.Sign(direction.x), 0) : new Vector2(0, Mathf.Sign(direction.y));
             if (direction == previousDirection && Time.unscaledTime < nextMove) return;
             nextMove = Time.unscaledTime + (direction == previousDirection ? .15f : .35f); previousDirection = direction;
-            if (page == Page.Photos || page == Page.Inspection) { photos.Move((int)direction.x, (int)direction.y, page == Page.Inspection); RenderPhotos(); }
+            if (page == Page.Inspection)
+            {
+                Vector2 step = direction;
+                buttonFeedback.Run(step.x < 0 || step.y > 0 ? "photo-previous" : "photo-next", () =>
+                { photos.Move((int)step.x, (int)step.y, true); RenderPhotos(); });
+            }
+            else if (page == Page.Photos) { photos.Move((int)direction.x, (int)direction.y, false); RenderPhotos(); }
             else if (page == Page.Catalog) mainCatalogView.Move((int)direction.x, (int)direction.y);
-            else if (direction.y != 0) StepCollection(-(int)direction.y);
+            else if (direction.y != 0)
+            {
+                int step = -(int)direction.y;
+                buttonFeedback.Run(step < 0 ? "sidebar-species-previous" : "sidebar-species-next", () => StepCollection(step));
+            }
         }
 
         private void OnDisable() { if (root != null) Close(); }

@@ -6,6 +6,9 @@ namespace AnimalGame.RobotMap
     public sealed class PhotoIdleTilt
     {
         private float elapsed;
+        private readonly float amplitudeScale;
+
+        public PhotoIdleTilt(float amplitudeScale = 1f) => this.amplitudeScale = amplitudeScale;
 
         public void Reset() { elapsed = 0; }
 
@@ -15,7 +18,7 @@ namespace AnimalGame.RobotMap
             if (takeControl) return false;
             elapsed += deltaTime;
             float phase = elapsed * (Mathf.PI * 2f / 7f);
-            target += new Vector2(Mathf.Sin(phase) * 4.5f, Mathf.Sin(phase * 2f) * 3f);
+            target += new Vector2(Mathf.Sin(phase) * 4.5f, Mathf.Sin(phase * 2f) * 3f) * amplitudeScale;
             return true;
         }
     }

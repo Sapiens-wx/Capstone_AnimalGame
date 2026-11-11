@@ -106,8 +106,8 @@
                 <ui:Label name="save-label" text="Photos" style="rotate: 0.015rad; top: 423px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); -unity-font-style: normal; font-size: 40px;" />
                 <ui:Label name="catalog-badge" text="X" class="badge" style="border-left-color: rgb(212, 184, 84); border-right-color: rgb(212, 184, 84); border-top-color: rgb(212, 184, 84); border-bottom-color: rgb(212, 184, 84); rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); -unity-font-style: normal;" />
                 <ui:Label name="catalog-label" text="Catalog" style="rotate: 0.015rad; left: 1069px; top: 545px; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); font-size: 40px;" />
+                <ui:Label name="catalog-new-star" text="*" picking-mode="Ignore" style="display: none; position: absolute; width: 35px; height: 29px; font-size: 47px; -unity-font-style: normal; -unity-font-definition: resource(&apos;UI/Font/Orbitron-Medium&apos;); -unity-text-align: middle-center; transform-origin: 50% 50%; color: rgb(212, 184, 84); rotate: 0;" />
                 <ui:Label name="scientific-name" text="Ondatra zibethicus" style="rotate: 0.015rad; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;); font-size: 40px; left: 1325px; top: 911px;" />
-                <ui:Label name="metadata" style="height: 55px; width: 323px; top: 185px; left: 115px; rotate: 90deg; -unity-font-definition: resource(&apos;UI/Photo/GeosansLightStatic&apos;);" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

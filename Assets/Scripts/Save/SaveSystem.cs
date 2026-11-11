@@ -10,7 +10,7 @@ namespace AnimalGame.Save
     public static class SaveSystem
     {
         private const int FileSignature = 0x41475356; // AGSV
-        private const int FileVersion = 2;
+        private const int FileVersion = 3;
         public static GameSave Current { get; private set; }
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
         public static event Action Changed;
@@ -34,11 +34,22 @@ namespace AnimalGame.Save
                 WriteTo(path, empty);
                 return empty;
             }
+            var save = ReadFrom(path, out int version);
+            if (version < FileVersion)
+            {
+                foreach (var photo in save.photos.Where(p => !p.sent)) CreditCapture(save, photo);
+                WriteTo(path, save);
+            }
+            return save;
+        }
+
+        private static GameSave ReadFrom(string path, out int version)
+        {
             using var stream = File.OpenRead(path);
             using var reader = new BinaryReader(stream);
             if (reader.ReadInt32() != FileSignature) throw new InvalidDataException("Invalid game save signature.");
-            int version = reader.ReadInt32();
-            if (version != 1 && version != FileVersion) throw new InvalidDataException($"Unsupported save version: {version}");
+            version = reader.ReadInt32();
+            if (version < 1 || version > FileVersion) throw new InvalidDataException($"Unsupported save version: {version}");
             var save = new GameSave();
             int photoCount = ReadCount(reader);
             for (int i = 0; i < photoCount; i++) save.photos.Add(ReadPhoto(reader));
@@ -139,14 +150,34 @@ namespace AnimalGame.Save
             Changed?.Invoke();
         }
 
-        public static void StorePhoto(AnimalPhotoRecord photo)
+        public static bool StorePhoto(AnimalPhotoRecord photo)
         {
             Initialize();
-            if (Current.photos.Exists(p => p.id == photo.id)) return;
+            if (Current.photos.Exists(p => p.id == photo.id)) return false;
+            var previous = Current.Progress(photo.species);
+            int previousRecognition = previous?.recognition ?? 0;
+            int previousTier = previous?.Tier ?? 0;
             Current.photos.Add(photo);
+            CreditCapture(Current, photo);
             try { WriteTo(SavePath, Current); }
-            catch { Current.photos.Remove(photo); throw; }
+            catch
+            {
+                Current.photos.Remove(photo);
+                if (previous != null) previous.recognition = previousRecognition;
+                else Current.speciesProgress.RemoveAll(p => p.species == photo.species);
+                throw;
+            }
+            bool advanced = (Current.Progress(photo.species)?.Tier ?? 0) > previousTier;
             Changed?.Invoke();
+            return advanced;
+        }
+
+        private static void CreditCapture(GameSave save, AnimalPhotoRecord photo)
+        {
+            if (photo.species == AnimalSpecies.Unknown) return;
+            var progress = save.Progress(photo.species);
+            if (progress == null) { progress = new SpeciesProgress { species = photo.species }; save.speciesProgress.Add(progress); }
+            progress.recognition += Math.Max(1, photo.recognitionValue);
         }
 
         public static void DeletePhoto(string photoId)
@@ -193,7 +224,7 @@ namespace AnimalGame.Save
                 var photo = Current.photos[index]; photo.sent = true;
                 var progress = Current.Progress(photo.species);
                 if (progress == null) { progress = new SpeciesProgress { species = photo.species }; Current.speciesProgress.Add(progress); }
-                progress.sentPhotos++; progress.recognition += photo.recognitionValue;
+                progress.sentPhotos++;
             }
             try
             {

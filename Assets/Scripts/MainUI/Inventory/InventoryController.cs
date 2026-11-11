@@ -275,7 +275,7 @@ namespace AnimalGame.MainUI.Inventory
 
         private void UpdateInventoryStars()
         {
-            float opacity = .75f + .25f * Mathf.Cos(Time.unscaledTime * Mathf.PI * 2 / Mathf.Max(.1f, settings.BlinkPeriod));
+            float opacity = EvaluateNewItemStarOpacity(Time.unscaledTime, settings.BlinkPeriod);
             if (cargoStar != null)
             {
                 cargoStar.style.display = inventoryStore.HasUnread ? DisplayStyle.Flex : DisplayStyle.None;
@@ -283,6 +283,9 @@ namespace AnimalGame.MainUI.Inventory
             }
             foreach (Label star in itemStars) if (star != null) star.style.opacity = opacity;
         }
+
+        public static float EvaluateNewItemStarOpacity(float time, float period) =>
+            .75f + .25f * Mathf.Cos(time * Mathf.PI * 2 / Mathf.Max(.1f, period));
 
         // Public programmatic/layout selection is deliberately passive (does not acknowledge new items).
         public void SelectItem(int index)

@@ -45,6 +45,7 @@ namespace AnimalGame.MainUI
         [Header("Inventory interactions")]
         [SerializeField] private InventoryRewardTable inventoryRewards;
         [SerializeField, Min(.1f)] private float newItemBlinkPeriod = 1;
+        public float NewItemBlinkPeriod => newItemBlinkPeriod;
         [SerializeField, Range(.1f, .95f)] private float inventoryStickDeadzone = .5f;
         [SerializeField, Min(.05f)] private float inventoryRepeatDelay = .35f;
         [SerializeField, Min(.05f)] private float inventoryRepeatInterval = .12f;

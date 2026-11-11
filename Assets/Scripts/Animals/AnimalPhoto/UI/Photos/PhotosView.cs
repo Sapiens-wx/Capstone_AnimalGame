@@ -16,20 +16,24 @@ namespace AnimalGame.Animals.UI
         private readonly Image outgoingImage;
         private readonly List<RenderTexture> thumbnails = new();
         private readonly ArchiveColumnWave waveAnimation;
-        private RenderTexture processed, card, outgoingCard;
-        private Material cardMaterial;
+        private readonly ArchiveButtonFeedback buttonFeedback;
+        private RenderTexture processed, card, outgoingCard, outgoingProcessed;
+        private Material cardMaterial, outgoingMaterial;
         private Vector2 tilt;
-        private readonly PhotoIdleTilt idleTilt = new PhotoIdleTilt();
+        private readonly PhotoIdleTilt idleTilt = new PhotoIdleTilt(1.5f);
         private string motionPhotoId;
         private bool viewingInspection;
         private bool sliding;
         private float slideElapsed, incomingOffset, outgoingStart;
+        private Vector2 outgoingBaseTilt;
         private int slideDirection;
         private const float SlideDuration = .32f;
+        private const float SlideRetreatDegrees = 32f;
         private PhotoCollection currentCollection;
         private Action<int> selectPhoto;
-        public PhotosView(VisualElement root, Shader compositeShader)
+        public PhotosView(VisualElement root, Shader compositeShader, ArchiveButtonFeedback buttonFeedback)
         {
+            this.buttonFeedback = buttonFeedback;
             this.root = root; index = root.Q("photo-index"); tiles = root.Q("photo-tiles");
             waveAnimation = new ArchiveColumnWave(tiles, 3, 12f);
             preview = root.Q("photo-preview"); image = root.Q<ArchivePhotoImageElement>("photo-image");
@@ -41,12 +45,13 @@ namespace AnimalGame.Animals.UI
             root.Q("photos-page").RegisterCallback<GeometryChangedEvent>(_ => ResizePhotoRegions());
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
             cardMaterial.SetVector("_Crop", new Vector4(0, 0, 1, 1));
+            outgoingMaterial = new Material(cardMaterial) { hideFlags = HideFlags.HideAndDontSave };
             card = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave };
             card.Create();
             outgoingCard = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave };
             outgoingCard.Create();
-            root.Q<Button>("photo-previous").clicked += () => selectPhoto(currentCollection.Selected - 1);
-            root.Q<Button>("photo-next").clicked += () => selectPhoto(currentCollection.Selected + 1);
+            root.Q<Button>("photo-previous").clicked += () => buttonFeedback.Run("photo-previous", () => selectPhoto(currentCollection.Selected - 1));
+            root.Q<Button>("photo-next").clicked += () => buttonFeedback.Run("photo-next", () => selectPhoto(currentCollection.Selected + 1));
         }
 
         private void AlignCollectionNavigation()
@@ -110,7 +115,11 @@ namespace AnimalGame.Animals.UI
                 var date = new Label(record.CapturedAt.ToString("yyyy.MM.dd\nHH:mm", CultureInfo.InvariantCulture)) { pickingMode = PickingMode.Ignore };
                 date.AddToClassList("photo-tile-date");
                 button.Add(date);
-                if (record.sent) button.Add(new Label("✓ UPLOADED"));
+                if (record.sent)
+                {
+                    var uploaded = new Label("Uploaded");
+                    uploaded.AddToClassList("photo-tile-uploaded"); button.Add(uploaded);
+                }
                 button.RegisterCallback<ClickEvent>(e => { if (e.clickCount == 2) open(); });
                 tiles.Add(button);
             }
@@ -121,7 +130,10 @@ namespace AnimalGame.Animals.UI
             int previousIndex = changePhoto ? collection.Photos.FindIndex(p => p.id == motionPhotoId) : -1;
             if (changePhoto)
             {
-                Graphics.CopyTexture(card, outgoingCard);
+                AnimalPhotoProcessing.Release(outgoingProcessed);
+                outgoingProcessed = processed;
+                processed = null;
+                outgoingBaseTilt = tilt;
                 outgoingStart = incomingOffset;
             }
             if (!inspection || current == null) StopSlide();
@@ -132,9 +144,8 @@ namespace AnimalGame.Animals.UI
             root.Q<Label>("photo-name").text = current?.displayName ?? "No saved photographs";
             root.Q<Label>("photo-scientific").text = current?.scientificName ?? "";
             root.Q<Label>("photo-region").text = current?.regionName ?? "";
-            root.Q<Label>("photo-date").text = current?.CapturedAt.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture) ?? "";
             root.Q("photo-uploaded").style.display = current != null && current.sent ? DisplayStyle.Flex : DisplayStyle.None;
-            root.Q<Label>("photo-captured").text = current?.CapturedAt.ToString("yyyy.MM.dd  HH:mm", CultureInfo.InvariantCulture) ?? "";
+            root.Q<Label>("photo-captured").text = current?.CapturedAt.ToString("HH:mm  yyyy.MM.dd", CultureInfo.InvariantCulture) ?? "";
             root.Q<Label>("photo-altitude").text = current == null ? "" : current.hasHeight ? $"{current.altitude:0} m" : "- m";
             root.Q<Label>("photo-position").text = current == null ? "" : Position(current);
             root.Q<Label>("photo-camera").text = current?.cameraName ?? "";
@@ -142,9 +153,9 @@ namespace AnimalGame.Animals.UI
             root.Q<Button>("photo-previous").SetEnabled(current != null && collection.Selected > 0);
             root.Q<Button>("photo-next").SetEnabled(current != null && collection.Selected < collection.Photos.Count - 1);
             var view = root.Q<Button>("photo-open"); view.style.display = inspection ? DisplayStyle.None : DisplayStyle.Flex;
-            view.SetEnabled(current != null); view.clicked -= openHandler; openHandler = open; view.clicked += openHandler;
+            view.SetEnabled(current != null); view.clicked -= openHandler; openHandler = () => buttonFeedback.Run("photo-open", open); view.clicked += openHandler;
             var guide = root.Q<Button>("photo-catalog"); guide.SetEnabled(current != null);
-            guide.clicked -= catalogHandler; catalogHandler = catalog; guide.clicked += catalogHandler;
+            guide.clicked -= catalogHandler; catalogHandler = () => buttonFeedback.Run("photo-catalog", catalog); guide.clicked += catalogHandler;
             AnimalPhotoProcessing.Release(processed); processed = null; image.image = null;
             if (current != null)
             {
@@ -183,10 +194,15 @@ namespace AnimalGame.Animals.UI
 
         private void RenderCard()
         {
-            cardMaterial.SetFloat("_ImageAspect", (float)processed.width / processed.height);
-            cardMaterial.SetVector("_Tilt", new Vector4(tilt.x * Mathf.Deg2Rad, tilt.y * Mathf.Deg2Rad, 0, 0));
+            RenderTiltedCard(processed, card, cardMaterial, tilt);
+        }
+
+        private static void RenderTiltedCard(RenderTexture source, RenderTexture destination, Material material, Vector2 angles)
+        {
+            material.SetFloat("_ImageAspect", (float)source.width / source.height);
+            material.SetVector("_Tilt", new Vector4(angles.x * Mathf.Deg2Rad, angles.y * Mathf.Deg2Rad, 0, 0));
             RenderTexture previous = RenderTexture.active; bool srgb = GL.sRGBWrite;
-            try { GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear && card.sRGB; Graphics.Blit(processed, card, cardMaterial); }
+            try { GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear && destination.sRGB; Graphics.Blit(source, destination, material); }
             finally { RenderTexture.active = previous; GL.sRGBWrite = srgb; }
         }
 
@@ -202,6 +218,10 @@ namespace AnimalGame.Animals.UI
         {
             float t = Mathf.Clamp01(slideElapsed / SlideDuration);
             float eased = Mathf.SmoothStep(0, 1, t);
+            // Positive yaw puts the right edge farther from the camera when sliding left.
+            Vector2 outgoingTilt = Vector2.Lerp(outgoingBaseTilt,
+                new Vector2(outgoingBaseTilt.x, slideDirection * SlideRetreatDegrees), eased);
+            RenderTiltedCard(outgoingProcessed, outgoingCard, outgoingMaterial, outgoingTilt);
             float width = photoFrame.contentRect.width;
             incomingOffset = slideDirection * width * (1 - eased);
             image.style.translate = new Translate(incomingOffset, 0);
@@ -215,9 +235,10 @@ namespace AnimalGame.Animals.UI
             image.style.translate = new Translate(0, 0);
             outgoingImage.style.display = DisplayStyle.None;
             outgoingImage.image = null;
+            AnimalPhotoProcessing.Release(outgoingProcessed); outgoingProcessed = null;
         }
         private void ReleaseThumbnails() { foreach (var texture in thumbnails) AnimalPhotoProcessing.Release(texture); thumbnails.Clear(); }
         public void Clear() { waveAnimation.Stop(); StopSlide(); viewingInspection = false; image.image = null; tiles.Clear(); ReleaseThumbnails(); AnimalPhotoProcessing.Release(processed); processed = null; }
-        public void Dispose() { Clear(); AnimalPhotoProcessing.Release(card); AnimalPhotoProcessing.Release(outgoingCard); UnityEngine.Object.Destroy(cardMaterial); }
+        public void Dispose() { Clear(); AnimalPhotoProcessing.Release(card); AnimalPhotoProcessing.Release(outgoingCard); UnityEngine.Object.Destroy(cardMaterial); UnityEngine.Object.Destroy(outgoingMaterial); }
     }
 }

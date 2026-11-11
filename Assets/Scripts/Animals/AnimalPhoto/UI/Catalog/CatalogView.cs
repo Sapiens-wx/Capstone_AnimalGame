@@ -165,6 +165,7 @@ namespace AnimalGame.Animals.UI
             root.Q("catalog-name").RegisterCallback<GeometryChangedEvent>(_ => ResizeHeader());
             root.Q("catalog-details").RegisterCallback<GeometryChangedEvent>(_ => AlignScientificTop());
             root.Q("catalog-sidebar").RegisterCallback<GeometryChangedEvent>(_ => AlignScientificTop());
+            root.Q("sidebar-species-previous").RegisterCallback<GeometryChangedEvent>(_ => AlignScientificTop());
             root.Q("catalog-scientific").RegisterCallback<GeometryChangedEvent>(_ => AlignScientificTop());
         }
 
@@ -185,8 +186,8 @@ namespace AnimalGame.Animals.UI
         {
             if (root.Q("species-page").resolvedStyle.display == DisplayStyle.None) return;
             var scientific = root.Q<ArchiveScientificNameElement>("catalog-scientific");
-            var sidebar = root.Q<ScrollView>("catalog-sidebar");
-            scientific.TopLineOffset = sidebar.contentViewport.ChangeCoordinatesTo(scientific, Vector2.zero).y;
+            var previousSpecies = root.Q("sidebar-species-previous");
+            scientific.TopLineOffset = previousSpecies.ChangeCoordinatesTo(scientific, Vector2.zero).y + 12f;
         }
         public void Render(AnimalSpecies species)
         {
@@ -197,7 +198,7 @@ namespace AnimalGame.Animals.UI
             root.Q<CatalogRecognitionElement>("recognition").Value = progress?.recognition ?? 0;
             root.Q<Label>("catalog-name").text = tier >= 1 ? photo.DisplayName : "More Photos Required";
             root.Q("catalog-name").style.opacity = tier >= 1 ? 1f : .4f;
-            root.Q<Label>("catalog-scientific").text = tier >= 1 ? photo.ScientificName : "LOCKED — send a photograph to unlock";
+            root.Q<Label>("catalog-scientific").text = tier >= 1 ? photo.ScientificName : "LOCKED — take a photograph to unlock";
             root.Q<Label>("catalog-region").text = info.Region;
             root.Q<CatalogRulerElement>("physical-ruler").Bind(info, root.Q<CatalogHeadingElement>("physical-heading"));
             Field("classification", info.Classification, tier, 2);

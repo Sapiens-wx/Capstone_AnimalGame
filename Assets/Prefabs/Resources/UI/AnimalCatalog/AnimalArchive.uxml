@@ -16,9 +16,9 @@
             <ui:VisualElement class="body">
                 <ui:VisualElement class="sidebar">
                     <ui:Button name="main-catalog" class="photo-action" style="display: none;">
+                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         <ui:Label text="RB" picking-mode="Ignore" class="key-badge" />
                         <ui:Label text="Main Catalog" picking-mode="Ignore" class="photo-action-caption" />
-                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                     </ui:Button>
                     <ui:VisualElement name="main-catalog-summary" style="display: none;">
                         <ui:VisualElement class="main-catalog-heading">
@@ -28,10 +28,15 @@
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:VisualElement class="catalog-reward-caption">
-                            <ui:Label text="Identify More&#10;Species for" />
-                            <ui:VisualElement class="catalog-reward-icon">
-                                <ui:VisualElement class="catalog-reward-inner">
-                                    <ui:VisualElement class="catalog-reward-dot" />
+                            <ui:VisualElement class="catalog-reward-copy">
+                                <ui:Label text="Identify More" />
+                                <ui:VisualElement class="catalog-reward-lastline">
+                                    <ui:Label text="Species for" />
+                                    <ui:VisualElement class="catalog-reward-icon">
+                                        <ui:VisualElement class="catalog-reward-inner">
+                                            <ui:VisualElement class="catalog-reward-dot" />
+                                        </ui:VisualElement>
+                                    </ui:VisualElement>
                                 </ui:VisualElement>
                             </ui:VisualElement>
                         </ui:VisualElement>
@@ -43,8 +48,16 @@
                             <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         </ui:VisualElement>
                     </ui:VisualElement>
+                    <ui:Button name="sidebar-species-previous" class="photo-action sidebar-species-step" style="display: none;">
+                        <ui:Label text="LT" picking-mode="Ignore" class="key-badge" />
+                        <ui:Label text="Previous Species" picking-mode="Ignore" class="photo-action-caption" />
+                    </ui:Button>
                     <ui:ScrollView name="collections" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" />
                     <ui:ScrollView name="catalog-sidebar" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" style="display: none;" />
+                    <ui:Button name="sidebar-species-next" class="photo-action sidebar-species-step" style="display: none;">
+                        <ui:Label text="RT" picking-mode="Ignore" class="key-badge" />
+                        <ui:Label text="Next Species" picking-mode="Ignore" class="photo-action-caption" />
+                    </ui:Button>
                 </ui:VisualElement>
                 <ui:VisualElement class="workspace" style="border-right-color: rgb(155, 156, 147); border-right-width: 1px;">
                     <ui:VisualElement name="photos-page" class="page row" style="display: flex;">
@@ -66,29 +79,25 @@
                                     <archive:ArchivePhotoImageElement name="photo-image" scale-mode="ScaleToFit" />
                                 </ui:VisualElement>
                                 <ui:VisualElement class="photo-information">
-                                    <ui:VisualElement class="photo-date-row">
-                                        <ui:Label name="photo-date" />
-                                        <ui:VisualElement name="photo-uploaded" class="photo-uploaded" style="display: none;">
-                                            <ui:Label text="✓" class="uploaded-check" />
-                                            <ui:Label text="UPLOADED" />
-                                        </ui:VisualElement>
-                                    </ui:VisualElement>
-                                    <ui:VisualElement class="photo-location-row">
-                                        <ui:Label text="LOCATION" class="photo-location-title" />
-                                        <ui:Label name="photo-region" />
+                                    <ui:VisualElement name="photo-uploaded" class="photo-uploaded" style="display: none;">
+                                        <ui:Label text="Uploaded" />
                                     </ui:VisualElement>
                                     <ui:VisualElement name="photo-metadata">
                                         <ui:VisualElement class="photo-fact">
-                                            <ui:Label text="Captured:" class="photo-field" />
+                                            <ui:Label text="Captured At:" class="photo-field" />
                                             <ui:Label name="photo-captured" class="photo-value" />
+                                        </ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact">
+                                            <ui:Label text="Location:" class="photo-field" />
+                                            <ui:Label name="photo-region" class="photo-value" />
+                                        </ui:VisualElement>
+                                        <ui:VisualElement class="photo-fact">
+                                            <ui:Label text="Coordinate:" class="photo-field" />
+                                            <ui:Label name="photo-position" class="photo-value" />
                                         </ui:VisualElement>
                                         <ui:VisualElement class="photo-fact">
                                             <ui:Label text="Altitude:" class="photo-field" />
                                             <ui:Label name="photo-altitude" class="photo-value" />
-                                        </ui:VisualElement>
-                                        <ui:VisualElement class="photo-fact">
-                                            <ui:Label text="Position:" class="photo-field" />
-                                            <ui:Label name="photo-position" class="photo-value" />
                                         </ui:VisualElement>
                                         <ui:VisualElement class="photo-fact">
                                             <ui:Label text="Camera:" class="photo-field" />
@@ -96,31 +105,31 @@
                                         </ui:VisualElement>
                                     </ui:VisualElement>
                                     <ui:Button name="photo-open" class="photo-action">
+                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         <ui:Label text="A" picking-mode="Ignore" class="photo-action-circle" />
                                         <ui:Label text="View Photograph" picking-mode="Ignore" class="photo-action-caption" />
-                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                     <ui:VisualElement name="photo-navigation" class="photo-navigation">
                                         <ui:Button name="photo-previous" class="photo-action">
+                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                             <ui:Label text="←" picking-mode="Ignore" class="photo-action-circle" />
                                             <ui:Label text="Previous" picking-mode="Ignore" class="photo-action-caption" />
-                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         </ui:Button>
                                         <ui:Button name="photo-next" class="photo-action">
+                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                             <ui:Label text="→" picking-mode="Ignore" class="photo-action-circle" />
                                             <ui:Label text="Next" picking-mode="Ignore" class="photo-action-caption" />
-                                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         </ui:Button>
                                     </ui:VisualElement>
                                     <ui:Button name="photo-catalog" class="photo-action">
+                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         <ui:Label text="Y" picking-mode="Ignore" class="photo-action-circle" />
                                         <ui:Label text="View Catalog" picking-mode="Ignore" class="photo-action-caption" />
-                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                     <ui:Button name="photo-delete" class="photo-action">
+                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                         <archive:ArchiveHoldCircleElement name="photo-delete-progress" text="X" picking-mode="Ignore" class="photo-action-circle" />
                                         <ui:Label text="Hold to Delete Photo" picking-mode="Ignore" class="photo-action-caption" />
-                                        <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                                     </ui:Button>
                                 </ui:VisualElement>
                             </ui:VisualElement>
@@ -193,9 +202,9 @@
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:Button name="species-photos" class="photo-action action-key-right">
+                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                             <ui:Label text="View Animal Photo" picking-mode="Ignore" class="photo-action-caption" />
                             <ui:Label text="Y" picking-mode="Ignore" class="photo-action-circle" />
-                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         </ui:Button>
                     </ui:VisualElement>
                     <ui:VisualElement class="footer" style="border-right-width: 0; border-right-color: rgb(155, 156, 147);">
@@ -205,9 +214,9 @@
                             <archive:CatalogRecognitionElement name="recognition" picking-mode="Ignore" />
                         </ui:VisualElement>
                         <ui:Button name="back" class="photo-action">
+                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                             <ui:Label text="B" picking-mode="Ignore" class="photo-action-circle" />
                             <ui:Label text="Last Menu" picking-mode="Ignore" class="photo-action-caption" />
-                            <ui:VisualElement picking-mode="Ignore" class="photo-action-underline" />
                         </ui:Button>
                     </ui:VisualElement>
                 </ui:VisualElement>
