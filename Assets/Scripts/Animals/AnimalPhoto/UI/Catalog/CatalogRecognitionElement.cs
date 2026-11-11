@@ -29,7 +29,7 @@ namespace AnimalGame.Animals.UI
         {
             pickingMode = PickingMode.Ignore;
             percent = new Label { name = "recognition-percent", pickingMode = PickingMode.Ignore };
-            caption = new Label("Upload more photos for recognition")
+            caption = new Label("Take more photos for recognition")
                 { name = "recognition-caption", pickingMode = PickingMode.Ignore };
             Add(percent);
             Add(caption);

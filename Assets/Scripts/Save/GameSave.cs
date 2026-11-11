@@ -20,6 +20,6 @@ namespace AnimalGame.Save
         public AnimalSpecies species;
         public int recognition;
         public int sentPhotos;
-        public int Tier => sentPhotos == 0 ? 0 : recognition >= 100 ? 3 : recognition >= 30 ? 2 : 1;
+        public int Tier => recognition <= 0 ? 0 : recognition >= 100 ? 3 : recognition >= 30 ? 2 : 1;
     }
 }

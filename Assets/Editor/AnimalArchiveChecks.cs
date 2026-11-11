@@ -89,9 +89,9 @@ namespace AnimalGame.Editor
                 File.WriteAllBytes(path, binary.Take(binary.Length - 1).ToArray());
                 RequireInvalidSave(path, "Truncated binary save is rejected.");
                 var progress = loaded.speciesProgress[0];
-                foreach (var pair in new[] { (0, 1), (29, 1), (30, 2), (99, 2), (100, 3) })
+                foreach (var pair in new[] { (0, 0), (1, 1), (29, 1), (30, 2), (99, 2), (100, 3) })
                 { progress.recognition = pair.Item1; Require(progress.Tier == pair.Item2, "Recognition tier boundary."); }
-                progress.sentPhotos = 0; Require(progress.Tier == 0, "Unsent species stays locked.");
+                progress.sentPhotos = 0; Require(progress.Tier == 3, "Capture recognition unlocks without uploading.");
 
                 var records = new List<AnimalPhotoRecord>();
                 for (int i = 0; i < 10; i++) records.Add(new AnimalPhotoRecord { id = i.ToString(), species = AnimalSpecies.AmericanBison, capturedTicks = 100 + i });

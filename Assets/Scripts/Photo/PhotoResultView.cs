@@ -52,7 +52,7 @@ namespace AnimalGame.RobotMap
             && photoImage != null && snapshotImage != null
             && root.Q<Label>("animal-name") != null && root.Q<Label>("scientific-name") != null
             && root.Q<Label>("region") != null && root.Q<Label>("altitude") != null
-            && root.Q<Label>("coordinates") != null && root.Q<Label>("metadata") != null
+            && root.Q<Label>("coordinates") != null
             && root.Q<Label>("longitude") != null && root.Q<Label>("latitude") != null;
         public Vector2 WarmupLayoutSize => root == null ? Vector2.zero : root.layout.size;
         public bool HasWarmupLayout => IsWarmupReady && PositiveSize(root.layout.size) && PositiveSize(stage.layout.size);
@@ -77,6 +77,9 @@ namespace AnimalGame.RobotMap
         private RenderTexture processedPhoto;
         private Texture photoSource, contourSource;
         private Vector2 tilt;
+        private PhotoUnlockPulse unlockPulse;
+        private VisualElement feedbackBadge;
+        private float feedbackElapsed;
         private readonly PhotoIdleTilt idleTilt = new PhotoIdleTilt();
         private Vector2 previousMousePosition;
         private bool hasMousePosition;
@@ -142,6 +145,8 @@ namespace AnimalGame.RobotMap
             snapshotCloseBadge = root.Q("close-badge");
             snapshotImg = root.Q("snapshot-image");
             photo = root.Q("photo");
+            unlockPulse = new PhotoUnlockPulse();
+            zoomContent.Insert(zoomContent.IndexOf(photo) + 1, unlockPulse);
             textContent = root.Q("text-content");
             photosLabel = root.Q<Label>("save-label");
             photoImage = root.Q<Image>("photo-image");
@@ -152,6 +157,17 @@ namespace AnimalGame.RobotMap
             ConfigureDesignLayout();
             BindActionUnderline("save-label", "catalog-rule");
             BindActionUnderline("catalog-label", "photo-save-rule");
+            var catalogLabel = root.Q<Label>("catalog-label");
+            var catalogStar = root.Q<Label>("catalog-new-star");
+            catalogLabel.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                catalogStar.style.width = catalogStar.MeasureTextSize("*", 0, VisualElement.MeasureMode.Undefined,
+                    0, VisualElement.MeasureMode.Undefined).x;
+                Vector2 position = catalogLabel.ChangeCoordinatesTo(catalogStar.parent,
+                    new Vector2(catalogLabel.contentRect.xMax, catalogLabel.contentRect.center.y - catalogStar.resolvedStyle.height * .5f));
+                catalogStar.style.left = position.x;
+                catalogStar.style.top = position.y;
+            });
             root.style.display = DisplayStyle.None;
         }
 
@@ -257,6 +273,11 @@ namespace AnimalGame.RobotMap
             photoSource = processedPhoto;
             contourSource = contours;
             currentResult = result;
+            if (feedbackBadge != null) feedbackBadge.style.scale = new Scale(Vector3.one);
+            feedbackBadge = null;
+            unlockPulse.style.display = DisplayStyle.None;
+            root.Q("catalog-badge").style.scale = new Scale(Vector3.one);
+            root.Q("catalog-new-star").style.scale = new Scale(Vector3.one);
             PopulateResultText(result);
             if (!IsWarmingUp) PrepareTextReveal();
             cardMaterial = new Material(compositeShader) { hideFlags = HideFlags.HideAndDontSave };
@@ -297,11 +318,12 @@ namespace AnimalGame.RobotMap
         private void PrepareTextReveal()
         {
             // Authored top-to-bottom order; the animal name intentionally stays visible.
-            string[] labelNames = { "metadata", "location-title", "save-label", "region", "altitude",
-                "catalog-label", "coordinates", "longitude", "latitude", "scientific-name" };
+            string[] labelNames = { "location-title", "save-label", "region", "altitude",
+                "catalog-label", "catalog-new-star", "coordinates", "longitude", "latitude", "scientific-name" };
             pendingTextRevealLabels.Clear();
             foreach (string name in labelNames)
             {
+                if (name == "catalog-new-star" && !currentResult.UnlockAdvanced) continue;
                 Label label = root.Q<Label>(name);
                 if (label == null) continue;
                 revealTargets[label] = label.text ?? string.Empty;
@@ -383,8 +405,7 @@ namespace AnimalGame.RobotMap
             root.Q<Label>("animal-name").text = result.DisplayName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             UpdateLocation(result);
-            string altitude = result.HasHeight ? $"{result.HeightMeters:0}m" : "unknown-altitude";
-            root.Q<Label>("metadata").text = $"{result.ScientificName}_{altitude}_{result.CapturedAt:yyyyMMdd_HHmmss}";
+            root.Q("catalog-new-star").style.display = result.UnlockAdvanced ? DisplayStyle.Flex : DisplayStyle.None;
             photosLabel.text = "Photos";
         }
 
@@ -392,6 +413,8 @@ namespace AnimalGame.RobotMap
 
         public void HideImmediately()
         {
+            if (feedbackBadge != null) feedbackBadge.style.scale = new Scale(Vector3.one);
+            feedbackBadge = null;
             StopTextReveal();
             RestoreBalanceDisplay();
             showing = false;
@@ -428,6 +451,7 @@ namespace AnimalGame.RobotMap
             }
             // Keep the existing card texture throughout opening and closing.
             if (!animationSettings.IsClosing && animationSettings.Progress >= 1f) UpdateTilt();
+            UpdateUnlockPulse();
             if (!animationSettings.IsClosed) return;
             HideImmediately();
             Closed?.Invoke();
@@ -492,6 +516,37 @@ namespace AnimalGame.RobotMap
             snapshotCircle.style.opacity=circleProgress;
             snapshotCloseBadge.style.opacity=circleProgress;
             snapshotImg.style.opacity=snapshotImgProgress;
+        }
+
+        private void UpdateUnlockPulse()
+        {
+            var star = root.Q("catalog-new-star");
+            star.style.scale = new Scale(Vector3.one);
+            star.style.opacity = currentResult.UnlockAdvanced
+                ? AnimalGame.MainUI.Inventory.InventoryController.EvaluateNewItemStarOpacity(
+                    Time.unscaledTime, AnimalGame.MainUI.MainUI.Active.NewItemBlinkPeriod) : 1f;
+            if (feedbackBadge == null) return;
+            feedbackElapsed += Time.unscaledDeltaTime;
+            ApplyButtonFeedback();
+        }
+
+        public void PlayButtonFeedback(string badgeName)
+        {
+            if (!showing || IsWarmingUp) return;
+            if (feedbackBadge != null) feedbackBadge.style.scale = new Scale(Vector3.one);
+            feedbackBadge = root.Q(badgeName);
+            feedbackElapsed = 0f;
+            ApplyButtonFeedback();
+        }
+
+        private void ApplyButtonFeedback()
+        {
+            bool rippleVisible = PhotoUnlockPulse.EvaluatePress(feedbackElapsed, out float badgeScale, out float expansion);
+            feedbackBadge.style.scale = new Scale(Vector3.one * badgeScale);
+            unlockPulse.style.display = rippleVisible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!rippleVisible) { feedbackBadge = null; return; }
+            Vector2 center = feedbackBadge.ChangeCoordinatesTo(unlockPulse, feedbackBadge.layout.size * .5f);
+            unlockPulse.SetPulse(center, feedbackBadge.layout.width * .5f - 2f, 180f, expansion);
         }
 
         private void UpdateTilt()

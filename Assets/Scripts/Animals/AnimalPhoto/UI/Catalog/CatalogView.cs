@@ -198,7 +198,7 @@ namespace AnimalGame.Animals.UI
             root.Q<CatalogRecognitionElement>("recognition").Value = progress?.recognition ?? 0;
             root.Q<Label>("catalog-name").text = tier >= 1 ? photo.DisplayName : "More Photos Required";
             root.Q("catalog-name").style.opacity = tier >= 1 ? 1f : .4f;
-            root.Q<Label>("catalog-scientific").text = tier >= 1 ? photo.ScientificName : "LOCKED — send a photograph to unlock";
+            root.Q<Label>("catalog-scientific").text = tier >= 1 ? photo.ScientificName : "LOCKED — take a photograph to unlock";
             root.Q<Label>("catalog-region").text = info.Region;
             root.Q<CatalogRulerElement>("physical-ruler").Bind(info, root.Q<CatalogHeadingElement>("physical-heading"));
             Field("classification", info.Classification, tier, 2);

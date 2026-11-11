@@ -147,6 +147,8 @@ namespace AnimalGame.Editor
                 var record = AnimalPhotoRecord.Capture(AnimalArchiveChecks.Snapshot(photo, new DateTime(2026, 11, 4, 18, i, 0)));
                 record.species = singleSpecies ? AnimalSpecies.AmericanBison : species; record.displayName = entry.DisplayName; record.scientificName = entry.ScientificName; record.regionName = AnimalArchiveAssets.Active.Info[species].Region; save.photos.Add(record);
             }
+            save.speciesProgress = save.photos.GroupBy(p => p.species).Select(group => new SpeciesProgress {
+                species = group.Key, recognition = group.Sum(p => p.recognitionValue) }).ToList();
             return save;
         }
 
@@ -156,27 +158,29 @@ namespace AnimalGame.Editor
             var catalogRoot = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/Prefabs/Resources/UI/AnimalCatalog/AnimalArchive.uxml").CloneTree();
             var catalog = new CatalogView(catalogRoot);
             catalog.Render(AnimalSpecies.AmericanBison);
-            Require(catalogRoot.Q<Label>("catalog-name").text == "Unidentified species", "Unsent photographs leave the catalog unidentified.");
-            Require(save.Progress(AnimalSpecies.AmericanBison) == null, "Photographing alone does not identify a species.");
+            Require(catalogRoot.Q<Label>("catalog-name").text == AnimalArchiveAssets.Active.Photos[AnimalSpecies.AmericanBison].DisplayName,
+                "Captured photographs identify the species before uploading.");
+            var progress = save.Progress(AnimalSpecies.AmericanBison);
+            int recognitionBeforeUpload = progress.recognition;
+            Require(progress.Tier == 3 && progress.sentPhotos == 0, "Capture recognition unlocks all tiers without uploading.");
             var time = new DateTime(2026, 11, 4, 19, 11, 0);
             SaveSystem.SendText(ContactId.Lin, "Hello from Earth.", time);
             SaveSystem.SharePhotos(ContactId.Lin, new[] { 0 }, time);
-            var progress = save.Progress(AnimalSpecies.AmericanBison);
-            Require(progress.Tier == 1 && progress.recognition == 1 && progress.sentPhotos == 1, "One monochrome upload unlocks level one and grants one point.");
+            Require(progress.recognition == recognitionBeforeUpload && progress.sentPhotos == 1, "Uploading marks a photo sent without granting recognition again.");
             catalog.Render(AnimalSpecies.AmericanBison);
             Require(catalogRoot.Q<Label>("catalog-name").text == AnimalArchiveAssets.Active.Photos[AnimalSpecies.AmericanBison].DisplayName
-                && catalogRoot.Q<Label>("classification").text.Contains("30"), "First upload unlocks names but keeps level two locked.");
+                && !catalogRoot.Q<Label>("classification").text.Contains("More Photos Required"), "Uploading preserves captured species unlocks.");
             bool rejected = false;
             try { SaveSystem.SharePhotos(ContactId.Mara, new[] { 0 }, time); }
             catch (InvalidOperationException) { rejected = true; }
             Require(rejected && save.conversations.Count == 1, "A photograph cannot be uploaded to a second contact.");
             SaveSystem.SharePhotos(ContactId.Mara, Enumerable.Range(1, 6).ToArray(), time);
-            Require(progress.Tier == 2 && progress.recognition == 31, "Color photos grant five points; thirty points unlock level two.");
+            Require(progress.Tier == 3 && progress.recognition == recognitionBeforeUpload, "Sharing color photos does not grant recognition again.");
             catalog.Render(AnimalSpecies.AmericanBison);
-            Require(!catalogRoot.Q<Label>("classification").text.Contains("Requires") && catalogRoot.Q<Label>("lifespan").text.Contains("100"),
-                "Level two unlocks classification while level three remains locked.");
+            Require(!catalogRoot.Q<Label>("classification").text.Contains("More Photos Required") && !catalogRoot.Q<Label>("lifespan").text.Contains("More Photos Required"),
+                "All fields remain unlocked after sharing.");
             SaveSystem.SharePhotos(ContactId.CrewLounge, Enumerable.Range(7, 14).ToArray(), time);
-            Require(progress.Tier == 3 && progress.recognition == 101, "One hundred points unlock level three.");
+            Require(progress.Tier == 3 && progress.recognition == recognitionBeforeUpload, "Further uploads preserve recognition.");
             catalog.Render(AnimalSpecies.AmericanBison);
             Require(!catalogRoot.Q<Label>("lifespan").text.Contains("Requires"), "Level three unlocks lifespan and the final fields.");
             var loaded = SaveSystem.LoadOrCreate(SaveSystem.SavePath);

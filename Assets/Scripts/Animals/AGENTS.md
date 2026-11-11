@@ -28,7 +28,7 @@
 - 拍照立即自动保存；结果页 X 打开 Catalog、Y 打开 Photos，相册覆盖结果页，关闭后回到结果页。
 - `AnimalArchiveUI` 统一管理输入、页面切换及打开界面时的游戏暂停；仅保留上一个界面，B 返回一次后再次按 B 关闭；页面包含 Photos、照片全屏查看、Catalog 和物种详情。
 - `Photos/PhotoCollection` 管理照片筛选、排序和选择；`PhotosView` 渲染照片，`PhotosSidebarView` 复用 `CatalogSidebarView` 的六格列表、黄色选框与滚动动画；All Collection 置顶，其余按英文名称 A–Z 排序。Photos 顶部共用 Catalog 翻页栏样式，LT/RT 显示相邻集合并首尾循环；左摇杆和 D-pad 导航 Photo Index，右摇杆也可选择照片。
-- 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，RB 返回主 Catalog、Y 查看该物种照片；`CatalogView` 填充详情。上传至少一张照片、已解锁一级信息的物种可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`，底部详情识别条仍为静态占位。
+- 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，RB 返回主 Catalog、Y 查看该物种照片；`CatalogView` 填充详情。拍到物种即解锁一级并在图鉴可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
 - Photos 和 Catalog 共用外框、标签栏、侧栏、内容边框及底栏尺寸；公共布局直接定义在共享样式中，不按页面切换尺寸。
 - Photos 列表与大图页共用右侧信息区和翻页栏定位；左侧区域宽度等于页面内容高度，分别显示 Photo Index 或正方形大图，列表页不重复显示小预览图。
@@ -45,10 +45,11 @@
 - 已保存照片来自 `SaveSystem.Current.photos`；`AnimalPhotoRecord` 保存原图标识、效果与裁剪参数，界面监听 `SaveSystem.Changed` 刷新；`PhotoDeleteHold` 管理长按 X 1.5 秒删除，`ArchiveHoldCircleElement` 显示环形进度，删除通过 `SaveSystem.DeletePhoto` 持久化。
 
 - `SaveSystem` 统一读写 `Application.persistentDataPath/animal-save.bin`，缺失时创建空存档；`GameSave` 是普通数据类，二进制格式包含签名、版本、照片及物种进度，Editor 和独立 Player 使用同一逻辑。
+- `StorePhoto` 拍照保存时立即增加认知度（每张照片 1/5 点），首次大于 0、达到 30/100 时升级。结算快照 `UnlockAdvanced` 仅决定 Catalog 后黄色星号；星号随文字打印，使用 Cargo 的 Orbitron-Medium 47 号字体，复用 InventoryController 的透明度闪烁（50%–100%，共用 MainUI 的周期配置），不缩放。Y/X/B 按下立即触发独立涟漪和按键快速缩小回弹，0.2 秒后执行对应页面操作，与解锁度无关。涟漪半径上限 180、快速淡出，位于照片上层、文字下层。存档 v3 迁移 v1/v2 时仅补计未上传照片，不重复计分。
 
 # Earthline 通信
 
 - `AnimalPhoto/Communication/` 管理联系人、对话、方向键焦点与 4 列 × 3 行选照片窗口；L 开关，A 确认，Y 分享/全选，X 发送，B 返回。
 - Prefab/UXML/USS 位于 `Assets/Prefabs/Resources/UI/Communication/`；`Assets/Data/Communication/Contacts.asset` 配置联系人枚举、职业和 Sprite 头像。
 - `GameSave.conversations` 保存各联系人的文字/照片消息；照片引用相册索引，删除相册照片时同步移除和调整消息索引。
-- `SaveSystem.SharePhotos` 持久化消息、全局 sent 标记和认知度；上传一张解锁一级，认知度 30/100 解锁二/三级，未上传不识别。二进制 v2 读取已有 v1 存档。
+- `SaveSystem.SharePhotos` 持久化消息、全局 sent 标记和已发送数量；上传不再增加认知度或解锁等级。

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using AnimalGame.Animals;
 using AnimalGame.MapTest;
@@ -54,6 +55,7 @@ namespace AnimalGame.RobotMap
         private AnimalPhotoSubject pendingSubject;
         private AnimalPhotoSubject displayedSubject;
         private bool visible;
+        private Coroutine pendingAction;
         private PhotoResultView subscribedView;
 
         public bool IsVisible => visible;
@@ -135,19 +137,32 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            if (resultView == null || resultView.IsClosing
+            if (resultView == null || resultView.IsClosing || pendingAction != null
                 || AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay) return;
             bool closePressed = Input.GetKeyDown(closeKey)
                 || Input.GetKeyDown(alternateCloseKey)
                 || AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame();
-            if (closePressed) { resultView.Close(); return; }
+            if (closePressed) { PlayResultAction("close-badge", () => resultView.Close()); return; }
             bool photosPressed = Input.GetKeyDown(photosKey)
                 || AdaptiveLegacyGamepadInput.WasNorthFaceButtonPressedThisFrame();
             bool catalogPressed = Input.GetKeyDown(catalogKey)
                 || AdaptiveLegacyGamepadInput.WasWestFaceButtonPressedThisFrame();
             if (photosPressed || catalogPressed)
-                FindFirstObjectByType<AnimalGame.Animals.UI.AnimalArchiveUI>()
-                    .OpenFromPhotoResult(catalogPressed);
+                PlayResultAction(catalogPressed ? "catalog-badge" : "save-badge", () =>
+                    FindFirstObjectByType<AnimalGame.Animals.UI.AnimalArchiveUI>().OpenFromPhotoResult(catalogPressed));
+        }
+
+        private void PlayResultAction(string badgeName, Action action)
+        {
+            resultView.PlayButtonFeedback(badgeName);
+            pendingAction = StartCoroutine(CompleteResultAction(action));
+        }
+
+        private IEnumerator CompleteResultAction(Action action)
+        {
+            yield return new WaitForSecondsRealtime(PhotoUnlockPulse.RippleSeconds);
+            pendingAction = null;
+            if (visible) action();
         }
 
         private void HandlePhotoCaptured()
@@ -541,6 +556,7 @@ namespace AnimalGame.RobotMap
 
         private void HideResult(bool returnToCamera)
         {
+            if (pendingAction != null) { StopCoroutine(pendingAction); pendingAction = null; }
             if (resultView != null) resultView.HasPendingReview = false;
             visible = false;
             pendingResult = null;
@@ -654,6 +670,7 @@ namespace AnimalGame.RobotMap
         public float Longitude { get; }
         public float FrameCoverage { get; }
         public DateTime CapturedAt { get; }
+        public bool UnlockAdvanced { get; internal set; }
     }
 
     public static class PhotoAlbumService
@@ -663,7 +680,7 @@ namespace AnimalGame.RobotMap
         public static void Save(PhotoResultSnapshot snapshot)
         {
             AnimalGame.Save.SaveSystem.Initialize();
-            AnimalGame.Save.SaveSystem.StorePhoto(AnimalGame.Save.AnimalPhotoRecord.Capture(snapshot));
+            snapshot.UnlockAdvanced = AnimalGame.Save.SaveSystem.StorePhoto(AnimalGame.Save.AnimalPhotoRecord.Capture(snapshot));
         }
     }
 }
