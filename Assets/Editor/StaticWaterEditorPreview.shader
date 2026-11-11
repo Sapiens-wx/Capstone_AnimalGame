@@ -4,6 +4,7 @@ Shader "Hidden/AnimalGame/StaticWaterEditorPreview"
     {
         _MainTex ("Water Pattern", 2D) = "white" {}
         _DepthTex ("Encoded Depth", 2D) = "black" {}
+        _DepthBounds ("Depth Bounds", Vector) = (0, 0, 1, 1)
         _FlowPreview ("Flow Preview", Float) = 0
         _Tint ("Preview Tint", Color) = (0.18, 0.72, 1, 1)
         _TileScale ("Tile Scale", Vector) = (16, 16, 0, 0)
@@ -33,6 +34,7 @@ Shader "Hidden/AnimalGame/StaticWaterEditorPreview"
 
             sampler2D _MainTex;
             sampler2D _DepthTex;
+            float4 _DepthBounds;
             float _FlowPreview;
             float4 _Tint;
             float4 _TileScale;
@@ -60,7 +62,9 @@ Shader "Hidden/AnimalGame/StaticWaterEditorPreview"
 
             fixed4 frag(v2f input) : SV_Target
             {
-                float4 data = tex2D(_DepthTex, input.uv);
+                float2 depthUv = (input.uv - _DepthBounds.xy) / _DepthBounds.zw;
+                clip(min(min(depthUv.x, depthUv.y), min(1.0 - depthUv.x, 1.0 - depthUv.y)));
+                float4 data = tex2D(_DepthTex, depthUv);
                 float depth = data.r;
                 clip(depth - 0.001);
 

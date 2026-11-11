@@ -155,6 +155,8 @@ namespace AnimalGame.Editor
                 Property(serialized, "staticWaterDepthMap").arraySize = 0;
                 Property(serialized, "staticWaterFlowAngleMap").arraySize = 0;
                 Property(serialized, "staticWaterFlowSpeedMap").arraySize = 0;
+                Property(serialized, "staticWaterPixelBounds").rectIntValue = default;
+                SetInt(serialized, "staticWaterDataResolution", 0);
                 Property(serialized, "surfaceMask").arraySize = 0;
                 Property(serialized, "surfacePalette").arraySize = 0;
                 SetInt(serialized, "surfaceDataVersion", 0);

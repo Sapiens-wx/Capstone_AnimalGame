@@ -46,11 +46,25 @@ MonoBehaviour:
   maximumContourOpacity: 1
   outsideRevealDarkening: 0.3
   staticWaterResolution: 512
+  staticWaterPixelBounds:
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  staticWaterDataResolution: 512
   maximumStaticWaterDepthMeters: 10
   maximumPassableStaticWaterDepthMeters: 1.2
-  staticWaterDepthMap: 
+  staticWaterDepthMap: 00
+  staticWaterFlowAngleMap: 00
+  staticWaterFlowSpeedMap: 00
   staticWaterEditorTexture: {fileID: 0}
   bakedStaticWaterMask: {fileID: 0}
+  bakedStaticWaterBounds:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
   staticWaterEditorTileSizeMeters: 8
   staticWaterLayerOneSpeedMetersPerSecond: {x: 0.36, y: 0.04}
   staticWaterLayerTwoSpeedMetersPerSecond: {x: -0.14, y: 0.22}
@@ -72,7 +86,6 @@ MonoBehaviour:
   surfaceScatterStrength: 0.35
   surfaceNoiseSeed: 1337
   surfaceBakeResolution: 2048
-  surfaceMaskResolution: 512
   surfacePatternAlphaNormalizationStrength: 0.75
   surfaceClosedContourAlphaEnabled: 1
   surfaceClosedContourAlphaResolution: 512
@@ -83,13 +96,19 @@ MonoBehaviour:
   surfaceClosedContourDistanceCurve: 2
   surfaceClosedContourMinimumAreaSquareMeters: 4
   surfaceOutsideClosedContourAlphaMultiplier: 0
-  surfaceMask: 
-  surfaceDataVersion: 0
   surfacePatternTexture: {fileID: 0}
   surfaceTint: {r: 1, g: 1, b: 1, a: 1}
   surfaceOpacity: 0.35
   surfaceTileSizeMeters: 8
+  surfaceMaskResolution: 512
+  surfaceMask: 
+  surfaceDataVersion: 0
   bakedSurfaceVisual: {fileID: 0}
+  bakedGrasslandMask: {fileID: 0}
+  grasslandPattern: {fileID: 0}
+  grasslandBladeRects: []
+  grasslandTileSizeMeters: 3.2
+  grasslandAlphaNormalization: {x: 1, y: 1}
   surfaceRevealEdgePixels: 4
   surfaceBakeRevision: 0
   surfaceBakeGeneratorVersion: 0

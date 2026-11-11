@@ -223,9 +223,13 @@ namespace AnimalGame.MapTest
         [SerializeField, Range(0f, 1f)] private float outsideRevealDarkening = 0.3f;
 
         [Header("Static Water")]
-        [Tooltip("Resolution of the persistent static-water depth map. A zero byte is dry land; non-zero values encode water depth.")]
+        [Tooltip("Full-map pixel density before cropping. Depth, direction, speed and Water Mask share the same cropped rectangle.")]
         [SerializeField, Range(64, 1024)]
         private int staticWaterResolution = 512;
+        // All three channels share this rectangle in the full-resolution map grid.
+        // Zero width identifies existing, uncropped square authoring data.
+        [SerializeField, HideInInspector] private RectInt staticWaterPixelBounds;
+        [SerializeField, HideInInspector] private int staticWaterDataResolution;
 
         [Tooltip("Deepest water value represented by the depth map, in logical map meters.")]
         [SerializeField, Min(0.1f)]
@@ -477,6 +481,18 @@ namespace AnimalGame.MapTest
         public int ViewportEdgeSamples => viewportEdgeSamples;
         public int ViewportGridHeightSamples => viewportGridHeightSamples;
         public int StaticWaterResolution => staticWaterResolution;
+        public RectInt StaticWaterPixelBounds => staticWaterPixelBounds.width > 0
+            ? staticWaterPixelBounds
+            : new RectInt(0, 0, LegacyStaticWaterResolution, LegacyStaticWaterResolution);
+        private int LegacyStaticWaterResolution => Mathf.RoundToInt(Mathf.Sqrt(staticWaterDepthMap.Length));
+        private int StaticWaterDataResolution => staticWaterDataResolution > 0
+            ? staticWaterDataResolution : LegacyStaticWaterResolution;
+
+        private static byte ReadStaticWaterPixel(byte[] data, RectInt bounds, int x, int y)
+        {
+            return bounds.Contains(new Vector2Int(x, y))
+                ? data[(y - bounds.y) * bounds.width + x - bounds.x] : (byte)0;
+        }
         public float MaximumStaticWaterDepthMeters =>
             maximumStaticWaterDepthMeters;
         public float MaximumPassableStaticWaterDepthMeters =>
@@ -577,13 +593,8 @@ namespace AnimalGame.MapTest
                 return 0f;
             }
 
-            int resolution = Mathf.RoundToInt(
-                Mathf.Sqrt(staticWaterDepthMap.Length));
-            if (resolution <= 0
-                || resolution * resolution != staticWaterDepthMap.Length)
-            {
-                return 0f;
-            }
+            int resolution = StaticWaterDataResolution;
+            RectInt bounds = StaticWaterPixelBounds;
 
             float pixelX = mapPositionMeters.x
                            / Mathf.Max(0.0001f, mapWidthMeters)
@@ -600,12 +611,12 @@ namespace AnimalGame.MapTest
             float blendX = Mathf.Clamp01(pixelX - Mathf.Floor(pixelX));
             float blendY = Mathf.Clamp01(pixelY - Mathf.Floor(pixelY));
             float lower = Mathf.Lerp(
-                staticWaterDepthMap[y0 * resolution + x0],
-                staticWaterDepthMap[y0 * resolution + x1],
+                ReadStaticWaterPixel(staticWaterDepthMap, bounds, x0, y0),
+                ReadStaticWaterPixel(staticWaterDepthMap, bounds, x1, y0),
                 blendX);
             float upper = Mathf.Lerp(
-                staticWaterDepthMap[y1 * resolution + x0],
-                staticWaterDepthMap[y1 * resolution + x1],
+                ReadStaticWaterPixel(staticWaterDepthMap, bounds, x0, y1),
+                ReadStaticWaterPixel(staticWaterDepthMap, bounds, x1, y1),
                 blendX);
             float encodedDepth = Mathf.Lerp(lower, upper, blendY);
             return encodedDepth / byte.MaxValue
@@ -623,11 +634,14 @@ namespace AnimalGame.MapTest
                 || mapPositionMeters.x < 0f || mapPositionMeters.x > mapWidthMeters
                 || mapPositionMeters.y < 0f || mapPositionMeters.y > mapHeightMeters)
                 return false;
-            int x = Mathf.Min(staticWaterResolution - 1,
-                Mathf.FloorToInt(mapPositionMeters.x / mapWidthMeters * staticWaterResolution));
-            int y = Mathf.Min(staticWaterResolution - 1,
-                Mathf.FloorToInt(mapPositionMeters.y / mapHeightMeters * staticWaterResolution));
-            int index = y * staticWaterResolution + x;
+            int resolution = StaticWaterDataResolution;
+            int x = Mathf.Min(resolution - 1,
+                Mathf.FloorToInt(mapPositionMeters.x / mapWidthMeters * resolution));
+            int y = Mathf.Min(resolution - 1,
+                Mathf.FloorToInt(mapPositionMeters.y / mapHeightMeters * resolution));
+            RectInt bounds = StaticWaterPixelBounds;
+            if (!bounds.Contains(new Vector2Int(x, y))) return false;
+            int index = (y - bounds.y) * bounds.width + x - bounds.x;
             if (staticWaterDepthMap[index] == 0)
                 return false;
             float angle = staticWaterFlowAngleMap[index] * (Mathf.PI * 2f / 256f);
@@ -760,60 +774,109 @@ namespace AnimalGame.MapTest
 
         public bool EnsureStaticWaterAuthoringData()
         {
-            int requestedResolution = Mathf.Clamp(
-                staticWaterResolution,
-                64,
-                1024);
-            int requestedLength = requestedResolution * requestedResolution;
-            bool changed = ResizeStaticWaterMap(ref staticWaterDepthMap, requestedResolution, requestedLength);
-            changed |= ResizeStaticWaterMap(ref staticWaterFlowAngleMap, requestedResolution, requestedLength);
-            changed |= ResizeStaticWaterMap(ref staticWaterFlowSpeedMap, requestedResolution, requestedLength);
+            int requestedResolution = Mathf.Clamp(staticWaterResolution, 64, 1024);
+            bool changed = false;
+            if (staticWaterPixelBounds.width == 0)
+            {
+                int previousResolution = LegacyStaticWaterResolution;
+                staticWaterPixelBounds = new RectInt(0, 0,
+                    Mathf.Max(1, previousResolution), Mathf.Max(1, previousResolution));
+                staticWaterDataResolution = previousResolution > 0 ? previousResolution : requestedResolution;
+                Array.Resize(ref staticWaterDepthMap, staticWaterPixelBounds.width * staticWaterPixelBounds.height);
+                Array.Resize(ref staticWaterFlowAngleMap, staticWaterDepthMap.Length);
+                Array.Resize(ref staticWaterFlowSpeedMap, staticWaterDepthMap.Length);
+                CompactStaticWaterData();
+                changed = true;
+            }
+            if (staticWaterDataResolution != requestedResolution)
+            {
+                RectInt oldBounds = staticWaterPixelBounds;
+                float scale = requestedResolution / (float)staticWaterDataResolution;
+                RectInt newBounds = new RectInt();
+                newBounds.xMin = Mathf.FloorToInt(oldBounds.xMin * scale);
+                newBounds.yMin = Mathf.FloorToInt(oldBounds.yMin * scale);
+                newBounds.xMax = Mathf.Min(requestedResolution, Mathf.CeilToInt(oldBounds.xMax * scale));
+                newBounds.yMax = Mathf.Min(requestedResolution, Mathf.CeilToInt(oldBounds.yMax * scale));
+                staticWaterDepthMap = ResampleStaticWaterMap(staticWaterDepthMap, oldBounds, newBounds, scale);
+                staticWaterFlowAngleMap = ResampleStaticWaterMap(staticWaterFlowAngleMap, oldBounds, newBounds, scale);
+                staticWaterFlowSpeedMap = ResampleStaticWaterMap(staticWaterFlowSpeedMap, oldBounds, newBounds, scale);
+                staticWaterPixelBounds = newBounds;
+                staticWaterDataResolution = requestedResolution;
+                CompactStaticWaterData();
+                changed = true;
+            }
             return changed;
         }
 
-        private static bool ResizeStaticWaterMap(ref byte[] map, int requestedResolution, int requestedLength)
+        private static byte[] ResampleStaticWaterMap(byte[] source, RectInt oldBounds, RectInt newBounds, float scale)
         {
-            if (map != null && map.Length == requestedLength)
-            {
-                return false;
-            }
+            var data = new byte[newBounds.width * newBounds.height];
+            for (int y = 0; y < newBounds.height; y++)
+            for (int x = 0; x < newBounds.width; x++)
+                data[y * newBounds.width + x] = ReadStaticWaterPixel(source, oldBounds,
+                    Mathf.FloorToInt((newBounds.x + x + 0.5f) / scale),
+                    Mathf.FloorToInt((newBounds.y + y + 0.5f) / scale));
+            return data;
+        }
 
-            byte[] previousMap = map;
-            map = new byte[requestedLength];
-            if (previousMap == null || previousMap.Length == 0)
-                return true;
+        private void ResizeStaticWaterBounds(RectInt bounds)
+        {
+            if (bounds == staticWaterPixelBounds) return;
+            staticWaterDepthMap = CopyStaticWaterRegion(staticWaterDepthMap, staticWaterPixelBounds, bounds);
+            staticWaterFlowAngleMap = CopyStaticWaterRegion(staticWaterFlowAngleMap, staticWaterPixelBounds, bounds);
+            staticWaterFlowSpeedMap = CopyStaticWaterRegion(staticWaterFlowSpeedMap, staticWaterPixelBounds, bounds);
+            staticWaterPixelBounds = bounds;
+        }
 
-            int previousResolution = Mathf.RoundToInt(
-                Mathf.Sqrt(previousMap.Length));
-            if (previousResolution <= 0
-                || previousResolution * previousResolution
-                != previousMap.Length)
-            {
-                return true;
-            }
+        private static byte[] CopyStaticWaterRegion(byte[] source, RectInt oldBounds, RectInt bounds)
+        {
+            var data = new byte[bounds.width * bounds.height];
+            int minX = Mathf.Max(oldBounds.xMin, bounds.xMin), maxX = Mathf.Min(oldBounds.xMax, bounds.xMax);
+            if (minX >= maxX) return data;
+            for (int y = Mathf.Max(oldBounds.yMin, bounds.yMin); y < Mathf.Min(oldBounds.yMax, bounds.yMax); y++)
+                Array.Copy(source, (y - oldBounds.y) * oldBounds.width + minX - oldBounds.x,
+                    data, (y - bounds.y) * bounds.width + minX - bounds.x, maxX - minX);
+            return data;
+        }
 
-            for (int y = 0; y < requestedResolution; y++)
+        public bool CompactStaticWaterData()
+        {
+            RectInt old = staticWaterPixelBounds;
+            int minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1;
+            for (int y = 0; y < old.height; y++)
+            for (int x = 0; x < old.width; x++)
             {
-                int sourceY = Mathf.Clamp(
-                    Mathf.FloorToInt(
-                        (y + 0.5f) / requestedResolution
-                        * previousResolution),
-                    0,
-                    previousResolution - 1);
-                for (int x = 0; x < requestedResolution; x++)
+                int index = y * old.width + x;
+                if (staticWaterDepthMap[index] == 0)
                 {
-                    int sourceX = Mathf.Clamp(
-                        Mathf.FloorToInt(
-                            (x + 0.5f) / requestedResolution
-                            * previousResolution),
-                        0,
-                        previousResolution - 1);
-                    map[y * requestedResolution + x] =
-                        previousMap[sourceY * previousResolution + sourceX];
+                    staticWaterFlowAngleMap[index] = 0;
+                    staticWaterFlowSpeedMap[index] = 0;
+                    continue;
                 }
+                minX = Mathf.Min(minX, old.x + x); minY = Mathf.Min(minY, old.y + y);
+                maxX = Mathf.Max(maxX, old.x + x); maxY = Mathf.Max(maxY, old.y + y);
             }
+            RectInt bounds = maxX < 0 ? new RectInt(0, 0, 1, 1) : new RectInt(
+                Mathf.Max(0, minX - 1), Mathf.Max(0, minY - 1), 0, 0);
+            if (maxX >= 0)
+            {
+                bounds.xMax = Mathf.Min(staticWaterDataResolution, maxX + 2);
+                bounds.yMax = Mathf.Min(staticWaterDataResolution, maxY + 2);
+            }
+            ResizeStaticWaterBounds(bounds);
+            return bounds != old;
+        }
 
-            return true;
+        private RectInt GetStaticWaterBrushBounds(Vector2 position, float radius)
+        {
+            radius = Mathf.Max(0.01f, radius);
+            Vector2 size = MapSizeMeters;
+            int resolution = staticWaterResolution;
+            int minX = Mathf.Clamp(Mathf.FloorToInt((position.x - radius) / size.x * resolution), 0, resolution - 1);
+            int minY = Mathf.Clamp(Mathf.FloorToInt((position.y - radius) / size.y * resolution), 0, resolution - 1);
+            int maxX = Mathf.Clamp(Mathf.CeilToInt((position.x + radius) / size.x * resolution), 0, resolution - 1);
+            int maxY = Mathf.Clamp(Mathf.CeilToInt((position.y + radius) / size.y * resolution), 0, resolution - 1);
+            return new RectInt(minX, minY, maxX - minX + 1, maxY - minY + 1);
         }
 
         public byte[] GetOrCreateStaticWaterDepthMap()
@@ -839,6 +902,8 @@ namespace AnimalGame.MapTest
             unchecked
             {
                 int hash = staticWaterResolution;
+                hash = hash * 397 ^ staticWaterPixelBounds.GetHashCode();
+                hash = hash * 397 ^ staticWaterDataResolution;
                 hash = hash * 397
                        ^ maximumStaticWaterDepthMeters.GetHashCode();
                 hash = hash * 397
@@ -872,11 +937,14 @@ namespace AnimalGame.MapTest
             int maxX = Mathf.Clamp(Mathf.CeilToInt((mapPositionMeters.x + radius) / size.x * resolution), 0, resolution - 1);
             int minY = Mathf.Clamp(Mathf.FloorToInt((mapPositionMeters.y - radius) / size.y * resolution), 0, resolution - 1);
             int maxY = Mathf.Clamp(Mathf.CeilToInt((mapPositionMeters.y + radius) / size.y * resolution), 0, resolution - 1);
+            RectInt bounds = staticWaterPixelBounds;
+            minX = Mathf.Max(minX, bounds.xMin); maxX = Mathf.Min(maxX, bounds.xMax - 1);
+            minY = Mathf.Max(minY, bounds.yMin); maxY = Mathf.Min(maxY, bounds.yMax - 1);
             bool changed = false;
             for (int y = minY; y <= maxY; y++)
             for (int x = minX; x <= maxX; x++)
             {
-                int index = y * resolution + x;
+                int index = (y - bounds.y) * bounds.width + x - bounds.x;
                 if (staticWaterDepthMap[index] == 0) continue;
                 Vector2 pixel = new Vector2((x + 0.5f) / resolution * size.x, (y + 0.5f) / resolution * size.y);
                 float distance = Vector2.Distance(pixel, mapPositionMeters) / radius;
@@ -910,7 +978,27 @@ namespace AnimalGame.MapTest
             float strength,
             float hardness)
         {
-            byte[] depthMap = GetOrCreateStaticWaterDepthMap();
+            EnsureStaticWaterAuthoringData();
+            RectInt brushBounds = GetStaticWaterBrushBounds(mapPositionMeters, brushRadiusMeters);
+            RectInt bounds = staticWaterPixelBounds;
+            bool canAddWater = mode == StaticWaterDepthPaintMode.Set || mode == StaticWaterDepthPaintMode.Add
+                || mode == StaticWaterDepthPaintMode.Smooth;
+            if (canAddWater)
+            {
+                // A dry map starts at 1x1; do not include that placeholder in an expansion.
+                bool dry = bounds.width == 1 && bounds.height == 1 && staticWaterDepthMap[0] == 0;
+                RectInt expanded = dry ? brushBounds : new RectInt();
+                if (!dry)
+                {
+                    expanded.xMin = Mathf.Min(bounds.xMin, brushBounds.xMin);
+                    expanded.yMin = Mathf.Min(bounds.yMin, brushBounds.yMin);
+                    expanded.xMax = Mathf.Max(bounds.xMax, brushBounds.xMax);
+                    expanded.yMax = Mathf.Max(bounds.yMax, brushBounds.yMax);
+                }
+                ResizeStaticWaterBounds(expanded);
+                bounds = expanded;
+            }
+            byte[] depthMap = staticWaterDepthMap;
             int resolution = Mathf.Clamp(staticWaterResolution, 64, 1024);
             Vector2 mapSize = MapSizeMeters;
             float radius = Mathf.Max(0.01f, brushRadiusMeters);
@@ -925,30 +1013,10 @@ namespace AnimalGame.MapTest
                 0f,
                 maximumDepth);
             float depthStep = Mathf.Max(0f, depthStepMeters);
-            int minimumX = Mathf.Clamp(
-                Mathf.FloorToInt(
-                    (mapPositionMeters.x - radius)
-                    / mapSize.x * resolution),
-                0,
-                resolution - 1);
-            int maximumX = Mathf.Clamp(
-                Mathf.CeilToInt(
-                    (mapPositionMeters.x + radius)
-                    / mapSize.x * resolution),
-                0,
-                resolution - 1);
-            int minimumY = Mathf.Clamp(
-                Mathf.FloorToInt(
-                    (mapPositionMeters.y - radius)
-                    / mapSize.y * resolution),
-                0,
-                resolution - 1);
-            int maximumY = Mathf.Clamp(
-                Mathf.CeilToInt(
-                    (mapPositionMeters.y + radius)
-                    / mapSize.y * resolution),
-                0,
-                resolution - 1);
+            int minimumX = Mathf.Max(brushBounds.xMin, bounds.xMin);
+            int maximumX = Mathf.Min(brushBounds.xMax, bounds.xMax) - 1;
+            int minimumY = Mathf.Max(brushBounds.yMin, bounds.yMin);
+            int maximumY = Mathf.Min(brushBounds.yMax, bounds.yMax) - 1;
             byte[] smoothingSource = mode == StaticWaterDepthPaintMode.Smooth
                 ? (byte[])depthMap.Clone()
                 : null;
@@ -975,7 +1043,7 @@ namespace AnimalGame.MapTest
                     if (weight <= 0.0001f)
                         continue;
 
-                    int index = y * resolution + x;
+                    int index = (y - bounds.y) * bounds.width + x - bounds.x;
                     float previousDepth = DecodeStaticWaterDepth(
                         depthMap[index],
                         maximumDepth);
@@ -991,6 +1059,7 @@ namespace AnimalGame.MapTest
                         case StaticWaterDepthPaintMode.Smooth:
                             float averageDepth = CalculateNeighbourDepthAverage(
                                 smoothingSource,
+                                bounds,
                                 resolution,
                                 x,
                                 y,
@@ -1018,6 +1087,11 @@ namespace AnimalGame.MapTest
                         continue;
 
                     depthMap[index] = encodedDepth;
+                    if (encodedDepth == 0)
+                    {
+                        staticWaterFlowAngleMap[index] = 0;
+                        staticWaterFlowSpeedMap[index] = 0;
+                    }
                     changed = true;
                 }
             }
@@ -1027,14 +1101,19 @@ namespace AnimalGame.MapTest
 
         public bool FillStaticWaterDepth(float depthMeters)
         {
-            byte[] depthMap = GetOrCreateStaticWaterDepthMap();
+            EnsureStaticWaterAuthoringData();
+            RectInt oldBounds = staticWaterPixelBounds;
+            ResizeStaticWaterBounds(depthMeters > 0f
+                ? new RectInt(0, 0, staticWaterResolution, staticWaterResolution)
+                : new RectInt(0, 0, 1, 1));
+            byte[] depthMap = staticWaterDepthMap;
             float maximumDepth = Mathf.Max(
                 0.1f,
                 maximumStaticWaterDepthMeters);
             byte targetValue = EncodeStaticWaterDepth(
                 Mathf.Clamp(depthMeters, 0f, maximumDepth),
                 maximumDepth);
-            bool changed = false;
+            bool changed = oldBounds != staticWaterPixelBounds;
             for (int index = 0; index < depthMap.Length; index++)
             {
                 if (depthMap[index] == targetValue)
@@ -1044,6 +1123,7 @@ namespace AnimalGame.MapTest
                 changed = true;
             }
 
+            CompactStaticWaterData();
             return changed;
         }
 
@@ -1065,6 +1145,7 @@ namespace AnimalGame.MapTest
 
         private static float CalculateNeighbourDepthAverage(
             byte[] source,
+            RectInt bounds,
             int resolution,
             int centreX,
             int centreY,
@@ -1088,7 +1169,7 @@ namespace AnimalGame.MapTest
                         continue;
 
                     total += DecodeStaticWaterDepth(
-                        source[y * resolution + x],
+                        ReadStaticWaterPixel(source, bounds, x, y),
                         maximumDepth);
                     count++;
                 }

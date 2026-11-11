@@ -16,6 +16,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private static readonly string[] WaterAuthoringProperties =
     {
         "staticWaterDepthMap", "staticWaterFlowAngleMap", "staticWaterFlowSpeedMap", "staticWaterResolution",
+        "staticWaterPixelBounds", "staticWaterDataResolution",
         "maximumStaticWaterDepthMeters", "maximumPassableStaticWaterDepthMeters",
         "staticWaterEditorTexture", "staticWaterEditorTint",
         "staticWaterEditorTileSizeMeters",
@@ -230,7 +231,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Water Map", EditorStyles.boldLabel);
         EditorGUI.BeginChangeCheck();
-        EditorGUILayout.PropertyField(resolution, new GUIContent("Resolution"));
+        EditorGUILayout.PropertyField(resolution, new GUIContent("Full Map Resolution"));
         EditorGUILayout.PropertyField(
             maximumDepth,
             new GUIContent("Maximum Depth (m)"));
@@ -375,6 +376,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     {
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Current Water", EditorStyles.boldLabel);
+        RectInt bounds = levelAsset.StaticWaterPixelBounds;
+        EditorGUILayout.LabelField("Water Data Size", $"{bounds.width} x {bounds.height}");
         EditorGUILayout.LabelField("Wet authoring pixels", wetPixelCount.ToString());
         if (wetPixelCount <= 0)
         {
@@ -522,13 +525,16 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             Mathf.Max(size.x, size.y) / resolution);
         byte[] depths = levelAsset.GetOrCreateStaticWaterDepthMap();
         byte[] angles = levelAsset.GetOrCreateStaticWaterFlowAngleMap();
+        RectInt bounds = levelAsset.StaticWaterPixelBounds;
         var lines = new System.Collections.Generic.List<Vector3>();
-        for (float y = spacing * 0.5f; y < size.y; y += spacing)
-        for (float x = spacing * 0.5f; x < size.x; x += spacing)
+        float startX = (Mathf.Max(0, Mathf.CeilToInt(bounds.xMin / (float)resolution * size.x / spacing - 0.5f)) + 0.5f) * spacing;
+        float startY = (Mathf.Max(0, Mathf.CeilToInt(bounds.yMin / (float)resolution * size.y / spacing - 0.5f)) + 0.5f) * spacing;
+        for (float y = startY; y < bounds.yMax / (float)resolution * size.y; y += spacing)
+        for (float x = startX; x < bounds.xMax / (float)resolution * size.x; x += spacing)
         {
             int ix = Mathf.Min(resolution - 1, (int)(x / size.x * resolution));
             int iy = Mathf.Min(resolution - 1, (int)(y / size.y * resolution));
-            int index = iy * resolution + ix;
+            int index = (iy - bounds.y) * bounds.width + ix - bounds.x;
             if (depths[index] == 0) continue;
             float angle = angles[index] * (Mathf.PI * 2f / 256f);
             Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
@@ -737,18 +743,20 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             return;
         }
 
+        levelAsset.EnsureStaticWaterAuthoringData();
+        levelAsset.CompactStaticWaterData();
         EnsurePreviewResources();
         byte[] depthMap = levelAsset.GetOrCreateStaticWaterDepthMap();
-        int resolution = levelAsset.StaticWaterResolution;
+        RectInt bounds = levelAsset.StaticWaterPixelBounds;
         if (previewDepthTexture == null
-            || previewDepthTexture.width != resolution
-            || previewDepthTexture.height != resolution)
+            || previewDepthTexture.width != bounds.width
+            || previewDepthTexture.height != bounds.height)
         {
             if (previewDepthTexture != null)
                 DestroyImmediate(previewDepthTexture);
             previewDepthTexture = new Texture2D(
-                resolution,
-                resolution,
+                bounds.width,
+                bounds.height,
                 TextureFormat.RGBA32,
                 false,
                 true)
@@ -895,6 +903,10 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         }
 
         previewMaterial.SetTexture("_DepthTex", previewDepthTexture);
+        RectInt bounds = levelAsset.StaticWaterPixelBounds;
+        float resolution = levelAsset.StaticWaterResolution;
+        previewMaterial.SetVector("_DepthBounds", new Vector4(
+            bounds.x / resolution, bounds.y / resolution, bounds.width / resolution, bounds.height / resolution));
         previewMaterial.SetFloat("_FlowPreview", brushPage == 1 ? 1f : 0f);
         previewMaterial.SetTexture("_MainTex", pattern != null
             ? pattern
@@ -953,6 +965,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             return;
 
         EndStroke();
+        levelAsset.CompactStaticWaterData();
         // Copy only water authoring fields so other map edits remain intact.
         serializedLevel.Update();
         var destination = new SerializedObject(sourceLevelAsset);
@@ -1085,34 +1098,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
 internal static class HeightMapStaticWaterMaskBaker
 {
-    // Keep the original texel density. Pad each cropped edge with one dry
-    // source pixel; map boundaries are clamped so edge water is never erased.
-    internal static RectInt CalculatePixelBounds(byte[] depthMap, int resolution)
-    {
-        int minX = resolution, minY = resolution, maxX = -1, maxY = -1;
-        for (int y = 0; y < resolution; y++)
-        {
-            for (int x = 0; x < resolution; x++)
-            {
-                if (depthMap[y * resolution + x] == 0)
-                    continue;
-                minX = Mathf.Min(minX, x);
-                minY = Mathf.Min(minY, y);
-                maxX = Mathf.Max(maxX, x);
-                maxY = Mathf.Max(maxY, y);
-            }
-        }
-
-        // A dry map only needs a single black texel.
-        if (maxX < 0)
-            return new RectInt(0, 0, 1, 1);
-        minX = Mathf.Max(0, minX - 1);
-        minY = Mathf.Max(0, minY - 1);
-        return new RectInt(minX, minY,
-            Mathf.Min(resolution, maxX + 2) - minX,
-            Mathf.Min(resolution, maxY + 2) - minY);
-    }
-
     public static bool Bake(HeightMapLevelAsset level, bool registerUndo)
     {
         if (level == null)
@@ -1124,6 +1109,7 @@ internal static class HeightMapStaticWaterMaskBaker
 
         if (level.EnsureStaticWaterAuthoringData())
             EditorUtility.SetDirty(level);
+        level.CompactStaticWaterData();
 
         string levelPath = AssetDatabase.GetAssetPath(level);
         if (string.IsNullOrEmpty(levelPath))
@@ -1134,10 +1120,27 @@ internal static class HeightMapStaticWaterMaskBaker
         }
 
         byte[] depthMap = level.GetOrCreateStaticWaterDepthMap();
+        string directory = HeightMapAssetPaths.DataDirectory(levelPath);
+        string fileName = Path.GetFileNameWithoutExtension(levelPath) + "_WaterMask.png";
+        string outputPath = Path.Combine(directory, fileName).Replace('\\', '/');
+        // Compaction represents a completely dry map with one zero texel.
+        if (depthMap.Length == 1 && depthMap[0] == 0)
+        {
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(outputPath) != null
+                && !AssetDatabase.DeleteAsset(outputPath))
+                throw new IOException($"Could not delete the dry map's Water Mask: {outputPath}");
+            if (registerUndo)
+                Undo.RecordObject(level, "Clear Static Water Mask");
+            float emptySize = 1f / level.StaticWaterResolution;
+            level.SetBakedStaticWaterMask(null, new Rect(0f, 0f, emptySize, emptySize));
+            EditorUtility.SetDirty(level);
+            AssetDatabase.SaveAssetIfDirty(level);
+            return true;
+        }
         byte[] flowAngles = level.GetOrCreateStaticWaterFlowAngleMap();
         byte[] flowSpeeds = level.GetOrCreateStaticWaterFlowSpeedMap();
         int resolution = level.StaticWaterResolution;
-        RectInt pixelBounds = CalculatePixelBounds(depthMap, resolution);
+        RectInt pixelBounds = level.StaticWaterPixelBounds;
         var bounds = new Rect(
             pixelBounds.x / (float)resolution,
             pixelBounds.y / (float)resolution,
@@ -1148,7 +1151,7 @@ internal static class HeightMapStaticWaterMaskBaker
         {
             for (int x = 0; x < pixelBounds.width; x++)
             {
-                int sourceIndex = (pixelBounds.y + y) * resolution + pixelBounds.x + x;
+                int sourceIndex = y * pixelBounds.width + x;
                 byte encodedDepth = depthMap[sourceIndex];
                 pixels[y * pixelBounds.width + x] = new Color32(
                     encodedDepth > 0 ? byte.MaxValue : (byte)0,
@@ -1175,13 +1178,8 @@ internal static class HeightMapStaticWaterMaskBaker
             output.SetPixels32(pixels);
             output.Apply(false, false);
 
-            string directory = HeightMapAssetPaths.DataDirectory(levelPath);
             Directory.CreateDirectory(directory);
             AssetDatabase.Refresh();
-            string fileName = Path.GetFileNameWithoutExtension(levelPath)
-                              + "_WaterMask.png";
-            string outputPath = Path.Combine(directory ?? "Assets", fileName)
-                .Replace('\\', '/');
             File.WriteAllBytes(outputPath, output.EncodeToPNG());
             AssetDatabase.ImportAsset(
                 outputPath,
