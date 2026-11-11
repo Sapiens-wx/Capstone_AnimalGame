@@ -671,16 +671,28 @@ namespace AnimalGame.RobotMap
         public float FrameCoverage { get; }
         public DateTime CapturedAt { get; }
         public bool UnlockAdvanced { get; internal set; }
+        public int RecognitionBefore { get; internal set; }
+        public int RecognitionAfter { get; internal set; }
+        internal bool IsSaved { get; set; }
     }
 
     public static class PhotoAlbumService
     {
         public static IReadOnlyList<AnimalGame.Save.AnimalPhotoRecord> Photos
         { get { AnimalGame.Save.SaveSystem.Initialize(); return AnimalGame.Save.SaveSystem.Current.photos; } }
-        public static void Save(PhotoResultSnapshot snapshot)
+        public static void Save(PhotoResultSnapshot snapshot) => Save(snapshot, AnimalGame.Save.SaveSystem.SavePath);
+
+        internal static void Save(PhotoResultSnapshot snapshot, string path)
         {
+            if (snapshot.IsSaved) return;
             AnimalGame.Save.SaveSystem.Initialize();
-            snapshot.UnlockAdvanced = AnimalGame.Save.SaveSystem.StorePhoto(AnimalGame.Save.AnimalPhotoRecord.Capture(snapshot));
+            int before = AnimalGame.Save.SaveSystem.Current.Progress(snapshot.Species)?.recognition ?? 0;
+            bool advanced = AnimalGame.Save.SaveSystem.StorePhoto(AnimalGame.Save.AnimalPhotoRecord.Capture(snapshot), path);
+            int after = AnimalGame.Save.SaveSystem.Current.Progress(snapshot.Species)?.recognition ?? 0;
+            snapshot.RecognitionBefore = Mathf.Clamp(before, 0, 100);
+            snapshot.RecognitionAfter = Mathf.Clamp(after, 0, 100);
+            snapshot.UnlockAdvanced = advanced;
+            snapshot.IsSaved = true;
         }
     }
 }

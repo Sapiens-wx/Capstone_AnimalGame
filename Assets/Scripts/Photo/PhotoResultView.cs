@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using AnimalGame.Animals;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -52,7 +54,7 @@ namespace AnimalGame.RobotMap
             && photoImage != null && snapshotImage != null
             && root.Q<Label>("animal-name") != null && root.Q<Label>("scientific-name") != null
             && root.Q<Label>("region") != null && root.Q<Label>("altitude") != null
-            && root.Q<Label>("coordinates") != null
+            && identifiedLabel != null
             && root.Q<Label>("longitude") != null && root.Q<Label>("latitude") != null;
         public Vector2 WarmupLayoutSize => root == null ? Vector2.zero : root.layout.size;
         public bool HasWarmupLayout => IsWarmupReady && PositiveSize(root.layout.size) && PositiveSize(stage.layout.size);
@@ -62,12 +64,15 @@ namespace AnimalGame.RobotMap
 
         private VisualElement root, stage, zoomContent, backdrop, vectors, photo, textContent;
         private VisualElement snapshotCircle, snapshotCloseBadge, snapshotImg;
-        private Label photosLabel;
+        private Label photosLabel, identifiedLabel;
+        private int lastIdentifiedValue = -1;
         private Image photoImage, snapshotImage;
         private readonly List<PhotoResultArcElement> arcs = new List<PhotoResultArcElement>();
         private readonly List<PhotoResultLineElement> lines = new List<PhotoResultLineElement>();
+        private readonly PhotoResultRecognition recognition = new PhotoResultRecognition();
         private readonly Dictionary<Label, string> revealTargets = new Dictionary<Label, string>();
         private readonly Dictionary<Label, bool> revealRichTextStates = new Dictionary<Label, bool>();
+        private readonly Dictionary<Label, int> revealVisibleCharacters = new Dictionary<Label, int>();
         private readonly HashSet<Label> revealingLabels = new HashSet<Label>();
         private readonly List<Label> pendingTextRevealLabels = new List<Label>();
         private Coroutine textRevealSequence;
@@ -149,11 +154,14 @@ namespace AnimalGame.RobotMap
             zoomContent.Insert(zoomContent.IndexOf(photo) + 1, unlockPulse);
             textContent = root.Q("text-content");
             photosLabel = root.Q<Label>("save-label");
+            identifiedLabel = root.Q<Label>("identified-progress");
+            lastIdentifiedValue = -1;
             photoImage = root.Q<Image>("photo-image");
             snapshotImage = root.Q<Image>("snapshot-image");
             foreach (VisualElement element in root.Query<VisualElement>().ToList())
                 element.pickingMode = PickingMode.Ignore;
             CollectVectorElements();
+            recognition.Bind(root);
             ConfigureDesignLayout();
             BindActionUnderline("save-label", "catalog-rule");
             BindActionUnderline("catalog-label", "photo-save-rule");
@@ -273,6 +281,7 @@ namespace AnimalGame.RobotMap
             photoSource = processedPhoto;
             contourSource = contours;
             currentResult = result;
+            recognition.Begin(result.RecognitionBefore, result.RecognitionAfter);
             if (feedbackBadge != null) feedbackBadge.style.scale = new Scale(Vector3.one);
             feedbackBadge = null;
             unlockPulse.style.display = DisplayStyle.None;
@@ -318,8 +327,8 @@ namespace AnimalGame.RobotMap
         private void PrepareTextReveal()
         {
             // Authored top-to-bottom order; the animal name intentionally stays visible.
-            string[] labelNames = { "location-title", "save-label", "region", "altitude",
-                "catalog-label", "catalog-new-star", "coordinates", "longitude", "latitude", "scientific-name" };
+            string[] labelNames = { "identified-progress", "save-label", "region",
+                "catalog-label", "catalog-new-star", "altitude", "latitude", "longitude", "scientific-name" };
             pendingTextRevealLabels.Clear();
             foreach (string name in labelNames)
             {
@@ -328,8 +337,9 @@ namespace AnimalGame.RobotMap
                 if (label == null) continue;
                 revealTargets[label] = label.text ?? string.Empty;
                 revealRichTextStates[label] = label.enableRichText;
+                revealVisibleCharacters[label] = 0;
                 label.enableRichText = true;
-                label.text = HideUnrevealedTail(string.Empty, revealTargets[label]);
+                label.text = HideUnrevealedTail(0, revealTargets[label]);
                 pendingTextRevealLabels.Add(label);
             }
         }
@@ -347,22 +357,43 @@ namespace AnimalGame.RobotMap
 
         private IEnumerator RevealLabel(Label label)
         {
-            int visibleCharacters = 0;
-            while (revealTargets.TryGetValue(label, out string target) && visibleCharacters < target.Length)
+            while (revealTargets.TryGetValue(label, out string target)
+                && revealVisibleCharacters[label] < Regex.Replace(target, "<[^>]+>", string.Empty).Length)
             {
-                visibleCharacters++;
-                label.text = HideUnrevealedTail(target.Substring(0, visibleCharacters), target);
+                int visibleCharacters = ++revealVisibleCharacters[label];
+                label.text = HideUnrevealedTail(visibleCharacters, target);
                 yield return new WaitForSecondsRealtime(.012f);
             }
             if (revealTargets.TryGetValue(label, out string finalText)) label.text = finalText;
+            revealVisibleCharacters[label] = int.MaxValue;
             RestoreRichTextState(label);
             revealingLabels.Remove(label);
         }
 
-        private static string HideUnrevealedTail(string visiblePrefix, string fullText)
+        private static string HideUnrevealedTail(int visibleCharacters, string fullText)
         {
-            if (visiblePrefix.Length >= fullText.Length) return fullText;
-            return visiblePrefix + "<color=#FFFFFF00>" + fullText.Substring(visiblePrefix.Length) + "</color>";
+            var text = new StringBuilder();
+            int character = 0;
+            bool hiding = false;
+            for (int i = 0; i < fullText.Length; i++)
+            {
+                if (fullText[i] == '<')
+                {
+                    if (hiding) { text.Append("</color>"); hiding = false; }
+                    int end = fullText.IndexOf('>', i);
+                    text.Append(fullText, i, end - i + 1);
+                    i = end;
+                    continue;
+                }
+                if (character++ >= visibleCharacters && !hiding)
+                {
+                    text.Append("<color=#FFFFFF00>");
+                    hiding = true;
+                }
+                text.Append(fullText[i]);
+            }
+            if (hiding) text.Append("</color>");
+            return text.ToString();
         }
 
         private void RestoreRichTextState(Label label)
@@ -384,20 +415,21 @@ namespace AnimalGame.RobotMap
                 }
             revealTargets.Clear();
             revealRichTextStates.Clear();
+            revealVisibleCharacters.Clear();
             pendingTextRevealLabels.Clear();
         }
 
         private void UpdateLocation(PhotoResultSnapshot result)
         {
             root.Q<Label>("region").text = result.RegionName;
-            root.Q<Label>("altitude").text = result.HasHeight ? $"{result.HeightMeters:0}m" : "- m";
-            root.Q<Label>("coordinates").text = $"Coordinates ({result.MapPositionMeters.x:0.0}, {result.MapPositionMeters.y:0.0})";
+            root.Q<Label>("altitude").text = "<color=#FFFFFF>Altitude</color> "
+                + (result.HasHeight ? $"{result.HeightMeters:0}m" : "--m");
             root.Q<Label>("longitude").text = result.HasGeographicCoordinates
-                ? "Longitude " + Mathf.Abs(result.Longitude).ToString("F5", CultureInfo.InvariantCulture)
-                    + "\u00b0 " + (result.Longitude < 0 ? "W" : "E") : "Longitude --";
+                ? "<color=#FFFFFF>" + (result.Longitude < 0 ? "W" : "E") + "</color> "
+                    + Mathf.Abs(result.Longitude).ToString("F5", CultureInfo.InvariantCulture) + "\u00b0" : "--";
             root.Q<Label>("latitude").text = result.HasGeographicCoordinates
-                ? "Latitude " + Mathf.Abs(result.Latitude).ToString("F5", CultureInfo.InvariantCulture)
-                    + "\u00b0 " + (result.Latitude < 0 ? "S" : "N") : "Latitude --";
+                ? "<color=#FFFFFF>" + (result.Latitude < 0 ? "S" : "N") + "</color> "
+                    + Mathf.Abs(result.Latitude).ToString("F5", CultureInfo.InvariantCulture) + "\u00b0" : "--";
         }
 
         private void PopulateResultText(PhotoResultSnapshot result)
@@ -405,14 +437,30 @@ namespace AnimalGame.RobotMap
             root.Q<Label>("animal-name").text = result.DisplayName;
             root.Q<Label>("scientific-name").text = result.ScientificName;
             UpdateLocation(result);
+            UpdateRecognitionText();
             root.Q("catalog-new-star").style.display = result.UnlockAdvanced ? DisplayStyle.Flex : DisplayStyle.None;
             photosLabel.text = "Photos";
+        }
+
+        private void UpdateRecognitionText()
+        {
+            int value = recognition.DisplayedRecognition;
+            if (value == lastIdentifiedValue) return;
+            lastIdentifiedValue = value;
+            string text = $"<color=#D4B854>{value}%</color> Identified";
+            if (revealTargets.ContainsKey(identifiedLabel))
+            {
+                revealTargets[identifiedLabel] = text;
+                identifiedLabel.text = HideUnrevealedTail(revealVisibleCharacters[identifiedLabel], text);
+            }
+            else identifiedLabel.text = text;
         }
 
         public void Close() { if (showing && !IsWarmingUp) animationSettings.Close(); }
 
         public void HideImmediately()
         {
+            recognition.Cancel();
             if (feedbackBadge != null) feedbackBadge.style.scale = new Scale(Vector3.one);
             feedbackBadge = null;
             StopTextReveal();
@@ -444,6 +492,9 @@ namespace AnimalGame.RobotMap
             if (!showing || IsWarmingUp) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
             ApplyAnimation();
+            recognition.Tick(Time.unscaledDeltaTime, animationSettings.Progress >= 1f,
+                AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay, animationSettings.IsClosing);
+            UpdateRecognitionText();
             if (!animationSettings.IsClosing && animationSettings.Progress >= 1f && !textRevealStarted)
             {
                 textRevealStarted = true;

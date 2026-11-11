@@ -150,7 +150,9 @@ namespace AnimalGame.Save
             Changed?.Invoke();
         }
 
-        public static bool StorePhoto(AnimalPhotoRecord photo)
+        public static bool StorePhoto(AnimalPhotoRecord photo) => StorePhoto(photo, SavePath);
+
+        internal static bool StorePhoto(AnimalPhotoRecord photo, string path)
         {
             Initialize();
             if (Current.photos.Exists(p => p.id == photo.id)) return false;
@@ -159,7 +161,7 @@ namespace AnimalGame.Save
             int previousTier = previous?.Tier ?? 0;
             Current.photos.Add(photo);
             CreditCapture(Current, photo);
-            try { WriteTo(SavePath, Current); }
+            try { WriteTo(path, Current); }
             catch
             {
                 Current.photos.Remove(photo);

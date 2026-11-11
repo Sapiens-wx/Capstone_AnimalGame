@@ -52,31 +52,39 @@ Label {
     font-size: 61px;
 }
 
-#location-title {
-    left: 1530px;
-    top: 402px;
-    font-size: 32px;
-}
-
 #region {
-    left: 1393px;
-    top: 447px;
-    width: 460px;
-    font-size: 33px;
-    color: rgb(202, 174, 61);
-}
-
-#altitude {
-    left: 1395px;
-    top: 517px;
+    left: 1410px;
+    top: 510px;
+    width: auto;
+    height: 50px;
     font-size: 36px;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+    -unity-font-style: normal;
+    color: #D4B854;
+    -unity-text-align: middle-left;
+    transform-origin: 0 50%;
+    rotate: 0.015rad;
 }
 
-#coordinates, #longitude, #latitude {
+#identified-progress {
+    right: 181px;
+    top: 401px;
+    width: auto;
+    height: 50px;
+    font-size: 40px;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+    -unity-font-style: normal;
+    color: white;
+    -unity-text-align: middle-right;
+    transform-origin: 100% 50%;
+    rotate: 0.015rad;
+}
+
+#altitude, #longitude, #latitude {
     left: 1430px;
     top: 583px;
     font-size: 27px;
-    color: rgb(133, 137, 133);
+    color: #D4B854;
 }
 
 #save-label {

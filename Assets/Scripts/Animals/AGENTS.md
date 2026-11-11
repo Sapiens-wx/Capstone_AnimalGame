@@ -48,6 +48,7 @@
 
 - `SaveSystem` 统一读写 `Application.persistentDataPath/animal-save.bin`，缺失时创建空存档；`GameSave` 是普通数据类，二进制格式包含签名、版本、照片及物种进度，Editor 和独立 Player 使用同一逻辑。
 - `StorePhoto` 拍照保存时立即增加认知度（每张照片 1/5 点），首次大于 0、达到 30/100 时升级。结算快照 `UnlockAdvanced` 仅决定 Catalog 后黄色星号；星号随文字打印，使用 Cargo 的 Orbitron-Medium 47 号字体，复用 InventoryController 的透明度闪烁（50%–100%，共用 MainUI 的周期配置），不缩放。Y/X/B 按下立即触发独立涟漪和按键快速缩小回弹，0.05 秒后执行对应页面操作，与解锁度无关。涟漪半径上限 108、快速淡出，位于照片上层、文字下层。存档 v3 迁移 v1/v2 时仅补计未上传照片，不重复计分。
+- 结算快照记录保存前后的认知度，同一快照只保存一次；`PhotoResultRecognition` 按认知度百分比线性填充两条灰线之间的黄色圆弧长度，末端短刻度始终朝圆心。结算完全打开后用非缩放时间播放 1 秒 SmoothStep 增长，Photos/Catalog 覆盖时暂停，关闭时取消。
 
 # Earthline 通信
 
