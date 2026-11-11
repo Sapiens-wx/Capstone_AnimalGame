@@ -36,7 +36,11 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private bool strokeErase;
     private float flowAngleDegrees;
     private float flowSpeed = 0.5f;
-    private float directionPointSpacingMeters = 20f;
+    private StaticWaterFlowPaintMode flowPaintMode;
+    private StaticWaterFlowPaintMode strokeFlowPaintMode;
+    private bool hasStrokeDirection;
+    private float strokeFlowAngleDegrees;
+    private float directionPointSpacingMeters = 4.5f;
     private StaticWaterDepthPaintMode paintMode =
         StaticWaterDepthPaintMode.Set;
     private float brushRadiusMeters = DefaultBrushRadiusMeters;
@@ -290,8 +294,17 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         paintInScene = EditorGUILayout.Toggle("Paint In Scene", paintInScene);
         if (brushPage == 1)
         {
-            flowAngleDegrees = EditorGUILayout.Slider("Direction (degrees)", flowAngleDegrees, 0f, 360f);
-            flowSpeed = EditorGUILayout.Slider("Flow Speed", flowSpeed, 0f, 1f);
+            EditorGUI.BeginChangeCheck();
+            var selectedMode = (StaticWaterFlowPaintMode)EditorGUILayout.EnumPopup("Mode", flowPaintMode);
+            if (EditorGUI.EndChangeCheck())
+            {
+                EndStroke();
+                flowPaintMode = selectedMode;
+            }
+            if (flowPaintMode == StaticWaterFlowPaintMode.Direction)
+                flowAngleDegrees = EditorGUILayout.Slider("Direction (degrees)", flowAngleDegrees, 0f, 360f);
+            if (flowPaintMode == StaticWaterFlowPaintMode.Speed)
+                flowSpeed = EditorGUILayout.Slider("Flow Speed", flowSpeed, 0f, 1f);
             EditorGUI.BeginChangeCheck();
             directionPointSpacingMeters = Mathf.Max(0.25f, EditorGUILayout.FloatField(
                 new GUIContent("Direction Point Spacing (m)", "Smaller spacing displays denser direction lines. Maximum density is one point per authoring pixel."),
@@ -300,9 +313,13 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
                 SceneView.RepaintAll();
             DrawCommonBrushSettings();
             EditorGUILayout.HelpBox(
-                "Paint direction and speed on existing water. 0 degrees points right (+X); " +
-                "90 degrees points up (+Y). Darker blue means faster flow. " +
-                "Shift paints zero speed without erasing water. White arrows show direction.",
+                (flowPaintMode == StaticWaterFlowPaintMode.Speed
+                    ? "Paint speed only. Shift paints zero speed. Direction is preserved. "
+                    : flowPaintMode == StaticWaterFlowPaintMode.StrokeDirection
+                        ? "Drag to paint direction along the stroke. A click alone does not paint. Speed is preserved. "
+                        : "Paint direction only. 0 degrees points right (+X); 90 degrees points up (+Y). Speed is preserved. ") +
+                "Strength blends toward the target; Hardness controls edge falloff. " +
+                "Darker blue means faster flow. White arrows show direction.",
                 MessageType.None);
             return;
         }
@@ -440,7 +457,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             return;
         }
 
-        DrawBrushOutline(mapPosition, current.shift);
+        bool erase = current.shift && (brushPage == 0 || flowPaintMode == StaticWaterFlowPaintMode.Speed);
+        DrawBrushOutline(mapPosition, erase);
         if (current.type == EventType.Layout)
             HandleUtility.AddDefaultControl(controlId);
 
@@ -450,7 +468,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         if (current.type == EventType.MouseDown)
         {
             GUIUtility.hotControl = controlId;
-            BeginStroke(mapPosition, current.shift);
+            BeginStroke(mapPosition, erase);
             current.Use();
         }
         else if (current.type == EventType.MouseDrag
@@ -555,7 +573,10 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         Handles.DrawAAPolyLine(3f, points);
 
         string label = brushPage == 1
-            ? (erase ? "Stop flow" : $"Flow {flowAngleDegrees:0.#} degrees / {flowSpeed:0.00}")
+            ? (erase ? "Stop flow"
+                : flowPaintMode == StaticWaterFlowPaintMode.Speed ? $"Speed {flowSpeed:0.00}"
+                : flowPaintMode == StaticWaterFlowPaintMode.StrokeDirection ? "Stroke direction"
+                : $"Direction {flowAngleDegrees:0.#} degrees")
             : erase
             ? "Erase water"
             : paintMode == StaticWaterDepthPaintMode.Set
@@ -570,6 +591,9 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private void BeginStroke(Vector2 mapPosition, bool erase)
     {
         strokeBrushPage = brushPage;
+        strokeFlowPaintMode = flowPaintMode;
+        hasStrokeDirection = false;
+        strokeFlowAngleDegrees = flowAngleDegrees;
         strokeErase = erase;
         strokeActive = true;
         strokeChanged = false;
@@ -598,16 +622,34 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
         if (!hasLastStrokePosition)
         {
-            PaintDab(mapPosition);
+            if (strokeBrushPage != 1 || strokeFlowPaintMode != StaticWaterFlowPaintMode.StrokeDirection)
+                PaintDab(mapPosition);
             lastStrokeMapPosition = mapPosition;
             hasLastStrokePosition = true;
             return;
         }
 
-        float distance = Vector2.Distance(lastStrokeMapPosition, mapPosition);
+        Vector2 delta = mapPosition - lastStrokeMapPosition;
+        float distance = delta.magnitude;
+        if (distance <= 0f)
+            return;
+
+        int firstStep = 1;
+        if (strokeBrushPage == 1 && strokeFlowPaintMode == StaticWaterFlowPaintMode.StrokeDirection)
+        {
+            Vector2 pixelSize = levelAsset.MapSizeMeters / levelAsset.StaticWaterResolution;
+            float minimumDistance = Mathf.Min(pixelSize.x, pixelSize.y) * 0.1f;
+            // Keep the previous sample until movement is large enough to give a stable direction.
+            if (distance < minimumDistance)
+                return;
+            strokeFlowAngleDegrees = Mathf.Repeat(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, 360f);
+            if (!hasStrokeDirection)
+                firstStep = 0;
+            hasStrokeDirection = true;
+        }
         float spacing = Mathf.Max(0.05f, brushRadiusMeters * 0.25f);
         int stepCount = Mathf.Max(1, Mathf.CeilToInt(distance / spacing));
-        for (int step = 1; step <= stepCount; step++)
+        for (int step = firstStep; step <= stepCount; step++)
         {
             PaintDab(Vector2.Lerp(
                 lastStrokeMapPosition,
@@ -622,7 +664,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     {
         bool changed = strokeBrushPage == 1
             ? levelAsset.PaintStaticWaterFlow(
-                mapPosition, brushRadiusMeters, flowAngleDegrees,
+                mapPosition, brushRadiusMeters, strokeFlowPaintMode,
+                strokeFlowPaintMode == StaticWaterFlowPaintMode.StrokeDirection ? strokeFlowAngleDegrees : flowAngleDegrees,
                 strokeErase ? 0f : flowSpeed, brushStrength, brushHardness)
             : levelAsset.PaintStaticWaterDepth(
                 mapPosition,

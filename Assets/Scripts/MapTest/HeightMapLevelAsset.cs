@@ -6,6 +6,13 @@ using UnityEngine.Serialization;
 namespace AnimalGame.MapTest
 {
 #if UNITY_EDITOR
+    public enum StaticWaterFlowPaintMode
+    {
+        Direction,
+        StrokeDirection,
+        Speed
+    }
+
     public enum StaticWaterDepthPaintMode
     {
         Set = 0,
@@ -854,7 +861,8 @@ namespace AnimalGame.MapTest
 
         public bool PaintStaticWaterFlow(
             Vector2 mapPositionMeters, float brushRadiusMeters,
-            float angleDegrees, float speed, float strength, float hardness)
+            StaticWaterFlowPaintMode mode, float angleDegrees, float speed,
+            float strength, float hardness)
         {
             EnsureStaticWaterAuthoringData();
             int resolution = staticWaterResolution;
@@ -874,13 +882,20 @@ namespace AnimalGame.MapTest
                 float distance = Vector2.Distance(pixel, mapPositionMeters) / radius;
                 if (distance > 1f) continue;
                 float weight = CalculateStaticWaterBrushFalloff(distance, Mathf.Clamp01(hardness)) * Mathf.Clamp01(strength);
-                float angle = Mathf.LerpAngle(staticWaterFlowAngleMap[index] * (360f / 256f), angleDegrees, weight);
-                byte encodedAngle = (byte)(Mathf.RoundToInt(Mathf.Repeat(angle, 360f) * (256f / 360f)) & 255);
-                byte encodedSpeed = (byte)Mathf.RoundToInt(Mathf.Lerp(
-                    staticWaterFlowSpeedMap[index], Mathf.Clamp01(speed) * 255f, weight));
-                if (encodedAngle == staticWaterFlowAngleMap[index] && encodedSpeed == staticWaterFlowSpeedMap[index]) continue;
-                staticWaterFlowAngleMap[index] = encodedAngle;
-                staticWaterFlowSpeedMap[index] = encodedSpeed;
+                if (mode == StaticWaterFlowPaintMode.Speed)
+                {
+                    byte encodedSpeed = (byte)Mathf.RoundToInt(Mathf.Lerp(
+                        staticWaterFlowSpeedMap[index], Mathf.Clamp01(speed) * 255f, weight));
+                    if (encodedSpeed == staticWaterFlowSpeedMap[index]) continue;
+                    staticWaterFlowSpeedMap[index] = encodedSpeed;
+                }
+                else
+                {
+                    float angle = Mathf.LerpAngle(staticWaterFlowAngleMap[index] * (360f / 256f), angleDegrees, weight);
+                    byte encodedAngle = (byte)(Mathf.RoundToInt(Mathf.Repeat(angle, 360f) * (256f / 360f)) & 255);
+                    if (encodedAngle == staticWaterFlowAngleMap[index]) continue;
+                    staticWaterFlowAngleMap[index] = encodedAngle;
+                }
                 changed = true;
             }
             return changed;
