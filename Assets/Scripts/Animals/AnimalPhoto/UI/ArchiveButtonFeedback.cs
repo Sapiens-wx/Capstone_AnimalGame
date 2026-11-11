@@ -27,19 +27,18 @@ namespace AnimalGame.Animals.UI
             animation = root.schedule.Execute(Tick).Every(16);
             animation.Pause();
             root.RegisterCallback<DetachFromPanelEvent>(_ => Stop());
-            foreach (string name in new[] { "photo-open", "photo-previous", "photo-next", "photo-catalog", "photo-delete", "back" })
-            {
-                var button = root.Q<Button>(name);
-                var circle = button.Q(className: "photo-action-circle");
-                var line = button.Q(className: "photo-action-underline");
-                void AlignUnderline()
+            root.Query(className: "photo-action-underline").ForEach(line =>
+                line.generateVisualContent += context =>
                 {
-                    line.style.bottom = StyleKeyword.Auto;
-                    line.style.top = circle.layout.yMax - 2f;
-                }
-                button.RegisterCallback<GeometryChangedEvent>(_ => AlignUnderline());
-                circle.RegisterCallback<GeometryChangedEvent>(_ => AlignUnderline());
-            }
+                    var painter = context.painter2D;
+                    painter.strokeColor = Color.white;
+                    painter.lineWidth = 1f;
+                    painter.BeginPath();
+                    float y = line.contentRect.yMax - .5f;
+                    painter.MoveTo(new Vector2(0, y));
+                    painter.LineTo(new Vector2(line.contentRect.width, y));
+                    painter.Stroke();
+                });
         }
 
         private VisualElement FindBadge(Button button) => button.Q(className: "photo-action-circle")
