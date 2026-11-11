@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="Map.uss" />
+    <ui:VisualElement name="world-map">
+        <ui:Image name="map-image" picking-mode="Ignore" />
+        <ui:VisualElement name="pin-0" class="map-circle" picking-mode="Ignore" />
+        <ui:VisualElement name="pin-1" class="map-circle" picking-mode="Ignore" />
+        <ui:VisualElement name="pin-2" class="map-circle" picking-mode="Ignore" />
+        <ui:VisualElement name="map-cursor" class="map-circle" picking-mode="Ignore" />
+        <ui:Label name="map-controls" text="WASD  Move     Wheel  Zoom     Space  Place / remove pin     Esc  Close" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

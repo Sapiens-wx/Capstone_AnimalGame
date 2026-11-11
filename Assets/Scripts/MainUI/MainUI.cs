@@ -93,7 +93,8 @@ namespace AnimalGame.MainUI
         private const float DesignWidth = 1920, DesignHeight = 1080;
 
         public static MainUI Active { get; private set; }
-        public static bool BlocksGameplay => AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay
+        public static bool BlocksGameplay => AnimalGame.World.Map.WorldMapUI.BlocksGameplay
+            || AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay
             || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
             || (Active != null && Active.isActiveAndEnabled && Active.pauseOwned);
         public bool IsInventoryOpen => inventoryOpen;
@@ -219,6 +220,7 @@ namespace AnimalGame.MainUI
         public void ToggleInventory() { if (inventoryOpen) InventoryController.BackInventory(); else OpenInventory(); }
         public void OpenInventory()
         {
+            if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
             if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;

@@ -485,6 +485,7 @@ namespace AnimalGame.MainUI.Inventory
 
         private void HandleInput()
         {
+            if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
             if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
             {

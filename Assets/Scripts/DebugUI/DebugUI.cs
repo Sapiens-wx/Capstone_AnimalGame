@@ -142,6 +142,7 @@ namespace AnimalGame.AnimalDebug
 
         private void Update()
         {
+            if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
             if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             Bind();
             bool toggle = false, back = false, submit = false, click = false;
