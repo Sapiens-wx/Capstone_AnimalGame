@@ -4,6 +4,9 @@ Shader "AnimalGame/Robot Inner Ring"
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _ArcDegrees ("Arc length in degrees", Range(10, 110)) = 65
+        _ArmBlend ("Arm bracket blend", Range(0, 1)) = 0
+        _BracketOffset ("Bracket control offset", Vector) = (0,0,0,0)
+        _BracketGrip ("Bracket grip", Range(0, 1)) = 0
         [HideInInspector] _RendererColor ("RendererColor", Color) = (1,1,1,1)
         [HideInInspector] _Flip ("Flip", Vector) = (1,1,1,1)
     }
@@ -34,6 +37,9 @@ Shader "AnimalGame/Robot Inner Ring"
         };
         CBUFFER_START(UnityPerMaterial)
             float _ArcDegrees;
+            float _ArmBlend;
+            float4 _BracketOffset;
+            float _BracketGrip;
         CBUFFER_END
         Varyings RingVertex(Attributes input)
         {
@@ -47,6 +53,14 @@ Shader "AnimalGame/Robot Inner Ring"
             output.uv = input.uv;
             output.color = input.color * unity_SpriteColor;
             return output;
+        }
+        float BracketCoverage(float2 p, float side, float feather)
+        {
+            float radius = length(p);
+            float radial = 1 - smoothstep(17 - feather, 17 + feather, abs(radius - 156));
+            float angle = atan2(p.y, p.x * side) * 57.2957795;
+            float angularAA = max(feather * 57.2957795 / max(radius, 1), .01);
+            return radial * (1 - smoothstep(60 - angularAA, 60 + angularAA, abs(angle)));
         }
         half4 RingFragment(Varyings input) : SV_Target
         {
@@ -65,7 +79,14 @@ Shader "AnimalGame/Robot Inner Ring"
             float angularAA = max(edgeFeather * 57.2957795 / max(length(p), 1), .01);
             float arc = 1 - smoothstep(_ArcDegrees * .5 - angularAA,
                 _ArcDegrees * .5 + angularAA, sector);
-            return half4(input.color.rgb, input.color.a * radial * arc);
+            // Grip squashes both arcs vertically around their shared centre; X stays unchanged.
+            float2 bracketPoint = p - _BracketOffset.xy;
+            bracketPoint.y /= lerp(1, .55, _BracketGrip);
+            float bracketFeather = max(max(length(ddx(bracketPoint)), length(ddy(bracketPoint))) * .35, .01);
+            float brackets = max(BracketCoverage(bracketPoint, 1, bracketFeather),
+                BracketCoverage(bracketPoint, -1, bracketFeather));
+            float coverage = lerp(radial * arc, brackets, _ArmBlend);
+            return half4(input.color.rgb, input.color.a * coverage);
         }
         ENDHLSL
         Pass

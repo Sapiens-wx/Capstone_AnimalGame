@@ -1037,6 +1037,12 @@ MonoBehaviour:
   innerRingTumbleSpinSpeed: 900
   innerRingTumbleScaleAmplitude: 0.12
   innerRingTumbleScalePeriod: 0.28
+  innerRingArmScale: 0.62
+  innerRingArmOffsetOfRadius: 0.35
+  innerRingArmResponse: 14
+  innerRingRecyclePeriod: 1
+  innerRingRecycleShakeOfRadius: 0.22
+  innerRingRecycleShakeDegrees: 12
 --- !u!114 &6128041736594210834
 MonoBehaviour:
   m_ObjectHideFlags: 0

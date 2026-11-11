@@ -100,6 +100,20 @@ namespace AnimalGame.RobotArm
         public Vector2 CurrentTargetLocal { get; private set; }
         public float CurrentInputMagnitude { get; private set; }
         public float VisibleDeployment01 => Mathf.Clamp01(deploymentTime / TotalDeploymentTime);
+        public bool IsGripClosed => previousGrab;
+        /// <summary>Effective hand-control direction in robot-local space, for the body indicator.</summary>
+        public Vector2 VisualControlInput
+        {
+            get
+            {
+                if (!IsArmModeActive || !HandsDeployed || State == RobotArmState.Recycling)
+                    return Vector2.zero;
+                if (normalManualActive)
+                    return normalHoldPose ? Vector2.zero
+                        : Rotate(normalRateInput, Vector2.SignedAngle(Vector2.up, targetLocal));
+                return CurrentInputMagnitude > leftStickDeadZone ? inputLocal : Vector2.zero;
+            }
+        }
         public bool IsRecycleReady { get; private set; }
         public bool IsBlocked { get; private set; }
         public WorldInteraction HeldObject => heldObject;

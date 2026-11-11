@@ -1,3 +1,4 @@
+using AnimalGame.RobotArm;
 using UnityEngine;
 
 namespace AnimalGame.RobotMap
@@ -22,6 +23,14 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(0f, .2f)] private float innerRingTumbleScaleAmplitude = .12f;
         [SerializeField, Min(.1f)] private float innerRingTumbleScalePeriod = .28f;
 
+        [Header("Arm-control brackets")]
+        [SerializeField, Range(.5f, 1f)] private float innerRingArmScale = .62f;
+        [SerializeField, Range(0f, .5f)] private float innerRingArmOffsetOfRadius = .35f;
+        [SerializeField, Min(1f)] private float innerRingArmResponse = 14f;
+        [SerializeField, Min(.1f)] private float innerRingRecyclePeriod = 1f;
+        [SerializeField, Range(0f, .5f)] private float innerRingRecycleShakeOfRadius = .22f;
+        [SerializeField, Range(0f, 30f)] private float innerRingRecycleShakeDegrees = 12f;
+
         private Transform innerRing;
         private float innerRingBaseScale, innerRingAngle, innerRingIdleTime;
         private float innerRingJamWait, innerRingJamRemaining;
@@ -30,7 +39,13 @@ namespace AnimalGame.RobotMap
         private Material innerRingMaterial;
         private float innerRingMotionBlend;
         private float innerRingTumbleTime;
+        private Vector2 innerRingArmOffset;
+        private float innerRingGrip;
+        private float innerRingRecycleTime;
         private static readonly int InnerRingArcDegreesId = Shader.PropertyToID("_ArcDegrees");
+        private static readonly int InnerRingArmBlendId = Shader.PropertyToID("_ArmBlend");
+        private static readonly int InnerRingBracketOffsetId = Shader.PropertyToID("_BracketOffset");
+        private static readonly int InnerRingBracketGripId = Shader.PropertyToID("_BracketGrip");
 
         private void BindInnerRing()
         {
@@ -58,9 +73,39 @@ namespace AnimalGame.RobotMap
             innerRingRandom = new System.Random(GetInstanceID());
         }
 
-        private void UpdateInnerRing()
+        private void UpdateInnerRing() => StepInnerRing(Time.deltaTime);
+
+        private void StepInnerRing(float dt)
         {
-            float dt = Time.deltaTime;
+            float armBlend = armController == null ? 0f
+                : Mathf.SmoothStep(0f, 1f, armController.VisibleDeployment01);
+            float response = 1f - Mathf.Exp(-innerRingArmResponse * dt);
+            Vector2 control = armController == null ? Vector2.zero : armController.VisualControlInput;
+            innerRingArmOffset = Vector2.Lerp(innerRingArmOffset,
+                Vector2.ClampMagnitude(control, 1f) * (156f * innerRingArmOffsetOfRadius), response);
+            bool recycling = armController != null && armController.State == RobotArmState.Recycling;
+            innerRingRecycleTime = recycling
+                ? Mathf.Repeat(innerRingRecycleTime + dt, innerRingRecyclePeriod) : 0f;
+            float gripTarget = recycling
+                ? .5f + .5f * Mathf.Cos(innerRingRecycleTime * Mathf.PI * 2f / innerRingRecyclePeriod)
+                : armController != null && armController.IsGripClosed ? 1f : 0f;
+            innerRingGrip = Mathf.Lerp(innerRingGrip, gripTarget, response);
+            Vector2 recycleShake = Vector2.zero;
+            float recycleTwist = 0f;
+            if (recycling)
+            {
+                // Keep jolts rapid independently of the chew period; compression controls their strength.
+                float phase = innerRingRecycleTime * Mathf.PI * 2f;
+                float strength = .2f + .8f * innerRingGrip;
+                recycleShake = new Vector2(Mathf.Sin(phase * 18f), Mathf.Sin(phase * 26f))
+                    * (156f * innerRingRecycleShakeOfRadius * strength);
+                recycleTwist = Mathf.Sin(phase * 22f) * innerRingRecycleShakeDegrees * strength;
+            }
+            Vector2 bracketOffset = innerRingArmOffset + recycleShake;
+            innerRingMaterial.SetFloat(InnerRingArmBlendId, armBlend);
+            innerRingMaterial.SetVector(InnerRingBracketOffsetId,
+                new Vector4(bracketOffset.x, bracketOffset.y, 0f, 0f));
+            innerRingMaterial.SetFloat(InnerRingBracketGripId, innerRingGrip);
             bool fallen = tumble != null && tumble.State != RobotTumbleState.Upright;
             bool tumbling = tumble != null && tumble.State == RobotTumbleState.Tumbling;
             float speed = mover.IsMovementLocked ? 0f : mover.CurrentSpeed;
@@ -122,7 +167,9 @@ namespace AnimalGame.RobotMap
             }
             innerRingWasFallen = fallen && !tumbling;
             innerRingAngle = Mathf.Repeat(innerRingAngle, 360f);
-            innerRing.localRotation = Quaternion.Euler(0f, 0f, innerRingAngle + jamOffset);
+            innerRing.localRotation = Quaternion.Slerp(
+                Quaternion.Euler(0f, 0f, innerRingAngle + jamOffset), Quaternion.identity, armBlend)
+                * Quaternion.Euler(0f, 0f, recycleTwist * armBlend);
             float fullSpeed = speed < 0f ? mover.UnloadedReverseSpeed : mover.DefaultMoveSpeed;
             float motion = tumbling ? 1f : fallen ? 0f
                 : Mathf.Clamp01(Mathf.Abs(speed) / Mathf.Max(.01f, fullSpeed));
@@ -132,8 +179,9 @@ namespace AnimalGame.RobotMap
                     : Mathf.Lerp(innerRingIdleArcDegrees, innerRingMovingArcDegrees, innerRingMotionBlend));
             float size = tumbling ? 1f
                 : Mathf.Lerp(innerRingIdleScale, innerRingMovingScale, innerRingMotionBlend);
+            float displayedSize = Mathf.Lerp(size * breath, innerRingArmScale, armBlend);
             innerRing.localScale = Vector3.Lerp(innerRing.localScale,
-                Vector3.one * (innerRingBaseScale * size * breath),
+                Vector3.one * (innerRingBaseScale * displayedSize),
                 1f - Mathf.Exp(-(tumbling ? 30f : 12f) * dt));
         }
     }
