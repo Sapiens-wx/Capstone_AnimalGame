@@ -180,6 +180,11 @@ namespace AnimalGame.Editor
             serialized.FindProperty("showAreaReferences").boolValue = false;
             serialized.FindProperty("showLabels").boolValue = true;
             serialized.ApplyModifiedProperties();
+            if (OfficialMapWaterPreview.IsAuthoringScene(plan.gameObject.scene))
+            {
+                OfficialMapWaterBrush.Editing = false;
+                OfficialMapWaterPreview.Visible = false;
+            }
             SceneView.RepaintAll();
         }
 
@@ -224,9 +229,16 @@ namespace AnimalGame.Editor
                 if (overlayPlan == null || plan.gameObject.scene == UnityEngine.SceneManagement.SceneManager.GetActiveScene())
                     overlayPlan = plan;
                 if (Event.current.type == EventType.Repaint && plan.HasMetricTransform(out _))
+                {
                     DrawPlan(view, plan);
+                    OfficialMapWaterPreview.Draw(plan.gameObject.scene);
+                }
             }
-            if (overlayPlan != null) DrawViewControls(view, overlayPlan);
+            if (overlayPlan != null)
+            {
+                Rect panel = DrawViewControls(view, overlayPlan);
+                OfficialMapWaterBrush.Handle(view, panel, overlayPlan.gameObject.scene);
+            }
         }
 
         private static void DrawPlan(SceneView view, OfficialMapPlan plan)
@@ -494,11 +506,13 @@ namespace AnimalGame.Editor
             smallStyle = new GUIStyle(labelStyle) { fontSize = 11 };
         }
 
-        private static void DrawViewControls(SceneView view, OfficialMapPlan plan)
+        private static Rect DrawViewControls(SceneView view, OfficialMapPlan plan)
         {
             Handles.BeginGUI();
-            float top = Mathf.Max(65f, view.position.height - 210f);
-            GUILayout.BeginArea(new Rect(12f, top, 285f, 174f), GUIContent.none, EditorStyles.helpBox);
+            bool showWaterTools = OfficialMapWaterPreview.IsAuthoringScene(plan.gameObject.scene);
+            float height = 174f + (showWaterTools ? (OfficialMapWaterBrush.Editing ? 129f : 53f) : 0f);
+            var panel = new Rect(12f, Mathf.Max(65f, view.position.height - height - 36f), 285f, height);
+            GUILayout.BeginArea(panel, GUIContent.none, EditorStyles.helpBox);
             GUILayout.Label("Official_Map_01 · 区域与尺度", EditorStyles.boldLabel);
             var serialized = new SerializedObject(plan);
             GUILayout.BeginHorizontal();
@@ -506,7 +520,10 @@ namespace AnimalGame.Editor
             serialized.FindProperty("showPlan").boolValue = GUILayout.Toggle(plan.ShowPlan, "区域规划");
             serialized.FindProperty("showHeightReferences").boolValue = GUILayout.Toggle(plan.ShowHeightReferences, "高度尺");
             serialized.FindProperty("showAreaReferences").boolValue = GUILayout.Toggle(plan.ShowAreaReferences, "面积框");
-            if (EditorGUI.EndChangeCheck())
+            bool planChanged = EditorGUI.EndChangeCheck();
+            if (showWaterTools)
+                OfficialMapWaterPreview.Visible = GUILayout.Toggle(OfficialMapWaterPreview.Visible, "水体示意");
+            if (planChanged)
             {
                 serialized.ApplyModifiedProperties();
                 SceneView.RepaintAll();
@@ -520,8 +537,15 @@ namespace AnimalGame.Editor
             GUILayout.EndHorizontal();
             if (GUILayout.Button("近看 1 m 方块 / 2 m 人形", GUILayout.Height(22f))) FrameHumanScale(plan);
             GUILayout.Label($"尺底 Y = {plan.transform.position.y + plan.ReferenceBaseHeightMeters:F2} m · 刻度为高度差", EditorStyles.miniLabel);
+            if (showWaterTools)
+            {
+                GUILayout.Space(6f);
+                OfficialMapWaterBrush.DrawControls();
+                if (GUILayout.Button("导出水域范围…", GUILayout.Height(22f))) OfficialMapWaterPreview.Export();
+            }
             GUILayout.EndArea();
             Handles.EndGUI();
+            return panel;
         }
 
         /// <summary>Ear clipping supports concave outlines without filling across their indentations.</summary>
