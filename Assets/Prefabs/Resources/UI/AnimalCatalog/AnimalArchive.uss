@@ -1,7 +1,7 @@
 :root { color: #e7e7df; font-size: 19px; -unity-font-definition: resource('UI/Photo/GeosansLightStatic'); }
 #archive-viewport { background-color: #060706; }
 #archive-shell { position: absolute; left: 50px; right: 50px; top: 45px; bottom: 26px; background-color: black; border-width: 1px; border-color: #9b9c93; }
-#archive-grid { position: absolute; left: 298px; right: 0; top: 64px; bottom: 68px; }
+#archive-grid { position: absolute; left: 0; right: 0; top: 0; bottom: 0; overflow: hidden; }
 .row, .tabs, .body, .footer, .preview-body { flex-direction: row; }
 .tabs { height: 64px; background-color: black; }
 #photos-tab, #catalog-tab { color: #e7e7df; font-size: 48px; width: 235px; border-color: white; border-width: 1px; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; }

@@ -149,7 +149,7 @@ namespace AnimalGame.RobotMap
                 || AdaptiveLegacyGamepadInput.WasWestFaceButtonPressedThisFrame();
             if (photosPressed || catalogPressed)
                 PlayResultAction(catalogPressed ? "catalog-badge" : "save-badge", () =>
-                    FindFirstObjectByType<AnimalGame.Animals.UI.AnimalArchiveUI>().OpenFromPhotoResult(catalogPressed));
+                    FindFirstObjectByType<AnimalGame.Animals.UI.AnimalArchiveUI>().OpenFromPhotoResult(catalogPressed, displayedResult.Species));
         }
 
         private void PlayResultAction(string badgeName, Action action)

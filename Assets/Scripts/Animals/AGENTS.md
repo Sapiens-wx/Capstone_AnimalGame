@@ -25,12 +25,13 @@
 # AnimalUI 结构（Photos / Catalog）
 
 - 界面代码位于 `AnimalPhoto/UI/`，其中 `Photos/` 和 `Catalog/` 分别组织照片界面与图鉴界面代码。
-- 拍照立即自动保存；结果页 X 打开 Catalog、Y 打开 Photos，相册覆盖结果页，关闭后回到结果页。
+- 拍照立即自动保存；结果页 X 直接打开本次拍摄物种的 Catalog 详情、Y 打开 Photos，相册覆盖结果页，关闭后回到结果页。
 - `AnimalArchiveUI` 统一管理输入、页面切换及打开界面时的游戏暂停；仅保留上一个界面，B 返回一次后再次按 B 关闭；页面包含 Photos、照片全屏查看、Catalog 和物种详情。
 - `Photos/PhotoCollection` 管理照片筛选、排序和选择；`PhotosView` 渲染照片，`PhotosSidebarView` 复用 `CatalogSidebarView` 的六格列表、黄色选框与滚动动画；All Collection 置顶，其余按英文名称 A–Z 排序。Photos 顶部共用 Catalog 翻页栏样式，LT/RT 显示相邻集合并首尾循环；左摇杆和 D-pad 导航 Photo Index，右摇杆也可选择照片。
 - 主 Catalog 使用 `MainCatalogView`（位于 `CatalogView.cs`）显示物种进度树及四列、两行可见网格，左摇杆 / D-pad 导航、A 进入详情；越界目标行移至顶部。物种详情保留 `CatalogSidebarView` 六格侧栏及 LT/RT 切换，RB 返回主 Catalog、Y 查看该物种照片；`CatalogView` 填充详情。拍到物种即解锁一级并在图鉴可见；网格预览由 `AnimalInfo.CatalogPreview` 配置，三级圆标和百分比读取 `SpeciesProgress`。
 - UXML、USS、Prefab 和 PanelSettings 位于 `Assets/Prefabs/Resources/UI/AnimalCatalog/`；自定义 VisualElement 负责网格、标题线、学名边框及照片尺寸等表现。
 - Photos 和 Catalog 共用外框、标签栏、侧栏、内容边框及底栏尺寸；公共布局直接定义在共享样式中，不按页面切换尺寸。
+- 背景网格由 `ArchiveGridElement` 复用照片结算页的 `PhotoResultGridElement`，统一为 56 像素间距、纯白、Alpha 3%；相册网格放在当前内容页的最底层，按内容边框裁切。
 - 两页的 A/B/X/Y 和方向箭头为黑底白字、黄色圆环（42 像素直径、4 像素描边），LT/RT/LB/RB 保留白色矩形边框和黄色文字；`ArchiveButtonFeedback` 复用结算页的挤压回弹和涟漪，0.05 秒后执行操作、动画独立持续 0.2 秒，鼠标/键盘/手柄走同一入口，关闭时取消待执行动作。照片操作下划线与按键圆环底部对齐；长按删除按下仅缩放，删除成功后才播放涟漪。
 - Photos 列表与大图页共用右侧信息区和翻页栏定位；左侧区域宽度等于页面内容高度，分别显示 Photo Index 或正方形大图，列表页不重复显示小预览图。
 - 大图页切换照片时，`PhotosView` 保留上一张照片源图，0.32 秒内左右滑出/滑入；滑出照片随进度向移动方向的反侧后倾至 32°，左右镜像。`photo-frame` 裁切越界内容，动画使用非缩放时间，结束或关闭时释放旧图。

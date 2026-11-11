@@ -2,7 +2,6 @@
     <Style src="project://database/Assets/Prefabs/Resources/UI/AnimalCatalog/AnimalArchive.uss?fileID=7433441132597879392&amp;guid=1e2249d0c9d4e954b9e38285620aee36&amp;type=3#AnimalArchive" />
     <ui:VisualElement name="archive-viewport" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0;">
         <ui:VisualElement name="archive-shell" style="border-top-width: 0; border-right-width: 0;">
-            <archive:ArchiveGridElement name="archive-grid" picking-mode="Ignore" />
             <ui:VisualElement class="tabs" style="display: flex;">
                 <ui:Button name="photos-tab" class="active-tab tab-action">
                     <ui:Label text="LB" picking-mode="Ignore" class="key-badge" />
@@ -61,6 +60,7 @@
                 </ui:VisualElement>
                 <ui:VisualElement class="workspace" style="border-right-color: rgb(155, 156, 147); border-right-width: 1px;">
                     <ui:VisualElement name="photos-page" class="page row" style="display: flex;">
+                        <archive:ArchiveGridElement name="archive-grid" picking-mode="Ignore" />
                         <ui:VisualElement name="photo-index">
                             <ui:VisualElement class="row index-header">
                                 <archive:CatalogHeadingElement text="Photo Index" />

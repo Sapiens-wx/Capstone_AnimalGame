@@ -11,7 +11,7 @@ namespace AnimalGame.RobotMap
         private Vector2 gridOffset;
         private float cellLength = 56f;
         private float lineWidth = 1f;
-        private Color lineColor = new Color(0.55f, 0.59f, 0.57f, 0.23f);
+        private Color lineColor = new Color(1f, 1f, 1f, 0.03f);
         private Vector2[] points = Array.Empty<Vector2>();
 
         [UxmlAttribute]

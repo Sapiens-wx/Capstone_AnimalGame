@@ -85,9 +85,10 @@ namespace AnimalGame.Animals.UI
 
         public void Open() => Open(Page.Photos, false);
 
-        public void OpenFromPhotoResult(bool catalog) => Open(catalog ? Page.Catalog : Page.Photos, true);
+        public void OpenFromPhotoResult(bool catalog, AnimalSpecies photographedSpecies) =>
+            Open(catalog ? Page.Species : Page.Photos, true, photographedSpecies);
 
-        private void Open(Page initialPage, bool fromPhotoResult)
+        private void Open(Page initialPage, bool fromPhotoResult, AnimalSpecies initialSpecies = AnimalSpecies.Unknown)
         {
             if (BlocksGameplay) return;
             if (AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
@@ -97,6 +98,7 @@ namespace AnimalGame.Animals.UI
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             collections.Clear();
             previousLocation = null; page = initialPage; collection = 0; catalogIndex = -1;
+            species = initialSpecies;
             lastRenderedPage = null;
             catalogSidebar.Reset(); photosSidebar.Reset();
             mainCatalogView.Reset();
@@ -179,6 +181,9 @@ namespace AnimalGame.Animals.UI
             root.Q("photos-page").style.display = isPhotos ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("catalog-page").style.display = page == Page.Catalog ? DisplayStyle.Flex : DisplayStyle.None;
             root.Q("species-page").style.display = page == Page.Species ? DisplayStyle.Flex : DisplayStyle.None;
+            var activePage = root.Q(isPhotos ? "photos-page" : page == Page.Catalog ? "catalog-page" : "species-page");
+            var grid = root.Q("archive-grid");
+            if (grid.parent != activePage) activePage.Insert(0, grid);
             root.Q<Button>("photos-tab").EnableInClassList("active-tab", isPhotos);
             root.Q<Button>("catalog-tab").EnableInClassList("active-tab", !isPhotos);
             UpdateTabSelection();
