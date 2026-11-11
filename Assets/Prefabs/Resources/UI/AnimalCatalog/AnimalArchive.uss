@@ -62,7 +62,10 @@
 .photo-action-caption { font-size: 28px; -unity-font-style: bold; color: #e7e7df; }
 #photo-previous > .photo-action-circle, #photo-next > .photo-action-circle { padding-bottom: 6px; }
 .photo-action-underline { position: absolute; left: 15px; right: 0; bottom: 0; height: 1px; background-color: white; }
+#photo-open > .photo-action-underline, #photo-previous > .photo-action-underline, #photo-next > .photo-action-underline, #photo-catalog > .photo-action-underline, #photo-delete > .photo-action-underline { left: 21px; }
 #photo-open > .photo-action-underline, #photo-catalog > .photo-action-underline, #photo-delete > .photo-action-underline { right: -14px; }
+#photo-open > .photo-action-underline, #photo-previous > .photo-action-underline, #photo-next > .photo-action-underline, #photo-catalog > .photo-action-underline, #back > .photo-action-underline { translate: 0 1px; }
+#species-photos > .photo-action-underline, #photo-delete > .photo-action-underline { translate: 0 -1px; }
 #photo-catalog, #photo-delete { margin-top: 8px; }
 .heading { color: #D4B854; font-size: 22px; margin-top: 6px; margin-bottom: 10px; border-bottom-width: 1px; border-bottom-color: #D4B854; white-space: normal; }
 .footer { height: 68px; flex-shrink: 0; border-top-width: 0; padding: 12px 0; justify-content: space-between; align-items: center; background-color: black; }
@@ -100,7 +103,7 @@ Button:disabled { opacity: 0.35; }
 #description-section > .catalog-heading { margin-top: 4px; }
 #species-photos { align-self: flex-end; flex-shrink: 0; margin-top: 18px; margin-bottom: 12px; }
 .action-key-right > .photo-action-circle { margin-left: 8px; margin-right: 0; }
-.action-key-right > .photo-action-underline { left: 0; right: 15px; }
+.action-key-right > .photo-action-underline { left: 0; right: 21px; }
 #main-catalog { align-self: flex-start; flex-shrink: 0; margin-bottom: 20px; }
 #main-catalog .photo-action-caption, .main-catalog-heading-content > Label { color: white; height: 42px; font-size: 34px; -unity-font-style: bold; -unity-text-align: middle-center; translate: 0 -5px; }
 #catalog-sidebar { flex-grow: 1; min-height: 0; }
