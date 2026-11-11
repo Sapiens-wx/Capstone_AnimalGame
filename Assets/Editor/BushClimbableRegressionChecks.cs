@@ -209,8 +209,9 @@ namespace AnimalGame.Editor
             SpriteRenderer leaves = bush.transform.Find("Canopy/Leaves").GetComponent<SpriteRenderer>();
             float originalAlpha = leaves.color.a;
             float contactRadius = (float)Call(fade, "GetPlantContactRadiusMeters");
-            float reduction = (float)Call(fade, "CalculateActorAlphaReduction", Vector2.zero,
-                Vector2.right * contactRadius, contactRadius);
+            float reduction = (float)Call(fade, "CalculateActorAlphaReduction",
+                InteractionShape.Circle(Vector2.zero, contactRadius),
+                InteractionShape.Circle(Vector2.right * contactRadius, 0f));
             Near(reduction, .3f, "Actor at the climbable edge does not reach contact fade");
             Call(fade, "ApplyAlphaReduction", reduction, true);
             Near(leaves.color.a, originalAlpha * .7f, "Bush leaves lost their authored alpha during fade");

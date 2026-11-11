@@ -68,8 +68,7 @@ namespace AnimalGame.Editor
                         3f,
                         0.5f,
                         0.9f,
-                        0.05f,
-                        0.75f);
+                        0.05f);
                     RestoreAuthoredMapMetadata(
                         placedObject,
                         authoredMapPosition,

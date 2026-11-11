@@ -88,7 +88,7 @@ namespace AnimalGame.MapTest
                 ? map.gameObject
                 : InstantiateResource(MapResourcePath, "Map Test Controller");
             robotObject = InstantiateResource(RobotResourcePath, "Robot Marker");
-            cameraObject = InstantiateResource(CameraResourcePath, "Robot Camera");
+            cameraObject = Camera.main==null?InstantiateResource(CameraResourcePath, "Robot Camera"):Camera.main.gameObject;
             traversalObject = InstantiateResource(
                 TraversalResourcePath,
                 "Height Map Traversal Evaluator");
@@ -101,13 +101,6 @@ namespace AnimalGame.MapTest
             mainUiObject = InstantiateResource(
                 MainUiResourcePath,
                 "Main UI");
-            if (mapObject == null || robotObject == null || cameraObject == null
-                || traversalObject == null || overlayObject == null
-                || scanOverlayObject == null || mainUiObject == null)
-            {
-                enabled = false;
-                return;
-            }
 
             if (map == null)
                 map = mapObject.GetComponent<MapTestSceneController>();
@@ -147,8 +140,6 @@ namespace AnimalGame.MapTest
             cameraFollow = cameraObject.GetComponent<RobotCameraFollow>();
             cameraShake =
                 cameraObject.GetComponent<RobotCameraShake>();
-            if (cameraShake == null)
-                cameraShake = cameraObject.AddComponent<RobotCameraShake>();
             traversalEvaluator = traversalObject.GetComponent<HeightMapTraversalEvaluator>();
             traversalOverlay = overlayObject.GetComponent<TraversalOverlayUI>();
             scanOverlay =

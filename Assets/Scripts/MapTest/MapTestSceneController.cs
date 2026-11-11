@@ -123,7 +123,6 @@ namespace AnimalGame.MapTest
         [SerializeField] private Color contourColor = new Color(0.92f, 0.97f, 1f);
 
         private Camera mapCamera;
-        private GameObject generatedCameraObject;
         private TiledMapRuntime runtimeMap;
         private readonly List<TiledMapTileView> tileViews = new List<TiledMapTileView>();
         private readonly List<SpriteRenderer> tileRenderers = new List<SpriteRenderer>();
@@ -389,9 +388,6 @@ namespace AnimalGame.MapTest
             if (cameraToUse == null)
                 return;
 
-            if (mapCamera != null && mapCamera != cameraToUse)
-                mapCamera.gameObject.SetActive(false);
-
             mapCamera = cameraToUse;
             mapCamera.backgroundColor = backgroundColor;
             UpdateVisibleContourRange(mapCamera);
@@ -442,7 +438,6 @@ namespace AnimalGame.MapTest
                 }
                 if (Application.isPlaying)
                 {
-                    if (mapCamera == null) CreateCamera();
                     UpdateVisibleContourRange(mapCamera);
                 }
                 else ShowCompleteContourRange();
@@ -539,23 +534,6 @@ namespace AnimalGame.MapTest
 
 
 
-
-        private void CreateCamera()
-        {
-            Camera existingCamera = Camera.main;
-            if (existingCamera != null)
-                existingCamera.gameObject.SetActive(false);
-
-            var cameraObject = new GameObject("Map Test Camera");
-            generatedCameraObject = cameraObject;
-            cameraObject.tag = "MainCamera";
-            cameraObject.transform.position = new Vector3(0f, 0f, -10f);
-            mapCamera = cameraObject.AddComponent<Camera>();
-            mapCamera.orthographic = true;
-            mapCamera.clearFlags = CameraClearFlags.SolidColor;
-            mapCamera.backgroundColor = backgroundColor;
-            mapCamera.orthographicSize = levelAsset.MapSizeMeters.y * levelAsset.WorldUnitsPerMeter.y * 0.58f;
-        }
 
 
 
@@ -1034,7 +1012,6 @@ namespace AnimalGame.MapTest
         private void OnDestroy()
         {
             ReleaseGeneratedMap();
-            DestroyGeneratedObject(generatedCameraObject);
         }
 
         private void ReleaseGeneratedMap()
