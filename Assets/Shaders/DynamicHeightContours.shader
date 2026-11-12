@@ -17,6 +17,7 @@ Shader "AnimalGame/Dynamic Height Contours"
         _SurfaceRevealEdgePixels ("Surface UI Edge", Float) = 4
         _OutsideRevealDarkening ("Outside Reveal Darkening", Range(0, 1)) = 0.3
         _WaterMaskTex ("Static Water Range And Depth", 2D) = "black" {}
+        _WaterUvTex ("Baked Water UV (RGHalf)", 2D) = "black" {}
         _WaterMaskBounds ("Water Mask Map UV Bounds", Vector) = (0, 0, 1, 1)
         _WaterPatternTex ("Animated Water Pattern", 2D) = "black" {}
         _WaterEnabled ("Animated Water Enabled", Float) = 0
@@ -101,6 +102,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             sampler2D _HeightTex;
             sampler2D _SurfaceTex;
             sampler2D _WaterMaskTex;
+            sampler2D _WaterUvTex;
             float4 _WaterMaskTex_TexelSize;
             float4 _WaterMaskBounds;
             sampler2D _WaterPatternTex;
@@ -188,12 +190,38 @@ Shader "AnimalGame/Dynamic Height Contours"
                 return DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(centreUv, 0, 0)));
             }
 
+            float2 SampleBakedWaterUv(float2 uv)
+            {
+                // Shares the mask's dimensions/bounds. Keep zero pixels invalid, including at shorelines.
+                float2 pixel = uv * _WaterMaskTex_TexelSize.zw - 0.5;
+                float2 basePixel = floor(pixel);
+                float2 f = frac(pixel);
+                float2 origin = (basePixel + 0.5) * _WaterMaskTex_TexelSize.xy;
+                float2 a = tex2Dlod(_WaterUvTex, float4(origin, 0, 0)).rg;
+                float2 b = tex2Dlod(_WaterUvTex, float4(origin + float2(_WaterMaskTex_TexelSize.x, 0), 0, 0)).rg;
+                float2 c = tex2Dlod(_WaterUvTex, float4(origin + float2(0, _WaterMaskTex_TexelSize.y), 0, 0)).rg;
+                float2 d = tex2Dlod(_WaterUvTex, float4(origin + _WaterMaskTex_TexelSize.xy, 0, 0)).rg;
+                float2 nearest = f.y < 0.5 ? (f.x < 0.5 ? a : b) : (f.x < 0.5 ? c : d);
+                if (all(nearest == 0.0)) return 0.0;
+                float4 weights = float4((1.0-f.x)*(1.0-f.y), f.x*(1.0-f.y), (1.0-f.x)*f.y, f.x*f.y);
+                weights *= float4(any(a != 0.0), any(b != 0.0), any(c != 0.0), any(d != 0.0));
+                return (a*weights.x + b*weights.y + c*weights.z + d*weights.w)
+                    / dot(weights, float4(1, 1, 1, 1));
+            }
+
             fixed4 SampleWaterPattern(
                 float2 mapMeters,
                 float normalizedDepth,
                 float2 localFlow,
-                float animationTime)
+                float animationTime,
+                float2 bakedUv)
             {
+                if (any(bakedUv != 0.0))
+                {
+                    // Baked coordinates are unwrapped meters, with +U pointing downstream.
+                    mapMeters = bakedUv;
+                    localFlow = float2(length(localFlow), 0.0);
+                }
                 float depth = saturate(normalizedDepth);
                 float tileSize = max(0.01, _WaterTileSizeMeters);
                 float waveLength = max(0.1, _WaterWaveLengthMeters);
@@ -304,16 +332,19 @@ Shader "AnimalGame/Dynamic Height Contours"
                         float2 mapMeters = input.uv * _MapSizeMeters.xy
                                            + _WaterOriginMeters.xy;
                         float2 localFlow = SampleWaterFlow(waterUv);
+                        float2 bakedWaterUv = SampleBakedWaterUv(waterUv) * insideWaterBounds;
                         fixed4 staticWater = SampleWaterPattern(
                             mapMeters,
                             waterData.g,
                             localFlow,
-                            0.0);
+                            0.0,
+                            bakedWaterUv);
                         fixed4 animatedWater = SampleWaterPattern(
                             mapMeters,
                             waterData.g,
                             localFlow,
-                            _Time.y);
+                            _Time.y,
+                            bakedWaterUv);
                         fixed4 visibleWater = lerp(
                             staticWater,
                             animatedWater,

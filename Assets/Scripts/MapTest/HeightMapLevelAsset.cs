@@ -254,6 +254,8 @@ namespace AnimalGame.MapTest
 
         [Tooltip("Editor-generated range/depth texture consumed directly by the runtime map shader.")]
         [SerializeField] private Texture2D bakedStaticWaterMask;
+
+        [SerializeField] private Texture2D bakedStaticWaterUv;
         // Normalized map-space rectangle including the dry padding pixels.
         [SerializeField, HideInInspector]
         private Rect bakedStaticWaterBounds = new Rect(0f, 0f, 1f, 1f);
@@ -499,6 +501,7 @@ namespace AnimalGame.MapTest
             maximumPassableStaticWaterDepthMeters;
         public Texture2D StaticWaterTexture => staticWaterEditorTexture;
         public Texture2D BakedStaticWaterMask => bakedStaticWaterMask;
+        public Texture2D BakedStaticWaterUv => bakedStaticWaterUv;
         public Rect BakedStaticWaterBounds => bakedStaticWaterBounds;
         public float StaticWaterTileSizeMeters =>
             staticWaterEditorTileSizeMeters;
@@ -534,6 +537,9 @@ namespace AnimalGame.MapTest
                         : 0);
                     hash = hash * 397 ^ (bakedStaticWaterMask != null
                         ? bakedStaticWaterMask.GetInstanceID()
+                        : 0);
+                    hash = hash * 397 ^ (bakedStaticWaterUv != null
+                        ? bakedStaticWaterUv.GetInstanceID()
                         : 0);
                     hash = hash * 397
                            ^ staticWaterEditorTileSizeMeters.GetHashCode();
@@ -1525,6 +1531,12 @@ namespace AnimalGame.MapTest
             {
                 staticWaterMaskBakeRevision++;
             }
+        }
+
+        public void SetBakedStaticWaterUv(Texture2D texture)
+        {
+            bakedStaticWaterUv = texture;
+            unchecked { staticWaterMaskBakeRevision++; }
         }
 #endif
 

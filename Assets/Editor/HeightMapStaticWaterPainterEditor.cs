@@ -1,4 +1,5 @@
 using System.IO;
+using System.Collections.Generic;
 using AnimalGame.MapTest;
 using UnityEditor;
 using UnityEngine;
@@ -103,6 +104,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private void OnDisable()
     {
+        CancelUvInteraction();
+        ClearUvSelection();
         if (strokeActive)
             EndStroke();
 
@@ -140,7 +143,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         EditorGUILayout.LabelField("Static Water Authoring", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
             "Edits appear only in the Scene preview until you click Save. " +
-            "Save writes the water data and updates the runtime Water Mask. " +
+            "Save writes the water data, runtime Water Mask and generated UV texture. " +
             "Closing this window or switching maps discards unsaved edits.",
             MessageType.Info);
 
@@ -285,12 +288,18 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private void DrawBrushSettings()
     {
         EditorGUILayout.Space();
-        int selectedPage = GUILayout.Toolbar(brushPage, new[] { "Depth Brush", "Flow Brush" });
+        int selectedPage = GUILayout.Toolbar(brushPage, new[] { "Depth Brush", "Flow Brush", "UV Lines" });
         if (selectedPage != brushPage)
         {
             EndStroke();
+            CancelUvInteraction();
             brushPage = selectedPage;
             RefreshPreview(true);
+        }
+        if (brushPage == 2)
+        {
+            DrawUvSettings();
+            return;
         }
         paintInScene = EditorGUILayout.Toggle("Paint In Scene", paintInScene);
         if (brushPage == 1)
@@ -354,6 +363,595 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             "to erase, regardless of the selected mode. Alt remains available " +
             "for normal Scene-view navigation.",
             MessageType.None);
+    }
+
+    // Scene-only UV diagnostics. Nothing here is serialized or written by SaveWater.
+    private enum UvInteraction { None, SelectWater, DrawSection }
+    private UvInteraction uvInteraction;
+    private int uvHotControl;
+    private bool uvDragging;
+    private Vector2 uvSectionA, uvSectionB;
+    private bool uvHasSection;
+    private Vector2Int uvWaterSeed;
+    private bool[] uvIsland;
+    private RectInt uvBounds;
+    private int uvResolution;
+    private byte[] uvAngles, uvSpeeds;
+    private RectInt uvDataBounds;
+    private int uvIslandPixelCount;
+    private float uvVSpacing = 12f;
+    private float uvUSpacing = 12f;
+    private float uvStep = 3f;
+    private string uvStatus;
+    private readonly List<Vector2[]> uvVLines = new List<Vector2[]>();
+    private readonly List<Vector2[]> uvULines = new List<Vector2[]>();
+    private readonly List<UvGridVertex[]> uvGridRows = new List<UvGridVertex[]>();
+    private readonly List<float> uvRowDistances = new List<float>();
+    private Vector2[] workingWaterUv;
+    private int workingWaterUvResolution;
+
+    private struct UvGridVertex
+    {
+        public Vector2 position, uv;
+        public UvGridVertex(Vector2 position, Vector2 uv) { this.position = position; this.uv = uv; }
+    }
+
+    private void DrawUvSettings()
+    {
+        EditorGUILayout.HelpBox(
+            "Select connected water, then drag A to B " +
+            "to draw a cross-section. The green arrow points 90 degrees counterclockwise from A to B. " +
+            "Update advances along one river, re-centers at each cross-section, then connects matching samples " +
+            "to form V lines and bake pixel UVs. Save writes the RGHalf UV texture. " +
+            "All distances below are in water-data pixels.",
+            MessageType.Info);
+        if (GUILayout.Button(uvInteraction == UvInteraction.SelectWater
+                ? "Click Water In Scene..." : "1. Select Water Island"))
+        {
+            CancelUvInteraction();
+            uvInteraction = UvInteraction.SelectWater;
+            SceneView.RepaintAll();
+        }
+        if (uvIsland != null)
+            EditorGUILayout.LabelField("Selected Island",
+                $"{uvIslandPixelCount} pixels; bounds ({uvBounds.x}, {uvBounds.y}), {uvBounds.width} x {uvBounds.height}");
+        using (new EditorGUI.DisabledScope(uvIsland == null))
+        {
+            if (GUILayout.Button(uvInteraction == UvInteraction.DrawSection
+                    ? "Drag A To B In Scene..." : "2. Draw Cross-Section"))
+            {
+                CancelUvInteraction();
+                uvInteraction = UvInteraction.DrawSection;
+                SceneView.RepaintAll();
+            }
+        }
+        uvVSpacing = Mathf.Max(1f, EditorGUILayout.FloatField("V Seed Spacing (px)", uvVSpacing));
+        uvUSpacing = Mathf.Max(1f, EditorGUILayout.FloatField("U Seed Spacing (px)", uvUSpacing));
+        uvStep = Mathf.Max(0.1f, EditorGUILayout.FloatField("Step Length (px)", uvStep));
+        EditorGUILayout.LabelField("Center Trace Budget", "3 x (bounds width + height)");
+        EditorGUILayout.LabelField("U Max Length", "bounds width + height (both sides combined)");
+        using (new EditorGUI.DisabledScope(uvIsland == null || !uvHasSection || uvDragging))
+        {
+            if (GUILayout.Button("3. Update UV Lines", GUILayout.Height(28f)))
+            {
+                CancelUvInteraction();
+                UpdateUvLines();
+            }
+        }
+        using (new EditorGUI.DisabledScope(uvIsland == null))
+        {
+            if (GUILayout.Button("Clear Selected Water UV"))
+            {
+                EnsureWorkingWaterUv();
+                for (int i = 0; i < uvIsland.Length; i++)
+                    if (uvIsland[i]) workingWaterUv[i] = Vector2.zero;
+                uvStatus = "Selected water UV cleared. Click Save to apply.";
+            }
+        }
+        if (GUILayout.Button("Clear UV Lines"))
+        {
+            CancelUvInteraction();
+            ClearUvSelection();
+            SceneView.RepaintAll();
+        }
+        EditorGUILayout.HelpBox(
+            "V: cyan; U: orange. U Spacing advances along the river; V Spacing samples " +
+            "each cross-section outward from its arc-length midpoint. V lines connect matching sample indices " +
+            "without sampling flow. Flood fill uses four neighbors. " +
+            "Outside water, seeds travel straight until entry or the length limit. " +
+            "After entry, leaving the selected water or its bounds stops the line. " +
+            "Zero speed stops tracing. Only step endpoints are checked. Escape cancels Scene input. " +
+            "Changes to brushes or spacing require another Update.", MessageType.None);
+        if (!string.IsNullOrEmpty(uvStatus))
+            EditorGUILayout.HelpBox(uvStatus, MessageType.Info);
+    }
+
+    private void CancelUvInteraction()
+    {
+        if (uvHotControl != 0 && GUIUtility.hotControl == uvHotControl)
+            GUIUtility.hotControl = 0;
+        uvHotControl = 0;
+        uvDragging = false;
+        uvInteraction = UvInteraction.None;
+    }
+
+    private void ClearUvSelection()
+    {
+        uvIsland = null;
+        uvAngles = uvSpeeds = null;
+        uvHasSection = false;
+        uvVLines.Clear();
+        uvULines.Clear();
+        uvGridRows.Clear();
+        uvRowDistances.Clear();
+        uvStatus = null;
+    }
+
+    private Vector2 UvMapToPixel(Vector2 map)
+    {
+        Vector2 size = levelAsset.MapSizeMeters;
+        return new Vector2(map.x / size.x, map.y / size.y) * levelAsset.StaticWaterResolution;
+    }
+
+    private Vector3 UvPixelToWorld(Vector2 pixel)
+    {
+        Vector2 size = levelAsset.MapSizeMeters;
+        return TilePositionToWorld(new Vector2(pixel.x * size.x, pixel.y * size.y) / uvResolution);
+    }
+
+    private void HandleUvSceneGui(SceneView sceneView)
+    {
+        Event current = Event.current;
+        if (current.type == EventType.Repaint)
+            DrawUvPreview();
+        if (uvInteraction == UvInteraction.None)
+            return;
+        int control = GUIUtility.GetControlID("StaticWaterUvPreview".GetHashCode(), FocusType.Passive);
+        if (current.type == EventType.KeyDown && current.keyCode == KeyCode.Escape)
+        {
+            CancelUvInteraction();
+            current.Use();
+            Repaint();
+            sceneView.Repaint();
+            return;
+        }
+        if (current.type == EventType.Layout && !current.alt)
+            HandleUtility.AddDefaultControl(control);
+        if (current.alt || current.button != 0)
+            return;
+        bool hit = TryGetMapPosition(current.mousePosition, out Vector2 map);
+        if (current.type == EventType.MouseDown && hit)
+        {
+            Vector2 pixel = UvMapToPixel(map);
+            if (uvInteraction == UvInteraction.SelectWater)
+            {
+                ClearUvSelection();
+                uvWaterSeed = Vector2Int.FloorToInt(pixel);
+                if (SelectUvIsland())
+                    uvInteraction = UvInteraction.None;
+            }
+            else
+            {
+                uvSectionA = uvSectionB = pixel;
+                uvHasSection = false;
+                uvDragging = true;
+                uvHotControl = control;
+                GUIUtility.hotControl = control;
+            }
+            current.Use();
+        }
+        else if (uvDragging && current.type == EventType.MouseDrag)
+        {
+            if (hit) uvSectionB = UvMapToPixel(map);
+            current.Use();
+        }
+        else if (uvDragging && current.type == EventType.MouseUp)
+        {
+            if (hit) uvSectionB = UvMapToPixel(map);
+            uvHasSection = (uvSectionB - uvSectionA).sqrMagnitude >= 1f;
+            CancelUvInteraction();
+            current.Use();
+        }
+        Repaint();
+        if (current.type != EventType.Repaint && current.type != EventType.Layout)
+            sceneView.Repaint();
+    }
+
+    private bool SelectUvIsland()
+    {
+        levelAsset.EnsureStaticWaterAuthoringData();
+        uvResolution = levelAsset.StaticWaterResolution;
+        uvDataBounds = levelAsset.StaticWaterPixelBounds;
+        byte[] depths = levelAsset.GetOrCreateStaticWaterDepthMap();
+        var selected = new bool[uvResolution * uvResolution];
+        var queue = new Queue<Vector2Int>();
+        bool IsWet(Vector2Int p) => uvDataBounds.Contains(p)
+            && depths[(p.y - uvDataBounds.y) * uvDataBounds.width + p.x - uvDataBounds.x] > 0;
+        if (!IsWet(uvWaterSeed))
+        {
+            ClearUvSelection();
+            uvStatus = "Click a water pixel to select an island.";
+            return false;
+        }
+        queue.Enqueue(uvWaterSeed);
+        selected[uvWaterSeed.y * uvResolution + uvWaterSeed.x] = true;
+        int minX = uvWaterSeed.x, maxX = minX, minY = uvWaterSeed.y, maxY = minY;
+        uvIslandPixelCount = 0;
+        void Visit(Vector2Int p)
+        {
+            if (!IsWet(p)) return;
+            int index = p.y * uvResolution + p.x;
+            if (selected[index]) return;
+            selected[index] = true;
+            queue.Enqueue(p);
+        }
+        while (queue.Count > 0)
+        {
+            Vector2Int p = queue.Dequeue();
+            uvIslandPixelCount++;
+            minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x);
+            minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
+            Visit(p + Vector2Int.left); Visit(p + Vector2Int.right);
+            Visit(p + Vector2Int.up); Visit(p + Vector2Int.down);
+        }
+        uvIsland = selected;
+        uvBounds = new RectInt(minX, minY, maxX - minX + 1, maxY - minY + 1);
+        // Keep immutable flow data for this Update, separate from subsequent brush changes.
+        uvAngles = (byte[])levelAsset.GetOrCreateStaticWaterFlowAngleMap().Clone();
+        uvSpeeds = (byte[])levelAsset.GetOrCreateStaticWaterFlowSpeedMap().Clone();
+        uvStatus = "Island selected. Draw a cross-section, then press Update UV Lines.";
+        return true;
+    }
+
+    private bool UvContainsWater(Vector2 p)
+    {
+        Vector2Int pixel = Vector2Int.FloorToInt(p);
+        return uvBounds.Contains(pixel) && uvIsland[pixel.y * uvResolution + pixel.x];
+    }
+
+    private Vector2 SampleUvDirection(Vector2 p, bool transverse, float sign)
+    {
+        // Decode before interpolation so the angle wrap at 0/360 degrees stays continuous.
+        Vector2 sample = p - Vector2.one * 0.5f;
+        Vector2Int lo = Vector2Int.FloorToInt(sample);
+        Vector2 fraction = sample - (Vector2)lo;
+        Vector2 flow = Vector2.zero;
+        float totalWeight = 0f;
+        for (int y = 0; y < 2; y++)
+        for (int x = 0; x < 2; x++)
+        {
+            Vector2Int pixel = lo + new Vector2Int(x, y);
+            if (!uvBounds.Contains(pixel) || !uvIsland[pixel.y * uvResolution + pixel.x]) continue;
+            int index = (pixel.y - uvDataBounds.y) * uvDataBounds.width + pixel.x - uvDataBounds.x;
+            float weight = (x == 0 ? 1f - fraction.x : fraction.x)
+                * (y == 0 ? 1f - fraction.y : fraction.y);
+            float angle = uvAngles[index] * (Mathf.PI * 2f / 256f);
+            flow += new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * (uvSpeeds[index] / 255f * weight);
+            totalWeight += weight;
+        }
+        if (totalWeight == 0f || flow.sqrMagnitude < 1e-12f) return Vector2.zero;
+        if (transverse) flow = new Vector2(-flow.y, flow.x);
+        // Angles are authored in map meters; integration distances are water-data pixels.
+        Vector2 size = levelAsset.MapSizeMeters;
+        Vector2 pixelFlow = new Vector2(flow.x / size.x, flow.y / size.y);
+        return pixelFlow / pixelFlow.magnitude * sign;
+    }
+
+    private List<Vector2> TraceUvLine(Vector2 seed, Vector2 initialDirection, bool transverse,
+        float sign, float maxLength, bool startAlongNormal = false)
+    {
+        var points = new List<Vector2> { seed };
+        Vector2 p = seed;
+        bool enteredWater = UvContainsWater(p);
+        bool enteredBounds = uvBounds.Contains(Vector2Int.FloorToInt(p));
+        for (float travelled = 0f; travelled < maxLength;)
+        {
+            Vector2 direction = enteredWater ? SampleUvDirection(p, transverse, sign) : initialDirection;
+            if (direction == Vector2.zero) break;
+            if (startAlongNormal && travelled == 0f) direction = initialDirection;
+            float distance = Mathf.Min(uvStep, maxLength - travelled);
+            Vector2 next = p + direction * distance;
+            travelled += distance;
+            bool inBounds = uvBounds.Contains(Vector2Int.FloorToInt(next));
+            bool inWater = UvContainsWater(next);
+            // Before entering bounds, a seed is allowed to approach from outside.
+            if ((enteredBounds && !inBounds) || (enteredWater && !inWater)) break;
+            points.Add(next);
+            enteredBounds |= inBounds;
+            enteredWater |= inWater;
+            p = next;
+        }
+        return points;
+    }
+
+    private Vector2 UvSectionNormal()
+    {
+        return UvNormal(uvSectionB - uvSectionA);
+    }
+
+    private Vector2 UvNormal(Vector2 delta)
+    {
+        Vector2 size = levelAsset.MapSizeMeters;
+        Vector2 mapDelta = new Vector2(delta.x * size.x, delta.y * size.y);
+        Vector2 normal = new Vector2(-mapDelta.y, mapDelta.x);
+        return new Vector2(normal.x / size.x, normal.y / size.y).normalized;
+    }
+
+    private static float UvLineLength(IReadOnlyList<Vector2> line)
+    {
+        float length = 0f;
+        for (int i = 1; i < line.Count; i++) length += Vector2.Distance(line[i - 1], line[i]);
+        return length;
+    }
+
+    private static Vector2 UvPointAtDistance(IReadOnlyList<Vector2> line, float distance,
+        out Vector2 tangent)
+    {
+        for (int i = 1; i < line.Count; i++)
+        {
+            Vector2 delta = line[i] - line[i - 1];
+            float length = delta.magnitude;
+            if (length == 0f) continue;
+            if (distance <= length)
+            {
+                tangent = delta / length;
+                return line[i - 1] + tangent * distance;
+            }
+            distance -= length;
+        }
+        tangent = line.Count > 1 ? (line[line.Count - 1] - line[line.Count - 2]).normalized : Vector2.zero;
+        return line[line.Count - 1];
+    }
+
+    private void UpdateUvLines()
+    {
+        uvVLines.Clear();
+        uvULines.Clear();
+        uvGridRows.Clear();
+        uvRowDistances.Clear();
+        if (!SelectUvIsland()) return;
+        float lengthLimit = uvBounds.width + uvBounds.height;
+        Vector2 normal = UvSectionNormal();
+        Vector2 centre = (uvSectionA + uvSectionB) * 0.5f;
+        var sections = new List<Vector2[]>();
+        float travelled = 0f;
+        bool wetStarted = false;
+        bool oppositeEntry = false;
+        while (travelled < 3f * lengthLimit)
+        {
+            float advance = Mathf.Min(uvUSpacing, 3f * lengthLimit - travelled);
+            // Start each segment along the preceding section's normal, then sample flow at every step.
+            List<Vector2> segment = TraceUvLine(centre, normal, false, 1f, advance, true);
+            for (int i = 0; i < segment.Count; i++)
+            {
+                if (wetStarted || !UvContainsWater(segment[i])) continue;
+                wetStarted = true;
+                oppositeEntry = Vector2.Dot(SampleUvDirection(segment[i], false, 1f), normal) < 0f;
+            }
+            float segmentLength = UvLineLength(segment);
+            travelled += segmentLength;
+            if (segmentLength + 0.001f < advance || segment.Count < 2) break;
+            centre = segment[segment.Count - 1];
+            // Do not emit a shorter final interval just because the overall budget is exhausted.
+            if (advance + 0.001f < uvUSpacing) break;
+            if (!UvContainsWater(centre)) continue;
+            List<Vector2> cross = TraceUvCrossLine(centre, lengthLimit);
+            if (cross.Count < 2) break;
+            sections.Add(cross.ToArray());
+            uvRowDistances.Add(travelled);
+            Vector2 forward = segment[segment.Count - 1] - segment[segment.Count - 2];
+            centre = UvPointAtDistance(cross, UvLineLength(cross) * 0.5f, out Vector2 tangent);
+            if (!UvContainsWater(centre)) break;
+            normal = UvNormal(tangent);
+            if (Vector2.Dot(normal, forward) < 0f) normal = -normal;
+        }
+        BuildUvGrid(sections);
+        int uvPixelCount = BakeSelectedWaterUv();
+        uvStatus = $"Generated {uvVLines.Count} V lines and {uvULines.Count} U cross-sections."
+            + $" Baked {uvPixelCount} UV pixels; click Save to apply."
+            + (!wetStarted ? " The center trace did not reach the selected water." : "")
+            + (oppositeEntry ? " The entry flow opposes the green arrow. Draw A to B in reverse to point downstream." : "");
+        SceneView.RepaintAll();
+        Repaint();
+    }
+
+    private void BuildUvGrid(IReadOnlyList<Vector2[]> sections)
+    {
+        // A signed index denotes distance from the section midpoint: negative on one side, positive on the other.
+        // End a V line when its index disappears, instead of bridging across missing rows in a narrowing river.
+        var active = new Dictionary<int, List<Vector2>>();
+        int rowIndex = 0;
+        float metersPerPixel = (levelAsset.MapSizeMeters.x + levelAsset.MapSizeMeters.y) * 0.5f / uvResolution;
+        foreach (Vector2[] section in sections)
+        {
+            float length = UvLineLength(section);
+            float midpoint = length * 0.5f;
+            int sideCount = Mathf.FloorToInt(midpoint / uvVSpacing);
+            var row = new List<Vector2>();
+            var gridRow = new List<UvGridVertex>();
+            // Positive U reserves exactly (0,0) for uncomputed pixels, including on the middle V line.
+            float u = (uvRowDistances[rowIndex++] + 1f) * metersPerPixel;
+            var next = new Dictionary<int, List<Vector2>>();
+            row.Add(section[0]);
+            gridRow.Add(new UvGridVertex(section[0], new Vector2(u, -midpoint * metersPerPixel)));
+            for (int index = -sideCount; index <= sideCount; index++)
+            {
+                Vector2 point = UvPointAtDistance(section, midpoint + index * uvVSpacing, out _);
+                if (row[row.Count - 1] != point) row.Add(point);
+                if (gridRow[gridRow.Count - 1].position != point)
+                    gridRow.Add(new UvGridVertex(point, new Vector2(u, index * uvVSpacing * metersPerPixel)));
+                if (!UvContainsWater(point)) continue;
+                if (!active.TryGetValue(index, out List<Vector2> line)) line = new List<Vector2>();
+                line.Add(point);
+                next.Add(index, line);
+            }
+            if (row[row.Count - 1] != section[section.Length - 1]) row.Add(section[section.Length - 1]);
+            if (gridRow[gridRow.Count - 1].position != section[section.Length - 1])
+                gridRow.Add(new UvGridVertex(section[section.Length - 1], new Vector2(u, midpoint * metersPerPixel)));
+            uvULines.Add(row.ToArray());
+            uvGridRows.Add(gridRow.ToArray());
+            foreach (var pair in active)
+                if (!next.ContainsKey(pair.Key) && pair.Value.Count > 1) uvVLines.Add(pair.Value.ToArray());
+            active = next;
+        }
+        foreach (List<Vector2> line in active.Values)
+            if (line.Count > 1) uvVLines.Add(line.ToArray());
+    }
+
+    private List<Vector2> TraceUvCrossLine(Vector2 seed, float maxLength)
+    {
+        Vector2 direction = SampleUvDirection(seed, true, 1f);
+        if (direction == Vector2.zero) return new List<Vector2> { seed };
+        // Split the total budget equally between the two perpendicular directions.
+        List<Vector2> left = TraceUvLine(seed, direction, true, 1f, maxLength * 0.5f);
+        List<Vector2> right = TraceUvLine(seed, -direction, true, -1f, maxLength * 0.5f);
+        left.Reverse();
+        for (int i = 1; i < right.Count; i++) left.Add(right[i]);
+        return left;
+    }
+
+    private void EnsureWorkingWaterUv()
+    {
+        int resolution = levelAsset.StaticWaterResolution;
+        if (workingWaterUv == null)
+            workingWaterUv = HeightMapStaticWaterUvBaker.ReadFullMap(levelAsset);
+        else if (workingWaterUvResolution != resolution)
+        {
+            var resized = new Vector2[resolution * resolution];
+            for (int y = 0; y < resolution; y++)
+            for (int x = 0; x < resolution; x++)
+                resized[y * resolution + x] = workingWaterUv[
+                    Mathf.Min(workingWaterUvResolution - 1, (int)((y + 0.5f) * workingWaterUvResolution / resolution))
+                    * workingWaterUvResolution
+                    + Mathf.Min(workingWaterUvResolution - 1, (int)((x + 0.5f) * workingWaterUvResolution / resolution))];
+            workingWaterUv = resized;
+        }
+        workingWaterUvResolution = resolution;
+    }
+
+    private int BakeSelectedWaterUv()
+    {
+        EnsureWorkingWaterUv();
+        for (int i = 0; i < uvIsland.Length; i++)
+            if (uvIsland[i]) workingWaterUv[i] = Vector2.zero;
+        if (uvGridRows.Count < 2) return 0;
+        var covered = new bool[uvIsland.Length];
+        var gradients = new Vector4[uvIsland.Length];
+        for (int row = 1; row < uvGridRows.Count; row++)
+        {
+            UvGridVertex[] a = uvGridRows[row - 1], b = uvGridRows[row];
+            int i = 0, j = 0;
+            // Zipper the two ordered rows, including fractional-V shore endpoints.
+            while (i + 1 < a.Length || j + 1 < b.Length)
+            {
+                if (j + 1 == b.Length || (i + 1 < a.Length && a[i + 1].uv.y <= b[j + 1].uv.y))
+                {
+                    RasterizeUvTriangle(a[i], b[j], a[i + 1], covered, gradients);
+                    i++;
+                }
+                else
+                {
+                    RasterizeUvTriangle(a[i], b[j], b[j + 1], covered, gradients);
+                    j++;
+                }
+            }
+        }
+        // Extend boundary cells' affine UV fields to all remaining shore/end pixels of this island.
+        // Restrict propagation to selected water, so unrelated water and dry pixels stay untouched.
+        var queue = new Queue<int>();
+        for (int i = 0; i < covered.Length; i++) if (covered[i]) queue.Enqueue(i);
+        int count = queue.Count;
+        void Extend(int from, int x, int y, Vector2 delta)
+        {
+            if (x < 0 || y < 0 || x >= uvResolution || y >= uvResolution) return;
+            int to = y * uvResolution + x;
+            if (!uvIsland[to] || covered[to]) return;
+            Vector4 g = gradients[from];
+            workingWaterUv[to] = workingWaterUv[from]
+                + new Vector2(g.x, g.y) * delta.x + new Vector2(g.z, g.w) * delta.y;
+            gradients[to] = g;
+            covered[to] = true;
+            queue.Enqueue(to);
+            count++;
+        }
+        while (queue.Count > 0)
+        {
+            int i = queue.Dequeue(), x = i % uvResolution, y = i / uvResolution;
+            Extend(i, x - 1, y, Vector2.left); Extend(i, x + 1, y, Vector2.right);
+            Extend(i, x, y - 1, Vector2.down); Extend(i, x, y + 1, Vector2.up);
+        }
+        for (int i = 0; i < covered.Length; i++)
+            if (covered[i] && workingWaterUv[i] == Vector2.zero)
+                workingWaterUv[i] = new Vector2(0.001f, 0f);
+        return count;
+    }
+
+    private void RasterizeUvTriangle(UvGridVertex a, UvGridVertex b, UvGridVertex c,
+        bool[] covered, Vector4[] gradients)
+    {
+        float Cross(Vector2 x, Vector2 y) => x.x * y.y - x.y * y.x;
+        Vector2 ab = b.position - a.position, ac = c.position - a.position;
+        float determinant = Cross(ab, ac);
+        if (Mathf.Abs(determinant) < 0.000001f) return;
+        Vector2 uvAb = b.uv - a.uv, uvAc = c.uv - a.uv;
+        Vector2 dx = (uvAb * ac.y - uvAc * ab.y) / determinant;
+        Vector2 dy = (uvAc * ab.x - uvAb * ac.x) / determinant;
+        var gradient = new Vector4(dx.x, dx.y, dy.x, dy.y);
+        int minX = Mathf.Max(uvBounds.xMin, Mathf.FloorToInt(Mathf.Min(a.position.x, Mathf.Min(b.position.x, c.position.x))));
+        int minY = Mathf.Max(uvBounds.yMin, Mathf.FloorToInt(Mathf.Min(a.position.y, Mathf.Min(b.position.y, c.position.y))));
+        int maxX = Mathf.Min(uvBounds.xMax - 1, Mathf.FloorToInt(Mathf.Max(a.position.x, Mathf.Max(b.position.x, c.position.x))));
+        int maxY = Mathf.Min(uvBounds.yMax - 1, Mathf.FloorToInt(Mathf.Max(a.position.y, Mathf.Max(b.position.y, c.position.y))));
+        for (int y = minY; y <= maxY; y++)
+        for (int x = minX; x <= maxX; x++)
+        {
+            int index = y * uvResolution + x;
+            if (!uvIsland[index]) continue;
+            Vector2 delta = new Vector2(x + 0.5f, y + 0.5f) - a.position;
+            float wb = Cross(delta, ac) / determinant, wc = Cross(ab, delta) / determinant;
+            if (wb < -0.00001f || wc < -0.00001f || wb + wc > 1.00001f) continue;
+            workingWaterUv[index] = a.uv + wb * uvAb + wc * uvAc;
+            gradients[index] = gradient;
+            covered[index] = true;
+        }
+    }
+
+    private void DrawUvPreview()
+    {
+        Color previousColor = Handles.color;
+        var previousZTest = Handles.zTest;
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        void Draw(Vector2[] pixels, Color color, float thickness)
+        {
+            if (pixels.Length < 2) return;
+            var points = new Vector3[pixels.Length];
+            for (int i = 0; i < pixels.Length; i++) points[i] = UvPixelToWorld(pixels[i]);
+            Handles.color = color;
+            Handles.DrawAAPolyLine(thickness, points);
+        }
+        if (uvIsland != null)
+        {
+            Vector2 min = uvBounds.min, max = uvBounds.max;
+            Draw(new[] { min, new Vector2(max.x, min.y), max, new Vector2(min.x, max.y), min },
+                new Color(0.8313726f, 0.7215686f, 0.3294118f), 2f); // #D4B854
+        }
+        foreach (Vector2[] line in uvVLines) Draw(line, Color.cyan, 1.5f);
+        foreach (Vector2[] line in uvULines) Draw(line, new Color(1f, 0.5f, 0.2f), 1.5f);
+        if (uvHasSection || uvDragging)
+        {
+            Draw(new[] { uvSectionA, uvSectionB }, Color.green, 3f);
+            Handles.color = Color.green;
+            Vector3 a = UvPixelToWorld(uvSectionA), b = UvPixelToWorld(uvSectionB);
+            Vector3 centre = (a + b) * 0.5f;
+            Vector3 normal = new Vector3(-(b - a).y, (b - a).x, 0f).normalized;
+            float length = HandleUtility.GetHandleSize(centre) * 0.6f;
+            Vector3 tip = centre + normal * length;
+            Vector3 side = (b - a).normalized * length * 0.2f;
+            Handles.DrawAAPolyLine(3f, centre, tip);
+            Handles.DrawAAPolyLine(3f, tip - normal * length * 0.3f + side, tip,
+                tip - normal * length * 0.3f - side);
+        }
+        Handles.color = previousColor;
+        Handles.zTest = previousZTest;
     }
 
     private void DrawCommonBrushSettings()
@@ -437,8 +1035,16 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
         EnsurePreviewResources();
         if (previewRenderer != null)
-            previewRenderer.enabled = paintInScene && !EditorApplication.isPlaying;
-        if (!paintInScene || EditorApplication.isPlaying)
+            previewRenderer.enabled = (paintInScene || brushPage == 2) && !EditorApplication.isPlaying;
+        if (EditorApplication.isPlaying)
+            return;
+
+        if (brushPage == 2)
+        {
+            HandleUvSceneGui(sceneView);
+            return;
+        }
+        if (!paintInScene)
             return;
 
         Event current = Event.current;
@@ -744,6 +1350,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         }
 
         levelAsset.EnsureStaticWaterAuthoringData();
+        if (uvIsland != null && uvResolution != levelAsset.StaticWaterResolution)
+            ClearUvSelection();
         levelAsset.CompactStaticWaterData();
         EnsurePreviewResources();
         byte[] depthMap = levelAsset.GetOrCreateStaticWaterDepthMap();
@@ -965,6 +1573,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             return;
 
         EndStroke();
+        EnsureWorkingWaterUv();
         levelAsset.CompactStaticWaterData();
         // Copy only water authoring fields so other map edits remain intact.
         serializedLevel.Update();
@@ -973,16 +1582,17 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             destination.CopyFromSerializedProperty(serializedLevel.FindProperty(property));
         destination.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(sourceLevelAsset);
-        HeightMapStaticWaterMaskBaker.Bake(sourceLevelAsset, false);
+        HeightMapStaticWaterMaskBaker.Bake(sourceLevelAsset, false, workingWaterUv);
         RefreshPreview(true);
     }
 
     private void HandlePlayModeStateChanged(PlayModeStateChange state)
     {
+        CancelUvInteraction();
         if (previewRenderer == null)
             return;
 
-        previewRenderer.enabled = paintInScene
+        previewRenderer.enabled = (paintInScene || brushPage == 2)
                                   && state == PlayModeStateChange.EnteredEditMode;
     }
 
@@ -1017,8 +1627,12 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
         if (strokeActive)
             EndStroke();
+        CancelUvInteraction();
         DestroyPreviewResources();
         DestroyWorkingCopy();
+        ClearUvSelection();
+        workingWaterUv = null;
+        workingWaterUvResolution = 0;
         sourceLevelAsset = asset;
         levelAsset = asset != null ? Instantiate(asset) : null;
         if (levelAsset != null)
@@ -1098,7 +1712,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
 internal static class HeightMapStaticWaterMaskBaker
 {
-    public static bool Bake(HeightMapLevelAsset level, bool registerUndo)
+    public static bool Bake(HeightMapLevelAsset level, bool registerUndo, Vector2[] waterUv = null)
     {
         if (level == null)
         {
@@ -1110,6 +1724,9 @@ internal static class HeightMapStaticWaterMaskBaker
         if (level.EnsureStaticWaterAuthoringData())
             EditorUtility.SetDirty(level);
         level.CompactStaticWaterData();
+        // Capture the old UV rectangle before assigning the new mask bounds.
+        if (waterUv == null && level.BakedStaticWaterUv != null)
+            waterUv = HeightMapStaticWaterUvBaker.ReadFullMap(level);
 
         string levelPath = AssetDatabase.GetAssetPath(level);
         if (string.IsNullOrEmpty(levelPath))
@@ -1133,6 +1750,7 @@ internal static class HeightMapStaticWaterMaskBaker
                 Undo.RecordObject(level, "Clear Static Water Mask");
             float emptySize = 1f / level.StaticWaterResolution;
             level.SetBakedStaticWaterMask(null, new Rect(0f, 0f, emptySize, emptySize));
+            HeightMapStaticWaterUvBaker.Save(level, waterUv);
             EditorUtility.SetDirty(level);
             AssetDatabase.SaveAssetIfDirty(level);
             return true;
@@ -1199,6 +1817,7 @@ internal static class HeightMapStaticWaterMaskBaker
             if (registerUndo)
                 Undo.RecordObject(level, "Bake Static Water Mask");
             level.SetBakedStaticWaterMask(bakedMask, bounds);
+            HeightMapStaticWaterUvBaker.Save(level, waterUv);
             EditorUtility.SetDirty(level);
             AssetDatabase.SaveAssetIfDirty(level);
             Debug.Log($"Baked static-water range and depth: {outputPath}", level);
@@ -1229,5 +1848,84 @@ internal static class HeightMapStaticWaterMaskBaker
         importer.npotScale = TextureImporterNPOTScale.None;
         importer.maxTextureSize = Mathf.Clamp(resolution, 64, 8192);
         importer.SaveAndReimport();
+    }
+}
+
+internal static class HeightMapStaticWaterUvBaker
+{
+    public static Vector2[] ReadFullMap(HeightMapLevelAsset level)
+    {
+        int resolution = level.StaticWaterResolution;
+        var result = new Vector2[resolution * resolution];
+        Texture2D texture = level.BakedStaticWaterUv;
+        if (texture == null) return result;
+        Color[] pixels = texture.GetPixels();
+        Rect bounds = level.BakedStaticWaterBounds;
+        for (int y = 0; y < resolution; y++)
+        for (int x = 0; x < resolution; x++)
+        {
+            Vector2 uv = new Vector2(x + 0.5f, y + 0.5f) / resolution;
+            if (!bounds.Contains(uv)) continue;
+            int sx = Mathf.Clamp((int)((uv.x - bounds.x) / bounds.width * texture.width), 0, texture.width - 1);
+            int sy = Mathf.Clamp((int)((uv.y - bounds.y) / bounds.height * texture.height), 0, texture.height - 1);
+            Color value = pixels[sy * texture.width + sx];
+            result[y * resolution + x] = new Vector2(value.r, value.g);
+        }
+        return result;
+    }
+
+    public static void Save(HeightMapLevelAsset level, Vector2[] fullMap)
+    {
+        string levelPath = AssetDatabase.GetAssetPath(level);
+        string directory = HeightMapAssetPaths.DataDirectory(levelPath);
+        string path = Path.Combine(directory, Path.GetFileNameWithoutExtension(levelPath) + "_WaterUV.asset").Replace('\\', '/');
+        RectInt bounds = level.StaticWaterPixelBounds;
+        int resolution = level.StaticWaterResolution;
+        byte[] depths = level.GetOrCreateStaticWaterDepthMap();
+        var data = new ushort[bounds.width * bounds.height * 2];
+        bool anyUv = false;
+        if (fullMap != null)
+        {
+            for (int y = 0; y < bounds.height; y++)
+            for (int x = 0; x < bounds.width; x++)
+            {
+                int i = y * bounds.width + x;
+                if (depths[i] == 0) continue;
+                Vector2 value = fullMap[(y + bounds.y) * resolution + x + bounds.x];
+                data[i * 2] = Mathf.FloatToHalf(value.x);
+                data[i * 2 + 1] = Mathf.FloatToHalf(value.y);
+                anyUv |= (data[i * 2] & 0x7fff) != 0 || (data[i * 2 + 1] & 0x7fff) != 0;
+            }
+        }
+        Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        if (!anyUv)
+        {
+            level.SetBakedStaticWaterUv(null);
+            if (texture != null && !AssetDatabase.DeleteAsset(path))
+                throw new IOException($"Could not delete empty water UV texture: {path}");
+        }
+        else
+        {
+            if (texture == null)
+            {
+                Directory.CreateDirectory(directory);
+                AssetDatabase.Refresh();
+                texture = new Texture2D(bounds.width, bounds.height, TextureFormat.RGHalf, false, true);
+                AssetDatabase.CreateAsset(texture, path);
+            }
+            else if (!texture.Reinitialize(bounds.width, bounds.height, TextureFormat.RGHalf, false))
+                throw new IOException($"Could not resize water UV texture: {path}");
+            texture.name = Path.GetFileNameWithoutExtension(path);
+            // Shader performs validity-aware bilinear sampling so zero texels stay invalid at borders.
+            texture.filterMode = FilterMode.Point;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.SetPixelData(data, 0);
+            texture.Apply(false, false);
+            EditorUtility.SetDirty(texture);
+            AssetDatabase.SaveAssetIfDirty(texture);
+            level.SetBakedStaticWaterUv(texture);
+        }
+        EditorUtility.SetDirty(level);
+        AssetDatabase.SaveAssetIfDirty(level);
     }
 }

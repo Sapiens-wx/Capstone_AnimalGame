@@ -72,6 +72,8 @@ namespace AnimalGame.MapTest
             }
             bool water = level.BakedStaticWaterMask != null && level.StaticWaterTexture != null;
             material.SetTexture("_WaterMaskTex", water ? level.BakedStaticWaterMask : Texture2D.blackTexture);
+            material.SetTexture("_WaterUvTex", level.BakedStaticWaterUv != null
+                ? level.BakedStaticWaterUv : Texture2D.blackTexture);
             Rect waterBounds = level.BakedStaticWaterBounds;
             material.SetVector("_WaterMaskBounds", new Vector4(
                 waterBounds.x, waterBounds.y, waterBounds.width, waterBounds.height));
