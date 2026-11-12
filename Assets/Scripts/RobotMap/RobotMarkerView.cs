@@ -988,10 +988,14 @@ namespace AnimalGame.RobotMap
         private void OnDisable()
         {
             ClearMediumRecycleVisualRecoil();
+            ResetPhotoInnerRing();
+            ResetScanInnerRing();
         }
 
         private void OnDestroy()
         {
+            UnbindScanInnerRing();
+            if (photoMode != null) photoMode.PhotoCaptured -= HandleInnerRingPhotoCaptured;
             if (innerRingMaterial != null)
                 Destroy(innerRingMaterial);
 
