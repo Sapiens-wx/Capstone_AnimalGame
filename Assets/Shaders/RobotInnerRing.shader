@@ -3,7 +3,7 @@ Shader "AnimalGame/Robot Inner Ring"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
-        _ArcDegrees ("Arc length in degrees", Range(10, 110)) = 65
+        _ArcDegrees ("Arc length in degrees", Range(10, 120)) = 65
         _ArmBlend ("Arm bracket blend", Range(0, 1)) = 0
         _BracketOffset ("Bracket control offset", Vector) = (0,0,0,0)
         _BracketGrip ("Bracket grip", Range(0, 1)) = 0
@@ -77,7 +77,7 @@ Shader "AnimalGame/Robot Inner Ring"
             float sector = abs(frac((angle - 40) / 120 + .5) * 120 - 60);
             // Derive angular coverage from UV derivatives to avoid the atan2 seam.
             float angularAA = max(edgeFeather * 57.2957795 / max(length(p), 1), .01);
-            float arc = 1 - smoothstep(_ArcDegrees * .5 - angularAA,
+            float arc = _ArcDegrees >= 120 ? 1 : 1 - smoothstep(_ArcDegrees * .5 - angularAA,
                 _ArcDegrees * .5 + angularAA, sector);
             // Grip squashes both arcs vertically around their shared centre; X stays unchanged.
             float2 bracketPoint = p - _BracketOffset.xy;

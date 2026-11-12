@@ -200,6 +200,11 @@ namespace AnimalGame.RobotMap
         public bool IsFullyCharged => state == ScanVisualState.Charged;
         public bool IsCharging => state == ScanVisualState.Charging
                                   || state == ScanVisualState.Charged;
+        public bool IsGestureHeld => rawScanHeldLastFrame;
+        public bool IsTapPending => shortTapWaiting;
+        public float GestureHold01 => Mathf.Clamp01(rawScanHoldElapsed
+            / (biologicalScanMinimumHoldDuration + maximumChargeDuration));
+        public event Action ScanHoldReleased;
         public float ReleaseRingExpansionDuration => releaseRingExpansionDuration;
         public float BaseCameraOrthographicSize => Mathf.Max(0.01f, baseCameraOrthographicSize);
         public float UiRingRadiusPixels
@@ -465,7 +470,9 @@ namespace AnimalGame.RobotMap
             }
             else if (rawScanHeldLastFrame)
             {
-                if (!biologicalScanHoldActive)
+                if (biologicalScanHoldActive)
+                    ScanHoldReleased?.Invoke();
+                else
                     RegisterShortScanTap();
 
                 rawScanHoldElapsed = 0f;
