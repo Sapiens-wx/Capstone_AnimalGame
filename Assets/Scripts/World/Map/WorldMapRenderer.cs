@@ -22,7 +22,7 @@ namespace AnimalGame.World.Map
             quad.triangles = new[] { 0, 1, 2, 0, 2, 3 };
         }
 
-        public void Render(MapTestSceneController map, MapViewState state, int width, int height)
+        public void Render(MapTestSceneController map, MapViewState state, int width, int height, Texture fog = null)
         {
             if (Texture == null || Texture.width != width || Texture.height != height)
             {
@@ -41,6 +41,8 @@ namespace AnimalGame.World.Map
             material.SetFloat("_MaximumCoverage", presentation.MaximumContourCoverage);
             material.SetFloat("_EdgeSoftness", presentation.ContourEdgeSoftness);
             material.SetVector("_ViewRect", new Vector4(view.x, view.y, view.width, view.height));
+            material.SetVector("_MapSizeMeters", map.MapSizeMeters);
+            material.SetTexture("_CheckpointFogTex", fog != null ? fog : Texture2D.blackTexture);
             material.SetFloat("_VisibleMinimumHeight", minimum);
             material.SetFloat("_VisibleMaximumHeight", maximum);
             commands.Clear();

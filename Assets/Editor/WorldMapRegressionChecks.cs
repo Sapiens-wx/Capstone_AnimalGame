@@ -122,7 +122,7 @@ namespace AnimalGame.Editor
 
         private static Color[] Render(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state)
         {
-            type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512 });
+            type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512, null });
             var texture = (RenderTexture)type.GetProperty("Texture").GetValue(renderer);
             RenderTexture previous = RenderTexture.active;
             var readback = new Texture2D(512, 512, TextureFormat.RGBA32, false, true);

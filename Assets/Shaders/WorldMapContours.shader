@@ -3,6 +3,7 @@ Shader "AnimalGame/World Map Contours"
     Properties
     {
         _HeightTex ("Height", 2D) = "black" {}
+        _CheckpointFogTex ("Checkpoint Fog", 2D) = "black" {}
         _MinimumLineWidth ("Minimum Line Width", Float) = 0.75
         _MaximumLineWidth ("Maximum Line Width", Float) = 3
         _MinimumOpacity ("Minimum Opacity", Float) = 0.15
@@ -22,6 +23,8 @@ Shader "AnimalGame/World Map Contours"
             #pragma target 3.0
             #include "UnityCG.cginc"
             sampler2D _HeightTex;
+            sampler2D _CheckpointFogTex;
+            float2 _MapSizeMeters;
             float4 _TileRect, _ViewRect;
             float _MinimumHeight, _MaximumHeight;
             float _VisibleMinimumHeight, _VisibleMaximumHeight;
@@ -46,6 +49,8 @@ Shader "AnimalGame/World Map Contours"
             {
                 float heightMeters = lerp(_MinimumHeight, _MaximumHeight, saturate(tex2D(_HeightTex, input.uv).r));
                 float contourBlend = HeightContourBlend(heightMeters);
+                float2 mapPosition = _TileRect.xy + input.uv * _TileRect.zw;
+                contourBlend *= 1 - tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
                 return fixed4(contourBlend, contourBlend, contourBlend, 1);
             }
             ENDCG

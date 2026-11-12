@@ -19,6 +19,7 @@
 - Do not preserve legacy implementations unless compatibility is required.
 - Prefer fail-fast behavior over silently hiding unexpected errors.
 - Make the smallest change that fully solves the problem.
+- Take performance into consideration when coding. Think about how to improve performance by using more efficient code or algorithm, but don't write complex code just for performance.
 
 ## 动态草地
 

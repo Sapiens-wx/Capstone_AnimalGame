@@ -1,5 +1,7 @@
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.World.Checkpoints;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -22,6 +24,7 @@ namespace AnimalGame.World.Map
         [SerializeField, Min(1)] private float cursorSpeed = 500;
         [SerializeField, Min(1)] private float circleRadius = 7;
         [SerializeField, Range(0, .9f)] private float stickDeadZone = .16f;
+        [SerializeField, Min(1f)] private float checkpointIconSizePixels = 26f;
 
         private static WorldMapUI active;
         private static int closedFrame = -1;
@@ -43,6 +46,10 @@ namespace AnimalGame.World.Map
         private CursorLockMode savedCursorLock;
         private bool savedCursorVisible, dirty;
         private Vector2 lastRenderedCenter, lastRenderedSize;
+        private CheckpointManager checkpointManager;
+        private VisualElement checkpointLayer;
+        private readonly List<Image> checkpointIcons = new();
+        private int lastFogRevision = -1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() { active = null; closedFrame = -1; }
@@ -52,6 +59,12 @@ namespace AnimalGame.World.Map
             root = GetComponent<UIDocument>().rootVisualElement.Q("world-map");
             mapImage = root.Q<Image>("map-image");
             mapImage.scaleMode = ScaleMode.StretchToFill;
+            checkpointLayer = new VisualElement { name = "map-checkpoints", pickingMode = PickingMode.Ignore };
+            checkpointLayer.style.position = Position.Absolute;
+            checkpointLayer.style.left = checkpointLayer.style.top = 0;
+            checkpointLayer.style.right = checkpointLayer.style.bottom = 0;
+            checkpointLayer.style.overflow = Overflow.Hidden;
+            root.Insert(1, checkpointLayer);
             cursor = root.Q("map-cursor");
             controls = root.Q<Label>("map-controls");
             for (int i = 0; i < pinElements.Length; i++) pinElements[i] = root.Q("pin-" + i);
@@ -101,7 +114,7 @@ namespace AnimalGame.World.Map
                 CurrentZoom = nextZoom;
                 ResizeView();
             }
-            View.Snap(size, circleRadius * 1.4f);
+            View.Snap(size, circleRadius * 1.4f, checkpointManager?.Positions, checkpointIconSizePixels * .6f);
             if ((keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
                 || (pad != null && pad.buttonSouth.wasPressedThisFrame)) View.Submit();
             controls.text = pad != null
@@ -121,6 +134,22 @@ namespace AnimalGame.World.Map
                 || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing)
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             map = bootstrap.map;
+            checkpointManager = CheckpointManager.inst;
+            if (checkpointManager != null && checkpointManager.gameObject.scene != gameObject.scene) checkpointManager = null;
+            checkpointLayer.Clear();
+            checkpointIcons.Clear();
+            if (checkpointManager != null)
+            {
+                checkpointManager.GetFog(map);
+                foreach (Checkpoint checkpoint in checkpointManager.Checkpoints)
+                {
+                    var icon = new Image { sprite = checkpoint.Icon, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
+                    icon.style.position = Position.Absolute;
+                    checkpointLayer.Add(icon);
+                    checkpointIcons.Add(icon);
+                }
+            }
+            lastFogRevision = -1;
             Camera camera = bootstrap.mapCamera;
             // Measure the camera footprint on the map plane without inflating it for camera roll.
             Plane plane = new Plane(Vector3.forward, map.transform.position);
@@ -182,17 +211,23 @@ namespace AnimalGame.World.Map
 
         private void RefreshVisuals(Vector2 screenSize)
         {
-            if (dirty || View.Center != lastRenderedCenter || View.ViewSize != lastRenderedSize)
+            Texture fog = checkpointManager != null ? checkpointManager.GetFog(map) : null;
+            int fogRevision = checkpointManager != null ? checkpointManager.Revision : 0;
+            if (dirty || View.Center != lastRenderedCenter || View.ViewSize != lastRenderedSize || lastFogRevision != fogRevision)
             {
-                mapRenderer.Render(map, View, (int)screenSize.x, (int)screenSize.y);
+                mapRenderer.Render(map, View, (int)screenSize.x, (int)screenSize.y, fog);
                 mapImage.image = mapRenderer.Texture;
                 lastRenderedCenter = View.Center;
                 lastRenderedSize = View.ViewSize;
                 dirty = false;
+                lastFogRevision = fogRevision;
             }
             Vector2 uiSize = root.contentRect.size;
             if (uiSize.x <= 0 || uiSize.y <= 0) return;
             float radius = circleRadius * uiSize.y / screenSize.y;
+            float iconRadius = checkpointIconSizePixels * .5f * uiSize.y / screenSize.y;
+            for (int i = 0; i < checkpointIcons.Count; i++)
+                PositionCircle(checkpointIcons[i], View.ToScreen(checkpointManager.Positions[i], uiSize), iconRadius);
             for (int i = 0; i < pinElements.Length; i++)
             {
                 bool visible = i < View.Pins.Count;
@@ -217,12 +252,19 @@ namespace AnimalGame.World.Map
             closedFrame = Time.frameCount;
             root.style.display = DisplayStyle.None;
             mapImage.image = null;
+            checkpointLayer.Clear();
+            checkpointIcons.Clear();
+            checkpointManager = null;
             mapRenderer.Dispose(); mapRenderer = null;
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             UnityEngine.Cursor.lockState = savedCursorLock;
             UnityEngine.Cursor.visible = savedCursorVisible;
         }
 
-        private void OnDisable() => Close();
+        private void OnDisable()
+        {
+            Close();
+            checkpointLayer?.RemoveFromHierarchy();
+        }
     }
 }
