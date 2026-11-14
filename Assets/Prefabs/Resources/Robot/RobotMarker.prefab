@@ -1044,6 +1044,7 @@ MonoBehaviour:
   innerRingRecyclePeriod: 1
   innerRingRecycleShakeOfRadius: 0.22
   innerRingRecycleShakeDegrees: 12
+  innerRingPhotoScale: 0.8
   innerRingPhotoChargeScale: 1.2
   innerRingPhotoShutterScale: 0.6
   innerRingPhotoShrinkDuration: 0.07
