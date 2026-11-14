@@ -3,6 +3,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
     Properties
     {
         _PatternAtlas ("Pattern Atlas", 2D) = "black" {}
+        _RockPattern ("Original Rock Pattern", 2D) = "black" {}
         _TerrainPairTex ("Terrain Pair Distance Map", 2D) = "black" {}
         _StaticContourAlphaTex ("Static Closed-Contour Alpha", 2D) = "white" {}
         _PaletteTintTex ("Palette Tint", 2D) = "black" {}
@@ -36,6 +37,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
             #include "UnityCG.cginc"
 
             sampler2D _PatternAtlas;
+            sampler2D _RockPattern;
             sampler2D _TerrainPairTex;
             sampler2D _StaticContourAlphaTex;
             sampler2D _PaletteTintTex;
@@ -134,7 +136,9 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 float2 atlasPixel = float2(cellX, cellY) * 128.0
                     + 2.5
                     + repeatedUv * 123.0;
-                float4 pattern = tex2D(_PatternAtlas, atlasPixel / 2048.0);
+                float4 pattern = abs(terrainId - 6.0) < .5
+                    ? tex2D(_RockPattern, repeatedUv)
+                    : tex2D(_PatternAtlas, atlasPixel / 2048.0);
                 float4 tint = ReadPaletteTint(terrainId);
                 pattern.rgb *= tint.rgb;
                 pattern.a *= tint.a;
@@ -162,8 +166,9 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 return result;
             }
 
-            float4 ApplyStaticContourAlpha(float4 color, float2 uv)
+            float4 ApplyStaticContourAlpha(float4 color, float2 uv, float terrainId)
             {
+                if (abs(terrainId - 6.0) < .5) return color;
                 float bakedMultiplier = tex2D(
                     _StaticContourAlphaTex,
                     uv).r;
@@ -183,8 +188,9 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 float secondaryId = floor(pairData.g * 255.0 + 0.5);
                 float hasSecondary = step(0.5, pairData.a);
                 float4 primary = SampleTerrainPattern(primaryId, mapMeters);
+                primary = ApplyStaticContourAlpha(primary, input.uv, primaryId);
                 if (hasSecondary < 0.5)
-                    return ApplyStaticContourAlpha(primary, input.uv);
+                    return primary;
 
                 float4 primarySettings = ReadPaletteSettings(primaryId);
                 float4 secondarySettings = ReadPaletteSettings(secondaryId);
@@ -196,7 +202,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                     primaryMode,
                     secondaryMode);
                 if (transitionMode < 0.5)
-                    return ApplyStaticContourAlpha(primary, input.uv);
+                    return primary;
 
                 float distanceMeters = pairData.b
                     * _MaximumBoundaryDistanceMeters;
@@ -279,12 +285,8 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 float4 secondary = SampleTerrainPattern(
                     secondaryId,
                     mapMeters);
-                return ApplyStaticContourAlpha(
-                    BlendPremultiplied(
-                        primary,
-                        secondary,
-                        blendAmount),
-                    input.uv);
+                secondary = ApplyStaticContourAlpha(secondary, input.uv, secondaryId);
+                return BlendPremultiplied(primary, secondary, blendAmount);
             }
             ENDCG
         }

@@ -23,6 +23,8 @@
 
 ## 动态草地
 
+- Rock 在地表烘焙 Shader 中直接采样原贴图 RGBA，绕过小尺寸图集、透明度归一化及等高线区域透明度渐变；Rock Palette 的 Opacity 为 1，TutorialTemporaryMap（MainHeightMapLevel）平铺尺寸为 6.4 米，RockyMountain 为 12.8 米，地形交界继续使用原有融合。
+
 - `HeightMapSurfaceBaker` 将 Grassland 草叶从静态底图分离，另存带地形混合权重、色调和透明度的 GrasslandMask；切片来自草地源图的四个 Sprite，保持地表面板的平铺大小。
 - `GrasslandDynamics.cginc` 由地图 Shader 合成草叶，使用全地图坐标保持分块连续；`GrasslandTrampleController` 在玩家预制体上提供固定 8 槽踩踏记录、暂停同步时钟和摆动/压伏参数。编辑器无动态，明确离地时不新增踩踏。
 - 默认风摆为草叶长度的 12%、周期 1.1–2 秒；践踏半径为身径的 0.9 倍，强压覆盖到身体外侧，尖端偏移 45%、长度压至 45%，0.2 秒恢复。强弯折按最近的草叶平铺实例采样，跨重复单元边缘不截断。
