@@ -788,55 +788,6 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     }
 }
 
-[InitializeOnLoad]
-internal static class HeightMapSurfaceBakeUpgrade
-{
-    static HeightMapSurfaceBakeUpgrade()
-    {
-        EditorApplication.delayCall += UpgradeOutdatedBakes;
-        EditorApplication.playModeStateChanged += HandlePlayModeStateChanged;
-    }
-
-    private static void HandlePlayModeStateChanged(PlayModeStateChange state)
-    {
-        if (state != PlayModeStateChange.EnteredEditMode)
-            return;
-
-        EditorApplication.delayCall -= UpgradeOutdatedBakes;
-        EditorApplication.delayCall += UpgradeOutdatedBakes;
-    }
-
-    private static void UpgradeOutdatedBakes()
-    {
-        EditorApplication.delayCall -= UpgradeOutdatedBakes;
-        if (EditorApplication.isPlayingOrWillChangePlaymode)
-            return;
-
-        string[] levelGuids = AssetDatabase.FindAssets(
-            "t:HeightMapLevelAsset");
-        foreach (string levelGuid in levelGuids)
-        {
-            string assetPath = AssetDatabase.GUIDToAssetPath(levelGuid);
-            HeightMapLevelAsset level =
-                AssetDatabase.LoadAssetAtPath<HeightMapLevelAsset>(assetPath);
-            if (level == null)
-                continue;
-
-            if (level.SurfaceBakeNeedsUpgrade
-                && level.HasUsableSurfaceDefinitions)
-            {
-                HeightMapSurfaceBaker.Bake(level, false);
-            }
-
-            if (level.StaticWaterMaskBakeNeedsUpgrade
-                && level.StaticWaterTexture != null)
-            {
-                HeightMapStaticWaterMaskBaker.Bake(level, false);
-            }
-        }
-    }
-}
-
 internal static class HeightMapSurfaceBaker
 {
     private const string BakeShaderName =
