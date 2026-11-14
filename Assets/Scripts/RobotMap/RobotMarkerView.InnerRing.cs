@@ -33,6 +33,7 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(0f, 30f)] private float innerRingRecycleShakeDegrees = 12f;
 
         [Header("Photo inner ring")]
+        [SerializeField, Range(.1f, 1f)] private float innerRingPhotoScale = .8f;
         [SerializeField, Range(1f, 1.5f)] private float innerRingPhotoChargeScale = 1.2f;
         [SerializeField, Range(.1f, 1f)] private float innerRingPhotoShutterScale = .6f;
         [SerializeField, Min(.01f)] private float innerRingPhotoShrinkDuration = .07f;
@@ -221,7 +222,7 @@ namespace AnimalGame.RobotMap
 
         private float StepPhotoInnerRing(float dt)
         {
-            float normalSize = innerRingMovingScale;
+            float normalSize = innerRingMovingScale * innerRingPhotoScale;
             if (photoMode == null || !photoMode.IsActive || photoMode.IsExiting)
             {
                 ResetPhotoInnerRing();
