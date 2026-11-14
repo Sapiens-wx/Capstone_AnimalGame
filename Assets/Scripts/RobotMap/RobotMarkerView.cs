@@ -44,6 +44,8 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(0.1f)] private float indicatorScale = 1.35f;
         [Tooltip("Horizontal stretch of the direction indicator, independent of its height and distance from the body.")]
         [SerializeField, Min(0.1f)] private float indicatorWidthRatio = 1.1f;
+        [Tooltip("Vertical stretch of the direction indicator, independent of its width.")]
+        [SerializeField, Min(0.1f)] private float indicatorHeightRatio = 1f;
         [SerializeField] private float indicatorRotationOffsetDegrees;
         [SerializeField] private Color indicatorColor = Color.white;
 
@@ -197,6 +199,7 @@ namespace AnimalGame.RobotMap
             BindMarkerVisualRoot();
             CreateForegroundSpriteMaterial();
             BindBodySpriteRenderers();
+            BindBodyHatches();
             BindInnerRing();
             BindDirectionIndicatorRenderer();
             BindPhotoCameraRenderers();
@@ -285,6 +288,7 @@ namespace AnimalGame.RobotMap
         private void Update()
         {
             SynchronizeBodyFillColor();
+            UpdateBodyHatches();
             UpdateInnerRing();
             UpdatePhotoCameraForm();
             UpdateDirectionIndicatorSurfaceProjection();
@@ -581,7 +585,7 @@ namespace AnimalGame.RobotMap
         }
 
         private Vector3 DirectionIndicatorBaseScale => new Vector3(
-            indicatorScale * indicatorWidthRatio, indicatorScale, indicatorScale);
+            indicatorScale * indicatorWidthRatio, indicatorScale * indicatorHeightRatio, indicatorScale);
 
         private void BindDirectionIndicatorRenderer()
         {
@@ -799,7 +803,13 @@ namespace AnimalGame.RobotMap
                    * tumble.FinalRockNormalizedOffset;
         }
 
-        private void UpdateDirectionIndicatorSurfaceProjection()
+        private bool InventoryHidesDirectionIndicator => (armController != null && armController.IsInventoryPresentationActive)
+            || (AnimalGame.MainUI.MainUI.Active != null && AnimalGame.MainUI.MainUI.Active.IsInventoryOpen);
+
+        private void UpdateDirectionIndicatorSurfaceProjection() => StepDirectionIndicatorSurfaceProjection(
+            InventoryHidesDirectionIndicator ? Time.unscaledDeltaTime : Time.deltaTime);
+
+        private void StepDirectionIndicatorSurfaceProjection(float dt)
         {
             if (directionIndicator == null)
                 return;
@@ -809,6 +819,7 @@ namespace AnimalGame.RobotMap
 
             bool armModeActive = armController != null
                                  && armController.IsArmModeActive;
+            bool inventoryModeActive = InventoryHidesDirectionIndicator;
             if (biologicalScanController == null)
             {
                 biologicalScanController =
@@ -817,6 +828,7 @@ namespace AnimalGame.RobotMap
             bool biologicalChargeActive = biologicalScanController != null
                                             && biologicalScanController.IsCharging;
             bool indicatorHiddenByMode = armModeActive
+                                         || inventoryModeActive
                                          || biologicalChargeActive;
             float armVisibilityTarget = indicatorHiddenByMode ? 0f : 1f;
             float armFadeDuration = indicatorHiddenByMode
@@ -825,7 +837,7 @@ namespace AnimalGame.RobotMap
             indicatorArmModeVisibility = Mathf.MoveTowards(
                 indicatorArmModeVisibility,
                 armVisibilityTarget,
-                Mathf.Max(0f, Time.deltaTime)
+                Mathf.Max(0f, dt)
                 / Mathf.Max(0.01f, armFadeDuration));
 
             if (tumble == null)
@@ -990,10 +1002,12 @@ namespace AnimalGame.RobotMap
             ClearMediumRecycleVisualRecoil();
             ResetPhotoInnerRing();
             ResetScanInnerRing();
+            CloseBodyHatchesImmediately();
         }
 
         private void OnDestroy()
         {
+            DisposeBodyHatches();
             UnbindScanInnerRing();
             if (photoMode != null) photoMode.PhotoCaptured -= HandleInnerRingPhotoCaptured;
             if (innerRingMaterial != null)
@@ -1024,6 +1038,7 @@ namespace AnimalGame.RobotMap
             bodyFillDiameterRatio = Mathf.Clamp(bodyFillDiameterRatio, 0.1f, 1f);
             indicatorScale = Mathf.Max(0.1f, indicatorScale);
             indicatorWidthRatio = Mathf.Max(0.1f, indicatorWidthRatio);
+            indicatorHeightRatio = Mathf.Max(0.1f, indicatorHeightRatio);
             indicatorArmModeFadeOutDuration = Mathf.Max(
                 0.01f,
                 indicatorArmModeFadeOutDuration);

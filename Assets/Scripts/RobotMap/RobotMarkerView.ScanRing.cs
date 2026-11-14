@@ -5,7 +5,7 @@ namespace AnimalGame.RobotMap
     public sealed partial class RobotMarkerView
     {
         [Header("Scan inner ring")]
-        [SerializeField, Range(.1f, 1f)] private float innerRingScanHoldScale = .55f;
+        [SerializeField, Range(.1f, 1f)] private float innerRingScanHoldScale = .72f;
         [SerializeField, Range(1f, 1.6f)] private float innerRingScanReleaseScale = 1.3f;
         [SerializeField, Min(.01f)] private float innerRingScanExpandDuration = .08f;
         [SerializeField, Min(.01f)] private float innerRingScanRecoverDuration = .2f;
