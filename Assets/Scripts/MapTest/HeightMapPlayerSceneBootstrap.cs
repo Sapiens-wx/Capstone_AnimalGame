@@ -185,6 +185,7 @@ namespace AnimalGame.MapTest
             cameraObject.GetComponent<RobotCameraElevationZoom>().Initialize(map, robot.transform);
             photoMode.InitializeCamera(cameraFollow, cameraShake);
             scanChargeUi.SetPhotoModeController(photoMode);
+            armController.BindInventory(mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>());
             robot.GetComponent<RobotMarkerView>().BindScanInnerRing(scanChargeUi);
             mainUiObject.GetComponent<AnimalGame.MainUI.MainUIProjection>()?.Initialize(mapCamera);
             bioScan.Initialize(scanChargeUi, mapCamera);

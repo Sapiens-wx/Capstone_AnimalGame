@@ -9,14 +9,15 @@ namespace AnimalGame.RobotMap
         [SerializeField] private Sprite innerRingSprite;
         [SerializeField] private Shader innerRingShader;
         [SerializeField, Min(1f)] private float innerRingVisibleDiameterPixels = 346f;
-        [SerializeField, Min(0f)] private float innerRingDegreesPerMeter = 180f;
-        [SerializeField, Range(0f, .1f)] private float innerRingBreathAmplitude = .06f;
+        [Tooltip("Degrees per second at full forward/reverse drive input, independent of actual movement speed.")]
+        [SerializeField, Min(0f)] private float innerRingInputSpinSpeed = 665.28f;
+        [SerializeField, Range(0f, .2f)] private float innerRingBreathAmplitude = .12f;
         [SerializeField, Min(.1f)] private float innerRingBreathPeriod = 2.4f;
         [SerializeField, Range(0f, 15f)] private float innerRingJamAmplitude = 12f;
         [SerializeField, Range(.1f, .5f)] private float innerRingJamDuration = .4f;
-        [SerializeField, Range(.5f, 1f)] private float innerRingIdleScale = .68f;
+        [SerializeField, Range(.5f, 1f)] private float innerRingIdleScale = .5f;
         [SerializeField, Range(.5f, 1f)] private float innerRingMovingScale = .82f;
-        [SerializeField, Range(10f, 110f)] private float innerRingIdleArcDegrees = 50f;
+        [SerializeField, Range(10f, 110f)] private float innerRingIdleArcDegrees = 68f;
         [SerializeField, Range(10f, 110f)] private float innerRingMovingArcDegrees = 90f;
         [SerializeField, Range(10f, 110f)] private float innerRingTumbleArcDegrees = 100f;
         [SerializeField, Min(0f)] private float innerRingTumbleSpinSpeed = 900f;
@@ -168,8 +169,6 @@ namespace AnimalGame.RobotMap
             }
             else if (Mathf.Abs(speed) > .01f)
             {
-                // Negative Z rotation is clockwise when viewed by the game's camera.
-                innerRingAngle -= speed * innerRingDegreesPerMeter * dt;
                 innerRingIdleTime = 0f;
             }
             else
@@ -178,6 +177,9 @@ namespace AnimalGame.RobotMap
                 breath += innerRingBreathAmplitude
                     * Mathf.Sin(innerRingIdleTime * Mathf.PI * 2f / innerRingBreathPeriod);
             }
+            // Forward input turns clockwise; reverse turns counterclockwise, even when blocked or coasting.
+            if (!fallen && !tumbling && !mover.IsMovementLocked)
+                innerRingAngle -= mover.CurrentThrottleInput * innerRingInputSpinSpeed * dt;
             innerRingWasFallen = fallen && !tumbling;
             innerRingAngle = Mathf.Repeat(innerRingAngle, 360f);
             innerRing.localRotation = Quaternion.Slerp(

@@ -98,6 +98,7 @@ namespace AnimalGame.MainUI
             || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
             || (Active != null && Active.isActiveAndEnabled && Active.pauseOwned);
         public bool IsInventoryOpen => inventoryOpen;
+        public event Action<bool> InventoryOpenChanged;
         public float InventoryProgress => progress;
         public int SelectedIndex => InventoryController.SelectedIndex;
         public float Power { get => power; set => power = Mathf.Clamp01(value); }
@@ -231,8 +232,15 @@ namespace AnimalGame.MainUI
             if (inventoryOpen) return;
             inventoryOpen = true;
             AcquirePause();
+            InventoryOpenChanged?.Invoke(true);
         }
-        public void CloseInventory() { inventoryController?.ResetInventoryInteraction(); inventoryOpen = false; }
+        public void CloseInventory()
+        {
+            inventoryController?.ResetInventoryInteraction();
+            if (!inventoryOpen) return;
+            inventoryOpen = false;
+            InventoryOpenChanged?.Invoke(false);
+        }
 
         private void AcquirePause()
         {
@@ -592,7 +600,9 @@ namespace AnimalGame.MainUI
             if (animalDebugInstance != null) animalDebugInstance.SetActive(false);
             inventoryController?.Suspend();
             if (powerRing != null) powerRing.visible = true;
+            bool wasOpen = inventoryOpen;
             inventoryOpen = false; progress = 0;
+            if (wasOpen) InventoryOpenChanged?.Invoke(false);
             ReleasePause();
             if (Active == this) Active = null;
         }

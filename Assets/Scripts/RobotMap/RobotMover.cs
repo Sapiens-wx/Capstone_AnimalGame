@@ -322,6 +322,8 @@ namespace AnimalGame.RobotMap
         public bool IsArmInputCaptured { get; private set; }
         public float GrabMovementMultiplier { get; private set; } = 1f;
         public float CurrentThrottleIntent { get; private set; }
+        /// <summary>Signed drive input after dead zones and input locks, before balance or movement resistance.</summary>
+        public float CurrentThrottleInput { get; private set; }
         public Vector2 UnresistedMovementIntentWorld { get; private set; }
         public bool IsPhotoModeInputLocked { get; private set; }
         public LevelThreeClimbFailurePhase CurrentLevelThreeClimbPhase
@@ -501,6 +503,7 @@ namespace AnimalGame.RobotMap
                 CurrentSpeed = 0f;
                 CurrentTurnSpeed = 0f;
             }
+            CurrentThrottleInput = throttle;
             if (IgnoreCollisionAndTerrain)
             {
                 CurrentThrottleIntent = throttle;
@@ -1086,6 +1089,7 @@ namespace AnimalGame.RobotMap
             HeavyPullMovementBlocked = false;
             wasSteering = false;
             CurrentThrottleIntent = 0f;
+            CurrentThrottleInput = 0f;
             UnresistedMovementIntentWorld = Vector2.zero;
             CurrentSpeed = 0f;
             CurrentTurnSpeed = 0f;

@@ -244,6 +244,12 @@ namespace AnimalGame.RobotArm
         {
             ManualRetractRequestedThisFrame = false;
             bool armButtonHeld = Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
+            if (StepInventoryPresentation(Time.unscaledDeltaTime))
+            {
+                previousArmButtonHeld = armButtonHeld;
+                armRequiresFreshPress = armButtonHeld;
+                return;
+            }
             if (AnimalGame.MainUI.MainUI.BlocksGameplay
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject))
             {
@@ -1270,6 +1276,7 @@ namespace AnimalGame.RobotArm
         }
         public void CancelArmControl()
         {
+            inventoryPresentationActive = inventoryPresentationOpen = false;
             ManualRetractRequestedThisFrame = false;
             ResetNormalArmInput();
             if (heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out var pull))
@@ -1281,6 +1288,7 @@ namespace AnimalGame.RobotArm
             armRequiresFreshPress = true;
             mover?.SetArmInputCaptured(false);
             deploymentTime = 0f; State = RobotArmState.Retracted; previousGrab = false;
+            marker?.CloseBodyHatchesImmediately();
             ResetTumbleArmLayout();
             if (left != null) { left.Pose = default; if (left.Root != null) left.Root.gameObject.SetActive(false); }
             if (right != null) { right.Pose = default; if (right.Root != null) right.Root.gameObject.SetActive(false); }
