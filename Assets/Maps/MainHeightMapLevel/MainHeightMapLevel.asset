@@ -74,7 +74,7 @@ MonoBehaviour:
   staticWaterWaveSpeed: 0.8
   staticWaterWaveLengthMeters: 12
   staticWaterDeepSpeedMultiplier: 0.65
-  staticWaterMaskBakeRevision: 266
+  staticWaterMaskBakeRevision: 270
   staticWaterEditorTint: {r: 0.18, g: 0.72, b: 1, a: 1}
   staticWaterMaskBakeGeneratorVersion: 3
   surfacePalette:
