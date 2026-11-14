@@ -153,7 +153,12 @@ namespace AnimalGame.Editor
                     if (f.Agent.Motor.HasTarget) { min = Mathf.Min(min, speed); max = Mathf.Max(max, speed); }
                 }
                 Require(f.Bird.CurrentTree == other, "Flight failed to arrive");
-                Require(min >= 8.09f && max <= 9.91f && max - min > .5f, "Flight speed exceeded limits or remained constant");
+                float minimumSpeed = Mathf.Min(f.Config.FleeSpeedMetersPerSecond,
+                    flightDefinition.SpeedMetersPerSecond * (1f - flightDefinition.FlightSpeedVariation));
+                float maximumSpeed = Mathf.Min(f.Config.FleeSpeedMetersPerSecond,
+                    flightDefinition.SpeedMetersPerSecond * (1f + flightDefinition.FlightSpeedVariation));
+                Require(min >= minimumSpeed - .01f && max <= maximumSpeed + .01f && max - min > .5f,
+                    "Flight speed exceeded limits or remained constant");
             }
             using (var f = new Fixture(true))
             {
