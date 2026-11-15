@@ -19,7 +19,14 @@
 - Do not preserve legacy implementations unless compatibility is required.
 - Prefer fail-fast behavior over silently hiding unexpected errors.
 - Make the smallest change that fully solves the problem.
-- Take performance into consideration when coding. Think about how to improve performance by using more efficient code or algorithm, but don't write complex code just for performance.
+- Optimize operations with meaningful cost. Do not add caches, shared mutable state,
+  or synchronization bookkeeping for cheap reads without evidence of a performance problem.
+- Judge optimizations by both expected benefit and added complexity. Prefer direct
+  computation when caching introduces more state and lifecycle management than it saves.
+- Establish and rely on project invariants before adding validation or supporting
+  additional scenarios. Do not introduce state or checks for hypothetical configurations.
+- Store only necessary state. Prefer local values for cheap, current reads, and derive
+  values from their owning source rather than maintaining redundant copies.
 
 ## 动态草地
 

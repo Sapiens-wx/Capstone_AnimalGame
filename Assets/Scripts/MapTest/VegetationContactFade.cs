@@ -18,6 +18,8 @@ namespace AnimalGame.MapTest
     {
         private static readonly HashSet<VegetationContactFade> activeVegetation =
             new HashSet<VegetationContactFade>();
+        private static WorldInteraction viewPlayer;
+        private static float viewRadiusWorld;
 
         [Tooltip("Edge-to-edge distance at which vegetation starts fading, measured in logical map meters.")]
         [SerializeField, Min(0.01f)] private float fadeStartDistanceMeters = 3f;
@@ -40,6 +42,7 @@ namespace AnimalGame.MapTest
         private SpriteRenderer[] spriteRenderers;
         private Color[] authoredColours;
         private float appliedAlphaReduction = -1f;
+        private float visualRadiusWorld;
 
         public static IReadOnlyCollection<VegetationContactFade> Active =>
             activeVegetation;
@@ -71,7 +74,27 @@ namespace AnimalGame.MapTest
                 return;
             }
 
+            if (!IsInPlayerView())
+                return;
+
             ApplyAlphaReduction(CalculateAlphaReduction());
+        }
+
+        internal static void InitializePlayerView(WorldInteraction player, Camera camera)
+        {
+            viewPlayer = player;
+            // Orthographic size is the vertical half-height in world units.
+            viewRadiusWorld = camera.orthographicSize * camera.aspect * 1.5f;
+        }
+
+        private bool IsInPlayerView()
+        {
+            if (viewPlayer == null)
+                return false;
+
+            Vector2 playerPositionWorld = viewPlayer.transform.position;
+            float radius = viewRadiusWorld + visualRadiusWorld;
+            return ((Vector2)transform.position - playerPositionWorld).sqrMagnitude <= radius * radius;
         }
 
         private void OnDisable()
@@ -124,12 +147,19 @@ namespace AnimalGame.MapTest
             spriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
             PlayerUiOrganicVisibility.RegisterRenderers(spriteRenderers);
             authoredColours = new Color[spriteRenderers.Length];
+            visualRadiusWorld = 0f;
             for (int index = 0; index < spriteRenderers.Length; index++)
             {
                 SpriteRenderer renderer = spriteRenderers[index];
                 authoredColours[index] = renderer != null
                     ? renderer.color
                     : Color.white;
+                if (renderer != null)
+                {
+                    Bounds bounds = renderer.bounds;
+                    visualRadiusWorld = Mathf.Max(visualRadiusWorld,
+                        Vector2.Distance(transform.position, bounds.center) + ((Vector2)bounds.extents).magnitude);
+                }
             }
         }
 
