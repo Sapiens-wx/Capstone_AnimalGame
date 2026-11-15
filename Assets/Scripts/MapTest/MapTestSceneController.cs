@@ -29,6 +29,8 @@ namespace AnimalGame.MapTest
 
         [Tooltip("Direct reference to the contour shader used by standalone builds. Keep this assigned so Unity includes the shader instead of stripping a Shader.Find-only dependency.")]
         [SerializeField] private Shader dynamicContourShader;
+        [SerializeField] private bool dashSubmergedContours;
+        [SerializeField] private bool smoothContourEdges;
 
         [Tooltip("Opacity of the lowest contour currently visible in the camera.")]
         [SerializeField, Range(0f, 1f)] private float minimumContourOpacity = 0.15f;
@@ -774,6 +776,8 @@ namespace AnimalGame.MapTest
             ApplyLevelPresentationSettings();
             contourMaterial.SetFloat("_ContourInterval", contourIntervalMeters);
             contourMaterial.SetColor("_ContourColor", contourColor);
+            contourMaterial.SetFloat("_DashSubmergedContours", dashSubmergedContours ? 1f : 0f);
+            contourMaterial.SetFloat("_SmoothContourEdges", smoothContourEdges ? 1f : 0f);
             contourMaterial.SetFloat("_OutsideRevealDarkening", Mathf.Clamp01(outsideRevealDarkening));
             RefreshElevationFilterStaticMaterialSettings();
             contourMaterial.SetFloat("_MinimumLineWidth", minimumContourWidth);

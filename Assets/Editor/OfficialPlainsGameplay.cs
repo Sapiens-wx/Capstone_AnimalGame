@@ -267,6 +267,7 @@ namespace AnimalGame.Editor
                 var settings = new SerializedObject(map);
                 settings.FindProperty("levelAsset").objectReferenceValue = level;
                 settings.FindProperty("editorHeightResolution").intValue = EditorResolution;
+                settings.FindProperty("smoothContourEdges").boolValue = true;
                 settings.ApplyModifiedPropertiesWithoutUndo(); map.enabled = true;
                 Require(map.LevelAsset == level, "The target map did not retain its official prairie level.");
                 var player = GetOrCreate<HeightMapPlayerSceneBootstrap>(root, "Official Plains Player Bootstrap");
