@@ -101,11 +101,6 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _PhotoContoursOnly;
             sampler2D _HeightTex;
             sampler2D _SurfaceTex;
-            sampler2D _WaterMaskTex;
-            sampler2D _WaterUvTex;
-            float4 _WaterMaskTex_TexelSize;
-            float4 _WaterMaskBounds;
-            sampler2D _WaterPatternTex;
             float4 _HeightTex_TexelSize;
             float _SurfaceEnabled;
             float _SurfaceRevealEnabled;
@@ -113,18 +108,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _SurfaceRevealRadiusPixels;
             float _SurfaceRevealEdgePixels;
             float _OutsideRevealDarkening;
-            float _WaterEnabled;
             float4 _MapSizeMeters;
-            float4 _WaterOriginMeters;
-            float _WaterTileSizeMeters;
-            float4 _WaterLayerOneSpeed;
-            float4 _WaterLayerTwoSpeed;
-            float _WaterLayerTwoScale;
-            float _WaterWaveDistortion;
-            float _WaterWaveSpeed;
-            float _WaterWaveLengthMeters;
-            float _WaterDeepSpeedMultiplier;
-            float _WaterFlowSpeed;
             fixed4 _ContourColor;
             float _MinimumHeight;
             float _MaximumHeight;
@@ -153,6 +137,7 @@ Shader "AnimalGame/Dynamic Height Contours"
 
             #include "GrasslandDynamics.cginc"
             #include "HeightContourLines.cginc"
+            #include "MapWater.cginc"
 
             v2f vert(appdata input)
             {
@@ -162,107 +147,6 @@ Shader "AnimalGame/Dynamic Height Contours"
                 output.color = input.color;
                 output.screenPosition = ComputeScreenPos(output.vertex);
                 return output;
-            }
-
-            float2 RotateWaterUv(float2 value)
-            {
-                // A fixed 23-degree turn prevents the second layer from
-                // repeatedly lining up with the first layer's sparse dashes.
-                return float2(
-                    value.x * 0.920505 - value.y * 0.390731,
-                    value.x * 0.390731 + value.y * 0.920505);
-            }
-
-            float2 DecodeWaterFlow(float4 data)
-            {
-                // Mask packing: R = range, G = depth, B = angle, A = speed.
-                // Authoring uses 256 distinct angles, with +X at byte zero.
-                float angle = data.b * (255.0 / 256.0) * 6.283185307;
-                return float2(cos(angle), sin(angle)) * data.a;
-            }
-
-            float2 SampleWaterFlow(float2 uv)
-            {
-                // Sample the nearest texel at its centre so the mask's bilinear
-                // filter does not blend authored flow angles or speeds.
-                float2 pixel = floor(uv * _WaterMaskTex_TexelSize.zw);
-                float2 centreUv = (pixel + 0.5) * _WaterMaskTex_TexelSize.xy;
-                return DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(centreUv, 0, 0)));
-            }
-
-            float2 SampleBakedWaterUv(float2 uv)
-            {
-                // Shares the mask's dimensions/bounds. Keep zero pixels invalid, including at shorelines.
-                float2 pixel = uv * _WaterMaskTex_TexelSize.zw - 0.5;
-                float2 basePixel = floor(pixel);
-                float2 f = frac(pixel);
-                float2 origin = (basePixel + 0.5) * _WaterMaskTex_TexelSize.xy;
-                float2 a = tex2Dlod(_WaterUvTex, float4(origin, 0, 0)).rg;
-                float2 b = tex2Dlod(_WaterUvTex, float4(origin + float2(_WaterMaskTex_TexelSize.x, 0), 0, 0)).rg;
-                float2 c = tex2Dlod(_WaterUvTex, float4(origin + float2(0, _WaterMaskTex_TexelSize.y), 0, 0)).rg;
-                float2 d = tex2Dlod(_WaterUvTex, float4(origin + _WaterMaskTex_TexelSize.xy, 0, 0)).rg;
-                float2 nearest = f.y < 0.5 ? (f.x < 0.5 ? a : b) : (f.x < 0.5 ? c : d);
-                if (all(nearest == 0.0)) return 0.0;
-                float4 weights = float4((1.0-f.x)*(1.0-f.y), f.x*(1.0-f.y), (1.0-f.x)*f.y, f.x*f.y);
-                weights *= float4(any(a != 0.0), any(b != 0.0), any(c != 0.0), any(d != 0.0));
-                return (a*weights.x + b*weights.y + c*weights.z + d*weights.w)
-                    / dot(weights, float4(1, 1, 1, 1));
-            }
-
-            fixed4 SampleWaterPattern(
-                float2 mapMeters,
-                float normalizedDepth,
-                float2 localFlow,
-                float animationTime,
-                float2 bakedUv)
-            {
-                if (any(bakedUv != 0.0))
-                {
-                    // Baked coordinates are unwrapped meters, with +U pointing downstream.
-                    mapMeters = bakedUv;
-                    localFlow = float2(length(localFlow), 0.0);
-                }
-                float depth = saturate(normalizedDepth);
-                float tileSize = max(0.01, _WaterTileSizeMeters);
-                float waveLength = max(0.1, _WaterWaveLengthMeters);
-                float2 waveCoordinate = mapMeters / waveLength;
-                float2 distortion = float2(
-                    sin(waveCoordinate.y * 6.283185
-                        + animationTime * _WaterWaveSpeed),
-                    cos(waveCoordinate.x * 6.283185
-                        - animationTime * _WaterWaveSpeed * 0.83))
-                    * _WaterWaveDistortion;
-
-                float2 primaryUv = frac(
-                    (mapMeters
-                        + _WaterLayerOneSpeed.xy * animationTime)
-                    / tileSize
-                    + distortion);
-                float2 secondaryUv = frac(
-                    RotateWaterUv(
-                        mapMeters / tileSize
-                        * max(0.1, _WaterLayerTwoScale))
-                    + _WaterLayerTwoSpeed.xy * animationTime / tileSize
-                    - distortion * 0.73);
-                // Continuous local-flow displacement, added to the existing
-                // fixed-direction animation without phase resets or blending.
-                float2 flowUv = localFlow * max(0.0, _WaterFlowSpeed) * animationTime / tileSize;
-                fixed4 primary = tex2D(_WaterPatternTex, frac(primaryUv - flowUv));
-                // Match the existing second layer's fixed coordinate transform.
-                // Its orientation never depends on local flow direction.
-                fixed4 secondary = tex2D(_WaterPatternTex, frac(secondaryUv
-                    - RotateWaterUv(flowUv * max(0.1, _WaterLayerTwoScale))));
-                float secondaryStrength = 0.65;
-                float combinedAlpha = 1.0
-                    - (1.0 - primary.a)
-                    * (1.0 - secondary.a * secondaryStrength);
-                float3 combinedRgb = max(
-                    primary.rgb,
-                    secondary.rgb * secondaryStrength);
-                float depthOpacity = lerp(0.2, 1.0, depth);
-                return fixed4(
-                    combinedRgb,
-                    combinedAlpha * depthOpacity);
             }
 
             fixed4 frag(v2f input) : SV_Target
@@ -297,17 +181,10 @@ Shader "AnimalGame/Dynamic Height Contours"
                 // selects whether its pattern is static or animated.
                 if (_SurfaceEnabled > 0.5 || _WaterEnabled > 0.5)
                 {
-                    float2 waterUv = (input.uv - _WaterMaskBounds.xy)
-                                     / _WaterMaskBounds.zw;
-                    float insideWaterBounds = step(0.0, waterUv.x)
-                        * step(0.0, waterUv.y)
-                        * step(waterUv.x, 1.0) * step(waterUv.y, 1.0);
-                    fixed4 waterData = _WaterEnabled > 0.5
-                        ? tex2D(_WaterMaskTex, waterUv) * insideWaterBounds
-                        : fixed4(0.0, 0.0, 0.0, 0.0);
-                    float waterRange = _WaterEnabled > 0.5
-                        ? smoothstep(0.02, 0.98, waterData.r)
-                        : 0.0;
+                    float2 waterUv;
+                    float insideWaterBounds;
+                    fixed4 waterData = ReadMapWater(input.uv, waterUv, insideWaterBounds);
+                    float waterRange = smoothstep(.02, .98, waterData.r);
 
                     fixed4 terrainSurface = _SurfaceEnabled > 0.5
                         ? tex2D(_SurfaceTex, input.uv)
@@ -328,37 +205,8 @@ Shader "AnimalGame/Dynamic Height Contours"
 
                     if (_WaterEnabled > 0.5)
                     {
-                        // R/G retain range/depth; B/A provide local angle/speed.
-                        float2 mapMeters = input.uv * _MapSizeMeters.xy
-                                           + _WaterOriginMeters.xy;
-                        float2 localFlow = SampleWaterFlow(waterUv);
-                        float2 bakedWaterUv = SampleBakedWaterUv(waterUv) * insideWaterBounds;
-                        fixed4 staticWater = SampleWaterPattern(
-                            mapMeters,
-                            waterData.g,
-                            localFlow,
-                            0.0,
-                            bakedWaterUv);
-                        fixed4 animatedWater = SampleWaterPattern(
-                            mapMeters,
-                            waterData.g,
-                            localFlow,
-                            _Time.y,
-                            bakedWaterUv);
-                        fixed4 visibleWater = lerp(
-                            staticWater,
-                            animatedWater,
-                            revealMask);
-
-                        // Water visibility is intentionally independent from the
-                        // reveal mask. Outside the player's view it uses the fixed
-                        // time-zero sample; inside it crossfades to moving water.
-                        float waterBlend = saturate(
-                            visibleWater.a * waterRange);
-                        baseColor.rgb = lerp(
-                            baseColor.rgb,
-                            visibleWater.rgb,
-                            waterBlend);
+                        baseColor.rgb = ApplyMapWater(baseColor.rgb, input.uv, _MapSizeMeters.xy,
+                            revealMask, waterUv, insideWaterBounds, waterData);
                     }
                 }
 

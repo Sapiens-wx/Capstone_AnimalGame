@@ -26,6 +26,7 @@ namespace AnimalGame.World.Map
         [SerializeField, Range(0, .9f)] private float stickDeadZone = .16f;
         [SerializeField, Min(1f)] private float checkpointIconSizePixels = 26f;
 
+        public static WorldMapUI Instance { get; private set; }
         private static WorldMapUI active;
         private static int closedFrame = -1;
         public static bool BlocksGameplay => active != null || closedFrame == Time.frameCount;
@@ -35,7 +36,7 @@ namespace AnimalGame.World.Map
         public float CurrentZoom { get; private set; }
         public MapViewState View { get; } = new MapViewState();
 
-        private VisualElement root, cursor;
+        private VisualElement root, cursor, playerIcon;
         private readonly VisualElement[] pinElements = new VisualElement[MapViewState.PinLimit];
         private Image mapImage;
         private Label controls;
@@ -52,10 +53,11 @@ namespace AnimalGame.World.Map
         private int lastFogRevision = -1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { active = null; closedFrame = -1; }
+        private static void ResetStatics() { active = null; Instance = null; closedFrame = -1; }
 
         private void OnEnable()
         {
+            Instance = this;
             root = GetComponent<UIDocument>().rootVisualElement.Q("world-map");
             mapImage = root.Q<Image>("map-image");
             mapImage.scaleMode = ScaleMode.StretchToFill;
@@ -65,6 +67,20 @@ namespace AnimalGame.World.Map
             checkpointLayer.style.right = checkpointLayer.style.bottom = 0;
             checkpointLayer.style.overflow = Overflow.Hidden;
             root.Insert(1, checkpointLayer);
+            playerIcon = new VisualElement { name = "map-player", pickingMode = PickingMode.Ignore };
+            playerIcon.style.position = Position.Absolute;
+            playerIcon.generateVisualContent += context =>
+            {
+                var painter = context.painter2D;
+                painter.fillColor = Color.white;
+                painter.BeginPath();
+                painter.MoveTo(new Vector2(playerIcon.contentRect.width * .5f, 0));
+                painter.LineTo(new Vector2(playerIcon.contentRect.width, playerIcon.contentRect.height));
+                painter.LineTo(new Vector2(0, playerIcon.contentRect.height));
+                painter.ClosePath();
+                painter.Fill();
+            };
+            root.Insert(root.IndexOf(root.Q("map-cursor")), playerIcon);
             cursor = root.Q("map-cursor");
             controls = root.Q<Label>("map-controls");
             for (int i = 0; i < pinElements.Length; i++) pinElements[i] = root.Q("pin-" + i);
@@ -169,10 +185,7 @@ namespace AnimalGame.World.Map
             baseViewSize.x = baseViewSize.y * aspect;
             RecalculateZoomLimits();
             CurrentZoom = Mathf.Clamp(defaultZoom, MinimumZoom, MaximumZoom);
-            Bounds bounds = map.WorldBounds;
-            Vector2 player = bootstrap.robotObject.transform.position;
-            player = new Vector2((player.x - bounds.min.x) / bounds.size.x * map.MapSizeMeters.x,
-                (player.y - bounds.min.y) / bounds.size.y * map.MapSizeMeters.y);
+            Vector2 player = WorldToMap(bootstrap.robotObject.transform.position);
             View.Open(player, baseViewSize * CurrentZoom, map.MapSizeMeters);
             FitWholeMap();
             mapRenderer = new WorldMapRenderer(contourShader);
@@ -232,9 +245,33 @@ namespace AnimalGame.World.Map
             {
                 bool visible = i < View.Pins.Count;
                 pinElements[i].style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
-                if (visible) PositionCircle(pinElements[i], View.ToScreen(View.Pins[i], uiSize), radius);
+                if (visible)
+                {
+                    pinElements[i].style.backgroundColor = View.GetPinColor(i);
+                    PositionCircle(pinElements[i], View.ToScreen(View.Pins[i], uiSize), radius);
+                }
             }
+            var bootstrap = HeightMapPlayerSceneBootstrap.inst;
+            PositionCircle(playerIcon, View.ToScreen(WorldToMap(bootstrap.robotObject.transform.position), uiSize), radius * 1.5f);
+            Vector2 forward = bootstrap.robot.Forward;
+            playerIcon.style.rotate = new Rotate(Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg);
             PositionCircle(cursor, View.ToScreen(View.DisplayCursor, uiSize), radius);
+        }
+
+        public Vector2 WorldToMap(Vector2 position)
+        {
+            Bounds bounds = map.WorldBounds;
+            return new Vector2((position.x - bounds.min.x) / bounds.size.x * map.MapSizeMeters.x,
+                (position.y - bounds.min.y) / bounds.size.y * map.MapSizeMeters.y);
+        }
+
+        public float PinBearing(int index, Vector2 playerWorld)
+        {
+            Vector2 offset = View.Pins[index] - WorldToMap(playerWorld);
+            Bounds bounds = map.WorldBounds;
+            offset = Vector2.Scale(offset, new Vector2(bounds.size.x / map.MapSizeMeters.x,
+                bounds.size.y / map.MapSizeMeters.y));
+            return Mathf.Atan2(offset.x, offset.y) * Mathf.Rad2Deg;
         }
 
         private static void PositionCircle(VisualElement element, Vector2 position, float radius)
@@ -265,6 +302,8 @@ namespace AnimalGame.World.Map
         {
             Close();
             checkpointLayer?.RemoveFromHierarchy();
+            playerIcon?.RemoveFromHierarchy();
+            if (Instance == this) Instance = null;
         }
     }
 }

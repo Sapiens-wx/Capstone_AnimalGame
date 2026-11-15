@@ -2,6 +2,7 @@ Shader "AnimalGame/World Map Contours"
 {
     Properties
     {
+        _WaterFlowSpeed ("Local Water Flow Speed (m/s)", Float) = 10
         _HeightTex ("Height", 2D) = "black" {}
         _CheckpointFogTex ("Checkpoint Fog", 2D) = "black" {}
         _MinimumLineWidth ("Minimum Line Width", Float) = 0.75
@@ -32,6 +33,7 @@ Shader "AnimalGame/World Map Contours"
             float _MinimumOpacity, _MaximumOpacity, _MaximumCoverage, _EdgeSoftness;
             static const float _ContourInterval = 14;
             #include "HeightContourLines.cginc"
+            #include "MapWater.cginc"
             struct v2f { float4 vertex : SV_POSITION; float2 uv : TEXCOORD0; };
             v2f vert(appdata_img input)
             {
@@ -50,8 +52,18 @@ Shader "AnimalGame/World Map Contours"
                 float heightMeters = lerp(_MinimumHeight, _MaximumHeight, saturate(tex2D(_HeightTex, input.uv).r));
                 float contourBlend = HeightContourBlend(heightMeters);
                 float2 mapPosition = _TileRect.xy + input.uv * _TileRect.zw;
-                contourBlend *= 1 - tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
-                return fixed4(contourBlend, contourBlend, contourBlend, 1);
+                float3 color = 0;
+                if (_WaterEnabled > .5)
+                {
+                    float2 waterUv;
+                    float insideBounds;
+                    fixed4 waterData = ReadMapWater(input.uv, waterUv, insideBounds);
+                    color = ApplyMapWater(color, input.uv, _TileRect.zw, 0,
+                        waterUv, insideBounds, waterData);
+                }
+                color = lerp(color, float3(1, 1, 1), contourBlend);
+                color *= 1 - tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
+                return fixed4(color, 1);
             }
             ENDCG
         }

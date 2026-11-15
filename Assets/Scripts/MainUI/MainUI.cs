@@ -436,6 +436,9 @@ namespace AnimalGame.MainUI
             {
                 Vector2 forward = bootstrap.robot.Forward;
                 SetHeading(Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg);
+                var worldMap = AnimalGame.World.Map.WorldMapUI.Instance;
+                compass?.SetPins(worldMap != null && worldMap.gameObject.scene == bootstrap.gameObject.scene ? worldMap : null,
+                    bootstrap.robot.transform.position);
             }
         }
 
