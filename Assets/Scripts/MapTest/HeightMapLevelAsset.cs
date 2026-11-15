@@ -414,10 +414,30 @@ namespace AnimalGame.MapTest
         [Tooltip("Direction region width as a multiple of the grassland repeat size.")]
         [SerializeField, Min(1f)] private float grasslandDirectionRegionScale = 20f;
         [SerializeField, Range(0f, 30f)] private float grasslandBladeAngleVariation = 10f;
-        [SerializeField, Range(.1f, 1f)] private float grasslandDensity = .5f;
+        [SerializeField, Range(.1f, 2f)] private float grasslandDensity = .5f;
         [SerializeField, Range(.1f, 1f)] private float grasslandBladeLengthScale = 1f;
 
         public Texture2D BakedGrasslandMask => bakedGrasslandMask;
+        [Header("Sparse Grassland Overlay")]
+        [SerializeField] private Texture2D grass1;
+        [SerializeField] private Texture2D grass2;
+        [SerializeField] private Texture2D grass3;
+        [SerializeField, Range(0f, 1f)] private float grassOverlayDensity = .18f;
+        [SerializeField, Range(.1f, .7f)] private float grassOverlaySize = .65f;
+        public Texture2D Grass1 => grass1;
+        public Texture2D Grass2 => grass2;
+        public Texture2D Grass3 => grass3;
+        public Vector4 GrassOverlaySettings
+        {
+            get
+            {
+                float opacity = 1f;
+                foreach (var entry in surfacePalette)
+                    if (entry.Terrain == TerrainKind.Grassland) { opacity = entry.Opacity; break; }
+                return new Vector4(grassOverlayDensity, grassOverlaySize,
+                    (grass1 != null ? 1 : 0) + (grass2 != null ? 2 : 0) + (grass3 != null ? 4 : 0), opacity);
+            }
+        }
         public Texture2D GrasslandPattern => grasslandPattern;
         public Vector4[] GrasslandBladeRects => grasslandBladeRects;
         public float GrasslandTileSizeMeters => grasslandTileSizeMeters;

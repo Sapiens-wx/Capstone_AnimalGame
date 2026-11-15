@@ -12,6 +12,7 @@ namespace AnimalGame.MapTest
         Gravel = 5,
         Rock = 6,
         Water = 7,
-        Web = 8
+        Web = 8,
+        Sand = 9
     }
 }

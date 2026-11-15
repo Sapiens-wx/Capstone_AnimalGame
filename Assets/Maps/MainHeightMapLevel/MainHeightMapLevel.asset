@@ -116,19 +116,19 @@ MonoBehaviour:
     noiseStrengthMultiplier: 1
   - terrain: 5
     displayName: Gravel
-    patternTexture: {fileID: 2800000, guid: 7851651abf342144cafae2b72630e501, type: 3}
+    patternTexture: {fileID: 2800000, guid: d6606b1204025a341a04ddd64b2ed411, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
     opacity: 0.35
-    tileSizeMeters: 8
+    tileSizeMeters: 6.4
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
   - terrain: 6
     displayName: Rock
-    patternTexture: {fileID: 2800000, guid: 18163b6aeee572248a242baf140ed304, type: 3}
+    patternTexture: {fileID: 2800000, guid: bfc7b968cbb6b2943868fa4967dbc3f4, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
     opacity: 0.5
-    tileSizeMeters: 6.4
+    tileSizeMeters: 4.5254836
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
@@ -150,6 +150,15 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
+  - terrain: 9
+    displayName: Sand
+    patternTexture: {fileID: 2800000, guid: 18163b6aeee572248a242baf140ed304, type: 3}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+    opacity: 0.5
+    tileSizeMeters: 4.5254836
+    transitionMode: 3
+    transitionWidthMultiplier: 1
+    noiseStrengthMultiplier: 1
   surfaceTransitionWidthMeters: 3
   surfaceAlphaCoreWidthMeters: 0.8
   surfaceAlphaBlendShare: 0.6
@@ -165,7 +174,7 @@ MonoBehaviour:
   surfaceClosedContourEdgeAlphaMultiplier: 0.235
   surfaceClosedContourEdgeHoldDistanceMeters: 1.5
   surfaceClosedContourFadeDistanceMeters: 10
-  surfaceClosedContourCenterAlphaMultiplier: 0.02
+  surfaceClosedContourCenterAlphaMultiplier: 0.05
   surfaceClosedContourDistanceCurve: 2
   surfaceClosedContourMinimumAreaSquareMeters: 4
   surfaceOutsideClosedContourAlphaMultiplier: 0
@@ -194,10 +203,15 @@ MonoBehaviour:
   grasslandPositionJitter: 0.4
   grasslandDirectionRegionScale: 20
   grasslandBladeAngleVariation: 10
-  grasslandDensity: 0.525
-  grasslandBladeLengthScale: 1
+  grasslandDensity: 1.05
+  grasslandBladeLengthScale: 0.56
+  grass1: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
+  grass2: {fileID: 0}
+  grass3: {fileID: 0}
+  grassOverlayDensity: 0.18
+  grassOverlaySize: 0.65
   surfaceRevealEdgePixels: 4
-  surfaceBakeRevision: 449
+  surfaceBakeRevision: 457
   surfaceBakeGeneratorVersion: 10
   backgroundColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
   contourColor: {r: 0.92, g: 0.97, b: 1, a: 1}

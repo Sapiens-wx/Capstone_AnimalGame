@@ -877,8 +877,12 @@ internal static class HeightMapSurfaceBaker
             };
             bakeMaterial.SetTexture("_PatternAtlas", patternAtlas);
             foreach (TerrainSurfaceDefinition definition in level.SurfacePalette)
+            {
                 if (definition.Terrain == TerrainKind.Rock)
                     bakeMaterial.SetTexture("_RockPattern", definition.PatternTexture);
+                if (definition.Terrain == TerrainKind.Sand)
+                    bakeMaterial.SetTexture("_SandPattern", definition.PatternTexture);
+            }
             bakeMaterial.SetTexture("_TerrainPairTex", pairTexture);
             bakeMaterial.SetTexture(
                 "_StaticContourAlphaTex",

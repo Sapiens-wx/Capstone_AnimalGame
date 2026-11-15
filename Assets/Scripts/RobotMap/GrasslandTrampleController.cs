@@ -14,6 +14,8 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(.5f)] private float trampleRadiusOfBodyDiameter = .9f;
         [SerializeField] private Vector2 windPeriodSeconds = new Vector2(1.1f, 2f);
         private readonly Vector4[] footprints = new Vector4[Capacity];
+        private readonly Vector4[] footprintDirections = new Vector4[Capacity];
+        private Vector2 previousPosition;
         private RobotMarkerView marker;
         private RobotHeightMotionDetector heightMotion;
         private int next;
@@ -30,6 +32,8 @@ namespace AnimalGame.RobotMap
             heightMotion = GetComponent<RobotHeightMotionDetector>();
             next = 0;
             nextSample = 0f;
+            previousPosition = transform.position;
+            System.Array.Clear(footprintDirections, 0, Capacity);
             for (int i = 0; i < Capacity; i++) footprints[i] = new Vector4(0, 0, -10000f, 0);
             Publish();
         }
@@ -37,6 +41,14 @@ namespace AnimalGame.RobotMap
         private void LateUpdate()
         {
             float now = Time.time;
+            Vector2 position = transform.position;
+            if (Time.deltaTime > 0f)
+            {
+                Vector2 velocity = (position - previousPosition) / Time.deltaTime;
+                Vector2 response = Vector2.ClampMagnitude(velocity / .5f, 1f);
+                footprintDirections[Capacity - 1] = new Vector4(response.x, response.y, 0, 0);
+            }
+            previousPosition = position;
             bool airborne = heightMotion != null && heightMotion.HasData && heightMotion.IsAirborne;
             if (!airborne)
                 footprints[Capacity - 1] = new Vector4(transform.position.x, transform.position.y,
@@ -44,6 +56,7 @@ namespace AnimalGame.RobotMap
             if (!airborne && now >= nextSample)
             {
                 footprints[next] = footprints[Capacity - 1];
+                footprintDirections[next] = footprintDirections[Capacity - 1];
                 next = (next + 1) % (Capacity - 1);
                 nextSample = now + 1f / 30f;
             }
@@ -55,6 +68,7 @@ namespace AnimalGame.RobotMap
             Shader.SetGlobalFloat(ActiveId, 1f);
             Shader.SetGlobalFloat(NowId, Time.time);
             Shader.SetGlobalVectorArray(FootprintsId, footprints);
+            Shader.SetGlobalVectorArray("_GrassFootprintDirections", footprintDirections);
             Shader.SetGlobalVector(DynamicsId,
                 new Vector4(windTipOffset, pressedTipOffset, pressedLength, recoverySeconds));
             Shader.SetGlobalVector(PeriodsId, new Vector4(windPeriodSeconds.x, windPeriodSeconds.y, 0, 0));

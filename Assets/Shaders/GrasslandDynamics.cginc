@@ -1,5 +1,7 @@
 sampler2D _GrassMaskTex;
 sampler2D _GrassPatternTex;
+sampler2D _GrassOverlay1, _GrassOverlay2, _GrassOverlay3;
+float4 _GrassOverlaySettings;
 float _GrassEnabled;
 float _GrassTileSize;
 float4 _GrassTileOrigin;
@@ -11,6 +13,7 @@ float4 _GrassShape; // density relative to eight blades per repeat, blade length
 float _GrassActive;
 float _GrassNow;
 float4 _GrassFootprints[8];
+float4 _GrassFootprintDirections[8];
 float4 _GrassDynamics; // wind tip offset, pressed tip offset, pressed length, recovery seconds
 float4 _GrassWindPeriods;
 
@@ -63,6 +66,82 @@ float4 GrassInstance(float2 cell)
 {
     float3 placement = GrassPlacement(cell);
     return float4(placement.xy, GrassBladeAngle(cell, placement.xy), placement.z);
+}
+
+// Independent sparse instances share the underlying grass direction field.
+float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float animate)
+{
+    if (_GrassOverlaySettings.z < .5) return 0;
+    float2 cell = floor(meters / _GrassTileSize);
+    float size = _GrassTileSize * _GrassOverlaySettings.y;
+    float4 result = 0;
+    int bits = (int)_GrassOverlaySettings.z;
+    int count = (bits & 1) + ((bits >> 1) & 1) + ((bits >> 2) & 1);
+    // Tall instances can cross two layout cells after regional rotation.
+    [loop] for (int y = -2; y <= 2; y++)
+    [loop] for (int x = -2; x <= 2; x++)
+    {
+        float2 key = cell + float2(x, y) + _GrassLayout.x + 739.1;
+        if (GrassHash(key + 19) >= _GrassOverlaySettings.x) continue;
+        float2 instanceSize = size * float2(lerp(.8, 1.2, GrassHash(key + 107)),
+            lerp(.6, 1.5, GrassHash(key + 149)));
+        float2 centre = (cell + float2(x, y) + .5
+            + (float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1) * .4) * _GrassTileSize;
+        float2 delta = meters - centre;
+        float support = instanceSize.y * .95 + instanceSize.x * .5;
+        if (dot(delta, delta) > support * support) continue;
+        float s, c;
+        sincos(GrassDirection(centre), s, c);
+        float2 side = float2(c, -s), up = float2(s, c);
+        float2 centreWorld = mul(_GrassMetersToWorld, float4(centre, 0, 1)).xy;
+        float2 sideWorld = mul((float3x3)_GrassMetersToWorld, float3(side, 0)).xy;
+        float pressure = 0, direction = 0;
+        if (animate > .5)
+        {
+            [unroll] for (int contact = 0; contact < 8; contact++)
+            {
+                float4 footprint = _GrassFootprints[contact];
+                float2 travel = _GrassFootprintDirections[contact].xy;
+                if (dot(travel, travel) < .0001) continue;
+                float age = max(0, _GrassNow - footprint.z);
+                float influence = (1 - smoothstep(footprint.w * .65, max(.001, footprint.w),
+                    distance(centreWorld, footprint.xy)))
+                    * saturate(1 - age / max(.01, _GrassDynamics.w));
+                if (influence > pressure)
+                {
+                    pressure = influence;
+                    direction = -dot(travel, normalize(sideWorld));
+                }
+            }
+        }
+        // A small root-anchored sway opposite travel, without shortening tall grass.
+        float lengthScale = 1;
+        float height = (dot(delta, up) / instanceSize.y + .5) / lengthScale;
+        float tipOffset = pressure * direction * .15;
+        float2 uv = float2(dot(delta, side) / instanceSize.x + .5
+            - tipOffset * instanceSize.y / instanceSize.x * height * height, height);
+        if (any(uv < 0) || any(uv > 1)) continue;
+        float shear = 2 * tipOffset * height / lengthScale;
+        float2 dx = float2((dot(pixelDx, side) - shear * dot(pixelDx, up)) / instanceSize.x,
+            dot(pixelDx, up) / (instanceSize.y * lengthScale));
+        float2 dy = float2((dot(pixelDy, side) - shear * dot(pixelDy, up)) / instanceSize.x,
+            dot(pixelDy, up) / (instanceSize.y * lengthScale));
+        // Stable per-instance mirroring; mirror sampling derivatives with the UV.
+        float flipX = GrassHash(key + 233) < .5 ? -1 : 1;
+        uv.x = .5 + (uv.x - .5) * flipX;
+        dx.x *= flipX;
+        dy.x *= flipX;
+        int choice = min(count - 1, (int)floor(GrassHash(key + 83) * count));
+        int variant = 0;
+        [unroll] for (int i = 0; i < 3; i++)
+            if ((bits & (1 << i)) != 0) { if (choice == 0) { variant = i; break; } choice--; }
+        float4 sample = variant == 0 ? tex2Dgrad(_GrassOverlay1, uv, dx, dy)
+            : variant == 1 ? tex2Dgrad(_GrassOverlay2, uv, dx, dy) : tex2Dgrad(_GrassOverlay3, uv, dx, dy);
+        result.rgb = sample.rgb * sample.a + result.rgb * (1 - sample.a);
+        result.a = sample.a + result.a * (1 - sample.a);
+    }
+    result.rgb = result.a > .0001 ? result.rgb / result.a : 0;
+    return result;
 }
 
 float4 SampleGrassland(float2 tileUv, float animate)
@@ -136,6 +215,12 @@ float4 SampleGrassland(float2 tileUv, float animate)
     result.rgb = result.a > .0001 ? result.rgb / result.a : 0;
     result.rgb *= mask.rgb;
     result.a = saturate(result.a) * mask.a;
+    float4 overlay = SampleGrassOverlay(meters, pixelDx, pixelDy, animate);
+    // Remove the base palette opacity from coverage: overlay retains source alpha at full strength.
+    overlay.a *= saturate(mask.a / max(.001, _GrassOverlaySettings.w));
+    float alpha = overlay.a + result.a * (1 - overlay.a);
+    result.rgb = alpha > .0001 ? (overlay.rgb * overlay.a + result.rgb * result.a * (1 - overlay.a)) / alpha : 0;
+    result.a = alpha;
     return result;
 }
 

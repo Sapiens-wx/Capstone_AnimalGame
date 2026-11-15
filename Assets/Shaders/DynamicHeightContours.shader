@@ -10,6 +10,10 @@ Shader "AnimalGame/Dynamic Height Contours"
         _GrassMaskTex ("Grassland Coverage", 2D) = "black" {}
         _GrassPatternTex ("Grassland Blades", 2D) = "black" {}
         _GrassEnabled ("Grassland Enabled", Float) = 0
+        _GrassOverlay1 ("Grass1", 2D) = "black" {}
+        _GrassOverlay2 ("Grass2", 2D) = "black" {}
+        _GrassOverlay3 ("Grass3", 2D) = "black" {}
+        _GrassOverlaySettings ("Overlay Density, Size, Variants, Base Opacity", Vector) = (0.18, 0.65, 0, 0.2)
         _GrassTileSize ("Grassland Tile Size", Float) = 3.2
         _GrassLayout ("Grass Layout: Seed, Jitter, Region Scale, Angle", Vector) = (0, 0.4, 20, 0.17453293)
         _GrassShape ("Grass Density And Length", Vector) = (0.5, 1, 0, 0)
