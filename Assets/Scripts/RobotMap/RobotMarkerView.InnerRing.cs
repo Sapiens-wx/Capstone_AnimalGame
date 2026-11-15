@@ -11,6 +11,8 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(1f)] private float innerRingVisibleDiameterPixels = 346f;
         [Tooltip("Degrees per second at full forward/reverse drive input, independent of actual movement speed.")]
         [SerializeField, Min(0f)] private float innerRingInputSpinSpeed = 665.28f;
+        [Tooltip("Time to coast from full input rotation speed to rest after releasing the drive triggers.")]
+        [SerializeField, Min(.01f)] private float innerRingSpinStopDuration = 1.2f;
         [SerializeField, Range(0f, .2f)] private float innerRingBreathAmplitude = .12f;
         [SerializeField, Min(.1f)] private float innerRingBreathPeriod = 2.4f;
         [SerializeField, Range(0f, 15f)] private float innerRingJamAmplitude = 12f;
@@ -41,6 +43,7 @@ namespace AnimalGame.RobotMap
 
         private Transform innerRing;
         private float innerRingBaseScale, innerRingAngle, innerRingIdleTime;
+        private float innerRingSpinSpeed;
         private float innerRingDisplayedBaseScale;
         private float innerRingJamWait, innerRingJamRemaining;
         private bool innerRingWasFallen;
@@ -180,7 +183,22 @@ namespace AnimalGame.RobotMap
             }
             // Forward input turns clockwise; reverse turns counterclockwise, even when blocked or coasting.
             if (!fallen && !tumbling && !mover.IsMovementLocked)
-                innerRingAngle -= mover.CurrentThrottleInput * innerRingInputSpinSpeed * dt;
+            {
+                float targetSpin = mover.CurrentThrottleInput * innerRingInputSpinSpeed;
+                // Analogue triggers pass through smaller nonzero values on release.
+                // Limit all same-direction slowdowns, not only the final zero input.
+                bool slowing = Mathf.Abs(targetSpin) < Mathf.Abs(innerRingSpinSpeed)
+                    && targetSpin * innerRingSpinSpeed >= 0f;
+                innerRingSpinSpeed = slowing
+                    ? Mathf.MoveTowards(innerRingSpinSpeed, targetSpin,
+                        innerRingInputSpinSpeed / innerRingSpinStopDuration * dt)
+                    : targetSpin;
+                innerRingAngle -= innerRingSpinSpeed * dt;
+            }
+            else
+            {
+                innerRingSpinSpeed = 0f;
+            }
             innerRingWasFallen = fallen && !tumbling;
             innerRingAngle = Mathf.Repeat(innerRingAngle, 360f);
             innerRing.localRotation = Quaternion.Slerp(
