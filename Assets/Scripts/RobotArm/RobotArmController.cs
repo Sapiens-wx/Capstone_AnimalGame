@@ -202,6 +202,7 @@ namespace AnimalGame.RobotArm
         private sealed class Arm
         {
             public float Side;
+            public int HandSortingOrder;
             public Vector2 Socket;
             public Pose Pose;
             public Transform Root, Upper, Lower, Hand;
@@ -1180,6 +1181,7 @@ namespace AnimalGame.RobotArm
             Transform legacyCuff = arm.Root.Find("Wrist Cuff");
             if (legacyCuff != null) legacyCuff.gameObject.SetActive(false);
             arm.HandSprite = BindSprite(arm.Root, "Mechanical Hand", robotHandOpenSprite);
+            arm.HandSortingOrder = arm.HandSprite.sortingOrder;
             arm.OpenHandSprite = arm.HandSprite.sprite;
             arm.HandBottom = arm.OpenHandSprite != null ? arm.OpenHandSprite.bounds.min.y : 0f;
             arm.Upper = arm.UpperSprite.transform; arm.Lower = arm.LowerSprite.transform; arm.Hand = arm.HandSprite.transform;
@@ -1234,6 +1236,8 @@ namespace AnimalGame.RobotArm
             arm.LoopSprite.transform.localPosition = LoopPositionAtScale(arm, scale);
             arm.LoopSprite.enabled = arm.DeployedLoopScale > 0f && arm.Pose.LowerLength > 0f;
             arm.HandSprite.enabled = arm.Pose.Hand > 0f;
+            arm.HandSprite.sortingOrder = inventoryPresentationActive && arm.Side > 0f
+                ? 3 : arm.HandSortingOrder;
             arm.Hand.localRotation = Quaternion.Euler(0f, 0f, visualPose.UpperAngle
                 + (mediumRecycleActive ? arm.Side * handShakeRoll : 0f));
             arm.Hand.localScale = new Vector3(-arm.Side, 1f, 1f) * handScale * arm.Pose.Hand;
