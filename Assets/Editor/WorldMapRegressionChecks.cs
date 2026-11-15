@@ -16,9 +16,10 @@ namespace AnimalGame.Editor
         public static void Run()
         {
             CheckCursorAndPins();
+            CheckPinColors();
             CheckAssets();
             CheckGpuContours();
-            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin FIFO/deletion/snap escape, prefab references, GPU 14m interval, screen line widths and height emphasis.");
+            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin FIFO/deletion/snap escape, prefab references, stable RGB pins, GPU water/cropped bounds/fog, 14m interval, screen line widths and height emphasis.");
         }
 
         private static void CheckCursorAndPins()
@@ -59,6 +60,35 @@ namespace AnimalGame.Editor
             Vector2 screenCursor = state.ToScreen(state.Cursor, screen);
             Require(screenCursor.x >= 250 && screenCursor.x <= 750 && screenCursor.y >= 250 && screenCursor.y <= 750,
                 "Whole-map zoom moved the cursor outside the central half-screen rectangle.");
+        }
+
+        private static void CheckPinColors()
+        {
+            var state = new MapViewState();
+            Vector2 size = Vector2.one * 1000;
+            state.Open(Vector2.one * 100, size, size);
+            for (int i = 0; i < 3; i++)
+            {
+                state.Move(new Vector2(100, 0), size, size);
+                state.Snap(size, 5);
+                state.Submit();
+            }
+            Require(state.GetPinColor(0) == Color.red && state.GetPinColor(1) == Color.green
+                && state.GetPinColor(2) == Color.blue, "Initial pins must be red, green, blue.");
+            state.Move(new Vector2(-100, 0), size, size);
+            state.Snap(size, 5);
+            state.Submit();
+            Require(state.Pins.Count == 2 && state.GetPinColor(0) == Color.red
+                && state.GetPinColor(1) == Color.blue, "Deleting green changed another pin's color.");
+            state.Move(new Vector2(300, 0), size, size);
+            state.Snap(size, 5);
+            state.Submit();
+            Require(state.GetPinColor(2) == Color.green, "New pin did not reuse the available color.");
+            state.Move(new Vector2(100, 0), size, size);
+            state.Snap(size, 5);
+            state.Submit();
+            Require(state.GetPinColor(0) == Color.blue && state.GetPinColor(1) == Color.green
+                && state.GetPinColor(2) == Color.red, "FIFO replacement changed surviving pin colors.");
         }
 
         private static void CheckAssets()
@@ -110,6 +140,9 @@ namespace AnimalGame.Editor
                     Color[] zoom = Render(type, renderer, controller, state);
                     float widthZoom = Width(zoom, 250, 264);
                     Require(Mathf.Abs(widthFull - widthZoom) <= 1, "Zoom scaled screen contour width: " + widthFull + " vs " + widthZoom);
+                    CheckPinBearings(controller);
+                    CheckWater(type, renderer, controller, state);
+
                 }
             }
             finally
@@ -118,6 +151,89 @@ namespace AnimalGame.Editor
                 Object.DestroyImmediate(source);
                 EditorSceneManager.ClosePreviewScene(scene);
             }
+        }
+
+        private static void CheckPinBearings(MapTestSceneController map)
+        {
+            var go = new GameObject("Pin bearing fixture");
+            go.SetActive(false);
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(go, map.gameObject.scene);
+            try
+            {
+                var ui = go.AddComponent<WorldMapUI>();
+                typeof(WorldMapUI).GetField("map", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ui, map);
+                Vector2 center = map.MapSizeMeters * .5f;
+                var screen = Vector2.one * 1000;
+                var compass = new AnimalGame.MainUI.CompassElement();
+                float[] bearings = { 0, 90, 180, 270 };
+                foreach (float expected in bearings)
+                {
+                    var state = ui.View;
+                    if (state.Pins.Count > 0) state.Submit();
+                    state.Open(center, map.MapSizeMeters, map.MapSizeMeters);
+                    float radians = expected * Mathf.Deg2Rad;
+                    state.Move(new Vector2(Mathf.Sin(radians), Mathf.Cos(radians)) * 100, screen, map.MapSizeMeters);
+                    state.Submit();
+                    float actual = ui.PinBearing(0, map.WorldBounds.center);
+                    Require(Mathf.Abs(Mathf.DeltaAngle(actual, expected)) < .01f,
+                        "Pin compass bearing differs from cardinal direction: " + expected);
+                    compass.SetPins(ui, map.WorldBounds.center);
+                    var field = typeof(AnimalGame.MainUI.CompassElement).GetField("pinBearings", BindingFlags.Instance | BindingFlags.NonPublic);
+                    Require(Mathf.Abs(Mathf.DeltaAngle(((float[])field.GetValue(compass))[0], expected)) < .01f,
+                        "Compass did not receive pin bearing.");
+                }
+                compass.SetPins(null, Vector2.zero);
+                Require((int)typeof(AnimalGame.MainUI.CompassElement).GetField("pinCount",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(compass) == 0, "Compass retained absent pins.");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        private static void CheckWater(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state)
+        {
+            var pattern = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+            pattern.SetPixel(0, 0, Color.green); pattern.Apply();
+            var mask = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+            mask.SetPixel(0, 0, new Color(1, 1, 0, 0)); mask.Apply();
+            var fog = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+            fog.SetPixel(0, 0, Color.white); fog.Apply();
+            try
+            {
+                foreach (var tile in map.RuntimeMap.Tiles)
+                {
+                    var settings = new SerializedObject(tile.Level);
+                    settings.FindProperty("staticWaterEditorTexture").objectReferenceValue = pattern;
+                    settings.FindProperty("bakedStaticWaterMask").objectReferenceValue = mask;
+                    settings.FindProperty("bakedStaticWaterBounds").rectValue = new Rect(.25f, .25f, .5f, .5f);
+                    settings.ApplyModifiedPropertiesWithoutUndo();
+                }
+                state.Resize(Vector2.one * 140);
+                Color[] water = Render(type, renderer, map, state);
+                Color wet = water[256 * 512 + 280], dry = water[256 * 512 + 40];
+                Require(wet.g > wet.r + .4f, "GPU map did not render authored water.");
+                Require(Mathf.Abs(dry.g - dry.r) < .01f, "Cropped water leaked outside its bounds.");
+                for (int x = 140; x < 372; x++)
+                    Require(water[256 * 512 + x].r < .01f, "Contours appeared over water.");
+                pattern.SetPixel(0, 0, Color.clear); pattern.Apply();
+                Color[] transparentWater = Render(type, renderer, map, state);
+                for (int x = 140; x < 372; x++)
+                    Require(transparentWater[256 * 512 + x].maxColorComponent < .01f,
+                        "Contours leaked through transparent water pattern gaps.");
+                Require(Sum(transparentWater, 1, 120) > .1f, "Water hid contours outside its bounds.");
+                pattern.SetPixel(0, 0, Color.green); pattern.Apply();
+                type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512, fog });
+                var target = (RenderTexture)type.GetProperty("Texture").GetValue(renderer);
+                RenderTexture previous = RenderTexture.active;
+                var pixel = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+                try
+                {
+                    RenderTexture.active = target;
+                    pixel.ReadPixels(new Rect(280, 256, 1, 1), 0, 0); pixel.Apply();
+                    Require(pixel.GetPixel(0, 0).maxColorComponent < .01f, "Water bypassed checkpoint fog.");
+                }
+                finally { RenderTexture.active = previous; Object.DestroyImmediate(pixel); }
+            }
+            finally { Object.DestroyImmediate(pattern); Object.DestroyImmediate(mask); Object.DestroyImmediate(fog); }
         }
 
         private static Color[] Render(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state)

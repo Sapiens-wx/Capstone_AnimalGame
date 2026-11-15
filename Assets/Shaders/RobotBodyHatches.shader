@@ -90,10 +90,10 @@ Shader "AnimalGame/Robot Body Hatches"
             if (_Part < -.5)
             {
                 clip(.5 - max(left, right));
-                // Remove the isolated front bridge as the two doors open; restore it when closed.
-                float front = step(_HingeAngle + _ArcDegrees, angle)
-                    * step(angle, 180 - _HingeAngle - _ArcDegrees);
-                source.a *= 1 - front * _Open01;
+                // Clear the complete front cap from the first opening frame, including the bridge
+                // between the door slices. Restore the original circle only once fully closed.
+                float front = step(_HingeAngle, angle) * step(angle, 180 - _HingeAngle);
+                source.a *= 1 - front * step(.001, _Open01);
                 return source * input.color;
             }
             float oldAlpha = source.a * (_Part < .5 ? left : right) * (1 - _Open01);

@@ -34,8 +34,8 @@ MonoBehaviour:
   maximumWalkSlopeDegrees: 38
   slideSlopeDegrees: 38
   activityRadiusMeters: 20
-  dailyMoveSpeedMetersPerSecond: 0.9
-  fleeSpeedMetersPerSecond: 4
+  dailyMoveSpeedMetersPerSecond: 0.75
+  fleeSpeedMetersPerSecond: 12.5
   turnSpeedDegreesPerSecond: 420
   arrivalDistanceMeters: 0.08
   bodyRadiusMeters: 0.12
@@ -86,7 +86,7 @@ MonoBehaviour:
   resurfaceRadiusMeters: 2.5
   submergeTransitionSeconds: 0.35
   waterSearchSpacingMeters: 1.5
-  alertRadiusMeters: 10
+  alertRadiusMeters: 20
   detectionIntervalSeconds: 0.3
   baseDetectionChancePerCheck: 0.08
   nearestDetectionMultiplier: 3

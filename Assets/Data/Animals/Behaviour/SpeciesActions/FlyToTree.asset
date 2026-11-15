@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23e02ffc88174310a3857c89059f3021, type: 3}
   m_Name: FlyToTree
   m_EditorClassIdentifier: 
-  SpeedMetersPerSecond: 9
+  SpeedMetersPerSecond: 9.5
   MinimumTreeStaySeconds: 15
   FlightCooldownSeconds: 20
   FlightSpeedVariation: 0.1

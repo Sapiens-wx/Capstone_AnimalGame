@@ -26,7 +26,6 @@ namespace AnimalGame.Tutorial
         private TutorialDrivingLesson driving;
         private BalanceTutorialProgress progress;
         private bool hasStarted, ownsPresentation = true;
-        private bool chapterConfirmed;
         private bool interrupted;
         private float completionDelay, refreshRemaining;
         private BalanceTutorialStep displayedStep = (BalanceTutorialStep)(-1);

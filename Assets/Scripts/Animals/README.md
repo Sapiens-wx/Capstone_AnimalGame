@@ -15,6 +15,8 @@
 
 ## 配置与接入
 
+- 日常与逃离速度按物种区分，当前值、动作倍率与现实参考见 下方的「动物移动速度基准」。日常为基础速度，具体动作可叠加慢走倍率；啄木鸟树间飞行另在 `FlyToTree.asset` 配置，松鸡日常短飞复用逃离飞速。
+
 - 现有麝鼠和啄木鸟继续引用原 `AnimalSpeciesConfig` 和物种行为组件，配置资产中的检测间隔等数值保留。`AnimalAgent` 在运行时补齐新模块，无需重新制作场景。
 - 每个场景自动创建一个 `AnimalSimulation`，统一调度动物、群体事件和延迟伤害，使用 `Time.deltaTime` 累计的缩放时间。不要再单独调用各动物的 Tick。
 - 新物种使用 `AnimalAgent` 和物种配置；未指定物种行为组件时，自动使用 `GenericAnimalBehaviour`。共享配置只保存参数，各个体持有自己的运行数据、生命、目标与计时。
@@ -73,3 +75,57 @@
 Unity 菜单：Animal Game / Validation / Run Animal AI Checks。
 
 覆盖个体数据隔离、尸体连续降解、身体注册和移动后的四叉树更新、自身排除、延迟伤害及独立冷却、隐藏身份与自动照片状态、群体传播与领队替换、进食容量与比例冷却、最大空扇区、行为取消、暂停、飞行与玩家碰撞、两物种适配、视野移除条件，并运行现有空间索引与垃圾推动兼容性检查。
+
+## 动物移动速度基准
+
+2026-11-14：按现实物种的移动能力区分日常与逃离速度。以下是游戏设计值，不是每个个体在所有地形上都能维持的实测速度；不新增加速、体力或按地形变速机制。
+
+| 物种 | 日常基础速度（m/s） | 逃离速度（m/s） | 使用方式 |
+| --- | ---: | ---: | --- |
+| 叉角羚 | 1.8 | 23 | 日常步行，受惊后快速奔跑 |
+| 狼 | 2.2 | 16 | 日常小跑；现有捕猎逻辑在追逐逃跑猎物时也使用逃离速度 |
+| 美洲野牛 | 1.5 | 15 | 日常缓行，受惊时短距离疾跑 |
+| 雪羊 | 1.1 | 6 | 日常谨慎移动，逃离仍沿用现有山地选路 |
+| 美洲旱獭 / Groundhog | 0.55 | 4 | 日常觅食，受惊奔向洞穴 |
+| 北美豪猪 | 0.3 | 0.9 | 保留缓慢移动、依赖防御而非高速逃离的特征 |
+| 麝鼠 | 0.65 | 1.5 | 以游泳速度量级抽象；现有配置共用于地面和水中移动 |
+| 大草原松鸡 | 0.75 | 12.5 | 日常地面活动；逃离速度用于飞行，现有日常短飞也复用此速度 |
+| 北美黑啄木鸟 / Pileated Woodpecker | 9.5 | 12 | 树间飞行；FlyToTree 动作基础速度同步为 9.5，沿用 ±10% 波动；树上爬行保持原值 |
+
+配置入口为 `Assets/Data/Animals/Behaviour/*Config.asset` 的 `dailyMoveSpeedMetersPerSecond` 与 `fleeSpeedMetersPerSecond`；啄木鸟的独立飞行动作为 `SpeciesActions/FlyToTree.asset`。
+
+日常慢走、嗅探等动作继续使用自己的速度倍率（例如叉角羚漫步 ×0.45）；上表是基础值。成年和幼体继续共享各自物种配置。冲撞速度属于独立的战斗配置，不随本轮修改。
+
+### 现实参考与抽象
+
+- [NPS：叉角羚](https://www.nps.gov/articles/000/pronghorn.htm)：约 55 mph（24.6 m/s）的高速奔跑；23 m/s 落在本次指定的 20–25 m/s 区间。
+- [NPS：狼](https://home.nps.gov/articles/life-of-a-wolf.htm)：常以约 5 mph（2.2 m/s）小跑，短距离可达更高速度；采用 16 m/s 作为游戏逃离速度。
+- [Utah State Parks：野牛](https://stateparks.utah.gov/parks/antelope-island/park-mammals/)：最高约 35 mph（15.6 m/s）；游戏采用 15 m/s。
+- [NPS：Mountain Goat Action Plan，Appendices](https://parkplanning.nps.gov/showFile.cfm?projectID=49246&sfid=324118)：山地短时速度约 10–15 mph（4.5–6.7 m/s）；游戏采用 6 m/s。
+- [Allegheny County：Groundhogs](https://www.alleghenycounty.us/files/assets/county/v/1/parks/north-park/latodami/documents/resources/groundhogs.pdf)：短距离可跑约 10 mph（4.5 m/s）；游戏采用 4 m/s。
+- [Pennsylvania Game Commission：豪猪](https://www.pa.gov/agencies/pgc/wildlife/discover-pa-wildlife/porcupine)：短距离最高约 2 mph（0.9 m/s）。
+- [Connecticut DEEP：麝鼠](https://portal.ct.gov/deep/wildlife/fact-sheets/muskrat)：游速最高约 3 mph（1.3 m/s）；为逃离表现略提高到 1.5 m/s。
+- [Texas A&M：prairie-chicken flight research](https://oaktrust.library.tamu.edu/bitstreams/0fb66f6c-f5b7-4cb8-b4c6-1b9b4a4d6cf5/download)：大草原松鸡飞速均值约 45–46 km/h（12.5–12.8 m/s）；采用 12.5 m/s。
+- [Scientific Reports：Periodic and transient motions of large woodpeckers](https://www.nature.com/articles/s41598-017-13035-6)：北美黑啄木鸟参考平均飞速 9.55 m/s；日常取整为 9.5 m/s，受惊飞行采用游戏设计值 12 m/s。
+
+除狼的小跑和啄木鸟的巡航外，日常速度主要是便于观察和拍摄的缓行设计值，不以物种短时最高速度等比例计算。
+
+## 动物警觉范围基准
+
+`Alert Radius Meters` 是开始进行玩家发现判定及感知附近捕猎者的半径，单位为逻辑地图米。进入范围后仍按概率检测，并非进入半径就立即逃跑。自然发现玩家及捕猎者的概率按 `1 - 距离 / 警觉半径` 线性衰减：边缘为 0，中心为原有近距离上限；基础概率、近距离倍率、移动速度加成、直视加成及检查间隔沿用各物种配置。受击、拍照反应及群体事件继续走原有直接触发规则。
+
+| 物种 | 原半径（m） | 当前半径（m） |
+| --- | ---: | ---: |
+| 叉角羚 | 10 | 27 |
+| 狼 | 14 | 25 |
+| 美洲野牛 | 10 | 20 |
+| 雪羊 | 14 | 22 |
+| 北美黑啄木鸟 | 18 | 25 |
+| 大草原松鸡 | 10 | 20 |
+| 美洲旱獭 | 10 | 14 |
+| 麝鼠 | 14 | 16 |
+| 北美豪猪 | 10 | 12 |
+
+这是按物种差异设定的游戏半径，不是实测感官极限，也不是现实野生动物安全距离。大范围给予开阔地警戒、追猎及鸟类提前反应；小型动物保留近距离观察空间。[WDFW 的雪羊资料](https://wdfw.wa.gov/species-habitats/species/oreamnos-americanus)也指出对人的警惕会受习惯化影响，因此不把警戒距离视为固定的生物学常数。
+
+现有依赖同一半径的威胁记忆、旱獭出洞安全检查和隐藏动物安全返回距离会随配置一起扩大；活动搜索范围、追逐范围和检测概率保持原配置。

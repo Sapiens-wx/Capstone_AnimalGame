@@ -38,7 +38,7 @@ namespace AnimalGame.Tutorial
         private TutorialRecyclingLesson recycling;
         private RefitTutorialProgress progress;
         private TutorialWaypointIndicator waypoint;
-        private bool hasStarted, chapterConfirmed, hasWorkbenchPosition;
+        private bool hasStarted, hasWorkbenchPosition;
         private bool interrupted;
         private Vector2 workbenchPosition;
         private float completionDelay;
@@ -187,7 +187,7 @@ namespace AnimalGame.Tutorial
         {
             progress = new RefitTutorialProgress(requiredFrameMovement);
             previousFrameSample = -1;
-            chapterConfirmed = false; hasStarted = true;
+            hasStarted = true;
             recycling.SetPresentationOwned(false);
             Panel.SetContinuePrompt(false); Panel.SetPhotoModeVisible(false); Panel.SetCollapsed(false);
             var targetOwner = new GameObject("Camera Upgrade Destination");
@@ -346,14 +346,14 @@ namespace AnimalGame.Tutorial
             previousFrameSample = -1;
             if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetPhotoModeVisible(false); Panel.SetLessonHint(string.Empty); }
             if (recycling != null) recycling.SetPresentationOwned(true);
-            hasStarted = chapterConfirmed = hasWorkbenchPosition = false; progress = null;
+            hasStarted = hasWorkbenchPosition = false; progress = null;
         }
 
         [ContextMenu("Restart Camera Upgrade Lesson")]
         public void RestartLesson()
         {
             if (!hasStarted || progress == null) return;
-            progress.Reset(); previousFrameSample = -1; chapterConfirmed = false; displayedStep = (RefitTutorialStep)(-1);
+            progress.Reset(); previousFrameSample = -1; displayedStep = (RefitTutorialStep)(-1);
             HookTerminal();
             Panel.SetContinuePrompt(false); Panel.SetCollapsed(false);
         }

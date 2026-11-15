@@ -33,7 +33,6 @@ namespace AnimalGame.Tutorial
         private float completionDelay, refreshRemaining;
         private bool previousToggleHeld, hasStarted;
         private bool ownsPresentation = true;
-        private bool chapterConfirmed;
         private bool interrupted;
 
         public TutorialTextContent TextContent => tutorialText;

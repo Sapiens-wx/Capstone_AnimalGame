@@ -70,29 +70,37 @@ namespace AnimalGame.MapTest
                 material.SetMatrix("_GrassMetersToWorld", grassMetersToWorld);
                 material.SetVector("_GrassTileOrigin", grassTileOrigin);
             }
+            var waterProperties = new MaterialPropertyBlock();
+            ConfigureWater(waterProperties, tile);
+            Renderer.SetPropertyBlock(waterProperties);
+        }
+
+        internal static void ConfigureWater(MaterialPropertyBlock properties, TiledMapRuntime.Tile tile)
+        {
+            var level = tile.Level;
             bool water = level.BakedStaticWaterMask != null && level.StaticWaterTexture != null;
-            material.SetTexture("_WaterMaskTex", water ? level.BakedStaticWaterMask : Texture2D.blackTexture);
-            material.SetTexture("_WaterUvTex", level.BakedStaticWaterUv != null
+            properties.SetTexture("_WaterMaskTex", water ? level.BakedStaticWaterMask : Texture2D.blackTexture);
+            properties.SetTexture("_WaterUvTex", level.BakedStaticWaterUv != null
                 ? level.BakedStaticWaterUv : Texture2D.blackTexture);
             Rect waterBounds = level.BakedStaticWaterBounds;
-            material.SetVector("_WaterMaskBounds", new Vector4(
+            properties.SetVector("_WaterMaskBounds", new Vector4(
                 waterBounds.x, waterBounds.y, waterBounds.width, waterBounds.height));
-            material.SetTexture("_WaterPatternTex", water ? level.StaticWaterTexture : Texture2D.blackTexture);
-            material.SetFloat("_WaterEnabled", water ? 1 : 0);
+            properties.SetTexture("_WaterPatternTex", water ? level.StaticWaterTexture : Texture2D.blackTexture);
+            properties.SetFloat("_WaterEnabled", water ? 1 : 0);
             if (!water) return;
             Vector2 waterOrigin = Vector2.Scale((Vector2)tile.Coordinate, level.MapSizeMeters);
-            material.SetVector("_WaterOriginMeters", new Vector4(waterOrigin.x, waterOrigin.y, 0, 0));
-            material.SetFloat("_WaterTileSizeMeters", level.StaticWaterTileSizeMeters);
+            properties.SetVector("_WaterOriginMeters", new Vector4(waterOrigin.x, waterOrigin.y, 0, 0));
+            properties.SetFloat("_WaterTileSizeMeters", level.StaticWaterTileSizeMeters);
             Vector2 one = level.StaticWaterLayerOneSpeedMetersPerSecond;
             Vector2 two = level.StaticWaterLayerTwoSpeedMetersPerSecond;
-            material.SetVector("_WaterLayerOneSpeed", new Vector4(one.x, one.y, 0, 0));
-            material.SetVector("_WaterLayerTwoSpeed", new Vector4(two.x, two.y, 0, 0));
-            material.SetFloat("_WaterLayerTwoScale", level.StaticWaterLayerTwoScale);
-            material.SetFloat("_WaterWaveDistortion", level.StaticWaterWaveDistortion);
-            material.SetFloat("_WaterWaveSpeed", level.StaticWaterWaveSpeed);
-            material.SetFloat("_WaterWaveLengthMeters", level.StaticWaterWaveLengthMeters);
-            material.SetFloat("_WaterDeepSpeedMultiplier", level.StaticWaterDeepSpeedMultiplier);
+            properties.SetVector("_WaterLayerOneSpeed", new Vector4(one.x, one.y, 0, 0));
+            properties.SetVector("_WaterLayerTwoSpeed", new Vector4(two.x, two.y, 0, 0));
+            properties.SetFloat("_WaterLayerTwoScale", level.StaticWaterLayerTwoScale);
+            properties.SetFloat("_WaterWaveDistortion", level.StaticWaterWaveDistortion);
+            properties.SetFloat("_WaterWaveSpeed", level.StaticWaterWaveSpeed);
+            properties.SetFloat("_WaterWaveLengthMeters", level.StaticWaterWaveLengthMeters);
         }
+
         public void Dispose()
         {
             Destroy(root); Destroy(material); Destroy(sprite);

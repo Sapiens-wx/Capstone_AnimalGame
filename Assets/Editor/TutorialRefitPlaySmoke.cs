@@ -152,15 +152,15 @@ namespace AnimalGame.Editor
                         // validation process deterministic without sending any OS controller input.
                         foreach (Gamepad other in new List<Gamepad>(Gamepad.all)) InputSystem.RemoveDevice(other);
                         gamepadId = InputSystem.AddDevice<Gamepad>("Refit tutorial validation gamepad").deviceId;
-                        CompleteCounter(driving, driving.Progress, DrivingTutorialStep.Completed);
+                        CompleteCounter(driving.Progress, DrivingTutorialStep.Completed);
                         Begin(Phase.Foundations); break;
                     case Phase.Foundations:
                         var terrain = driving.GetComponent<TutorialTerrainLesson>();
-                        if (terrain?.Progress != null) CompleteCounter(terrain, terrain.Progress, TerrainTutorialStep.Completed);
+                        if (terrain?.Progress != null) CompleteCounter(terrain.Progress, TerrainTutorialStep.Completed);
                         var balance = driving.GetComponent<TutorialBalanceLesson>();
-                        if (balance?.Progress != null) CompleteCounter(balance, balance.Progress, BalanceTutorialStep.Completed);
+                        if (balance?.Progress != null) CompleteCounter(balance.Progress, BalanceTutorialStep.Completed);
                         var arms = driving.GetComponent<TutorialArmLesson>();
-                        if (arms?.Progress != null) CompleteCounter(arms, arms.Progress, ArmTutorialStep.Completed);
+                        if (arms?.Progress != null) CompleteCounter(arms.Progress, ArmTutorialStep.Completed);
                         var discovery = driving.GetComponent<TutorialDiscoveryLesson>();
                         report.foundationStage = "Terrain=" + terrain?.HasStarted + "/" + terrain?.IsComplete
                             + ", Balance=" + balance?.HasStarted + "/" + balance?.IsComplete
@@ -176,18 +176,16 @@ namespace AnimalGame.Editor
                         SetStep(completedDiscovery, DiscoveryTutorialStep.Completed);
                         typeof(TutorialDiscoveryLesson).GetField("progress", Flags).SetValue(discovery, completedDiscovery);
                         typeof(TutorialDiscoveryLesson).GetField("hasStarted", Flags).SetValue(discovery, true);
-                        typeof(TutorialDiscoveryLesson).GetField("chapterConfirmed", Flags).SetValue(discovery, true);
                         arms.SetPresentationOwned(false); discovery.SetPresentationOwned(false);
                         var completedRecycling = new RecyclingTutorialProgress();
                         SetStep(completedRecycling, RecyclingTutorialStep.Completed);
                         typeof(TutorialRecyclingLesson).GetField("progress", Flags).SetValue(recycling, completedRecycling);
                         typeof(TutorialRecyclingLesson).GetField("hasStarted", Flags).SetValue(recycling, true);
-                        typeof(TutorialRecyclingLesson).GetField("chapterConfirmed", Flags).SetValue(recycling, false);
                         typeof(TutorialRecyclingLesson).GetField("acceptedRecycle", Flags).SetValue(recycling, true);
                         recycling.SetPresentationOwned(true);
                         var completedPhoto = new PhotographyTutorialProgress();
                         SetStep(completedPhoto, PhotographyTutorialStep.Completed);
-                        
+
                         typeof(TutorialPhotographyLesson).GetField("progress", Flags).SetValue(photography, completedPhoto);
                         typeof(TutorialPhotographyLesson).GetField("hasStarted", Flags).SetValue(photography, true);
                         typeof(TutorialPhotographyLesson).GetField("chapterConfirmed", Flags).SetValue(photography, true);
@@ -533,8 +531,8 @@ namespace AnimalGame.Editor
             if (Mathf.Abs(angle) < 36f) state.rightTrigger = distance < 1.2f ? .2f : .38f;
         }
 
-        private static void CompleteCounter(object controller, object progress, object step)
-        { SetStep(progress, step); controller.GetType().GetField("chapterConfirmed", Flags).SetValue(controller, true); }
+        private static void CompleteCounter(object progress, object step)
+        { SetStep(progress, step); }
         private static void SetStep(object progress, object step) => progress.GetType().GetProperty("Step", Flags).SetValue(progress, step);
         private bool Settled(int frames) => Time.frameCount - phaseFrame >= frames;
         private void Begin(Phase next)

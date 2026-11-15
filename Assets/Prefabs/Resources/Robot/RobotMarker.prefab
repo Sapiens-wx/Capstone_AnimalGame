@@ -1126,7 +1126,11 @@ MonoBehaviour:
   normalControlDeadZone: 0.14
   normalAxisDeadZone: 0.1
   normalFullTravelDuration: 0.27
-  inventoryHandReachOfArmLength: 0.25
+  inventoryHandReachOfArmLength: 0.18
+  inventoryUpperLengthScale: 1.2
+  inventoryLowerLengthScale: 0.8
+  inventoryHandHorizontalRangeOfBody: 0.18
+  inventoryBodyArmAngleDegrees: 15
   inventoryArmPoseDuration: 0.25
   normalSpeedExponent: 1.5
   normalFollowEnterMagnitude: 0.45

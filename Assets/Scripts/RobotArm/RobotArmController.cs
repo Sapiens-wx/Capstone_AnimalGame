@@ -115,6 +115,8 @@ namespace AnimalGame.RobotArm
             }
         }
         public bool IsRecycleReady { get; private set; }
+        public bool ShouldOpenBodyHatches => inventoryPresentationActive ? inventoryPresentationOpen
+            : State == RobotArmState.Recycling || (IsArmModeActive && IsRecycleReady);
         public bool IsBlocked { get; private set; }
         public WorldInteraction HeldObject => heldObject;
         /// <summary>Read-only native inlet geometry for optional scene-local teaching cues, in MarkerVisualRoot coordinates.</summary>
@@ -185,7 +187,7 @@ namespace AnimalGame.RobotArm
         private struct Pose
         {
             public float UpperAngle, LowerAngle, UpperLength, LowerLength, Hand;
-            // Only the tumble layout opts into moving sockets. Ordinary poses keep the authored socket.
+            // Tumble and inventory layouts move sockets; ordinary poses keep the authored socket.
             public bool HasSocket;
             public float SocketAngle;
             public static Pose Lerp(Pose a, Pose b, float t) => new Pose {
@@ -1211,7 +1213,7 @@ namespace AnimalGame.RobotArm
         }
         private void ApplyVisuals(Arm arm)
         {
-            arm.Root.gameObject.SetActive(deploymentTime > 0f);
+            arm.Root.gameObject.SetActive(deploymentTime > 0f && !(inventoryPresentationActive && arm.Side < 0f));
             Pose visualPose = arm.Pose;
             Vector2 socket = SocketAt(arm, visualPose);
             if (mediumRecycleActive && visualPose.Hand > 0f)
@@ -1227,6 +1229,7 @@ namespace AnimalGame.RobotArm
                 arm.UpperScale, visualPose.UpperLength / arm.UpperLength);
             Vector3 scale = arm.LoopScale;
             scale.y *= arm.DeployedLoopScale;
+            if (inventoryPresentationActive) scale.y *= inventoryLowerLengthScale;
             arm.LoopSprite.transform.localScale = scale;
             arm.LoopSprite.transform.localPosition = LoopPositionAtScale(arm, scale);
             arm.LoopSprite.enabled = arm.DeployedLoopScale > 0f && arm.Pose.LowerLength > 0f;

@@ -213,6 +213,11 @@ namespace AnimalGame.MapTest
                 UpdatePlayerHeight();
         }
 
+        private void Start()
+        {
+            VegetationContactFade.InitializePlayerView(robotObject.GetComponent<PlayerWorldBody>(), mapCamera);
+        }
+
         private void Update()
         {
             UpdateFrameRate();

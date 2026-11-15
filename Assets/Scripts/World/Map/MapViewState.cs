@@ -9,6 +9,9 @@ namespace AnimalGame.World.Map
         public const int PinLimit = 3;
         private readonly List<Vector2> pins = new List<Vector2>(PinLimit);
         public IReadOnlyList<Vector2> Pins => pins;
+        private readonly List<int> pinColors = new List<int>(PinLimit);
+        public Color GetPinColor(int index) => pinColors[index] switch
+        { 0 => Color.red, 1 => Color.green, _ => Color.blue };
         public Vector2 Center { get; private set; }
         public Vector2 Cursor { get; private set; }
         public Vector2 DisplayCursor => SelectedPin >= 0 ? pins[SelectedPin]
@@ -85,11 +88,19 @@ namespace AnimalGame.World.Map
             {
                 Cursor = pins[SelectedPin];
                 pins.RemoveAt(SelectedPin);
+                pinColors.RemoveAt(SelectedPin);
                 SelectedPin = -1;
                 return;
             }
             Cursor = DisplayCursor;
-            if (pins.Count == PinLimit) pins.RemoveAt(0);
+            if (pins.Count == PinLimit)
+            {
+                pins.RemoveAt(0);
+                pinColors.RemoveAt(0);
+            }
+            int color = 0;
+            while (pinColors.Contains(color)) color++;
+            pinColors.Add(color);
             pins.Add(Cursor);
             SelectedPin = pins.Count - 1;
             SelectedCheckpoint = -1;

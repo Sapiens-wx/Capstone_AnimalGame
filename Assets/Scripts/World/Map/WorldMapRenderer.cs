@@ -54,6 +54,7 @@ namespace AnimalGame.World.Map
                 Vector2 origin = Vector2.Scale(tile.Coordinate, tileSize);
                 if (!view.Overlaps(new Rect(origin, tileSize))) continue;
                 properties.Clear();
+                TiledMapTileView.ConfigureWater(properties, tile);
                 properties.SetVector("_TileRect", new Vector4(origin.x, origin.y, tileSize.x, tileSize.y));
                 properties.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
                 properties.SetFloat("_MinimumHeight", tile.Level.MinimumHeightMeters);

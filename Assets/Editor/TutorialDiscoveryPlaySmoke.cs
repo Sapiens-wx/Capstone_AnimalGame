@@ -149,20 +149,20 @@ namespace AnimalGame.Editor
                         bootstrap.scanChargeUi.TerrainScanRequested += CountTerrain;
                         ApplyFixtureStartPosition();
                         bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position, out report.initialMapPosition, out _);
-                        CompleteFixture(driving, driving.Progress, DrivingTutorialStep.Completed);
+                        CompleteFixture(driving.Progress, DrivingTutorialStep.Completed);
                         terrain = driving.GetComponent<TutorialTerrainLesson>(); arms = driving.GetComponent<TutorialArmLesson>();
                         Require(terrain != null && arms != null, "All preceding scene-owned lesson components must exist.");
                         Begin(Phase.TerrainStarting); break;
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
-                        CompleteFixture(terrain, terrain.Progress, TerrainTutorialStep.Completed);
+                        CompleteFixture(terrain.Progress, TerrainTutorialStep.Completed);
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
                         var precedingBalance = arms.GetComponent<TutorialBalanceLesson>();
                         if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
                             && !precedingBalance.IsComplete)
                         {
-                            CompleteFixture(precedingBalance, precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            CompleteFixture(precedingBalance.Progress, BalanceTutorialStep.Completed);
                             return;
                         }
                         if (!arms.HasStarted || arms.Progress == null) return;
@@ -172,7 +172,7 @@ namespace AnimalGame.Editor
                             if (!report.fullyChargedBeforeChapter) return;
                             Record("A real held LB charge reaches full charge in the preceding arm chapter before discovery begins.");
                         }
-                        CompleteFixture(arms, arms.Progress, ArmTutorialStep.Completed);
+                        CompleteFixture(arms.Progress, ArmTutorialStep.Completed);
                         if (earlyChargeFixture)
                         {
                             fixtureAnimalPrefab = (GameObject)typeof(TutorialDiscoveryLesson).GetField("animalPrefab", Flags).GetValue(lesson);
@@ -414,10 +414,10 @@ namespace AnimalGame.Editor
             bootstrap.cameraFollow.SnapToTarget();
         }
 
-        private static void CompleteFixture(MonoBehaviour controller, object progress, object completed)
+        private static void CompleteFixture(object progress, object completed)
         {
             progress.GetType().GetProperty("Step", Flags).SetValue(progress, completed);
-            controller.GetType().GetField("chapterConfirmed", Flags).SetValue(controller, true);
+
         }
 
         private void ApplyFixtureGameViewSize()
