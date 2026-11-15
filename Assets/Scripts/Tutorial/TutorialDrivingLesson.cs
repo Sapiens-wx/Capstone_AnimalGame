@@ -29,7 +29,6 @@ namespace AnimalGame.Tutorial
         private string lastFeedback;
         private bool ownsPresentation = true;
         // Retained for existing editor fixtures; completion no longer requires a chapter confirmation.
-        private bool chapterConfirmed;
         private bool interrupted;
         private readonly DrivingLessonText defaultText = new DrivingLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();

@@ -351,7 +351,7 @@ namespace AnimalGame.Editor
             gamepadId = InputSystem.AddDevice<Gamepad>("Tip-over tutorial validation gamepad").deviceId;
             bootstrap.robot.transform.position = bootstrap.map.MapPositionToWorld(new Vector2(146f, 121f));
             bootstrap.robot.transform.rotation = Quaternion.identity; bootstrap.cameraFollow?.SnapToTarget();
-            SetStep(driving.Progress, DrivingTutorialStep.Completed); Set(driving, "chapterConfirmed", true);
+            SetStep(driving.Progress, DrivingTutorialStep.Completed);
             Tumble.Started += OnStarted; Self.ForcePulse += OnPulse; Self.SupportFailed += OnFailure; Self.RightingLanded += OnLanding;
             nativeSettings = NativeSettings();
             originalBalanceEnabled = bootstrap.balance.enabled;

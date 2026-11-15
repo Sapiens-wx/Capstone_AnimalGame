@@ -30,7 +30,6 @@ Shader "AnimalGame/Dynamic Height Contours"
         _WaterWaveDistortion ("Water Wave Distortion", Float) = 0.03
         _WaterWaveSpeed ("Water Wave Speed", Float) = 0.8
         _WaterWaveLengthMeters ("Water Wave Length Meters", Float) = 12
-        _WaterDeepSpeedMultiplier ("Water Deep Speed Multiplier", Float) = 0.65
         _WaterFlowSpeed ("Local Water Flow Speed (m/s)", Float) = 10
         _ContourColor ("Contour Color", Color) = (1, 1, 1, 1)
         _MinimumHeight ("Minimum Height", Float) = 0

@@ -183,24 +183,24 @@ namespace AnimalGame.Editor
                         bootstrap.photoMode.PhotoCaptured += OnShutter;
                         bootstrap.photoResultUi.ResultShown += OnResultShown;
                         bootstrap.photoResultUi.PhotoSaved += OnPhotoSaved;
-                        CompleteFixture(driving, driving.Progress, DrivingTutorialStep.Completed);
+                        CompleteFixture(driving.Progress, DrivingTutorialStep.Completed);
                         terrain = driving.GetComponent<TutorialTerrainLesson>(); arms = driving.GetComponent<TutorialArmLesson>();
                         Require(terrain != null && arms != null, "The preceding scene-owned lessons must exist.");
                         Begin(Phase.TerrainStarting); break;
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
-                        CompleteFixture(terrain, terrain.Progress, TerrainTutorialStep.Completed);
+                        CompleteFixture(terrain.Progress, TerrainTutorialStep.Completed);
                         Begin(Phase.ArmStarting); break;
                     case Phase.ArmStarting:
                         var precedingBalance = arms.GetComponent<TutorialBalanceLesson>();
                         if (precedingBalance != null && precedingBalance.enabled && precedingBalance.Progress != null
                             && !precedingBalance.IsComplete)
                         {
-                            CompleteFixture(precedingBalance, precedingBalance.Progress, BalanceTutorialStep.Completed);
+                            CompleteFixture(precedingBalance.Progress, BalanceTutorialStep.Completed);
                             return;
                         }
                         if (!arms.HasStarted || arms.Progress == null) return;
-                        CompleteFixture(arms, arms.Progress, ArmTutorialStep.Completed);
+                        CompleteFixture(arms.Progress, ArmTutorialStep.Completed);
                         Begin(Phase.DiscoveryStarting); break;
                     case Phase.DiscoveryStarting:
                         if (!discovery.HasStarted || discovery.Progress == null || Targets == null || !Targets.IsReady) return;
@@ -250,7 +250,7 @@ namespace AnimalGame.Editor
                             "The scan must leave the teaching woodpecker stationary.");
                         Require(PlayerDepth() <= .01f, "Native seen confirmation must be observed from dry ground.");
                         Record("The same native woodpecker marker becomes seen while the scanned actor remains at its original anchor.");
-                        CompleteFixture(discovery, discovery.Progress, DiscoveryTutorialStep.Completed);
+                        CompleteFixture(discovery.Progress, DiscoveryTutorialStep.Completed);
                         Begin(Phase.PhotographyStarting); break;
                     case Phase.RefreshCharge:
                         if (bootstrap.scanChargeUi.IsFullyCharged) Begin(Phase.RefreshRelease);
@@ -447,10 +447,10 @@ namespace AnimalGame.Editor
             gamepadId = InputSystem.AddDevice<Gamepad>("Photography tutorial validation gamepad").deviceId;
         }
 
-        private static void CompleteFixture(MonoBehaviour controller, object progress, object completed)
+        private static void CompleteFixture(object progress, object completed)
         {
             progress.GetType().GetProperty("Step", Flags).SetValue(progress, completed);
-            controller.GetType().GetField("chapterConfirmed", Flags).SetValue(controller, true);
+
         }
 
         private void ApplyFixtureStartPosition(bool prepareDiscoveryTargets)

@@ -287,10 +287,6 @@ namespace AnimalGame.MapTest
         [SerializeField, Min(0.1f)]
         private float staticWaterWaveLengthMeters = 12f;
 
-        [Tooltip("Animation-speed multiplier at the maximum authored depth.")]
-        [SerializeField, Range(0f, 1f)]
-        private float staticWaterDeepSpeedMultiplier = 0.65f;
-
         [SerializeField, HideInInspector]
         private int staticWaterMaskBakeRevision;
 
@@ -514,8 +510,6 @@ namespace AnimalGame.MapTest
         public float StaticWaterWaveSpeed => staticWaterWaveSpeed;
         public float StaticWaterWaveLengthMeters =>
             staticWaterWaveLengthMeters;
-        public float StaticWaterDeepSpeedMultiplier =>
-            staticWaterDeepSpeedMultiplier;
 #if UNITY_EDITOR
         public Color StaticWaterEditorTint => staticWaterEditorTint;
 #endif
@@ -555,8 +549,6 @@ namespace AnimalGame.MapTest
                            ^ staticWaterWaveSpeed.GetHashCode();
                     hash = hash * 397
                            ^ staticWaterWaveLengthMeters.GetHashCode();
-                    hash = hash * 397
-                           ^ staticWaterDeepSpeedMultiplier.GetHashCode();
                     hash = hash * 397 ^ staticWaterMaskBakeRevision;
                     return hash;
                 }
@@ -1602,8 +1594,6 @@ namespace AnimalGame.MapTest
             staticWaterWaveLengthMeters = Mathf.Max(
                 0.1f,
                 staticWaterWaveLengthMeters);
-            staticWaterDeepSpeedMultiplier = Mathf.Clamp01(
-                staticWaterDeepSpeedMultiplier);
             surfaceRevealEdgePixels = Mathf.Max(0f, surfaceRevealEdgePixels);
 #if UNITY_EDITOR
             surfaceOpacity = Mathf.Clamp01(surfaceOpacity);

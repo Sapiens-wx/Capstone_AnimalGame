@@ -144,7 +144,6 @@ namespace AnimalGame.Editor
                                 "The native bootstrap must spawn directly at the authored terrain endpoint for this opt-in fixture.");
                         poseRecorded = true;
                         typeof(DrivingTutorialProgress).GetProperty("Step", Flags).SetValue(driving.Progress, DrivingTutorialStep.Completed);
-                        typeof(TutorialDrivingLesson).GetField("chapterConfirmed", Flags).SetValue(driving, true);
                         terrain = driving.GetComponent<TutorialTerrainLesson>();
                         Require(terrain != null, "The authored terrain lesson must precede balance.");
                         Record("Fixture skips driving/terrain counters only and retains the actual player pose, native balance physics and existing point display.");
@@ -152,7 +151,6 @@ namespace AnimalGame.Editor
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
                         typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
-                        typeof(TutorialTerrainLesson).GetField("chapterConfirmed", Flags).SetValue(terrain, true);
                         Require(!arms.HasStarted, "The arms chapter must not start when only terrain has completed.");
                         Begin(Phase.BalanceStarting); break;
                     case Phase.BalanceStarting:

@@ -5,7 +5,7 @@ float4 _WaterMaskTex_TexelSize, _WaterMaskBounds, _WaterOriginMeters;
 float4 _WaterLayerOneSpeed, _WaterLayerTwoSpeed;
 float _WaterEnabled, _WaterTileSizeMeters, _WaterLayerTwoScale;
 float _WaterWaveDistortion, _WaterWaveSpeed, _WaterWaveLengthMeters;
-float _WaterDeepSpeedMultiplier, _WaterFlowSpeed;
+float _WaterFlowSpeed;
 float2 RotateWaterUv(float2 value)
 {
     // A fixed 23-degree turn prevents the second layer from

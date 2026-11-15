@@ -36,7 +36,6 @@ namespace AnimalGame.Tutorial
         private Vector2 displayedTarget;
         private bool showingTarget;
         private bool ownsPresentation = true;
-        private bool chapterConfirmed;
         private bool interrupted;
         private readonly TerrainLessonText defaultText = new TerrainLessonText();
         private readonly TutorialPanelText defaultPanelText = new TutorialPanelText();

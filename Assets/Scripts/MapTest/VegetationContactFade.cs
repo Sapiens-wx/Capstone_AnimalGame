@@ -47,11 +47,6 @@ namespace AnimalGame.MapTest
         public static IReadOnlyCollection<VegetationContactFade> Active =>
             activeVegetation;
 
-        private void Awake()
-        {
-            CacheReferences();
-        }
-
         private void OnEnable()
         {
             if (!Application.isPlaying)
@@ -262,8 +257,7 @@ namespace AnimalGame.MapTest
                 return;
             }
             if (spriteRenderers == null
-                || authoredColours == null
-                || spriteRenderers.Length != authoredColours.Length)
+                || authoredColours == null)
             {
                 CacheReferences();
             }

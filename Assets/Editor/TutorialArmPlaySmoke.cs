@@ -112,14 +112,12 @@ namespace AnimalGame.Editor
                         originalBackground = Application.runInBackground; Application.runInBackground = true;
                         gamepadId = InputSystem.AddDevice<Gamepad>("Arm tutorial validation gamepad").deviceId;
                         typeof(DrivingTutorialProgress).GetProperty("Step", Flags).SetValue(driving.Progress, DrivingTutorialStep.Completed);
-                        typeof(TutorialDrivingLesson).GetField("chapterConfirmed", Flags).SetValue(driving, true);
                         terrain = driving.GetComponent<TutorialTerrainLesson>();
                         Require(terrain != null, "The scene must retain its preceding terrain chapter.");
                         Begin(Phase.TerrainStarting); break;
                     case Phase.TerrainStarting:
                         if (!terrain.HasStarted || terrain.Progress == null) return;
                         typeof(TerrainTutorialProgress).GetProperty("Step", Flags).SetValue(terrain.Progress, TerrainTutorialStep.Completed);
-                        typeof(TutorialTerrainLesson).GetField("chapterConfirmed", Flags).SetValue(terrain, true);
                         Require(bootstrap.map.TrySampleWorldPosition(bootstrap.robot.transform.position,
                             out fixturePositionMeters, out _), "The untouched initial robot must be on the existing map.");
                         fixturePositionRecorded = true;
@@ -134,7 +132,6 @@ namespace AnimalGame.Editor
                             && !precedingBalance.IsComplete)
                         {
                             typeof(BalanceTutorialProgress).GetProperty("Step", Flags).SetValue(precedingBalance.Progress, BalanceTutorialStep.Completed);
-                            typeof(TutorialBalanceLesson).GetField("chapterConfirmed", Flags).SetValue(precedingBalance, true);
                             return;
                         }
                         if (!lesson.HasStarted || lesson.Progress == null) return;

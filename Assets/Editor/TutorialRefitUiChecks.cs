@@ -139,7 +139,6 @@ namespace AnimalGame.Editor
             {
                 if (step == RefitTutorialStep.Completed || step == RefitTutorialStep.RefitIntroduction || step == RefitTutorialStep.CloseRefit) continue;
                 typeof(RefitTutorialProgress).GetProperty("Step", Flags).SetValue(fixture.Progress, step);
-                Set(fixture.Lesson, "chapterConfirmed", false);
                 Invoke(fixture.Lesson, "RefreshPanel", true);
                 fixture.Panel.SetPhotoModeVisible(false); fixture.Panel.SetVisible(true); fixture.Panel.SetCollapsed(false);
                 Driving("Settle", fixture.Panel, size);
@@ -161,7 +160,7 @@ namespace AnimalGame.Editor
             typeof(RefitTutorialProgress).GetProperty("Step", Flags).SetValue(fixture.Progress, RefitTutorialStep.Completed);
             Set(fixture.Progress, "lastValid", true);
             Set(fixture.Lesson, "hasStarted", true);
-            Set(fixture.Lesson, "chapterConfirmed", false); Invoke(fixture.Lesson, "RefreshPanel", true);
+            Invoke(fixture.Lesson, "RefreshPanel", true);
             Driving("Settle", fixture.Panel, Sizes[0]);
             Require(fixture.Lesson.IsComplete && !fixture.Panel.CanContinue && !fixture.Panel.IsVisible,
                 "The final camera-frame confirmation completes the chapter and hides the card without another A.");

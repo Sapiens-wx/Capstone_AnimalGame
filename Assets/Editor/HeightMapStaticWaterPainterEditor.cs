@@ -24,7 +24,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         "staticWaterLayerOneSpeedMetersPerSecond",
         "staticWaterLayerTwoSpeedMetersPerSecond", "staticWaterLayerTwoScale",
         "staticWaterWaveDistortion", "staticWaterWaveSpeed",
-        "staticWaterWaveLengthMeters", "staticWaterDeepSpeedMultiplier"
+        "staticWaterWaveLengthMeters"
     };
 
     private HeightMapLevelAsset sourceLevelAsset;
@@ -228,8 +228,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             "staticWaterWaveSpeed");
         SerializedProperty waveLength = serializedLevel.FindProperty(
             "staticWaterWaveLengthMeters");
-        SerializedProperty deepSpeedMultiplier = serializedLevel.FindProperty(
-            "staticWaterDeepSpeedMultiplier");
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Water Map", EditorStyles.boldLabel);
@@ -268,9 +266,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         EditorGUILayout.PropertyField(
             waveLength,
             new GUIContent("Wave Length (m)"));
-        EditorGUILayout.PropertyField(
-            deepSpeedMultiplier,
-            new GUIContent("Deep Speed Multiplier"));
         bool settingsChanged = EditorGUI.EndChangeCheck();
         serializedLevel.ApplyModifiedProperties();
 

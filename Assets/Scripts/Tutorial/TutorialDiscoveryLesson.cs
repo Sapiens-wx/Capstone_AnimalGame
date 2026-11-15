@@ -40,7 +40,6 @@ namespace AnimalGame.Tutorial
         private BioScanStaticAreaUI objectMarkers;
         private bool hasStarted;
         private bool birdScanned;
-        private bool chapterConfirmed;
         private bool ownsPresentation = true;
         private bool interrupted;
         private float completionDelay, refreshRemaining, feedbackRemaining;

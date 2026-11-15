@@ -24,7 +24,7 @@ namespace AnimalGame.RobotMap
         public bool WarmupSucceeded { get; private set; }
 
         private PhotoResultView resultView;
-        private bool started, ownsWarmup, failed, reported;
+        private bool ownsWarmup, failed, reported;
         private int renderedFrame = -1, stateFrame, lastObservedFrame = -1, stableFrames;
         private int pose;
         private double startedAt;
@@ -62,8 +62,6 @@ namespace AnimalGame.RobotMap
 
         private void Start()
         {
-            if (started) return;
-            started = true;
             startedAt = Time.realtimeSinceStartupAsDouble;
             stateFrame = Time.frameCount;
             resultView = MapTest.HeightMapPlayerSceneBootstrap.inst.photoResultView;
@@ -101,7 +99,7 @@ namespace AnimalGame.RobotMap
 
         private void Update()
         {
-            if (!started || State == LoadingState.Completed || State == LoadingState.Failed) return;
+            if (State == LoadingState.Completed || State == LoadingState.Failed) return;
             try { Advance(); }
             catch (Exception exception) { Fail(exception.ToString()); }
         }

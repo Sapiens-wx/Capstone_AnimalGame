@@ -99,7 +99,6 @@ namespace AnimalGame.MapTest
             properties.SetFloat("_WaterWaveDistortion", level.StaticWaterWaveDistortion);
             properties.SetFloat("_WaterWaveSpeed", level.StaticWaterWaveSpeed);
             properties.SetFloat("_WaterWaveLengthMeters", level.StaticWaterWaveLengthMeters);
-            properties.SetFloat("_WaterDeepSpeedMultiplier", level.StaticWaterDeepSpeedMultiplier);
         }
 
         public void Dispose()

@@ -36,7 +36,7 @@ namespace AnimalGame.Tutorial
         private TutorialWaypointIndicator waypoint;
         private WorldInteraction targetWaste;
         private WorldInteraction targetFragment;
-        private bool hasStarted, chapterConfirmed, acceptedRecycle, previousToggleHeld;
+        private bool hasStarted, acceptedRecycle, previousToggleHeld;
         private bool acceptedFragmentRecycle;
         private bool ownsPresentation = true;
         private bool interrupted;
@@ -185,7 +185,7 @@ namespace AnimalGame.Tutorial
         {
             progress = new RecyclingTutorialProgress();
             if (acceptedRecycle) progress.RegisterRecycled(true);
-            chapterConfirmed = false; hasStarted = true;
+            hasStarted = true;
             photography.SetPresentationOwned(false);
             Panel.SetCollapsed(false); Panel.SetContinuePrompt(false);
             var owner = new GameObject("Recycling Tutorial Destination"); owner.transform.SetParent(transform, false);
@@ -558,7 +558,7 @@ namespace AnimalGame.Tutorial
             ClearInventoryPresentation(); recoveredMaterials.Clear(); visibleMaterials.Clear(); CaptureInventorySnapshot();
             UnbindWaste(); targets.ResetWasteTarget(); acceptedRecycle = false;
             UnbindFragment(); acceptedFragmentRecycle = false; largeTargets?.ResetTarget();
-            progress.Reset(); chapterConfirmed = false; ownsPresentation = true;
+            progress.Reset(); ownsPresentation = true;
             displayedStep = (RecyclingTutorialStep)(-1); EnsureWaste();
             Panel.SetCollapsed(false); Panel.SetContinuePrompt(false);
         }
@@ -572,7 +572,7 @@ namespace AnimalGame.Tutorial
             if (waypoint != null) { waypoint.ClearTarget(); Destroy(waypoint.gameObject); waypoint = null; }
             if (Panel != null) { Panel.SetContinuePrompt(false); Panel.SetVisible(false); Panel.SetLessonHint(string.Empty); }
             if (photography != null) photography.SetPresentationOwned(true);
-            hasStarted = chapterConfirmed = acceptedRecycle = false; progress = null; ownsPresentation = true;
+            hasStarted = acceptedRecycle = false; progress = null; ownsPresentation = true;
         }
 
         private void OnDisable() { if (hasStarted) ReleasePresentation(); else { UnbindWaste(); UnbindFragment(); } }

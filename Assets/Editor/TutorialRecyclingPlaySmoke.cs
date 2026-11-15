@@ -469,7 +469,7 @@ namespace AnimalGame.Editor
             Complete(discovery.GetComponent<TutorialBalanceLesson>(), new BalanceTutorialProgress(), BalanceTutorialStep.Completed);
             Complete(discovery.GetComponent<TutorialArmLesson>(), new ArmTutorialProgress(), ArmTutorialStep.Completed);
             var completed = new DiscoveryTutorialProgress(); SetStep(completed, DiscoveryTutorialStep.Completed);
-            Set(discovery,"progress",completed); Set(discovery,"hasStarted",true); Set(discovery,"chapterConfirmed",true);
+            Set(discovery,"progress",completed); Set(discovery,"hasStarted",true);
             discovery.SetPresentationOwned(false);
             var animalPrefab = (GameObject)Get(discovery,"animalPrefab"); var itemPrefab = (GameObject)Get(discovery,"smallGarbagePrefab");
             targets.Configure(bootstrap,animalPrefab,itemPrefab);
@@ -478,7 +478,6 @@ namespace AnimalGame.Editor
         {
             SetStep(progress,step); Set(controller,"progress",progress);
             if (controller.GetType().GetField("hasStarted",Flags) != null) Set(controller,"hasStarted",true);
-            Set(controller,"chapterConfirmed",true);
             controller.GetType().GetMethod("SetPresentationOwned",Flags)?.Invoke(controller,new object[]{false});
         }
         private void Drive()
