@@ -65,6 +65,8 @@ namespace AnimalGame.MapTest
                 material.SetTexture("_GrassPatternTex", level.GrasslandPattern);
                 material.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
                 material.SetFloat("_GrassTileSize", level.GrasslandTileSizeMeters);
+                material.SetVector("_GrassLayout", level.GrasslandLayout);
+                material.SetVector("_GrassShape", level.GrasslandShape);
                 Vector2 normalization = level.GrasslandAlphaNormalization;
                 material.SetVector("_GrassAlphaNormalization", new Vector4(normalization.x, normalization.y, 0, 0));
                 material.SetMatrix("_GrassMetersToWorld", grassMetersToWorld);
