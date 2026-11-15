@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: PileatedWoodpeckerConfig
   m_EditorClassIdentifier: 
   activityRadiusMeters: 45
-  dailyMoveSpeedMetersPerSecond: 9
-  fleeSpeedMetersPerSecond: 14
+  dailyMoveSpeedMetersPerSecond: 9.5
+  fleeSpeedMetersPerSecond: 12
   turnSpeedDegreesPerSecond: 540
   arrivalDistanceMeters: 0.12
   bodyRadiusMeters: 0.12
@@ -56,7 +56,7 @@ MonoBehaviour:
   resurfaceRadiusMeters: 2.5
   submergeTransitionSeconds: 0.35
   waterSearchSpacingMeters: 1.5
-  alertRadiusMeters: 18
+  alertRadiusMeters: 25
   detectionIntervalSeconds: 0.5
   baseDetectionChancePerCheck: 0.12
   nearestDetectionMultiplier: 3

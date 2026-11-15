@@ -65,9 +65,9 @@ namespace AnimalGame.Animals
                     if (predator == null || !predator.IsPresent || !predator.Config.Eats(config)) continue;
                     float proximity = 1f - Mathf.Clamp01(Vector2.Distance(motor.CurrentMapPosition, predator.Motor.CurrentMapPosition) / config.AlertRadiusMeters);
                     float speed = Mathf.Clamp01(predator.Motor.CurrentSpeedMetersPerSecond / config.PlayerSpeedForMaximumBonus);
-                    float chance = config.BaseDetectionChancePerCheck * Mathf.Lerp(1f, config.NearestDetectionMultiplier, proximity)
+                    float chance = Mathf.Clamp01(config.BaseDetectionChancePerCheck * config.NearestDetectionMultiplier
                         * Mathf.Lerp(1f, config.MaximumPlayerSpeedDetectionMultiplier, speed)
-                        * (HasDirectSight(predator.transform) ? config.DirectLineOfSightDetectionMultiplier : 1f);
+                        * (HasDirectSight(predator.transform) ? config.DirectLineOfSightDetectionMultiplier : 1f)) * proximity;
                     if (Random.value < chance) { Remember(predator.transform); found = true; }
                 }
             }
@@ -98,10 +98,6 @@ namespace AnimalGame.Animals
             float playerSpeedProgress = Mathf.Clamp01(
                 Mathf.Abs(Player.CurrentSpeed)
                 / config.PlayerSpeedForMaximumBonus);
-            float distanceMultiplier = Mathf.Lerp(
-                1f,
-                config.NearestDetectionMultiplier,
-                proximity);
             float speedMultiplier = Mathf.Lerp(
                 1f,
                 config.MaximumPlayerSpeedDetectionMultiplier,
@@ -111,9 +107,9 @@ namespace AnimalGame.Animals
                 : 1f;
             float detectionChance = Mathf.Clamp01(
                 config.BaseDetectionChancePerCheck
-                * distanceMultiplier
+                * config.NearestDetectionMultiplier
                 * speedMultiplier
-                * directSightMultiplier);
+                * directSightMultiplier) * proximity;
 
             // Hearing is part of detection, so this deliberately has no
             // forward-view-cone requirement. Direct sight is only a bonus;

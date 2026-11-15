@@ -19,6 +19,7 @@ namespace AnimalGame.Editor
         [MenuItem("Animal Game/Validation/Run Animal AI Checks")]
         public static void Run()
         {
+            CheckDistanceDetection();
             CheckIndependentHealthAndDecay();
             CheckBodyAndIndex();
             CheckDelayedDamage();
@@ -38,6 +39,59 @@ namespace AnimalGame.Editor
         {
             try { Run(); EditorApplication.Exit(0); }
             catch (Exception error) { Debug.LogException(error); EditorApplication.Exit(1); }
+        }
+        public static void CheckDistanceDetection()
+        {
+            var random = UnityEngine.Random.state;
+            try
+            {
+                using var f = new Fixture();
+                var observer = f.Animal("Observer", new Vector2(8f, 8f));
+                Set(observer.Config, "alertRadiusMeters", 10f);
+                Set(observer.Config, "baseDetectionChancePerCheck", .25f);
+                Set(observer.Config, "nearestDetectionMultiplier", 2f);
+                Set(observer.Config, "directLineOfSightDetectionMultiplier", 1f);
+                var player = f.New("Player", f.Map.MapPositionToWorld(new Vector2(9f, 8f))).AddComponent<RobotMover>();
+                Set(f.Simulation.World, "<Player>k__BackingField", player);
+                observer.Perception.Initialize(f.Map, observer.Config);
+                CheckGradient(player.transform, false);
+
+                Set(f.Simulation.World, "<Player>k__BackingField", null);
+                observer.Perception.Initialize(f.Map, observer.Config);
+                var predator = f.Animal("Predator", new Vector2(9f, 8f));
+                Set(predator.Config, "preySpecies", new List<AnimalSpeciesConfig> { observer.Config });
+                CheckGradient(predator.transform, true);
+
+                void CheckGradient(Transform threat, bool isPredator)
+                {
+                    foreach (float baseChance in new[] { .25f, 1f })
+                    {
+                        Set(observer.Config, "baseDetectionChancePerCheck", baseChance);
+                        int previous = int.MaxValue;
+                        foreach (float distance in new[] { 1f, 5f, 9.9f, 10f, 10.1f })
+                        {
+                            Vector2 position = new Vector2(8f + distance, 8f);
+                            if (isPredator) Require(threat.GetComponent<AnimalAgent>().Motor.TeleportToMapPosition(position), "Could not position predator");
+                            else threat.position = f.Map.MapPositionToWorld(position);
+                            observer.Perception.ResetDetection();
+                            if (!isPredator) Require(!observer.Perception.TickDetection(0f), "Entering detection range skipped its check interval");
+                            UnityEngine.Random.InitState(140126);
+                            int detected = 0;
+                            for (int trial = 0; trial < 6000; trial++)
+                                if (observer.Perception.TickDetection(observer.Config.DetectionIntervalSeconds)) detected++;
+                            if (distance < 10f)
+                            {
+                                Require(detected > 0 && detected < previous,
+                                    "Detection probability did not decrease with distance: " + distance + " / " + detected);
+                                previous = detected;
+                            }
+                            else Require(detected == 0, "Range edge/outside retained a detection probability");
+                        }
+                    }
+                }
+            }
+            finally { UnityEngine.Random.state = random; }
+            Debug.Log("Distance detection PASS: player/predator near-to-far falloff, zero at/outside radius, and entry interval.");
         }
         private static void CheckIndependentHealthAndDecay()
         {

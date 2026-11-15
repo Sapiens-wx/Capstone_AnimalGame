@@ -81,8 +81,7 @@ namespace AnimalGame.RobotMap
 
         private void StepBodyHatches(float dt)
         {
-            float target = armController == null ? 0f : armController.IsArmModeActive ? 1f
-                : Mathf.Clamp01(armController.VisibleDeployment01 / .35f);
+            float target = armController != null && armController.ShouldOpenBodyHatches ? 1f : 0f;
             float previous = bodyHatchOpen01;
             float duration = target > bodyHatchOpen01 ? bodyHatchOpenDuration : bodyHatchCloseDuration;
             bodyHatchOpen01 = Mathf.MoveTowards(bodyHatchOpen01, target, dt / duration);

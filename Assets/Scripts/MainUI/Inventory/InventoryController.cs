@@ -40,6 +40,7 @@ namespace AnimalGame.MainUI.Inventory
         private bool closeHoldLatched;
         private float closeHoldElapsed;
         public int SelectedIndex => selectedIndex;
+        public event Action<int> SelectionChanged;
         public InventoryItem[] Items => inventoryStore.Items;
 
         public InventoryController(IInventoryHost host)
@@ -290,7 +291,10 @@ namespace AnimalGame.MainUI.Inventory
         // Public programmatic/layout selection is deliberately passive (does not acknowledge new items).
         public void SelectItem(int index)
         {
-            selectedIndex = Mathf.Clamp(index, 0, SlotCount - 1);
+            int next = Mathf.Clamp(index, 0, SlotCount - 1);
+            bool changed = next != selectedIndex;
+            selectedIndex = next;
+            if (changed) SelectionChanged?.Invoke(selectedIndex);
             if (selection == null || slots[selectedIndex] == null || !Positive(grid.layout.width)) return;
             float inset = InventorySelectionElement.InnerFrameInset;
             Vector2 offset = grid.layout.position + slots[selectedIndex].layout.position
