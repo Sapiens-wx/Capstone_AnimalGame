@@ -212,6 +212,15 @@ namespace AnimalGame.Editor
                 Color wet = water[256 * 512 + 280], dry = water[256 * 512 + 40];
                 Require(wet.g > wet.r + .4f, "GPU map did not render authored water.");
                 Require(Mathf.Abs(dry.g - dry.r) < .01f, "Cropped water leaked outside its bounds.");
+                for (int x = 140; x < 372; x++)
+                    Require(water[256 * 512 + x].r < .01f, "Contours appeared over water.");
+                pattern.SetPixel(0, 0, Color.clear); pattern.Apply();
+                Color[] transparentWater = Render(type, renderer, map, state);
+                for (int x = 140; x < 372; x++)
+                    Require(transparentWater[256 * 512 + x].maxColorComponent < .01f,
+                        "Contours leaked through transparent water pattern gaps.");
+                Require(Sum(transparentWater, 1, 120) > .1f, "Water hid contours outside its bounds.");
+                pattern.SetPixel(0, 0, Color.green); pattern.Apply();
                 type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512, fog });
                 var target = (RenderTexture)type.GetProperty("Texture").GetValue(renderer);
                 RenderTexture previous = RenderTexture.active;

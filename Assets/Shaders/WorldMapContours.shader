@@ -52,16 +52,17 @@ Shader "AnimalGame/World Map Contours"
                 float heightMeters = lerp(_MinimumHeight, _MaximumHeight, saturate(tex2D(_HeightTex, input.uv).r));
                 float contourBlend = HeightContourBlend(heightMeters);
                 float2 mapPosition = _TileRect.xy + input.uv * _TileRect.zw;
-                float3 color = 0;
+                float3 color = contourBlend;
                 if (_WaterEnabled > .5)
                 {
                     float2 waterUv;
                     float insideBounds;
                     fixed4 waterData = ReadMapWater(input.uv, waterUv, insideBounds);
+                    // The whole authored water range hides contours, including gaps in the pattern.
+                    color *= 1 - smoothstep(.02, .98, waterData.r);
                     color = ApplyMapWater(color, input.uv, _TileRect.zw, 0,
                         waterUv, insideBounds, waterData);
                 }
-                color = lerp(color, float3(1, 1, 1), contourBlend);
                 color *= 1 - tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
                 return fixed4(color, 1);
             }
