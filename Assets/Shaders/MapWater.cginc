@@ -115,6 +115,33 @@ fixed4 ReadMapWater(float2 tileUv, out float2 waterUv, out float insideBounds)
         * step(waterUv.x, 1) * step(waterUv.y, 1);
     return _WaterEnabled > .5 ? tex2D(_WaterMaskTex, waterUv) * insideBounds : 0;
 }
+// Blur only the authored water range, in physical metres, to soften land patterns
+// outside the shoreline. Bounds checks prevent clamped mask edges from bleeding.
+float MapShoreTerrainOpacity(float2 tileUv, float2 mapSizeMeters)
+{
+    if (_WaterEnabled < .5) return 1;
+    float width = 1.5;
+    float2 uv = (tileUv - _WaterMaskBounds.xy) / _WaterMaskBounds.zw;
+    float2 radius = width / max(float2(.001, .001), mapSizeMeters * _WaterMaskBounds.zw);
+    if (any(uv < -radius) || any(uv > 1 + radius)) return 1;
+    float coverage = 0;
+    [unroll] for (int ring = 1; ring <= 3; ring++)
+    {
+        float weight = ring == 1 ? .5 : (ring == 2 ? .3 : .2);
+        [unroll] for (int direction = 0; direction < 8; direction++)
+        {
+            float angle = direction * .785398163;
+            float2 sampleUv = uv + float2(cos(angle), sin(angle)) * radius * (ring / 3.0);
+            float inside = step(0, sampleUv.x) * step(0, sampleUv.y)
+                * step(sampleUv.x, 1) * step(sampleUv.y, 1);
+            coverage += tex2Dlod(_WaterMaskTex, float4(sampleUv, 0, 0)).r * inside * weight / 8;
+        }
+    }
+    // Reach full transparency before the actual water edge, including narrow shores.
+    float landOpacity = 1 - smoothstep(0, .25, coverage);
+    return landOpacity * landOpacity;
+}
+
 float3 ApplyMapWater(float3 background, float2 tileUv, float2 tileSize, float revealMask,
     float2 waterUv, float insideBounds, fixed4 waterData)
 {

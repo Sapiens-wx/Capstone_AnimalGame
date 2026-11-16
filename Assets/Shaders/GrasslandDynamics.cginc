@@ -68,7 +68,7 @@ float4 GrassInstance(float2 cell)
     return float4(placement.xy, GrassBladeAngle(cell, placement.xy), placement.z);
 }
 
-// Each occupied world-space block contains one connected group of 8–12 clusters.
+// Each occupied world-space block contains one connected group of 4–8 clusters.
 bool GrassOverlayCluster(float2 cell)
 {
     float2 block = floor(cell / 10);
@@ -82,7 +82,7 @@ bool GrassOverlayCluster(float2 cell)
     if (local.x < 0 || local.x > 3 || local.y < 0 || local.y > 2) return false;
     float column = fmod(local.y, 2) < .5 ? local.x : 3 - local.x;
     float rank = local.y * 4 + column;
-    float clusterCount = 8 + floor(GrassHash(key + 83) * 5);
+    float clusterCount = 4 + floor(GrassHash(key + 83) * 5);
     return rank < clusterCount;
 }
 

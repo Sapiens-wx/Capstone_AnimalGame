@@ -207,7 +207,7 @@ MonoBehaviour:
   grass1: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
   grass2: {fileID: 0}
   grass3: {fileID: 0}
-  grassOverlayDensity: 0.76
+  grassOverlayDensity: 0.95
   grassOverlaySize: 0.65
   surfaceRevealEdgePixels: 4
   surfaceBakeRevision: 29

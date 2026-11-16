@@ -199,6 +199,8 @@ Shader "AnimalGame/Dynamic Height Contours"
                             SampleGrassland(input.uv, _GrassActive * step(.001, revealMask)));
                     // Authored water owns its complete range, so terrain never
                     // leaks through transparent gaps in the water pattern.
+                    if (terrainSurface.a * revealMask > .0001)
+                        terrainSurface.a *= MapShoreTerrainOpacity(input.uv, _MapSizeMeters.xy);
                     float terrainBlend = saturate(
                         terrainSurface.a
                         * revealMask
