@@ -81,6 +81,15 @@ namespace AnimalGame.MapTest
             Renderer.SetPropertyBlock(waterProperties);
         }
 
+        // Camera-dependent values stay live; authored settings are applied by Build/Refresh.
+        public void UpdateRuntimeSettings(Material sharedSettings)
+        {
+            material.SetFloat("_VisibleMinimumHeight", sharedSettings.GetFloat("_VisibleMinimumHeight"));
+            material.SetFloat("_VisibleMaximumHeight", sharedSettings.GetFloat("_VisibleMaximumHeight"));
+            material.SetVector("_SurfaceRevealCenterPixels", sharedSettings.GetVector("_SurfaceRevealCenterPixels"));
+            material.SetFloat("_SurfaceRevealRadiusPixels", sharedSettings.GetFloat("_SurfaceRevealRadiusPixels"));
+        }
+
         internal static void ConfigureWater(MaterialPropertyBlock properties, TiledMapRuntime.Tile tile)
         {
             var level = tile.Level;

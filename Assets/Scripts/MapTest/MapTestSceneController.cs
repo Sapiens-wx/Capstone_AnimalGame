@@ -156,17 +156,10 @@ namespace AnimalGame.MapTest
 
         private void Update()
         {
+            if (Application.isPlaying || rebuildingMap)
+                return;
+
             RefreshContourMaterialSettings();
-            if (Application.isPlaying)
-            {
-                RefreshSurfaceMaterialSettings();
-                RefreshTileMaterials();
-                return;
-            }
-
-            if (rebuildingMap)
-                return;
-
             RefreshEditorSurfaceIfChanged();
             int configurationHash = CalculateEditorConfigurationHash();
             if (generatedForPlayMode
@@ -468,7 +461,6 @@ namespace AnimalGame.MapTest
 
             VisibleMinimumContourHeight = minimumHeightMeters;
             VisibleMaximumContourHeight = maximumHeightMeters;
-            RefreshContourMaterialSettings();
             contourMaterial.SetFloat(
                 "_VisibleMinimumHeight",
                 VisibleMinimumContourHeight);
@@ -497,7 +489,8 @@ namespace AnimalGame.MapTest
             lastViewportUpdateFrame = Time.frameCount;
             UpdateVisibleContourRange(cameraToRender);
             RefreshSurfaceMaterialSettings();
-            RefreshTileMaterials();
+            foreach (var view in tileViews)
+                view.UpdateRuntimeSettings(contourMaterial);
         }
 
         private void UpdateVisibleContourRange(Camera cameraToSample)
@@ -540,7 +533,6 @@ namespace AnimalGame.MapTest
                 targetVisibleMaximumHeight,
                 blend);
 
-            RefreshContourMaterialSettings();
             contourMaterial.SetFloat("_VisibleMinimumHeight", VisibleMinimumContourHeight);
             contourMaterial.SetFloat("_VisibleMaximumHeight", VisibleMaximumContourHeight);
         }
@@ -689,6 +681,8 @@ namespace AnimalGame.MapTest
             contourMaterial.SetFloat("_EdgeSoftness", contourEdgeSoftness);
             contourMaterial.SetFloat("_MinimumOpacity", minimumContourOpacity);
             contourMaterial.SetFloat("_MaximumOpacity", maximumContourOpacity);
+            contourMaterial.SetFloat("_SurfaceRevealEnabled", Application.isPlaying ? 1 : 0);
+            contourMaterial.SetFloat("_SurfaceRevealEdgePixels", surfaceRevealEdgePixels);
         }
 
         private void RefreshSurfaceMaterialSettings()
@@ -697,10 +691,8 @@ namespace AnimalGame.MapTest
             Vector2 center = surfaceRevealUi != null ? surfaceRevealUi.GetUiCenterScreenPoint()
                 : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
             float radius = surfaceRevealUi != null ? surfaceRevealUi.GetUiRingScreenRadiusPixels() : DefaultSurfaceRevealRadiusPixels;
-            contourMaterial.SetFloat("_SurfaceRevealEnabled", Application.isPlaying ? 1 : 0);
             contourMaterial.SetVector("_SurfaceRevealCenterPixels", new Vector4(center.x, center.y, 0, 0));
             contourMaterial.SetFloat("_SurfaceRevealRadiusPixels", Mathf.Max(1, radius));
-            contourMaterial.SetFloat("_SurfaceRevealEdgePixels", surfaceRevealEdgePixels);
         }
 
 
@@ -735,6 +727,9 @@ namespace AnimalGame.MapTest
 
         private void OnValidate()
         {
+            if (Application.isPlaying)
+                return;
+
             ApplyFixedLevelAsset();
             mapWidthMeters = Mathf.Max(1f, mapWidthMeters);
             mapHeightMeters = Mathf.Max(1f, mapHeightMeters);

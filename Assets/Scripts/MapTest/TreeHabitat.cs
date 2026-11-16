@@ -440,15 +440,6 @@ namespace AnimalGame.MapTest
                 }
                 Gizmos.color = previousColor;
             }
-
-#if UNITY_EDITOR
-            Color previousHandlesColor = Handles.color;
-            Handles.color = stateColor;
-            Handles.Label(
-                centre + Vector3.up * Mathf.Max(0.2f, radiusY),
-                $"Tree Habitat: {health}");
-            Handles.color = previousHandlesColor;
-#endif
         }
 
 #if UNITY_EDITOR
