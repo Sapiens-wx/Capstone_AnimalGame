@@ -285,6 +285,16 @@ namespace AnimalGame.Editor
             animal.ReceiveDamage(1000f, null);
             f.Simulation.Tick(.01f);
             Require(!animal.Runtime.Removed, "Distance culling removed a corpse before decay");
+
+            var dormant = f.Animal("Dormant wildlife", new Vector2(24f, 20f), waitForPlayerInRange: true);
+            f.Simulation.Tick(.01f);
+            Require(!dormant.IsInitialized, "Distant scene wildlife initialized before the player arrived");
+            player.transform.position = f.Map.MapPositionToWorld(new Vector2(23f, 20f));
+            f.Simulation.Tick(.01f);
+            Require(dormant.IsInitialized && !dormant.Runtime.Removed, "Nearby scene wildlife failed to activate");
+            player.transform.position = f.Map.MapPositionToWorld(new Vector2(2f, 2f));
+            f.Simulation.Tick(.01f);
+            Require(dormant.Runtime.Removed, "Activated wildlife skipped the normal distance culling");
         }
         private sealed class TrackingAction : AnimalAction
         {
@@ -310,7 +320,8 @@ namespace AnimalGame.Editor
             }
             public GameObject New(string name, Vector3 position)
             { var go = new GameObject(name); SceneManager.MoveGameObjectToScene(go, Scene); go.transform.position = position; return go; }
-            public AnimalAgent Animal(string name, Vector2 position, Type speciesBehaviour = null)
+            public AnimalAgent Animal(string name, Vector2 position, Type speciesBehaviour = null,
+                bool waitForPlayerInRange = false)
             {
                 var config = ScriptableObject.CreateInstance<AnimalSpeciesConfig>(); assets.Add(config);
                 Set(config, "initialHealthRange", new Vector2(100f, 100f));
@@ -322,7 +333,13 @@ namespace AnimalGame.Editor
                 var agent = go.AddComponent<AnimalAgent>();
                 agent.ConfigureEditorDefaults(config, null, null);
                 Set(go.GetComponent<HeightMapPlacedObject>(), "map", Map);
-                Require(agent.TryInitialize(), "Fixture animal did not initialize");
+                if (waitForPlayerInRange)
+                {
+                    Set(agent, "waitForPlayerInRange", true);
+                    Set(agent, "<Simulation>k__BackingField", Simulation);
+                    Simulation.Register(agent);
+                }
+                else Require(agent.TryInitialize(), "Fixture animal did not initialize");
                 return agent;
             }
             public void Dispose()

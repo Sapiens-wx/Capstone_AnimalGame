@@ -49,14 +49,14 @@ MonoBehaviour:
   staticWaterPixelBounds:
     x: 0
     y: 0
-    width: 0
-    height: 0
-  staticWaterDataResolution: 0
+    width: 1
+    height: 1
+  staticWaterDataResolution: 512
   maximumStaticWaterDepthMeters: 10
   maximumPassableStaticWaterDepthMeters: 1.2
-  staticWaterDepthMap: 
-  staticWaterFlowAngleMap: 
-  staticWaterFlowSpeedMap: 
+  staticWaterDepthMap: 00
+  staticWaterFlowAngleMap: 00
+  staticWaterFlowSpeedMap: 00
   staticWaterEditorTexture: {fileID: 0}
   bakedStaticWaterMask: {fileID: 0}
   bakedStaticWaterUv: {fileID: 0}
@@ -64,8 +64,8 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 1
-    height: 1
+    width: 0.001953125
+    height: 0.001953125
   staticWaterEditorTileSizeMeters: 8
   staticWaterLayerOneSpeedMetersPerSecond: {x: 0.36, y: 0.04}
   staticWaterLayerTwoSpeedMetersPerSecond: {x: -0.14, y: 0.22}
@@ -73,9 +73,9 @@ MonoBehaviour:
   staticWaterWaveDistortion: 0.03
   staticWaterWaveSpeed: 0.8
   staticWaterWaveLengthMeters: 12
-  staticWaterMaskBakeRevision: 0
+  staticWaterMaskBakeRevision: 2
   staticWaterEditorTint: {r: 0.18, g: 0.72, b: 1, a: 1}
-  staticWaterMaskBakeGeneratorVersion: 0
+  staticWaterMaskBakeGeneratorVersion: 3
   surfacePalette:
   - terrain: 1
     displayName: Grid Test
