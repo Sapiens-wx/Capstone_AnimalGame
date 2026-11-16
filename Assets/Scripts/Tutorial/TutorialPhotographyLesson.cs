@@ -108,8 +108,7 @@ namespace AnimalGame.Tutorial
             }
             if (modal) { progress.Suspend(); return; }
 #if ENABLE_INPUT_SYSTEM
-            if (!justStarted && !resultVisible && Gamepad.current != null
-                && (Gamepad.current.dpad.left.wasPressedThisFrame || Gamepad.current.dpad.right.wasPressedThisFrame))
+            if (!justStarted && !resultVisible && Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame)
                 Panel.ToggleCollapsed();
 #endif
             if (!resultVisible && acceptedSnapshot == null && !progress.IsComplete && !targets.IsAnimalReady

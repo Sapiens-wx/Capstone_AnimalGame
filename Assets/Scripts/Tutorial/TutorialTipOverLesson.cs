@@ -185,8 +185,7 @@ namespace AnimalGame.Tutorial
             }
             Panel.SetTutorialPauseVisible(true); Panel.SetVisible(true);
 #if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
-                || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
+            if (Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame) Panel.ToggleCollapsed();
 #endif
             RefreshInertiaPanel();
             if (TutorialContinueInput.TryConsume(Panel, bootstrap, allowDuringInterruption: true, allowDuringTutorialPause: true))
@@ -254,8 +253,7 @@ namespace AnimalGame.Tutorial
             }
             Panel.SetPhotoModeVisible(false); Panel.SetVisible(true);
 #if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
-                || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
+            if (Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame) Panel.ToggleCollapsed();
 #endif
             bool upright = tumble.State == RobotTumbleState.Upright;
             bool righting = tumble.IsSelfRightingVisualActive || tumble.IsBalanceRecoveryActive

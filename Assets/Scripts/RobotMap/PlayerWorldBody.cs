@@ -8,7 +8,8 @@ namespace AnimalGame.RobotMap
     public sealed class PlayerWorldBody : WorldInteraction
     {
         private RobotMover mover;
-        public override WorldInteractionKind Kind => TryGetComponent(out RobotMover player) && player.IgnoreCollisionAndTerrain
+        public override WorldInteractionKind Kind => TryGetComponent(out RobotMover player)
+            && (player.IgnoreCollisionAndTerrain || player.HasTowerSupport)
             ? WorldInteractionKind.None : WorldInteractionKind.Collision | WorldInteractionKind.Actor;
         public override InteractionShape GetShape(MapTestSceneController map)
         {

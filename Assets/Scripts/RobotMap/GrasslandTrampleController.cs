@@ -18,6 +18,7 @@ namespace AnimalGame.RobotMap
         private Vector2 previousPosition;
         private RobotMarkerView marker;
         private RobotHeightMotionDetector heightMotion;
+        private RobotMover mover;
         private int next;
         private float nextSample;
         private static readonly int FootprintsId = Shader.PropertyToID("_GrassFootprints");
@@ -30,6 +31,7 @@ namespace AnimalGame.RobotMap
         {
             marker = GetComponent<RobotMarkerView>();
             heightMotion = GetComponent<RobotHeightMotionDetector>();
+            mover = GetComponent<RobotMover>();
             next = 0;
             nextSample = 0f;
             previousPosition = transform.position;
@@ -49,11 +51,12 @@ namespace AnimalGame.RobotMap
                 footprintDirections[Capacity - 1] = new Vector4(response.x, response.y, 0, 0);
             }
             previousPosition = position;
-            bool airborne = heightMotion != null && heightMotion.HasData && heightMotion.IsAirborne;
-            if (!airborne)
+            bool touchesGround = (mover == null || !mover.HasTowerSupport)
+                && (heightMotion == null || !heightMotion.HasData || !heightMotion.IsAirborne);
+            if (touchesGround)
                 footprints[Capacity - 1] = new Vector4(transform.position.x, transform.position.y,
                     now, marker.VisualBodyDiameter * trampleRadiusOfBodyDiameter);
-            if (!airborne && now >= nextSample)
+            if (touchesGround && now >= nextSample)
             {
                 footprints[next] = footprints[Capacity - 1];
                 footprintDirections[next] = footprintDirections[Capacity - 1];
@@ -61,6 +64,12 @@ namespace AnimalGame.RobotMap
                 nextSample = now + 1f / 30f;
             }
             Publish();
+        }
+
+        internal void ResetTravelDirection()
+        {
+            previousPosition = transform.position;
+            footprintDirections[Capacity - 1] = Vector4.zero;
         }
 
         private void Publish()

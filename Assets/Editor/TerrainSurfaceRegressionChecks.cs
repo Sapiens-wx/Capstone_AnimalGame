@@ -14,8 +14,9 @@ public static class TerrainSurfaceRegressionChecks
     public static void Run()
     {
         CheckPaintingAndValidation();
+        CheckTileBoundaryPainting();
         CheckLegacySerialization();
-        Debug.Log("Terrain surface checks PASS: shared enum, painting/erasing, duplicate validation, legacy palette and mask preservation.");
+        Debug.Log("Terrain surface checks PASS: shared enum, painting/erasing, tile boundaries, duplicate validation, legacy palette and mask preservation.");
     }
 
     public static void RunBatch()
@@ -67,6 +68,61 @@ public static class TerrainSurfaceRegressionChecks
             Require(before.SequenceEqual(level.GetOrCreateSurfaceTypeMap()), "Invalid painting changed the terrain mask.");
         }
         finally { Object.DestroyImmediate(level); }
+    }
+
+    private static void CheckTileBoundaryPainting()
+    {
+        var leftTile = ScriptableObject.CreateInstance<HeightMapLevelAsset>();
+        var rightTile = ScriptableObject.CreateInstance<HeightMapLevelAsset>();
+        try
+        {
+            const TerrainKind terrain = TerrainKind.Rock;
+            const float radius = 6f;
+            var brush = new TerrainSurfaceDefinition(terrain, "Brush Rock", Texture2D.whiteTexture, Color.red, 0.4f, 7f);
+            Set(brush, "transitionMode", TerrainSurfaceTransitionMode.Noisy);
+            Set(brush, "transitionWidthMultiplier", 1.5f);
+            Set(brush, "noiseStrengthMultiplier", 0.25f);
+            var existing = new TerrainSurfaceDefinition(terrain, "Local Rock", Texture2D.whiteTexture, Color.green, 0.8f, 9f);
+            Set(leftTile, "surfacePalette", new List<TerrainSurfaceDefinition> { existing });
+            Set(leftTile, "surfaceMaskResolution", 64);
+            Set(rightTile, "surfaceMaskResolution", 64);
+
+            Vector2 tileSize = leftTile.MapSizeMeters;
+            var leftCentre = new Vector2(tileSize.x - 1f, tileSize.y * 0.5f);
+            Vector2 rightCentre = leftCentre - Vector2.right * tileSize.x;
+            var rightEdge = new Vector2(0f, rightCentre.y);
+            int changeCount = 0;
+            int emptyHash = rightTile.CalculateSurfaceAuthoringHash();
+            Require(!rightTile.PaintSurfaceType(rightCentre - Vector2.right * 10f, radius, terrain, brush, () => changeCount++),
+                "A brush that misses the tile reported a change.");
+            Require(!rightTile.PaintSurfaceType(rightEdge, radius, TerrainKind.Unknown, null, () => changeCount++),
+                "Erasing a blank tile reported a change.");
+            Require(changeCount == 0 && rightTile.CalculateSurfaceAuthoringHash() == emptyHash,
+                "A no-op brush altered the blank tile's authoring data.");
+
+            Require(leftTile.PaintSurfaceType(leftCentre, radius, terrain, brush, () => changeCount++)
+                && rightTile.PaintSurfaceType(rightCentre, radius, terrain, brush, () =>
+                {
+                    Require(rightTile.CalculateSurfaceAuthoringHash() == emptyHash,
+                        "The change callback must run before allocating the mask or copying the palette entry.");
+                    changeCount++;
+                }), "The same dab did not reach both sides of the tile boundary.");
+            Require(leftTile.SampleSurfaceType(leftCentre) == terrain && rightTile.SampleSurfaceType(rightEdge) == terrain,
+                "The brush left an unpainted edge at the tile boundary.");
+            Require(ReferenceEquals(leftTile.GetSurfaceDefinition(terrain), existing),
+                "The brush replaced the destination tile's configured palette entry.");
+            TerrainSurfaceDefinition copied = rightTile.GetSurfaceDefinition(terrain);
+            Require(copied != null && !ReferenceEquals(copied, brush)
+                && copied.AppendConfigurationHash(0) == brush.AppendConfigurationHash(0),
+                "The blank destination tile did not copy the complete brush definition.");
+            Require(!rightTile.PaintSurfaceType(rightCentre, radius, terrain, brush, () => changeCount++) && changeCount == 2,
+                "An already painted dab reported another change.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(leftTile);
+            Object.DestroyImmediate(rightTile);
+        }
     }
 
     private static void CheckLegacySerialization()

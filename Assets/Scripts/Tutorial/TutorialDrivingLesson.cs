@@ -89,8 +89,8 @@ namespace AnimalGame.Tutorial
 
 #if ENABLE_INPUT_SYSTEM
             // The D-pad remains available while an achieved step waits for A confirmation.
-            if (!AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
-                || Gamepad.current.dpad.right.wasPressedThisFrame))
+            if (!AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels && Gamepad.current != null
+                && Gamepad.current.dpad.right.wasPressedThisFrame)
                 panel.ToggleCollapsed();
 #endif
             RobotMover robot = bootstrap.robot;

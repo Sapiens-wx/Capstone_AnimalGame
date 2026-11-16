@@ -22,7 +22,7 @@ namespace AnimalGame.Editor
         private const string KnownMissingStaticAnimal = "Prefab instance problem: 'Static_Animal (Missing Prefab with guid: 2645e53e76c8ec846b09ee78b13275be)'. 2 instances are missing the same Prefab Asset with guid 2645e53e76c8ec846b09ee78b13275be.";
         private const string KnownSceneHeader = "Problem detected while opening the Scene file: 'Assets/Scenes/GameMaps/TutorialTemporaryMap.unity'.\nCheck the following logs for more details.";
         private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private enum Phase { Starting, TerrainStarting, ArmStarting, LeftHide, LeftRelease, RightShow,
+        private enum Phase { Starting, TerrainStarting, ArmStarting, RightHide, RightRelease, RightShow,
             Deploying, Paused, Resumed, Actions, Stowing, Complete, Finishing }
         [Serializable] private sealed class Report
         {
@@ -140,20 +140,20 @@ namespace AnimalGame.Editor
                         Require(lesson.Panel.Root.Q<Label>("TutorialTitle")?.text == lesson.TextContent.Arms.Title,
                             "A preceding chapter still owns the shared task panel.");
                         Record("Chapter 04 starts directly at the recorded player position in Deploy, within 0.1 m drift, and creates no arm waypoint.");
-                        Begin(Phase.LeftHide); break;
-                    case Phase.LeftHide:
+                        Begin(Phase.RightHide); break;
+                    case Phase.RightHide:
                         if (!Settled(5)) return;
                         Require(lesson.Panel.IsCollapsed && lesson.Progress.Step == ArmTutorialStep.Deploy,
-                            "One left D-pad tap must hide the arms panel exactly once without advancing its step.");
-                        Begin(Phase.LeftRelease); break;
-                    case Phase.LeftRelease:
+                            "One right D-pad tap must hide the arms panel exactly once without advancing its step.");
+                        Begin(Phase.RightRelease); break;
+                    case Phase.RightRelease:
                         if (Settled(4)) Begin(Phase.RightShow);
                         break;
                     case Phase.RightShow:
                         if (!Settled(5)) return;
                         Require(!lesson.Panel.IsCollapsed && !AnimalGame.MainUI.MainUI.BlocksGameplay,
                             "One right D-pad tap must reopen the arms panel without terrain toggling it back or opening inventory.");
-                        Record("Left/right D-pad taps work once per press while the terrain chapter releases panel ownership.");
+                        Record("D-pad right toggles the panel once per press after the terrain chapter releases ownership.");
                         Begin(Phase.Deploying); break;
                     case Phase.Deploying:
                         if (lesson.Progress.Step == ArmTutorialStep.Deploy) return;
@@ -248,11 +248,11 @@ namespace AnimalGame.Editor
             var gamepad = InputSystem.GetDeviceById(gamepadId) as Gamepad;
             if (gamepad == null) return;
             var state = new GamepadState();
-            if ((phase == Phase.LeftHide || phase == Phase.RightShow || phase == Phase.Deploying || phase == Phase.Stowing)
+            if ((phase == Phase.RightHide || phase == Phase.RightShow || phase == Phase.Deploying || phase == Phase.Stowing)
                 && lastTapPhase != (int)phase)
             {
-                state = state.WithButton(phase == Phase.LeftHide ? GamepadButton.DpadLeft
-                    : phase == Phase.RightShow ? GamepadButton.DpadRight : GamepadButton.LeftStick);
+                state = state.WithButton(phase == Phase.RightHide || phase == Phase.RightShow
+                    ? GamepadButton.DpadRight : GamepadButton.LeftStick);
                 lastTapPhase = (int)phase;
             }
             if (phase == Phase.Paused) { state.leftStick = Vector2.up; state = state.WithButton(GamepadButton.LeftStick); }

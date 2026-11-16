@@ -1,0 +1,949 @@
+fileFormatVersion: 2
+guid: 5faf9dcd9fe6cee44997a31b85d311f9
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 1430442451028313680
+    second: Terrain_8_9_MapData_SurfaceVisual_0
+  - first:
+      213: -34187375232545934
+    second: Terrain_8_9_MapData_SurfaceVisual_1
+  - first:
+      213: 8504234144981648607
+    second: Terrain_8_9_MapData_SurfaceVisual_2
+  - first:
+      213: 946322454614766820
+    second: Terrain_8_9_MapData_SurfaceVisual_3
+  - first:
+      213: -3071620880728790732
+    second: Terrain_8_9_MapData_SurfaceVisual_4
+  - first:
+      213: -2242076232992703191
+    second: Terrain_8_9_MapData_SurfaceVisual_5
+  - first:
+      213: -5014237416768653285
+    second: Terrain_8_9_MapData_SurfaceVisual_6
+  - first:
+      213: -4920220994581305429
+    second: Terrain_8_9_MapData_SurfaceVisual_7
+  - first:
+      213: 54706417973005657
+    second: Terrain_8_9_MapData_SurfaceVisual_8
+  - first:
+      213: 1617417453317617811
+    second: Terrain_8_9_MapData_SurfaceVisual_9
+  - first:
+      213: 5210555036156727827
+    second: Terrain_8_9_MapData_SurfaceVisual_10
+  - first:
+      213: -4057941487832326856
+    second: Terrain_8_9_MapData_SurfaceVisual_11
+  - first:
+      213: -2509495422224474191
+    second: Terrain_8_9_MapData_SurfaceVisual_12
+  - first:
+      213: -3476759520631094132
+    second: Terrain_8_9_MapData_SurfaceVisual_13
+  - first:
+      213: -6153815634509362843
+    second: Terrain_8_9_MapData_SurfaceVisual_14
+  - first:
+      213: -2535153630771818440
+    second: Terrain_8_9_MapData_SurfaceVisual_15
+  - first:
+      213: 963417402023625483
+    second: Terrain_8_9_MapData_SurfaceVisual_16
+  - first:
+      213: 4482125347377403477
+    second: Terrain_8_9_MapData_SurfaceVisual_17
+  - first:
+      213: 5282254063940651953
+    second: Terrain_8_9_MapData_SurfaceVisual_18
+  - first:
+      213: 2020900068664124886
+    second: Terrain_8_9_MapData_SurfaceVisual_19
+  - first:
+      213: -6517991814105273698
+    second: Terrain_8_9_MapData_SurfaceVisual_20
+  - first:
+      213: 5423865799547558309
+    second: Terrain_8_9_MapData_SurfaceVisual_21
+  - first:
+      213: -5944060721379196636
+    second: Terrain_8_9_MapData_SurfaceVisual_22
+  - first:
+      213: -4799222075488530675
+    second: Terrain_8_9_MapData_SurfaceVisual_23
+  - first:
+      213: -6367369075513221222
+    second: Terrain_8_9_MapData_SurfaceVisual_24
+  - first:
+      213: -6448860745719600325
+    second: Terrain_8_9_MapData_SurfaceVisual_25
+  - first:
+      213: 9126081090523801274
+    second: Terrain_8_9_MapData_SurfaceVisual_26
+  - first:
+      213: -4147523186593036317
+    second: Terrain_8_9_MapData_SurfaceVisual_27
+  - first:
+      213: 6757395674041227979
+    second: Terrain_8_9_MapData_SurfaceVisual_28
+  - first:
+      213: -6554546556710647929
+    second: Terrain_8_9_MapData_SurfaceVisual_29
+  - first:
+      213: 6442337881478447469
+    second: Terrain_8_9_MapData_SurfaceVisual_30
+  - first:
+      213: 4925907422100925400
+    second: Terrain_8_9_MapData_SurfaceVisual_31
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 0
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_0
+      rect:
+        serializedVersion: 2
+        x: 228
+        y: 0
+        width: 1533
+        height: 2048
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0568e2594d3f9d310800000000000000
+      internalID: 1430442451028313680
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_1
+      rect:
+        serializedVersion: 2
+        x: 1725
+        y: 1828
+        width: 12
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 27b067b63ca868ff0800000000000000
+      internalID: -34187375232545934
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_2
+      rect:
+        serializedVersion: 2
+        x: 1726
+        y: 1753
+        width: 15
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fd40162c5eb150670800000000000000
+      internalID: 8504234144981648607
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_3
+      rect:
+        serializedVersion: 2
+        x: 1725
+        y: 1723
+        width: 13
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4e4f9463243022d00800000000000000
+      internalID: 946322454614766820
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_4
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 1690
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 439ec7745196f55d0800000000000000
+      internalID: -3071620880728790732
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_5
+      rect:
+        serializedVersion: 2
+        x: 1726
+        y: 1648
+        width: 16
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 92dbf1d8b8b82e0e0800000000000000
+      internalID: -2242076232992703191
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_6
+      rect:
+        serializedVersion: 2
+        x: 1736
+        y: 1657
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b183802d2a9d96ab0800000000000000
+      internalID: -5014237416768653285
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_7
+      rect:
+        serializedVersion: 2
+        x: 1725
+        y: 1618
+        width: 13
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ba7ef89e21dd7bbb0800000000000000
+      internalID: -4920220994581305429
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_8
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 1619
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 95d0732823b52c000800000000000000
+      internalID: 54706417973005657
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_9
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 1585
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3987386ba98327610800000000000000
+      internalID: 1617417453317617811
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_10
+      rect:
+        serializedVersion: 2
+        x: 1726
+        y: 1543
+        width: 15
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3129ebcd23c9f4840800000000000000
+      internalID: 5210555036156727827
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_11
+      rect:
+        serializedVersion: 2
+        x: 1736
+        y: 1553
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 83d1f6a77bb4fa7c0800000000000000
+      internalID: -4057941487832326856
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_12
+      rect:
+        serializedVersion: 2
+        x: 1725
+        y: 1513
+        width: 13
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1bf57d8953b7c2dd0800000000000000
+      internalID: -2509495422224474191
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_13
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 1480
+        width: 9
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c84835bf2a110cfc0800000000000000
+      internalID: -3476759520631094132
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_14
+      rect:
+        serializedVersion: 2
+        x: 1726
+        y: 1438
+        width: 16
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 56903d3e841499aa0800000000000000
+      internalID: -6153815634509362843
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_15
+      rect:
+        serializedVersion: 2
+        x: 1736
+        y: 1448
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 830ddc2643351dcd0800000000000000
+      internalID: -2535153630771818440
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_16
+      rect:
+        serializedVersion: 2
+        x: 1725
+        y: 1408
+        width: 13
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b034c02d50fbe5d00800000000000000
+      internalID: 963417402023625483
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_17
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 1409
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 55654319145b33e30800000000000000
+      internalID: 4482125347377403477
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_18
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 1375
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1bbcb86a5165e4940800000000000000
+      internalID: 5282254063940651953
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_19
+      rect:
+        serializedVersion: 2
+        x: 1726
+        y: 1334
+        width: 15
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6d5a94fb7edab0c10800000000000000
+      internalID: 2020900068664124886
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_20
+      rect:
+        serializedVersion: 2
+        x: 1736
+        y: 1343
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e9ae9579af07b85a0800000000000000
+      internalID: -6517991814105273698
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_21
+      rect:
+        serializedVersion: 2
+        x: 1725
+        y: 1305
+        width: 8
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5a91c633531754b40800000000000000
+      internalID: 5423865799547558309
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_22
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 19
+        width: 541
+        height: 292
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 42147d25444728da0800000000000000
+      internalID: -5944060721379196636
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_23
+      rect:
+        serializedVersion: 2
+        x: 1726
+        y: 75
+        width: 15
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d0f0b4023fcb56db0800000000000000
+      internalID: -4799222075488530675
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_24
+      rect:
+        serializedVersion: 2
+        x: 1725
+        y: 45
+        width: 13
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a9f1a34cf8f82a7a0800000000000000
+      internalID: -6367369075513221222
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_25
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 46
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b3b2c6db15b0186a0800000000000000
+      internalID: -6448860745719600325
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_26
+      rect:
+        serializedVersion: 2
+        x: 1747
+        y: 27
+        width: 16
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ab6a418566a56ae70800000000000000
+      internalID: 9126081090523801274
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_27
+      rect:
+        serializedVersion: 2
+        x: 1757
+        y: 27
+        width: 9
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3e70d65e2a90176c0800000000000000
+      internalID: -4147523186593036317
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_28
+      rect:
+        serializedVersion: 2
+        x: 1737
+        y: 12
+        width: 9
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bca1df5309717cd50800000000000000
+      internalID: 6757395674041227979
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_29
+      rect:
+        serializedVersion: 2
+        x: 1762
+        y: 7
+        width: 15
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 787808752a29905a0800000000000000
+      internalID: -6554546556710647929
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_30
+      rect:
+        serializedVersion: 2
+        x: 1752
+        y: 2
+        width: 11
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d61c0949b28c76950800000000000000
+      internalID: 6442337881478447469
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_8_9_MapData_SurfaceVisual_31
+      rect:
+        serializedVersion: 2
+        x: 1765
+        y: 2
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8db29caa3b65c5440800000000000000
+      internalID: 4925907422100925400
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Terrain_8_9_MapData_SurfaceVisual_0: 1430442451028313680
+      Terrain_8_9_MapData_SurfaceVisual_1: -34187375232545934
+      Terrain_8_9_MapData_SurfaceVisual_10: 5210555036156727827
+      Terrain_8_9_MapData_SurfaceVisual_11: -4057941487832326856
+      Terrain_8_9_MapData_SurfaceVisual_12: -2509495422224474191
+      Terrain_8_9_MapData_SurfaceVisual_13: -3476759520631094132
+      Terrain_8_9_MapData_SurfaceVisual_14: -6153815634509362843
+      Terrain_8_9_MapData_SurfaceVisual_15: -2535153630771818440
+      Terrain_8_9_MapData_SurfaceVisual_16: 963417402023625483
+      Terrain_8_9_MapData_SurfaceVisual_17: 4482125347377403477
+      Terrain_8_9_MapData_SurfaceVisual_18: 5282254063940651953
+      Terrain_8_9_MapData_SurfaceVisual_19: 2020900068664124886
+      Terrain_8_9_MapData_SurfaceVisual_2: 8504234144981648607
+      Terrain_8_9_MapData_SurfaceVisual_20: -6517991814105273698
+      Terrain_8_9_MapData_SurfaceVisual_21: 5423865799547558309
+      Terrain_8_9_MapData_SurfaceVisual_22: -5944060721379196636
+      Terrain_8_9_MapData_SurfaceVisual_23: -4799222075488530675
+      Terrain_8_9_MapData_SurfaceVisual_24: -6367369075513221222
+      Terrain_8_9_MapData_SurfaceVisual_25: -6448860745719600325
+      Terrain_8_9_MapData_SurfaceVisual_26: 9126081090523801274
+      Terrain_8_9_MapData_SurfaceVisual_27: -4147523186593036317
+      Terrain_8_9_MapData_SurfaceVisual_28: 6757395674041227979
+      Terrain_8_9_MapData_SurfaceVisual_29: -6554546556710647929
+      Terrain_8_9_MapData_SurfaceVisual_3: 946322454614766820
+      Terrain_8_9_MapData_SurfaceVisual_30: 6442337881478447469
+      Terrain_8_9_MapData_SurfaceVisual_31: 4925907422100925400
+      Terrain_8_9_MapData_SurfaceVisual_4: -3071620880728790732
+      Terrain_8_9_MapData_SurfaceVisual_5: -2242076232992703191
+      Terrain_8_9_MapData_SurfaceVisual_6: -5014237416768653285
+      Terrain_8_9_MapData_SurfaceVisual_7: -4920220994581305429
+      Terrain_8_9_MapData_SurfaceVisual_8: 54706417973005657
+      Terrain_8_9_MapData_SurfaceVisual_9: 1617417453317617811
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

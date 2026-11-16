@@ -212,8 +212,7 @@ namespace AnimalGame.Tutorial
         private void HandleCollapse()
         {
 #if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
-                || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
+            if (Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame) Panel.ToggleCollapsed();
 #endif
         }
 

@@ -107,6 +107,7 @@ namespace AnimalGame.RobotMap
         private RobotMover mover;
         private MapTestSceneController map;
         private bool initialized;
+        private bool wasOnTowerSupport;
         private bool wasOnClimbable;
         private Vector2 previousFramePosition;
         private float motionTimeRemainder;
@@ -131,10 +132,17 @@ namespace AnimalGame.RobotMap
         private void LateUpdate()
         {
             LandedThisFrame = false;
-            if (!enableHeightMotionDetection || map == null || mover == null)
+            if (!enableHeightMotionDetection || mover == null)
                 return;
 
             if (mover.IgnoreCollisionAndTerrain) { ResetDetectorState(); return; }
+            if (mover.HasTowerSupport || wasOnTowerSupport)
+            {
+                wasOnTowerSupport = mover.HasTowerSupport;
+                SynchronizeToCurrentGround();
+                return;
+            }
+            if (map == null) return;
             bool onClimbable = mover.CurrentClimbableSurface.IsActive;
             if (onClimbable || wasOnClimbable)
             {
@@ -234,11 +242,17 @@ namespace AnimalGame.RobotMap
             previousGroundHeight = groundHeight;
         }
 
-        private void SynchronizeToCurrentGround()
+        internal void SynchronizeToCurrentGround()
         {
             ResetDetectorState();
             Vector2 position = transform.position;
-            if (map.TrySampleWorldPosition(position, out _, out float sampledGroundHeight))
+            if (mover.HasTowerSupport)
+            {
+                if (mover.TowerSupportHeightMeters is float height)
+                    InitializeAtHeight(position, height);
+                return;
+            }
+            if (map != null && map.TrySampleWorldPosition(position, out _, out float sampledGroundHeight))
                 InitializeAtHeight(position, sampledGroundHeight);
         }
 

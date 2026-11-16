@@ -358,8 +358,8 @@ namespace AnimalGame.Editor
             {
                 if (lastTapPhase != (int)phase) { lastTapPhase = (int)phase; tapFirstFrame = Time.frameCount; }
                 if (Time.frameCount - tapFirstFrame < 3)
-                    state = state.WithButton(phase == Phase.HidePanel ? GamepadButton.DpadRight
-                        : phase == Phase.ShowPanel ? GamepadButton.DpadLeft : GamepadButton.LeftStick);
+                    state = state.WithButton(phase == Phase.HidePanel || phase == Phase.ShowPanel
+                        ? GamepadButton.DpadRight : GamepadButton.LeftStick);
             }
             if ((phase == Phase.FinishIndicator || phase == Phase.Adjust || phase == Phase.FinishRisk) && lesson?.Progress != null)
                 TutorialContinueSmokeInput.Apply(ref state, lesson.Panel, "Balance:" + lesson.Progress.Step);

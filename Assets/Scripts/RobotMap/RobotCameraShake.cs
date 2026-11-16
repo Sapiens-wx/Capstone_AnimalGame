@@ -476,6 +476,9 @@ namespace AnimalGame.RobotMap
         private RobotHeightMotionDetector heightMotion;
         private float baseOrthographicSize;
         private float elevationZoomMultiplier = 1f;
+        private UnityEngine.Object weatherTowerZoomOwner;
+        private float weatherTowerZoomSize;
+        private float weatherTowerZoomBlend;
         private float scanZoomMultiplier = 1f;
         private float photoFocusMagnification = 1f;
         private float scanChargeShakeStrength;
@@ -956,6 +959,36 @@ namespace AnimalGame.RobotMap
         public void SetElevationZoomMultiplier(float multiplier)
         {
             elevationZoomMultiplier = Mathf.Max(1f, multiplier);
+        }
+
+        internal bool TryAcquireWeatherTowerZoom(UnityEngine.Object owner)
+        {
+            if (owner == null || (weatherTowerZoomOwner != null && weatherTowerZoomOwner != owner))
+                return false;
+            if (weatherTowerZoomOwner == owner)
+                return true;
+
+            weatherTowerZoomOwner = owner;
+            weatherTowerZoomBlend = 0f;
+            return true;
+        }
+
+        internal void SetWeatherTowerZoom(UnityEngine.Object owner, float size, float blend)
+        {
+            if (owner == null || weatherTowerZoomOwner != owner)
+                return;
+
+            weatherTowerZoomSize = size;
+            weatherTowerZoomBlend = blend;
+        }
+
+        internal void ReleaseWeatherTowerZoom(UnityEngine.Object owner)
+        {
+            if (owner == null || weatherTowerZoomOwner != owner)
+                return;
+
+            weatherTowerZoomOwner = null;
+            weatherTowerZoomBlend = 0f;
         }
 
         public void SetScanZoomMultiplier(float multiplier)
@@ -1949,9 +1982,13 @@ namespace AnimalGame.RobotMap
 
         private float GetComposedBaseOrthographicSize()
         {
+            float worldSize = ElevationAdjustedOrthographicSize;
+            if (weatherTowerZoomOwner != null)
+                worldSize = Mathf.Lerp(worldSize, weatherTowerZoomSize, weatherTowerZoomBlend);
+
             return Mathf.Max(
                 0.01f,
-                ElevationAdjustedOrthographicSize
+                worldSize
                 * scanZoomMultiplier
                 / Mathf.Max(1f, photoFocusMagnification));
         }

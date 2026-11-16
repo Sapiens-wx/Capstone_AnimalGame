@@ -556,7 +556,8 @@ namespace AnimalGame.RobotArm
                 InteractionShape? previous = (segment == 0 ? before.LowerLength : before.UpperLength) > .00001f
                     ? SegmentShape(arm, before, segment) : (InteractionShape?)null;
                 if (WorldInteractionQuery.Query(next, WorldInteractionKind.Collision, map, gameObject.scene,
-                    ignore: transform, previous: previous, ignoreHeld: heldObject != null ? heldObject.transform : null)) return true;
+                    ignore: transform, previous: previous, ignoreHeld: heldObject != null ? heldObject.transform : null,
+                    restrictTo: mover.TowerCollisionRoot)) return true;
             }
             return false;
         }
@@ -688,7 +689,7 @@ namespace AnimalGame.RobotArm
 
         private void BuildArmPlan(Pose lp, Pose rp, Vector2 offset)
         {
-            contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot);
+            contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot, mover.TowerCollisionRoot);
             mover.AppendBodyShape(contactPlan, transform.position, transform.position, map);
             Matrix4x4 frame = marker.MarkerVisualRoot.localToWorldMatrix;
             AddArmMotion(contactPlan, left, lp, frame); AddArmMotion(contactPlan, right, rp, frame);
@@ -697,7 +698,7 @@ namespace AnimalGame.RobotArm
 
         private void BuildBodyPlan(Vector3 position, Quaternion rotation)
         {
-            contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot);
+            contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot, mover.TowerCollisionRoot);
             mover.AppendBodyShape(contactPlan, transform.position, position, rotation, map);
             AppendBodyMotion(contactPlan, position, rotation);
         }
@@ -716,7 +717,7 @@ namespace AnimalGame.RobotArm
             if ((segment == 0 ? arm.Pose.LowerLength : arm.Pose.UpperLength) < .00001f) return false;
             return WorldInteractionQuery.Query(SegmentShape(arm, arm.Pose, segment), WorldInteractionKind.Collision,
                 map, gameObject.scene, ignore: transform, previous: previous,
-                ignoreHeld: heldObject != null ? heldObject.transform : null);
+                ignoreHeld: heldObject != null ? heldObject.transform : null, restrictTo: mover.TowerCollisionRoot);
         }
 
         private void TryGrab()
@@ -778,7 +779,7 @@ namespace AnimalGame.RobotArm
         {
             Vector2 point = InteractionShape.ToQuery(HandWorld(arm), map);
             WorldInteractionQuery.Query(InteractionShape.Capsule(point, point, 0f), WorldInteractionKind.Grabbable,
-                map, gameObject.scene, results, transform);
+                map, gameObject.scene, results, transform, restrictTo: mover.TowerCollisionRoot);
         }
         private Vector2 AnchorOffset() => heldHands == 3 ? Vector2.zero
             : Vector2.right * (heldHands == 1 ? -1f : 1f) * handSpacing * .5f;

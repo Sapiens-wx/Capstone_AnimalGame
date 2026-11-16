@@ -71,13 +71,14 @@ namespace AnimalGame.World
         // Combine kinds with | to match any requested kind.
         public static bool Query(InteractionShape shape, WorldInteractionKind kindMask,
             MapTestSceneController map, Scene scene, List<WorldInteraction> results = null,
-            Transform ignore = null, InteractionShape? previous = null, Transform ignoreHeld = null)
+            Transform ignore = null, InteractionShape? previous = null, Transform ignoreHeld = null,
+            Transform restrictTo = null)
         {
             results?.Clear();
             if (kindMask == WorldInteractionKind.None) return false;
             tree.FlushPending(map, scene);
             var visitor = new QueryVisitor { Shape = shape, KindMask = kindMask, Scene = scene,
-                Results = results, Ignore = ignore, Previous = previous, IgnoreHeld = ignoreHeld };
+                Results = results, Ignore = ignore, Previous = previous, IgnoreHeld = ignoreHeld, RestrictTo = restrictTo };
             tree.Query(WorldInteractionQuadTree.BoundsOf(shape), kindMask, ref visitor);
             return visitor.Found;
         }
@@ -88,13 +89,14 @@ namespace AnimalGame.World
             public WorldInteractionKind KindMask;
             public Scene Scene;
             public List<WorldInteraction> Results;
-            public Transform Ignore, IgnoreHeld;
+            public Transform Ignore, IgnoreHeld, RestrictTo;
             public InteractionShape? Previous;
             public bool Found;
 
             public bool Visit(WorldInteraction item, InteractionShape obstacle)
             {
                 if (item == null || !item.Available || (item.Kind & KindMask) == 0 || item.gameObject.scene != Scene
+                    || (RestrictTo == null ? item.RequiresQueryScope : !item.transform.IsChildOf(RestrictTo))
                     || (Ignore != null && (item.transform == Ignore || item.transform.IsChildOf(Ignore)))
                     || (IgnoreHeld != null && (item.transform == IgnoreHeld || item.transform.IsChildOf(IgnoreHeld)))) return false;
                 float depth = Penetration(Shape, obstacle);

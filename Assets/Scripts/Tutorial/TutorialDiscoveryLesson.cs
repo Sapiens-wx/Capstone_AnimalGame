@@ -117,8 +117,8 @@ namespace AnimalGame.Tutorial
             if (birdScanned) UpdateRecoveryWaypoint(true, false, false);
             if (modal) { progress.Suspend(); return; }
 #if ENABLE_INPUT_SYSTEM
-            if (!justStarted && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
-                || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
+            if (!justStarted && Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame)
+                Panel.ToggleCollapsed();
 #endif
             bool ready = progress.IsComplete ? targets.IsReady : targets.EnsureTargets();
             // Charging and releasing are real player actions even while the owned targets initialize.

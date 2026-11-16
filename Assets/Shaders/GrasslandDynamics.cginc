@@ -167,12 +167,8 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
     return result;
 }
 
-float4 SampleGrassland(float2 tileUv, float animate)
+float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float animate)
 {
-    float4 mask = tex2D(_GrassMaskTex, tileUv);
-    if (mask.a < .0001) return 0;
-    float2 meters = tileUv * _MapSizeMeters.xy + _GrassTileOrigin.xy;
-    float2 pixelDx = ddx(meters), pixelDy = ddy(meters);
     float2 cell = floor(meters / GrassSpacing());
     float4 result = 0;
     [loop] for (int y = -GRASS_NEIGHBOUR_RADIUS; y <= GRASS_NEIGHBOUR_RADIUS; y++)
@@ -236,8 +232,38 @@ float4 SampleGrassland(float2 tileUv, float animate)
         result.a += grass.a;
     }
     result.rgb = result.a > .0001 ? result.rgb / result.a : 0;
+    result.a = saturate(result.a);
+    return result;
+}
+
+float4 SampleGrassland(float2 tileUv, float animate)
+{
+    float4 mask = tex2D(_GrassMaskTex, tileUv);
+    float2 meters = tileUv * _MapSizeMeters.xy + _GrassTileOrigin.xy;
+    float2 pixelDx = ddx(meters), pixelDy = ddy(meters);
+    if (mask.a < .0001) return 0;
+
+    // Once a pixel spans a blade's width, a single sample can miss the blade.
+    // The last atlas mip is the area average of all eight blade slices per repeat.
+    float footprint = max(length(pixelDx), length(pixelDy));
+    float bladeWidth = _GrassRects[0].z * _GrassTileSize;
+    float averageWeight = smoothstep(.5, 1.5, footprint / max(.0001, bladeWidth));
+    float4 result = 0;
+    [branch] if (averageWeight < 1)
+        result = SampleGrassBlades(meters, pixelDx, pixelDy, animate);
+    [branch] if (averageWeight > 0)
+    {
+        float4 average = tex2Dlod(_GrassPatternTex, float4(.5, .5, 0, 16));
+        average.a = saturate(average.a * _GrassShape.x * _GrassShape.y);
+        float3 premultiplied = lerp(result.rgb * result.a, average.rgb * average.a, averageWeight);
+        result.a = lerp(result.a, average.a, averageWeight);
+        result.rgb = result.a > .0001 ? premultiplied / result.a : 0;
+    }
+
     result.rgb *= mask.rgb;
-    result.a = saturate(result.a) * mask.a;
+    // Keep the palette opacity as the full-strength endpoint of the small blades.
+    // Lift faint baked coverage before compositing thin blades over the black map.
+    result.a *= sqrt(mask.a * max(mask.a, _GrassOverlaySettings.w));
     float4 overlay = SampleGrassOverlay(meters, pixelDx, pixelDy, animate);
     // Remove the base palette opacity from coverage: overlay retains source alpha at full strength.
     overlay.a *= saturate(mask.a / max(.001, _GrassOverlaySettings.w));

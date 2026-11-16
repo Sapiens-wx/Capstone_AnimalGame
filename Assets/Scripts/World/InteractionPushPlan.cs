@@ -33,13 +33,14 @@ namespace AnimalGame.World
         private readonly Vector2[] hull = new Vector2[16];
         private MapTestSceneController map;
         private Scene scene;
-        private Transform robot, held;
+        private Transform robot, held, collisionRoot;
         private bool valid;
         public float SpeedMultiplier { get; private set; } = 1f;
 
-        public void Begin(MapTestSceneController sceneMap, Scene sceneValue, Transform robotRoot, Transform heldRoot)
+        public void Begin(MapTestSceneController sceneMap, Scene sceneValue, Transform robotRoot, Transform heldRoot,
+            Transform restrictTo = null)
         {
-            map = sceneMap; scene = sceneValue; robot = robotRoot; held = heldRoot;
+            map = sceneMap; scene = sceneValue; robot = robotRoot; held = heldRoot; collisionRoot = restrictTo;
             motions.Clear(); pushes.Clear(); valid = false; SpeedMultiplier = 1f;
         }
 
@@ -101,7 +102,7 @@ namespace AnimalGame.World
             Vector2 max = Vector2.Max(a.max, b.max) + Vector2.one * Epsilon;
             WorldInteractionQuery.Query(new InteractionShape { IsBox = true,
                 A = min, B = new Vector2(max.x, min.y), C = max, D = new Vector2(min.x, max.y) },
-                mask, map, scene, hits);
+                mask, map, scene, hits, restrictTo: collisionRoot);
         }
 
         private bool CanPush(Transform root)
@@ -226,7 +227,7 @@ namespace AnimalGame.World
 
         private bool InsideMap(InteractionShape shape)
         {
-            if (map == null || !map.HasGeneratedMap) return true;
+            if (collisionRoot != null || map == null || !map.HasGeneratedMap) return true;
             if (shape.IsBox)
             {
                 for (int i = 0; i < 4; i++) if (!map.TrySampleMapPosition(shape.Vertex(i), out _)) return false;

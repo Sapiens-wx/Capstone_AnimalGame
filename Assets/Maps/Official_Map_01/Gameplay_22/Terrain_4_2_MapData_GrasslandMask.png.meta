@@ -1,0 +1,689 @@
+fileFormatVersion: 2
+guid: f44b12173d484cd458e86bb62ee1cf8f
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 3817024684706341809
+    second: Terrain_4_2_MapData_GrasslandMask_0
+  - first:
+      213: 4672852541121402137
+    second: Terrain_4_2_MapData_GrasslandMask_1
+  - first:
+      213: 2716181025032923571
+    second: Terrain_4_2_MapData_GrasslandMask_2
+  - first:
+      213: -8562847302822624917
+    second: Terrain_4_2_MapData_GrasslandMask_3
+  - first:
+      213: 55305069851830227
+    second: Terrain_4_2_MapData_GrasslandMask_4
+  - first:
+      213: 7344964625799056420
+    second: Terrain_4_2_MapData_GrasslandMask_5
+  - first:
+      213: -9070207978069700018
+    second: Terrain_4_2_MapData_GrasslandMask_6
+  - first:
+      213: -5036058636151426044
+    second: Terrain_4_2_MapData_GrasslandMask_7
+  - first:
+      213: 7427018681317113441
+    second: Terrain_4_2_MapData_GrasslandMask_8
+  - first:
+      213: -5980217355438687682
+    second: Terrain_4_2_MapData_GrasslandMask_9
+  - first:
+      213: 3848706833877460263
+    second: Terrain_4_2_MapData_GrasslandMask_10
+  - first:
+      213: 1979422465010537059
+    second: Terrain_4_2_MapData_GrasslandMask_11
+  - first:
+      213: 4660828504799857548
+    second: Terrain_4_2_MapData_GrasslandMask_12
+  - first:
+      213: -8029178399366008172
+    second: Terrain_4_2_MapData_GrasslandMask_13
+  - first:
+      213: -3268049258496698428
+    second: Terrain_4_2_MapData_GrasslandMask_14
+  - first:
+      213: -1472047614061950770
+    second: Terrain_4_2_MapData_GrasslandMask_15
+  - first:
+      213: -3821844275697070900
+    second: Terrain_4_2_MapData_GrasslandMask_16
+  - first:
+      213: 6548779668419471294
+    second: Terrain_4_2_MapData_GrasslandMask_17
+  - first:
+      213: 8241396753062611019
+    second: Terrain_4_2_MapData_GrasslandMask_18
+  - first:
+      213: -6628451898467329892
+    second: Terrain_4_2_MapData_GrasslandMask_19
+  - first:
+      213: -7624341992979304081
+    second: Terrain_4_2_MapData_GrasslandMask_20
+  - first:
+      213: -3076776368218957912
+    second: Terrain_4_2_MapData_GrasslandMask_21
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 0
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 1947
+        width: 169
+        height: 101
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1b3a1de2abbc8f430800000000000000
+      internalID: 3817024684706341809
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_1
+      rect:
+        serializedVersion: 2
+        x: 191
+        y: 1955
+        width: 141
+        height: 93
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9159259d0ae49d040800000000000000
+      internalID: 4672852541121402137
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_2
+      rect:
+        serializedVersion: 2
+        x: 323
+        y: 1807
+        width: 194
+        height: 241
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3b96eb65040d1b520800000000000000
+      internalID: 2716181025032923571
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_3
+      rect:
+        serializedVersion: 2
+        x: 703
+        y: 2035
+        width: 38
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b618859feb7aa2980800000000000000
+      internalID: -8562847302822624917
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_4
+      rect:
+        serializedVersion: 2
+        x: 859
+        y: 1783
+        width: 622
+        height: 265
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3d7ebc20bab74c000800000000000000
+      internalID: 55305069851830227
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_5
+      rect:
+        serializedVersion: 2
+        x: 1527
+        y: 2035
+        width: 62
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 42c0090796e8ee560800000000000000
+      internalID: 7344964625799056420
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_6
+      rect:
+        serializedVersion: 2
+        x: 503
+        y: 1659
+        width: 150
+        height: 250
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e42dd3466e5202280800000000000000
+      internalID: -9070207978069700018
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_7
+      rect:
+        serializedVersion: 2
+        x: 671
+        y: 1661
+        width: 318
+        height: 188
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 404f7244a535c1ab0800000000000000
+      internalID: -5036058636151426044
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_8
+      rect:
+        serializedVersion: 2
+        x: 1351
+        y: 1703
+        width: 98
+        height: 102
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 16eb8100422121760800000000000000
+      internalID: 7427018681317113441
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_9
+      rect:
+        serializedVersion: 2
+        x: 1443
+        y: 1731
+        width: 146
+        height: 158
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e3a7371fffff10da0800000000000000
+      internalID: -5980217355438687682
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_10
+      rect:
+        serializedVersion: 2
+        x: 1603
+        y: 1727
+        width: 322
+        height: 222
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 72562ed597a596530800000000000000
+      internalID: 3848706833877460263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_11
+      rect:
+        serializedVersion: 2
+        x: 643
+        y: 1631
+        width: 75
+        height: 70
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 36291679e32587b10800000000000000
+      internalID: 1979422465010537059
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_12
+      rect:
+        serializedVersion: 2
+        x: 963
+        y: 1415
+        width: 430
+        height: 286
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c8b4c9bb4d69ea040800000000000000
+      internalID: 4660828504799857548
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_13
+      rect:
+        serializedVersion: 2
+        x: 1975
+        y: 1463
+        width: 73
+        height: 194
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 492bc8349c0a29090800000000000000
+      internalID: -8029178399366008172
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_14
+      rect:
+        serializedVersion: 2
+        x: 655
+        y: 1495
+        width: 134
+        height: 86
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4c753d6a38e85a2d0800000000000000
+      internalID: -3268049258496698428
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_15
+      rect:
+        serializedVersion: 2
+        x: 1423
+        y: 1559
+        width: 10
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ec840678e7c329be0800000000000000
+      internalID: -1472047614061950770
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_16
+      rect:
+        serializedVersion: 2
+        x: 1503
+        y: 1491
+        width: 134
+        height: 122
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ccc473851e416fac0800000000000000
+      internalID: -3821844275697070900
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_17
+      rect:
+        serializedVersion: 2
+        x: 1827
+        y: 1403
+        width: 133
+        height: 189
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: eb761785960f1ea50800000000000000
+      internalID: 6548779668419471294
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_18
+      rect:
+        serializedVersion: 2
+        x: 286
+        y: 1151
+        width: 215
+        height: 314
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b48ca5f9ea25f5270800000000000000
+      internalID: 8241396753062611019
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_19
+      rect:
+        serializedVersion: 2
+        x: 1659
+        y: 1443
+        width: 86
+        height: 90
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c98571d0e120304a0800000000000000
+      internalID: -6628451898467329892
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_20
+      rect:
+        serializedVersion: 2
+        x: 1951
+        y: 1251
+        width: 97
+        height: 206
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f61ff565a55e03690800000000000000
+      internalID: -7624341992979304081
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Terrain_4_2_MapData_GrasslandMask_21
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 2048
+        height: 1413
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8a71efec1381d45d0800000000000000
+      internalID: -3076776368218957912
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Terrain_4_2_MapData_GrasslandMask_0: 3817024684706341809
+      Terrain_4_2_MapData_GrasslandMask_1: 4672852541121402137
+      Terrain_4_2_MapData_GrasslandMask_10: 3848706833877460263
+      Terrain_4_2_MapData_GrasslandMask_11: 1979422465010537059
+      Terrain_4_2_MapData_GrasslandMask_12: 4660828504799857548
+      Terrain_4_2_MapData_GrasslandMask_13: -8029178399366008172
+      Terrain_4_2_MapData_GrasslandMask_14: -3268049258496698428
+      Terrain_4_2_MapData_GrasslandMask_15: -1472047614061950770
+      Terrain_4_2_MapData_GrasslandMask_16: -3821844275697070900
+      Terrain_4_2_MapData_GrasslandMask_17: 6548779668419471294
+      Terrain_4_2_MapData_GrasslandMask_18: 8241396753062611019
+      Terrain_4_2_MapData_GrasslandMask_19: -6628451898467329892
+      Terrain_4_2_MapData_GrasslandMask_2: 2716181025032923571
+      Terrain_4_2_MapData_GrasslandMask_20: -7624341992979304081
+      Terrain_4_2_MapData_GrasslandMask_21: -3076776368218957912
+      Terrain_4_2_MapData_GrasslandMask_3: -8562847302822624917
+      Terrain_4_2_MapData_GrasslandMask_4: 55305069851830227
+      Terrain_4_2_MapData_GrasslandMask_5: 7344964625799056420
+      Terrain_4_2_MapData_GrasslandMask_6: -9070207978069700018
+      Terrain_4_2_MapData_GrasslandMask_7: -5036058636151426044
+      Terrain_4_2_MapData_GrasslandMask_8: 7427018681317113441
+      Terrain_4_2_MapData_GrasslandMask_9: -5980217355438687682
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
