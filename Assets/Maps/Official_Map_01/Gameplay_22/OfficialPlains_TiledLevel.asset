@@ -1,0 +1,217 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3818b1e56bafa44080234e92b86b0ef, type: 3}
+  m_Name: OfficialPlains_TiledLevel
+  m_EditorClassIdentifier: 
+  tileSizeMeters: {x: 250, y: 250}
+  presentation: {fileID: 11400000, guid: 70499653279435646acccdef569104b1, type: 2}
+  worldUnitsPerMeter: {x: 0.27306667, y: 0.27306667}
+  tiles:
+  - coordinate: {x: 5, y: 0}
+    level: {fileID: 11400000, guid: 70499653279435646acccdef569104b1, type: 2}
+  - coordinate: {x: 6, y: 0}
+    level: {fileID: 11400000, guid: 8582209b057a61a47aa4d52768853764, type: 2}
+  - coordinate: {x: 7, y: 0}
+    level: {fileID: 11400000, guid: 8fe4a016809a4b74ea2ce32d6a9ccec1, type: 2}
+  - coordinate: {x: 8, y: 0}
+    level: {fileID: 11400000, guid: 1c7e887a9960bad4399eece24100f4b3, type: 2}
+  - coordinate: {x: 3, y: 1}
+    level: {fileID: 11400000, guid: 660677af1b0c8b94d9d0d2852a53b60d, type: 2}
+  - coordinate: {x: 4, y: 1}
+    level: {fileID: 11400000, guid: ecac88df8ff96ef47b71056e533e2037, type: 2}
+  - coordinate: {x: 5, y: 1}
+    level: {fileID: 11400000, guid: 13b11ead22166ef458f64b10a3607852, type: 2}
+  - coordinate: {x: 6, y: 1}
+    level: {fileID: 11400000, guid: 13f6d65ae5f54c4408b282cbeb324ae4, type: 2}
+  - coordinate: {x: 7, y: 1}
+    level: {fileID: 11400000, guid: f4d35ddc7f3930b40af1f77dd99209f3, type: 2}
+  - coordinate: {x: 8, y: 1}
+    level: {fileID: 11400000, guid: 2bf88045e58dd344ab8bb7593b250b5e, type: 2}
+  - coordinate: {x: 3, y: 2}
+    level: {fileID: 11400000, guid: e3ade1ae5f506144ab5707062f114697, type: 2}
+  - coordinate: {x: 4, y: 2}
+    level: {fileID: 11400000, guid: ca7394d7118f1b54da9c948e88be1f02, type: 2}
+  - coordinate: {x: 5, y: 2}
+    level: {fileID: 11400000, guid: 36fb88c1cca122549848d342fd6b316b, type: 2}
+  - coordinate: {x: 6, y: 2}
+    level: {fileID: 11400000, guid: b922febd813fa384fac526d5dcd3fe09, type: 2}
+  - coordinate: {x: 7, y: 2}
+    level: {fileID: 11400000, guid: 5ce0383da1551b14cab2779b0a5b3f5e, type: 2}
+  - coordinate: {x: 8, y: 2}
+    level: {fileID: 11400000, guid: 6735dbf03b4bae9479e1cf70a602aea3, type: 2}
+  - coordinate: {x: 2, y: 3}
+    level: {fileID: 11400000, guid: fa7f6d9003578274086fe3813b589ad9, type: 2}
+  - coordinate: {x: 3, y: 3}
+    level: {fileID: 11400000, guid: 35a325be152c62c40b143a2e60bf2277, type: 2}
+  - coordinate: {x: 4, y: 3}
+    level: {fileID: 11400000, guid: c084d59a8f473964cbe4673e31decea3, type: 2}
+  - coordinate: {x: 5, y: 3}
+    level: {fileID: 11400000, guid: b78e987debb8a214ebe06f39ac38c0c4, type: 2}
+  - coordinate: {x: 6, y: 3}
+    level: {fileID: 11400000, guid: 57e0424c7bcf7544198eac7d8d1eb89b, type: 2}
+  - coordinate: {x: 7, y: 3}
+    level: {fileID: 11400000, guid: 4445cf801c122fc4b9207383b19dbd4e, type: 2}
+  - coordinate: {x: 8, y: 3}
+    level: {fileID: 11400000, guid: 59afa45adac41d14f99c3b996a7c7507, type: 2}
+  - coordinate: {x: 1, y: 4}
+    level: {fileID: 11400000, guid: 07e276281857a0745ba0cd727a19a06a, type: 2}
+  - coordinate: {x: 2, y: 4}
+    level: {fileID: 11400000, guid: 0ae491f3344a2c541942f012adbafb19, type: 2}
+  - coordinate: {x: 3, y: 4}
+    level: {fileID: 11400000, guid: 4ed63047551f5764ca38aa3ec8de47dd, type: 2}
+  - coordinate: {x: 4, y: 4}
+    level: {fileID: 11400000, guid: 98a4560eadeef3c489c753223f8763bd, type: 2}
+  - coordinate: {x: 5, y: 4}
+    level: {fileID: 11400000, guid: f0ea5491583927948a07ce5f2c681667, type: 2}
+  - coordinate: {x: 6, y: 4}
+    level: {fileID: 11400000, guid: ea130f9fdf3673349a1264c0a976f839, type: 2}
+  - coordinate: {x: 7, y: 4}
+    level: {fileID: 11400000, guid: 69744b25aee91174982ff0866904a0d4, type: 2}
+  - coordinate: {x: 8, y: 4}
+    level: {fileID: 11400000, guid: fb94ffa60df03bd409a08616fb951720, type: 2}
+  - coordinate: {x: 1, y: 5}
+    level: {fileID: 11400000, guid: 081ac7088bb36b244bb0c33d6e8111d0, type: 2}
+  - coordinate: {x: 2, y: 5}
+    level: {fileID: 11400000, guid: ce560a22fc081e745b1fe05fbeeb5fb8, type: 2}
+  - coordinate: {x: 3, y: 5}
+    level: {fileID: 11400000, guid: 9542d76f6f6759849896e5478194142f, type: 2}
+  - coordinate: {x: 4, y: 5}
+    level: {fileID: 11400000, guid: 8c734a328af1ad34ba2c9a6365a826ba, type: 2}
+  - coordinate: {x: 5, y: 5}
+    level: {fileID: 11400000, guid: 2d66f44c70a6d754ea09bf521991d734, type: 2}
+  - coordinate: {x: 6, y: 5}
+    level: {fileID: 11400000, guid: a170d33e1e4ff844481187ed72b21908, type: 2}
+  - coordinate: {x: 7, y: 5}
+    level: {fileID: 11400000, guid: 6eb653355846e2f4692ea9b1e9a63d03, type: 2}
+  - coordinate: {x: 8, y: 5}
+    level: {fileID: 11400000, guid: 6e57e2aa7dfa6ed4f99dfe264dc36db6, type: 2}
+  - coordinate: {x: 9, y: 5}
+    level: {fileID: 11400000, guid: ef8c36bc52c91ab4b840993535c25d07, type: 2}
+  - coordinate: {x: 0, y: 6}
+    level: {fileID: 11400000, guid: 243de8a4857fd644d8921eaabbf9fbd9, type: 2}
+  - coordinate: {x: 1, y: 6}
+    level: {fileID: 11400000, guid: f3c866c1c7350574582f8955f5f57bae, type: 2}
+  - coordinate: {x: 2, y: 6}
+    level: {fileID: 11400000, guid: 6434cf1ed8cbbff4c9f77a484d507fba, type: 2}
+  - coordinate: {x: 3, y: 6}
+    level: {fileID: 11400000, guid: db11c5ec1db26e8478968b0c20291dd3, type: 2}
+  - coordinate: {x: 4, y: 6}
+    level: {fileID: 11400000, guid: b5a8ea97f18e43a42b100b6cd1e52254, type: 2}
+  - coordinate: {x: 5, y: 6}
+    level: {fileID: 11400000, guid: ab313b0895cf7cd438122bad55b3891b, type: 2}
+  - coordinate: {x: 6, y: 6}
+    level: {fileID: 11400000, guid: 99e35c8a28a3afc438230b2a0bbb5bc1, type: 2}
+  - coordinate: {x: 7, y: 6}
+    level: {fileID: 11400000, guid: 070301a8d4aaa644587172c8e57d7757, type: 2}
+  - coordinate: {x: 8, y: 6}
+    level: {fileID: 11400000, guid: fa2bbb1f6ce017543878452170960638, type: 2}
+  - coordinate: {x: 9, y: 6}
+    level: {fileID: 11400000, guid: 521f69cb43e07b947ae67cbffb591cf9, type: 2}
+  - coordinate: {x: 0, y: 7}
+    level: {fileID: 11400000, guid: 79b003338e3b52545bfc517f550e3a6c, type: 2}
+  - coordinate: {x: 1, y: 7}
+    level: {fileID: 11400000, guid: c03b050e5250c394382862f04a03ff0b, type: 2}
+  - coordinate: {x: 2, y: 7}
+    level: {fileID: 11400000, guid: 9b404767d23682845a3d3d3843f02e40, type: 2}
+  - coordinate: {x: 3, y: 7}
+    level: {fileID: 11400000, guid: e8516bc2f73df254c9c5c9cbded74cee, type: 2}
+  - coordinate: {x: 4, y: 7}
+    level: {fileID: 11400000, guid: 06f3e0594820c29448ac74e413a2ffa1, type: 2}
+  - coordinate: {x: 5, y: 7}
+    level: {fileID: 11400000, guid: ad80fae46287faf49ac636657e4155d1, type: 2}
+  - coordinate: {x: 6, y: 7}
+    level: {fileID: 11400000, guid: 0d0431257c877b54481cdfe06a9c2cdb, type: 2}
+  - coordinate: {x: 7, y: 7}
+    level: {fileID: 11400000, guid: b22b5cc89e9a3ec4fb1f167be7c0bdf3, type: 2}
+  - coordinate: {x: 8, y: 7}
+    level: {fileID: 11400000, guid: 1f42ed961dbb78e419de3ffb455fa60f, type: 2}
+  - coordinate: {x: 9, y: 7}
+    level: {fileID: 11400000, guid: 0ff5a20570991c34da814c4a4f8e9716, type: 2}
+  - coordinate: {x: 0, y: 8}
+    level: {fileID: 11400000, guid: 9be52e656b5d9fa42b83732a33ceec57, type: 2}
+  - coordinate: {x: 1, y: 8}
+    level: {fileID: 11400000, guid: 5a02d7a2313d3fb4fb1072ff2035b2dd, type: 2}
+  - coordinate: {x: 2, y: 8}
+    level: {fileID: 11400000, guid: 0c6c2640d0d79224797ed2f76c709663, type: 2}
+  - coordinate: {x: 3, y: 8}
+    level: {fileID: 11400000, guid: 1288f5cd8cacf9b42b847e486bfa9b47, type: 2}
+  - coordinate: {x: 4, y: 8}
+    level: {fileID: 11400000, guid: 0233cbe2bdd45a845b6ecd477ff1fc6f, type: 2}
+  - coordinate: {x: 5, y: 8}
+    level: {fileID: 11400000, guid: 1ebcc0deb4f86f644b156100db4477c4, type: 2}
+  - coordinate: {x: 6, y: 8}
+    level: {fileID: 11400000, guid: 5f4d94471a05f104598da1276b68d653, type: 2}
+  - coordinate: {x: 7, y: 8}
+    level: {fileID: 11400000, guid: aa75d97e7bbef614fa51534dfcae85e1, type: 2}
+  - coordinate: {x: 8, y: 8}
+    level: {fileID: 11400000, guid: 197a61eca44089944bb41e31c7794d04, type: 2}
+  - coordinate: {x: 9, y: 8}
+    level: {fileID: 11400000, guid: 806dfbb2a6befb9488d43d670efe35d2, type: 2}
+  - coordinate: {x: 0, y: 9}
+    level: {fileID: 11400000, guid: 813335e5b98643d42b89a79406eb0e65, type: 2}
+  - coordinate: {x: 1, y: 9}
+    level: {fileID: 11400000, guid: 2f79b1bf8a0754a41869d10645e21d6a, type: 2}
+  - coordinate: {x: 2, y: 9}
+    level: {fileID: 11400000, guid: 2400eda8630446e49ba13340faca5e85, type: 2}
+  - coordinate: {x: 3, y: 9}
+    level: {fileID: 11400000, guid: 417630746c7528b47ae8653dbeddafae, type: 2}
+  - coordinate: {x: 4, y: 9}
+    level: {fileID: 11400000, guid: 84bac5328ca99d64b8a287dd6a736ddc, type: 2}
+  - coordinate: {x: 5, y: 9}
+    level: {fileID: 11400000, guid: e6f59cbdeff851a4dac3a04521b1d7ff, type: 2}
+  - coordinate: {x: 6, y: 9}
+    level: {fileID: 11400000, guid: a8c5ef69362d06048b4c4fbeeefa8a7a, type: 2}
+  - coordinate: {x: 7, y: 9}
+    level: {fileID: 11400000, guid: 472333c5c58f7f944b00217663868154, type: 2}
+  - coordinate: {x: 8, y: 9}
+    level: {fileID: 11400000, guid: f04e3200aaec8eb41a49131fe779eb78, type: 2}
+  - coordinate: {x: 9, y: 9}
+    level: {fileID: 11400000, guid: 51d59af1e7dd1014bb03f565affbb747, type: 2}
+  - coordinate: {x: 0, y: 10}
+    level: {fileID: 11400000, guid: 17284c9b79f1c354bbfa37ecb561a074, type: 2}
+  - coordinate: {x: 1, y: 10}
+    level: {fileID: 11400000, guid: 28966b9305bbb3440a6d366c8bd0e8e1, type: 2}
+  - coordinate: {x: 2, y: 10}
+    level: {fileID: 11400000, guid: 71cc5ffcfadd7204ba2f905db66b3297, type: 2}
+  - coordinate: {x: 3, y: 10}
+    level: {fileID: 11400000, guid: 9e8870c20b1c1bb4bb76832e1dfcf864, type: 2}
+  - coordinate: {x: 4, y: 10}
+    level: {fileID: 11400000, guid: ff6a95e883cde3644b9d3e0a859fdcee, type: 2}
+  - coordinate: {x: 5, y: 10}
+    level: {fileID: 11400000, guid: 219e1836c6f6ab5419b3920b2ed27680, type: 2}
+  - coordinate: {x: 6, y: 10}
+    level: {fileID: 11400000, guid: d42b8ef1c5bf1484583a8879720d1179, type: 2}
+  - coordinate: {x: 7, y: 10}
+    level: {fileID: 11400000, guid: a4e89017388e60c4ea2a2f3e88f993e6, type: 2}
+  - coordinate: {x: 8, y: 10}
+    level: {fileID: 11400000, guid: a45ef4d7d56c27b479074f2eaeed5c87, type: 2}
+  - coordinate: {x: 0, y: 11}
+    level: {fileID: 11400000, guid: a5dd44b332f1608488bdc6d03899f1b8, type: 2}
+  - coordinate: {x: 1, y: 11}
+    level: {fileID: 11400000, guid: d5050aef9c34752458d6c0b73033d5a4, type: 2}
+  - coordinate: {x: 2, y: 11}
+    level: {fileID: 11400000, guid: 0266762f597e6874998588f33344c9a3, type: 2}
+  - coordinate: {x: 3, y: 11}
+    level: {fileID: 11400000, guid: 4da61c814190543418b98d30d05df9a1, type: 2}
+  - coordinate: {x: 4, y: 11}
+    level: {fileID: 11400000, guid: 628013486b81e8e4aaaad846b89e6a4e, type: 2}
+  - coordinate: {x: 5, y: 11}
+    level: {fileID: 11400000, guid: 1e2ae9ad7bcfbf8438078f55601baff4, type: 2}
+  - coordinate: {x: 6, y: 11}
+    level: {fileID: 11400000, guid: e2125834630e63044bce24c73c784592, type: 2}
+  - coordinate: {x: 7, y: 11}
+    level: {fileID: 11400000, guid: da4ab170bf04e364987cb0313759af1e, type: 2}
+  - coordinate: {x: 8, y: 11}
+    level: {fileID: 11400000, guid: 87c8b4122b89cf44e94654a521ff565d, type: 2}
+  allowMissingTiles: 1
+  longitudeRange: {x: 0, y: 1}
+  latitudeRange: {x: 0, y: 1}

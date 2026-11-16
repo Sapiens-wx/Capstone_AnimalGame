@@ -82,8 +82,8 @@ namespace AnimalGame.Tutorial
             Panel.SetVisible(!modal);
             if (modal) { progress.Suspend(); Panel.SetContinuePrompt(false); return; }
 #if ENABLE_INPUT_SYSTEM
-            if (!justStarted && Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
-                || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
+            if (!justStarted && Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame)
+                Panel.ToggleCollapsed();
 #endif
             bool valid = CanPractice();
             RobotBalanceState state = bootstrap.balance != null ? bootstrap.balance.CurrentState : default;

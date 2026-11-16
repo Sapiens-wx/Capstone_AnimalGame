@@ -61,6 +61,8 @@ namespace AnimalGame.MapTest
         public bool IsUsable => terrain != TerrainKind.Unknown
             && Enum.IsDefined(typeof(TerrainKind), terrain) && patternTexture != null;
 
+        public TerrainSurfaceDefinition Copy() => (TerrainSurfaceDefinition)MemberwiseClone();
+
         public TerrainSurfaceDefinition()
         {
         }
@@ -130,6 +132,9 @@ namespace AnimalGame.MapTest
         fileName = "HeightMapLevel",
         menuName = "Animal Game/Height Map Level")]
     public sealed class HeightMapLevelAsset : ScriptableObject
+#if UNITY_EDITOR
+        , ISerializationCallbackReceiver
+#endif
     {
 #if UNITY_EDITOR
         public const int CurrentSurfaceBakeGeneratorVersion = 10;
@@ -407,6 +412,7 @@ namespace AnimalGame.MapTest
         [SerializeField, HideInInspector] private Vector4[] grasslandBladeRects = Array.Empty<Vector4>();
         [SerializeField, HideInInspector] private float grasslandTileSizeMeters = 3.2f;
         [SerializeField, HideInInspector] private Vector2 grasslandAlphaNormalization = Vector2.one;
+        [SerializeField, HideInInspector] private float grasslandOpacity = 1f;
 
         [Header("Grassland Layout")]
         [SerializeField] private int grasslandLayoutSeed;
@@ -432,13 +438,16 @@ namespace AnimalGame.MapTest
         {
             get
             {
-                float opacity = 1f;
-                foreach (var entry in surfacePalette)
-                    if (entry.Terrain == TerrainKind.Grassland) { opacity = entry.Opacity; break; }
                 return new Vector4(grassOverlayDensity, grassOverlaySize,
-                    (grass1 != null ? 1 : 0) + (grass2 != null ? 2 : 0) + (grass3 != null ? 4 : 0), opacity);
+                    (grass1 != null ? 1 : 0) + (grass2 != null ? 2 : 0) + (grass3 != null ? 4 : 0), GrasslandOpacity);
             }
         }
+        private float GrasslandOpacity =>
+#if UNITY_EDITOR
+            GetSurfaceDefinition(TerrainKind.Grassland)?.Opacity ?? 1f;
+#else
+            grasslandOpacity;
+#endif
         public Texture2D GrasslandPattern => grasslandPattern;
         public Vector4[] GrasslandBladeRects => grasslandBladeRects;
         public float GrasslandTileSizeMeters => grasslandTileSizeMeters;
@@ -1407,15 +1416,33 @@ namespace AnimalGame.MapTest
         public bool PaintSurfaceType(
             Vector2 mapPositionMeters,
             float brushRadiusMeters,
-            TerrainKind terrain)
+            TerrainKind terrain) => PaintSurfaceType(
+                mapPositionMeters, brushRadiusMeters, terrain, null, null);
+
+        public bool PaintSurfaceType(
+            Vector2 mapPositionMeters,
+            float brushRadiusMeters,
+            TerrainKind terrain,
+            TerrainSurfaceDefinition brushDefinition,
+            Action beforeChange)
         {
             if (!Enum.IsDefined(typeof(TerrainKind), terrain) || !TryValidateSurfacePalette(out _))
                 return false;
-            if (terrain != TerrainKind.Unknown && GetSurfaceDefinition(terrain) == null)
+            if (terrain != TerrainKind.Unknown && brushDefinition == null && GetSurfaceDefinition(terrain) == null)
                 return false;
 
-            byte[] typeMap = GetOrCreateSurfaceTypeMap();
             int resolution = Mathf.Clamp(surfaceMaskResolution, 64, 1024);
+            byte[] typeMap = surfaceMask;
+            bool hasPixels = typeMap != null && typeMap.Length > 0;
+            // Scene strokes leave blank tiles untouched until a pixel changes.
+            if (beforeChange == null || (hasPixels && typeMap.Length != resolution * resolution))
+            {
+                beforeChange?.Invoke();
+                beforeChange = null;
+                typeMap = GetOrCreateSurfaceTypeMap();
+                hasPixels = true;
+            }
+            bool legacyMask = surfaceDataVersion < 1;
             Vector2 mapSize = MapSizeMeters;
             float radius = Mathf.Max(0.01f, brushRadiusMeters);
             float radiusSquared = radius * radius;
@@ -1454,11 +1481,36 @@ namespace AnimalGame.MapTest
                         continue;
 
                     int index = y * resolution + x;
-                    if (typeMap[index] == targetValue)
+                    byte previousValue = hasPixels ? typeMap[index] : (byte)0;
+                    if (legacyMask && previousValue != 0)
+                        previousValue = (byte)TerrainKind.GridTest;
+                    if (previousValue == targetValue)
                         continue;
 
+                    if (!changed)
+                    {
+                        beforeChange?.Invoke();
+                        TerrainSurfaceDefinition existingDefinition = brushDefinition == null
+                            ? null : GetSurfaceDefinition(terrain);
+                        if (brushDefinition != null && existingDefinition?.IsUsable != true)
+                        {
+                            surfacePalette ??= new List<TerrainSurfaceDefinition>();
+                            int definitionIndex = surfacePalette.IndexOf(existingDefinition);
+                            TerrainSurfaceDefinition copiedDefinition = brushDefinition.Copy();
+                            if (definitionIndex >= 0)
+                                surfacePalette[definitionIndex] = copiedDefinition;
+                            else
+                                surfacePalette.Add(copiedDefinition);
+                        }
+
+                        if (!hasPixels || legacyMask)
+                            typeMap = GetOrCreateSurfaceTypeMap();
+                        hasPixels = true;
+                        legacyMask = false;
+                        changed = true;
+                    }
+
                     typeMap[index] = targetValue;
-                    changed = true;
                 }
             }
 
@@ -1562,6 +1614,18 @@ namespace AnimalGame.MapTest
         {
             bakedStaticWaterUv = texture;
             unchecked { staticWaterMaskBakeRevision++; }
+        }
+#endif
+
+#if UNITY_EDITOR
+        public void OnBeforeSerialize()
+        {
+            // Keep the authoring palette Editor-only and serialize its runtime opacity.
+            grasslandOpacity = GrasslandOpacity;
+        }
+
+        public void OnAfterDeserialize()
+        {
         }
 #endif
 

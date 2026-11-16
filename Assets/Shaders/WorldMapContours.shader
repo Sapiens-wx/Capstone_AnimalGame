@@ -60,8 +60,9 @@ Shader "AnimalGame/World Map Contours"
                     fixed4 waterData = ReadMapWater(input.uv, waterUv, insideBounds);
                     // The whole authored water range hides contours, including gaps in the pattern.
                     color *= 1 - smoothstep(.02, .98, waterData.r);
+                    float waterBlend;
                     color = ApplyMapWater(color, input.uv, _TileRect.zw, 0,
-                        waterUv, insideBounds, waterData);
+                        waterUv, insideBounds, waterData, waterBlend);
                 }
                 color *= 1 - tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
                 return fixed4(color, 1);

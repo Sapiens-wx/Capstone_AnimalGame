@@ -2,7 +2,7 @@
 #define ANIMAL_GAME_HEIGHT_CONTOUR_LINES
 
 // Shared screen-space contour width, coverage and elevation emphasis.
-float HeightContourBlend(float heightMeters)
+float HeightContourBlend(float heightMeters, bool smoothCoverage)
 {
     float interval = max(0.0001, _ContourInterval);
     float contourCoordinate = (heightMeters - _MinimumHeight) / interval;
@@ -24,7 +24,9 @@ float HeightContourBlend(float heightMeters)
         _MinimumOpacity,
         _MaximumOpacity,
         visibleHeightProgress);
-    float derivativeWidth = max(fwidth(contourCoordinate), 0.00001);
+    float derivativeWidth = max(smoothCoverage
+        ? length(float2(ddx(contourCoordinate), ddy(contourCoordinate)))
+        : fwidth(contourCoordinate), 0.00001);
     float requestedHalfWidth = derivativeWidth * lineWidth * 0.5;
     float maximumHalfWidth = saturate(_MaximumCoverage) * 0.5;
     float widestRequestedHalfWidth =
@@ -33,12 +35,15 @@ float HeightContourBlend(float heightMeters)
         1.0,
         maximumHalfWidth / max(0.00001, widestRequestedHalfWidth));
     float halfWidth = requestedHalfWidth * sharedWidthScale;
-    float antiAliasWidth = min(derivativeWidth * _EdgeSoftness, 0.035);
-    float lineMask = 1.0 - smoothstep(
-        halfWidth,
-        min(halfWidth + antiAliasWidth, 0.48),
-        nearestContourDistance);
+    float antiAliasWidth = min(derivativeWidth * (smoothCoverage ? 0.65 : _EdgeSoftness), 0.035);
+    float lineMask = 1.0 - smoothstep(max(0.0, halfWidth - (smoothCoverage ? antiAliasWidth * 0.5 : 0.0)),
+        min(halfWidth + antiAliasWidth, 0.48), nearestContourDistance);
 
     return saturate(lineMask * lineOpacity);
+}
+
+float HeightContourBlend(float heightMeters)
+{
+    return HeightContourBlend(heightMeters, false);
 }
 #endif

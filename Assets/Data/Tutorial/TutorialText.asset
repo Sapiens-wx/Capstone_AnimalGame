@@ -16,9 +16,9 @@ MonoBehaviour:
     Header: TUTORIAL
     CurrentLesson: CURRENT LESSON
     CurrentAction: CURRENT ACTION
-    CollapseHint: "Tap D-pad \u2190 / \u2192  Hide"
+    CollapseHint: "Tap D-pad \u2192  Hide"
     ExpandHint: Show
-    ExpandArrows: "\u2190 \u2192"
+    ExpandArrows: "\u2192"
     GuideLabel: 'G
 
       U
@@ -28,8 +28,8 @@ MonoBehaviour:
       D
 
       E'
-    CollapseTooltip: Tap D-pad Left / Right to hide
-    ExpandTooltip: Tap D-pad Left / Right to show
+    CollapseTooltip: Tap D-pad Right to hide
+    ExpandTooltip: Tap D-pad Right to show
     ContinuePrompt: Press A to continue
     ContinueWaitingPrompt: Complete this step to continue
   Driving:

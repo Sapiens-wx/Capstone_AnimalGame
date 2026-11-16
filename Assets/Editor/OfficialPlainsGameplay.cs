@@ -86,8 +86,8 @@ namespace AnimalGame.Editor
             Require(terrains.Length == 40, "The current official prairie must have 40 Terrain tiles.");
             if (includeMountains)
             {
-                GameObject mountains = scene.GetRootGameObjects().Single(root => root.name == OfficialMountainTerrainBuilder.RootName);
-                terrains = terrains.Concat(mountains.GetComponentsInChildren<Terrain>(true)).ToArray();
+                var plan = OfficialMap01PlanBuilder.FindPlan();
+                terrains = OfficialPlainsTerrainBuilder.TileDictionary(plains, plan, false).Values.ToArray();
             }
             Require(terrains.Select(t => t.terrainData).Distinct().Count() == terrains.Length,
                 "Each official Terrain must use independent TerrainData.");
@@ -267,6 +267,7 @@ namespace AnimalGame.Editor
                 var settings = new SerializedObject(map);
                 settings.FindProperty("levelAsset").objectReferenceValue = level;
                 settings.FindProperty("editorHeightResolution").intValue = EditorResolution;
+                settings.FindProperty("smoothContourEdges").boolValue = true;
                 settings.ApplyModifiedPropertiesWithoutUndo(); map.enabled = true;
                 Require(map.LevelAsset == level, "The target map did not retain its official prairie level.");
                 var player = GetOrCreate<HeightMapPlayerSceneBootstrap>(root, "Official Plains Player Bootstrap");

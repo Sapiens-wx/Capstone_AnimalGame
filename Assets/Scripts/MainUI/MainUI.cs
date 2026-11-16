@@ -114,6 +114,9 @@ namespace AnimalGame.MainUI
         private TimeOrbitElement timeOrbit;
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
         private Label latitudeHemisphereLabel, longitudeHemisphereLabel;
+        private Label unstuckFailure;
+        private Font unstuckFailureFont;
+        private float unstuckFailureUntil;
         private bool started, inventoryOpen, pauseOwned, hasGeometry;
         private CursorLockMode originalCursorLock;
         private float progress, savedTimeScale, fit = 1, photoScale = 1, photoAlpha = 1;
@@ -199,6 +202,7 @@ namespace AnimalGame.MainUI
             altitudeLabel = root.Q<Label>("Altitude");
             latitudeHemisphereLabel = root.Q<Label>("LatitudeHemisphere");
             longitudeHemisphereLabel = root.Q<Label>("LongitudeHemisphere");
+            unstuckFailure = root.Q<Label>("UnstuckFailure");
             if (stage == null || view == null || innerRing == null || grid == null) return;
 
             root.pickingMode = PickingMode.Ignore;
@@ -216,6 +220,20 @@ namespace AnimalGame.MainUI
             lastPower = lastIntegrity = -1;
             ApplyLayout();
             UpdateStatus();
+        }
+
+        internal void ShowUnstuckFailure()
+        {
+            if (unstuckFailure == null) return;
+            if (unstuckFailureFont == null)
+                unstuckFailureFont = Font.CreateDynamicFontFromOSFont(new[]
+                {
+                    "Microsoft YaHei", "Noto Sans CJK SC", "PingFang SC"
+                }, 22);
+            if (unstuckFailureFont != null)
+                unstuckFailure.style.unityFontDefinition = FontDefinition.FromFont(unstuckFailureFont);
+            unstuckFailure.style.display = DisplayStyle.Flex;
+            unstuckFailureUntil = Time.unscaledTime + 2f;
         }
 
         public void ToggleInventory() { if (inventoryOpen) InventoryController.BackInventory(); else OpenInventory(); }
@@ -266,6 +284,11 @@ namespace AnimalGame.MainUI
             if (!started || document == null) return;
             if (root != document.rootVisualElement || stage == null) Init();
             if (stage == null) return;
+            if (unstuckFailureUntil > 0f && (BlocksGameplay || Time.unscaledTime >= unstuckFailureUntil))
+            {
+                if (unstuckFailure != null) unstuckFailure.style.display = DisplayStyle.None;
+                unstuckFailureUntil = 0f;
+            }
             AdvanceGameClock(Time.deltaTime);
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
             InventoryController.Tick();
@@ -613,6 +636,7 @@ namespace AnimalGame.MainUI
         {
             inventoryController?.Dispose();
             if (animalDebugInstance != null) Destroy(animalDebugInstance);
+            if (unstuckFailureFont != null) Destroy(unstuckFailureFont);
         }
     }
 }

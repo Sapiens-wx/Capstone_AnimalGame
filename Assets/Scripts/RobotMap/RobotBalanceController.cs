@@ -300,6 +300,11 @@ namespace AnimalGame.RobotMap
         {
             IsTippedOver = false;
             CurrentTipOver = default;
+            ResetBalance();
+        }
+
+        internal void ResetBalance()
+        {
             currentBalanceLocal = Vector2.zero;
             balanceVelocityLocal = Vector2.zero;
             currentCounterbalanceLocal = Vector2.zero;

@@ -18,6 +18,8 @@ namespace AnimalGame.Animals
         [SerializeField] private AnimalSoundEmitter soundEmitter;
         [Tooltip("Animals with the same non-empty ID in this scene form a group, including mixed species.")]
         [SerializeField] private string groupId;
+        [Tooltip("Keep this scene placement dormant until the player comes within the normal animal view range.")]
+        [SerializeField] private bool waitForPlayerInRange;
         public AnimalSpeciesConfig Config => config;
         public AnimalBehaviourSet Behaviour => behaviourSet;
         public bool SupportsAggression => behaviourSet != null && behaviourSet.SupportsAggression;
@@ -91,7 +93,18 @@ namespace AnimalGame.Animals
         }
         public void SimulationTick(float deltaTime)
         {
-            if (rejected || (!initialized && !TryInitialize()) || deltaTime <= 0f) return;
+            if (rejected) return;
+            if (!initialized)
+            {
+                if (waitForPlayerInRange)
+                {
+                    AnimalWorldQuery world = Simulation.World;
+                    if (world.Player == null || world.Camera == null || world.IsBeyondView(this))
+                        return;
+                }
+                if (!TryInitialize()) return;
+            }
+            if (deltaTime <= 0f) return;
             Runtime.Time = Simulation.Time;
             if (Health.IsDead)
             {

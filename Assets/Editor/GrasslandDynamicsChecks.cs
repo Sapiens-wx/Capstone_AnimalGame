@@ -11,9 +11,10 @@ using UnityEngine.SceneManagement;
 public static class GrasslandDynamicsChecks
 {
     [MenuItem("Animal Game/Checks/Grassland Dynamics")]
-    public static void Run()
+    public static void Run() => Run("output/validation/grassland-dynamics");
+
+    internal static void Run(string directory)
     {
-        const string directory = "output/validation/grassland-dynamics";
         Directory.CreateDirectory(directory);
         var material = new Material(Shader.Find("Hidden/AnimalGame/Grassland Render Probe"));
         var snapshots = new List<Texture2D>();
@@ -112,7 +113,8 @@ public static class GrasslandDynamicsChecks
                 File.WriteAllBytes(directory + "/idle.png",idle.EncodeToPNG());
                 File.WriteAllBytes(directory + "/wind.png",wind.EncodeToPNG());
                 File.WriteAllBytes(directory + "/pressed.png",pressed.EncodeToPNG());
-                CheckReveal(material, level, directory);
+                CheckDistantBaseGrass(material);
+                CheckReveal(level, directory);
                 footprints[0] = new Vector4(0,0,-10000,0);
             }
             foreach (var shader in new[] { material.shader, Shader.Find("AnimalGame/Dynamic Height Contours"),
@@ -131,7 +133,39 @@ public static class GrasslandDynamicsChecks
         }
     }
 
-    private static void CheckReveal(Material probe, HeightMapLevelAsset level, string directory)
+    private static void CheckDistantBaseGrass(Material material)
+    {
+        var mask = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+        Texture2D distant = null;
+        Texture2D nearby = null;
+        try
+        {
+            // Test22's flat grass tiles bake the tutorial opacity and contour fade to 3/255.
+            mask.SetPixel(0, 0, new Color32(255, 255, 255, 3));
+            mask.Apply();
+            material.SetTexture("_GrassMaskTex", mask);
+            material.SetVector("_GrassOverlaySettings", new Vector4(0, 0, 0, .2f));
+            material.SetVector("_MapSizeMeters", new Vector4(250, 250, 0, 0));
+            distant = Capture(material, 384, 384);
+            Color32[] broadPixels = distant.GetPixels32();
+            int visible = Array.FindAll(broadPixels, pixel => pixel.a > 0).Length;
+            Require(visible >= broadPixels.Length * .95f, "Distant flat grass disappeared with the tall overlay disabled");
+
+            material.SetVector("_MapSizeMeters", new Vector4(12, 12, 0, 0));
+            nearby = Capture(material, 384, 384);
+            Color32[] bladePixels = nearby.GetPixels32();
+            Require(Array.Exists(bladePixels, pixel => pixel.a > 3) && Array.Exists(bladePixels, pixel => pixel.a == 0),
+                "Nearby low-alpha grass lost its individual blade silhouettes");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(nearby);
+            UnityEngine.Object.DestroyImmediate(distant);
+            UnityEngine.Object.DestroyImmediate(mask);
+        }
+    }
+
+    private static void CheckReveal(HeightMapLevelAsset level, string directory)
     {
         var map = new Material(Shader.Find("AnimalGame/Dynamic Height Contours"));
         var scene = EditorSceneManager.NewPreviewScene();
@@ -140,13 +174,22 @@ public static class GrasslandDynamicsChecks
         var target = RenderTexture.GetTemporary(512,512,0,RenderTextureFormat.ARGB32);
         var previous = RenderTexture.active;
         Texture2D image = null;
+        Sprite tileSprite = null;
         try
         {
-            map.CopyPropertiesFromMaterial(probe);
             map.SetFloat("_GrassEnabled", 1);
             map.SetFloat("_SurfaceEnabled", 1);
             map.SetTexture("_SurfaceTex", Texture2D.blackTexture);
             map.SetTexture("_GrassMaskTex", Texture2D.whiteTexture);
+            map.SetTexture("_GrassPatternTex", level.GrasslandPattern);
+            map.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
+            map.SetVector("_GrassLayout", level.GrasslandLayout);
+            map.SetVector("_GrassShape", level.GrasslandShape);
+            map.SetFloat("_GrassTileSize", level.GrasslandTileSizeMeters);
+            map.SetVector("_GrassOverlaySettings", new Vector4(0, 0, 0, .2f));
+            map.SetVector("_GrassAlphaNormalization", new Vector4(level.GrasslandAlphaNormalization.x,
+                level.GrasslandAlphaNormalization.y, 0, 0));
+            map.SetMatrix("_GrassMetersToWorld", Matrix4x4.identity);
             map.SetVector("_MapSizeMeters", new Vector4(8,8,0,0));
             map.SetFloat("_MaximumOpacity", 0);
             map.SetColor("_ContourColor", Color.clear);
@@ -165,10 +208,14 @@ public static class GrasslandDynamicsChecks
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = Color.black;
             camera.targetTexture = target;
-            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            quad.transform.SetParent(root.transform, false);
-            quad.transform.localScale = Vector3.one * 2;
-            quad.GetComponent<Renderer>().sharedMaterial = map;
+            var tileObject = new GameObject("Preview map tile");
+            tileObject.transform.SetParent(root.transform, false);
+            var renderer = tileObject.AddComponent<SpriteRenderer>();
+            Texture2D carrier = Texture2D.whiteTexture;
+            tileSprite = Sprite.Create(carrier, new Rect(0, 0, carrier.width, carrier.height),
+                Vector2.one * .5f, carrier.width * .5f, 0, SpriteMeshType.FullRect);
+            renderer.sprite = tileSprite;
+            renderer.sharedMaterial = map;
             camera.Render();
             RenderTexture.active = target;
             image = new Texture2D(512,512,TextureFormat.RGBA32,false,true);
@@ -182,14 +229,15 @@ public static class GrasslandDynamicsChecks
                     outside+=p.r+p.g+p.b;
                 else inside+=p.r+p.g+p.b;
             }
+            File.WriteAllBytes(directory+"/"+level.name+"-reveal.png",image.EncodeToPNG());
             Require(inside>10000,"Actual map shader failed to display grass");
             Require(outside==0,"Grass escaped the player reveal circle");
-            File.WriteAllBytes(directory+"/"+level.name+"-reveal.png",image.EncodeToPNG());
         }
         finally
         {
             RenderTexture.active = previous;
             UnityEngine.Object.DestroyImmediate(root);
+            UnityEngine.Object.DestroyImmediate(tileSprite);
             EditorSceneManager.ClosePreviewScene(scene);
             RenderTexture.ReleaseTemporary(target);
             UnityEngine.Object.DestroyImmediate(image);

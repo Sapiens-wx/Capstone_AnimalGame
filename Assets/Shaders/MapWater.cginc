@@ -143,7 +143,7 @@ float MapShoreTerrainOpacity(float2 tileUv, float2 mapSizeMeters)
 }
 
 float3 ApplyMapWater(float3 background, float2 tileUv, float2 tileSize, float revealMask,
-    float2 waterUv, float insideBounds, fixed4 waterData)
+    float2 waterUv, float insideBounds, fixed4 waterData, out float waterBlend)
 {
     float2 mapMeters = tileUv * tileSize + _WaterOriginMeters.xy;
     float2 flow = SampleWaterFlow(waterUv);
@@ -151,7 +151,8 @@ float3 ApplyMapWater(float3 background, float2 tileUv, float2 tileSize, float re
     fixed4 still = SampleWaterPattern(mapMeters, waterData.g, flow, 0, bakedUv);
     fixed4 moving = SampleWaterPattern(mapMeters, waterData.g, flow, _Time.y, bakedUv);
     fixed4 water = lerp(still, moving, revealMask);
-    return lerp(background, water.rgb, saturate(water.a * smoothstep(.02, .98, waterData.r)));
+    waterBlend = saturate(water.a * smoothstep(.02, .98, waterData.r));
+    return lerp(background, water.rgb, waterBlend);
 }
 
 #endif

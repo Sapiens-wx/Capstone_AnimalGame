@@ -13,7 +13,8 @@ namespace AnimalGame.RobotMap
     {
         Driven,
         ExternalTumble,
-        Fallen
+        Fallen,
+        TowerLift
     }
 
     public enum LevelThreeClimbFailurePhase
@@ -92,7 +93,7 @@ namespace AnimalGame.RobotMap
             WorldInteractionQuery.Query(new InteractionShape { IsBox = true, A = min,
                 B = new Vector2(max.x, min.y), C = max, D = new Vector2(min.x, max.y) },
                 InteractionPushPlan.Solids, map, gameObject.scene, bodySweepCandidates,
-                ignore: transform, ignoreHeld: ignoreHeld);
+                ignore: transform, ignoreHeld: ignoreHeld, restrictTo: TowerCollisionRoot);
             results?.Clear();
             bool blocked = false;
             foreach (var item in bodySweepCandidates)
@@ -279,7 +280,50 @@ namespace AnimalGame.RobotMap
             }
         }
         public bool IgnoreCollisionAndTerrain { get; private set; }
-        public bool IgnoreAnimalDetection { get; set; }
+        private bool ignoreAnimalDetection;
+        public bool IgnoreAnimalDetection
+        {
+            get => ignoreAnimalDetection || HasTowerSupport;
+            set => ignoreAnimalDetection = value;
+        }
+        private Object towerSupportOwner;
+        public bool HasTowerSupport => towerSupportOwner != null;
+        public float? TowerSupportHeightMeters { get; private set; }
+        public Transform TowerCollisionRoot { get; private set; }
+
+        public bool SetTowerSupport(Object owner, Transform collisionRoot, float? heightMeters, bool riding)
+        {
+            if (owner == null || collisionRoot == null || IgnoreCollisionAndTerrain
+                || (HasTowerSupport && towerSupportOwner != owner)
+                || (riding && MovementMode != RobotMovementMode.Driven && MovementMode != RobotMovementMode.TowerLift))
+                return false;
+
+            bool entering = !HasTowerSupport;
+            bool wasRiding = MovementMode == RobotMovementMode.TowerLift;
+            towerSupportOwner = owner;
+            TowerCollisionRoot = collisionRoot;
+            TowerSupportHeightMeters = heightMeters;
+            if (riding != wasRiding)
+                MovementMode = riding ? RobotMovementMode.TowerLift : RobotMovementMode.Driven;
+            if (entering || riding != wasRiding)
+                ClearMotionForExternalControl();
+            if (entering)
+                MarkBodyDirty();
+            return true;
+        }
+
+        public void ClearTowerSupport(Object owner)
+        {
+            if (towerSupportOwner != owner)
+                return;
+            towerSupportOwner = null;
+            TowerCollisionRoot = null;
+            TowerSupportHeightMeters = null;
+            if (MovementMode == RobotMovementMode.TowerLift)
+                MovementMode = RobotMovementMode.Driven;
+            ClearMotionForExternalControl();
+            MarkBodyDirty();
+        }
         public float? DebugMoveSpeed { get; set; }
         public float DefaultMoveSpeed => ScaleMotion(forwardSpeed);
         private float DriveSpeed(float configuredSpeed) => DebugMoveSpeed.HasValue
@@ -430,7 +474,7 @@ namespace AnimalGame.RobotMap
                 ResetClimbableContact(); // External relocation is not a driven landing.
                 WorldInteraction.MarkHierarchySpatialDirty(transform);
             }
-            if (!IgnoreCollisionAndTerrain) RefreshClimbableSurface();
+            if (!IgnoreCollisionAndTerrain && !HasTowerSupport) RefreshClimbableSurface();
             UpdateWaterFlow(Time.deltaTime);
             lastCommittedPosition = transform.position;
             hasCommittedPosition = true;
@@ -553,12 +597,12 @@ namespace AnimalGame.RobotMap
                 : (Vector2)transform.up * probeSign;
             if (heavyReleaseVelocity.sqrMagnitude > 0.000001f)
                 probeDirection = heavyReleaseVelocity.normalized;
-            SlopeTraversalResult pathResult = traversalEvaluator != null
+            SlopeTraversalResult pathResult = traversalEvaluator != null && !HasTowerSupport
                 ? traversalEvaluator.EvaluateImmediateSafety(
                     transform.position,
                     probeDirection, true)
                 : SlopeTraversalResult.NoData;
-            SlopeTraversalResult groundResult = traversalEvaluator != null
+            SlopeTraversalResult groundResult = traversalEvaluator != null && !HasTowerSupport
                 ? traversalEvaluator.EvaluateCurrentSurface(transform.position, probeDirection)
                 : SlopeTraversalResult.NoData;
 
@@ -697,6 +741,12 @@ namespace AnimalGame.RobotMap
                 WorldInteraction.MarkHierarchySpatialDirty(transform);
                 return true;
             }
+            if (HasTowerSupport)
+            {
+                if (!TryCommitTranslation(desiredDisplacement, heldTransform)) return false;
+                lastCommittedPosition = transform.position;
+                return true;
+            }
             MapTestSceneController climbableMap = traversalEvaluator != null ? traversalEvaluator.Map : null;
             float bodyRadius = BodyRadiusInQuery(climbableMap);
             Vector2 movementStart = transform.position;
@@ -733,17 +783,7 @@ namespace AnimalGame.RobotMap
                 }
 
             }
-            PrepareMovementPlan(desiredDisplacement, heldTransform);
-            if (!movementPlan.Evaluate() || !movementPlan.Commit())
-            {
-                armController?.ReportBodyBlocked();
-                HardStop(SlopeTraversalResult.BlockedObstacle);
-                return false;
-            }
-
-            transform.position += (Vector3)desiredDisplacement;
-            WorldInteraction.MarkHierarchySpatialDirty(transform);
-            armController?.ConfirmBodyMotion();
+            if (!TryCommitTranslation(desiredDisplacement, heldTransform)) return false;
             climbableResistance.Commit();
             // Camera motion observes drive and terrain velocity, excluding the
             // separate heavy-release step. Reconstruct only the observed loss.
@@ -778,10 +818,25 @@ namespace AnimalGame.RobotMap
             return true;
         }
 
+        private bool TryCommitTranslation(Vector2 displacement, Transform heldRoot)
+        {
+            PrepareMovementPlan(displacement, heldRoot);
+            if (!movementPlan.Evaluate() || !movementPlan.Commit())
+            {
+                armController?.ReportBodyBlocked();
+                HardStop(SlopeTraversalResult.BlockedObstacle);
+                return false;
+            }
+            transform.position += (Vector3)displacement;
+            WorldInteraction.MarkHierarchySpatialDirty(transform);
+            armController?.ConfirmBodyMotion();
+            return true;
+        }
+
         private void PrepareMovementPlan(Vector2 displacement, Transform heldRoot)
         {
             MapTestSceneController sceneMap = traversalEvaluator != null ? traversalEvaluator.Map : null;
-            movementPlan.Begin(sceneMap, gameObject.scene, transform, heldRoot);
+            movementPlan.Begin(sceneMap, gameObject.scene, transform, heldRoot, TowerCollisionRoot);
             AppendBodyShape(movementPlan, transform.position, (Vector2)transform.position + displacement, sceneMap);
             armController?.AppendBodyMotion(movementPlan, transform.position + (Vector3)displacement, transform.rotation);
         }
@@ -798,6 +853,7 @@ namespace AnimalGame.RobotMap
 
         public bool ApplyAnimalImpact(Vector2 displacement)
         {
+            if (HasTowerSupport) return false;
             if (IgnoreCollisionAndTerrain) return TryMoveSafely(displacement, null);
             PrepareMovementPlan(displacement, armController != null && armController.HeldObject != null ? armController.HeldObject.transform : null);
             if (!movementPlan.Evaluate() || !movementPlan.Commit()) return false;
@@ -830,7 +886,7 @@ namespace AnimalGame.RobotMap
                 float t = i / (float)steps;
                 Vector3 position = Vector3.Lerp(start, end, t);
                 Quaternion heading = Quaternion.Slerp(rotation, endRotation, t);
-                movementPlan.Begin(map, gameObject.scene, transform, null);
+                movementPlan.Begin(map, gameObject.scene, transform, null, TowerCollisionRoot);
                 AppendBodyShape(movementPlan, transform.position, position, heading, map);
                 if (!movementPlan.Evaluate() || !movementPlan.Commit()) break;
                 transform.SetPositionAndRotation(position, heading);
@@ -1724,7 +1780,7 @@ namespace AnimalGame.RobotMap
             CurrentWaterFlow = Vector2.zero;
             MapTestSceneController map = traversalEvaluator != null ? traversalEvaluator.Map : null;
             Vector2 flow = Vector2.zero;
-            bool inWater = !IgnoreCollisionAndTerrain && !CurrentClimbableSurface.IsActive
+            bool inWater = !IgnoreCollisionAndTerrain && !HasTowerSupport && !CurrentClimbableSurface.IsActive
                 && map != null && map.TrySampleStaticWaterFlowWorldPosition(transform.position, out flow);
             if (inWater)
             {
@@ -1745,7 +1801,7 @@ namespace AnimalGame.RobotMap
 
         private float CalculateStaticWaterSpeedMultiplier()
         {
-            if (traversalEvaluator == null
+            if (HasTowerSupport || traversalEvaluator == null
                 || !traversalEvaluator.TrySamplePassableStaticWater(
                     transform.position,
                     out float depthMeters,

@@ -28,12 +28,12 @@ namespace AnimalGame.Tutorial
         public string Header = "TUTORIAL";
         public string CurrentLesson = "CURRENT LESSON";
         public string CurrentAction = "CURRENT ACTION";
-        public string CollapseHint = "Tap D-pad ← / →  Hide";
+        public string CollapseHint = "Tap D-pad →  Hide";
         public string ExpandHint = "Show";
-        public string ExpandArrows = "← →";
+        public string ExpandArrows = "→";
         [TextArea(2, 6)] public string GuideLabel = "G\nU\nI\nD\nE";
-        public string CollapseTooltip = "Tap D-pad Left / Right to hide";
-        public string ExpandTooltip = "Tap D-pad Left / Right to show";
+        public string CollapseTooltip = "Tap D-pad Right to hide";
+        public string ExpandTooltip = "Tap D-pad Right to show";
         public string ContinuePrompt = "Press A to continue";
         public string ContinueWaitingPrompt = "Complete this step to continue";
     }

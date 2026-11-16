@@ -4,6 +4,8 @@ Shader "AnimalGame/Dynamic Height Contours"
     {
         [PerRendererData] _MainTex ("Base Map", 2D) = "white" {}
         [HideInInspector] _PhotoContoursOnly ("Photo Contours Only", Float) = 0
+        [HideInInspector] _DashSubmergedContours ("Dash Submerged Contours", Float) = 0
+        [HideInInspector] _SmoothContourEdges ("Smooth Contour Edges", Float) = 0
         _HeightTex ("Height Map", 2D) = "black" {}
         _SurfaceTex ("Editor-Baked Terrain Surface", 2D) = "black" {}
         _SurfaceEnabled ("Surface Enabled", Float) = 0
@@ -104,6 +106,8 @@ Shader "AnimalGame/Dynamic Height Contours"
 
             sampler2D _MainTex;
             float _PhotoContoursOnly;
+            float _DashSubmergedContours;
+            float _SmoothContourEdges;
             sampler2D _HeightTex;
             sampler2D _SurfaceTex;
             float4 _HeightTex_TexelSize;
@@ -154,12 +158,47 @@ Shader "AnimalGame/Dynamic Height Contours"
                 return output;
             }
 
+            float SubmergedContourDash(float2 mapMeters, float heightMeters)
+            {
+                float2 mapDx = ddx(mapMeters);
+                float2 mapDy = ddy(mapMeters);
+                float2 tangent = mapDx * ddy(heightMeters) - mapDy * ddx(heightMeters);
+                float2 weights = abs(tangent);
+                float2 axis = weights.x >= weights.y ? float2(1, 0) : float2(0, 1);
+                // Pick a fixed world axis near the tangent, so bending the line does not rotate its phase scale.
+                const float diagonalUnit = 0.70710678;
+                if ((weights.x + weights.y) * diagonalUnit > max(weights.x, weights.y))
+                    axis = float2(1, tangent.x * tangent.y >= 0 ? 1 : -1) * diagonalUnit;
+
+                float projectedMeters = dot(mapMeters, axis);
+                float distanceToDashCenter = abs(frac(projectedMeters / 8.0 + 0.5) - 0.5) * 8.0;
+                float pixelMeters = clamp(abs(dot(mapDx, axis)) + abs(dot(mapDy, axis)), 0.001, 2.5);
+                return saturate(0.5 + (2.5 - distanceToDashCenter) / pixelMeters);
+            }
+
+            float SampleContourHeight(float2 uv, float center, float radiusMeters)
+            {
+                // Collapse taps across a tile edge while allowing smoothing parallel to it.
+                // Adjacent tiles therefore sample the same shared border.
+                float2 offset = min(radiusMeters / _MapSizeMeters.xy, max(0.0, min(uv, 1.0 - uv)));
+                float2 x = float2(offset.x, 0.0);
+                float2 y = float2(0.0, offset.y);
+                float axial = tex2D(_HeightTex, uv - x).r + tex2D(_HeightTex, uv + x).r
+                    + tex2D(_HeightTex, uv - y).r + tex2D(_HeightTex, uv + y).r;
+                float diagonal = tex2D(_HeightTex, uv - x - y).r + tex2D(_HeightTex, uv + x - y).r
+                    + tex2D(_HeightTex, uv - x + y).r + tex2D(_HeightTex, uv + x + y).r;
+                return lerp(_MinimumHeight, _MaximumHeight, saturate((4.0 * center + 2.0 * axial + diagonal) / 16.0));
+            }
+
             fixed4 frag(v2f input) : SV_Target
             {
                 // The sprite only supplies geometry; its carrier texture must not control map opacity.
                 fixed4 baseColor = fixed4(0, 0, 0, input.color.a);
                 if (_PhotoContoursOnly > 0.5) baseColor = fixed4(0, 0, 0, 1);
                 float revealMask = 1.0;
+                float landVisibility = 1.0;
+                float rippleTransmission = 1.0;
+                float2 mapMeters = input.uv * _MapSizeMeters.xy + _WaterOriginMeters.xy;
                 if (_SurfaceRevealEnabled > 0.5)
                 {
                     float2 screenUv = input.screenPosition.xy
@@ -190,6 +229,8 @@ Shader "AnimalGame/Dynamic Height Contours"
                     float insideWaterBounds;
                     fixed4 waterData = ReadMapWater(input.uv, waterUv, insideWaterBounds);
                     float waterRange = smoothstep(.02, .98, waterData.r);
+                    // Fade only on the dry side of the mask's midpoint.
+                    landVisibility -= _DashSubmergedContours * smoothstep(0.02, 0.5, waterData.r);
 
                     fixed4 terrainSurface = _SurfaceEnabled > 0.5
                         ? tex2D(_SurfaceTex, input.uv)
@@ -204,7 +245,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                     float terrainBlend = saturate(
                         terrainSurface.a
                         * revealMask
-                        * (1.0 - waterRange));
+                        * min(1.0 - waterRange, landVisibility));
                     baseColor.rgb = lerp(
                         baseColor.rgb,
                         terrainSurface.rgb,
@@ -212,14 +253,15 @@ Shader "AnimalGame/Dynamic Height Contours"
 
                     if (_WaterEnabled > 0.5)
                     {
+                        float waterBlend;
                         baseColor.rgb = ApplyMapWater(baseColor.rgb, input.uv, _MapSizeMeters.xy,
-                            revealMask, waterUv, insideWaterBounds, waterData);
+                            revealMask, waterUv, insideWaterBounds, waterData, waterBlend);
+                        rippleTransmission = 1.0 - waterBlend;
                     }
                 }
 
                 // This texture is the same normalized physical surface sampled by
-                // movement and traversal UI. Only screen-space antialiasing below may
-                // alter presentation; contour positions never use a separate blur/LOD.
+                // movement and traversal UI.
                 float normalizedHeight = saturate(tex2D(_HeightTex, input.uv).r);
                 float heightMeters = lerp(_MinimumHeight, _MaximumHeight, normalizedHeight);
 
@@ -331,8 +373,18 @@ Shader "AnimalGame/Dynamic Height Contours"
                     baseColor.rgb *= 1.0 + hillshadeAmount;
                 }
 
-                float blendAmount = saturate(HeightContourBlend(heightMeters) * _ContourColor.a);
-                baseColor.rgb = lerp(baseColor.rgb, _ContourColor.rgb, blendAmount);
+                float contourHeight = heightMeters;
+                if (_SmoothContourEdges > 0.5)
+                    contourHeight = SampleContourHeight(input.uv, normalizedHeight, 0.65);
+                float blendAmount = saturate(HeightContourBlend(contourHeight, _SmoothContourEdges > 0.5) * _ContourColor.a);
+                if (_DashSubmergedContours > 0.5 && _WaterEnabled > 0.5)
+                {
+                    float submergedBlend = blendAmount * (1.0 - landVisibility)
+                        * SubmergedContourDash(mapMeters, heightMeters) * 0.25;
+                    // The submerged line tints the black backing; the ripple blend above it stays independent.
+                    baseColor.rgb += _ContourColor.rgb * submergedBlend * rippleTransmission;
+                }
+                baseColor.rgb = lerp(baseColor.rgb, _ContourColor.rgb, blendAmount * landVisibility);
 
                 if (_ElevationFilterEnabled > 0.5
                     && elevationFilterProgress > 0.0001)

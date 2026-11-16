@@ -260,7 +260,7 @@ namespace AnimalGame.Editor
                     case Phase.Show:
                         if (!Settled(4)) return;
                         Require(!lesson.Panel.IsCollapsed && !AnimalGame.MainUI.MainUI.BlocksGameplay,
-                            "One left D-pad tap must show discovery without a previous chapter stealing ownership.");
+                            "One right D-pad tap must show discovery without a previous chapter stealing ownership.");
                         Record("The discovery chapter owns the shared panel and responds once to each D-pad tap.");
                         Begin(Phase.ShortTaps); break;
                     case Phase.ShortTaps:
@@ -471,7 +471,7 @@ namespace AnimalGame.Editor
             if (gamepad == null) return;
             var state = new GamepadState();
             if ((phase == Phase.Hide || phase == Phase.Show) && lastTapPhase != (int)phase)
-            { state = state.WithButton(phase == Phase.Hide ? GamepadButton.DpadRight : GamepadButton.DpadLeft); lastTapPhase = (int)phase; }
+            { state = state.WithButton(GamepadButton.DpadRight); lastTapPhase = (int)phase; }
             if (phase == Phase.ShortTaps && (shortTapCount == 0
                 || (shortTapCount == 1 && Time.frameCount - firstShortTapFrame >= 3)) && lastTapFrame != Time.frameCount)
             {

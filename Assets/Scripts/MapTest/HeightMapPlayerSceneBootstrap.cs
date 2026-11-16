@@ -1,8 +1,10 @@
 using AnimalGame.Animals;
 using AnimalGame.RobotMap;
 using AnimalGame.RobotArm;
+using AnimalGame.Tutorial;
 using AnimalGame.World;
 using UnityEngine;
+using GameMainUI = AnimalGame.MainUI.MainUI;
 
 namespace AnimalGame.MapTest
 {
@@ -227,8 +229,11 @@ namespace AnimalGame.MapTest
 
         private void LateUpdate()
         {
-            if (map == null || robot == null || robot.IgnoreCollisionAndTerrain)
+            if (map == null || robot == null || robot.IgnoreCollisionAndTerrain || robot.HasTowerSupport)
                 return;
+
+            if (AdaptiveLegacyGamepadInput.WasDpadLeftPressedThisFrame())
+                TryUnstuck();
 
             Bounds bounds = map.WorldBounds;
             Vector3 position = robot.transform.position;
@@ -236,6 +241,33 @@ namespace AnimalGame.MapTest
             position.y = Mathf.Clamp(position.y, bounds.min.y, bounds.max.y);
             robot.transform.position = position;
             WorldInteraction.MarkHierarchySpatialDirty(robot.transform);
+        }
+
+        private void TryUnstuck()
+        {
+            // Run after gameplay and modal input so UI changes in this frame take priority.
+            if (Time.timeScale <= 0f || Time.deltaTime <= 0f
+                || GameMainUI.BlocksGameplay || AnimalDebug.DebugUI.BlocksOtherPanels
+                || TutorialTipOverLesson.BlocksGameplayForReading(gameObject)
+                || photoMode.IsActive || photoMode.IsInputLocked || (photoResultView != null && photoResultView.IsShowing)
+                || !robot.isActiveAndEnabled || robot.IsMovementLocked || tumble.HasTumbleBalanceState
+                || heightMotion.IsAirborne || robot.GetComponent<PlayerCombatReceiver>().IsDisplaced
+                || armController.State == RobotArmState.Recycling)
+                return;
+
+            RobotUnstuckResult result = RobotUnstuckSearch.Find(robot, traversalEvaluator, map, out Vector2 destination);
+            if (result == RobotUnstuckResult.NoSafePosition)
+                mainUiObject.GetComponent<GameMainUI>().ShowUnstuckFailure();
+            if (result != RobotUnstuckResult.Found)
+                return;
+
+            if (armController.State != RobotArmState.Retracted)
+                armController.CancelArmControl();
+            robot.Teleport(destination);
+            balance.ResetBalance();
+            heightMotion.SynchronizeToCurrentGround();
+            robot.GetComponent<GrasslandTrampleController>().ResetTravelDirection();
+            cameraFollow.SnapToTarget();
         }
 
         private void UpdatePlayerHeight()

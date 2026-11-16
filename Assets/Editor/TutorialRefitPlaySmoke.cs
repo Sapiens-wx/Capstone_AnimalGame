@@ -372,14 +372,14 @@ namespace AnimalGame.Editor
                     case Phase.FinalHide:
                         if (!Settled(6)) return;
                         Require(lesson.IsComplete && lesson.Panel.IsCollapsed && !terminal.IsOpen,
-                            "The confirmed completion card must still hide with a real left D-pad tap.");
+                            "The confirmed completion card must still hide with a real right D-pad tap.");
                         report.finalPanelHidden = true; Begin(Phase.FinalShow); break;
                     case Phase.FinalShow:
                         if (!Settled(6)) return;
                         Require(lesson.IsComplete && !lesson.Panel.IsCollapsed && !lesson.Panel.CanContinue && !terminal.IsOpen,
                             "The confirmed completion card must reopen with a real right D-pad tap without reclaiming A.");
                         report.finalPanelShown = true;
-                        Record("After chapter confirmation, real left/right D-pad taps still hide and reopen the completion card without reclaiming ordinary A.");
+                        Record("After chapter confirmation, real right D-pad taps still hide and reopen the completion card without reclaiming ordinary A.");
                         Begin(Phase.ReopenNormally); break;
                     case Phase.ReopenNormally:
                         if (!terminal.IsOpen || !Settled(6)) return;
@@ -501,8 +501,7 @@ namespace AnimalGame.Editor
             if (phase == Phase.CloseWorkbench || phase == Phase.CloseNormally || phase == Phase.ExitFinalCamera) Tap(ref state, GamepadButton.East);
             if (phase == Phase.OpenFinalCamera) Tap(ref state, GamepadButton.West);
             if (phase == Phase.MoveFinalFrame) state.rightStick = new Vector2(.7f, .35f);
-            if (phase == Phase.FinalHide) Tap(ref state, GamepadButton.DpadLeft);
-            if (phase == Phase.FinalShow) Tap(ref state, GamepadButton.DpadRight);
+            if (phase == Phase.FinalHide || phase == Phase.FinalShow) Tap(ref state, GamepadButton.DpadRight);
             report.queuedLeftStick = state.leftStick; report.queuedRightTrigger = state.rightTrigger;
             report.queuedRightStick = state.rightStick;
             pad.MakeCurrent(); InputSystem.QueueStateEvent(pad, state);

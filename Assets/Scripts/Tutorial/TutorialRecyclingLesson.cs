@@ -144,8 +144,7 @@ namespace AnimalGame.Tutorial
                 return;
             }
 #if ENABLE_INPUT_SYSTEM
-            if (Gamepad.current != null && (Gamepad.current.dpad.left.wasPressedThisFrame
-                || Gamepad.current.dpad.right.wasPressedThisFrame)) Panel.ToggleCollapsed();
+            if (Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame) Panel.ToggleCollapsed();
 #endif
             RobotArmController arm = bootstrap.armController;
             bool holding = (targetWaste != null && arm.HeldObject == targetWaste)

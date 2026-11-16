@@ -545,8 +545,8 @@ namespace AnimalGame.Editor
             if (Visible(card, root))
             {
                 Label hint = root.Q<Label>("TutorialToggleHint");
-                Require(hint != null && Visible(hint, root) && hint.text == "Tap D-pad ← / →  Hide",
-                    context + " keeps both D-pad directions visible through every terrain stage and scan status.");
+                Require(hint != null && Visible(hint, root) && hint.text == "Tap D-pad →  Hide",
+                    context + " keeps D-pad right visible through every terrain stage and scan status.");
                 Label status = root.Q<Label>("TutorialStatus");
                 Require(hint.parent == card && hint != status && hint.worldBound.yMin >= status.worldBound.yMax,
                     context + " places persistent input help below, independently of lesson feedback.");
@@ -556,8 +556,8 @@ namespace AnimalGame.Editor
             {
                 Label arrows = root.Q<Label>("TutorialTabToggleArrows");
                 Label hint = root.Q<Label>("TutorialTabToggleHint");
-                Require(arrows != null && Visible(arrows, root) && arrows.text == "← →",
-                    context + " shows both D-pad directions on the narrow tab.");
+                Require(arrows != null && Visible(arrows, root) && arrows.text == "→",
+                    context + " shows D-pad right on the narrow tab.");
                 Require(hint != null && Visible(hint, root) && hint.text == "Show",
                     context + " retains its show-help label while hidden.");
             }

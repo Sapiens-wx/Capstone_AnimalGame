@@ -52,6 +52,20 @@ Label {
     color: white;
 }
 
+.unstuck-failure {
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: 78px;
+    translate: -50% 0;
+    color: rgb(212, 184, 84);
+    background-color: rgba(17, 18, 15, 0.94);
+    border-bottom-width: 2px;
+    border-bottom-color: rgb(212, 184, 84);
+    padding: 8px 20px;
+    -unity-text-align: middle-center;
+}
+
 .status {
     width: 310px;
     height: 154px;

@@ -22,7 +22,7 @@ namespace AnimalGame.Editor
         private const string RunSessionKey = "AnimalGame.TutorialDrivingPlaySmoke.CurrentRun";
         private const string KnownMissingStaticAnimal = "Prefab instance problem: 'Static_Animal (Missing Prefab with guid: 2645e53e76c8ec846b09ee78b13275be)'. 2 instances are missing the same Prefab Asset with guid 2645e53e76c8ec846b09ee78b13275be.";
         private const string KnownSceneHeader = "Problem detected while opening the Scene file: 'Assets/Scenes/GameMaps/TutorialTemporaryMap.unity'.\nCheck the following logs for more details.";
-        private enum Phase { Starting, Ready, Collapsed, Released, Expanded, RightCollapsed, RightReleased,
+        private enum Phase { Starting, Ready, LeftWhileExpanded, RightCollapsed, LeftWhileCollapsed, RightReleased,
             RightExpanded, BeforeRightHold, RightHold, Paused, Resumed, Driving, Complete,
             TerrainStarting, TerrainRightCollapsed, TerrainRightReleased, TerrainRightExpanded,
             TerrainTravel, TerrainAtSurvey, TerrainLongPress, TerrainCancelledCharge,
@@ -64,7 +64,7 @@ namespace AnimalGame.Editor
         [SerializeField] private TutorialTerrainLesson terrain;
         [SerializeField] private float frozenReading;
         [SerializeField] private TerrainTutorialStep lastTerrainStep;
-        [SerializeField] private Phase lastShortRightTap;
+        [SerializeField] private Phase lastShortDpadTap;
         [SerializeField] private bool passedApproachBend;
         [SerializeField] private bool cameraFollowSuspended;
         [SerializeField] private float navigationAngle, navigationLastMovedAt;
@@ -155,29 +155,25 @@ namespace AnimalGame.Editor
                             "Idle robot advanced the lesson.");
                         Require(lesson.Panel.Root.Q<Label>("TutorialHeader")?.text == "TUTORIAL",
                             "The saved tutorial scene still displays its former support header.");
-                        Require(lesson.Panel.Root.Q<Label>("TutorialToggleHint")?.text == "Tap D-pad ← / →  Hide",
-                            "The task panel has no permanent left/right D-pad help.");
+                        Require(lesson.Panel.Root.Q<Label>("TutorialToggleHint")?.text == "Tap D-pad →  Hide",
+                            "The task panel must display permanent D-pad right help.");
                         Record("Saved tutorial scene starts with the existing robot, HUD and a separate readable right-side lesson.");
-                        BeginCapture("driving-start.png", Phase.Collapsed); break;
-                    case Phase.Collapsed:
+                        BeginCapture("driving-start.png", Phase.LeftWhileExpanded); break;
+                    case Phase.LeftWhileExpanded:
                         if (!Settled(4)) return;
-                        Require(lesson.Panel.IsCollapsed, "D-pad left did not collapse the panel.");
-                        BeginCapture("driving-collapsed.png", Phase.Released); break;
-                    case Phase.Released:
-                        if (Settled(4)) Begin(Phase.Expanded);
-                        break;
-                    case Phase.Expanded:
-                        if (!Settled(4)) return;
-                        Require(!lesson.Panel.IsCollapsed, "D-pad left did not reopen the panel.");
-                        Record("D-pad left collapses and reopens the task panel without advancing the task or consuming A.");
+                        Require(!lesson.Panel.IsCollapsed, "D-pad left collapsed the panel.");
                         Begin(Phase.RightCollapsed); break;
                     case Phase.RightCollapsed:
                         if (!Settled(4)) return;
                         Require(lesson.Panel.IsCollapsed && !AnimalGame.MainUI.MainUI.BlocksGameplay,
                             "A short D-pad right press did not hide the panel or incorrectly opened inventory.");
-                        Require(lesson.Panel.Root.Q<Label>("TutorialTabToggleArrows")?.text == "← →"
+                        Require(lesson.Panel.Root.Q<Label>("TutorialTabToggleArrows")?.text == "→"
                             && lesson.Panel.Root.Q<Label>("TutorialTabToggleHint")?.text == "Show",
-                            "The collapsed panel does not show its left/right reopening hint.");
+                            "The collapsed panel must show its D-pad right reopening hint.");
+                        BeginCapture("driving-collapsed.png", Phase.LeftWhileCollapsed); break;
+                    case Phase.LeftWhileCollapsed:
+                        if (!Settled(4)) return;
+                        Require(lesson.Panel.IsCollapsed, "D-pad left reopened the panel.");
                         Begin(Phase.RightReleased); break;
                     case Phase.RightReleased:
                         if (Settled(4)) Begin(Phase.RightExpanded);
@@ -186,7 +182,7 @@ namespace AnimalGame.Editor
                         if (!Settled(4)) return;
                         Require(!lesson.Panel.IsCollapsed && !AnimalGame.MainUI.MainUI.BlocksGameplay,
                             "A short D-pad right press did not reopen the panel.");
-                        Record("D-pad right also hides/reopens the panel, without repeating while held; both directions are permanently explained on the card and tab.");
+                        Record("D-pad right hides and reopens the tutorial panel. D-pad left leaves it in its current state.");
                         Begin(Phase.BeforeRightHold); break;
                     case Phase.BeforeRightHold:
                         if (Settled(4)) Begin(Phase.RightHold);
@@ -270,7 +266,7 @@ namespace AnimalGame.Editor
                         if (!Settled(4)) return;
                         Require(!lesson.Panel.IsCollapsed && terrain.Progress.Step == TerrainTutorialStep.ReachSurvey,
                             "Right D-pad failed to reopen terrain teaching or advanced the navigation task.");
-                        Record("The terrain chapter also supports both D-pad directions without advancing its destination task.");
+                        Record("D-pad right toggles the terrain panel without advancing its destination task.");
                         Begin(Phase.TerrainTravel); break;
                     case Phase.TerrainTravel:
                         CheckNavigationProgress();
@@ -414,15 +410,16 @@ namespace AnimalGame.Editor
             var gamepad = InputSystem.GetDeviceById(gamepadId) as Gamepad;
             if (gamepad == null) return;
             var state = new GamepadState();
-            if (phase == Phase.Collapsed || phase == Phase.Expanded) state = state.WithButton(GamepadButton.DpadLeft);
             if (phase == Phase.RightHold)
                 state = state.WithButton(GamepadButton.DpadRight);
-            else if ((phase == Phase.RightCollapsed || phase == Phase.RightExpanded
-                || phase == Phase.TerrainRightCollapsed || phase == Phase.TerrainRightExpanded) && lastShortRightTap != phase)
+            else if ((phase == Phase.LeftWhileExpanded || phase == Phase.LeftWhileCollapsed
+                || phase == Phase.RightCollapsed || phase == Phase.RightExpanded
+                || phase == Phase.TerrainRightCollapsed || phase == Phase.TerrainRightExpanded) && lastShortDpadTap != phase)
             {
                 // Emit a true short tap, independent of variable batch-editor frame durations.
-                state = state.WithButton(GamepadButton.DpadRight);
-                lastShortRightTap = phase;
+                state = state.WithButton(phase == Phase.LeftWhileExpanded || phase == Phase.LeftWhileCollapsed
+                    ? GamepadButton.DpadLeft : GamepadButton.DpadRight);
+                lastShortDpadTap = phase;
             }
             if (phase == Phase.Paused) { state.rightTrigger = 1f; state = state.WithButton(GamepadButton.DpadLeft); }
             if (phase == Phase.Driving && lesson != null && lesson.Progress != null)
