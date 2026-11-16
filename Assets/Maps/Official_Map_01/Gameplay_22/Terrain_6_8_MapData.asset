@@ -23,7 +23,7 @@ MonoBehaviour:
   detailSmoothingSigmaMeters: 0
   preserveLargeStepHeightMeters: 1.8
   largeStepConfirmationDistanceMeters: 1
-  prebakedHeightField: {fileID: 0}
+  prebakedHeightField: {fileID: 11400000, guid: 6a3cf10a46a1f1b4db6c215aea191fd4, type: 2}
   contourIntervalMeters: 7
   dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}
   minimumContourWidth: 0.7
@@ -198,6 +198,7 @@ MonoBehaviour:
   - {x: 0.91015625, y: 0.52734375, z: 0.0546875, w: 0.44140625}
   grasslandTileSizeMeters: 3.2
   grasslandAlphaNormalization: {x: 1, y: 0.75}
+  grasslandOpacity: 0.2
   grasslandLayoutSeed: 0
   grasslandPositionJitter: 0.4
   grasslandDirectionRegionScale: 20
