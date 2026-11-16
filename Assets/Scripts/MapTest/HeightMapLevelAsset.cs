@@ -418,11 +418,12 @@ namespace AnimalGame.MapTest
         [SerializeField, Range(.1f, 1f)] private float grasslandBladeLengthScale = 1f;
 
         public Texture2D BakedGrasslandMask => bakedGrasslandMask;
-        [Header("Sparse Grassland Overlay")]
+        [Header("Grassland Overlay Patches")]
         [SerializeField] private Texture2D grass1;
         [SerializeField] private Texture2D grass2;
         [SerializeField] private Texture2D grass3;
-        [SerializeField, Range(0f, 1f)] private float grassOverlayDensity = .18f;
+        [Tooltip("Regional coverage threshold for tall grass patches; zero hides the overlay.")]
+        [SerializeField, Range(0f, 1f)] private float grassOverlayDensity = .76f;
         [SerializeField, Range(.1f, .7f)] private float grassOverlaySize = .65f;
         public Texture2D Grass1 => grass1;
         public Texture2D Grass2 => grass2;

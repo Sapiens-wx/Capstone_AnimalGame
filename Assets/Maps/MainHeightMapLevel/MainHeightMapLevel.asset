@@ -119,7 +119,7 @@ MonoBehaviour:
     patternTexture: {fileID: 2800000, guid: d6606b1204025a341a04ddd64b2ed411, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
     opacity: 0.35
-    tileSizeMeters: 6.4
+    tileSizeMeters: 12.8
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
@@ -203,15 +203,15 @@ MonoBehaviour:
   grasslandPositionJitter: 0.4
   grasslandDirectionRegionScale: 20
   grasslandBladeAngleVariation: 10
-  grasslandDensity: 1.05
-  grasslandBladeLengthScale: 0.448
+  grasslandDensity: 1.365
+  grasslandBladeLengthScale: 0.56
   grass1: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
   grass2: {fileID: 0}
   grass3: {fileID: 0}
-  grassOverlayDensity: 0.18
+  grassOverlayDensity: 0.76
   grassOverlaySize: 0.65
   surfaceRevealEdgePixels: 4
-  surfaceBakeRevision: 457
+  surfaceBakeRevision: 462
   surfaceBakeGeneratorVersion: 10
   backgroundColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
   contourColor: {r: 0.92, g: 0.97, b: 1, a: 1}
