@@ -202,12 +202,12 @@ MonoBehaviour:
   grasslandPositionJitter: 0.4
   grasslandDirectionRegionScale: 20
   grasslandBladeAngleVariation: 10
-  grasslandDensity: 1.05
-  grasslandBladeLengthScale: 0.448
+  grasslandDensity: 1.365
+  grasslandBladeLengthScale: 0.56
   grass1: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
   grass2: {fileID: 0}
   grass3: {fileID: 0}
-  grassOverlayDensity: 0.18
+  grassOverlayDensity: 0.76
   grassOverlaySize: 0.65
   surfaceRevealEdgePixels: 4
   surfaceBakeRevision: 27

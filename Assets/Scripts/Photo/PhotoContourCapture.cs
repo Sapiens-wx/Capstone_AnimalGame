@@ -66,6 +66,8 @@ namespace AnimalGame.RobotMap
                     originals.Add(terrain, terrain.sharedMaterial);
                     var material = new Material(terrain.sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
                     temporaryMaterials.Add(material);
+                    // Hide tall grass only in the frozen result-map snapshot.
+                    material.SetVector("_GrassOverlaySettings", Vector4.zero);
                     material.SetFloat("_SurfaceEnabled", 0);
                     material.SetFloat("_PhotoContoursOnly", 1);
                     material.SetFloat("_SurfaceRevealEnabled", 0);

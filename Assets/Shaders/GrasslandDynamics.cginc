@@ -68,25 +68,43 @@ float4 GrassInstance(float2 cell)
     return float4(placement.xy, GrassBladeAngle(cell, placement.xy), placement.z);
 }
 
-// Independent sparse instances share the underlying grass direction field.
+// Each occupied world-space block contains one connected group of 3–10 clusters.
+bool GrassOverlayCluster(float2 cell)
+{
+    float2 block = floor(cell / 6);
+    float2 key = block + _GrassLayout.x * float2(.37, 1.91) + 521.7;
+    if (GrassHash(key) >= _GrassOverlaySettings.x) return false;
+    float2 local = cell - block * 6;
+    if (GrassHash(key + 17) < .5) local = local.yx;
+    if (GrassHash(key + 31) < .5) local.x = 5 - local.x;
+    if (GrassHash(key + 57) < .5) local.y = 5 - local.y;
+    local -= 1;
+    if (local.x < 0 || local.x > 3 || local.y < 0 || local.y > 2) return false;
+    float column = fmod(local.y, 2) < .5 ? local.x : 3 - local.x;
+    float rank = local.y * 4 + column;
+    float clusterCount = 3 + floor(GrassHash(key + 83) * 8);
+    return rank < clusterCount;
+}
+
 float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float animate)
 {
-    if (_GrassOverlaySettings.z < .5) return 0;
-    float2 cell = floor(meters / _GrassTileSize);
+    if (_GrassOverlaySettings.z < .5 || _GrassOverlaySettings.x <= 0) return 0;
+    float spacing = _GrassTileSize * .7;
+    float2 cell = floor(meters / spacing);
     float size = _GrassTileSize * _GrassOverlaySettings.y;
     float4 result = 0;
     int bits = (int)_GrassOverlaySettings.z;
     int count = (bits & 1) + ((bits >> 1) & 1) + ((bits >> 2) & 1);
-    // Tall instances can cross two layout cells after regional rotation.
-    [loop] for (int y = -2; y <= 2; y++)
-    [loop] for (int x = -2; x <= 2; x++)
+    // Preserve full rotated support with the denser layout.
+    [loop] for (int y = -3; y <= 3; y++)
+    [loop] for (int x = -3; x <= 3; x++)
     {
         float2 key = cell + float2(x, y) + _GrassLayout.x + 739.1;
-        if (GrassHash(key + 19) >= _GrassOverlaySettings.x) continue;
+        if (!GrassOverlayCluster(cell + float2(x, y))) continue;
         float2 instanceSize = size * float2(lerp(.8, 1.2, GrassHash(key + 107)),
             lerp(.6, 1.5, GrassHash(key + 149)));
         float2 centre = (cell + float2(x, y) + .5
-            + (float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1) * .4) * _GrassTileSize;
+            + (float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1) * .25) * spacing;
         float2 delta = meters - centre;
         float support = instanceSize.y * .95 + instanceSize.x * .5;
         if (dot(delta, delta) > support * support) continue;
