@@ -1,11 +1,37 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Map.uss" />
     <ui:VisualElement name="world-map">
+      <ui:VisualElement name="map-frame">
+       <ui:VisualElement name="map-viewport">
         <ui:Image name="map-image" picking-mode="Ignore" />
+        <AnimalGame.RobotMap.PhotoResultGridElement name="map-grid" offset="0,12" grid-length="56" width="1" />
         <ui:VisualElement name="pin-0" class="map-circle" picking-mode="Ignore" />
         <ui:VisualElement name="pin-1" class="map-circle" picking-mode="Ignore" />
         <ui:VisualElement name="pin-2" class="map-circle" picking-mode="Ignore" />
-        <ui:VisualElement name="map-cursor" class="map-circle" picking-mode="Ignore" />
-        <ui:Label name="map-controls" text="WASD  Move     Wheel  Zoom     Space  Place / remove pin     Esc  Close" picking-mode="Ignore" />
+        <ui:VisualElement name="map-cursor" picking-mode="Ignore" />
+       </ui:VisualElement>
+      </ui:VisualElement>
+        <ui:VisualElement name="map-controls" picking-mode="Ignore">
+            <ui:VisualElement class="map-action">
+                <ui:VisualElement class="map-action-underline" />
+                <ui:Label name="map-move-key" text="LS" class="map-action-key" />
+                <ui:Label text="Move" class="map-action-caption" />
+            </ui:VisualElement>
+            <ui:VisualElement class="map-action">
+                <ui:VisualElement class="map-action-underline" />
+                <ui:Label name="map-zoom-key" text="RS" class="map-action-key" />
+                <ui:Label text="Zoom" class="map-action-caption" />
+            </ui:VisualElement>
+            <ui:VisualElement class="map-action">
+                <ui:VisualElement class="map-action-underline" />
+                <ui:Label name="map-pin-key" text="A" class="map-action-key" />
+                <ui:Label text="Place / Remove Pin" class="map-action-caption" />
+            </ui:VisualElement>
+            <ui:VisualElement class="map-action">
+                <ui:VisualElement class="map-action-underline" />
+                <ui:Label name="map-close-key" text="B" class="map-action-key" />
+                <ui:Label text="Close" class="map-action-caption" />
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -36,14 +36,20 @@ namespace AnimalGame.World.Map
         public float CurrentZoom { get; private set; }
         public MapViewState View { get; } = new MapViewState();
 
-        private VisualElement root, cursor, playerIcon;
+        private VisualElement panel, root, cursor, playerIcon;
         private readonly VisualElement[] pinElements = new VisualElement[MapViewState.PinLimit];
         private Image mapImage;
-        private Label controls;
+        private PhotoResultGridElement mapGrid;
+        private float gridCellMeters;
+        private float cursorPinSpread;
+        private VisualElement controls;
+        private Label moveKey, zoomKey, pinKey, closeKey;
         private WorldMapRenderer mapRenderer;
         private MapTestSceneController map;
         private Vector2 baseViewSize, lastSize;
         private float savedTimeScale;
+        private float openingPlayerBearing;
+        private float openingMapViewHeight;
         private CursorLockMode savedCursorLock;
         private bool savedCursorVisible, dirty;
         private Vector2 lastRenderedCenter, lastRenderedSize;
@@ -58,8 +64,10 @@ namespace AnimalGame.World.Map
         private void OnEnable()
         {
             Instance = this;
-            root = GetComponent<UIDocument>().rootVisualElement.Q("world-map");
+            panel = GetComponent<UIDocument>().rootVisualElement.Q("world-map");
+            root = panel.Q("map-viewport");
             mapImage = root.Q<Image>("map-image");
+            mapGrid = root.Q<PhotoResultGridElement>("map-grid");
             mapImage.scaleMode = ScaleMode.StretchToFill;
             checkpointLayer = new VisualElement { name = "map-checkpoints", pickingMode = PickingMode.Ignore };
             checkpointLayer.style.position = Position.Absolute;
@@ -72,19 +80,69 @@ namespace AnimalGame.World.Map
             playerIcon.generateVisualContent += context =>
             {
                 var painter = context.painter2D;
-                painter.fillColor = Color.white;
+                painter.strokeColor = new Color32(0xD4, 0xB8, 0x54, 255);
+                painter.lineWidth = 1.5f;
+                float width = playerIcon.contentRect.width;
+                float height = playerIcon.contentRect.height;
+                float radius = Mathf.Max(0, Mathf.Min((width - 4f) * .5f, (height - 4f) / 3f));
+                Vector2 center = new Vector2(width * .5f, height - 2f - radius);
+                Vector2 tip = center - Vector2.up * (radius * 2f);
                 painter.BeginPath();
-                painter.MoveTo(new Vector2(playerIcon.contentRect.width * .5f, 0));
-                painter.LineTo(new Vector2(playerIcon.contentRect.width, playerIcon.contentRect.height));
-                painter.LineTo(new Vector2(0, playerIcon.contentRect.height));
+                painter.MoveTo(tip);
+                // Equal X/Y radius gives a circular body; the tip joins it tangentially.
+                for (int i = 0; i <= 64; i++)
+                {
+                    float angle = Mathf.Lerp(-30f, 210f, i / 64f) * Mathf.Deg2Rad;
+                    painter.LineTo(center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius);
+                }
                 painter.ClosePath();
-                painter.Fill();
+                painter.Stroke();
             };
             root.Insert(root.IndexOf(root.Q("map-cursor")), playerIcon);
             cursor = root.Q("map-cursor");
-            controls = root.Q<Label>("map-controls");
+            cursor.style.scale = new Scale(new Vector3(3.125f, 3.125f, 1f));
+            cursor.generateVisualContent += DrawMapCursor;
+            controls = panel.Q("map-controls");
+            moveKey = controls.Q<Label>("map-move-key");
+            zoomKey = controls.Q<Label>("map-zoom-key");
+            pinKey = controls.Q<Label>("map-pin-key");
+            closeKey = controls.Q<Label>("map-close-key");
+            UpdateControlHints();
             for (int i = 0; i < pinElements.Length; i++) pinElements[i] = root.Q("pin-" + i);
-            root.style.display = DisplayStyle.None;
+            panel.style.display = DisplayStyle.None;
+        }
+
+        private void DrawMapCursor(MeshGenerationContext context)
+        {
+            var painter = context.painter2D;
+            painter.strokeColor = new Color32(0xD4, 0xB8, 0x54, 255);
+            // Half the previous icon size, with a 30% thinner screen-space stroke.
+            painter.lineWidth = .7f;
+            painter.lineCap = LineCap.Round;
+            Vector2 center = cursor.contentRect.center;
+            float radius = Mathf.Max(0, Mathf.Min(cursor.contentRect.width, cursor.contentRect.height) * .5f - 2);
+            for (int i = 0; i < 3; i++)
+            {
+                float angle = (90f + i * 120f) * Mathf.Deg2Rad;
+                Vector2 radial = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                Vector2 tangent = new Vector2(-Mathf.Sin(angle), Mathf.Cos(angle)) * radius;
+                Vector2 pieceCenter = center + radial * (.3f * cursorPinSpread);
+                // atan(sqrt(3)) = 60 degrees on each side: a 120-degree corner.
+                // Separate paths and the inset apex leave equal gaps between all three pieces.
+                Vector2 corner = pieceCenter + radial * .25f;
+                float halfSpan = .4f * Mathf.Sqrt(3f);
+                Vector2 start = pieceCenter + radial * .65f - tangent * halfSpan;
+                Vector2 end = pieceCenter + radial * .65f + tangent * halfSpan;
+                Vector2 roundStart = Vector2.Lerp(corner, start, .12f);
+                Vector2 roundEnd = Vector2.Lerp(corner, end, .12f);
+                painter.BeginPath();
+                painter.MoveTo(start);
+                painter.LineTo(roundStart);
+                painter.BezierCurveTo(Vector2.Lerp(roundStart, corner, 2f / 3f),
+                    Vector2.Lerp(roundEnd, corner, 2f / 3f), roundEnd);
+                painter.LineTo(end);
+                painter.Stroke();
+            }
         }
 
         private void Update()
@@ -103,7 +161,7 @@ namespace AnimalGame.World.Map
                 Close();
                 return;
             }
-            Vector2 size = new Vector2(Screen.width, Screen.height);
+            Vector2 size = MapScreenSize();
             if (size != lastSize)
             {
                 baseViewSize.x = baseViewSize.y * size.x / size.y;
@@ -133,10 +191,25 @@ namespace AnimalGame.World.Map
             View.Snap(size, circleRadius * 1.4f, checkpointManager?.Positions, checkpointIconSizePixels * .6f);
             if ((keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
                 || (pad != null && pad.buttonSouth.wasPressedThisFrame)) View.Submit();
-            controls.text = pad != null
-                ? "LS / D-pad  Move     RS  Zoom     A  Place / remove pin     B  Close"
-                : "WASD  Move     Wheel  Zoom     Space  Place / remove pin     Esc  Close";
+            float nextSpread = Mathf.MoveTowards(cursorPinSpread, View.SelectedPin >= 0 ? 1f : 0f,
+                Time.unscaledDeltaTime / .12f);
+            if (!Mathf.Approximately(nextSpread, cursorPinSpread))
+            {
+                cursorPinSpread = nextSpread;
+                cursor.MarkDirtyRepaint();
+            }
+            UpdateControlHints();
             RefreshVisuals(size);
+        }
+
+        private void UpdateControlHints()
+        {
+            bool gamepad = Gamepad.current != null;
+            controls.EnableInClassList("map-keyboard", !gamepad);
+            moveKey.text = gamepad ? "LS" : "WASD";
+            zoomKey.text = gamepad ? "RS" : "Wheel";
+            pinKey.text = gamepad ? "A" : "Space";
+            closeKey.text = gamepad ? "B" : "Esc";
         }
 
         public void Open()
@@ -180,14 +253,21 @@ namespace AnimalGame.World.Map
             Vector2 metresPerUnit = new Vector2(map.MapSizeMeters.x / boundsSize.x, map.MapSizeMeters.y / boundsSize.y);
             Vector2 footprint = new Vector2(Vector2.Scale(corners[1] - corners[0], metresPerUnit).magnitude,
                 Vector2.Scale(corners[2] - corners[0], metresPerUnit).magnitude);
-            float aspect = Screen.width / (float)Screen.height;
+            Vector2 viewportSize = MapScreenSize();
+            float aspect = viewportSize.x / viewportSize.y;
             baseViewSize.y = Mathf.Max(footprint.y, footprint.x / aspect);
             baseViewSize.x = baseViewSize.y * aspect;
             RecalculateZoomLimits();
             CurrentZoom = Mathf.Clamp(defaultZoom, MinimumZoom, MaximumZoom);
             Vector2 player = WorldToMap(bootstrap.robotObject.transform.position);
+            Vector2 forward = bootstrap.robot.Forward;
+            openingPlayerBearing = Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg;
             View.Open(player, baseViewSize * CurrentZoom, map.MapSizeMeters);
+            cursorPinSpread = 0f;
+            cursor.MarkDirtyRepaint();
             FitWholeMap();
+            openingMapViewHeight = View.ViewSize.y;
+            gridCellMeters = 0f;
             mapRenderer = new WorldMapRenderer(contourShader);
             savedTimeScale = Time.timeScale;
             savedCursorLock = UnityEngine.Cursor.lockState;
@@ -197,10 +277,19 @@ namespace AnimalGame.World.Map
             UnityEngine.Cursor.visible = false;
             active = this;
             IsOpen = true;
-            lastSize = new Vector2(Screen.width, Screen.height);
-            root.style.display = DisplayStyle.Flex;
+            lastSize = viewportSize;
+            panel.style.display = DisplayStyle.Flex;
             dirty = true;
             RefreshVisuals(lastSize);
+        }
+
+        private Vector2 MapScreenSize()
+        {
+            Vector2 size = root.contentRect.size;
+            float panelHeight = panel.contentRect.height;
+            return size.x > 0 && size.y > 0 && panelHeight > 0
+                ? size * (Screen.height / panelHeight)
+                : new Vector2(Screen.width * .96f, Screen.height * .9f);
         }
 
         private void RecalculateZoomLimits()
@@ -237,6 +326,11 @@ namespace AnimalGame.World.Map
             }
             Vector2 uiSize = root.contentRect.size;
             if (uiSize.x <= 0 || uiSize.y <= 0) return;
+            // Anchor the grid to map metres rather than to the screen.
+            if (gridCellMeters <= 0f)
+                gridCellMeters = 56f * openingMapViewHeight / uiSize.y;
+            mapGrid.gridLength = gridCellMeters * uiSize.y / View.ViewSize.y;
+            mapGrid.offset = View.ToScreen(Vector2.zero, uiSize);
             float radius = circleRadius * uiSize.y / screenSize.y;
             float iconRadius = checkpointIconSizePixels * .5f * uiSize.y / screenSize.y;
             for (int i = 0; i < checkpointIcons.Count; i++)
@@ -253,8 +347,9 @@ namespace AnimalGame.World.Map
             }
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             PositionCircle(playerIcon, View.ToScreen(WorldToMap(bootstrap.robotObject.transform.position), uiSize), radius * 1.5f);
-            Vector2 forward = bootstrap.robot.Forward;
-            playerIcon.style.rotate = new Rotate(Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg);
+            float playerScale = 1.5f * openingMapViewHeight / View.ViewSize.y;
+            playerIcon.style.scale = new Scale(new Vector3(playerScale, playerScale, 1f));
+            playerIcon.style.rotate = new Rotate(openingPlayerBearing);
             PositionCircle(cursor, View.ToScreen(View.DisplayCursor, uiSize), radius);
         }
 
@@ -287,7 +382,7 @@ namespace AnimalGame.World.Map
             IsOpen = false;
             if (active == this) active = null;
             closedFrame = Time.frameCount;
-            root.style.display = DisplayStyle.None;
+            panel.style.display = DisplayStyle.None;
             mapImage.image = null;
             checkpointLayer.Clear();
             checkpointIcons.Clear();
@@ -301,6 +396,7 @@ namespace AnimalGame.World.Map
         private void OnDisable()
         {
             Close();
+            if (cursor != null) cursor.generateVisualContent -= DrawMapCursor;
             checkpointLayer?.RemoveFromHierarchy();
             playerIcon?.RemoveFromHierarchy();
             if (Instance == this) Instance = null;

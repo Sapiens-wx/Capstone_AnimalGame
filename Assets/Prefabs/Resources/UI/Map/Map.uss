@@ -10,18 +10,86 @@
     left: 0; top: 0; right: 0; bottom: 0;
     -unity-background-scale-mode: stretch-to-fill;
 }
+#map-frame {
+    position: absolute;
+    left: 2%; right: 2%; top: 3%; bottom: 7%;
+    border-width: 1px;
+    border-color: white;
+    overflow: hidden;
+}
+#map-viewport {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    overflow: hidden;
+}
 .map-circle {
     position: absolute;
     width: 14px; height: 14px;
     border-radius: 999px;
     background-color: white;
 }
+#map-grid {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    overflow: hidden;
+}
+#map-cursor {
+    position: absolute;
+}
 #map-controls {
     position: absolute;
-    bottom: 24px; left: 0; right: 0;
-    color: white;
-    font-size: 16px;
+    top: 93%; bottom: 0; left: 2%; right: 2%;
+    color: #e7e7df;
+    font-size: 24px;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+    -unity-font-style: bold;
     -unity-text-align: middle-center;
-    background-color: rgba(0, 0, 0, 0.7);
-    padding-top: 8px; padding-bottom: 8px;
+    background-color: transparent;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+.map-action {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: 14px;
+    margin-right: 14px;
+    padding-right: 14px;
+}
+.map-action-key {
+    width: 36px; height: 36px;
+    margin: 0 8px 0 0;
+    padding: 0;
+    border-width: 4px;
+    border-color: #D4B854;
+    border-radius: 50%;
+    color: white;
+    background-color: black;
+    font-size: 20px;
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
+    flex-shrink: 0;
+}
+.map-action-caption {
+    margin: 0;
+    padding: 0;
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: #e7e7df;
+}
+.map-action-underline {
+    position: absolute;
+    left: 18px; right: 0; bottom: 0;
+    height: 1px;
+    background-color: white;
+}
+.map-keyboard .map-action-key {
+    width: auto;
+    min-width: 36px;
+    padding-left: 8px; padding-right: 8px;
+    border-width: 1px;
+    border-color: white;
+    border-radius: 0;
+    font-size: 16px;
 }
