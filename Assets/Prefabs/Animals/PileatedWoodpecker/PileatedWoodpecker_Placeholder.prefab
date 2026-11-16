@@ -576,9 +576,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   visualRoot: {fileID: 4124710611500769805}
-  bodyRenderers:
-  - {fileID: 3253483730233485182}
-  - {fileID: 8562076238673343995}
+  bodyRenderer: {fileID: 8562076238673343995}
   turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
   followTimeSeconds: 0.12
   maximumBendDegrees: 22

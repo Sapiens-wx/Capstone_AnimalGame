@@ -690,9 +690,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   visualRoot: {fileID: 3351961163244372313}
-  bodyRenderers:
-  - {fileID: 6051157855037081251}
-  - {fileID: 1874912894510113343}
+  bodyRenderer: {fileID: 1874912894510113343}
   turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
   followTimeSeconds: 0.12
   maximumBendDegrees: 22

@@ -471,6 +471,25 @@ MonoBehaviour:
   burrowPrefab: {fileID: 9017118805590984691, guid: 170a75c8aa824624fa355d8da1bafa1a, type: 3}
   safeEmergenceSeconds: 5
   alarmDelaySeconds: 1
+--- !u!114 &7392156480314278092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 139671064437040807}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  visualRoot: {fileID: 8079304306406987686}
+  bodyRenderer: {fileID: 8508841698747971814}
+  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
+  followTimeSeconds: 0.12
+  maximumBendDegrees: 22
+  headAnchor: {x: 0, y: 0.5826}
+  tailAnchor: {x: 0, y: -0.5826}
 --- !u!1 &2765247328976709505
 GameObject:
   m_ObjectHideFlags: 0
@@ -758,7 +777,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.54857536, y: 0.54857536, z: 0.54857536}
+  m_LocalScale: {x: 0.54857534, y: 0.54857534, z: 0.54857534}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 9004465664612131023}
@@ -766,24 +785,3 @@ Transform:
   - {fileID: 7195384252360369766}
   m_Father: {fileID: 2231577620671773943}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7392156480314278092
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 139671064437040807}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  visualRoot: {fileID: 8079304306406987686}
-  bodyRenderers:
-  - {fileID: 6098288482917200170}
-  - {fileID: 8508841698747971814}
-  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
-  followTimeSeconds: 0.12
-  maximumBendDegrees: 22
-  headAnchor: {x: 0, y: 0.5826}
-  tailAnchor: {x: 0, y: -0.5826}

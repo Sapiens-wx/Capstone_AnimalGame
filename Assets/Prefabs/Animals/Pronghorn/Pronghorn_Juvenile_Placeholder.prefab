@@ -26,7 +26,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.88287293, y: 0.88287293, z: 0.88287293}
+  m_LocalScale: {x: 0.88287294, y: 0.88287294, z: 0.88287294}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3564026591771691303}
@@ -676,6 +676,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   juvenileIndividual: 1
   juvenileSizeMultiplier: 0.65
+--- !u!114 &7392156480314278092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3996425126760113061}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  visualRoot: {fileID: 6573296547835449661}
+  bodyRenderer: {fileID: 8968629403672884419}
+  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
+  followTimeSeconds: 0.12
+  maximumBendDegrees: 22
+  headAnchor: {x: 0, y: 0.543}
+  tailAnchor: {x: 0, y: -0.543}
 --- !u!1 &8036934882234766180
 GameObject:
   m_ObjectHideFlags: 0
@@ -763,24 +782,3 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!114 &7392156480314278092
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3996425126760113061}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  visualRoot: {fileID: 6573296547835449661}
-  bodyRenderers:
-  - {fileID: 8418496953129973805}
-  - {fileID: 8968629403672884419}
-  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
-  followTimeSeconds: 0.12
-  maximumBendDegrees: 22
-  headAnchor: {x: 0, y: 0.543}
-  tailAnchor: {x: 0, y: -0.543}

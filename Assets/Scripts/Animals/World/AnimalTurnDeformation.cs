@@ -14,8 +14,8 @@ namespace AnimalGame.Animals
     public sealed class AnimalTurnDeformation : MonoBehaviour
     {
         [SerializeField] private Transform visualRoot;
-        [Tooltip("Body fill and outline only. Exclude the undiscovered field.")]
-        [SerializeField] private SpriteRenderer[] bodyRenderers = Array.Empty<SpriteRenderer>();
+        [Tooltip("Body sprite to deform. Exclude the undiscovered field.")]
+        [SerializeField] private SpriteRenderer bodyRenderer;
         [SerializeField] private Material turnMaterial;
         [SerializeField, Min(0.001f)] private float followTimeSeconds = 0.12f;
         [SerializeField, Range(0f, 45f)] private float maximumBendDegrees = 22f;
@@ -49,7 +49,7 @@ namespace AnimalGame.Animals
         }
 
         private static readonly Dictionary<Sprite, SpriteMesh> Meshes = new Dictionary<Sprite, SpriteMesh>();
-        private BodyBinding[] bindings;
+        private BodyBinding binding;
         private AnimalAgent agent;
         private float previousWrappedAngle;
         private double continuousHeading;
@@ -137,7 +137,7 @@ namespace AnimalGame.Animals
         {
             InitializeHeading();
             synchronizedFrame = -1;
-            ApplyToBodies();
+            ApplyToBody();
         }
 
         private void InitializeHeading()
@@ -158,13 +158,13 @@ namespace AnimalGame.Animals
             if (visualRoot == null || turnMaterial == null
                 || (agent != null && agent.Health != null && agent.Health.IsDead))
             {
-                RestoreBodies();
+                RestoreBody();
                 headingInitialized = false;
                 bendDegrees = 0f;
                 return;
             }
 
-            EnsureBindings();
+            EnsureBinding();
             if (!headingInitialized)
                 InitializeHeading();
             if (deltaTime > 0f)
@@ -186,116 +186,100 @@ namespace AnimalGame.Animals
                 bendDegrees = Mathf.Clamp((float)(followingHeading - continuousHeading),
                     -maximumBendDegrees, maximumBendDegrees);
             }
-            ApplyToBodies();
+            ApplyToBody();
         }
 
-        private void EnsureBindings()
+        private void EnsureBinding()
         {
-            int count = bodyRenderers != null ? bodyRenderers.Length : 0;
-            bool changed = bindings == null || bindings.Length != count;
-            if (!changed)
-                for (int index = 0; index < count; index++)
-                    if (bindings[index].Renderer != bodyRenderers[index]) { changed = true; break; }
-            if (changed)
+            if (binding == null || binding.Renderer != bodyRenderer)
             {
-                RestoreBodies();
-                bindings = new BodyBinding[count];
-                for (int index = 0; index < count; index++)
+                RestoreBody();
+                binding = new BodyBinding
                 {
-                    SpriteRenderer renderer = bodyRenderers[index];
-                    bindings[index] = new BodyBinding
-                    {
-                        Renderer = renderer,
-                        OriginalMaterial = renderer != null ? renderer.sharedMaterial : null
-                    };
-                }
+                    Renderer = bodyRenderer,
+                    OriginalMaterial = bodyRenderer != null ? bodyRenderer.sharedMaterial : null
+                };
             }
 
-            foreach (BodyBinding binding in bindings)
+            SpriteRenderer renderer = binding.Renderer;
+            if (renderer == null)
+                return;
+            if (binding.Mesh != null && renderer.sprite != binding.Mesh.Runtime)
             {
-                SpriteRenderer renderer = binding.Renderer;
-                if (renderer == null)
-                    continue;
-                if (binding.Mesh != null && renderer.sprite != binding.Mesh.Runtime)
-                {
-                    Release(binding.Mesh);
-                    binding.Mesh = null;
-                    renderer.ResetLocalBounds();
-                }
-                if (binding.Mesh == null && renderer.sprite != null)
-                {
-                    binding.Mesh = Acquire(renderer.sprite);
-                    renderer.sprite = binding.Mesh.Runtime;
-                }
-                if (binding.AppliedMaterial != turnMaterial)
-                {
-                    if (renderer.sharedMaterial == binding.AppliedMaterial)
-                        renderer.sharedMaterial = binding.OriginalMaterial;
-                    binding.AppliedMaterial = turnMaterial;
-                }
-                if (renderer.sharedMaterial != turnMaterial)
-                    renderer.sharedMaterial = turnMaterial;
+                Release(binding.Mesh);
+                binding.Mesh = null;
+                renderer.ResetLocalBounds();
             }
+            if (binding.Mesh == null && renderer.sprite != null)
+            {
+                binding.Mesh = Acquire(renderer.sprite);
+                renderer.sprite = binding.Mesh.Runtime;
+            }
+            if (binding.AppliedMaterial != turnMaterial)
+            {
+                if (renderer.sharedMaterial == binding.AppliedMaterial)
+                    renderer.sharedMaterial = binding.OriginalMaterial;
+                binding.AppliedMaterial = turnMaterial;
+            }
+            if (renderer.sharedMaterial != turnMaterial)
+                renderer.sharedMaterial = turnMaterial;
         }
 
-        private void ApplyToBodies()
+        private void ApplyToBody()
         {
-            if (bindings == null || visualRoot == null)
+            if (binding == null || visualRoot == null)
                 return;
             Vector4 anchors = new Vector4(headAnchor.x, headAnchor.y, tailAnchor.x, tailAnchor.y);
             float radians = bendDegrees * Mathf.Deg2Rad;
-            foreach (BodyBinding binding in bindings)
+            SpriteRenderer renderer = binding.Renderer;
+            if (renderer == null || binding.Mesh == null || renderer.sprite != binding.Mesh.Runtime)
+                return;
+            Matrix4x4 toVisual = visualRoot.worldToLocalMatrix * renderer.localToWorldMatrix;
+            Matrix4x4 toRenderer = renderer.worldToLocalMatrix * visualRoot.localToWorldMatrix;
+            renderer.GetPropertyBlock(binding.Properties);
+            binding.Properties.SetMatrix(RendererToVisualId, toVisual);
+            binding.Properties.SetMatrix(VisualToRendererId, toRenderer);
+            binding.Properties.SetVector(HeadTailId, anchors);
+            binding.Properties.SetFloat(BendId, radians);
+            renderer.SetPropertyBlock(binding.Properties);
+
+            // Straight movement is the common case. Match the shader's
+            // bypass without evaluating hundreds of trigonometric bends.
+            if (Mathf.Abs(radians) <= 0.000001f)
             {
-                SpriteRenderer renderer = binding.Renderer;
-                if (renderer == null || binding.Mesh == null || renderer.sprite != binding.Mesh.Runtime)
-                    continue;
-                Matrix4x4 toVisual = visualRoot.worldToLocalMatrix * renderer.localToWorldMatrix;
-                Matrix4x4 toRenderer = renderer.worldToLocalMatrix * visualRoot.localToWorldMatrix;
-                renderer.GetPropertyBlock(binding.Properties);
-                binding.Properties.SetMatrix(RendererToVisualId, toVisual);
-                binding.Properties.SetMatrix(VisualToRendererId, toRenderer);
-                binding.Properties.SetVector(HeadTailId, anchors);
-                binding.Properties.SetFloat(BendId, radians);
-                renderer.SetPropertyBlock(binding.Properties);
-
-                // Straight movement is the common case. Match the shader's
-                // bypass without evaluating hundreds of trigonometric bends.
-                if (Mathf.Abs(radians) <= 0.000001f)
-                {
-                    Bounds straight = binding.Mesh.Runtime.bounds;
-                    Vector3 center = straight.center;
-                    if (renderer.flipX) center.x = -center.x;
-                    if (renderer.flipY) center.y = -center.y;
-                    straight.center = center;
-                    straight.Expand(new Vector3(0.0002f, 0.0002f, 0.01f));
-                    renderer.localBounds = straight;
-                    continue;
-                }
-
-                // Bound the actual deformed triangles, including flipped sprites.
-                // This also feeds PhotoSubject and scan queries, without changing
-                // AnimalBody's independent circular collision shape.
-                Vector3 minimum = new Vector3(float.PositiveInfinity, float.PositiveInfinity, 0f);
-                Vector3 maximum = new Vector3(float.NegativeInfinity, float.NegativeInfinity, 0f);
-                foreach (Vector2 vertex in binding.Mesh.Vertices)
-                {
-                    Vector3 local = new Vector3(renderer.flipX ? -vertex.x : vertex.x,
-                        renderer.flipY ? -vertex.y : vertex.y, 0f);
-                    Vector3 point = toVisual.MultiplyPoint3x4(local);
-                    Vector2 bent = BendPoint(point, headAnchor, tailAnchor, radians);
-                    point.x = bent.x;
-                    point.y = bent.y;
-                    point = toRenderer.MultiplyPoint3x4(point);
-                    point.z = local.z;
-                    minimum = Vector3.Min(minimum, point);
-                    maximum = Vector3.Max(maximum, point);
-                }
-                Bounds bounds = new Bounds();
-                bounds.SetMinMax(minimum, maximum);
-                // A small depth extent avoids zero-volume camera culling.
-                bounds.Expand(new Vector3(0.0002f, 0.0002f, 0.01f));
-                renderer.localBounds = bounds;
+                Bounds straight = binding.Mesh.Runtime.bounds;
+                Vector3 center = straight.center;
+                if (renderer.flipX) center.x = -center.x;
+                if (renderer.flipY) center.y = -center.y;
+                straight.center = center;
+                straight.Expand(new Vector3(0.0002f, 0.0002f, 0.01f));
+                renderer.localBounds = straight;
+                return;
             }
+
+            // Bound the actual deformed triangles, including flipped sprites.
+            // This also feeds PhotoSubject and scan queries, without changing
+            // AnimalBody's independent circular collision shape.
+            Vector3 minimum = new Vector3(float.PositiveInfinity, float.PositiveInfinity, 0f);
+            Vector3 maximum = new Vector3(float.NegativeInfinity, float.NegativeInfinity, 0f);
+            foreach (Vector2 vertex in binding.Mesh.Vertices)
+            {
+                Vector3 local = new Vector3(renderer.flipX ? -vertex.x : vertex.x,
+                    renderer.flipY ? -vertex.y : vertex.y, 0f);
+                Vector3 point = toVisual.MultiplyPoint3x4(local);
+                Vector2 bent = BendPoint(point, headAnchor, tailAnchor, radians);
+                point.x = bent.x;
+                point.y = bent.y;
+                point = toRenderer.MultiplyPoint3x4(point);
+                point.z = local.z;
+                minimum = Vector3.Min(minimum, point);
+                maximum = Vector3.Max(maximum, point);
+            }
+            Bounds bounds = new Bounds();
+            bounds.SetMinMax(minimum, maximum);
+            // A small depth extent avoids zero-volume camera culling.
+            bounds.Expand(new Vector3(0.0002f, 0.0002f, 0.01f));
+            renderer.localBounds = bounds;
         }
 
         private static Vector2 BendPoint(Vector2 point, Vector2 head, Vector2 tail, float radians)
@@ -367,38 +351,35 @@ namespace AnimalGame.Animals
             else DestroyImmediate(sprite);
         }
 
-        private void RestoreBodies()
+        private void RestoreBody()
         {
-            if (bindings == null)
+            if (binding == null)
                 return;
-            foreach (BodyBinding binding in bindings)
+            SpriteRenderer renderer = binding.Renderer;
+            if (renderer != null)
             {
-                SpriteRenderer renderer = binding.Renderer;
-                if (renderer != null)
-                {
-                    if (binding.Mesh != null && renderer.sprite == binding.Mesh.Runtime)
-                        renderer.sprite = binding.Mesh.Source;
-                    if (renderer.sharedMaterial == binding.AppliedMaterial)
-                        renderer.sharedMaterial = binding.OriginalMaterial;
-                    renderer.GetPropertyBlock(binding.Properties);
-                    binding.Properties.SetFloat(BendId, 0f);
-                    renderer.SetPropertyBlock(binding.Properties);
-                    renderer.ResetLocalBounds();
-                }
-                if (binding.Mesh != null)
-                    Release(binding.Mesh);
+                if (binding.Mesh != null && renderer.sprite == binding.Mesh.Runtime)
+                    renderer.sprite = binding.Mesh.Source;
+                if (renderer.sharedMaterial == binding.AppliedMaterial)
+                    renderer.sharedMaterial = binding.OriginalMaterial;
+                renderer.GetPropertyBlock(binding.Properties);
+                binding.Properties.SetFloat(BendId, 0f);
+                renderer.SetPropertyBlock(binding.Properties);
+                renderer.ResetLocalBounds();
             }
-            bindings = null;
+            if (binding.Mesh != null)
+                Release(binding.Mesh);
+            binding = null;
         }
 
         private void OnDisable()
         {
-            RestoreBodies();
+            RestoreBody();
             headingInitialized = false;
             bendDegrees = 0f;
             synchronizedFrame = -1;
         }
-        private void OnDestroy() => RestoreBodies();
+        private void OnDestroy() => RestoreBody();
 
         private void OnValidate()
         {

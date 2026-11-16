@@ -56,3 +56,5 @@
 - Prefab/UXML/USS 位于 `Assets/Prefabs/Resources/UI/Communication/`；`Assets/Data/Communication/Contacts.asset` 配置联系人枚举、职业和 Sprite 头像。
 - `GameSave.conversations` 保存各联系人的文字/照片消息；照片引用相册索引，删除相册照片时同步移除和调整消息索引。
 - `SaveSystem.SharePhotos` 持久化消息、全局 sent 标记和已发送数量；上传不再增加认知度或解锁等级。
+
+- `AnimalTurnDeformation` ????? `bodyRenderer`????? Renderer ???

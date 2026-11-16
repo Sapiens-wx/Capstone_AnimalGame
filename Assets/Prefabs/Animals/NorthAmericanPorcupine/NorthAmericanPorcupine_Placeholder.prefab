@@ -1430,6 +1430,25 @@ MonoBehaviour:
   juvenileSizeMultiplier: 0.65
   quillDamage: 3
   quillVisual: {fileID: 4922160922621499972}
+--- !u!114 &7392156480314278092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8298094975156198271}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  visualRoot: {fileID: 8408541109840605694}
+  bodyRenderer: {fileID: 3152614948136910813}
+  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
+  followTimeSeconds: 0.12
+  maximumBendDegrees: 22
+  headAnchor: {x: 0, y: 0.6684}
+  tailAnchor: {x: 0, y: -0.6684}
 --- !u!1 &8455560699772433030
 GameObject:
   m_ObjectHideFlags: 0
@@ -1865,24 +1884,3 @@ SpriteRenderer:
   m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!114 &7392156480314278092
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8298094975156198271}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  visualRoot: {fileID: 8408541109840605694}
-  bodyRenderers:
-  - {fileID: 5984195656086573996}
-  - {fileID: 3152614948136910813}
-  turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
-  followTimeSeconds: 0.12
-  maximumBendDegrees: 22
-  headAnchor: {x: 0, y: 0.6684}
-  tailAnchor: {x: 0, y: -0.6684}

@@ -773,12 +773,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7f4b39a628294d89a1b1c462e60ec921, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   visualRoot: {fileID: 6569824193523274996}
-  bodyRenderers:
-  - {fileID: 3384617359833692678}
-  - {fileID: 2941470768839100484}
+  bodyRenderer: {fileID: 2941470768839100484}
   turnMaterial: {fileID: 2100000, guid: a752f28975e7427d898658ca3dfdbb9a, type: 2}
   followTimeSeconds: 0.12
   maximumBendDegrees: 22

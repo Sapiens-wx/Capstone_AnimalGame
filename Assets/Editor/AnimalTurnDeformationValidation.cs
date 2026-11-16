@@ -164,8 +164,8 @@ namespace AnimalGame.EditorTools
                     Turn = Root.GetComponent<AnimalTurnDeformation>();
                     Require(Turn != null, path + " has no AnimalTurnDeformation");
                     Visual = Field<Transform>(Turn, "visualRoot");
-                    Bodies = Field<SpriteRenderer[]>(Turn, "bodyRenderers");
-                    Require(Visual != null && Bodies != null && Bodies.Length == 2, "Expected a Visual Root and two body renderers: " + path);
+                    Bodies = new[] { Field<SpriteRenderer>(Turn, "bodyRenderer") };
+                    Require(Visual != null && Bodies != null && Bodies.Length == 1, "Expected a Visual Root and one body renderer: " + path);
                     Sources = new SpriteSnapshot[Bodies.Length];
                     for (int i = 0; i < Bodies.Length; i++) Sources[i] = new SpriteSnapshot(Bodies[i]);
                     if (Application.isPlaying)
@@ -484,7 +484,7 @@ namespace AnimalGame.EditorTools
                     "Missing shared coordinate space or degenerate head / tail anchors: " + path);
                 Require(Field<Material>(f.Turn, "turnMaterial") == expected, "Prefab does not reference shared turn material: " + path);
                 var selected = new HashSet<SpriteRenderer>(f.Bodies);
-                Require(selected.Count == 2, "Body renderer is listed twice: " + path);
+                Require(selected.Count == 1, "Body renderer is listed twice: " + path);
                 foreach (SpriteRenderer body in f.Bodies)
                     Require(body != null && body.transform.IsChildOf(f.Visual)
                         && (body.name == "Body Fill" || body.name == "Body Outline"),
@@ -579,7 +579,7 @@ namespace AnimalGame.EditorTools
                 using (var second = new Fixture(path))
                 {
                     first.Tick(1f / 60f); second.Tick(1f / 60f);
-                    generated = new[] { first.Bodies[0].sprite, first.Bodies[1].sprite };
+                    generated = new[] { first.Bodies[0].sprite };
                     for (int i = 0; i < first.Bodies.Length; i++)
                     {
                         first.Sources[i].CheckRuntime(generated[i]);
@@ -728,7 +728,6 @@ namespace AnimalGame.EditorTools
             RequireGraphics();
             using var f = new Fixture(Prefabs[0]);
             ShowOnlyBodies(f);
-            f.Bodies[1].enabled = false;
             SpriteRenderer body = f.Bodies[0];
             Texture2D texture = MakeGrid();
             Sprite grid = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(.5f, .5f), 64);
