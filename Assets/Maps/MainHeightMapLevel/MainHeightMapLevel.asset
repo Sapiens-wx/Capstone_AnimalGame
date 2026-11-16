@@ -204,7 +204,7 @@ MonoBehaviour:
   grasslandDirectionRegionScale: 20
   grasslandBladeAngleVariation: 10
   grasslandDensity: 1.05
-  grasslandBladeLengthScale: 0.56
+  grasslandBladeLengthScale: 0.448
   grass1: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
   grass2: {fileID: 0}
   grass3: {fileID: 0}
