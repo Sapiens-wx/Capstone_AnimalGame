@@ -8,7 +8,8 @@ using UnityEngine.UIElements;
 
 namespace AnimalGame.World.Map
 {
-    [DefaultExecutionOrder(-300)]
+    // UIDocument (-100) must create its visual tree before OnEnable binds it.
+    [DefaultExecutionOrder(-90)]
     [DisallowMultipleComponent, RequireComponent(typeof(UIDocument))]
     public sealed class WorldMapUI : MonoBehaviour
     {

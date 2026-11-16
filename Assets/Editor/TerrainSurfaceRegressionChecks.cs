@@ -16,13 +16,82 @@ public static class TerrainSurfaceRegressionChecks
         CheckPaintingAndValidation();
         CheckTileBoundaryPainting();
         CheckLegacySerialization();
-        Debug.Log("Terrain surface checks PASS: shared enum, painting/erasing, tile boundaries, duplicate validation, legacy palette and mask preservation.");
+        CheckDeferredSave();
+        Debug.Log("Terrain surface checks PASS: shared enum, painting/erasing, tile boundaries, duplicate validation, legacy preservation, deferred Save/Bake and water settings preservation.");
     }
 
     public static void RunBatch()
     {
         try { Run(); EditorApplication.Exit(0); }
         catch (Exception error) { Debug.LogException(error); EditorApplication.Exit(1); }
+    }
+
+    private static void CheckDeferredSave()
+    {
+        const string folder = "Assets/__TerrainSurfaceSaveCheck";
+        Require(!AssetDatabase.IsValidFolder(folder), "Surface save check folder already exists.");
+        HeightMapSurfacePainterWindow window = null;
+        try
+        {
+            AssetDatabase.CreateFolder("Assets", "__TerrainSurfaceSaveCheck");
+            var source = ScriptableObject.CreateInstance<HeightMapLevelAsset>();
+            Set(source, "surfaceMaskResolution", 64);
+            Set(source, "surfaceBakeResolution", 256);
+            Set(source, "surfaceClosedContourAlphaEnabled", false);
+            Set(source, "surfacePalette", new List<TerrainSurfaceDefinition>
+            {
+                new(TerrainKind.Rock, "Rock", Texture2D.whiteTexture, Color.white, 1f, 8f)
+            });
+            // Leave the legacy version unset to verify that normalization stays temporary.
+            string path = folder + "/Level.asset";
+            AssetDatabase.CreateAsset(source, path);
+            AssetDatabase.SaveAssetIfDirty(source);
+            string original = File.ReadAllText(path);
+            int originalHash = source.CalculateSurfaceAuthoringHash();
+            window = ScriptableObject.CreateInstance<HeightMapSurfacePainterWindow>();
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            Type type = typeof(HeightMapSurfacePainterWindow);
+            void Call(string name, params object[] args) => type.GetMethod(name, flags).Invoke(window, args);
+            Call("SetLevelAsset", source);
+            Call("FillType", TerrainKind.Rock);
+            var working = (HeightMapLevelAsset)type.GetField("levelAsset", flags).GetValue(window);
+            Require((working.hideFlags & HideFlags.NotEditable) == 0,
+                "The temporary surface must allow editing its serialized palette and settings.");
+            Require(working.SampleSurfaceType(Vector2.zero) == TerrainKind.Rock,
+                "Fill did not change the temporary surface.");
+            Undo.PerformUndo();
+            Require(working.SampleSurfaceType(Vector2.zero) == TerrainKind.Unknown,
+                "Undo did not restore the temporary surface.");
+            Undo.PerformRedo();
+            Require(working.SampleSurfaceType(Vector2.zero) == TerrainKind.Rock,
+                "Redo did not restore the temporary fill.");
+            Require(source.CalculateSurfaceAuthoringHash() == originalHash
+                && File.ReadAllText(path) == original && source.BakedSurfaceVisual == null,
+                "Painting or Undo/Redo changed or baked the source before Save.");
+
+            // Surface Save must preserve independently edited water settings.
+            Set(source, "maximumStaticWaterDepthMeters", 7f);
+            Call("SaveSurface");
+            Require(source.BakedSurfaceVisual != null && File.Exists(AssetDatabase.GetAssetPath(source.BakedSurfaceVisual)),
+                "Save did not generate the runtime surface texture.");
+            Require(source.SampleSurfaceType(Vector2.zero) == TerrainKind.Rock,
+                "Save lost the terrain type during legacy normalization.");
+            using (var saved = new SerializedObject(source))
+                Require(saved.FindProperty("maximumStaticWaterDepthMeters").floatValue == 7f,
+                    "Surface Save overwrote water settings.");
+            string committed = File.ReadAllText(path);
+            Call("FillType", TerrainKind.Unknown);
+            Object.DestroyImmediate(window);
+            window = null;
+            Require(File.ReadAllText(path) == committed && source.SampleSurfaceType(Vector2.zero) == TerrainKind.Rock,
+                "Closing Surface Painter committed unsaved edits.");
+        }
+        finally
+        {
+            if (window != null)
+                Object.DestroyImmediate(window);
+            AssetDatabase.DeleteAsset(folder);
+        }
     }
 
     private static void CheckPaintingAndValidation()

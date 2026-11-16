@@ -45,7 +45,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private const float DefaultBrushRadiusMeters = 10f;
     private const int BrushOutlineSegments = 64;
 
+    private HeightMapLevelAsset sourceLevelAsset;
+    // Painting, shared settings and Undo affect temporary copies until Save.
     private HeightMapLevelAsset levelAsset;
+    private TiledLevelAsset workingMap;
+    private readonly Dictionary<HeightMapLevelAsset, HeightMapLevelAsset> workingTiles = new();
     private MapTestSceneController mapController;
     private Vector2 scrollPosition;
     private float brushRadiusMeters = DefaultBrushRadiusMeters;
@@ -56,13 +60,10 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private string strokeUndoName;
     private readonly HashSet<HeightMapLevelAsset> changedStrokeTiles = new();
     private readonly HashSet<HeightMapLevelAsset> invalidStrokeTiles = new();
-    private readonly Dictionary<HeightMapLevelAsset, int> observedAuthoringHashes = new();
     private bool hasLastStrokePosition;
     private Vector2 lastStrokeMapPosition;
     private int strokeUndoGroup = -1;
-    private bool delayedUpgradeBakeQueued;
     private SerializedObject serializedLevel;
-    private readonly Queue<HeightMapLevelAsset> queuedBakes = new();
 
     [MenuItem("Animal Game/Level/Terrain Surface Painter")]
     public static void Open()
@@ -90,7 +91,6 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Undo.undoRedoPerformed += HandleUndoRedo;
         if (levelAsset == null)
             TryAdoptCurrentSelection();
-        QueueBakeUpgradeIfNeeded();
     }
 
     private void OnDisable()
@@ -100,10 +100,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
         SceneView.duringSceneGui -= HandleSceneGui;
         Undo.undoRedoPerformed -= HandleUndoRedo;
-        EditorApplication.update -= BakeNextQueuedTile;
-        queuedBakes.Clear();
-        EditorApplication.delayCall -= HandleDelayedUpgradeBake;
-        delayedUpgradeBakeQueued = false;
+        DestroyWorkingCopies();
         serializedLevel = null;
     }
 
@@ -121,21 +118,28 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void OnGUI()
     {
+        using (new EditorGUI.DisabledScope(levelAsset == null
+                   || !levelAsset.HasUsableSurfaceDefinitions
+                   || !levelAsset.TryValidateSurfacePalette(out _)))
+        {
+            if (GUILayout.Button("Save", GUILayout.Height(28f)))
+                SaveSurface();
+        }
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
         EditorGUILayout.LabelField(
             "Permanent Multi-Terrain Surface",
             EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
-            "Scene strokes paint across the map's tiles and bake changed tiles on release. " +
-            "Settings edits are shared by the tiles in the scene map. Use the Bake button to refresh baked textures. " +
-            "Fill and Clear apply to the selected tile.",
+            "Edits remain temporary until you click Save to bake and save the changed tiles. " +
+            "The displayed surface updates after Save. Settings are shared by the scene map tiles. " +
+            "Fill and Clear apply to the selected tile. Closing this window or switching maps discards unsaved edits.",
             MessageType.Info);
 
         EditorGUI.BeginChangeCheck();
         HeightMapLevelAsset selectedAsset = (HeightMapLevelAsset)
             EditorGUILayout.ObjectField(
                 "Fixed Map Asset",
-                levelAsset,
+                sourceLevelAsset,
                 typeof(HeightMapLevelAsset),
                 false);
         if (EditorGUI.EndChangeCheck())
@@ -184,20 +188,6 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         using (new EditorGUI.DisabledScope(
                    !validPalette || !levelAsset.HasUsableSurfaceDefinitions))
         {
-            bool tiledScene = mapController != null && mapController.LevelAsset.Tiles.Count > 1;
-            using (new EditorGUI.DisabledScope(queuedBakes.Count != 0))
-            {
-                if (GUILayout.Button(tiledScene ? "Sync Settings and Bake Scene Changes" : "Bake Current Terrain Map"))
-                {
-                    if (tiledScene)
-                        QueueSceneBakes();
-                    else
-                        BakeAndObserve(true);
-                }
-            }
-            if (queuedBakes.Count != 0)
-                EditorGUILayout.LabelField($"Surface bakes remaining: {queuedBakes.Count}");
-
             using (new EditorGUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledScope(!canPaintSelected))
@@ -239,7 +229,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             "• Choose a terrain kind above, then left-drag to paint it\n" +
             "• Shift + left-drag: erase to Unknown\n" +
             "• Alt + mouse: normal Scene camera navigation\n" +
-            "• Ctrl+Z / Ctrl+Y: undo or redo and automatically rebake",
+            "• Ctrl+Z / Ctrl+Y: undo or redo temporary edits",
             MessageType.None);
 
         EditorGUILayout.EndScrollView();
@@ -396,7 +386,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         foreach (string path in HeightMapSurfaceSettings.GrasslandPaths)
             EditorGUILayout.PropertyField(serializedLevel.FindProperty(path));
 
-        HeightMapSurfaceSettings.ApplyEdits(serializedLevel, mapController);
+        HeightMapSurfaceSettings.ApplyEdits(serializedLevel, mapController, workingMap);
 
         bool normalized = levelAsset.EnsureSurfaceAuthoringData();
         if (normalized)
@@ -621,7 +611,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void PaintDab(Vector2 mapPosition)
     {
-        TiledLevelAsset map = mapController.LevelAsset;
+        TiledLevelAsset map = workingMap;
         Vector2 tileSize = map.TileSizeMeters;
         float radiusSquared = brushRadiusMeters * brushRadiusMeters;
         TerrainKind terrain = strokeDefinition?.Terrain ?? TerrainKind.Unknown;
@@ -665,9 +655,6 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
         strokeActive = false;
         hasLastStrokePosition = false;
-        foreach (HeightMapLevelAsset tile in changedStrokeTiles)
-            BakeChangedTile(tile);
-
         Undo.CollapseUndoOperations(strokeUndoGroup);
         changedStrokeTiles.Clear();
         invalidStrokeTiles.Clear();
@@ -686,104 +673,67 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Undo.SetCurrentGroupName(operationName);
         Undo.RegisterCompleteObjectUndo(levelAsset, operationName);
         if (levelAsset.FillSurfaceType(terrain))
-        {
             EditorUtility.SetDirty(levelAsset);
-            BakeAndObserve(false);
-        }
 
         Undo.CollapseUndoOperations(undoGroup);
         SceneView.RepaintAll();
-    }
-
-    private void BakeAndObserve(bool registerUndo)
-    {
-        if (!HeightMapSurfaceBaker.Bake(levelAsset, registerUndo))
-            return;
-
-        observedAuthoringHashes[levelAsset] = levelAsset.CalculateSurfaceAuthoringHash();
-        SceneView.RepaintAll();
-        Repaint();
     }
 
     private void HandleUndoRedo()
     {
-        foreach (HeightMapLevelAsset tile in new List<HeightMapLevelAsset>(observedAuthoringHashes.Keys))
-        {
-            if (tile == null)
-            {
-                observedAuthoringHashes.Remove(tile);
-                continue;
-            }
-
-            if (tile.CalculateSurfaceAuthoringHash() == observedAuthoringHashes[tile])
-                continue;
-            QueueBake(tile);
-        }
-
         SceneView.RepaintAll();
         Repaint();
     }
 
-    private void QueueSceneBakes()
+    private void SaveSurface()
     {
-        TiledLevelAsset map = mapController.LevelAsset;
-        Undo.IncrementCurrentGroup();
-        int undoGroup = Undo.GetCurrentGroup();
-        Undo.SetCurrentGroupName("Synchronize Terrain Surface Settings");
-        HeightMapSurfaceSettings.CopyAll(levelAsset, map);
-        Undo.CollapseUndoOperations(undoGroup);
+        EndStroke();
+        if (workingMap != null)
+            HeightMapSurfaceSettings.CopyAll(levelAsset, workingMap);
 
-        foreach (TiledLevelAsset.Tile entry in map.Tiles)
+        foreach (var pair in workingTiles)
         {
-            HeightMapLevelAsset tile = entry.level;
-            if (tile.SurfaceBakeNeedsUpgrade && tile.HasUsableSurfaceDefinitions &&
-                (tile.BakedSurfaceVisual != null || Array.Exists(tile.GetOrCreateSurfaceTypeMap(), value => value != 0)))
+            HeightMapLevelAsset source = pair.Key;
+            using var edited = new SerializedObject(pair.Value);
+            using var destination = new SerializedObject(source);
+            HeightMapSurfaceSettings.CopyAuthoring(edited, destination);
+            bool changed = destination.hasModifiedProperties;
+            destination.ApplyModifiedPropertiesWithoutUndo();
+            if (changed || source.SurfaceBakeNeedsUpgrade || source == sourceLevelAsset)
             {
-                QueueBake(tile);
+                if (!HeightMapSurfaceBaker.Bake(source, false))
+                    return;
             }
         }
-        AssetDatabase.SaveAssets();
-    }
-
-    private void QueueBake(HeightMapLevelAsset tile)
-    {
-        if (queuedBakes.Contains(tile))
-            return;
-        if (queuedBakes.Count == 0)
-            EditorApplication.update += BakeNextQueuedTile;
-        queuedBakes.Enqueue(tile);
-    }
-
-    private void BakeNextQueuedTile()
-    {
-        if (strokeActive || EditorApplication.isUpdating || EditorApplication.isCompiling ||
-            EditorApplication.isPlayingOrWillChangePlaymode)
-            return;
-
-        HeightMapLevelAsset tile = queuedBakes.Dequeue();
-        if (queuedBakes.Count == 0)
-            EditorApplication.update -= BakeNextQueuedTile;
-        if (tile != null)
-            BakeChangedTile(tile);
         SceneView.RepaintAll();
         Repaint();
     }
 
-    private void BakeChangedTile(HeightMapLevelAsset tile)
+    private HeightMapLevelAsset GetWorkingTile(HeightMapLevelAsset source)
     {
-        try
+        if (!workingTiles.TryGetValue(source, out HeightMapLevelAsset working))
         {
-            if (tile.HasUsableSurfaceDefinitions)
-                HeightMapSurfaceBaker.Bake(tile, false);
-            // Undo can restore a tile to its original unpainted state.
-            AssetDatabase.SaveAssetIfDirty(tile);
+            working = Instantiate(source);
+            working.name = source.name + " (Surface Edit)";
+            working.hideFlags = HideFlags.HideAndDontSave & ~HideFlags.NotEditable;
+            working.EnsureSurfaceAuthoringData();
+            workingTiles.Add(source, working);
         }
-        catch (Exception exception)
-        {
-            Debug.LogException(exception, tile);
-        }
+        return working;
+    }
 
-        observedAuthoringHashes[tile] = tile.CalculateSurfaceAuthoringHash();
+    private void DestroyWorkingCopies()
+    {
+        foreach (HeightMapLevelAsset working in workingTiles.Values)
+        {
+            Undo.ClearUndo(working);
+            DestroyImmediate(working);
+        }
+        workingTiles.Clear();
+        if (workingMap != null)
+            DestroyImmediate(workingMap);
+        workingMap = null;
+        levelAsset = null;
     }
 
     private void TryAdoptCurrentSelection()
@@ -812,60 +762,30 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void SetLevelAsset(HeightMapLevelAsset asset)
     {
-        if (levelAsset == asset && mapController != null)
+        if (sourceLevelAsset == asset && levelAsset != null)
             return;
 
         EndStroke();
-        levelAsset = asset;
-        serializedLevel = levelAsset != null
-            ? new SerializedObject(levelAsset)
-            : null;
-        if (levelAsset != null && levelAsset.EnsureSurfaceAuthoringData())
-        {
-            EditorUtility.SetDirty(levelAsset);
-            AssetDatabase.SaveAssets();
-        }
-
+        DestroyWorkingCopies();
+        sourceLevelAsset = asset;
+        levelAsset = asset != null ? GetWorkingTile(asset) : null;
+        serializedLevel = levelAsset != null ? new SerializedObject(levelAsset) : null;
         EnsureSelectedTerrain();
         ResolveSceneMap();
-        if (levelAsset != null)
-            observedAuthoringHashes[levelAsset] = levelAsset.CalculateSurfaceAuthoringHash();
-        QueueBakeUpgradeIfNeeded();
         Repaint();
         SceneView.RepaintAll();
     }
 
-    private void QueueBakeUpgradeIfNeeded()
-    {
-        if (delayedUpgradeBakeQueued
-            || levelAsset == null
-            || !levelAsset.HasUsableSurfaceDefinitions
-            || !levelAsset.SurfaceBakeNeedsUpgrade)
-        {
-            return;
-        }
-
-        delayedUpgradeBakeQueued = true;
-        EditorApplication.delayCall += HandleDelayedUpgradeBake;
-    }
-
-    private void HandleDelayedUpgradeBake()
-    {
-        EditorApplication.delayCall -= HandleDelayedUpgradeBake;
-        delayedUpgradeBakeQueued = false;
-        if (levelAsset == null
-            || !levelAsset.HasUsableSurfaceDefinitions
-            || !levelAsset.SurfaceBakeNeedsUpgrade)
-        {
-            return;
-        }
-
-        BakeAndObserve(false);
-    }
-
     private void ResolveSceneMap()
     {
-        mapController = HeightMapSurfaceSettings.FindSceneMap(levelAsset);
+        mapController = HeightMapSurfaceSettings.FindSceneMap(sourceLevelAsset);
+        if (mapController == null || workingMap != null)
+            return;
+
+        workingMap = Instantiate(mapController.LevelAsset);
+        workingMap.hideFlags = HideFlags.HideAndDontSave;
+        foreach (TiledLevelAsset.Tile entry in workingMap.Tiles)
+            entry.level = GetWorkingTile(entry.level);
     }
 }
 
@@ -910,7 +830,8 @@ internal static class HeightMapSurfaceSettings
         "surfaceRevealEdgePixels"
     };
 
-    internal static void ApplyEdits(SerializedObject edited, MapTestSceneController sceneMap = null)
+    internal static void ApplyEdits(SerializedObject edited, MapTestSceneController sceneMap = null,
+        TiledLevelAsset workingMap = null)
     {
         if (!edited.hasModifiedProperties)
             return;
@@ -926,7 +847,8 @@ internal static class HeightMapSurfaceSettings
         }
 
         sceneMap ??= FindSceneMap(source);
-        bool tiledScene = sceneMap != null && sceneMap.LevelAsset.Tiles.Count > 1;
+        TiledLevelAsset map = workingMap != null ? workingMap : sceneMap != null ? sceneMap.LevelAsset : null;
+        bool tiledScene = map != null && map.Tiles.Count > 1;
         int undoGroup = Undo.GetCurrentGroup();
         bool resize = bakedChanges.Contains(MaskResolutionPath);
         if (resize)
@@ -941,10 +863,20 @@ internal static class HeightMapSurfaceSettings
 
         if (tiledScene && source.HasUsableSurfaceDefinitions && source.TryValidateSurfacePalette(out _))
         {
-            CopySettings(source, sceneMap.LevelAsset, bakedChanges, runtimeChanges);
+            CopySettings(source, map, bakedChanges, runtimeChanges);
             Undo.CollapseUndoOperations(undoGroup);
         }
         SceneView.RepaintAll();
+    }
+
+    internal static void CopyAuthoring(SerializedObject source, SerializedObject destination)
+    {
+        foreach (string path in BakedPaths)
+            destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+        foreach (string path in RuntimePaths)
+            destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+        destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty("surfaceMask"));
+        destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty("surfaceDataVersion"));
     }
 
     private static List<string> FindChanges(SerializedObject edited, SerializedObject previous, IReadOnlyList<string> paths)
