@@ -7,8 +7,6 @@ namespace AnimalGame.RobotArm
         [Header("Inventory arm presentation")]
         [SerializeField, Range(.1f, .9f)] private float inventoryHandReachOfArmLength = .18f;
         [SerializeField, Min(.01f)] private float inventoryArmPoseDuration = .25f;
-        [SerializeField, Min(.1f)] private float inventoryUpperLengthScale = 1.2f;
-        [SerializeField, Min(.1f)] private float inventoryLowerLengthScale = .8f;
         [SerializeField, Range(0f, .5f)] private float inventoryHandHorizontalRangeOfBody = .18f;
         [SerializeField, Range(0f, 90f)] private float inventoryBodyArmAngleDegrees = 15f;
 
@@ -80,14 +78,12 @@ namespace AnimalGame.RobotArm
         private Pose InventoryPose(Arm arm)
         {
             Pose pose = DesiredPose(arm, deploymentTime);
-            pose.UpperLength *= inventoryUpperLengthScale;
-            pose.LowerLength *= inventoryLowerLengthScale;
             pose.HasSocket = false;
             pose.LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle,
-                -arm.Side * inventoryBodyArmAngleDegrees,
+                inventoryBodyArmAngleDegrees,
                 180f * stepDelta / inventoryArmPoseDuration);
-            Vector2 elbow = arm.Socket + Direction(pose.LowerAngle) * (arm.LowerLength * inventoryLowerLengthScale);
-            Vector2 desired = targetLocal + Vector2.right * arm.Side * handSpacing * .5f;
+            Vector2 elbow = arm.Socket + Direction(pose.LowerAngle) * arm.LowerLength;
+            Vector2 desired = targetLocal;
             pose.UpperAngle = Vector2.SignedAngle(Vector2.up, desired - elbow);
             return pose;
         }
@@ -116,7 +112,7 @@ namespace AnimalGame.RobotArm
             deploymentTime = inventoryPresentationOpen
                 ? Mathf.Min(TotalDeploymentTime, deploymentTime + stepDelta)
                 : Mathf.Max(0f, deploymentTime - stepDelta * TotalDeploymentTime / retractDuration);
-            left.Pose = default;
+            left.Pose = DesiredPose(left, deploymentTime, Vector2.up * armLength * .8f);
             right.Pose = InventoryPose(right);
             State = inventoryPresentationOpen ? HandsDeployed ? RobotArmState.OuterOperating : RobotArmState.Extending
                 : deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;

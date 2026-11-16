@@ -505,8 +505,11 @@ namespace AnimalGame.RobotArm
             if (!extending && deploymentTime <= .00001f) State = RobotArmState.Retracted;
         }
         private Pose DesiredPose(Arm arm, float progress)
+            => DesiredPose(arm, progress, targetLocal);
+
+        private Pose DesiredPose(Arm arm, float progress, Vector2 handCentre)
         {
-            Vector2 desired = targetLocal + Vector2.right * arm.Side * handSpacing * .5f;
+            Vector2 desired = handCentre + Vector2.right * arm.Side * handSpacing * .5f;
             float lowerGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / connectorExtendDuration));
             float upperGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - connectorExtendDuration) / extendDuration));
             // Lower Arm is the body-side segment; Upper Arm carries the hand.
@@ -1215,7 +1218,7 @@ namespace AnimalGame.RobotArm
         }
         private void ApplyVisuals(Arm arm)
         {
-            arm.Root.gameObject.SetActive(deploymentTime > 0f && !(inventoryPresentationActive && arm.Side < 0f));
+            arm.Root.gameObject.SetActive(deploymentTime > 0f);
             Pose visualPose = arm.Pose;
             Vector2 socket = SocketAt(arm, visualPose);
             if (mediumRecycleActive && visualPose.Hand > 0f)
@@ -1231,7 +1234,6 @@ namespace AnimalGame.RobotArm
                 arm.UpperScale, visualPose.UpperLength / arm.UpperLength);
             Vector3 scale = arm.LoopScale;
             scale.y *= arm.DeployedLoopScale;
-            if (inventoryPresentationActive) scale.y *= inventoryLowerLengthScale;
             arm.LoopSprite.transform.localScale = scale;
             arm.LoopSprite.transform.localPosition = LoopPositionAtScale(arm, scale);
             arm.LoopSprite.enabled = arm.DeployedLoopScale > 0f && arm.Pose.LowerLength > 0f;
