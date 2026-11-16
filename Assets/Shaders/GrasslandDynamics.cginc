@@ -89,20 +89,20 @@ bool GrassOverlayCluster(float2 cell)
 float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float animate)
 {
     if (_GrassOverlaySettings.z < .5 || _GrassOverlaySettings.x <= 0) return 0;
-    float spacing = _GrassTileSize * .55;
+    float spacing = _GrassTileSize * .8;
     float2 cell = floor(meters / spacing);
     float size = _GrassTileSize * _GrassOverlaySettings.y;
     float4 result = 0;
     int bits = (int)_GrassOverlaySettings.z;
     int count = (bits & 1) + ((bits >> 1) & 1) + ((bits >> 2) & 1);
     // Preserve full rotated support with the denser layout.
-    [loop] for (int y = -4; y <= 4; y++)
-    [loop] for (int x = -4; x <= 4; x++)
+    [loop] for (int y = -5; y <= 5; y++)
+    [loop] for (int x = -5; x <= 5; x++)
     {
         float2 key = cell + float2(x, y) + _GrassLayout.x + 739.1;
         if (!GrassOverlayCluster(cell + float2(x, y))) continue;
         float2 instanceSize = size * float2(lerp(.8, 1.2, GrassHash(key + 107)),
-            lerp(.6, 1.5, GrassHash(key + 149)));
+            lerp(1.2, 3.0, GrassHash(key + 149)));
         float2 centre = (cell + float2(x, y) + .5
             + (float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1) * .12) * spacing;
         float2 delta = meters - centre;
@@ -132,10 +132,15 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
                 }
             }
         }
-        // Root-anchored sway opposite travel, without shortening tall grass.
+        // Stable per-cluster wind uses the same pause-aware clock as small grass.
+        float windRandom = GrassHash(key + 271.9);
+        float windPeriod = lerp(_GrassWindPeriods.x, _GrassWindPeriods.y, windRandom) * 1.5;
+        float wind = animate * lerp(.025, .04, GrassHash(key + 293.7))
+            * sin(_GrassNow * 6.2831853 / max(.1, windPeriod) + windRandom * 6.2831853);
+        // Root-anchored wind and contact sway, without shortening tall grass.
         float lengthScale = 1;
         float height = (dot(delta, up) / instanceSize.y + .5) / lengthScale;
-        float tipOffset = pressure * direction * .30;
+        float tipOffset = wind * (1 - pressure) + pressure * direction * .30;
         float2 uv = float2(dot(delta, side) / instanceSize.x + .5
             - tipOffset * instanceSize.y / instanceSize.x * height * height, height);
         if (any(uv < 0) || any(uv > 1)) continue;
