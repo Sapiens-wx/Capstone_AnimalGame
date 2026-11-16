@@ -14,8 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animalInfo: {fileID: 11400000, guid: 62482c67885b0b940acca9f5e07160f0, type: 2}
   images:
-  - id: 45bfbd840d5576e498400a0257d253c2
-    image: {fileID: 2800000, guid: 45bfbd840d5576e498400a0257d253c2, type: 3}
   - id: 52b6039e6282ff341a686a2c3d560bfc
     image: {fileID: 2800000, guid: 52b6039e6282ff341a686a2c3d560bfc, type: 3}
   - id: 01408c17d2568ec47bb0141e416cb0f0

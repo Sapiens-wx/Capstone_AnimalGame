@@ -132,6 +132,9 @@ namespace AnimalGame.MapTest
         fileName = "HeightMapLevel",
         menuName = "Animal Game/Height Map Level")]
     public sealed class HeightMapLevelAsset : ScriptableObject
+#if UNITY_EDITOR
+        , ISerializationCallbackReceiver
+#endif
     {
 #if UNITY_EDITOR
         public const int CurrentSurfaceBakeGeneratorVersion = 10;
@@ -409,6 +412,7 @@ namespace AnimalGame.MapTest
         [SerializeField, HideInInspector] private Vector4[] grasslandBladeRects = Array.Empty<Vector4>();
         [SerializeField, HideInInspector] private float grasslandTileSizeMeters = 3.2f;
         [SerializeField, HideInInspector] private Vector2 grasslandAlphaNormalization = Vector2.one;
+        [SerializeField, HideInInspector] private float grasslandOpacity = 1f;
 
         [Header("Grassland Layout")]
         [SerializeField] private int grasslandLayoutSeed;
@@ -434,13 +438,16 @@ namespace AnimalGame.MapTest
         {
             get
             {
-                float opacity = 1f;
-                foreach (var entry in surfacePalette)
-                    if (entry.Terrain == TerrainKind.Grassland) { opacity = entry.Opacity; break; }
                 return new Vector4(grassOverlayDensity, grassOverlaySize,
-                    (grass1 != null ? 1 : 0) + (grass2 != null ? 2 : 0) + (grass3 != null ? 4 : 0), opacity);
+                    (grass1 != null ? 1 : 0) + (grass2 != null ? 2 : 0) + (grass3 != null ? 4 : 0), GrasslandOpacity);
             }
         }
+        private float GrasslandOpacity =>
+#if UNITY_EDITOR
+            GetSurfaceDefinition(TerrainKind.Grassland)?.Opacity ?? 1f;
+#else
+            grasslandOpacity;
+#endif
         public Texture2D GrasslandPattern => grasslandPattern;
         public Vector4[] GrasslandBladeRects => grasslandBladeRects;
         public float GrasslandTileSizeMeters => grasslandTileSizeMeters;
@@ -1607,6 +1614,18 @@ namespace AnimalGame.MapTest
         {
             bakedStaticWaterUv = texture;
             unchecked { staticWaterMaskBakeRevision++; }
+        }
+#endif
+
+#if UNITY_EDITOR
+        public void OnBeforeSerialize()
+        {
+            // Keep the authoring palette Editor-only and serialize its runtime opacity.
+            grasslandOpacity = GrasslandOpacity;
+        }
+
+        public void OnAfterDeserialize()
+        {
         }
 #endif
 
