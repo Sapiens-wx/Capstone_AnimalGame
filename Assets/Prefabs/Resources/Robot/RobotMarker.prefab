@@ -1026,6 +1026,7 @@ MonoBehaviour:
   innerRingShader: {fileID: 4800000, guid: c19accc51f9549ca989cfec3aac2e096, type: 3}
   innerRingVisibleDiameterPixels: 346
   innerRingInputSpinSpeed: 665.28
+  innerRingSpinStopDuration: 1.2
   innerRingBreathAmplitude: 0.12
   innerRingBreathPeriod: 2.4
   innerRingJamAmplitude: 12

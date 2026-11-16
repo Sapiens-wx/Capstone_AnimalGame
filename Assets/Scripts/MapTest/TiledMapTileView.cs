@@ -63,8 +63,14 @@ namespace AnimalGame.MapTest
             {
                 material.SetTexture("_GrassMaskTex", level.BakedGrasslandMask);
                 material.SetTexture("_GrassPatternTex", level.GrasslandPattern);
+                material.SetTexture("_GrassOverlay1", level.Grass1 ?? Texture2D.blackTexture);
+                material.SetTexture("_GrassOverlay2", level.Grass2 ?? Texture2D.blackTexture);
+                material.SetTexture("_GrassOverlay3", level.Grass3 ?? Texture2D.blackTexture);
+                material.SetVector("_GrassOverlaySettings", level.GrassOverlaySettings);
                 material.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
                 material.SetFloat("_GrassTileSize", level.GrasslandTileSizeMeters);
+                material.SetVector("_GrassLayout", level.GrasslandLayout);
+                material.SetVector("_GrassShape", level.GrasslandShape);
                 Vector2 normalization = level.GrasslandAlphaNormalization;
                 material.SetVector("_GrassAlphaNormalization", new Vector4(normalization.x, normalization.y, 0, 0));
                 material.SetMatrix("_GrassMetersToWorld", grassMetersToWorld);

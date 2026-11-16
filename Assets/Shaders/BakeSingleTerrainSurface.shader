@@ -4,6 +4,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
     {
         _PatternAtlas ("Pattern Atlas", 2D) = "black" {}
         _RockPattern ("Original Rock Pattern", 2D) = "black" {}
+        _SandPattern ("Original Sand Pattern", 2D) = "black" {}
         _TerrainPairTex ("Terrain Pair Distance Map", 2D) = "black" {}
         _StaticContourAlphaTex ("Static Closed-Contour Alpha", 2D) = "white" {}
         _PaletteTintTex ("Palette Tint", 2D) = "black" {}
@@ -38,6 +39,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
 
             sampler2D _PatternAtlas;
             sampler2D _RockPattern;
+            sampler2D _SandPattern;
             sampler2D _TerrainPairTex;
             sampler2D _StaticContourAlphaTex;
             sampler2D _PaletteTintTex;
@@ -138,6 +140,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                     + repeatedUv * 123.0;
                 float4 pattern = abs(terrainId - 6.0) < .5
                     ? tex2D(_RockPattern, repeatedUv)
+                    : abs(terrainId - 9.0) < .5 ? tex2D(_SandPattern, repeatedUv)
                     : tex2D(_PatternAtlas, atlasPixel / 2048.0);
                 float4 tint = ReadPaletteTint(terrainId);
                 pattern.rgb *= tint.rgb;
@@ -168,7 +171,6 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
 
             float4 ApplyStaticContourAlpha(float4 color, float2 uv, float terrainId)
             {
-                if (abs(terrainId - 6.0) < .5) return color;
                 float bakedMultiplier = tex2D(
                     _StaticContourAlphaTex,
                     uv).r;

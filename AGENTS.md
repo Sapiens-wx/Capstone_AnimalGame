@@ -28,18 +28,24 @@
 - Store only necessary state. Prefer local values for cheap, current reads, and derive
   values from their owning source rather than maintaining redundant copies.
 
+## 地形类型
+
+- TerrainKind 新增 Sand = 9，原有 0–8 编号不变；主地图和 RockyMountain 地表 Palette 已添加 Sand，初始沿用 Rock 的平铺与透明度参数。原 Rock.png 已重命名为 Sand.png，GUID 不变，Sand 使用 Sand.png，Rock 已切换为新 Rock.png（GUID bfc7b968cbb6b2943868fa4967dbc3f4）；两者均直接采样原图并参与等高线淡化。
+
 ## 动态草地
 
-- Rock 在地表烘焙 Shader 中直接采样原贴图 RGBA，绕过小尺寸图集、透明度归一化及等高线区域透明度渐变；Rock Palette 的 Opacity 为 1，TutorialTemporaryMap（MainHeightMapLevel）平铺尺寸为 6.4 米，RockyMountain 为 12.8 米，地形交界继续使用原有融合。
+- Rock 在地表烘焙 Shader 中直接采样原贴图 RGBA，绕过小尺寸图集和透明度归一化，参与等高线区域透明度渐变（边缘乘 23.5%、内部乘 5%）；Rock Palette 的 Opacity 为 0.5，TutorialTemporaryMap（MainHeightMapLevel）平铺尺寸为约 4.5255 米，RockyMountain 为约 9.051 米，地形交界继续使用原有融合。
 
-- `HeightMapSurfaceBaker` 将 Grassland 草叶从静态底图分离，另存带地形混合权重、色调和透明度的 GrasslandMask；切片来自草地源图的四个 Sprite，保持地表面板的平铺大小。
+- `HeightMapSurfaceBaker` 将 Grassland 草叶从静态底图分离，另存带地形混合权重、色调和透明度的 GrasslandMask；切片来自草地源图的八个 Sprite，保持地表面板的平铺大小。
 - `GrasslandDynamics.cginc` 由地图 Shader 合成草叶，使用全地图坐标保持分块连续；`GrasslandTrampleController` 在玩家预制体上提供固定 8 槽踩踏记录、暂停同步时钟和摆动/压伏参数。编辑器无动态，明确离地时不新增踩踏。
-- 默认风摆为草叶长度的 12%、周期 1.1–2 秒；践踏半径为身径的 0.9 倍，强压覆盖到身体外侧，尖端偏移 45%、长度压至 45%，0.2 秒恢复。强弯折按最近的草叶平铺实例采样，跨重复单元边缘不截断。
-- `Animal Game/Checks/Grassland Dynamics` 检查 GPU 摆动、暂停、压缩、0.2 秒恢复、分块连续与 Shader 错误；修改烘焙逻辑后重新烘焙地图，避免草叶重复。
+- 默认风摆为草叶长度的 12%、周期 1.1–2 秒；践踏半径为身径的 0.9 倍，强压覆盖到身体外侧，尖端偏移 45%、长度压至 45%，0.2 秒恢复。草叶按平铺宽度 ÷ √(8×密度系数) 的布局单元独立定位（单元内 ±40% 随机偏移），地图密度系数为 1.05，平均每个原平铺面积 8.4 根，增加数量与重叠而不缩小单根草叶；草叶长度为原切片的 44.8%，宽度不变；固定种子随机切片，区域朝向以 20 倍平铺宽度平滑变化，单叶叠加 ±10°。旋转后的根部固定，踩踏沿草叶局部横轴偏倒，3×3 邻域采样保证跨单元不截断。
+- `Animal Game/Checks/Grassland Dynamics` 检查两张地图的 GPU 排列确定性、种子、区域朝向连续性、摆动、暂停、旋转压缩/恢复、分块连续与 Shader 错误；修改烘焙逻辑后重新烘焙地图，避免草叶重复。
+
+- Grassland 额外覆盖层在地图资产的 Sparse Grassland Overlay 配置 Grass1/Grass2/Grass3，当前 Grass1 槽位使用 Grassland.png 整图，已绑定纹理按固定世界坐标随机选择，默认每个原平铺面积 18% 概率出现一簇，基础尺寸为平铺宽度的 65%，每簇固定随机水平翻转（50% 概率），横向 0.8–1.2 倍、纵向 0.6–1.5 倍，覆盖层接入同一组踩踏记录与暂停时钟，经过时根据实际移动方向反向轻摆（尖端最大约草高 15%，不压短），停止移动后约 0.2 秒恢复；使用 5×5 邻域避免高草旋转或压弯后被截断；沿用 GrassDirection 区域朝向，源 Alpha 全强度叠加，不乘基础草叶的不透明度。
 
 ## 玩家标记
 
-- `RobotMarkerView.InnerRing.cs` 管理独立的三段内圈：静止呼吸、按带方向的扳机驾驶输入旋转（满输入 665.28°/秒，前进顺时针、后退逆时针）；使用 `RobotMover.CurrentThrottleInput` 的死区/方向处理结果，不受实际速度、碰撞或抓握阻力影响。侧翻时偶发 0.4 秒内左右左右各 12° 的抖转并回到原角度；外圈固定。源 SVG 和渲染脚本位于 `output/imagegen/`，导入贴图位于 `Assets/Arts/Robot/`。
+- `RobotMarkerView.InnerRing.cs` 管理独立的三段内圈：静止呼吸、按带方向的扳机驾驶输入旋转（满输入 665.28°/秒，前进顺时针、后退逆时针）；使用 `RobotMover.CurrentThrottleInput` 的死区/方向处理结果，不受实际速度、碰撞或抓握阻力影响；扳机输入同方向减小（包括松开过程中的非零值）时以恒定角减速度滑停，满输入约 1.2 秒停稳，重新输入立即跟随，运动锁定、侧翻或禁用时清空余速，使用游戏时间同步暂停。侧翻时偶发 0.4 秒内左右左右各 12° 的抖转并回到原角度；外圈固定。源 SVG 和渲染脚本位于 `output/imagegen/`，导入贴图位于 `Assets/Arts/Robot/`。
 - 内圈通过 `Shaders/RobotInnerRing.shader` 绘制等长三段圆弧；按绝对移动速度平滑从静止的 50% 尺寸 / 每段 68° 过渡到移动的 82% / 每段 90°，静止呼吸幅度 ±12%；静止弧长保持与原 68% / 50° 相同，正反向按各自额定速度归一化。
 - `Tumbling` 翻滚阶段内圈保留 100% 基础尺寸 / 每段 100°，以 900°/秒快转，按 0.28 秒周期做 ±12% 缩放；进入落地收尾 `FinalRocking` / `Fallen` 后切回小角度间歇抖转。
 - 机械臂展开时内圈过渡为左右各 120° 的白色括号弧线，固定 62% 尺寸且不旋转；跟随有效操控向量偏移至多半径的 35%，停止输入平滑回中。实际抓握时两弧以共同中心纵向压至 55% 高度，横向宽度保持不变，松爪复原，收臂后恢复三段内圈；全部使用游戏时间同步暂停。

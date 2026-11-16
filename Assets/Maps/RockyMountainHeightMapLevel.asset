@@ -108,26 +108,26 @@ MonoBehaviour:
     displayName: Grassland
     patternTexture: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.35
+    opacity: 0.2
     tileSizeMeters: 1.6
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
   - terrain: 5
     displayName: Gravel
-    patternTexture: {fileID: 2800000, guid: 7851651abf342144cafae2b72630e501, type: 3}
+    patternTexture: {fileID: 2800000, guid: d6606b1204025a341a04ddd64b2ed411, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
     opacity: 0.35
-    tileSizeMeters: 8
+    tileSizeMeters: 6.4
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
   - terrain: 6
     displayName: Rock
-    patternTexture: {fileID: 2800000, guid: 18163b6aeee572248a242baf140ed304, type: 3}
+    patternTexture: {fileID: 2800000, guid: bfc7b968cbb6b2943868fa4967dbc3f4, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 1
-    tileSizeMeters: 12.8
+    opacity: 0.5
+    tileSizeMeters: 9.050967
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
@@ -149,6 +149,15 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
+  - terrain: 9
+    displayName: Sand
+    patternTexture: {fileID: 2800000, guid: 18163b6aeee572248a242baf140ed304, type: 3}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+    opacity: 0.5
+    tileSizeMeters: 9.050967
+    transitionMode: 3
+    transitionWidthMultiplier: 1
+    noiseStrengthMultiplier: 1
   surfaceTransitionWidthMeters: 3
   surfaceAlphaCoreWidthMeters: 0.8
   surfaceAlphaBlendShare: 0.6
@@ -164,7 +173,7 @@ MonoBehaviour:
   surfaceClosedContourEdgeAlphaMultiplier: 0.235
   surfaceClosedContourEdgeHoldDistanceMeters: 1.5
   surfaceClosedContourFadeDistanceMeters: 10
-  surfaceClosedContourCenterAlphaMultiplier: 0.02
+  surfaceClosedContourCenterAlphaMultiplier: 0.05
   surfaceClosedContourDistanceCurve: 2
   surfaceClosedContourMinimumAreaSquareMeters: 4
   surfaceOutsideClosedContourAlphaMultiplier: 0
@@ -179,14 +188,29 @@ MonoBehaviour:
   bakedGrasslandMask: {fileID: 2800000, guid: ce00956cfc23fba4482d268f96344a84, type: 3}
   grasslandPattern: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
   grasslandBladeRects:
-  - {x: 0.13671875, y: 0.46484375, z: 0.0625, w: 0.44921875}
-  - {x: 0.359375, y: 0.09765625, z: 0.0625, w: 0.44921875}
-  - {x: 0.62109375, y: 0.515625, z: 0.0625, w: 0.44921875}
-  - {x: 0.80859375, y: 0.12890625, z: 0.0625, w: 0.44921875}
+  - {x: 0.12890625, y: 0.41796875, z: 0.0546875, w: 0.44140625}
+  - {x: 0.23828125, y: 0.19140625, z: 0.0546875, w: 0.44140625}
+  - {x: 0.38671875, y: 0.05859375, z: 0.0546875, w: 0.44140625}
+  - {x: 0.42578125, y: 0.55859375, z: 0.0546875, w: 0.44140625}
+  - {x: 0.56640625, y: 0.4453125, z: 0.0546875, w: 0.44140625}
+  - {x: 0.6875, y: 0.16015625, z: 0.0546875, w: 0.44140625}
+  - {x: 0.828125, y: 0.05859375, z: 0.0546875, w: 0.44140625}
+  - {x: 0.91015625, y: 0.52734375, z: 0.0546875, w: 0.44140625}
   grasslandTileSizeMeters: 1.6
   grasslandAlphaNormalization: {x: 1, y: 0.75}
+  grasslandLayoutSeed: 0
+  grasslandPositionJitter: 0.4
+  grasslandDirectionRegionScale: 20
+  grasslandBladeAngleVariation: 10
+  grasslandDensity: 1.05
+  grasslandBladeLengthScale: 0.448
+  grass1: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
+  grass2: {fileID: 0}
+  grass3: {fileID: 0}
+  grassOverlayDensity: 0.18
+  grassOverlaySize: 0.65
   surfaceRevealEdgePixels: 4
-  surfaceBakeRevision: 17
+  surfaceBakeRevision: 27
   surfaceBakeGeneratorVersion: 10
   backgroundColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
   contourColor: {r: 0.92, g: 0.97, b: 1, a: 1}

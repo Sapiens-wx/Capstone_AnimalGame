@@ -999,6 +999,7 @@ namespace AnimalGame.RobotMap
 
         private void OnDisable()
         {
+            innerRingSpinSpeed = 0f;
             ClearMediumRecycleVisualRecoil();
             ResetPhotoInnerRing();
             ResetScanInnerRing();

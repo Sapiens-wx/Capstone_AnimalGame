@@ -877,8 +877,12 @@ internal static class HeightMapSurfaceBaker
             };
             bakeMaterial.SetTexture("_PatternAtlas", patternAtlas);
             foreach (TerrainSurfaceDefinition definition in level.SurfacePalette)
+            {
                 if (definition.Terrain == TerrainKind.Rock)
                     bakeMaterial.SetTexture("_RockPattern", definition.PatternTexture);
+                if (definition.Terrain == TerrainKind.Sand)
+                    bakeMaterial.SetTexture("_SandPattern", definition.PatternTexture);
+            }
             bakeMaterial.SetTexture("_TerrainPairTex", pairTexture);
             bakeMaterial.SetTexture(
                 "_StaticContourAlphaTex",
@@ -1016,11 +1020,11 @@ internal static class HeightMapSurfaceBaker
         var blades = new List<Sprite>();
         foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(grass.PatternTexture)))
             if (asset is Sprite blade) blades.Add(blade);
-        if (blades.Count != 4)
-            throw new InvalidOperationException("Grassland requires exactly four authored blade sprites.");
+        if (blades.Count != 8)
+            throw new InvalidOperationException("Grassland requires exactly eight authored blade sprites.");
         blades.Sort((a, b) => a.rect.x.CompareTo(b.rect.x));
-        var rects = new Vector4[4];
-        for (int i = 0; i < 4; i++)
+        var rects = new Vector4[8];
+        for (int i = 0; i < 8; i++)
         {
             Rect rect = blades[i].rect;
             rects[i] = new Vector4(rect.x / grass.PatternTexture.width, rect.y / grass.PatternTexture.height,
