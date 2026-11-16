@@ -307,7 +307,7 @@ namespace AnimalGame.MainUI
         private readonly Label[] labels = new Label[15];
         private float heading;
         private readonly float[] pinBearings = new float[AnimalGame.World.Map.MapViewState.PinLimit];
-        private readonly Color[] pinColors = new Color[AnimalGame.World.Map.MapViewState.PinLimit];
+        private readonly int[] pinShapes = new int[AnimalGame.World.Map.MapViewState.PinLimit];
         private int pinCount;
 
         public void SetPins(AnimalGame.World.Map.WorldMapUI map, Vector2 playerWorld)
@@ -316,7 +316,7 @@ namespace AnimalGame.MainUI
             for (int i = 0; i < pinCount; i++)
             {
                 pinBearings[i] = map.PinBearing(i, playerWorld);
-                pinColors[i] = map.View.GetPinColor(i);
+                pinShapes[i] = map.View.GetPinShape(i);
             }
             MarkDirtyRepaint();
         }
@@ -454,14 +454,12 @@ namespace AnimalGame.MainUI
                 if (x < lineWidth * .5f || x > contentRect.width - lineWidth * .5f) continue;
                 HudDrawing.Line(p, new Vector2(x, y), new Vector2(x, y - (degree % 30 == 0 ? 20 : 10)));
             }
-            p.lineWidth = Mathf.Max(3, lineWidth * 2);
             for (int i = 0; i < pinCount; i++)
             {
                 float delta = Mathf.DeltaAngle(heading, pinBearings[i]);
                 if (Mathf.Abs(delta) > halfRange) continue;
                 float x = X(heading + delta);
-                p.strokeColor = pinColors[i];
-                HudDrawing.Line(p, new Vector2(x, y), new Vector2(x, y - 26));
+                AnimalGame.World.Map.WorldMapUI.DrawPinShape(p, new Vector2(x, y - 19), 7, pinShapes[i]);
             }
         }
     }

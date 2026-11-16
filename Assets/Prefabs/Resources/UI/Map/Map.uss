@@ -25,8 +25,6 @@
 .map-circle {
     position: absolute;
     width: 14px; height: 14px;
-    border-radius: 999px;
-    background-color: white;
 }
 #map-grid {
     position: absolute;

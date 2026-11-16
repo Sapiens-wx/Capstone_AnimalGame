@@ -9,9 +9,8 @@ namespace AnimalGame.World.Map
         public const int PinLimit = 3;
         private readonly List<Vector2> pins = new List<Vector2>(PinLimit);
         public IReadOnlyList<Vector2> Pins => pins;
-        private readonly List<int> pinColors = new List<int>(PinLimit);
-        public Color GetPinColor(int index) => pinColors[index] switch
-        { 0 => Color.red, 1 => Color.green, _ => Color.blue };
+        private readonly List<int> pinShapes = new List<int>(PinLimit);
+        public int GetPinShape(int index) => pinShapes[index];
         public Vector2 Center { get; private set; }
         public Vector2 Cursor { get; private set; }
         public Vector2 DisplayCursor => SelectedPin >= 0 ? pins[SelectedPin]
@@ -26,6 +25,14 @@ namespace AnimalGame.World.Map
             Cursor = ClampToMap(player, mapSize);
             Center = Cursor;
             ViewSize = viewSize;
+            SelectedPin = -1;
+            SelectedCheckpoint = -1;
+        }
+
+        public void SetFocus(Vector2 center, Vector2 cursor, Vector2 mapSize)
+        {
+            Center = center;
+            Cursor = ClampToMap(cursor, mapSize);
             SelectedPin = -1;
             SelectedCheckpoint = -1;
         }
@@ -88,7 +95,7 @@ namespace AnimalGame.World.Map
             {
                 Cursor = pins[SelectedPin];
                 pins.RemoveAt(SelectedPin);
-                pinColors.RemoveAt(SelectedPin);
+                pinShapes.RemoveAt(SelectedPin);
                 SelectedPin = -1;
                 return;
             }
@@ -96,11 +103,11 @@ namespace AnimalGame.World.Map
             if (pins.Count == PinLimit)
             {
                 pins.RemoveAt(0);
-                pinColors.RemoveAt(0);
+                pinShapes.RemoveAt(0);
             }
-            int color = 0;
-            while (pinColors.Contains(color)) color++;
-            pinColors.Add(color);
+            int shape = 0;
+            while (pinShapes.Contains(shape)) shape++;
+            pinShapes.Add(shape);
             pins.Add(Cursor);
             SelectedPin = pins.Count - 1;
             SelectedCheckpoint = -1;

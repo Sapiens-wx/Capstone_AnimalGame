@@ -29,6 +29,11 @@
             </ui:VisualElement>
             <ui:VisualElement class="map-action">
                 <ui:VisualElement class="map-action-underline" />
+                <ui:Label name="map-center-key" text="Y" class="map-action-key" />
+                <ui:Label text="Center on Player" class="map-action-caption" />
+            </ui:VisualElement>
+            <ui:VisualElement class="map-action">
+                <ui:VisualElement class="map-action-underline" />
                 <ui:Label name="map-close-key" text="B" class="map-action-key" />
                 <ui:Label text="Close" class="map-action-caption" />
             </ui:VisualElement>

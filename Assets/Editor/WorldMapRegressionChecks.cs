@@ -16,10 +16,10 @@ namespace AnimalGame.Editor
         public static void Run()
         {
             CheckCursorAndPins();
-            CheckPinColors();
+            CheckPinShapes();
             CheckAssets();
             CheckGpuContours();
-            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin FIFO/deletion/snap escape, prefab references, stable RGB pins, GPU water/cropped bounds/fog, 14m interval, screen line widths and height emphasis.");
+            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin FIFO/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water/cropped bounds/fog, 14m interval, screen line widths and height emphasis.");
         }
 
         private static void CheckCursorAndPins()
@@ -62,7 +62,7 @@ namespace AnimalGame.Editor
                 "Whole-map zoom moved the cursor outside the central half-screen rectangle.");
         }
 
-        private static void CheckPinColors()
+        private static void CheckPinShapes()
         {
             var state = new MapViewState();
             Vector2 size = Vector2.one * 1000;
@@ -73,22 +73,22 @@ namespace AnimalGame.Editor
                 state.Snap(size, 5);
                 state.Submit();
             }
-            Require(state.GetPinColor(0) == Color.red && state.GetPinColor(1) == Color.green
-                && state.GetPinColor(2) == Color.blue, "Initial pins must be red, green, blue.");
+            Require(state.GetPinShape(0) == 0 && state.GetPinShape(1) == 1
+                && state.GetPinShape(2) == 2, "Initial pins must be triangle, square, diamond.");
             state.Move(new Vector2(-100, 0), size, size);
             state.Snap(size, 5);
             state.Submit();
-            Require(state.Pins.Count == 2 && state.GetPinColor(0) == Color.red
-                && state.GetPinColor(1) == Color.blue, "Deleting green changed another pin's color.");
+            Require(state.Pins.Count == 2 && state.GetPinShape(0) == 0
+                && state.GetPinShape(1) == 2, "Deleting square changed another pin shape.");
             state.Move(new Vector2(300, 0), size, size);
             state.Snap(size, 5);
             state.Submit();
-            Require(state.GetPinColor(2) == Color.green, "New pin did not reuse the available color.");
+            Require(state.GetPinShape(2) == 1, "New pin did not reuse the available shape.");
             state.Move(new Vector2(100, 0), size, size);
             state.Snap(size, 5);
             state.Submit();
-            Require(state.GetPinColor(0) == Color.blue && state.GetPinColor(1) == Color.green
-                && state.GetPinColor(2) == Color.red, "FIFO replacement changed surviving pin colors.");
+            Require(state.GetPinShape(0) == 2 && state.GetPinShape(1) == 1
+                && state.GetPinShape(2) == 0, "FIFO replacement changed surviving pin shapes.");
         }
 
         private static void CheckAssets()
