@@ -86,8 +86,8 @@ namespace AnimalGame.Editor
             Require(terrains.Length == 40, "The current official prairie must have 40 Terrain tiles.");
             if (includeMountains)
             {
-                GameObject mountains = scene.GetRootGameObjects().Single(root => root.name == OfficialMountainTerrainBuilder.RootName);
-                terrains = terrains.Concat(mountains.GetComponentsInChildren<Terrain>(true)).ToArray();
+                var plan = OfficialMap01PlanBuilder.FindPlan();
+                terrains = OfficialPlainsTerrainBuilder.TileDictionary(plains, plan, false).Values.ToArray();
             }
             Require(terrains.Select(t => t.terrainData).Distinct().Count() == terrains.Length,
                 "Each official Terrain must use independent TerrainData.");
