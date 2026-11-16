@@ -68,7 +68,7 @@ float4 GrassInstance(float2 cell)
     return float4(placement.xy, GrassBladeAngle(cell, placement.xy), placement.z);
 }
 
-// Each occupied world-space block contains one connected group of 5–10 clusters.
+// Each occupied world-space block contains one connected group of 8–12 clusters.
 bool GrassOverlayCluster(float2 cell)
 {
     float2 block = floor(cell / 10);
@@ -82,7 +82,7 @@ bool GrassOverlayCluster(float2 cell)
     if (local.x < 0 || local.x > 3 || local.y < 0 || local.y > 2) return false;
     float column = fmod(local.y, 2) < .5 ? local.x : 3 - local.x;
     float rank = local.y * 4 + column;
-    float clusterCount = 5 + floor(GrassHash(key + 83) * 6);
+    float clusterCount = 8 + floor(GrassHash(key + 83) * 5);
     return rank < clusterCount;
 }
 
@@ -102,7 +102,7 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
         float2 key = cell + float2(x, y) + _GrassLayout.x + 739.1;
         if (!GrassOverlayCluster(cell + float2(x, y))) continue;
         float2 instanceSize = size * float2(lerp(.8, 1.2, GrassHash(key + 107)),
-            lerp(1.2, 3.0, GrassHash(key + 149)));
+            lerp(.96, 2.4, GrassHash(key + 149)));
         float2 centre = (cell + float2(x, y) + .5
             + (float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1) * .12) * spacing;
         float2 delta = meters - centre;
