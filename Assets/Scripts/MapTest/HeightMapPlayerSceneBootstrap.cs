@@ -176,7 +176,6 @@ namespace AnimalGame.MapTest
             WorldInteraction.MarkHierarchySpatialDirty(robot.transform);
             map.UseCamera(mapCamera);
             map.UseSurfaceRevealUi(scanChargeUi);
-            map.UseElevationFilterTarget(robot.transform);
             cameraFollow.FollowBalanceTarget(balance);
             cameraFollow.SnapToTarget();
             traversalEvaluator.Initialize(map);

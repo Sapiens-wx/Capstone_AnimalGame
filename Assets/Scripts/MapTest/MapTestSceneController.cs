@@ -62,61 +62,6 @@ namespace AnimalGame.MapTest
         [Tooltip("Rate at which the displayed contour range approaches the latest sampled terrain range.")]
         [SerializeField, Min(0.01f)] private float visibleContourRangeSmoothingSpeed = 8f;
 
-        [Header("Relative Elevation Filter")]
-        [Tooltip("Keyboard fallback for testing. The controller toggle is always D-pad Right.")]
-        [SerializeField] private KeyCode elevationFilterKeyboardToggleKey =
-            KeyCode.H;
-
-        [Tooltip("Starts with the relative elevation filter visible instead of waiting for the first toggle.")]
-        [SerializeField] private bool elevationFilterStartsEnabled;
-
-        [Tooltip("Tint applied to terrain below the player's current elevation.")]
-        [SerializeField] private Color lowerElevationFilterColor =
-            new Color(0.12f, 0.54f, 0.78f, 1f);
-
-        [Tooltip("Tint applied to terrain above the player's current elevation.")]
-        [SerializeField] private Color higherElevationFilterColor =
-            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
-
-        [Tooltip("Maximum filter opacity at or beyond Relative Height Range.")]
-        [SerializeField, Range(0f, 1f)]
-        private float elevationFilterMaximumOpacity = 0.44f;
-
-        [Tooltip("Height difference from the player that reaches the maximum cool or warm tint.")]
-        [SerializeField, Min(0.1f)]
-        private float elevationFilterRelativeRangeMeters = 15f;
-
-        [Tooltip("Height difference around the player that remains nearly untinted.")]
-        [SerializeField, Min(0f)]
-        private float elevationFilterNeutralBandMeters = 1.5f;
-
-        [Tooltip("Shapes how quickly tint strength increases after leaving the neutral band. Values above one preserve a wider subtle middle area.")]
-        [SerializeField, Range(0.25f, 4f)]
-        private float elevationFilterResponseExponent = 1.15f;
-
-        [Tooltip("Color of the contour that crosses the player's exact current elevation.")]
-        [SerializeField] private Color playerHeightReferenceColor =
-            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
-
-        [Tooltip("Screen-space width of the player's current-height reference contour.")]
-        [SerializeField, Range(0.25f, 8f)]
-        private float playerHeightReferenceLineWidth = 2.4f;
-
-        [Tooltip("Opacity of the player's current-height reference contour.")]
-        [SerializeField, Range(0f, 1f)]
-        private float playerHeightReferenceOpacity = 0.95f;
-
-        [Tooltip("Subtle terrain-normal lighting layered under the height colors. Zero disables it.")]
-        [SerializeField, Range(0f, 0.5f)]
-        private float elevationFilterHillshadeStrength = 0.16f;
-
-        [Tooltip("Seconds used by the radial reveal and fade when entering or leaving the filter.")]
-        [SerializeField, Min(0.01f)]
-        private float elevationFilterTransitionDuration = 0.32f;
-
-        [Tooltip("Shows a small cool/current/warm height key while the filter is visible.")]
-        [SerializeField] private bool showElevationFilterLegend = true;
-
         [Header("Color Palette")]
         [Tooltip("Color outside the generated map.")]
         [SerializeField] private Color backgroundColor = new Color(0.008f, 0.012f, 0.017f);
@@ -139,13 +84,6 @@ namespace AnimalGame.MapTest
         private int editorConfigurationHash = int.MinValue;
         private bool rebuildingMap;
         private bool generatedForPlayMode;
-        private Transform elevationFilterTarget;
-        private bool elevationFilterRequested;
-        private float elevationFilterProgress;
-        private float elevationFilterPlayerHeightMeters;
-        private bool elevationFilterHasValidPlayerHeight;
-        private GUIStyle elevationFilterLegendTitleStyle;
-        private GUIStyle elevationFilterLegendLabelStyle;
 
         public float VisibleMinimumContourHeight { get; private set; }
         public float VisibleMaximumContourHeight { get; private set; }
@@ -157,9 +95,6 @@ namespace AnimalGame.MapTest
         public Vector2 SampleSpacing(Vector2 position) => runtimeMap?.SampleSpacing(position) ?? Vector2.zero;
         public float ContourIntervalMeters => contourIntervalMeters;
         public Color BackgroundColor => backgroundColor;
-        public bool IsElevationFilterActive =>
-            elevationFilterRequested || elevationFilterProgress > 0.001f;
-
         public bool HasGeneratedMap => runtimeMap != null && tileViews.Count == runtimeMap.TileCount && tileViews.Count > 0;
 
         // Capture reads the live contour material; it never owns or destroys this renderer.
@@ -188,16 +123,10 @@ namespace AnimalGame.MapTest
 
         private void Awake()
         {
-            if (Application.isPlaying)
-            {
 #if !UNITY_EDITOR
+            if (Application.isPlaying)
                 Cursor.visible = false;
 #endif
-                elevationFilterRequested = elevationFilterStartsEnabled;
-                elevationFilterProgress = elevationFilterStartsEnabled
-                    ? 1f
-                    : 0f;
-            }
 
             RebuildGeneratedMap();
         }
@@ -230,7 +159,6 @@ namespace AnimalGame.MapTest
             RefreshContourMaterialSettings();
             if (Application.isPlaying)
             {
-                UpdateElevationFilterRuntime();
                 RefreshSurfaceMaterialSettings();
                 RefreshTileMaterials();
                 return;
@@ -402,17 +330,6 @@ namespace AnimalGame.MapTest
             RefreshSurfaceMaterialSettings();
         }
 
-        public void UseElevationFilterTarget(Transform target)
-        {
-            elevationFilterTarget = target;
-            RefreshElevationFilterMaterialSettings();
-        }
-
-        public void SetElevationFilterActive(bool active)
-        {
-            elevationFilterRequested = active;
-        }
-
         private void RebuildGeneratedMap()
         {
             if (rebuildingMap) return;
@@ -497,16 +414,6 @@ namespace AnimalGame.MapTest
             contourEdgeSoftness = Presentation.ContourEdgeSoftness;
             contourColor = Presentation.ContourColor;
             surfaceRevealEdgePixels = Presentation.SurfaceRevealEdgePixels;
-            lowerElevationFilterColor = Presentation.LowerElevationFilterColor;
-            higherElevationFilterColor = Presentation.HigherElevationFilterColor;
-            elevationFilterMaximumOpacity = Presentation.ElevationFilterMaximumOpacity;
-            elevationFilterRelativeRangeMeters = Presentation.ElevationFilterRelativeRangeMeters;
-            elevationFilterNeutralBandMeters = Presentation.ElevationFilterNeutralBandMeters;
-            elevationFilterResponseExponent = Presentation.ElevationFilterResponseExponent;
-            playerHeightReferenceColor = Presentation.PlayerHeightReferenceColor;
-            playerHeightReferenceLineWidth = Presentation.PlayerHeightReferenceLineWidth;
-            playerHeightReferenceOpacity = Presentation.PlayerHeightReferenceOpacity;
-            elevationFilterHillshadeStrength = Presentation.ElevationFilterHillshadeStrength;
             minimumContourOpacity = Presentation.MinimumContourOpacity;
             maximumContourOpacity = Presentation.MaximumContourOpacity;
             outsideRevealDarkening = Presentation.OutsideRevealDarkening;
@@ -546,8 +453,6 @@ namespace AnimalGame.MapTest
             if (shader == null) throw new System.InvalidOperationException("Missing dynamic contour shader.");
             contourMaterial = new Material(shader) { name = "Shared Map Presentation", hideFlags = HideFlags.DontSave };
             RefreshContourMaterialSettings();
-            RefreshElevationFilterStaticMaterialSettings();
-            RefreshElevationFilterMaterialSettings();
         }
         private void RefreshTileMaterials()
         {
@@ -592,7 +497,6 @@ namespace AnimalGame.MapTest
             lastViewportUpdateFrame = Time.frameCount;
             UpdateVisibleContourRange(cameraToRender);
             RefreshSurfaceMaterialSettings();
-            RefreshElevationFilterMaterialSettings();
             RefreshTileMaterials();
         }
 
@@ -779,7 +683,6 @@ namespace AnimalGame.MapTest
             contourMaterial.SetFloat("_DashSubmergedContours", dashSubmergedContours ? 1f : 0f);
             contourMaterial.SetFloat("_SmoothContourEdges", smoothContourEdges ? 1f : 0f);
             contourMaterial.SetFloat("_OutsideRevealDarkening", Mathf.Clamp01(outsideRevealDarkening));
-            RefreshElevationFilterStaticMaterialSettings();
             contourMaterial.SetFloat("_MinimumLineWidth", minimumContourWidth);
             contourMaterial.SetFloat("_MaximumLineWidth", maximumContourWidth);
             contourMaterial.SetFloat("_MaximumCoverage", maximumContourCoverage);
@@ -801,218 +704,6 @@ namespace AnimalGame.MapTest
         }
 
 
-        private void UpdateElevationFilterRuntime()
-        {
-            bool togglePressed = (elevationFilterKeyboardToggleKey != KeyCode.None
-                                  && Input.GetKeyDown(
-                                      elevationFilterKeyboardToggleKey));
-            if (togglePressed)
-                elevationFilterRequested = !elevationFilterRequested;
-
-            float targetProgress = elevationFilterRequested ? 1f : 0f;
-            float transitionDuration = Mathf.Max(
-                0.01f,
-                elevationFilterTransitionDuration);
-            elevationFilterProgress = Mathf.MoveTowards(
-                elevationFilterProgress,
-                targetProgress,
-                Time.unscaledDeltaTime / transitionDuration);
-            RefreshElevationFilterMaterialSettings();
-        }
-
-        private void RefreshElevationFilterStaticMaterialSettings()
-        {
-            if (contourMaterial == null)
-                return;
-
-            float rangeMeters = Mathf.Max(
-                0.1f,
-                elevationFilterRelativeRangeMeters);
-            float neutralBandMeters = Mathf.Clamp(
-                elevationFilterNeutralBandMeters,
-                0f,
-                Mathf.Max(0f, rangeMeters - 0.01f));
-            contourMaterial.SetColor(
-                "_LowerElevationColor",
-                lowerElevationFilterColor);
-            contourMaterial.SetColor(
-                "_HigherElevationColor",
-                higherElevationFilterColor);
-            contourMaterial.SetFloat(
-                "_ElevationFilterMaxOpacity",
-                Mathf.Clamp01(elevationFilterMaximumOpacity));
-            contourMaterial.SetFloat(
-                "_ElevationFilterRangeMeters",
-                rangeMeters);
-            contourMaterial.SetFloat(
-                "_ElevationFilterNeutralBandMeters",
-                neutralBandMeters);
-            contourMaterial.SetFloat(
-                "_ElevationFilterResponseExponent",
-                Mathf.Clamp(elevationFilterResponseExponent, 0.25f, 4f));
-            contourMaterial.SetColor(
-                "_PlayerHeightReferenceColor",
-                playerHeightReferenceColor);
-            contourMaterial.SetFloat(
-                "_PlayerHeightReferenceLineWidth",
-                Mathf.Clamp(playerHeightReferenceLineWidth, 0.25f, 8f));
-            contourMaterial.SetFloat(
-                "_PlayerHeightReferenceOpacity",
-                Mathf.Clamp01(playerHeightReferenceOpacity));
-            contourMaterial.SetFloat(
-                "_ElevationFilterHillshadeStrength",
-                Mathf.Clamp(elevationFilterHillshadeStrength, 0f, 0.5f));
-            contourMaterial.SetVector(
-                "_MapSizeMeters",
-                new Vector4(mapWidthMeters, mapHeightMeters, 0f, 0f));
-        }
-
-        private void RefreshElevationFilterMaterialSettings()
-        {
-            if (contourMaterial == null)
-                return;
-
-            elevationFilterHasValidPlayerHeight = elevationFilterTarget != null
-                                                  && TrySampleWorldPosition(
-                                                      elevationFilterTarget.position,
-                                                      out _,
-                                                      out elevationFilterPlayerHeightMeters);
-            float visibleProgress = elevationFilterHasValidPlayerHeight
-                ? Mathf.SmoothStep(0f, 1f, elevationFilterProgress)
-                : 0f;
-            contourMaterial.SetFloat(
-                "_ElevationFilterEnabled",
-                visibleProgress > 0.0001f ? 1f : 0f);
-            contourMaterial.SetFloat(
-                "_ElevationFilterProgress",
-                visibleProgress);
-            contourMaterial.SetFloat(
-                "_PlayerHeightMeters",
-                elevationFilterPlayerHeightMeters);
-        }
-
-        private void OnGUI()
-        {
-            if (!Application.isPlaying
-                || !showElevationFilterLegend
-                || !elevationFilterHasValidPlayerHeight
-                || elevationFilterProgress <= 0.01f)
-            {
-                return;
-            }
-
-            EnsureElevationFilterLegendStyles();
-            float visibility = Mathf.SmoothStep(
-                0f,
-                1f,
-                elevationFilterProgress);
-            const float width = 360f;
-            const float height = 62f;
-            Rect panel = new Rect(
-                (Screen.width - width) * 0.5f,
-                Screen.height - height - 18f,
-                width,
-                height);
-            DrawSolidGuiRect(
-                panel,
-                new Color(0.005f, 0.009f, 0.014f, 0.82f * visibility));
-
-            elevationFilterLegendTitleStyle.normal.textColor = new Color(
-                0.9f,
-                0.97f,
-                1f,
-                visibility);
-            elevationFilterLegendLabelStyle.normal.textColor = new Color(
-                0.78f,
-                0.88f,
-                0.91f,
-                visibility);
-            GUI.Label(
-                new Rect(panel.x + 10f, panel.y + 3f, panel.width - 20f, 20f),
-                $"RELATIVE ELEVATION   CURRENT {elevationFilterPlayerHeightMeters:F1}m",
-                elevationFilterLegendTitleStyle);
-
-            Rect bar = new Rect(
-                panel.x + 12f,
-                panel.y + 27f,
-                panel.width - 24f,
-                7f);
-            const int segmentCount = 40;
-            float segmentWidth = bar.width / segmentCount;
-            Color neutralColor = new Color(0.62f, 0.68f, 0.7f, 1f);
-            for (int index = 0; index < segmentCount; index++)
-            {
-                float t = (index + 0.5f) / segmentCount;
-                Color color = t < 0.5f
-                    ? Color.Lerp(
-                        lowerElevationFilterColor,
-                        neutralColor,
-                        t * 2f)
-                    : Color.Lerp(
-                        neutralColor,
-                        higherElevationFilterColor,
-                        (t - 0.5f) * 2f);
-                color.a = 0.9f * visibility;
-                DrawSolidGuiRect(
-                    new Rect(
-                        bar.x + index * segmentWidth,
-                        bar.y,
-                        segmentWidth + 0.5f,
-                        bar.height),
-                    color);
-            }
-
-            DrawSolidGuiRect(
-                new Rect(bar.center.x - 1f, bar.y - 2f, 2f, bar.height + 4f),
-                new Color(
-                    playerHeightReferenceColor.r,
-                    playerHeightReferenceColor.g,
-                    playerHeightReferenceColor.b,
-                    visibility));
-            float range = Mathf.Max(0.1f, elevationFilterRelativeRangeMeters);
-            GUI.Label(
-                new Rect(panel.x + 10f, panel.y + 38f, 100f, 20f),
-                $"LOW  -{range:0.#}m",
-                elevationFilterLegendLabelStyle);
-            GUI.Label(
-                new Rect(panel.center.x - 50f, panel.y + 38f, 100f, 20f),
-                "CURRENT",
-                elevationFilterLegendLabelStyle);
-            GUI.Label(
-                new Rect(panel.xMax - 110f, panel.y + 38f, 100f, 20f),
-                $"+{range:0.#}m  HIGH",
-                elevationFilterLegendLabelStyle);
-        }
-
-        private void EnsureElevationFilterLegendStyles()
-        {
-            if (elevationFilterLegendTitleStyle != null
-                && elevationFilterLegendLabelStyle != null)
-            {
-                return;
-            }
-
-            elevationFilterLegendTitleStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 12,
-                fontStyle = FontStyle.Bold
-            };
-            elevationFilterLegendLabelStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 10
-            };
-        }
-
-        private static void DrawSolidGuiRect(Rect rect, Color color)
-        {
-            Color previousColor = GUI.color;
-            GUI.color = color;
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.color = previousColor;
-        }
-
         private void OnDestroy()
         {
             ReleaseGeneratedMap();
@@ -1028,7 +719,6 @@ namespace AnimalGame.MapTest
             runtimeMap = null;
             if (contourMaterial != null) DestroyGeneratedObject(contourMaterial);
             contourMaterial = null;
-            elevationFilterHasValidPlayerHeight = false;
         }
 
 
@@ -1053,38 +743,10 @@ namespace AnimalGame.MapTest
             minimumContourOpacity = Mathf.Clamp01(minimumContourOpacity);
             maximumContourOpacity = Mathf.Clamp01(maximumContourOpacity);
             outsideRevealDarkening = Mathf.Clamp01(outsideRevealDarkening);
-            elevationFilterMaximumOpacity = Mathf.Clamp01(
-                elevationFilterMaximumOpacity);
-            elevationFilterRelativeRangeMeters = Mathf.Max(
-                0.1f,
-                elevationFilterRelativeRangeMeters);
-            elevationFilterNeutralBandMeters = Mathf.Clamp(
-                elevationFilterNeutralBandMeters,
-                0f,
-                Mathf.Max(0f, elevationFilterRelativeRangeMeters - 0.01f));
-            elevationFilterResponseExponent = Mathf.Clamp(
-                elevationFilterResponseExponent,
-                0.25f,
-                4f);
-            playerHeightReferenceLineWidth = Mathf.Clamp(
-                playerHeightReferenceLineWidth,
-                0.25f,
-                8f);
-            playerHeightReferenceOpacity = Mathf.Clamp01(
-                playerHeightReferenceOpacity);
-            elevationFilterHillshadeStrength = Mathf.Clamp(
-                elevationFilterHillshadeStrength,
-                0f,
-                0.5f);
-            elevationFilterTransitionDuration = Mathf.Max(
-                0.01f,
-                elevationFilterTransitionDuration);
             editorHeightResolution = Mathf.Clamp(
                 editorHeightResolution,
                 128,
                 1024);
-            RefreshElevationFilterStaticMaterialSettings();
-            RefreshElevationFilterMaterialSettings();
             editorConfigurationHash = int.MinValue;
         }
     }

@@ -72,7 +72,6 @@ namespace AnimalGame.RobotMap
                     material.SetFloat("_PhotoContoursOnly", 1);
                     material.SetFloat("_SurfaceRevealEnabled", 0);
                     material.SetFloat("_WaterEnabled", 0);
-                    material.SetFloat("_ElevationFilterEnabled", 0);
                     material.SetColor("_ContourColor", Color.white);
                     terrain.sharedMaterial = material;
                 }

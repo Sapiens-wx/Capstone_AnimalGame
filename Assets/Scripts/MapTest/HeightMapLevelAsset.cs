@@ -177,47 +177,6 @@ namespace AnimalGame.MapTest
         [SerializeField, Range(4, 128)] private int viewportEdgeSamples = 32;
         [SerializeField, Range(2, 128)] private int viewportGridHeightSamples = 16;
 
-        [Header("Relative Elevation Filter")]
-        [Tooltip("Tint applied to terrain below the player's current elevation.")]
-        [SerializeField] private Color lowerElevationFilterColor =
-            new Color(0.12f, 0.54f, 0.78f, 1f);
-
-        [Tooltip("Tint applied to terrain above the player's current elevation.")]
-        [SerializeField] private Color higherElevationFilterColor =
-            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
-
-        [Tooltip("Maximum filter opacity at or beyond Relative Height Range.")]
-        [SerializeField, Range(0f, 1f)]
-        private float elevationFilterMaximumOpacity = 0.44f;
-
-        [Tooltip("Height difference from the player that reaches the maximum cool or warm tint.")]
-        [SerializeField, Min(0.1f)]
-        private float elevationFilterRelativeRangeMeters = 15f;
-
-        [Tooltip("Height difference around the player that remains nearly untinted.")]
-        [SerializeField, Min(0f)]
-        private float elevationFilterNeutralBandMeters = 1.5f;
-
-        [Tooltip("Shapes how quickly tint strength increases after leaving the neutral band. Values above one preserve a wider subtle middle area.")]
-        [SerializeField, Range(0.25f, 4f)]
-        private float elevationFilterResponseExponent = 1.15f;
-
-        [Tooltip("Color of the contour that crosses the player's exact current elevation.")]
-        [SerializeField] private Color playerHeightReferenceColor =
-            new Color(212f / 255f, 184f / 255f, 84f / 255f, 1f);
-
-        [Tooltip("Screen-space width of the player's current-height reference contour.")]
-        [SerializeField, Range(0.25f, 8f)]
-        private float playerHeightReferenceLineWidth = 2.4f;
-
-        [Tooltip("Opacity of the player's current-height reference contour.")]
-        [SerializeField, Range(0f, 1f)]
-        private float playerHeightReferenceOpacity = 0.95f;
-
-        [Tooltip("Subtle terrain-normal lighting layered under the height colors. Zero disables it.")]
-        [SerializeField, Range(0f, 0.5f)]
-        private float elevationFilterHillshadeStrength = 0.16f;
-
         [Header("View Ring and Contour Opacity")]
         [Tooltip("Opacity of the lowest contour currently visible in the camera.")]
         [SerializeField, Range(0f, 1f)] private float minimumContourOpacity = 0.15f;
@@ -598,16 +557,6 @@ namespace AnimalGame.MapTest
         }
         public Color BackgroundColor => backgroundColor;
         public Color ContourColor => contourColor;
-        public Color LowerElevationFilterColor => lowerElevationFilterColor;
-        public Color HigherElevationFilterColor => higherElevationFilterColor;
-        public float ElevationFilterMaximumOpacity => elevationFilterMaximumOpacity;
-        public float ElevationFilterRelativeRangeMeters => elevationFilterRelativeRangeMeters;
-        public float ElevationFilterNeutralBandMeters => elevationFilterNeutralBandMeters;
-        public float ElevationFilterResponseExponent => elevationFilterResponseExponent;
-        public Color PlayerHeightReferenceColor => playerHeightReferenceColor;
-        public float PlayerHeightReferenceLineWidth => playerHeightReferenceLineWidth;
-        public float PlayerHeightReferenceOpacity => playerHeightReferenceOpacity;
-        public float ElevationFilterHillshadeStrength => elevationFilterHillshadeStrength;
         public float MinimumContourOpacity => minimumContourOpacity;
         public float MaximumContourOpacity => maximumContourOpacity;
         public float OutsideRevealDarkening => outsideRevealDarkening;
@@ -725,16 +674,6 @@ namespace AnimalGame.MapTest
                     hash = hash * 397 ^ viewportGridHeightSamples;
                     hash = hash * 397 ^ backgroundColor.GetHashCode();
                     hash = hash * 397 ^ contourColor.GetHashCode();
-                    hash = hash * 397 ^ lowerElevationFilterColor.GetHashCode();
-                    hash = hash * 397 ^ higherElevationFilterColor.GetHashCode();
-                    hash = hash * 397 ^ elevationFilterMaximumOpacity.GetHashCode();
-                    hash = hash * 397 ^ elevationFilterRelativeRangeMeters.GetHashCode();
-                    hash = hash * 397 ^ elevationFilterNeutralBandMeters.GetHashCode();
-                    hash = hash * 397 ^ elevationFilterResponseExponent.GetHashCode();
-                    hash = hash * 397 ^ playerHeightReferenceColor.GetHashCode();
-                    hash = hash * 397 ^ playerHeightReferenceLineWidth.GetHashCode();
-                    hash = hash * 397 ^ playerHeightReferenceOpacity.GetHashCode();
-                    hash = hash * 397 ^ elevationFilterHillshadeStrength.GetHashCode();
                     hash = hash * 397 ^ minimumContourOpacity.GetHashCode();
                     hash = hash * 397 ^ maximumContourOpacity.GetHashCode();
                     hash = hash * 397 ^ outsideRevealDarkening.GetHashCode();
@@ -1648,14 +1587,6 @@ namespace AnimalGame.MapTest
             minimumContourOpacity = Mathf.Clamp01(minimumContourOpacity);
             maximumContourOpacity = Mathf.Clamp01(maximumContourOpacity);
             outsideRevealDarkening = Mathf.Clamp01(outsideRevealDarkening);
-            elevationFilterMaximumOpacity = Mathf.Clamp01(elevationFilterMaximumOpacity);
-            elevationFilterRelativeRangeMeters = Mathf.Max(0.1f, elevationFilterRelativeRangeMeters);
-            elevationFilterNeutralBandMeters = Mathf.Clamp(elevationFilterNeutralBandMeters,
-                0f, Mathf.Max(0f, elevationFilterRelativeRangeMeters - 0.01f));
-            elevationFilterResponseExponent = Mathf.Clamp(elevationFilterResponseExponent, 0.25f, 4f);
-            playerHeightReferenceLineWidth = Mathf.Clamp(playerHeightReferenceLineWidth, 0.25f, 8f);
-            playerHeightReferenceOpacity = Mathf.Clamp01(playerHeightReferenceOpacity);
-            elevationFilterHillshadeStrength = Mathf.Clamp(elevationFilterHillshadeStrength, 0f, 0.5f);
             contourIntervalMeters = Mathf.Max(1f, contourIntervalMeters);
             minimumContourWidth = Mathf.Clamp(minimumContourWidth, 0.1f, 10f);
             maximumContourWidth = Mathf.Clamp(maximumContourWidth, 0.1f, 10f);
