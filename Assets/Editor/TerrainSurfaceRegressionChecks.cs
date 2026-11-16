@@ -17,7 +17,8 @@ public static class TerrainSurfaceRegressionChecks
         CheckTileBoundaryPainting();
         CheckLegacySerialization();
         CheckDeferredSave();
-        Debug.Log("Terrain surface checks PASS: shared enum, painting/erasing, tile boundaries, duplicate validation, legacy preservation, deferred Save/Bake and water settings preservation.");
+        CheckPainterTileSelection();
+        Debug.Log("Terrain surface checks PASS: painting, validation, legacy preservation, deferred Save, water preservation, Painter tile selection and stroke bounds.");
     }
 
     public static void RunBatch()
@@ -90,6 +91,161 @@ public static class TerrainSurfaceRegressionChecks
         {
             if (window != null)
                 Object.DestroyImmediate(window);
+            AssetDatabase.DeleteAsset(folder);
+        }
+    }
+
+    private static void CheckPainterTileSelection()
+    {
+        const string folder = "Assets/__PainterTileSelectionCheck";
+        Require(!AssetDatabase.IsValidFolder(folder), "Painter selection check folder already exists.");
+        var root = new GameObject("Painter Tile Selection Check") { hideFlags = HideFlags.HideInHierarchy };
+        root.SetActive(false);
+        var definition = ScriptableObject.CreateInstance<TiledLevelAsset>();
+        EditorWindow window = null;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        try
+        {
+            AssetDatabase.CreateFolder("Assets", "__PainterTileSelectionCheck");
+            var height = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            height.SetPixels(Enumerable.Repeat(new Color(0f, 0f, 0f, 1f), 4).ToArray());
+            height.Apply();
+            AssetDatabase.CreateAsset(height, folder + "/Height.asset");
+            HeightMapLevelAsset CreateTile(string name)
+            {
+                var tile = ScriptableObject.CreateInstance<HeightMapLevelAsset>();
+                tile.name = name;
+                Set(tile, "heightMap", height);
+                Set(tile, "normalizeSourceRange", false);
+                Set(tile, "surfaceMaskResolution", 64);
+                Set(tile, "surfaceBakeResolution", 256);
+                Set(tile, "surfaceClosedContourAlphaEnabled", false);
+                Set(tile, "staticWaterResolution", 64);
+                Set(tile, "surfacePalette", new List<TerrainSurfaceDefinition>
+                {
+                    new(TerrainKind.Rock, "Rock", height, Color.white, 1f, 8f)
+                });
+                tile.EnsureSurfaceAuthoringData();
+                tile.SetBakedSurfaceVisual(null);
+                AssetDatabase.CreateAsset(tile, folder + "/" + name + ".asset");
+                AssetDatabase.SaveAssetIfDirty(tile);
+                return tile;
+            }
+            var left = CreateTile("Left");
+            var right = CreateTile("Right");
+            Vector2 size = left.MapSizeMeters;
+            Set(definition, "tileSizeMeters", size);
+            Set(definition, "presentation", left);
+            Set(definition, "tiles", new List<TiledLevelAsset.Tile>
+            {
+                new(Vector2Int.zero, left), new(Vector2Int.right, right)
+            });
+            Require(definition.Validate(out string mapError), mapError);
+            var map = root.AddComponent<MapTestSceneController>();
+            Set(map, "levelAsset", definition);
+            Set(map, "editorHeightResolution", 16);
+            typeof(MapTestSceneController).GetMethod("RebuildGeneratedMap", flags).Invoke(map, null);
+            Require(map.HasGeneratedMap, "The Painter selection test map did not generate.");
+
+            foreach (Type type in new[] { typeof(HeightMapSurfacePainterWindow), typeof(HeightMapStaticWaterPainterWindow) })
+            {
+                window = (EditorWindow)ScriptableObject.CreateInstance(type);
+                object Call(string method, params object[] args) => type.GetMethod(method, flags).Invoke(window, args);
+                HeightMapLevelAsset Working() => (HeightMapLevelAsset)type.GetField("levelAsset", flags).GetValue(window);
+                HeightMapPainterEditState State() => (HeightMapPainterEditState)type.GetField("editState", flags).GetValue(window);
+                Call("SetLevelAsset", new object[] { null });
+                Require((bool)Call("SelectTileForStroke", left), "The first click without a selection must only select a tile.");
+                Require(!(bool)Call("SelectTileForStroke", left), "A click on the selected tile must allow painting.");
+                string before = File.ReadAllText(AssetDatabase.GetAssetPath(left));
+                DateTime unchangedWriteTime = File.GetLastWriteTimeUtc(AssetDatabase.GetAssetPath(left));
+                Require(!State().HasChanges, "A newly selected tile must start clean.");
+                Call("SelectTileForStroke", right);
+                Call("SelectTileForStroke", left);
+                Require(File.GetLastWriteTimeUtc(AssetDatabase.GetAssetPath(left)) == unchangedWriteTime,
+                    "Switching an unchanged tile wrote the asset.");
+                Vector2 nearEdge = new(size.x - 1f, size.y * 0.5f);
+                if (type == typeof(HeightMapSurfacePainterWindow))
+                {
+                    Call("BeginStroke", nearEdge, Working().GetSurfaceDefinition(TerrainKind.Rock));
+                    int painted = Working().CalculateSurfaceAuthoringHash();
+                    Call("PaintStrokeTo", new Vector2(size.x + 10f, size.y * 0.5f));
+                    Require(Working().CalculateSurfaceAuthoringHash() == painted,
+                        "Dragging into another tile continued painting the selected tile.");
+                    var copies = (Dictionary<HeightMapLevelAsset, HeightMapLevelAsset>)type.GetField("workingTiles", flags).GetValue(window);
+                    Require(copies[right].GetOrCreateSurfaceTypeMap().All(value => value == 0),
+                        "A surface brush overlapping the tile edge painted the neighboring tile.");
+                }
+                else
+                {
+                    Call("BeginStroke", nearEdge, false);
+                    object[] inside = { (Vector2)map.MapPositionToWorld(size * 0.5f), Vector2.zero, 0f };
+                    Require((bool)Call("TrySampleTilePosition", inside),
+                        "Water painting rejected a position inside the selected tile.");
+                    object[] sample = { (Vector2)map.MapPositionToWorld(new Vector2(size.x + 10f, size.y * 0.5f)), Vector2.zero, 0f };
+                    Require(!(bool)Call("TrySampleTilePosition", sample),
+                        "Water painting accepted a position outside the selected tile.");
+                }
+                Call("EndStroke");
+                Require(State().HasChanges, "A changed stroke must mark the Painter dirty.");
+                Undo.PerformUndo();
+                Require(!State().HasChanges, "Undo to the initial state must clear the dirty state.");
+                Call("SelectTileForStroke", right);
+                Require(File.GetLastWriteTimeUtc(AssetDatabase.GetAssetPath(left)) == unchangedWriteTime,
+                    "Switching after undo to the initial state saved the asset.");
+                Call("SelectTileForStroke", left);
+                if (type == typeof(HeightMapSurfacePainterWindow))
+                    Call("BeginStroke", nearEdge, Working().GetSurfaceDefinition(TerrainKind.Rock));
+                else
+                    Call("BeginStroke", nearEdge, false);
+                Call("EndStroke");
+                Require(File.ReadAllText(AssetDatabase.GetAssetPath(left)) == before,
+                    "Painting saved the tile before switching or pressing Save.");
+                Require((bool)Call("SelectTileForStroke", right), "A different-tile click must be consumed as selection.");
+                Require((HeightMapLevelAsset)type.GetField("sourceLevelAsset", flags).GetValue(window) == right
+                    && !(bool)type.GetField("strokeActive", flags).GetValue(window),
+                    "The first click on a new tile started painting or failed to select it.");
+                Require(File.ReadAllText(AssetDatabase.GetAssetPath(left)) != before,
+                    "Switching did not save the previous tile's edits.");
+                Require(!(bool)Call("SelectTileForStroke", right), "The next click must allow painting the selected tile.");
+                Require(right.SampleSurfaceType(Vector2.zero) == TerrainKind.Unknown
+                    && right.SampleStaticWaterDepth(Vector2.zero) == 0f,
+                    "Selecting a new tile painted it.");
+                Vector2 center = size * 0.5f;
+                if (type == typeof(HeightMapSurfacePainterWindow))
+                {
+                    Call("BeginStroke", center + Vector2.right * size.x, Working().GetSurfaceDefinition(TerrainKind.Rock));
+                    Require(Working().SampleSurfaceType(center) == TerrainKind.Rock,
+                        "The next click did not paint the selected surface tile.");
+                }
+                else
+                {
+                    Call("BeginStroke", center, false);
+                    Require(Working().SampleStaticWaterDepth(center) > 0f,
+                        "The next click did not paint the selected water tile.");
+                }
+                Call("EndStroke");
+                Call(type == typeof(HeightMapSurfacePainterWindow) ? "SaveSurface" : "SaveWater");
+                Require(!State().HasChanges, "A successful Save must establish a clean save point.");
+                Undo.PerformUndo();
+                Require(State().HasChanges, "Undo away from a saved state must mark the Painter dirty.");
+                Undo.PerformRedo();
+                Require(!State().HasChanges, "Redo back to the saved state must clear the dirty state.");
+                Undo.PerformUndo();
+                if (type == typeof(HeightMapSurfacePainterWindow))
+                    Call("BeginStroke", center + Vector2.right * size.x, Working().GetSurfaceDefinition(TerrainKind.Rock));
+                else
+                    Call("BeginStroke", center, false);
+                Call("EndStroke");
+                Require(State().HasChanges, "A new edit after undo must not reuse the saved revision.");
+                Object.DestroyImmediate(window);
+                window = null;
+            }
+        }
+        finally
+        {
+            if (window != null) Object.DestroyImmediate(window);
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(definition);
             AssetDatabase.DeleteAsset(folder);
         }
     }

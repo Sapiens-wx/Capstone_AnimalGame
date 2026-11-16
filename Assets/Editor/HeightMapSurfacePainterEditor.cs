@@ -59,11 +59,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private TerrainSurfaceDefinition strokeDefinition;
     private string strokeUndoName;
     private readonly HashSet<HeightMapLevelAsset> changedStrokeTiles = new();
-    private readonly HashSet<HeightMapLevelAsset> invalidStrokeTiles = new();
     private bool hasLastStrokePosition;
     private Vector2 lastStrokeMapPosition;
     private int strokeUndoGroup = -1;
     private SerializedObject serializedLevel;
+    private HeightMapPainterEditState editState;
 
     [MenuItem("Animal Game/Level/Terrain Surface Painter")]
     public static void Open()
@@ -132,7 +132,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         EditorGUILayout.HelpBox(
             "Edits remain temporary until you click Save to bake and save the changed tiles. " +
             "The displayed surface updates after Save. Settings are shared by the scene map tiles. " +
-            "Fill and Clear apply to the selected tile. Closing this window or switching maps discards unsaved edits.",
+            "Fill and Clear apply to the selected tile. Click another tile to save and select it without painting. Closing the window or assigning another asset discards unsaved edits.",
             MessageType.Info);
 
         EditorGUI.BeginChangeCheck();
@@ -386,6 +386,8 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         foreach (string path in HeightMapSurfaceSettings.GrasslandPaths)
             EditorGUILayout.PropertyField(serializedLevel.FindProperty(path));
 
+        if (serializedLevel.hasModifiedProperties)
+            editState.RecordChange("Change Terrain Surface Settings");
         HeightMapSurfaceSettings.ApplyEdits(serializedLevel, mapController, workingMap);
 
         bool normalized = levelAsset.EnsureSurfaceAuthoringData();
@@ -463,18 +465,19 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private void HandleSceneGui(SceneView sceneView)
     {
         Event current = Event.current;
-        int controlId = GUIUtility.GetControlID(
-            "HeightMapSurfacePainter".GetHashCode(),
-            FocusType.Passive);
+        HeightMapPainterSceneInput.DrawSelectedTileBounds(mapController, sourceLevelAsset);
+        if (!paintInScene || EditorApplication.isPlaying || mapController == null || !mapController.HasGeneratedMap)
+            return;
+
+        int controlId = GUIUtility.GetControlID("HeightMapSurfacePainter".GetHashCode(), FocusType.Passive);
         bool ownsStroke = strokeActive && GUIUtility.hotControl == controlId;
+        bool hasPosition = HeightMapPainterSceneInput.TryGetTileAtCursor(mapController, current.mousePosition,
+            out HeightMapLevelAsset hitLevel, out Vector2 mapPosition);
 
         if (ownsStroke && current.rawType == EventType.MouseUp && current.button == 0)
         {
-            if (!current.alt && mapController != null && mapController.HasGeneratedMap
-                && TryGetMapPosition(current.mousePosition, out Vector2 endPosition))
-            {
-                PaintStrokeTo(endPosition);
-            }
+            if (!current.alt && hasPosition && hitLevel == sourceLevelAsset)
+                PaintStrokeTo(mapPosition);
             GUIUtility.hotControl = 0;
             EndStroke();
             current.Use();
@@ -482,41 +485,34 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             return;
         }
 
-        TerrainSurfaceDefinition selectedDefinition = levelAsset != null
-            ? levelAsset.GetSurfaceDefinition(selectedTerrain)
-            : null;
-        if (!paintInScene
-            || levelAsset == null
-            || mapController == null
-            || selectedDefinition == null
-            || !selectedDefinition.IsUsable
-            || !levelAsset.TryValidateSurfacePalette(out _)
-            || !mapController.HasGeneratedMap)
-        {
-            return;
-        }
-
-        if (!TryGetMapPosition(current.mousePosition, out Vector2 mapPosition))
+        if (!hasPosition || hitLevel != sourceLevelAsset)
         {
             if (ownsStroke && current.type == EventType.MouseDrag)
                 hasLastStrokePosition = false;
-            return;
         }
-        if (!ownsStroke && !mapController.TrySampleMapPosition(mapPosition, out _))
+        if (!hasPosition)
             return;
-
-        TerrainSurfaceDefinition outlineDefinition = current.shift ? null : selectedDefinition;
-        DrawBrushOutline(mapPosition, ownsStroke ? strokeDefinition : outlineDefinition);
         if (current.type == EventType.Layout)
             HandleUtility.AddDefaultControl(controlId);
-
         if (current.alt || current.button != 0)
         {
             if (ownsStroke && current.type == EventType.MouseDrag)
                 hasLastStrokePosition = false;
             return;
         }
+        if (current.type == EventType.MouseDown && !strokeActive && SelectTileForStroke(hitLevel))
+        {
+            current.Use();
+            return;
+        }
+        if (hitLevel != sourceLevelAsset || levelAsset == null)
+            return;
 
+        TerrainSurfaceDefinition definition = levelAsset.GetSurfaceDefinition(selectedTerrain);
+        if (definition == null || !definition.IsUsable || !levelAsset.TryValidateSurfacePalette(out _))
+            return;
+        TerrainSurfaceDefinition outlineDefinition = current.shift ? null : definition;
+        DrawBrushOutline(mapPosition, ownsStroke ? strokeDefinition : outlineDefinition);
         if (current.type == EventType.MouseDown && !strokeActive)
         {
             GUIUtility.hotControl = controlId;
@@ -531,23 +527,14 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         }
     }
 
-    private bool TryGetMapPosition(
-        Vector2 sceneGuiPosition,
-        out Vector2 mapPosition)
+    // A click on a different tile only saves and selects; it never starts a stroke.
+    private bool SelectTileForStroke(HeightMapLevelAsset target)
     {
-        mapPosition = default;
-        Bounds bounds = mapController.WorldBounds;
-        Ray ray = HandleUtility.GUIPointToWorldRay(sceneGuiPosition);
-        var mapPlane = new Plane(Vector3.forward, bounds.center);
-        if (!mapPlane.Raycast(ray, out float distance))
+        if (target == sourceLevelAsset)
             return false;
-
-        Vector3 offset = ray.GetPoint(distance) - bounds.min;
-        Vector2 mapSize = mapController.MapSizeMeters;
-        mapPosition = new Vector2(offset.x / bounds.size.x * mapSize.x,
-            offset.y / bounds.size.y * mapSize.y);
-        return mapPosition.x >= -brushRadiusMeters && mapPosition.x <= mapSize.x + brushRadiusMeters
-            && mapPosition.y >= -brushRadiusMeters && mapPosition.y <= mapSize.y + brushRadiusMeters;
+        if (sourceLevelAsset == null || !editState.HasChanges || SaveSurface())
+            SetLevelAsset(target);
+        return true;
     }
 
     private void DrawBrushOutline(Vector2 centreMapPosition, TerrainSurfaceDefinition definition)
@@ -586,6 +573,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     {
         if (!strokeActive)
             return;
+        if (!HeightMapPainterSceneInput.IsInSelectedTile(mapController, sourceLevelAsset, mapPosition))
+        {
+            hasLastStrokePosition = false;
+            return;
+        }
 
         if (!hasLastStrokePosition)
         {
@@ -611,41 +603,25 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void PaintDab(Vector2 mapPosition)
     {
-        TiledLevelAsset map = workingMap;
-        Vector2 tileSize = map.TileSizeMeters;
-        float radiusSquared = brushRadiusMeters * brushRadiusMeters;
+        if (!HeightMapPainterSceneInput.IsInSelectedTile(mapController, sourceLevelAsset, mapPosition))
+            return;
+        mapController.TryGetTileOrigin(sourceLevelAsset, out Vector2 origin);
         TerrainKind terrain = strokeDefinition?.Terrain ?? TerrainKind.Unknown;
-        foreach (TiledLevelAsset.Tile entry in map.Tiles)
+        if (levelAsset.PaintSurfaceType(mapPosition - origin, brushRadiusMeters, terrain, strokeDefinition,
+                () => RegisterStrokeUndo(levelAsset)))
         {
-            Vector2 local = mapPosition - Vector2.Scale(entry.coordinate, tileSize);
-            Vector2 closestPoint = new Vector2(Mathf.Clamp(local.x, 0f, tileSize.x),
-                Mathf.Clamp(local.y, 0f, tileSize.y));
-            if ((local - closestPoint).sqrMagnitude > radiusSquared)
-                continue;
-
-            HeightMapLevelAsset tile = entry.level;
-            if (invalidStrokeTiles.Contains(tile))
-                continue;
-            if (!changedStrokeTiles.Contains(tile) && !tile.TryValidateSurfacePalette(out string paletteError))
-            {
-                Debug.LogError($"Cannot paint {tile.name}. {paletteError}", tile);
-                invalidStrokeTiles.Add(tile);
-                continue;
-            }
-
-            if (tile.PaintSurfaceType(local, brushRadiusMeters, terrain, strokeDefinition,
-                    () => RegisterStrokeUndo(tile)))
-            {
-                changedStrokeTiles.Add(tile);
-                EditorUtility.SetDirty(tile);
-            }
+            changedStrokeTiles.Add(levelAsset);
+            EditorUtility.SetDirty(levelAsset);
         }
     }
 
     private void RegisterStrokeUndo(HeightMapLevelAsset tile)
     {
         if (!changedStrokeTiles.Contains(tile))
+        {
             Undo.RegisterCompleteObjectUndo(tile, strokeUndoName);
+            editState.RecordChange(strokeUndoName);
+        }
     }
 
     private void EndStroke()
@@ -657,7 +633,6 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         hasLastStrokePosition = false;
         Undo.CollapseUndoOperations(strokeUndoGroup);
         changedStrokeTiles.Clear();
-        invalidStrokeTiles.Clear();
         strokeDefinition = null;
         SceneView.RepaintAll();
         Repaint();
@@ -673,7 +648,10 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Undo.SetCurrentGroupName(operationName);
         Undo.RegisterCompleteObjectUndo(levelAsset, operationName);
         if (levelAsset.FillSurfaceType(terrain))
+        {
+            editState.RecordChange(operationName);
             EditorUtility.SetDirty(levelAsset);
+        }
 
         Undo.CollapseUndoOperations(undoGroup);
         SceneView.RepaintAll();
@@ -685,7 +663,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Repaint();
     }
 
-    private void SaveSurface()
+    private bool SaveSurface()
     {
         EndStroke();
         if (workingMap != null)
@@ -702,11 +680,13 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             if (changed || source.SurfaceBakeNeedsUpgrade || source == sourceLevelAsset)
             {
                 if (!HeightMapSurfaceBaker.Bake(source, false))
-                    return;
+                    return false;
             }
         }
+        editState.MarkSaved();
         SceneView.RepaintAll();
         Repaint();
+        return true;
     }
 
     private HeightMapLevelAsset GetWorkingTile(HeightMapLevelAsset source)
@@ -724,6 +704,8 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void DestroyWorkingCopies()
     {
+        editState?.Dispose();
+        editState = null;
         foreach (HeightMapLevelAsset working in workingTiles.Values)
         {
             Undo.ClearUndo(working);
@@ -768,6 +750,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         EndStroke();
         DestroyWorkingCopies();
         sourceLevelAsset = asset;
+        if (asset != null)
+        {
+            editState = CreateInstance<HeightMapPainterEditState>();
+            editState.hideFlags = HideFlags.HideAndDontSave;
+        }
         levelAsset = asset != null ? GetWorkingTile(asset) : null;
         serializedLevel = levelAsset != null ? new SerializedObject(levelAsset) : null;
         EnsureSelectedTerrain();
@@ -778,7 +765,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void ResolveSceneMap()
     {
-        mapController = HeightMapSurfaceSettings.FindSceneMap(sourceLevelAsset);
+        mapController = HeightMapPainterSceneInput.FindSceneMap(sourceLevelAsset);
         if (mapController == null || workingMap != null)
             return;
 
@@ -786,6 +773,92 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         workingMap.hideFlags = HideFlags.HideAndDontSave;
         foreach (TiledLevelAsset.Tile entry in workingMap.Tiles)
             entry.level = GetWorkingTile(entry.level);
+    }
+}
+
+// Only revision is serialized into Undo; the unique counter and save point stay current.
+internal sealed class HeightMapPainterEditState : ScriptableObject, IDisposable
+{
+    [SerializeField] private int revision;
+    private int nextRevision;
+    private int savedRevision;
+
+    internal bool HasChanges => revision != savedRevision;
+
+    internal void RecordChange(string operation)
+    {
+        Undo.RegisterCompleteObjectUndo(this, operation);
+        revision = ++nextRevision;
+    }
+
+    internal void MarkSaved() => savedRevision = revision;
+
+    public void Dispose()
+    {
+        Undo.ClearUndo(this);
+        DestroyImmediate(this);
+    }
+}
+
+internal static class HeightMapPainterSceneInput
+{
+    internal static void DrawSelectedTileBounds(MapTestSceneController mapController, HeightMapLevelAsset sourceLevelAsset)
+    {
+        if (Event.current.type != EventType.Repaint || mapController == null || sourceLevelAsset == null
+            || !mapController.TryGetTileOrigin(sourceLevelAsset, out Vector2 origin))
+            return;
+        Vector2 size = sourceLevelAsset.MapSizeMeters;
+        Vector3[] points =
+        {
+            mapController.MapPositionToWorld(origin),
+            mapController.MapPositionToWorld(origin + Vector2.right * size.x),
+            mapController.MapPositionToWorld(origin + size),
+            mapController.MapPositionToWorld(origin + Vector2.up * size.y),
+            mapController.MapPositionToWorld(origin)
+        };
+        Color color = Handles.color;
+        var zTest = Handles.zTest;
+        Handles.color = Color.cyan;
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        Handles.DrawAAPolyLine(3f, points);
+        Handles.color = color;
+        Handles.zTest = zTest;
+    }
+
+    internal static MapTestSceneController FindSceneMap(HeightMapLevelAsset selected)
+    {
+        if (selected != null)
+            return HeightMapSurfaceSettings.FindSceneMap(selected);
+        foreach (var map in UnityEngine.Object.FindObjectsByType<MapTestSceneController>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (!EditorUtility.IsPersistent(map) && map.HasGeneratedMap)
+                return map;
+        }
+        return null;
+    }
+
+    internal static bool TryGetTileAtCursor(MapTestSceneController map, Vector2 mousePosition,
+        out HeightMapLevelAsset level, out Vector2 mapPosition)
+    {
+        level = null;
+        mapPosition = default;
+        Bounds bounds = map.WorldBounds;
+        Ray ray = HandleUtility.GUIPointToWorldRay(mousePosition);
+        if (!new Plane(Vector3.forward, bounds.center).Raycast(ray, out float distance))
+            return false;
+        Vector3 offset = ray.GetPoint(distance) - bounds.min;
+        Vector2 size = map.MapSizeMeters;
+        mapPosition = new Vector2(offset.x / bounds.size.x * size.x, offset.y / bounds.size.y * size.y);
+        if (!map.RuntimeMap.TryLocate(mapPosition, out var tile, out _))
+            return false;
+        level = tile.Level;
+        return true;
+    }
+
+    internal static bool IsInSelectedTile(MapTestSceneController map, HeightMapLevelAsset selected, Vector2 position)
+    {
+        return map.RuntimeMap.TryLocate(position, out var tile, out _) && tile.Level == selected;
     }
 }
 

@@ -58,6 +58,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private Vector2 lastStrokeMapPosition;
     private int strokeUndoGroup = -1;
     private int lastObservedAuthoringHash;
+    private HeightMapPainterEditState editState;
+    private bool waterUvChanged;
     private bool previewDirty = true;
     private double nextPreviewRefreshTime;
     private int wetPixelCount;
@@ -144,7 +146,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         EditorGUILayout.HelpBox(
             "Edits appear only in the Scene preview until you click Save. " +
             "Save writes the water data, runtime Water Mask and generated UV texture. " +
-            "Closing this window or switching maps discards unsaved edits.",
+            "Click another tile to save and select it without painting. Closing the window or assigning another asset discards unsaved edits.",
             MessageType.Info);
 
         EditorGUI.BeginChangeCheck();
@@ -267,6 +269,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             waveLength,
             new GUIContent("Wave Length (m)"));
         bool settingsChanged = EditorGUI.EndChangeCheck();
+        if (serializedLevel.hasModifiedProperties)
+            editState.RecordChange("Change Static Water Settings");
         serializedLevel.ApplyModifiedProperties();
 
         if (!settingsChanged)
@@ -444,6 +448,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
                 EnsureWorkingWaterUv();
                 for (int i = 0; i < uvIsland.Length; i++)
                     if (uvIsland[i]) workingWaterUv[i] = Vector2.zero;
+                waterUvChanged = true;
                 uvStatus = "Selected water UV cleared. Click Save to apply.";
             }
         }
@@ -747,6 +752,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         }
         BuildUvGrid(sections);
         int uvPixelCount = BakeSelectedWaterUv();
+        waterUvChanged = true;
         uvStatus = $"Generated {uvVLines.Count} V lines and {uvULines.Count} U cross-sections."
             + $" Baked {uvPixelCount} UV pixels; click Save to apply."
             + (!wetStarted ? " The center trace did not reach the selected water." : "")
@@ -1145,12 +1151,27 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private void HandleSceneGui(SceneView sceneView)
     {
-        if (levelAsset == null
-            || mapController == null
-            || !mapController.HasGeneratedMap)
-        {
+        HeightMapPainterSceneInput.DrawSelectedTileBounds(mapController, sourceLevelAsset);
+        if (mapController == null || !mapController.HasGeneratedMap)
             return;
+
+        Event current = Event.current;
+        int controlId = GUIUtility.GetControlID("HeightMapStaticWaterPainter".GetHashCode(), FocusType.Passive);
+        bool hasHit = HeightMapPainterSceneInput.TryGetTileAtCursor(mapController, current.mousePosition,
+            out HeightMapLevelAsset hitLevel, out _);
+        if (paintInScene && brushPage != 2 && !EditorApplication.isPlaying)
+        {
+            if (hasHit && current.type == EventType.Layout)
+                HandleUtility.AddDefaultControl(controlId);
+            if (hasHit && current.type == EventType.MouseDown && current.button == 0 && !current.alt
+                && !strokeActive && SelectTileForStroke(hitLevel))
+            {
+                current.Use();
+                return;
+            }
         }
+        if (levelAsset == null)
+            return;
 
         EnsurePreviewResources();
         if (previewRenderer != null)
@@ -1166,14 +1187,16 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         if (!paintInScene)
             return;
 
-        Event current = Event.current;
         if (brushPage == 1 && current.type == EventType.Repaint)
             DrawFlowDirections();
-        int controlId = GUIUtility.GetControlID(
-            "HeightMapStaticWaterPainter".GetHashCode(),
-            FocusType.Passive);
-        if (!TryGetMapPosition(current.mousePosition, out Vector2 mapPosition))
+        if (!hasHit || hitLevel != sourceLevelAsset
+            || !TryGetMapPosition(current.mousePosition, out Vector2 mapPosition))
         {
+            if (current.type == EventType.MouseDrag && strokeActive)
+            {
+                hasLastStrokePosition = false;
+                hasStrokeDirection = false;
+            }
             if (current.type == EventType.MouseUp
                 && GUIUtility.hotControl == controlId)
             {
@@ -1411,6 +1434,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             return;
         }
 
+        if (!strokeChanged)
+            editState.RecordChange("Paint Static Water");
         strokeChanged = true;
         previewDirty = true;
         EditorUtility.SetDirty(levelAsset);
@@ -1444,6 +1469,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         Undo.RegisterCompleteObjectUndo(levelAsset, operationName);
         if (levelAsset.FillStaticWaterDepth(depthMeters))
         {
+            editState.RecordChange(operationName);
             EditorUtility.SetDirty(levelAsset);
             RefreshPreview(true);
         }
@@ -1686,10 +1712,10 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         RefreshPreview(true);
     }
 
-    private void SaveWater()
+    private bool SaveWater()
     {
         if (levelAsset == null)
-            return;
+            return false;
 
         EndStroke();
         EnsureWorkingWaterUv();
@@ -1701,8 +1727,23 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             destination.CopyFromSerializedProperty(serializedLevel.FindProperty(property));
         destination.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(sourceLevelAsset);
-        HeightMapStaticWaterMaskBaker.Bake(sourceLevelAsset, false, workingWaterUv);
+        bool saved = HeightMapStaticWaterMaskBaker.Bake(sourceLevelAsset, false, workingWaterUv);
+        if (saved)
+        {
+            editState.MarkSaved();
+            waterUvChanged = false;
+        }
         RefreshPreview(true);
+        return saved;
+    }
+
+    private bool SelectTileForStroke(HeightMapLevelAsset target)
+    {
+        if (target == sourceLevelAsset)
+            return false;
+        if (sourceLevelAsset == null || (!editState.HasChanges && !waterUvChanged) || SaveWater())
+            SetLevelAsset(target);
+        return true;
     }
 
     private void HandlePlayModeStateChanged(PlayModeStateChange state)
@@ -1753,9 +1794,12 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         workingWaterUv = null;
         workingWaterUvResolution = 0;
         sourceLevelAsset = asset;
+        waterUvChanged = false;
         levelAsset = asset != null ? Instantiate(asset) : null;
         if (levelAsset != null)
         {
+            editState = CreateInstance<HeightMapPainterEditState>();
+            editState.hideFlags = HideFlags.HideAndDontSave;
             levelAsset.name = asset.name + " (Water Preview)";
             levelAsset.hideFlags = HideFlags.HideAndDontSave;
             levelAsset.EnsureStaticWaterAuthoringData();
@@ -1793,22 +1837,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private void ResolveSceneMap()
     {
         MapTestSceneController previousMap = mapController;
-        mapController = null;
-        if (levelAsset != null)
-        {
-            MapTestSceneController[] openMaps =
-                FindObjectsByType<MapTestSceneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            foreach (MapTestSceneController candidate in openMaps)
-            {
-                if (candidate != null
-                    && !EditorUtility.IsPersistent(candidate)
-                    && candidate.ContainsLevel(sourceLevelAsset))
-                {
-                    mapController = candidate;
-                    break;
-                }
-            }
-        }
+        mapController = HeightMapPainterSceneInput.FindSceneMap(sourceLevelAsset);
 
         if (previousMap != mapController)
         {
@@ -1819,6 +1848,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
 
     private void DestroyWorkingCopy()
     {
+        editState?.Dispose();
+        editState = null;
         if (levelAsset == null)
             return;
         Undo.ClearUndo(levelAsset);
