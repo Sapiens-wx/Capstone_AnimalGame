@@ -96,6 +96,10 @@ namespace AnimalGame.MapTest
         public float ContourIntervalMeters => contourIntervalMeters;
         public Color BackgroundColor => backgroundColor;
         public bool HasGeneratedMap => runtimeMap != null && tileViews.Count == runtimeMap.TileCount && tileViews.Count > 0;
+#if UNITY_EDITOR
+        public IReadOnlyList<SpriteRenderer> EditorTileRenderers => tileRenderers;
+        public static event System.Action EditorTilesChanged;
+#endif
 
         // Capture reads the live contour material; it never owns or destroys this renderer.
         internal IReadOnlyList<SpriteRenderer> PhotoContourRenderers => tileRenderers;
@@ -329,6 +333,8 @@ namespace AnimalGame.MapTest
             rebuildingMap = true;
             try
             {
+                for (int i = transform.childCount - 1; i >= 0; i--)
+                    DestroyGeneratedObject(transform.GetChild(i).gameObject);
                 ReleaseGeneratedMap();
                 hasVisibleRangeTarget = false;
                 nextVisibleRangeSampleTime = 0;
@@ -368,6 +374,9 @@ namespace AnimalGame.MapTest
             {
                 rebuildingMap = false;
                 WorldInteractionQuery.InvalidateSpatialIndex();
+#if UNITY_EDITOR
+                EditorTilesChanged?.Invoke();
+#endif
             }
         }
 
