@@ -4,7 +4,9 @@
       <ui:VisualElement name="map-frame">
        <ui:VisualElement name="map-viewport">
         <ui:Image name="map-image" picking-mode="Ignore" />
+        <ui:VisualElement name="map-coordinate-mask" picking-mode="Ignore" />
         <AnimalGame.RobotMap.PhotoResultGridElement name="map-grid" offset="0,12" grid-length="56" width="1" />
+        <ui:Label name="map-coordinate-text" picking-mode="Ignore" />
         <ui:VisualElement name="pin-0" class="map-circle" picking-mode="Ignore" />
         <ui:VisualElement name="pin-1" class="map-circle" picking-mode="Ignore" />
         <ui:VisualElement name="pin-2" class="map-circle" picking-mode="Ignore" />

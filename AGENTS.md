@@ -60,4 +60,4 @@
 
 - Grassland 运行时保留靠近等高线的原不透明度，小草与高草的远端内部最低 Alpha 分别设为 2% 和 3.5%；_GrassContourOpacity 传入烘焙近/远端系数与两层目标值，水体岸边淡出继续叠加。
 
-- Grassland 当前平铺尺寸：主地图/Tutorial 为 1.6 米，RockyMountain 为 0.8 米；按参考图将原平铺边长减半，底层草与高草均使用此世界尺度。
+- Grassland 当前平铺尺寸：主地图/Tutorial 为 1.6 米，RockyMountain 为 0.8 米；Official_Map_Test_22 使用的 Gameplay_22 全部 98 个分块也已统一为 1.6 米并重新烘焙。按参考图将原平铺边长减半，底层草与高草均使用此世界尺度。

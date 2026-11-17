@@ -370,7 +370,7 @@ namespace AnimalGame.RobotMap
             revealingLabels.Remove(label);
         }
 
-        private static string HideUnrevealedTail(int visibleCharacters, string fullText)
+        internal static string HideUnrevealedTail(int visibleCharacters, string fullText)
         {
             var text = new StringBuilder();
             int character = 0;

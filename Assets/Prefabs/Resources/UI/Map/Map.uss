@@ -34,6 +34,21 @@
 #map-cursor {
     position: absolute;
 }
+#map-coordinate-mask, #map-coordinate-text {
+    position: absolute;
+    display: none;
+}
+#map-coordinate-mask { background-color: black; }
+#map-coordinate-text {
+    margin: 0;
+    padding: 4px 8px;
+    color: #e7e7df;
+    font-size: 22px;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+}
 #map-controls {
     position: absolute;
     top: 93%; bottom: 0; left: 2%; right: 2%;

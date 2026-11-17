@@ -317,10 +317,6 @@ namespace AnimalGame.MapTest
         [SerializeField, Range(128, 1024)]
         private int surfaceClosedContourAlphaResolution = 512;
 
-        [Tooltip("Multiplier applied to terrain texture alpha at a closed contour boundary.")]
-        [SerializeField, Range(0f, 2f)]
-        private float surfaceClosedContourEdgeAlphaMultiplier = 0.3466667f;
-
         [Tooltip("Physical distance from a closed contour boundary that keeps the full boundary alpha multiplier before fading begins.")]
         [SerializeField, Min(0f)]
         private float surfaceClosedContourEdgeHoldDistanceMeters = 1.5f;
@@ -328,10 +324,6 @@ namespace AnimalGame.MapTest
         [Tooltip("Physical distance from a closed contour boundary where terrain texture alpha reaches the centre multiplier. Larger regions remain at the centre multiplier beyond this distance.")]
         [SerializeField, Min(0.1f)]
         private float surfaceClosedContourFadeDistanceMeters = 10f;
-
-        [Tooltip("Multiplier applied to terrain texture alpha at the deepest point inside a closed contour region.")]
-        [SerializeField, Range(0f, 2f)]
-        private float surfaceClosedContourCenterAlphaMultiplier = 0.2f;
 
         [Tooltip("Strength of the permanent edge-to-interior fade. Values above one make the texture disappear faster after leaving the boundary.")]
         [SerializeField, Range(0.1f, 8f)]
@@ -353,6 +345,18 @@ namespace AnimalGame.MapTest
         [SerializeField, HideInInspector, Min(0.1f)]
         private float surfaceTileSizeMeters = 8f;
 #endif
+
+        // Dynamic grass also needs the baked alpha endpoints in player builds.
+        [Tooltip("Multiplier applied to terrain texture alpha at a closed contour boundary.")]
+        [SerializeField, Range(0f, 2f)]
+        private float surfaceClosedContourEdgeAlphaMultiplier = 0.3466667f;
+
+        [Tooltip("Multiplier applied to terrain texture alpha at the deepest point inside a closed contour region.")]
+        [SerializeField, Range(0f, 2f)]
+        private float surfaceClosedContourCenterAlphaMultiplier = 0.2f;
+
+        public float SurfaceClosedContourEdgeAlphaMultiplier => surfaceClosedContourEdgeAlphaMultiplier;
+        public float SurfaceClosedContourCenterAlphaMultiplier => surfaceClosedContourCenterAlphaMultiplier;
 
         [Header("Terrain Surface Queries")]
         [Tooltip("Resolution of the persistent terrain authoring map. Each byte stores a shared TerrainKind value for terrain queries; rendering uses the baked visual.")]
@@ -731,14 +735,10 @@ namespace AnimalGame.MapTest
             surfaceClosedContourAlphaEnabled;
         public int SurfaceClosedContourAlphaResolution =>
             surfaceClosedContourAlphaResolution;
-        public float SurfaceClosedContourEdgeAlphaMultiplier =>
-            surfaceClosedContourEdgeAlphaMultiplier;
         public float SurfaceClosedContourEdgeHoldDistanceMeters =>
             surfaceClosedContourEdgeHoldDistanceMeters;
         public float SurfaceClosedContourFadeDistanceMeters =>
             surfaceClosedContourFadeDistanceMeters;
-        public float SurfaceClosedContourCenterAlphaMultiplier =>
-            surfaceClosedContourCenterAlphaMultiplier;
         public float SurfaceClosedContourFadeStrength =>
             surfaceClosedContourDistanceCurve;
         public float SurfaceClosedContourMinimumAreaSquareMeters =>

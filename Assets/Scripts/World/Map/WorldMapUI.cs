@@ -2,6 +2,7 @@ using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using AnimalGame.World.Checkpoints;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -37,25 +38,30 @@ namespace AnimalGame.World.Map
         public float CurrentZoom { get; private set; }
         public MapViewState View { get; } = new MapViewState();
 
-        private VisualElement panel, root, cursor, playerIcon;
+        private VisualElement panel, root, cursor, playerIcon, mapRulers;
         private readonly VisualElement[] pinElements = new VisualElement[MapViewState.PinLimit];
         private readonly VisualElement[] edgePinElements = new VisualElement[MapViewState.PinLimit];
         private readonly System.Action<MeshGenerationContext>[] pinDrawHandlers = new System.Action<MeshGenerationContext>[MapViewState.PinLimit];
         private Image mapImage;
         private PhotoResultGridElement mapGrid;
-        private float gridCellMeters;
         private float cursorPinSpread;
         private bool centeringOnPlayer;
         private float centeringElapsed;
         private Vector2 centeringStart, centeringCursorStart, centeringTarget;
         private VisualElement controls;
         private Label moveKey, zoomKey, pinKey, centerKey, closeKey;
+        private Label coordinateText;
+        private VisualElement coordinateMask;
+        private Vector2 hoverMapPosition;
+        private float hoverIdleSince, coordinateVisibleCount, coordinateRotationProgress;
+        private string fullCoordinateText, plainCoordinateText;
+        private int coordinateCharacters;
+        private bool coordinatesVisible, coordinatesHiding;
         private WorldMapRenderer mapRenderer;
         private MapTestSceneController map;
         private Vector2 baseViewSize, lastSize;
         private float savedTimeScale;
         private float openingPlayerBearing;
-        private float openingMapViewHeight;
         private CursorLockMode savedCursorLock;
         private bool savedCursorVisible, dirty;
         private Vector2 lastRenderedCenter, lastRenderedSize;
@@ -74,20 +80,30 @@ namespace AnimalGame.World.Map
             root = panel.Q("map-viewport");
             mapImage = root.Q<Image>("map-image");
             mapGrid = root.Q<PhotoResultGridElement>("map-grid");
+            coordinateMask = root.Q("map-coordinate-mask");
+            coordinateText = root.Q<Label>("map-coordinate-text");
+            coordinateText.enableRichText = true;
+            mapRulers = new VisualElement { name = "map-rulers", pickingMode = PickingMode.Ignore };
+            mapRulers.style.position = Position.Absolute;
+            mapRulers.style.left = mapRulers.style.top = 0;
+            mapRulers.style.right = mapRulers.style.bottom = 0;
+            mapRulers.generateVisualContent += DrawMapRulers;
+            root.Add(mapRulers);
             mapImage.scaleMode = ScaleMode.StretchToFill;
             checkpointLayer = new VisualElement { name = "map-checkpoints", pickingMode = PickingMode.Ignore };
             checkpointLayer.style.position = Position.Absolute;
             checkpointLayer.style.left = checkpointLayer.style.top = 0;
             checkpointLayer.style.right = checkpointLayer.style.bottom = 0;
             checkpointLayer.style.overflow = Overflow.Hidden;
-            root.Insert(1, checkpointLayer);
+            root.Insert(root.IndexOf(mapGrid) + 1, checkpointLayer);
             playerIcon = new VisualElement { name = "map-player", pickingMode = PickingMode.Ignore };
             playerIcon.style.position = Position.Absolute;
+            playerIcon.style.scale = new Scale(new Vector3(1.5f, 1.5f, 1f));
             playerIcon.generateVisualContent += context =>
             {
                 var painter = context.painter2D;
                 painter.strokeColor = new Color32(0xD4, 0xB8, 0x54, 255);
-                painter.lineWidth = 1.5f;
+                painter.lineWidth = 1.95f;
                 float width = playerIcon.contentRect.width;
                 float height = playerIcon.contentRect.height;
                 float radius = Mathf.Max(0, Mathf.Min((width - 4f) * .5f, (height - 4f) / 3f));
@@ -137,7 +153,38 @@ namespace AnimalGame.World.Map
                 edgePinElements[i] = edge;
                 root.Insert(root.IndexOf(cursor), edge);
             }
+            coordinateText.BringToFront();
             panel.style.display = DisplayStyle.None;
+        }
+
+        private void DrawMapRulers(MeshGenerationContext context)
+        {
+            var painter = context.painter2D;
+            painter.strokeColor = Color.white;
+            painter.lineWidth = 2f;
+            painter.lineCap = LineCap.Butt;
+            float step = mapGrid.gridLength * .5f;
+            Vector2 size = mapRulers.contentRect.size;
+            Vector2 offset = mapGrid.offset;
+            float firstX = Mathf.Repeat(offset.x, step);
+            float firstY = Mathf.Repeat(offset.y, step);
+            int xIndex = Mathf.RoundToInt((firstX - offset.x) / step);
+            int yIndex = Mathf.RoundToInt((firstY - offset.y) / step);
+            painter.BeginPath();
+            for (float x = firstX; x < size.x; x += step, xIndex++)
+            {
+                float length = xIndex % 5 == 0 ? 18.2f : 10.4f;
+                painter.MoveTo(new Vector2(x, 0));
+                painter.LineTo(new Vector2(x, length));
+            }
+            for (float y = firstY; y < size.y; y += step, yIndex++)
+            {
+                float length = yIndex % 5 == 0 ? 18.2f : 10.4f;
+                // Extend into the clipped edge so the ticks meet the outer frame.
+                painter.MoveTo(new Vector2(size.x + 1.5f, y));
+                painter.LineTo(new Vector2(size.x - length + 1.5f, y));
+            }
+            painter.Stroke();
         }
 
         public static void DrawPinShape(Painter2D painter, Vector2 center, float radius, int shape)
@@ -226,7 +273,25 @@ namespace AnimalGame.World.Map
                     (keyboard.wKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed ? 1 : 0));
             if (movement.sqrMagnitude > .0001f) centeringOnPlayer = false;
             if (!centeringOnPlayer)
+            {
+                Vector2 beforePan = View.Center;
                 View.Move(Vector2.ClampMagnitude(movement, 1) * (cursorSpeed * Time.unscaledDeltaTime), size, map.MapSizeMeters);
+                // Accumulate only manual pan translation, before any zoom/centering
+                // changes the view origin. Zoom never writes the grid offset.
+                if (movement.sqrMagnitude > .0001f)
+                {
+                    Vector2 shift = View.Center - beforePan;
+                    Vector2 uiSize = root.contentRect.size;
+                    Vector2 offset = mapGrid.offset + new Vector2(
+                        -shift.x * uiSize.x / View.ViewSize.x,
+                        shift.y * uiSize.y / View.ViewSize.y);
+                    // Retain the five-cell phase for the long ruler ticks.
+                    float rulerPeriod = mapGrid.gridLength * 5f;
+                    mapGrid.offset = new Vector2(Mathf.Repeat(offset.x, rulerPeriod),
+                        Mathf.Repeat(offset.y, rulerPeriod));
+                    mapRulers.MarkDirtyRepaint();
+                }
+            }
             float zoomAxis = pad != null ? pad.rightStick.ReadValue().y : 0;
             if (Mathf.Abs(zoomAxis) < stickDeadZone) zoomAxis = 0;
             float wheel = Mouse.current != null ? Mouse.current.scroll.ReadValue().y / 120f : 0;
@@ -268,6 +333,104 @@ namespace AnimalGame.World.Map
             cursor.MarkDirtyRepaint();
             UpdateControlHints();
             RefreshVisuals(size);
+            UpdateHoverCoordinates(movement.sqrMagnitude > .0001f || centeringOnPlayer);
+        }
+
+        private void HideHoverCoordinates(bool resetRotation = false)
+        {
+            coordinatesVisible = false;
+            coordinatesHiding = false;
+            coordinateVisibleCount = 0;
+            if (resetRotation)
+            {
+                coordinateRotationProgress = 0f;
+                cursor.style.rotate = new Rotate(0f);
+            }
+            coordinateText.style.display = coordinateMask.style.display = DisplayStyle.None;
+        }
+
+        private void AdvanceCoordinateReveal(bool opening, float dt)
+        {
+            coordinateVisibleCount = Mathf.MoveTowards(coordinateVisibleCount,
+                opening ? plainCoordinateText.Length : 0, dt / .012f);
+            int characters = Mathf.FloorToInt(coordinateVisibleCount);
+            if (characters != coordinateCharacters)
+            {
+                coordinateCharacters = characters;
+                coordinateText.text = characters == plainCoordinateText.Length ? fullCoordinateText
+                    : PhotoResultView.HideUnrevealedTail(characters, fullCoordinateText);
+            }
+            if (!opening && coordinateVisibleCount <= 0) HideHoverCoordinates();
+        }
+
+        private void UpdateHoverCoordinates(bool moving)
+        {
+            Vector2 position = View.DisplayCursor;
+            float now = Time.unscaledTime;
+            if (moving || (position - hoverMapPosition).sqrMagnitude > .000001f)
+            {
+                hoverMapPosition = position;
+                hoverIdleSince = now;
+                if (coordinatesVisible) coordinatesHiding = true;
+            }
+            // Start rotating 0.15 seconds before the one-second text reveal delay.
+            bool rotateOpen = !coordinatesHiding && now - hoverIdleSince >= .85f;
+            coordinateRotationProgress = Mathf.MoveTowards(coordinateRotationProgress,
+                rotateOpen ? 1f : 0f, Time.unscaledDeltaTime / .3f);
+            cursor.style.rotate = new Rotate(120f * Mathf.SmoothStep(0f, 1f, coordinateRotationProgress));
+            if (coordinatesHiding)
+            {
+                AdvanceCoordinateReveal(false, Time.unscaledDeltaTime);
+                if (coordinatesVisible) UpdateCoordinateMask();
+                return;
+            }
+            if (now - hoverIdleSince < 1f) return;
+            if (!coordinatesVisible)
+            {
+                var level = map.LevelAsset;
+                float latitude = Mathf.Lerp(level.LatitudeRange.x, level.LatitudeRange.y, position.y / map.MapSizeMeters.y);
+                float longitude = Mathf.Lerp(level.LongitudeRange.x, level.LongitudeRange.y, position.x / map.MapSizeMeters.x);
+                string north = latitude < 0 ? "S" : "N";
+                string east = longitude < 0 ? "W" : "E";
+                string latitudeValue = Mathf.Abs(latitude).ToString("F5", CultureInfo.InvariantCulture) + "°";
+                string longitudeValue = Mathf.Abs(longitude).ToString("F5", CultureInfo.InvariantCulture) + "°";
+                plainCoordinateText = north + " " + latitudeValue + " " + east + " " + longitudeValue;
+                fullCoordinateText = "<color=#D4B854>" + north + "</color> " + latitudeValue
+                    + " <color=#D4B854>" + east + "</color> " + longitudeValue;
+                coordinatesVisible = true;
+                coordinateVisibleCount = 0;
+                coordinateCharacters = -1;
+                coordinateText.style.display = coordinateMask.style.display = DisplayStyle.Flex;
+            }
+            AdvanceCoordinateReveal(true, Time.unscaledDeltaTime);
+            Vector2 textSize = coordinateText.MeasureTextSize(plainCoordinateText, 0, VisualElement.MeasureMode.Undefined,
+                0, VisualElement.MeasureMode.Undefined) + new Vector2(16, 8);
+            Vector2 size = root.contentRect.size;
+            textSize.x = Mathf.Min(textSize.x, size.x - 8);
+            Vector2 screen = View.ToScreen(position, size);
+            float x = screen.x + 18;
+            if (x + textSize.x > size.x - 4) x = screen.x - 18 - textSize.x;
+            x = Mathf.Clamp(x, 4, Mathf.Max(4, size.x - textSize.x - 4));
+            float y = Mathf.Clamp(screen.y - textSize.y * .5f - 1f, 4, Mathf.Max(4, size.y - textSize.y - 4));
+            coordinateMask.style.left = coordinateText.style.left = x;
+            coordinateMask.style.top = coordinateText.style.top = y;
+            coordinateText.style.width = textSize.x;
+            coordinateMask.style.height = coordinateText.style.height = textSize.y;
+            UpdateCoordinateMask();
+        }
+
+        private void UpdateCoordinateMask()
+        {
+            int characters = Mathf.Clamp(coordinateCharacters, 0, plainCoordinateText.Length);
+            float currentWidth = characters == 0 ? 0 : coordinateText.MeasureTextSize(
+                plainCoordinateText.Substring(0, characters), 0, VisualElement.MeasureMode.Undefined,
+                0, VisualElement.MeasureMode.Undefined).x;
+            float nextWidth = characters == plainCoordinateText.Length ? currentWidth : coordinateText.MeasureTextSize(
+                plainCoordinateText.Substring(0, characters + 1), 0, VisualElement.MeasureMode.Undefined,
+                0, VisualElement.MeasureMode.Undefined).x;
+            float width = Mathf.Lerp(currentWidth, nextWidth, coordinateVisibleCount - characters)
+                + 16f * Mathf.Clamp01(coordinateVisibleCount);
+            coordinateMask.style.width = Mathf.Min(coordinateText.style.width.value.value, width);
         }
 
         private void UpdateControlHints()
@@ -332,11 +495,14 @@ namespace AnimalGame.World.Map
             Vector2 forward = bootstrap.robot.Forward;
             openingPlayerBearing = Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg;
             View.Open(player, baseViewSize * CurrentZoom, map.MapSizeMeters);
+            hoverMapPosition = View.DisplayCursor;
+            hoverIdleSince = Time.unscaledTime;
+            HideHoverCoordinates(true);
+            mapGrid.offset = new Vector2(0, 12);
+            mapRulers.MarkDirtyRepaint();
             cursorPinSpread = 0f;
             cursor.MarkDirtyRepaint();
             FitWholeMap();
-            openingMapViewHeight = View.ViewSize.y;
-            gridCellMeters = 0f;
             mapRenderer = new WorldMapRenderer(contourShader);
             savedTimeScale = Time.timeScale;
             savedCursorLock = UnityEngine.Cursor.lockState;
@@ -395,11 +561,6 @@ namespace AnimalGame.World.Map
             }
             Vector2 uiSize = root.contentRect.size;
             if (uiSize.x <= 0 || uiSize.y <= 0) return;
-            // Anchor the grid to map metres rather than to the screen.
-            if (gridCellMeters <= 0f)
-                gridCellMeters = 56f * openingMapViewHeight / uiSize.y;
-            mapGrid.gridLength = gridCellMeters * uiSize.y / View.ViewSize.y;
-            mapGrid.offset = View.ToScreen(Vector2.zero, uiSize);
             float radius = circleRadius * uiSize.y / screenSize.y;
             float iconRadius = checkpointIconSizePixels * .5f * uiSize.y / screenSize.y;
             for (int i = 0; i < checkpointIcons.Count; i++)
@@ -432,8 +593,6 @@ namespace AnimalGame.World.Map
             }
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             PositionCircle(playerIcon, View.ToScreen(WorldToMap(bootstrap.robotObject.transform.position), uiSize), radius * 1.5f);
-            float playerScale = 1.5f * openingMapViewHeight / View.ViewSize.y;
-            playerIcon.style.scale = new Scale(new Vector3(playerScale, playerScale, 1f));
             playerIcon.style.rotate = new Rotate(openingPlayerBearing);
             PositionCircle(cursor, View.ToScreen(View.DisplayCursor, uiSize), radius);
         }
@@ -465,6 +624,7 @@ namespace AnimalGame.World.Map
         {
             if (!IsOpen) return;
             IsOpen = false;
+            HideHoverCoordinates(true);
             centeringOnPlayer = false;
             if (active == this) active = null;
             closedFrame = Time.frameCount;
@@ -489,6 +649,7 @@ namespace AnimalGame.World.Map
                 edgePinElements[i]?.RemoveFromHierarchy();
             }
             checkpointLayer?.RemoveFromHierarchy();
+            mapRulers?.RemoveFromHierarchy();
             playerIcon?.RemoveFromHierarchy();
             if (Instance == this) Instance = null;
         }
