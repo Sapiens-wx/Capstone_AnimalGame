@@ -19,6 +19,14 @@ namespace AnimalGame.MapTest
 
         public override WorldInteractionKind Kind => base.Kind | WorldInteractionKind.Vegetation;
 
+        public VegetationContactFade ContactFade { get; private set; }
+
+        protected override void OnEnable()
+        {
+            ContactFade = GetComponent<VegetationContactFade>();
+            base.OnEnable();
+        }
+
         private void Reset()
         {
             SetKind(WorldInteractionKind.Vegetation);
