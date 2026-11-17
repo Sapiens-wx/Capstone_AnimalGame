@@ -26,6 +26,7 @@ namespace AnimalGame.Editor
         public static void Run()
         {
             passed = 0;
+            Check(CheckVegetationRoots);
             Check(CheckProductionPrefab);
             Check(CheckDirectionalSurface);
             Check(CheckCommittedMovement);
@@ -68,12 +69,33 @@ namespace AnimalGame.Editor
         private static void Property(object target, string property, object value) =>
             target.GetType().GetProperty(property, Instance).SetValue(target, value);
 
+        private static void CheckVegetationRoots()
+        {
+            using var f = new Fixture();
+            var results = new List<WorldInteraction>();
+            foreach (string name in new[] { "Test_Tree", "Test_Dead_Tree", "Test_Bush", "Test_Lotus", "Test_Australis" })
+            {
+                GameObject plant = f.Prefab(name, Vector2.zero);
+                Vegetation vegetation = plant.GetComponent<Vegetation>();
+                Require(vegetation != null && plant.GetComponentsInChildren<WorldInteraction>(true).Length == 1,
+                    "Plant must have exactly one root interaction: " + name);
+                Require(plant.GetComponent<HeightMapPlacedObject>() != null,
+                    "Plant lost its placement component: " + name);
+                WorldInteractionQuery.Query(InteractionShape.Circle(Vector2.zero, 0f),
+                    WorldInteractionKind.Vegetation, null, f.Scene, results);
+                Require(results.Contains(vegetation), "Plant missing from vegetation queries: " + name);
+                if (name == "Test_Lotus" || name == "Test_Australis")
+                    Require(vegetation.Kind == WorldInteractionKind.Vegetation,
+                        "Decorative plant acquired blocking or climbing: " + name);
+            }
+        }
+
         private static void CheckProductionPrefab()
         {
             using var f = new Fixture();
             GameObject bush = f.Bush(Vector2.zero);
             WorldInteraction climb = Climb(bush);
-            Near(climb.ClimbableRadius, .4f, "Bush local radius covers its outer leaves");
+            Near(climb.ColliderRadius, .4f, "Bush local radius covers its outer leaves");
             Near(climb.SlopeStrength01, .5f, "Bush slope strength");
             Near(climb.TopRadiusRatio01, .5f, "Bush flat-top ratio");
             Near(climb.ClimbableEntrySpeedMultiplier, BushSpeedMultiplier, "Bush whole-area speed multiplier");
@@ -84,10 +106,13 @@ namespace AnimalGame.Editor
             Near(climb.ClimbableRumbleMultiplier, .4f, "Bush rumble multiplier");
             Near(climb.ClimbableLandingDurationMultiplier, .6f, "Bush rumble duration multiplier");
             Require(!climb.Recyclable && !climb.TryGrab(climb), "Bush could be picked up/recycled");
-            HeightMapObstacleFootprint footprint = bush.GetComponentInChildren<HeightMapObstacleFootprint>();
-            Require(footprint != null && !footprint.BlocksTraversal && !footprint.Available,
-                "Old bush solid core still blocks traversal");
-            Near(footprint.RadiusMeters, .6f, "Retained bush sight footprint");
+            Vegetation vegetation = bush.GetComponent<Vegetation>();
+            Require(vegetation == climb && vegetation.Available,
+                "Bush root does not own its climbing interaction");
+            Require(bush.GetComponentsInChildren<WorldInteraction>(true).Length == 1,
+                "Bush still has multiple interaction components");
+            Require((vegetation.Kind & WorldInteractionKind.Vegetation) != 0,
+                "Bush missing vegetation query flag");
             Require(!WorldInteractionQuery.Query(InteractionShape.Capsule(Vector2.left, Vector2.right, .1f),
                 WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision | WorldInteractionKind.Grabbable
                     | WorldInteractionKind.Pushable, null, f.Scene), "Bush leaked into body/arm/grab/push queries");
@@ -195,7 +220,7 @@ namespace AnimalGame.Editor
             VegetationContactFade fade = bush.GetComponent<VegetationContactFade>();
             Call(fade, "CacheReferences");
             Set(fade, "map", null);
-            Near((float)Call(fade, "GetPlantContactRadiusMeters"), .6f, "Map-less fade lost the legacy authored footprint");
+            Near((float)Call(fade, "GetPlantContactRadiusMeters"), .3f, "Map-less fade lost the placement footprint");
             MapTestSceneController map = f.FlatMap(.27f);
             Set(bush.GetComponent<HeightMapPlacedObject>(), "map", map);
             Set(fade, "map", map);
@@ -245,8 +270,8 @@ namespace AnimalGame.Editor
             using var f = new Fixture();
             MapTestSceneController map = f.FlatMap(.27f);
             GameObject bush = f.Bush(Vector2.zero);
-            HeightMapObstacleFootprint cover = bush.GetComponentInChildren<HeightMapObstacleFootprint>();
-            Require(cover.BlocksSight && !cover.BlocksTraversal, "Bush sight and traversal are not independent");
+            Vegetation cover = bush.GetComponent<Vegetation>();
+            Require((cover.Kind & WorldInteractionKind.SightBlocking) != 0 && (cover.Kind & WorldInteractionKind.Collision) == 0, "Bush sight and traversal are not independent");
             AnimalPerception animal = f.New("Sight observer").AddComponent<AnimalPerception>();
             animal.transform.position = Vector3.left * .54f;
             AnimalSpeciesConfig config = f.Own(ScriptableObject.CreateInstance<AnimalSpeciesConfig>());
@@ -257,15 +282,31 @@ namespace AnimalGame.Editor
             Property(animal, "Player", player);
             bool Sees() => (bool)Call(animal, "HasDirectSightOfPlayer");
             Require(!Sees(), "Traversable bush no longer occludes actual animal perception");
-            cover.SightBlocking = ObstacleSightBlocking.NeverBlock;
+            cover.SightBlockingMode = SightBlockingMode.MatchTraversal;
+            Require(Sees(), "MatchTraversal blocked sight for a non-solid bush");
+            cover.SetKind(WorldInteractionKind.Climbable | WorldInteractionKind.SightBlocking | WorldInteractionKind.Collision);
+            Require(!Sees(), "Changing collision flags did not refresh the sight index");
+            cover.SetKind(WorldInteractionKind.Climbable | WorldInteractionKind.SightBlocking);
+            cover.SightBlockingMode = SightBlockingMode.AlwaysBlock;
+            Require(!Sees(), "AlwaysBlock did not restore cover without collision");
+            cover.SetKind(WorldInteractionKind.Climbable);
             Require(Sees(), "Turning off bush sight blocking did not reveal the player");
-            cover.SightBlocking = ObstacleSightBlocking.AlwaysBlock; cover.enabled = false;
+            cover.SetKind(WorldInteractionKind.Climbable | WorldInteractionKind.SightBlocking); cover.enabled = false;
             Require(Sees(), "Disabled bush footprint still blocked sight");
             cover.enabled = true;
             Require(!Sees(), "Re-enabled cover did not block sight");
             bush.transform.position = Vector3.up * .54f;
             WorldInteraction.MarkHierarchySpatialDirty(bush.transform);
             Require(Sees(), "Bush outside the line still blocked sight");
+
+            WorldInteraction wall = f.New("Non-vegetation cover").AddComponent<WorldInteraction>();
+            wall.ColliderType = ColliderType.Custom;
+            wall.LocalSize = new Vector2(.1f, .5f);
+            wall.SetKind(WorldInteractionKind.SightBlocking);
+            wall.SightBlockingMode = SightBlockingMode.AlwaysBlock;
+            Require(!Sees(), "Generic WorldInteraction box failed to block sight");
+            wall.SetKind(WorldInteractionKind.None);
+            Require(Sees(), "Unchecked sight flag still blocked the animal");
         }
 
         private static void CheckTreesRemainSolid()
@@ -274,10 +315,10 @@ namespace AnimalGame.Editor
             {
                 using var f = new Fixture();
                 GameObject tree = f.Prefab(name, Vector2.zero);
-                HeightMapObstacleFootprint core = tree.GetComponentInChildren<HeightMapObstacleFootprint>();
-                Require(core != null && core.BlocksTraversal && core.Available && core.BlocksSight,
+                Vegetation core = tree.GetComponent<Vegetation>();
+                Require(core != null && (core.Kind & WorldInteractionKind.Collision) != 0 && core.Available && (core.Kind & WorldInteractionKind.SightBlocking) != 0,
                     "Existing tree lost its hard obstacle or default sight blocking: " + name);
-                Require(core.SightBlocking == ObstacleSightBlocking.MatchTraversal,
+                Require(core.SightBlockingMode == SightBlockingMode.MatchTraversal,
                     "Existing tree no longer inherits its legacy sight semantics: " + name);
                 Require(WorldInteractionQuery.Query(InteractionShape.Capsule(Vector2.left * 2f,
                     Vector2.right * 2f, .1f), WorldInteractionKind.Collision, null, f.Scene),
@@ -286,10 +327,10 @@ namespace AnimalGame.Editor
                 robot.transform.position = Vector3.left * 2f;
                 Require(!(bool)Call(robot, "TryMoveSafely", Vector2.right * 4f, null, true),
                     "Real robot could drive through an old solid tree: " + name);
-                core.BlocksTraversal = false;
-                Require(!core.BlocksSight, "Legacy MatchTraversal no longer follows traversal state: " + name);
-                core.BlocksTraversal = true;
-                Require(core.BlocksSight, "Legacy tree sight state did not restore: " + name);
+                core.SetKind(WorldInteractionKind.SightBlocking);
+                Require((core.Kind & WorldInteractionKind.SightBlocking) == 0, "Legacy MatchTraversal no longer follows traversal state: " + name);
+                core.SetKind(WorldInteractionKind.SightBlocking | WorldInteractionKind.Collision);
+                Require((core.Kind & WorldInteractionKind.SightBlocking) != 0, "Legacy tree sight state did not restore: " + name);
             }
         }
 

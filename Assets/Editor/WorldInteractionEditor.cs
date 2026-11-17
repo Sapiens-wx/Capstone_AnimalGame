@@ -38,48 +38,47 @@ namespace AnimalGame.Editor
                 EditorGUILayout.HelpBox("Player collision geometry is configured on Robot Mover.", MessageType.Info);
                 return;
             }
-            if (target is HeightMapObstacleFootprint)
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("kind"));
+            var climbKind = serializedObject.FindProperty("kind");
+            if (climbKind.hasMultipleDifferentValues || (climbKind.intValue & (int)WorldInteractionKind.SightBlocking) != 0)
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("sightBlockingMode"));
+            bool vegetation = target is Vegetation;
+            bool climbable = (climbKind.intValue & (int)WorldInteractionKind.Climbable) != 0;
+            if (climbable || climbKind.hasMultipleDifferentValues)
             {
-                EditorGUILayout.HelpBox("Blocks Traversal controls hard collision. Sight Blocking independently controls animal cover; Match Traversal preserves the original behaviour. Add a separate WorldInteraction for grabbing or climbing.", MessageType.Info);
-                DrawPropertiesExcluding(serializedObject, "m_Script", "kind", "box", "sprite", "colliderType", "colliderShape", "colliderCenter", "colliderRadius", "colliderLength", "localSize",
-                    "requiredHands", "recyclable", "size", "pushSpeedMultiplier",
+                foreach (string name in new[] { "slopeStrength01", "topRadiusRatio01",
                     "climbableEntrySpeedMultiplier", "climbableEntryBlendDuration", "climbableCameraMultiplier",
                     "climbableRumbleMultiplier", "climbableLandingDurationMultiplier",
-                    "climbableAffectsWholeArea", "climbableUseBodyOverlap");
+                    "climbableAffectsWholeArea", "climbableUseBodyOverlap" })
+                    if (name == "climbableEntrySpeedMultiplier")
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty(name), new GUIContent("Climbable Speed Multiplier"));
+                    else EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
             }
-            else
+            if (vegetation)
             {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("kind"));
-                var climbKind = serializedObject.FindProperty("kind");
-                bool climbable = (climbKind.intValue & (int)WorldInteractionKind.Climbable) != 0;
-                if (climbable || climbKind.hasMultipleDifferentValues)
-                {
-                    foreach (string name in new[] { "climbableRadius", "slopeStrength01", "topRadiusRatio01",
-                        "climbableEntrySpeedMultiplier", "climbableEntryBlendDuration", "climbableCameraMultiplier",
-                        "climbableRumbleMultiplier", "climbableLandingDurationMultiplier",
-                        "climbableAffectsWholeArea", "climbableUseBodyOverlap" })
-                        if (name == "climbableEntrySpeedMultiplier")
-                            EditorGUILayout.PropertyField(serializedObject.FindProperty(name), new GUIContent("Climbable Speed Multiplier"));
-                        else EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
-                }
-                if (!climbable || climbKind.hasMultipleDifferentValues)
-                    DrawColliderSettings();
-                if (climbable || climbKind.hasMultipleDifferentValues)
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("colliderCenter"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("motionRoot"));
-                var kind = serializedObject.FindProperty("kind");
-                if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Pushable) != 0)
-                {
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("pushSpeedMultiplier"));
-                    if (!kind.hasMultipleDifferentValues
-                        && (kind.intValue & (int)(WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision)) == 0)
-                        EditorGUILayout.HelpBox("Pushable also needs Collision or BodyCollision on this component.", MessageType.Warning);
-                }
-                if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Grabbable) != 0)
-                {
-                    foreach (string name in new[] { "grabResistance", "requiredHands", "recyclable", "size" })
-                        EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
-                }
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("colliderCenter"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("colliderRadius"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("radiusInMapMeters"));
+            }
+            else if (climbable && !climbKind.hasMultipleDifferentValues)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("climbableRadius"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("colliderCenter"));
+            }
+            else DrawColliderSettings();
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("motionRoot"));
+            var kind = serializedObject.FindProperty("kind");
+            if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Pushable) != 0)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("pushSpeedMultiplier"));
+                if (!kind.hasMultipleDifferentValues
+                    && (kind.intValue & (int)(WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision)) == 0)
+                    EditorGUILayout.HelpBox("Pushable also needs Collision or BodyCollision on this component.", MessageType.Warning);
+            }
+            if (kind.hasMultipleDifferentValues || (kind.intValue & (int)WorldInteractionKind.Grabbable) != 0)
+            {
+                foreach (string name in new[] { "grabResistance", "requiredHands", "recyclable", "size" })
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty(name));
             }
             serializedObject.ApplyModifiedProperties();
         }
@@ -115,9 +114,10 @@ namespace AnimalGame.Editor
         }
 
         [DrawGizmo(GizmoType.Selected | GizmoType.Active)]
-        private static void DrawClimbable(WorldInteraction item, GizmoType gizmoType)
+        private static void DrawCircularFootprint(WorldInteraction item, GizmoType gizmoType)
         {
-            if (item.ColliderType != ColliderType.Custom || (item.Kind & WorldInteractionKind.Climbable) == 0) return;
+            bool climbable = (item.Kind & WorldInteractionKind.Climbable) != 0;
+            if (!(item is Vegetation) && (item.ColliderType != ColliderType.Custom || !climbable)) return;
             MapTestSceneController map = Object.FindFirstObjectByType<MapTestSceneController>();
             if (map != null && map.gameObject.scene != item.gameObject.scene) map = null;
             InteractionShape shape = item.GetShape(map);
@@ -127,7 +127,7 @@ namespace AnimalGame.Editor
             float sx = map != null && map.HasGeneratedMap ? map.MapMetersToWorldDistance(Vector2.right, 1f) : 1f;
             float sy = map != null && map.HasGeneratedMap ? map.MapMetersToWorldDistance(Vector2.up, 1f) : 1f;
             Color previous = Handles.color;
-            foreach (float ratio in new[] { 1f, item.TopRadiusRatio01 })
+            foreach (float ratio in climbable ? new[] { 1f, item.TopRadiusRatio01 } : new[] { 1f })
             {
                 Handles.color = ratio == 1f ? Color.cyan : Color.green;
                 Vector3 last = center + new Vector3(shape.Radius * ratio * sx, 0f);

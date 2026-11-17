@@ -154,36 +154,9 @@ namespace AnimalGame.Animals
                 }
             }
 
-            foreach (HeightMapObstacleFootprint obstacle
-                     in HeightMapObstacleFootprint.ActiveFootprints)
-            {
-                if (obstacle == null
-                    || obstacle.gameObject.scene != gameObject.scene
-                    || !obstacle.BlocksSight
-                    || obstacle.RadiusMeters <= 0f
-                    || !map.TrySampleWorldPosition(
-                        obstacle.transform.position,
-                        out Vector2 obstacleMapPosition,
-                        out _))
-                {
-                    continue;
-                }
-
-                float progress = Mathf.Clamp01(
-                    Vector2.Dot(
-                        obstacleMapPosition - animalMapPosition,
-                        line)
-                    / lineLengthSquared);
-                Vector2 closestPoint = animalMapPosition + line * progress;
-                float radius = obstacle.RadiusMeters;
-                if ((obstacleMapPosition - closestPoint).sqrMagnitude
-                    < radius * radius)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return !WorldInteractionQuery.Query(
+                InteractionShape.Capsule(animalMapPosition, playerMapPosition, 0f),
+                WorldInteractionKind.SightBlocking, map, gameObject.scene, ignore: transform);
         }
 
         public bool TryGetPlayerProximity(

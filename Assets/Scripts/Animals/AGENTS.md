@@ -58,3 +58,5 @@
 - `SaveSystem.SharePhotos` 持久化消息、全局 sent 标记和已发送数量；上传不再增加认知度或解锁等级。
 
 - `AnimalTurnDeformation` ????? `bodyRenderer`????? Renderer ???
+
+- 植物交互统一在根节点的 `Vegetation : WorldInteraction`；动物视线使用 `SightBlocking` 标记的线段四叉树查询，不维护植物遮挡列表。

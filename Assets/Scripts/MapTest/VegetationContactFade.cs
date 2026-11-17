@@ -36,7 +36,7 @@ namespace AnimalGame.MapTest
         private readonly List<WorldInteraction> nearbyActors = new();
 
         private HeightMapPlacedObject placedObject;
-        private HeightMapObstacleFootprint solidFootprint;
+        private Vegetation solidFootprint;
         private WorldInteraction[] plantInteractions;
         private MapTestSceneController map;
         private SpriteRenderer[] spriteRenderers;
@@ -134,8 +134,7 @@ namespace AnimalGame.MapTest
         private void CacheReferences()
         {
             placedObject = GetComponent<HeightMapPlacedObject>();
-            solidFootprint = GetComponentInChildren<HeightMapObstacleFootprint>(
-                true);
+            solidFootprint = GetComponent<Vegetation>();
             plantInteractions = GetComponentsInChildren<WorldInteraction>(true);
             ResolveMap();
 
@@ -199,9 +198,9 @@ namespace AnimalGame.MapTest
                 : 0f;
             if (solidFootprint != null
                 && solidFootprint.isActiveAndEnabled
-                && solidFootprint.BlocksTraversal)
+                && (solidFootprint.Kind & WorldInteractionKind.Collision) != 0)
             {
-                radius = Mathf.Max(radius, solidFootprint.RadiusMeters);
+                radius = Mathf.Max(radius, solidFootprint.GetShape(map).Radius);
             }
 
             // Traversable bushes keep fading around their actual virtual surface,
@@ -216,11 +215,6 @@ namespace AnimalGame.MapTest
                         if (!shape.IsBox)
                             radius = Mathf.Max(radius, shape.Radius
                                 + Vector2.Distance(shape.Center, InteractionShape.ToQuery(transform.position, map)));
-                    }
-                    else if (solidFootprint != null && solidFootprint.isActiveAndEnabled)
-                    {
-                        // With no generated map, shape radii are world units; keep the authored map-metre fallback.
-                        radius = Mathf.Max(radius, solidFootprint.RadiusMeters);
                     }
                 }
 

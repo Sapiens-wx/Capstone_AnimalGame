@@ -48,13 +48,13 @@
 
 一个 GameObject 可以同时挂两个组件，分别提供碰撞和抓取范围。优先使用显式指定的 `Box`；否则使用指定或同对象上的 `SpriteRenderer.bounds`；没有 SpriteRenderer 时使用 `Local Center / Local Size`。BoxCollider2D 仅作为几何配置来源，不需要 Rigidbody2D，也不依赖 Unity 物理模拟。手部以实际末端点查询抓取范围。
 
-已有 `HeightMapObstacleFootprint` 继承统一组件，继续使用原来的地图米制圆形范围，无需逐个迁移树木。查询算法位于 `WorldInteractionQuery.cs`；传入同一查询方法的 `WorldInteractionKind` 即可筛选碰撞或抓取。地图存在时查询坐标是地图米，否则使用世界 XY。范围不检查视觉深度 Z。
+每株植物在根节点使用唯一的 `Vegetation : WorldInteraction`，始终带 `Vegetation` 标记，按需启用 `Collision / Climbable`；交互共享一个圆形范围。`Solid Core` 仅保留显示层级，`HeightMapPlacedObject` 继续管理地图放置。查询使用 `WorldInteractionQuery.cs` 的四叉树，坐标为地图米，否则使用世界 XY；不检查视觉深度 Z。
 
 `WorldInteractionKind` 的值为 `None = 0`、`Collision = 1`、`Grabbable = 2`；组合 mask 匹配任意包含的类型。所有类型共用 `Scripts/World/WorldInteractionQuadTree.cs` 中的树，节点 `KindMask` 用于整棵子树剪枝，AABB 筛选后仍执行原有精确判定。跨子节点的物体保留在父节点，每个组件只存一次。容量为 12、最大深度为 10、最小子节点边长为 0.5 个查询坐标单位；根节点覆盖地图及物体范围，物体越界时重建。切换 Scene/map 上下文时重建共享树，避免混用坐标。
 
 空间索引使用显式 dirty 通知，不逐帧检查移动，普通查询不遍历 `Active`。启用时入队，禁用及销毁即时移除；查询前只刷新去重集合中的对象。没有变化时不调用物体的 `GetShape()`。首次建树、Scene/map 上下文切换或全局失效需要全量读取；根节点越界重建使用已缓存的形状。
 
-运行时通过 `WorldInteraction.WorldPosition / WorldRotation / LocalPosition / LocalRotation / LocalScale`、`SetWorldPositionAndRotation()`、`SetParent()`、`MoveToScene()` 修改变换，通过 `ColliderCenter / LocalSize / SetLocalBounds()` 修改本地范围，通过 `SetKind()` 修改类型，通过 `BoxSource / SpriteSource` 更换几何来源。这些接口会自动标记 dirty；变换接口同时通知同一物体及所有子物体的交互组件。`HeightMapObstacleFootprint.RadiusMeters / BlocksTraversal` 也提供通知索引的 setter。
+运行时通过 `WorldInteraction.WorldPosition / WorldRotation / LocalPosition / LocalRotation / LocalScale`、`SetWorldPositionAndRotation()`、`SetParent()`、`MoveToScene()` 修改变换，通过 `ColliderCenter / LocalSize / SetLocalBounds()` 修改本地范围，通过 `SetKind()` 修改类型，通过 `BoxSource / SpriteSource` 更换几何来源。这些接口会自动标记 dirty；变换接口同时通知同一物体及所有子物体的交互组件。植物通过 `ColliderRadius / ColliderCenter / RadiusInMapMeters / SetKind()` 通知索引变化。
 
 直接修改 Collider 的 offset/size、SpriteRenderer 的 sprite/size/drawMode/bounds，或自定义 `GetShape/Kind` 所依赖的字段后，必须调用每个受影响组件的 `MarkSpatialDirty()`。直接移动父物体或整个层级后，调用 `WorldInteraction.MarkHierarchySpatialDirty(root)`。几何来源若在外部层级，需另外通知引用它的交互组件。多次通知会合并成一次刷新，且 AABB 未变化时仍刷新精确形状。代码中的 `SPATIAL INDEX` 注释标出了需要遵守这个约定的字段。
 
@@ -143,9 +143,9 @@ Small / Medium 的入口参考位置是机器人局部坐标，以 `Arm Length` 
 
 ## 灌木翻越与视线遮挡
 
-`Test_Bush.prefab` 的 `Solid Core` 保留原 `HeightMapObstacleFootprint` 范围，但关闭 `Blocks Traversal`；新增普通 `WorldInteraction`，仅勾选 `Climbable`，不提供身体或机械臂碰撞、抓取、推动及回收。整片灌木使用虚拟坡面偏移重心，中心姿态平坦，但减速持续覆盖整个区域；身体完全离开最后一片翻越区域时产生较轻的落地反馈，不增加真实高度。
+`Test_Bush.prefab` 根节点的 `Vegetation` 启用 `Climbable`，关闭碰撞、抓取、推动及回收，使用局部半径 0.4 的共同圆形范围。整片灌木使用虚拟坡面偏移重心，中心姿态平坦，但减速持续覆盖整个区域；身体完全离开最后一片翻越区域时产生较轻的落地反馈，不增加真实高度。
 
-翻越参数在 `Solid Core > WorldInteraction` 调整。默认 `Slope Strength 01 / Top Radius Ratio 01` 均为 0.5。`Climbable Radius` 是局部长度，默认 0.40，覆盖整片枝叶及内部面积；当前地图每逻辑米对应约 0.27 世界单位，因此未缩放灌木的半径约为 1.48 米。该范围按叶片实际非透明轮廓校准（最远像素约 0.387 世界单位），不使用纹理的透明留白。灌木缩放时范围同步变化。接触淡化读取实际翻越几何的逻辑米半径，并保留原放置范围作为下限；地图未生成时使用原核心的逻辑米范围回退。
+翻越参数在 `Solid Core > WorldInteraction` 调整。默认 `Slope Strength 01 / Top Radius Ratio 01` 均为 0.5。`Vegetation` 的 `Collider Radius` 是共享半径；灌木关闭 `Radius In Map Meters`，使用局部长度 0.40，覆盖整片枝叶及内部面积；当前地图每逻辑米对应约 0.27 世界单位，因此未缩放灌木的半径约为 1.48 米。该范围按叶片实际非透明轮廓校准（最远像素约 0.387 世界单位），不使用纹理的透明留白。灌木缩放时范围同步变化。接触淡化读取实际翻越几何的逻辑米半径，并保留原放置范围作为下限；地图未生成时使用放置范围。
 
 灌木勾选 `Climbable Affects Whole Area / Climbable Use Body Overlap`，身体接触边缘就进入区域，完全脱离后退出；普通可翻越物默认不勾选，保留原中心点判定。身体圆与现有身体障碍检测一致：生成地图使用 `Robot Obstacle Collision Radius Meters`（当前 0.75 米），无生成地图使用机器人参考身体直径及缩放换算世界半径，未设置外观组件时回退为 0.75 世界单位。虚拟坡面采样、持续阻力与退出反馈使用同一接触范围，高速移动通过扫过的路径检测。
 
@@ -153,7 +153,7 @@ Small / Medium 的入口参考位置是机器人局部坐标，以 `Arm Length` 
 
 `Climbable Camera Multiplier / Climbable Rumble Multiplier = 0.4`，`Climbable Landing Duration Multiplier = 0.6`。灌木离开的屏幕冲击降为原来的 40%，手柄专属脉冲为低频 / 高频 0.18 / 0.12、0.12 秒；跨越时仅减弱自动坡面重心造成的额外持续晃动，保留基础行驶和玩家主动平衡反馈。灌木目标降速与进入速度限制造成的速度损失均从通用急减速冲击判断中剔除，真实撞击和真实落地仍按原强度播放。这些倍率默认均为 1、两个区域开关默认关闭（进入过渡默认 0.08 秒），因此小垃圾保留原翻越行为；混有垃圾的连续穿越保留较强反馈。
 
-`HeightMapObstacleFootprint > Sight Blocking` 与通行独立：`Match Traversal` 沿用旧规则，`Always Block` 持续遮挡动物直视，`Never Block` 不遮挡。旧预制体默认 `Match Traversal`，灌木配置为 `Always Block`，所以可穿行后仍保留原动物直视遮挡及检测加成规则。枝叶、中心图标、接触淡化、树冠遮挡和动物食物源继续保留；动物可直接靠近可通行灌木的中心吃食。
+`WorldInteraction` 的 `SightBlocking` 标记启用动物视线遮挡；勾选后选择 `MatchTraversal`（仅同时具备 `Collision / BodyCollision` 时遮挡）或 `AlwaysBlock`（始终遮挡）。取消标记即不遮挡，无第三种模式。动物通过零半径线段的四叉树查询判断直视；遮挡取消直视发现概率加成，基础发现概率仍保留。树木使用 `MatchTraversal`，可穿行灌木使用 `AlwaysBlock`。修改模式或交互标记会更新索引。
 
 专项检查菜单：`Animal Game > Validation > Run Bush Climbable Checks`。覆盖生产灌木配置、各方向与高速翻越、进入阻力及 30 / 60 / 120 FPS、重叠区域和碰墙重试、轻反馈与真实落地、淡化范围及地图比例、动物视线和原有树木阻挡。
 

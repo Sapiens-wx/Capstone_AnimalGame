@@ -99,6 +99,7 @@ GameObject:
   - component: {fileID: 8601369888071405056}
   - component: {fileID: 4615545443437542843}
   - component: {fileID: 4514303481677001136}
+  - component: {fileID: 11400991}
   m_Layer: 0
   m_Name: Test_Lotus
   m_TagString: Untagged
@@ -133,8 +134,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 96ee1c46ec8141fd970e39063a8ba4cb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   map: {fileID: 0}
   mapPositionMeters: {x: 125, y: 125}
   sampledSurfaceHeightMeters: 32.23716
@@ -150,8 +151,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c60c858ffb6515540a93bc64fc0459dd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   foodType: 1
   selectionWeight: 1
   eatingApproachPaddingMeters: 0.05
@@ -165,8 +166,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ec4b53eeeee78847b6149c77765f7a7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   fadeStartDistanceMeters: 3
   fadeStartAlphaReduction: 0.5
   contactAlphaReduction: 0.5
@@ -259,3 +260,23 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+
+--- !u!114 &11400991
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4211731452637057285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6f28fc7af394af8a20ef2d9fcce6b3b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  kind: 128
+  colliderType: 2
+  colliderShape: 1
+  colliderCenter: {x: 0, y: 0}
+  colliderRadius: 0.64
+  radiusInMapMeters: 1
+  recyclable: 0

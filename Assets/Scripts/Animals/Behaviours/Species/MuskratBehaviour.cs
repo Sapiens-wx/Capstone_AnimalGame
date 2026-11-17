@@ -701,12 +701,11 @@ namespace AnimalGame.Animals
             if (source == null)
                 return false;
 
-            HeightMapObstacleFootprint obstacle =
-                source.GetComponentInChildren<HeightMapObstacleFootprint>();
-            if (obstacle == null || !obstacle.BlocksTraversal)
+            Vegetation obstacle = source.GetComponent<Vegetation>();
+            if (obstacle == null || (obstacle.Kind & WorldInteractionKind.Collision) == 0)
                 return Agent.Map.TrySampleMapPosition(approachPoint, out _);
 
-            float approachDistance = obstacle.RadiusMeters
+            float approachDistance = obstacle.GetShape(Agent.Map).Radius
                                      + Config.BodyRadiusMeters
                                      + Config.FoodApproachPaddingMeters
                                      + source.EatingApproachPaddingMeters;

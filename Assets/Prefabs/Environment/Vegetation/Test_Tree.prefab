@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 11400000}
   - component: {fileID: 8237090822054639901}
   - component: {fileID: 7810835485949653995}
+  - component: {fileID: 11400001}
   m_Layer: 0
   m_Name: Test_Tree
   m_TagString: Untagged
@@ -97,7 +98,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 400001}
-  - component: {fileID: 11400001}
   m_Layer: 0
   m_Name: Solid Core
   m_TagString: Untagged
@@ -128,40 +128,20 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 100001}
+  m_GameObject: {fileID: 100000}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e6f28fc7af394af8a20ef2d9fcce6b3b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  kind: 1
-  box: {fileID: 0}
-  sprite: {fileID: 0}
-  colliderType: 0
-  colliderShape: 0
+  kind: 385
+  sightBlockingMode: 0
+  colliderType: 2
+  colliderShape: 1
   colliderCenter: {x: 0, y: 0}
-  colliderRadius: 0.5
-  localSize: {x: 1, y: 1}
-  climbableRadius: 1
-  slopeStrength01: 0.5
-  topRadiusRatio01: 0.5
-  climbableEntrySpeedMultiplier: 1
-  climbableAffectsWholeArea: 0
-  climbableUseBodyOverlap: 0
-  climbableEntryBlendDuration: 0.08
-  climbableCameraMultiplier: 1
-  climbableRumbleMultiplier: 1
-  climbableLandingDurationMultiplier: 1
-  requiredHands: 1
-  recyclable: 1
-  size: 0
-  pushSpeedMultiplier: 0.6
-  grabResistance: 0
-  motionRoot: {fileID: 0}
-  blocksTraversal: 1
-  sightBlocking: 0
-  radiusMeters: 0.6
-  gizmoColor: {r: 1, g: 0.48, b: 0.16, a: 0.9}
+  colliderRadius: 0.6
+  radiusInMapMeters: 1
+  recyclable: 0
 --- !u!1 &100002
 GameObject:
   m_ObjectHideFlags: 0

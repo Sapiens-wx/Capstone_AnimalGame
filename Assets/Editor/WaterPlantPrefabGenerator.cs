@@ -121,9 +121,10 @@ public static class WaterPlantPrefabGenerator
                 Color.white,
                 VegetationSortingOrder);
 
-            // Deliberately do not add HeightMapObstacleFootprint, Collider2D,
-            // or Rigidbody2D. Lotus and australis are decorative water plants;
-            // their complete visible area remains traversable by the player.
+            Vegetation vegetation = root.AddComponent<Vegetation>();
+            vegetation.SetKind(AnimalGame.World.WorldInteractionKind.Vegetation);
+            vegetation.ColliderRadius = editorFootprintRadiusMeters;
+            // Decorative plants have no collision or climbing flags.
             PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
         }
         finally

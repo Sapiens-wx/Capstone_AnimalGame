@@ -176,7 +176,7 @@ namespace AnimalGame.Editor
             Check("IK reachable, mirrored, near and far limits", CheckIK);
             Check("Box/circle geometry and swept body collision", CheckGeometry);
             Check("Collider shape selection, sources, circle motion and index updates", CheckColliderShapes);
-            Check("Unified types, multiple components, legacy obstacles and overlap escape", CheckRegistry);
+            Check("Unified types, multiple components, vegetations and overlap escape", CheckRegistry);
             Check("Body-only collision, grabbing and per-object push resistance", CheckInteractionKinds);
             Check("QuadTree matches exhaustive queries after movement, resizing, kind and scene changes", CheckQuadTree);
             Check("Dirty queue skips unchanged shapes and coalesces geometry edits", CheckSpatialDirty);
@@ -350,15 +350,17 @@ namespace AnimalGame.Editor
                 Require(WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Multiple components not supported");
                 solid.enabled = false;
                 Require(!WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Disabled solid still registered");
-                HeightMapObstacleFootprint legacy = grab.gameObject.AddComponent<HeightMapObstacleFootprint>();
-                Require(WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Legacy tree not in unified registry");
+                Vegetation vegetation = grab.gameObject.AddComponent<Vegetation>();
+                vegetation.ColliderRadius = .3f;
+                vegetation.SetKind(WorldInteractionKind.Collision);
+                Require(WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Vegetation not in unified registry");
                 InteractionShape start = InteractionShape.Capsule(new Vector2(.25f, 0f), new Vector2(.25f, 0f), .1f);
                 Require(!WorldInteractionQuery.Query(InteractionShape.Capsule(new Vector2(.25f, 0f), Vector2.right, .1f),
                     WorldInteractionKind.Collision, null, f.Scene, previous: start), "Cannot escape existing circle contact");
                 Require(WorldInteractionQuery.Query(InteractionShape.Capsule(new Vector2(.25f, 0f), Vector2.zero, .1f),
                     WorldInteractionKind.Collision, null, f.Scene, previous: start), "Inward movement escaped collision check");
-                legacy.enabled = false;
-                Require(!WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Disabled legacy obstacle remains");
+                vegetation.enabled = false;
+                Require(!WorldInteractionQuery.Query(point, WorldInteractionKind.Collision, null, f.Scene), "Disabled vegetation remains");
             }
         }
         private static void CheckInteractionKinds()

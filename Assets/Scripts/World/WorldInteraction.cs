@@ -17,8 +17,11 @@ namespace AnimalGame.World
         Pushable = 1 << 3,       // Add to Collision or BodyCollision on the same component.
         Climbable = 1 << 4,
         Actor = 1 << 5, // Bodies: flight ignores props while retaining actor separation.
-        Checkpoint = 1 << 6 // Non-blocking arrival regions.
+        Checkpoint = 1 << 6, // Non-blocking arrival regions.
+        Vegetation = 1 << 7,
+        SightBlocking = 1 << 8
     }
+    public enum SightBlockingMode { MatchTraversal, AlwaysBlock }
     public enum RecyclableSize { Small, Medium, Big }
     public enum WorldInteractionColliderShape { Box, Circle, Capsule }
     public enum ColliderType { Sprite, Collider2D, Custom }
@@ -32,9 +35,15 @@ namespace AnimalGame.World
         private static readonly List<WorldInteraction> hierarchyItems = new();
         private static readonly List<WorldInteraction> rootItems = new();
         private static readonly List<WorldInteraction> ownerItems = new();
-        // SPATIAL INDEX: kind, colliderType, shape, box, sprite, colliderCenter, colliderRadius, colliderLength and localSize affect the cache. Use the
+        // SPATIAL INDEX: kind, sightBlockingMode, colliderType, shape, box, sprite, colliderCenter, colliderRadius, colliderLength and localSize affect the cache. Use the
         // public setters at runtime; direct/serialized writes require MarkSpatialDirty().
         [SerializeField] private WorldInteractionKind kind = WorldInteractionKind.Collision;
+        [SerializeField] private SightBlockingMode sightBlockingMode;
+        public SightBlockingMode SightBlockingMode
+        {
+            get => sightBlockingMode;
+            set { sightBlockingMode = value; MarkSpatialDirty(); }
+        }
         // Changes to the referenced collider/renderer (including their transforms,
         // sprite assets, draw mode, size, or bounds) require notifying every dependent
         // WorldInteraction, even when the source lives outside this object's hierarchy.
@@ -109,7 +118,10 @@ namespace AnimalGame.World
         private System.Action onRecycled;
         /// <summary>Observes the successful native recycling path; disabling or dropping an object never raises this event.</summary>
         public event System.Action Recycled { add => onRecycled += value; remove => onRecycled -= value; }
-        public virtual WorldInteractionKind Kind => kind;
+        // Keep the configured flag serialized; expose only effective query flags to the index.
+        public virtual WorldInteractionKind Kind => sightBlockingMode == SightBlockingMode.MatchTraversal
+            && (kind & (WorldInteractionKind.Collision | WorldInteractionKind.BodyCollision)) == 0
+                ? kind & ~WorldInteractionKind.SightBlocking : kind;
         // Elevated floors are only visible to queries scoped to that floor.
         public bool RequiresQueryScope { get; set; }
         public void SetKind(WorldInteractionKind value) { kind = value; MarkSpatialDirty(); }
@@ -300,7 +312,7 @@ namespace AnimalGame.World
 
         private void OnDrawGizmosSelected()
         {
-            if (colliderType != ColliderType.Custom) return;
+            if (colliderType != ColliderType.Custom || this is Vegetation) return;
             InteractionShape shape = colliderShape == WorldInteractionColliderShape.Box
                 ? InteractionShape.Box(transform, colliderCenter, localSize, null)
                 : colliderShape == WorldInteractionColliderShape.Capsule

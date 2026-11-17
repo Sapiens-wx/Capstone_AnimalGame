@@ -87,17 +87,8 @@ namespace AnimalGame.Editor
                 if (trunkCenter == null)
                     trunkCenter = root.transform;
 
-                HeightMapObstacleFootprint footprint =
-                    trunkCenter.GetComponent<HeightMapObstacleFootprint>();
-                if (footprint == null)
-                {
-                    footprint = root.GetComponentInChildren<
-                        HeightMapObstacleFootprint>(true);
-                }
-
-                float perchRadius = footprint != null
-                    ? footprint.RadiusMeters
-                    : 0.6f;
+                Vegetation vegetation = root.GetComponent<Vegetation>();
+                float perchRadius = vegetation.GetShape(null).Radius;
                 changed |= habitat.ConfigureEditorDefaults(
                     health,
                     trunkCenter,
