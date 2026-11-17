@@ -387,7 +387,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private Texture2D grass1;
         [SerializeField] private Texture2D grass2;
         [SerializeField] private Texture2D grass3;
-        [Tooltip("Regional coverage threshold for tall grass patches; zero hides the overlay.")]
+        [Tooltip("Coverage of the noise-driven tall-grass regions; zero hides the overlay.")]
         [SerializeField, Range(0f, 1f)] private float grassOverlayDensity = .95f;
         [SerializeField, Range(.1f, .7f)] private float grassOverlaySize = .65f;
         public Texture2D Grass1 => grass1;

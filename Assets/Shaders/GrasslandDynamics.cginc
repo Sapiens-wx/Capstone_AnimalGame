@@ -2,6 +2,7 @@ sampler2D _GrassMaskTex;
 sampler2D _GrassPatternTex;
 sampler2D _GrassOverlay1, _GrassOverlay2, _GrassOverlay3;
 float4 _GrassOverlaySettings;
+float4 _GrassContourOpacity; // baked edge/interior multipliers, small/tall interior opacity
 float _GrassEnabled;
 float _GrassTileSize;
 float4 _GrassTileOrigin;
@@ -68,100 +69,131 @@ float4 GrassInstance(float2 cell)
     return float4(placement.xy, GrassBladeAngle(cell, placement.xy), placement.z);
 }
 
-// Each occupied world-space block contains one connected group of 4–8 clusters.
-bool GrassOverlayCluster(float2 cell)
+float GrassValueNoise(float2 p)
 {
-    float2 block = floor(cell / 10);
-    float2 key = block + _GrassLayout.x * float2(.37, 1.91) + 521.7;
-    if (GrassHash(key) >= _GrassOverlaySettings.x) return false;
-    float2 local = cell - block * 10;
-    if (GrassHash(key + 17) < .5) local = local.yx;
-    if (GrassHash(key + 31) < .5) local.x = 9 - local.x;
-    if (GrassHash(key + 57) < .5) local.y = 9 - local.y;
-    local -= 3;
-    if (local.x < 0 || local.x > 3 || local.y < 0 || local.y > 2) return false;
-    float column = fmod(local.y, 2) < .5 ? local.x : 3 - local.x;
-    float rank = local.y * 4 + column;
-    float clusterCount = 4 + floor(GrassHash(key + 83) * 5);
-    return rank < clusterCount;
+    float2 cell = floor(p);
+    float2 f = frac(p);
+    f = f * f * (3 - 2 * f);
+    return lerp(lerp(GrassHash(cell), GrassHash(cell + float2(1, 0)), f.x),
+        lerp(GrassHash(cell + float2(0, 1)), GrassHash(cell + 1), f.x), f.y);
+}
+
+// The lattice only bounds the search. Widely jittered centres and domain-warped,
+// two-scale noise remove fixed patch intervals and create irregular growing regions.
+float3 GrassOverlayGroup(float2 cell, float groupSpacing)
+{
+    float2 seed = _GrassLayout.x * float2(.37, 1.91) + 521.7;
+    float2 key = cell + seed;
+    float2 jitter = float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1;
+    float2 centre = (cell + .5 + jitter * .45) * groupSpacing;
+    float2 p = centre / groupSpacing;
+    float2 warp = (float2(GrassValueNoise(p * .47 + seed + 13.7),
+        GrassValueNoise(p * .47 + seed + 71.3)) - .5) * 1.8;
+    float noise = .72 * GrassValueNoise(p * .68 + warp + seed)
+        + .28 * GrassValueNoise(p * 1.7 + seed + 91.1);
+    float count = noise < .55 * _GrassOverlaySettings.x
+        ? 4 + floor(GrassHash(key + 83) * 5) : 0;
+    return float3(centre, count);
+}
+
+float2 GrassOverlayClusterCentre(float2 cell, float3 group, int index, float spacing)
+{
+    float2 key = cell + _GrassLayout.x + 739.1;
+    float angle = GrassHash(key + 113) * 6.2831853 + index * 2.39996323
+        + (GrassHash(key + index * 19.7 + 137) - .5) * .9;
+    float radius = spacing * sqrt((index + .5) / 3.14159265)
+        * lerp(.85, 1.15, GrassHash(key + index * 31.3 + 173));
+    float2 shape = float2(lerp(.8, 1.2, GrassHash(key + 197)),
+        lerp(.8, 1.2, GrassHash(key + 211)));
+    return group.xy + float2(cos(angle), sin(angle)) * radius * shape;
 }
 
 float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float animate)
 {
     if (_GrassOverlaySettings.z < .5 || _GrassOverlaySettings.x <= 0) return 0;
     float spacing = _GrassTileSize * .8;
-    float2 cell = floor(meters / spacing);
+    float groupSpacing = spacing * 7.5;
+    float2 cell = floor(meters / groupSpacing);
     float size = _GrassTileSize * _GrassOverlaySettings.y;
     float4 result = 0;
     int bits = (int)_GrassOverlaySettings.z;
     int count = (bits & 1) + ((bits >> 1) & 1) + ((bits >> 2) & 1);
-    // Preserve full rotated support with the denser layout.
-    [loop] for (int y = -5; y <= 5; y++)
-    [loop] for (int x = -5; x <= 5; x++)
+    // Include neighbouring patch centres, so tall rotated grass is not clipped
+    // at the search-cell or map-tile boundary.
+    [loop] for (int y = -1; y <= 1; y++)
+    [loop] for (int x = -1; x <= 1; x++)
     {
-        float2 key = cell + float2(x, y) + _GrassLayout.x + 739.1;
-        if (!GrassOverlayCluster(cell + float2(x, y))) continue;
-        float2 instanceSize = size * float2(lerp(.8, 1.2, GrassHash(key + 107)),
-            lerp(.96, 2.4, GrassHash(key + 149)));
-        float2 centre = (cell + float2(x, y) + .5
-            + (float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1) * .12) * spacing;
-        float2 delta = meters - centre;
-        float support = instanceSize.y * .95 + instanceSize.x * .5;
-        if (dot(delta, delta) > support * support) continue;
-        float s, c;
-        sincos(GrassDirection(centre), s, c);
-        float2 side = float2(c, -s), up = float2(s, c);
-        float2 centreWorld = mul(_GrassMetersToWorld, float4(centre, 0, 1)).xy;
-        float2 sideWorld = mul((float3x3)_GrassMetersToWorld, float3(side, 0)).xy;
-        float pressure = 0, direction = 0;
-        if (animate > .5)
+        float2 groupCell = cell + float2(x, y);
+        float3 group = GrassOverlayGroup(groupCell, groupSpacing);
+        if (group.z < .5) continue;
+        float groupSupport = spacing * 2.15 + size * 2.88;
+        float2 groupDelta = meters - group.xy;
+        if (dot(groupDelta, groupDelta) > groupSupport * groupSupport) continue;
+        [loop] for (int instance = 0; instance < 8; instance++)
         {
-            [unroll] for (int contact = 0; contact < 8; contact++)
+            if (instance >= (int)group.z) break;
+            float2 key = groupCell + _GrassLayout.x + 739.1 + instance * float2(17.73, 37.31);
+            float2 instanceSize = size * float2(lerp(.8, 1.2, GrassHash(key + 107)),
+                lerp(.96, 2.4, GrassHash(key + 149)));
+            float2 centre = GrassOverlayClusterCentre(groupCell, group, instance, spacing);
+            float2 delta = meters - centre;
+            float support = instanceSize.y * .95 + instanceSize.x * .5;
+            if (dot(delta, delta) > support * support) continue;
+            float s, c;
+            sincos(GrassDirection(centre), s, c);
+            float2 side = float2(c, -s), up = float2(s, c);
+            float2 centreWorld = mul(_GrassMetersToWorld, float4(centre, 0, 1)).xy;
+            float2 sideWorld = mul((float3x3)_GrassMetersToWorld, float3(side, 0)).xy;
+            float pressure = 0, direction = 0;
+            if (animate > .5)
             {
-                float4 footprint = _GrassFootprints[contact];
-                float2 travel = _GrassFootprintDirections[contact].xy;
-                if (dot(travel, travel) < .0001) continue;
-                float age = max(0, _GrassNow - footprint.z);
-                float influence = (1 - smoothstep(footprint.w * .65, max(.001, footprint.w),
-                    distance(centreWorld, footprint.xy)))
-                    * saturate(1 - age / max(.01, _GrassDynamics.w));
-                if (influence > pressure)
+                [unroll] for (int contact = 0; contact < 8; contact++)
                 {
-                    pressure = influence;
-                    direction = -dot(travel, normalize(sideWorld));
+                    float4 footprint = _GrassFootprints[contact];
+                    float2 travel = _GrassFootprintDirections[contact].xy;
+                    if (dot(travel, travel) < .0001) continue;
+                    float age = max(0, _GrassNow - footprint.z);
+                    float influence = (1 - smoothstep(footprint.w * .65, max(.001, footprint.w),
+                        distance(centreWorld, footprint.xy)))
+                        * saturate(1 - age / max(.01, _GrassDynamics.w));
+                    if (influence > pressure)
+                    {
+                        pressure = influence;
+                        direction = -dot(travel, normalize(sideWorld));
+                    }
                 }
             }
+            // Stable per-cluster wind uses the same pause-aware clock as small grass.
+            float windRandom = GrassHash(key + 271.9);
+            float windPeriod = lerp(_GrassWindPeriods.x, _GrassWindPeriods.y, windRandom) * 1.5;
+            float wind = animate * lerp(.025, .04, GrassHash(key + 293.7))
+                * sin(_GrassNow * 6.2831853 / max(.1, windPeriod) + windRandom * 6.2831853);
+            // Root-anchored wind and contact sway, without shortening tall grass.
+            float lengthScale = 1;
+            float height = (dot(delta, up) / instanceSize.y + .5) / lengthScale;
+            float tipOffset = wind * (1 - pressure) + pressure * direction * .30;
+            float2 uv = float2(dot(delta, side) / instanceSize.x + .5
+                - tipOffset * instanceSize.y / instanceSize.x * height * height, height);
+            if (any(uv < 0) || any(uv > 1)) continue;
+            float shear = 2 * tipOffset * height / lengthScale;
+            float2 dx = float2((dot(pixelDx, side) - shear * dot(pixelDx, up)) / instanceSize.x,
+                dot(pixelDx, up) / (instanceSize.y * lengthScale));
+            float2 dy = float2((dot(pixelDy, side) - shear * dot(pixelDy, up)) / instanceSize.x,
+                dot(pixelDy, up) / (instanceSize.y * lengthScale));
+            // Stable per-instance mirroring; mirror sampling derivatives with the UV.
+            float flipX = GrassHash(key + 233) < .5 ? -1 : 1;
+            uv.x = .5 + (uv.x - .5) * flipX;
+            dx.x *= flipX;
+            dy.x *= flipX;
+            int choice = min(count - 1, (int)floor(GrassHash(key + 83) * count));
+            int variant = 0;
+            [unroll] for (int i = 0; i < 3; i++)
+                if ((bits & (1 << i)) != 0) { if (choice == 0) { variant = i; break; } choice--; }
+            float4 sample = variant == 0 ? tex2Dgrad(_GrassOverlay1, uv, dx, dy)
+                : variant == 1 ? tex2Dgrad(_GrassOverlay2, uv, dx, dy) : tex2Dgrad(_GrassOverlay3, uv, dx, dy);
+            result.rgb = sample.rgb * sample.a + result.rgb * (1 - sample.a);
+            result.a = sample.a + result.a * (1 - sample.a);
         }
-        // Stable per-cluster wind uses the same pause-aware clock as small grass.
-        float windRandom = GrassHash(key + 271.9);
-        float windPeriod = lerp(_GrassWindPeriods.x, _GrassWindPeriods.y, windRandom) * 1.5;
-        float wind = animate * lerp(.025, .04, GrassHash(key + 293.7))
-            * sin(_GrassNow * 6.2831853 / max(.1, windPeriod) + windRandom * 6.2831853);
-        // Root-anchored wind and contact sway, without shortening tall grass.
-        float lengthScale = 1;
-        float height = (dot(delta, up) / instanceSize.y + .5) / lengthScale;
-        float tipOffset = wind * (1 - pressure) + pressure * direction * .30;
-        float2 uv = float2(dot(delta, side) / instanceSize.x + .5
-            - tipOffset * instanceSize.y / instanceSize.x * height * height, height);
-        if (any(uv < 0) || any(uv > 1)) continue;
-        float shear = 2 * tipOffset * height / lengthScale;
-        float2 dx = float2((dot(pixelDx, side) - shear * dot(pixelDx, up)) / instanceSize.x,
-            dot(pixelDx, up) / (instanceSize.y * lengthScale));
-        float2 dy = float2((dot(pixelDy, side) - shear * dot(pixelDy, up)) / instanceSize.x,
-            dot(pixelDy, up) / (instanceSize.y * lengthScale));
-        // Stable per-instance mirroring; mirror sampling derivatives with the UV.
-        float flipX = GrassHash(key + 233) < .5 ? -1 : 1;
-        uv.x = .5 + (uv.x - .5) * flipX;
-        dx.x *= flipX;
-        dy.x *= flipX;
-        int choice = min(count - 1, (int)floor(GrassHash(key + 83) * count));
-        int variant = 0;
-        [unroll] for (int i = 0; i < 3; i++)
-            if ((bits & (1 << i)) != 0) { if (choice == 0) { variant = i; break; } choice--; }
-        float4 sample = variant == 0 ? tex2Dgrad(_GrassOverlay1, uv, dx, dy)
-            : variant == 1 ? tex2Dgrad(_GrassOverlay2, uv, dx, dy) : tex2Dgrad(_GrassOverlay3, uv, dx, dy);
-        result.rgb = sample.rgb * sample.a + result.rgb * (1 - sample.a);
-        result.a = sample.a + result.a * (1 - sample.a);
     }
     result.rgb = result.a > .0001 ? result.rgb / result.a : 0;
     return result;
@@ -263,10 +295,18 @@ float4 SampleGrassland(float2 tileUv, float animate)
     result.rgb *= mask.rgb;
     // Keep the palette opacity as the full-strength endpoint of the small blades.
     // Lift faint baked coverage before compositing thin blades over the black map.
-    result.a *= sqrt(mask.a * max(mask.a, _GrassOverlaySettings.w));
+    float baseOpacity = max(.001, _GrassOverlaySettings.w);
+    float contourCoverage = mask.a / baseOpacity;
+    float interior = saturate((_GrassContourOpacity.x - contourCoverage)
+        / max(.001, _GrassContourOpacity.x - _GrassContourOpacity.y));
+    float smallInteriorScale = _GrassContourOpacity.z
+        / max(.001, baseOpacity * sqrt(max(0, _GrassContourOpacity.y)));
+    result.a *= sqrt(mask.a * max(mask.a, _GrassOverlaySettings.w))
+        * lerp(1, smallInteriorScale, interior);
     float4 overlay = SampleGrassOverlay(meters, pixelDx, pixelDy, animate);
     // Remove the base palette opacity from coverage: overlay retains source alpha at full strength.
-    overlay.a *= saturate(mask.a / max(.001, _GrassOverlaySettings.w));
+    float tallInteriorScale = _GrassContourOpacity.w / max(.001, _GrassContourOpacity.y);
+    overlay.a *= saturate(contourCoverage) * lerp(1, tallInteriorScale, interior);
     float alpha = overlay.a + result.a * (1 - overlay.a);
     result.rgb = alpha > .0001 ? (overlay.rgb * overlay.a + result.rgb * result.a * (1 - overlay.a)) / alpha : 0;
     result.a = alpha;
