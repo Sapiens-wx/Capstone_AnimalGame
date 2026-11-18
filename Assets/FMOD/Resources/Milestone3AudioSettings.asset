@@ -513,6 +513,5 @@ MonoBehaviour:
   garbageImpactPitchVariation: 0.06
   waterMinimumPitch: 0.9
   waterPitchSmoothingSeconds: 0.06
-  waterFadeOutSeconds: 1
   terrainFadeInSeconds: 0.02
   reedLoopCrossfadeMilliseconds: 100

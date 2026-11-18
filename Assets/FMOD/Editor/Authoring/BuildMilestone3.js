@@ -24,7 +24,7 @@
         // Long original recordings retain their progression. The transition
         // reads the final source margin while restarting the sustained texture.
         { path: "event:/Robot/Terrain/WaterMove", file: "Terrain/T01_Water_Move_Loop.wav", loop: true,
-            loopStart: 0.08, loopEnd: 54.4473242630, crossfade: 0.20 },
+            loopStart: 2.10, loopEnd: 29.90, crossfade: 0.10 },
         { path: "event:/Robot/Terrain/BushCrush", file: "Terrain/T02_Bush_Crush_Loop.wav", loop: true,
             loopStart: 0, loopEnd: 5.4982086167, crossfade: 0.10 },
         { path: "event:/Robot/Terrain/DeadTreeImpact", file: "Terrain/T03_DeadTree_Impact.wav", trimEnd: 1.102 },

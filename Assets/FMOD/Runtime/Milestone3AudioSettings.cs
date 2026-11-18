@@ -19,7 +19,6 @@ namespace Capstone.Audio
         [SerializeField, Min(0.01f)] private float worldReferenceSpeed = 3f;
         [SerializeField, Range(0.01f, 1f)] private float waterMinimumPitch = 0.9f;
         [SerializeField, Min(0f)] private float waterPitchSmoothingSeconds = 0.06f;
-        [SerializeField, Min(0f)] private float waterFadeOutSeconds = 1f;
         [SerializeField, Min(0f)] private float terrainFadeInSeconds = 0.02f;
         [Tooltip("Matches the authored ReedRustle loop overlap; excludes its end from random entry points.")]
         [SerializeField, Min(0)] private int reedLoopCrossfadeMilliseconds = 100;
@@ -45,7 +44,6 @@ namespace Capstone.Audio
         internal float WorldReferenceSpeed => Mathf.Max(0.01f, worldReferenceSpeed);
         internal float WaterMinimumPitch => Mathf.Clamp(waterMinimumPitch, 0.01f, 1f);
         internal float WaterPitchSmoothingSeconds => Mathf.Max(0f, waterPitchSmoothingSeconds);
-        internal float WaterFadeOutSeconds => Mathf.Max(0f, waterFadeOutSeconds);
         internal float TerrainFadeInSeconds => Mathf.Max(0f, terrainFadeInSeconds);
         internal int ReedLoopCrossfadeMilliseconds => Mathf.Max(0, reedLoopCrossfadeMilliseconds);
         internal float WorldObservationRadius => Mathf.Max(1f, worldObservationRadius);

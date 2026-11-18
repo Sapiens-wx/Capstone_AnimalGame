@@ -11,6 +11,16 @@ namespace Capstone.Audio
     // No source-file IO, sample-loading barrier, or per-frame allocation.
     internal sealed class Milestone3AudioVoices
     {
+        private enum WaterPhase { Accelerating, Sustaining, Decelerating }
+
+        // Source positions in the WaterMove event authored by BuildMilestone3.js.
+        private const int WaterAttackEndMs = 2100;
+        private const int WaterTailStartMs = 30000;
+        private const int WaterTailEndMs = 32000;
+        private const float WaterCrossfadeSeconds = .06f;
+        private const float WaterFlowStartThreshold = .04f;
+        private const float WaterFlowSettleThreshold = .02f;
+
         private struct Parameter
         {
             internal PARAMETER_ID Id;
@@ -36,6 +46,11 @@ namespace Capstone.Audio
         // the 0.1 s release poll and event-before-poll frame boundary.
         private const int ScanHitVoiceCount = 15;
         private readonly Slot[] slots;
+        private readonly Slot waterSecond;
+        private Slot waterCurrent;
+        private WaterPhase waterPhase;
+        private float waterFlow;
+        private int waterStartPosition;
         private readonly Milestone3Cue[] impacts =
             { Milestone3Cue.TumbleImpact, Milestone3Cue.TumbleImpact03 };
         private readonly System.Random random = new System.Random();
@@ -50,6 +65,8 @@ namespace Capstone.Audio
             {
                 Cue = i < Milestone3AudioCatalog.CueCount ? (Milestone3Cue)i : Milestone3Cue.ScanHit
             };
+            if (settings.HasDirectCue(Milestone3Cue.WaterMove))
+                waterSecond = new Slot { Cue = Milestone3Cue.WaterMove };
         }
 
         internal bool PlayScanHit(float pitch)
@@ -169,23 +186,141 @@ namespace Capstone.Audio
                 maximumIntensity: settings.GarbageImpactMaximumGain);
         }
 
-        // Water changes playback rate only. Its cue gain stays fixed at every speed.
-        internal void SetWaterMove(bool active, float pitch)
+        internal void SetWaterMove(float targetFlow, float pitch, float deltaTime)
         {
-            Slot slot = slots[(int)Milestone3Cue.WaterMove];
-            if (!active) { Stop(Milestone3Cue.WaterMove); return; }
+            if (waterSecond == null || !(deltaTime > 0f) || float.IsNaN(targetFlow)) return;
+            targetFlow = Mathf.Clamp01(targetFlow);
             pitch = Mathf.Clamp(pitch, settings.WaterMinimumPitch, 1f);
-            if (!slot.Active)
+            if (waterCurrent == null || !waterCurrent.Active)
             {
-                Start(slot, 1f, pitch: pitch, fadeInSeconds: settings.TerrainFadeInSeconds);
+                waterCurrent = null;
+                waterFlow = 0f;
+                if (targetFlow > 0f) BeginWaterPhase(WaterPhase.Accelerating, targetFlow, pitch);
                 return;
             }
-            slot.Fading = false;
-            if (pitch == slot.AppliedPitch || (pitch != 1f
-                && Mathf.Abs(pitch - slot.AppliedPitch) < 0.001f)) return;
-            RESULT applied = slot.Instance.setPitch(pitch);
-            if (applied == RESULT.OK) slot.AppliedPitch = pitch;
-            else Fail(slot, applied.ToString());
+
+            // Advance the audible phase at the same rate as its source segment.
+            float sourceStepMs = deltaTime * waterCurrent.AppliedPitch * 1000f;
+            if (waterPhase == WaterPhase.Accelerating)
+                waterFlow = Mathf.Min(1f, waterFlow + sourceStepMs / WaterAttackEndMs);
+            else if (waterPhase == WaterPhase.Decelerating)
+                waterFlow = Mathf.Max(0f, waterFlow - sourceStepMs / (WaterTailEndMs - WaterTailStartMs));
+
+            float change = targetFlow - waterFlow;
+            float threshold = waterPhase == WaterPhase.Sustaining
+                ? WaterFlowStartThreshold : WaterFlowSettleThreshold;
+            WaterPhase desired = targetFlow <= 0f || change < -threshold ? WaterPhase.Decelerating
+                : change > threshold ? WaterPhase.Accelerating : WaterPhase.Sustaining;
+            if (desired != waterPhase)
+            {
+                // The attack already leads into the full-strength steady source.
+                if (desired == WaterPhase.Sustaining && waterPhase == WaterPhase.Accelerating
+                    && waterFlow >= 1f - WaterFlowSettleThreshold && targetFlow >= 1f - WaterFlowSettleThreshold)
+                    waterPhase = WaterPhase.Sustaining;
+                else BeginWaterPhase(desired, targetFlow, pitch);
+            }
+
+            Slot current = waterCurrent;
+            if (current == null || !current.Active) return;
+            if (waterPhase == WaterPhase.Sustaining && desired == WaterPhase.Sustaining)
+            {
+                float sectionMs = change >= 0f ? WaterAttackEndMs : WaterTailEndMs - WaterTailStartMs;
+                waterFlow = Mathf.MoveTowards(waterFlow, targetFlow, sourceStepMs / sectionMs);
+                current.Gain = settings.GetCue(Milestone3Cue.WaterMove).LinearGain * waterFlow;
+                ApplyVolume(current);
+            }
+            StoreWaterSpeed(current, targetFlow);
+            ApplyParameter(current, Milestone3Parameter.Speed);
+
+            // A normal stop keeps the rate at the instant of exit for the natural tail.
+            if (targetFlow <= 0f || !current.Active || pitch == current.AppliedPitch
+                || (pitch != 1f && Mathf.Abs(pitch - current.AppliedPitch) < 0.001f)) return;
+            RESULT applied = current.Instance.setPitch(pitch);
+            if (applied == RESULT.OK) current.AppliedPitch = pitch;
+            else Fail(current, applied.ToString());
+        }
+
+        private void BeginWaterPhase(WaterPhase phase, float targetFlow, float pitch)
+        {
+            Slot first = slots[(int)Milestone3Cue.WaterMove];
+            Slot previous = waterCurrent;
+            if (previous != null && waterPhase == WaterPhase.Decelerating && targetFlow > 0f)
+            {
+                RESULT state = previous.Instance.getPlaybackState(out PLAYBACK_STATE playback);
+                if (state != RESULT.OK)
+                {
+                    Fail(previous, state.ToString());
+                    StopWaterImmediately();
+                    return;
+                }
+                if (playback == PLAYBACK_STATE.STOPPED)
+                {
+                    Release(previous);
+                    previous = waterCurrent = null;
+                    waterFlow = 0f;
+                    phase = WaterPhase.Accelerating;
+                }
+            }
+            Slot next = ReferenceEquals(previous, first) || (previous == null && first.Active)
+                ? waterSecond : first;
+            // Wait out the short overlap rather than cut a fading voice during rapid reversals.
+            if (next.Active) return;
+
+            bool switching = previous != null && previous.Active;
+            // Read only on a handoff. The mixer cursor is a better match for the
+            // audible amplitude than the frame clock, which can drift during seeks.
+            if (switching && waterPhase != WaterPhase.Sustaining
+                && previous.Instance.getTimelinePosition(out int cursor) == RESULT.OK && cursor >= waterStartPosition)
+            {
+                if (waterPhase == WaterPhase.Accelerating && cursor < WaterTailStartMs)
+                    waterFlow = Mathf.Clamp01(cursor / (float)WaterAttackEndMs);
+                else if (waterPhase == WaterPhase.Decelerating && cursor >= WaterTailStartMs)
+                    waterFlow = Mathf.Clamp01((WaterTailEndMs - cursor) / (float)(WaterTailEndMs - WaterTailStartMs));
+            }
+
+            int position;
+            float intensity = 1f;
+            switch (phase)
+            {
+                case WaterPhase.Accelerating:
+                    position = (int)(WaterAttackEndMs * waterFlow);
+                    break;
+                case WaterPhase.Sustaining:
+                    position = WaterAttackEndMs;
+                    // Blend to the requested steady level once close. Small mixer
+                    // cursor corrections must not immediately start another ramp.
+                    waterFlow = intensity = targetFlow;
+                    break;
+                default:
+                    position = (int)(WaterTailEndMs - (WaterTailEndMs - WaterTailStartMs) * waterFlow);
+                    break;
+            }
+            if (targetFlow <= 0f && switching) pitch = previous.AppliedPitch;
+            StoreWaterSpeed(next, targetFlow);
+            if (!Start(next, intensity, startPositionMs: position, pitch: pitch,
+                    fadeInSeconds: switching ? WaterCrossfadeSeconds : settings.TerrainFadeInSeconds,
+                    reportSoundUI: !switching))
+            {
+                StopWaterImmediately();
+                return;
+            }
+            if (switching)
+            {
+                next.UIHandle = previous.UIHandle;
+                previous.UIHandle = default;
+                previous.Fading = true;
+                previous.FadeOutRate = previous.Envelope / WaterCrossfadeSeconds;
+            }
+            waterCurrent = next;
+            waterPhase = phase;
+            waterStartPosition = position;
+        }
+
+        private static void StoreWaterSpeed(Slot slot, float flow)
+        {
+            ref Parameter speed = ref slot.Parameters[(int)Milestone3Parameter.Speed];
+            speed.Desired = true;
+            speed.Value = flow;
         }
 
         // Each new contact starts at the source beginning (bush) or one random
@@ -205,7 +340,7 @@ namespace Capstone.Audio
 
         private bool Start(Slot slot, float intensity, bool recycleFeed = false,
             int startPositionMs = 0, float pitch = 1f, float maximumIntensity = 1f,
-            bool randomLoopStart = false, float fadeInSeconds = 0f)
+            bool randomLoopStart = false, float fadeInSeconds = 0f, bool reportSoundUI = true)
         {
             Milestone3Cue cue = slot.Cue;
             AudioCueSettings config = settings.GetCue(cue);
@@ -247,7 +382,7 @@ namespace Capstone.Audio
                 }
                 if (startPositionMs > 0) Check(slot.Instance.setTimelinePosition(startPositionMs));
                 Check(slot.Instance.start());
-                if (config.ReadBySoundUI)
+                if (reportSoundUI && config.ReadBySoundUI)
                     slot.UIHandle = SoundUIPlayback.BeginSound(config.SoundUIStrength * Mathf.Clamp01(intensity));
                 return true;
             }
@@ -300,6 +435,11 @@ namespace Capstone.Audio
 
         internal void Stop(Milestone3Cue cue, bool immediate = false)
         {
+            if (cue == Milestone3Cue.WaterMove)
+            {
+                StopWaterImmediately();
+                return;
+            }
             if (cue == Milestone3Cue.ScanHit)
                 for (int i = Milestone3AudioCatalog.CueCount; i < slots.Length; i++) StopSlot(slots[i], immediate);
             if (cue == Milestone3Cue.TumbleImpact)
@@ -312,39 +452,47 @@ namespace Capstone.Audio
         private void StopSlot(Slot slot, bool immediate)
         {
             if (!slot.Active) return;
-            float seconds = slot.Cue == Milestone3Cue.WaterMove ? settings.WaterFadeOutSeconds : settings.FadeOutSeconds;
-            if (immediate || slot.Paused || seconds <= 0f) Release(slot);
+            if (immediate || slot.Paused || settings.FadeOutSeconds <= 0f) Release(slot);
             else if (!slot.Fading)
             {
-                // Water keeps its full release time even if motion ends during the attack.
-                float start = slot.Cue == Milestone3Cue.WaterMove ? slot.Envelope : 1f;
-                slot.FadeOutRate = start / Mathf.Max(0.001f, seconds);
+                slot.FadeOutRate = 1f / Mathf.Max(0.001f, settings.FadeOutSeconds);
                 slot.Fading = true;
             }
         }
         internal void Tick(float deltaTime)
         {
-            for (int i = 0; i < slots.Length; i++)
+            for (int i = 0; i < slots.Length; i++) TickSlot(slots[i], deltaTime);
+            if (waterSecond != null) TickSlot(waterSecond, deltaTime);
+        }
+
+        private void TickSlot(Slot slot, float deltaTime)
+        {
+            if (!slot.Active || slot.Paused) return;
+            if (slot.Fading || slot.Envelope < 1f)
             {
-                Slot slot = slots[i];
-                if (!slot.Active || slot.Paused) continue;
-                if (slot.Fading || slot.Envelope < 1f)
-                {
-                    float step = slot.Fading ? deltaTime * slot.FadeOutRate
-                        : deltaTime / Mathf.Max(0.001f, slot.FadeInSeconds > 0f
-                            ? slot.FadeInSeconds : settings.FadeOutSeconds);
-                    slot.Envelope = Mathf.MoveTowards(slot.Envelope, slot.Fading ? 0f : 1f, step);
-                    ApplyVolume(slot);
-                    if (!slot.Active) continue;
-                    if (slot.Envelope <= 0f) { Release(slot); continue; }
-                }
-                slot.PollTime += deltaTime;
-                if (slot.PollTime < 0.1f) continue;
-                slot.PollTime = 0f;
-                RESULT polled = slot.Instance.getPlaybackState(out PLAYBACK_STATE state);
-                if (polled != RESULT.OK) Fail(slot, polled.ToString());
-                else if (state == PLAYBACK_STATE.STOPPED) Release(slot);
+                float step = slot.Fading ? deltaTime * slot.FadeOutRate
+                    : deltaTime / Mathf.Max(0.001f, slot.FadeInSeconds > 0f
+                        ? slot.FadeInSeconds : settings.FadeOutSeconds);
+                slot.Envelope = Mathf.MoveTowards(slot.Envelope, slot.Fading ? 0f : 1f, step);
+                ApplyVolume(slot);
+                if (!slot.Active) return;
+                if (slot.Envelope <= 0f) { Release(slot); return; }
             }
+            slot.PollTime += deltaTime;
+            if (slot.PollTime < 0.1f) return;
+            slot.PollTime = 0f;
+            RESULT polled = slot.Instance.getPlaybackState(out PLAYBACK_STATE state);
+            if (polled != RESULT.OK) Fail(slot, polled.ToString());
+            else if (state == PLAYBACK_STATE.STOPPED) Release(slot);
+        }
+
+        private void StopWaterImmediately()
+        {
+            Slot first = slots[(int)Milestone3Cue.WaterMove];
+            if (first.Active) Release(first);
+            if (waterSecond != null && waterSecond.Active) Release(waterSecond);
+            waterCurrent = null;
+            waterFlow = 0f;
         }
         private static void ApplyVolume(Slot slot)
         {
@@ -356,6 +504,7 @@ namespace Capstone.Audio
         }
         internal void StopAllImmediately()
         {
+            StopWaterImmediately();
             foreach (Slot slot in slots)
             {
                 Release(slot);

@@ -132,8 +132,8 @@ namespace Capstone.Audio
                 // water multiplier once; extra resistance still reduces the sound's pitch.
                 float referenceSpeed = (mover.DebugMoveSpeed ?? mover.DefaultMoveSpeed)
                     * mover.CurrentWaterSpeedMultiplier;
-                float strength = Mathf.Clamp01(travelSpeed / Mathf.Max(settings.WorldMotionThreshold, referenceSpeed));
-                voices.SetParameter(Milestone3Cue.WaterMove, Milestone3Parameter.Speed, strength);
+                float strength = movingInWater
+                    ? Mathf.Clamp01(travelSpeed / Mathf.Max(settings.WorldMotionThreshold, referenceSpeed)) : 0f;
                 if (movingInWater)
                 {
                     float target = Mathf.Lerp(settings.WaterMinimumPitch, 1f, strength);
@@ -142,7 +142,7 @@ namespace Capstone.Audio
                     waterPitch = waterMoving ? Mathf.Lerp(waterPitch, target, blend) : target;
                     if (Mathf.Abs(waterPitch - target) < 0.0001f) waterPitch = target;
                 }
-                voices.SetWaterMove(movingInWater, waterPitch);
+                voices.SetWaterMove(strength, waterPitch, Time.unscaledDeltaTime);
                 waterMoving = movingInWater;
             }
             if (reeds != null)
