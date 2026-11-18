@@ -64,6 +64,10 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private int strokeUndoGroup = -1;
     private SerializedObject serializedLevel;
     private HeightMapPainterEditState editState;
+    private Texture2D terrainPreviewTexture;
+    private Material terrainPreviewMaterial;
+    private Mesh terrainPreviewMesh;
+    private bool terrainPreviewDirty = true;
 
     [MenuItem("Animal Game/Level/Terrain Surface Painter")]
     public static void Open()
@@ -131,7 +135,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
             "Edits remain temporary until you click Save to bake and save the changed tiles. " +
-            "The displayed surface updates after Save. Settings are shared by the scene map tiles. " +
+            "Scene colors show the selected tile's terrain IDs; baked textures update after Save. Settings are shared by the scene map tiles. " +
             "Fill and Clear apply to the selected tile. Click another tile to save and select it without painting. Closing the window or assigning another asset discards unsaved edits.",
             MessageType.Info);
 
@@ -387,12 +391,18 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             EditorGUILayout.PropertyField(serializedLevel.FindProperty(path));
 
         if (serializedLevel.hasModifiedProperties)
+        {
+            terrainPreviewDirty = true;
             editState.RecordChange("Change Terrain Surface Settings");
+        }
         HeightMapSurfaceSettings.ApplyEdits(serializedLevel, mapController, workingMap);
 
         bool normalized = levelAsset.EnsureSurfaceAuthoringData();
         if (normalized)
+        {
+            terrainPreviewDirty = true;
             EditorUtility.SetDirty(levelAsset);
+        }
         EnsureSelectedTerrain();
 
         using (new EditorGUI.DisabledScope(true))
@@ -419,10 +429,16 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             if (definition == null)
                 continue;
 
-            Color previousBackground = GUI.backgroundColor;
-            Color buttonColor = definition.Tint;
-            buttonColor.a = 1f;
-            GUI.backgroundColor = buttonColor;
+            Color buttonColor = TerrainPreviewColor(definition.Terrain);
+            var buttonStyle = new GUIStyle(GUI.skin.button);
+            buttonStyle.normal.textColor = buttonColor;
+            buttonStyle.hover.textColor = buttonColor;
+            buttonStyle.active.textColor = buttonColor;
+            buttonStyle.focused.textColor = buttonColor;
+            buttonStyle.onNormal.textColor = buttonColor;
+            buttonStyle.onHover.textColor = buttonColor;
+            buttonStyle.onActive.textColor = buttonColor;
+            buttonStyle.onFocused.textColor = buttonColor;
             bool selected = definition.Terrain == selectedTerrain;
             string textureStatus = definition.PatternTexture != null
                 ? string.Empty
@@ -431,12 +447,10 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
                     selected,
                     $"{definition.Terrain}: {definition.DisplayName}" +
                     textureStatus,
-                    "Button"))
+                    buttonStyle))
             {
                 selectedTerrain = definition.Terrain;
             }
-
-            GUI.backgroundColor = previousBackground;
         }
     }
 
@@ -465,6 +479,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private void HandleSceneGui(SceneView sceneView)
     {
         Event current = Event.current;
+        DrawTerrainPreview();
         HeightMapPainterSceneInput.DrawSelectedTileBounds(mapController, sourceLevelAsset);
         if (!paintInScene || EditorApplication.isPlaying || mapController == null || !mapController.HasGeneratedMap)
             return;
@@ -549,7 +564,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             points[index] = mapController.MapPositionToWorld(mapPoint);
         }
 
-        Color outlineColor = definition != null ? definition.Tint : new Color(1f, 0.28f, 0.2f);
+        Color outlineColor = TerrainPreviewColor(definition?.Terrain ?? TerrainKind.Unknown);
         outlineColor.a = 0.95f;
         Handles.color = outlineColor;
         Handles.DrawAAPolyLine(3f, points);
@@ -610,6 +625,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         if (levelAsset.PaintSurfaceType(mapPosition - origin, brushRadiusMeters, terrain, strokeDefinition,
                 () => RegisterStrokeUndo(levelAsset)))
         {
+            terrainPreviewDirty = true;
             changedStrokeTiles.Add(levelAsset);
             EditorUtility.SetDirty(levelAsset);
         }
@@ -649,6 +665,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Undo.RegisterCompleteObjectUndo(levelAsset, operationName);
         if (levelAsset.FillSurfaceType(terrain))
         {
+            terrainPreviewDirty = true;
             editState.RecordChange(operationName);
             EditorUtility.SetDirty(levelAsset);
         }
@@ -659,6 +676,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void HandleUndoRedo()
     {
+        terrainPreviewDirty = true;
         SceneView.RepaintAll();
         Repaint();
     }
@@ -704,6 +722,13 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void DestroyWorkingCopies()
     {
+        DestroyImmediate(terrainPreviewTexture);
+        DestroyImmediate(terrainPreviewMaterial);
+        DestroyImmediate(terrainPreviewMesh);
+        terrainPreviewTexture = null;
+        terrainPreviewMaterial = null;
+        terrainPreviewMesh = null;
+        terrainPreviewDirty = true;
         editState?.Dispose();
         editState = null;
         foreach (HeightMapLevelAsset working in workingTiles.Values)
@@ -716,6 +741,84 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             DestroyImmediate(workingMap);
         workingMap = null;
         levelAsset = null;
+    }
+
+    private static Color32 TerrainPreviewColor(TerrainKind terrain) => terrain switch
+    {
+        TerrainKind.Unknown => new Color32(150, 150, 150, 255),
+        TerrainKind.GridTest => new Color32(245, 245, 245, 255),
+        TerrainKind.GrassTest => new Color32(245, 135, 190, 255),
+        TerrainKind.Grass => new Color32(75, 205, 95, 255),
+        TerrainKind.Grassland => new Color32(75, 220, 205, 255),
+        TerrainKind.Gravel => new Color32(235, 140, 65, 255),
+        TerrainKind.Rock => new Color32(155, 140, 240, 255),
+        TerrainKind.Water => new Color32(65, 155, 245, 255),
+        TerrainKind.Web => new Color32(225, 75, 80, 255),
+        TerrainKind.Sand => new Color32(212, 184, 84, 255), // #D4B854
+        _ => throw new ArgumentOutOfRangeException(nameof(terrain), terrain, null)
+    };
+
+    private void DrawTerrainPreview()
+    {
+        if (Event.current.type != EventType.Repaint || !paintInScene || EditorApplication.isPlaying
+            || levelAsset == null || mapController == null || !mapController.HasGeneratedMap
+            || !mapController.TryGetTileOrigin(sourceLevelAsset, out Vector2 origin))
+            return;
+
+        if (terrainPreviewMaterial == null)
+        {
+            terrainPreviewMaterial = new Material(Shader.Find("Hidden/AnimalGame/SurfaceTerrainEditorPreview"))
+            {
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            terrainPreviewMesh = new Mesh
+            {
+                name = "Surface Terrain Scene Preview",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+        }
+
+        if (terrainPreviewDirty)
+        {
+            byte[] types = levelAsset.GetOrCreateSurfaceTypeMap();
+            int resolution = levelAsset.SurfaceMaskResolution;
+            if (terrainPreviewTexture == null || terrainPreviewTexture.width != resolution)
+            {
+                DestroyImmediate(terrainPreviewTexture);
+                terrainPreviewTexture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
+                {
+                    name = "Surface Terrain ID Colors",
+                    hideFlags = HideFlags.HideAndDontSave,
+                    filterMode = FilterMode.Point,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+                terrainPreviewMaterial.mainTexture = terrainPreviewTexture;
+            }
+            var colors = new Color32[types.Length];
+            for (int i = 0; i < types.Length; i++)
+            {
+                Color32 color = TerrainPreviewColor((TerrainKind)types[i]);
+                color.a = types[i] == (byte)TerrainKind.Unknown ? (byte)45 : (byte)145;
+                colors[i] = color;
+            }
+            terrainPreviewTexture.SetPixels32(colors);
+            terrainPreviewTexture.Apply(false, false);
+            terrainPreviewDirty = false;
+        }
+
+        Vector2 size = levelAsset.MapSizeMeters;
+        terrainPreviewMesh.vertices = new[]
+        {
+            mapController.MapPositionToWorld(origin),
+            mapController.MapPositionToWorld(origin + Vector2.right * size.x),
+            mapController.MapPositionToWorld(origin + Vector2.up * size.y),
+            mapController.MapPositionToWorld(origin + size)
+        };
+        terrainPreviewMesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.up, Vector2.one };
+        terrainPreviewMesh.triangles = new[] { 0, 2, 1, 1, 2, 3 };
+        terrainPreviewMesh.RecalculateBounds();
+        terrainPreviewMaterial.SetPass(0);
+        Graphics.DrawMeshNow(terrainPreviewMesh, Matrix4x4.identity);
     }
 
     private void TryAdoptCurrentSelection()
