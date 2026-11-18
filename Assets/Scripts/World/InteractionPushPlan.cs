@@ -328,11 +328,13 @@ namespace AnimalGame.World
         {
             if (axis.sqrMagnitude < 1e-14f) return false;
             axis.Normalize();
-            float min = Vector2.Dot(hull[0], axis), max = min;
-            for (int i = 1; i < count; i++) { float p = Vector2.Dot(hull[i], axis); min = Mathf.Min(min, p); max = Mathf.Max(max, p); }
-            float omin = Vector2.Dot(obstacle.A, axis), omax = omin;
+            // Project relative to the sweep so map coordinates do not round away small gaps.
+            Vector2 origin = hull[0];
+            float min = 0f, max = 0f;
+            for (int i = 1; i < count; i++) { float p = Vector2.Dot(hull[i] - origin, axis); min = Mathf.Min(min, p); max = Mathf.Max(max, p); }
+            float omin = Vector2.Dot(obstacle.A - origin, axis), omax = omin;
             for (int i = 1; i < (obstacle.IsBox ? 4 : 2); i++)
-            { float p = Vector2.Dot(obstacle.Vertex(i), axis); omin = Mathf.Min(omin, p); omax = Mathf.Max(omax, p); }
+            { float p = Vector2.Dot(obstacle.Vertex(i) - origin, axis); omin = Mathf.Min(omin, p); omax = Mathf.Max(omax, p); }
             float margin = radius + (obstacle.IsBox ? 0f : obstacle.Radius);
             return max + margin <= omin + Epsilon || omax + margin <= min + Epsilon;
         }

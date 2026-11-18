@@ -24,10 +24,12 @@ namespace AnimalGame.World
         public static Vector2 ToQuery(Vector2 world, MapTestSceneController map)
         {
             if (map == null || !map.HasGeneratedMap) return world;
-            Vector2 origin = map.WorldBounds.min;
-            return new Vector2((world.x - origin.x) / Mathf.Max(.000001f, map.MapMetersToWorldDistance(Vector2.right, 1f)),
-                (world.y - origin.y) / Mathf.Max(.000001f, map.MapMetersToWorldDistance(Vector2.up, 1f)));
+            return (world - (Vector2)map.WorldBounds.min) / WorldUnitsPerQueryUnit(map);
         }
+        public static Vector2 WorldUnitsPerQueryUnit(MapTestSceneController map) =>
+            map == null || !map.HasGeneratedMap ? Vector2.one : new Vector2(
+                Mathf.Max(.000001f, map.MapMetersToWorldDistance(Vector2.right, 1f)),
+                Mathf.Max(.000001f, map.MapMetersToWorldDistance(Vector2.up, 1f)));
         public static InteractionShape Capsule(Vector2 a, Vector2 b, float radius) =>
             new InteractionShape { A = a, B = b, Radius = Mathf.Max(0f, radius) };
         public static InteractionShape Circle(Vector2 center, float radius) =>

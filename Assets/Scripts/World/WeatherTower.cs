@@ -8,18 +8,20 @@ using UnityEngine.InputSystem;
 
 namespace AnimalGame.World
 {
-    public enum WeatherTowerPhase { Ground, Ascending, Outdoor, Indoor, Descending }
+    public enum WeatherTowerPhase { Exterior, Ground, Ascending, Outdoor, Indoor, Descending }
 
     [DefaultExecutionOrder(110)]
     [DisallowMultipleComponent]
     public sealed class WeatherTower : MonoBehaviour
     {
         [Header("Registered Floor Views")]
+        [SerializeField] private GameObject exteriorView;
         [SerializeField] private GameObject groundView;
         [SerializeField] private GameObject roofView;
-        [SerializeField] private GameObject indoorView;
         [SerializeField] private Transform lift;
         [SerializeField] private Vector2 liftSize;
+        [SerializeField] private Transform groundDoor;
+        [SerializeField] private float groundDoorWidth;
         [SerializeField] private Transform door;
         [SerializeField] private float doorWidth;
         [SerializeField] private GameObject groundGate;
@@ -44,44 +46,55 @@ namespace AnimalGame.World
         private PlayerCombatReceiver combat;
         private MapTestSceneController map;
         private SpriteRenderer groundArt;
+        private SpriteRenderer roofArt;
         private LineRenderer groundGateArt;
+        private LineRenderer roofGateArt;
         private float groundHeight;
         private float liftProgress;
         private bool interactWasHeld;
-        private Vector2 previousDoorPosition;
+        private Vector2 previousPlayerPosition;
 
         public WeatherTowerPhase Phase { get; private set; }
         public RobotMover Player => player;
         public Transform Lift => lift;
+        public Transform GroundDoor => groundDoor;
         public Transform Door => door;
         public float HeightAboveGroundMeters => Mathf.SmoothStep(0f, towerHeightMeters, liftProgress);
         private bool IsRiding => Phase == WeatherTowerPhase.Ascending || Phase == WeatherTowerPhase.Descending;
         private bool IsInside => Phase == WeatherTowerPhase.Indoor;
-        private bool OnUpperView => IsInside || Phase == WeatherTowerPhase.Outdoor || liftProgress >= .5f;
+        private bool OnUpperView => liftProgress >= .5f;
 
-        public void Configure(GameObject ground, GameObject roof, GameObject inside, Transform liftAnchor,
-            Vector2 platformSize, Transform indoorDoor, float openingWidth,
-            GameObject lowerGate, GameObject upperGate, GameObject prompt)
+        public void Configure(GameObject exterior, GameObject ground, GameObject upper, Transform liftAnchor,
+            Vector2 platformSize, Transform southDoor, float southOpeningWidth, Transform indoorDoor,
+            float upperOpeningWidth, GameObject lowerGate, GameObject upperGate, GameObject prompt)
         {
+            exteriorView = exterior;
             groundView = ground;
-            roofView = roof;
-            indoorView = inside;
+            roofView = upper;
             lift = liftAnchor;
             liftSize = platformSize;
+            groundDoor = southDoor;
+            groundDoorWidth = southOpeningWidth;
             door = indoorDoor;
-            doorWidth = openingWidth;
+            doorWidth = upperOpeningWidth;
             groundGate = lowerGate;
             roofGate = upperGate;
             liftPrompt = prompt;
-            RefreshViews();
+            InitializeViews();
         }
 
         private void Awake()
         {
-            groundArt = groundView.GetComponentInChildren<SpriteRenderer>(true);
-            groundGateArt = groundGate.GetComponent<LineRenderer>();
             ScopeCollisions(roofView);
-            ScopeCollisions(indoorView);
+            InitializeViews();
+        }
+
+        private void InitializeViews()
+        {
+            groundArt = groundView.GetComponentInChildren<SpriteRenderer>(true);
+            roofArt = roofView.GetComponentInChildren<SpriteRenderer>(true);
+            groundGateArt = groundGate.GetComponent<LineRenderer>();
+            roofGateArt = roofGate.GetComponent<LineRenderer>();
             RefreshViews();
         }
 
@@ -95,27 +108,33 @@ namespace AnimalGame.World
 
             if (!IsScenePlayer(player))
             {
-                if (Phase != WeatherTowerPhase.Ground) ResetTower();
+                if (Phase != WeatherTowerPhase.Exterior) ResetTower();
                 ResolvePlayer();
                 if (player == null) return;
             }
+
+            Vector2 previous = previousPlayerPosition;
+            Vector2 position = player.transform.position;
+            previousPlayerPosition = position;
             if (player.IgnoreCollisionAndTerrain)
             {
-                if (Phase != WeatherTowerPhase.Ground) ResetTower();
+                if (Phase != WeatherTowerPhase.Exterior) ResetTower();
                 SetActive(liftPrompt, false);
                 return;
             }
 
             if (IsRiding)
                 AdvanceLift(deltaTime);
-            else if (Phase == WeatherTowerPhase.Outdoor || IsInside)
-                CheckDoorCrossing();
+            else if (OnUpperView)
+                CheckUpperDoor(previous, position);
+            else
+                CheckGroundDoor(previous, position);
 
             bool canRide = CanUseLift();
             SetActive(liftPrompt, canRide);
             if (canRide && interactPressed) TryStartLift();
 
-            if (Phase != WeatherTowerPhase.Ground)
+            if (IsRiding || OnUpperView)
                 towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, IsInside,
                     outdoorZoomMultiplier, indoorCameraSize, indoorBlendSeconds, deltaTime);
         }
@@ -126,10 +145,6 @@ namespace AnimalGame.World
                 return false;
 
             bool goingUp = Phase == WeatherTowerPhase.Ground;
-            if (goingUp)
-                groundHeight = map != null && map.TrySampleWorldPosition(lift.position, out _, out float height)
-                    ? height : 0f;
-
             if (!player.SetTowerSupport(this, ActiveCollisionRoot(), groundHeight + HeightAboveGroundMeters, true))
             {
                 towerCamera.Release();
@@ -137,6 +152,7 @@ namespace AnimalGame.World
             }
 
             Phase = goingUp ? WeatherTowerPhase.Ascending : WeatherTowerPhase.Descending;
+            towerCamera.ApplyLiftFeedback(0f, travelSeconds, goingUp);
             SetActive(liftPrompt, false);
             RefreshViews();
             return true;
@@ -146,40 +162,57 @@ namespace AnimalGame.World
         {
             bool goingUp = Phase == WeatherTowerPhase.Ascending;
             liftProgress = Mathf.MoveTowards(liftProgress, goingUp ? 1f : 0f, deltaTime / travelSeconds);
+            towerCamera.ApplyLiftFeedback(goingUp ? liftProgress : 1f - liftProgress, travelSeconds, goingUp);
             if (!goingUp && liftProgress <= 0f)
             {
-                ResetTower();
-                return;
+                Phase = WeatherTowerPhase.Ground;
+                towerCamera.Release();
             }
-
             if (goingUp && liftProgress >= 1f)
-            {
                 Phase = WeatherTowerPhase.Outdoor;
-                previousDoorPosition = door.InverseTransformPoint(player.transform.position);
-            }
 
             RefreshViews();
             player.SetTowerSupport(this, ActiveCollisionRoot(), groundHeight + HeightAboveGroundMeters, IsRiding);
         }
 
-        private void CheckDoorCrossing()
+        private void CheckGroundDoor(Vector2 previous, Vector2 position)
         {
-            Vector2 position = door.InverseTransformPoint(player.transform.position);
-            Vector2 previous = previousDoorPosition;
-            previousDoorPosition = position;
-            float threshold = IsInside ? -DoorHysteresis : DoorHysteresis;
-            bool crossed = IsInside ? previous.y > threshold && position.y <= threshold
+            bool exiting = Phase == WeatherTowerPhase.Ground;
+            if (!CrossedDoor(groundDoor, groundDoorWidth, previous, position, exiting)) return;
+
+            if (exiting)
+            {
+                ResetTower();
+                return;
+            }
+
+            float height = map != null && map.TrySampleWorldPosition(lift.position, out _, out float sampledHeight)
+                ? sampledHeight : 0f;
+            if (!player.SetTowerSupport(this, groundView.transform, height, false)) return;
+            groundHeight = height;
+            Phase = WeatherTowerPhase.Ground;
+            RefreshViews();
+        }
+
+        private void CheckUpperDoor(Vector2 previous, Vector2 position)
+        {
+            if (!CrossedDoor(door, doorWidth, previous, position, IsInside)) return;
+            Phase = IsInside ? WeatherTowerPhase.Outdoor : WeatherTowerPhase.Indoor;
+        }
+
+        private bool CrossedDoor(Transform portal, float openingWidth, Vector2 previous, Vector2 position,
+            bool exiting)
+        {
+            previous = portal.InverseTransformPoint(previous);
+            position = portal.InverseTransformPoint(position);
+            float threshold = exiting ? -DoorHysteresis : DoorHysteresis;
+            bool crossed = exiting ? previous.y > threshold && position.y <= threshold
                 : previous.y < threshold && position.y >= threshold;
-            if (!crossed) return;
+            if (!crossed) return false;
 
             float crossingX = Mathf.Lerp(previous.x, position.x,
                 (threshold - previous.y) / (position.y - previous.y));
-            if (Mathf.Abs(crossingX) + Clearance(door, Vector2.right) >= doorWidth * .5f)
-                return;
-
-            Phase = IsInside ? WeatherTowerPhase.Outdoor : WeatherTowerPhase.Indoor;
-            RefreshViews();
-            player.SetTowerSupport(this, ActiveCollisionRoot(), groundHeight + HeightAboveGroundMeters, false);
+            return Mathf.Abs(crossingX) + Clearance(portal, Vector2.right) < openingWidth * .5f;
         }
 
         private bool CanUseLift()
@@ -225,6 +258,7 @@ namespace AnimalGame.World
                 return;
             }
 
+            previousPlayerPosition = player.transform.position;
             map = bootstrap != null && player == bootstrap.robot ? bootstrap.map : null;
             arm = player.GetComponent<RobotArmController>();
             photo = player.GetComponent<PhotoModeController>();
@@ -248,17 +282,36 @@ namespace AnimalGame.World
             && candidate.gameObject.scene == gameObject.scene;
 
         private Transform ActiveCollisionRoot() =>
-            (IsInside ? indoorView : OnUpperView ? roofView : groundView).transform;
+            (OnUpperView ? roofView : groundView).transform;
 
         private void RefreshViews()
         {
-            // Ground walls still belong to the ground when the player is upstairs.
-            if (groundArt != null) groundArt.enabled = !OnUpperView;
-            if (groundGateArt != null) groundGateArt.enabled = !OnUpperView;
-            SetActive(roofView, OnUpperView && !IsInside);
-            SetActive(indoorView, IsInside);
+            bool outside = Phase == WeatherTowerPhase.Exterior;
+            float roofOpacity = Mathf.SmoothStep(0f, 1f, liftProgress);
+            float groundOpacity = outside ? 0f : 1f - roofOpacity;
+            SetFloorOpacity(groundArt, groundGateArt, groundOpacity);
+            SetFloorOpacity(roofArt, roofGateArt, roofOpacity);
+
+            // The scopes still select just one floor for collisions while both views are visible.
+            SetActive(exteriorView, outside);
+            SetActive(roofView, roofOpacity > 0f);
             SetActive(groundGate, Phase != WeatherTowerPhase.Ground);
-            SetActive(roofGate, IsRiding && OnUpperView);
+            SetActive(roofGate, IsRiding);
+        }
+
+        private static void SetFloorOpacity(SpriteRenderer art, LineRenderer gate, float opacity)
+        {
+            Color color = art.color;
+            color.a = opacity;
+            art.color = color;
+            art.enabled = opacity > 0f;
+
+            Color start = gate.startColor;
+            Color end = gate.endColor;
+            start.a = end.a = opacity;
+            gate.startColor = start;
+            gate.endColor = end;
+            gate.enabled = opacity > 0f;
         }
 
         private static void ScopeCollisions(GameObject view)
@@ -271,7 +324,7 @@ namespace AnimalGame.World
         {
             if (player != null) player.ClearTowerSupport(this);
             towerCamera.Release();
-            Phase = WeatherTowerPhase.Ground;
+            Phase = WeatherTowerPhase.Exterior;
             liftProgress = 0f;
             SetActive(liftPrompt, false);
             RefreshViews();

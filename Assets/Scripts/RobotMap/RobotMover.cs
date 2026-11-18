@@ -39,6 +39,7 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(0f)] private float colliderLength = 2f;
         [SerializeField, Min(0f)] private float collisionSkin = .02f;
         private readonly List<WorldInteraction> bodySweepCandidates = new();
+        private readonly List<WorldInteraction> towerWallContacts = new();
         private readonly InteractionPushPlan bodySweepGeometry = new();
 
         public CollisionShape CollisionShape { get => collisionShape; set { collisionShape = value; MarkBodyDirty(); } }
@@ -58,24 +59,31 @@ namespace AnimalGame.RobotMap
         public InteractionShape GetCollisionShapeAt(Vector2 position, Quaternion rotation,
             MapTestSceneController map, float padding = 0f)
         {
-            Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(position.x, position.y, transform.position.z), rotation, Vector3.one)
-                * Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one).inverse * transform.localToWorldMatrix;
-            Vector2 Point(Vector2 p) => InteractionShape.ToQuery(matrix.MultiplyPoint3x4(p), map);
-            Vector2 center = Point(colliderCenter);
+            Matrix4x4 localToWorld = transform.localToWorldMatrix;
+            Quaternion turn = rotation * Quaternion.Inverse(transform.rotation);
+            Vector2 worldUnits = InteractionShape.WorldUnitsPerQueryUnit(map);
+            Vector2 mapOrigin = map != null && map.HasGeneratedMap ? (Vector2)map.WorldBounds.min : Vector2.zero;
+            Vector2 Offset(Vector3 world) => (Vector2)(turn * world) / worldUnits;
+            Vector2 Point(Vector2 point) =>
+                (position + (Vector2)(turn * localToWorld.MultiplyVector(point)) - mapOrigin) / worldUnits;
+            Vector3 worldRight = localToWorld.MultiplyVector(Vector3.right);
+            Vector3 worldUp = localToWorld.MultiplyVector(Vector3.up);
             if (collisionShape == CollisionShape.Box)
             {
                 Vector2 h = new Vector2(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y)) * .5f;
                 // Padding is expressed in query units.
-                Vector2 right = (Point(colliderCenter + Vector2.right) - center).normalized * padding;
-                Vector2 up = (Point(colliderCenter + Vector2.up) - center).normalized * padding;
+                Vector2 right = Offset(worldRight).normalized * padding;
+                Vector2 up = Offset(worldUp).normalized * padding;
                 return new InteractionShape { IsBox = true,
                     A = Point(colliderCenter - h) - right - up,
                     B = Point(colliderCenter + new Vector2(h.x, -h.y)) + right - up,
                     C = Point(colliderCenter + h) + right + up,
                     D = Point(colliderCenter + new Vector2(-h.x, h.y)) - right + up };
             }
-            float scale = Mathf.Max((Point(colliderCenter + Vector2.right) - center).magnitude,
-                (Point(colliderCenter + Vector2.up) - center).magnitude);
+            // Keep the round footprint stable when turning in a map with equal XY scale.
+            float scale = worldUnits.x == worldUnits.y
+                ? Mathf.Max(((Vector2)worldRight).magnitude, ((Vector2)worldUp).magnitude) / worldUnits.x
+                : Mathf.Max(Offset(worldRight).magnitude, Offset(worldUp).magnitude);
             Vector2 offset = collisionShape == CollisionShape.Capsule
                 ? Vector2.up * Mathf.Max(0f, ColliderLength * .5f - ColliderRadius) : Vector2.zero;
             return InteractionShape.Capsule(Point(colliderCenter - offset), Point(colliderCenter + offset),
@@ -743,7 +751,7 @@ namespace AnimalGame.RobotMap
             }
             if (HasTowerSupport)
             {
-                if (!TryCommitTranslation(desiredDisplacement, heldTransform)) return false;
+                if (!TryCommitTranslation(ref desiredDisplacement, heldTransform)) return false;
                 lastCommittedPosition = transform.position;
                 return true;
             }
@@ -766,24 +774,12 @@ namespace AnimalGame.RobotMap
                 movementStart + desiredDisplacement, climbableMap, gameObject.scene,
                 Time.deltaTime > 0f ? Time.deltaTime : 1f / 60f, bodyRadius, normalSpeedLimit);
             desiredDisplacement = resistedEnd - movementStart;
-            if (traversalEvaluator != null)
+            if (IsHardTerrainStop(desiredDisplacement, out SlopeTraversalResult actualPathResult))
             {
-                SlopeTraversalResult actualPathResult =
-                    traversalEvaluator.EvaluateImmediateSafety(
-                        transform.position,
-                        desiredDisplacement.normalized, true);
-                bool hardObstacle = actualPathResult.HasData
-                                    && actualPathResult.RequiresHardStop
-                                    && actualPathResult.BlockReason
-                                        != TraversalBlockReason.UnsafeDownhill;
-                if (hardObstacle)
-                {
-                    HardStop(actualPathResult);
-                    return false;
-                }
-
+                HardStop(actualPathResult);
+                return false;
             }
-            if (!TryCommitTranslation(desiredDisplacement, heldTransform)) return false;
+            if (!TryCommitTranslation(ref desiredDisplacement, heldTransform)) return false;
             climbableResistance.Commit();
             // Camera motion observes drive and terrain velocity, excluding the
             // separate heavy-release step. Reconstruct only the observed loss.
@@ -818,10 +814,20 @@ namespace AnimalGame.RobotMap
             return true;
         }
 
-        private bool TryCommitTranslation(Vector2 displacement, Transform heldRoot)
+        private bool IsHardTerrainStop(Vector2 displacement, out SlopeTraversalResult result)
+        {
+            result = traversalEvaluator != null
+                ? traversalEvaluator.EvaluateImmediateSafety(transform.position, displacement.normalized, true)
+                : SlopeTraversalResult.NoData;
+            return result.HasData && result.RequiresHardStop
+                && result.BlockReason != TraversalBlockReason.UnsafeDownhill;
+        }
+
+        private bool TryCommitTranslation(ref Vector2 displacement, Transform heldRoot)
         {
             PrepareMovementPlan(displacement, heldRoot);
-            if (!movementPlan.Evaluate() || !movementPlan.Commit())
+            if (!(movementPlan.Evaluate() || TryPlanTowerWallSlide(ref displacement, heldRoot))
+                || !movementPlan.Commit())
             {
                 armController?.ReportBodyBlocked();
                 HardStop(SlopeTraversalResult.BlockedObstacle);
@@ -831,6 +837,31 @@ namespace AnimalGame.RobotMap
             WorldInteraction.MarkHierarchySpatialDirty(transform);
             armController?.ConfirmBodyMotion();
             return true;
+        }
+
+        private bool TryPlanTowerWallSlide(ref Vector2 displacement, Transform heldRoot)
+        {
+            Vector2 start = transform.position;
+            MapTestSceneController map = traversalEvaluator != null ? traversalEvaluator.Map : null;
+            QueryCollisionSweep(start, start + displacement, map, towerWallContacts, heldRoot);
+            foreach (WorldInteraction wall in towerWallContacts)
+            {
+                if (wall.Kind != WorldInteractionKind.Collision || wall.GetComponentInParent<WeatherTower>() == null)
+                    continue;
+
+                // The tower's wall segments have their long edge along local X.
+                Vector2 tangent = wall.transform.right;
+                Vector2 slide = Vector2.Dot(displacement, tangent) * tangent;
+                if (slide.sqrMagnitude < .00000001f || (!HasTowerSupport && IsHardTerrainStop(slide, out _)))
+                    continue;
+
+                // Recheck the whole sweep, including the neighboring wall and any carried object.
+                PrepareMovementPlan(slide, heldRoot);
+                if (!movementPlan.Evaluate()) continue;
+                displacement = slide;
+                return true;
+            }
+            return false;
         }
 
         private void PrepareMovementPlan(Vector2 displacement, Transform heldRoot)

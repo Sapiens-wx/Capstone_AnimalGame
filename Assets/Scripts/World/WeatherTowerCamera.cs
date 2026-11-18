@@ -42,6 +42,26 @@ namespace AnimalGame.World
             composer.SetWeatherTowerZoom(owner, towerSize, travel01);
         }
 
+        public void ApplyLiftFeedback(float progress, float duration, bool ascending)
+        {
+            if (composer == null)
+                return;
+
+            float elapsed = progress * duration;
+            float settle = Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(.84f, 1f, progress));
+            float impact = Mathf.SmoothStep(1f, 0f, elapsed / .24f) * settle;
+            float kick = impact * Mathf.Cos(elapsed * 32f);
+            float sway = Mathf.SmoothStep(0f, 1f, elapsed / .16f) * settle;
+            float phase = elapsed * (2f * Mathf.PI);
+
+            // The launch kick is brief. The smaller mechanical sway settles as the lift docks.
+            var cameraOffset = new Vector3(
+                .055f * kick + .042f * Mathf.Sin(phase * 3.4f) * sway,
+                (ascending ? -.15f : .15f) * kick + .034f * Mathf.Sin(phase * 5.7f) * sway,
+                .78f * kick + .24f * Mathf.Sin(phase * 2.9f) * sway);
+            composer.SetWeatherTowerLiftFeedback(owner, cameraOffset, new Vector2(.58f, .34f) * impact);
+        }
+
         public void Release()
         {
             if (composer != null)

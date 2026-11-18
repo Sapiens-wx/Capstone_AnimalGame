@@ -479,6 +479,8 @@ namespace AnimalGame.RobotMap
         private UnityEngine.Object weatherTowerZoomOwner;
         private float weatherTowerZoomSize;
         private float weatherTowerZoomBlend;
+        private Vector3 weatherTowerLiftCameraOffset;
+        private Vector2 weatherTowerLiftMotorSpeeds;
         private float scanZoomMultiplier = 1f;
         private float photoFocusMagnification = 1f;
         private float scanChargeShakeStrength;
@@ -982,6 +984,15 @@ namespace AnimalGame.RobotMap
             weatherTowerZoomBlend = blend;
         }
 
+        internal void SetWeatherTowerLiftFeedback(UnityEngine.Object owner, Vector3 cameraOffset, Vector2 motorSpeeds)
+        {
+            if (owner == null || weatherTowerZoomOwner != owner)
+                return;
+
+            weatherTowerLiftCameraOffset = cameraOffset;
+            weatherTowerLiftMotorSpeeds = motorSpeeds;
+        }
+
         internal void ReleaseWeatherTowerZoom(UnityEngine.Object owner)
         {
             if (owner == null || weatherTowerZoomOwner != owner)
@@ -989,6 +1000,8 @@ namespace AnimalGame.RobotMap
 
             weatherTowerZoomOwner = null;
             weatherTowerZoomBlend = 0f;
+            weatherTowerLiftCameraOffset = Vector3.zero;
+            weatherTowerLiftMotorSpeeds = Vector2.zero;
         }
 
         public void SetScanZoomMultiplier(float multiplier)
@@ -1944,7 +1957,7 @@ namespace AnimalGame.RobotMap
 
         private void ApplyShakeToCamera()
         {
-            // Grip, break and recycle camera motion have explicit motor pulses; none may
+            // Grip, break, recycle and lift camera motion have explicit motor pulses; none may
             // generate an additional rumble tail through the chassis camera amplitudes.
             regularRumblePositionOffset = Vector2.ClampMagnitude(
                 (springPosition + continuousPosition) * globalIntensity, GetMaximumPositionOffset());
@@ -1954,10 +1967,11 @@ namespace AnimalGame.RobotMap
             Vector3 recycleSample = GetMediumRecycleCameraSample();
             Vector2 localOffset = Vector2.ClampMagnitude(
                 (springPosition + continuousPosition + garbageGrabCameraPosition + heavyGarbageBreakCameraPosition) * globalIntensity
-                    + new Vector2(recycleSample.x, recycleSample.y),
+                    + (Vector2)weatherTowerLiftCameraOffset * globalIntensity + (Vector2)recycleSample,
                 GetMaximumPositionOffset());
             float rotationOffset = Mathf.Clamp(
-                (springRotation + continuousRotation + garbageGrabCameraRotation + heavyGarbageBreakCameraRotation) * globalIntensity
+                (springRotation + continuousRotation + garbageGrabCameraRotation + heavyGarbageBreakCameraRotation
+                    + weatherTowerLiftCameraOffset.z) * globalIntensity
                     + recycleSample.z,
                 -GetMaximumRotationDegrees(),
                 GetMaximumRotationDegrees());
@@ -2106,6 +2120,11 @@ namespace AnimalGame.RobotMap
                                >= minimumRumbleOutput
                 ? currentHighFrequencyRumble
                 : 0f;
+            Vector2 liftMotors = weatherTowerLiftMotorSpeeds * globalIntensity;
+            if (liftMotors.x >= minimumRumbleOutput)
+                outputLow = Mathf.Max(outputLow, Mathf.Clamp01(liftMotors.x));
+            if (liftMotors.y >= minimumRumbleOutput)
+                outputHigh = Mathf.Max(outputHigh, Mathf.Clamp01(liftMotors.y));
             Vector2 grabOutput = GetGarbageGrabMotorSpeeds(Time.time);
             Vector2 breakOutput = GetHeavyGarbageBreakMotorSpeeds(Time.time);
             Vector2 recycleOutput = GetMediumRecycleMotorSpeeds(Time.time);
@@ -2140,7 +2159,7 @@ namespace AnimalGame.RobotMap
                 outputHigh,
                 CreateSonyRumbleCalibration(
                     IsActivelyTumbling || HasTumbleLandingRumble,
-                    HasObstacleCollisionRumble),
+                    HasObstacleCollisionRumble || liftMotors.x > 0f),
                 grabOutput,
                 CreateSonyGrabRumbleCalibration(),
                 breakOutput,
