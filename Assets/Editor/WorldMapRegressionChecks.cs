@@ -19,7 +19,7 @@ namespace AnimalGame.Editor
             CheckPinShapes();
             CheckAssets();
             CheckGpuContours();
-            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin FIFO/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water/cropped bounds/fog, 14m interval, screen line widths and height emphasis.");
+            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water/cropped bounds/fog, 14m interval, screen line widths and height emphasis.");
         }
 
         private static void CheckCursorAndPins()
@@ -34,14 +34,16 @@ namespace AnimalGame.Editor
             state.Resize(Vector2.one * 200);
             Require((state.ToScreen(state.Cursor, screen) - before).sqrMagnitude < .001f, "Zoom moved the cursor screen anchor.");
             state.Open(Vector2.one * 100, Vector2.one * 100, map);
+            Require(state.SelectedPinShape == 0, "Opening must select triangle.");
             for (int i = 0; i < 4; i++)
             {
                 state.Move(new Vector2(100, 0), screen, map);
                 state.Snap(screen, 7 * 1.4f);
                 state.Submit();
+                Require(state.SelectedPinShape == (i + 1) % 3, "Placement did not advance one slot to the right.");
             }
-            Require(state.Pins.Count == 3 && Mathf.Abs(state.Pins[0].x - 120) < .01f
-                && Mathf.Abs(state.Pins[2].x - 140) < .01f, "Pins did not replace the oldest in FIFO order.");
+            Require(state.Pins.Count == 3 && Mathf.Abs(state.Pins[0].x - 140) < .01f
+                && Mathf.Abs(state.Pins[2].x - 130) < .01f, "Placing a used shape did not relocate only that pin.");
             state.Submit();
             Require(state.Pins.Count == 2, "Submitting on selected pin did not delete it.");
             state.Move(new Vector2(-95, 0), screen, map);
@@ -80,15 +82,30 @@ namespace AnimalGame.Editor
             state.Submit();
             Require(state.Pins.Count == 2 && state.GetPinShape(0) == 0
                 && state.GetPinShape(1) == 2, "Deleting square changed another pin shape.");
+            Require(!state.HasPinShape(1), "Deleted square still marked placed.");
+            Require(!state.TryGetPinPosition(1, out _), "Deleted square retained a navigation target.");
+            state.CyclePinShape(1);
             state.Move(new Vector2(300, 0), size, size);
             state.Snap(size, 5);
             state.Submit();
             Require(state.GetPinShape(2) == 1, "New pin did not reuse the available shape.");
+            state.CyclePinShape(-1);
             state.Move(new Vector2(100, 0), size, size);
             state.Snap(size, 5);
             state.Submit();
-            Require(state.GetPinShape(0) == 2 && state.GetPinShape(1) == 1
-                && state.GetPinShape(2) == 0, "FIFO replacement changed surviving pin shapes.");
+            Require(state.Pins.Count == 3 && state.GetPinShape(0) == 0 && state.GetPinShape(1) == 2
+                && state.GetPinShape(2) == 1, "Relocating square changed another pin shape.");
+            Require(state.Pins[0].x == 200 && state.Pins[1].x == 400 && state.Pins[2].x == 700,
+                "Relocating selected square changed another position.");
+            Require(state.TryGetPinPosition(1, out Vector2 square) && square.x == 700,
+                "Navigation did not use the relocated pin position.");
+            state.CyclePinShape(1);
+            Require(state.SelectedPinShape == 0, "RB did not wrap diamond to triangle.");
+            state.CyclePinShape(-1);
+            Require(state.SelectedPinShape == 2, "LB did not wrap triangle to diamond.");
+            state.Open(Vector2.one * 100, size, size);
+            Require(state.SelectedPinShape == 0 && state.Pins.Count == 3,
+                "Reopening did not restore triangle selection while keeping placed pins.");
         }
 
         private static void CheckAssets()
@@ -100,6 +117,10 @@ namespace AnimalGame.Editor
             var tree = doc.visualTreeAsset.CloneTree();
             Require(tree.Q("world-map") != null && tree.Q("map-cursor") != null
                 && tree.Q("pin-2") != null, "Map UXML is incomplete.");
+            Require(tree.Q("map-pin-selector") != null && tree.Q("map-pin-choice-0") != null
+                && tree.Q("map-pin-choice-1") != null && tree.Q("map-pin-choice-2") != null
+                && tree.Q<Label>("map-pin-previous-key") != null && tree.Q<Label>("map-pin-next-key") != null,
+                "Pin selector frame, slots or key hints missing.");
             foreach (string path in new[] { "Assets/Shaders/WorldMapContours.shader", "Assets/Shaders/DynamicHeightContours.shader" })
                 Require(!ShaderUtil.ShaderHasError(AssetDatabase.LoadAssetAtPath<Shader>(path)), path + " has shader errors.");
         }

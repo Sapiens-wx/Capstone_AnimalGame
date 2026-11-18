@@ -22,6 +22,37 @@
     left: 0; top: 0; right: 0; bottom: 0;
     overflow: hidden;
 }
+#map-pin-selector {
+    position: absolute;
+    left: 50%; bottom: 0;
+    translate: -50% 0;
+    transform-origin: 50% 100%;
+    scale: 0.8 0.8;
+    width: 360px; height: 66px;
+    flex-direction: row;
+    align-items: flex-end;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+}
+#map-pin-options {
+    width: 256px; height: 66px;
+    flex-direction: row;
+    background-color: black;
+    border-color: white;
+    border-width: 1px;
+    flex-shrink: 0;
+}
+.map-pin-choice { flex-grow: 1; flex-basis: 0; height: 64px; }
+.map-pin-cycle-key {
+    width: 52px; height: 44px;
+    margin: 0; padding: 0;
+    background-color: black;
+    border-color: white;
+    border-width: 1px;
+    color: #D4B854;
+    font-size: 22px;
+    -unity-text-align: middle-center;
+    flex-shrink: 0;
+}
 .map-circle {
     position: absolute;
     width: 14px; height: 14px;
@@ -33,6 +64,22 @@
 }
 #map-cursor {
     position: absolute;
+}
+#map-north {
+    position: absolute;
+    left: 8px; top: -14px;
+    width: 120px; height: 180px;
+}
+#map-north-label {
+    position: absolute;
+    left: 0; top: 33.6px; right: 0;
+    height: 36px;
+    margin: 0; padding: 0;
+    color: white;
+    font-size: 24px;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
 }
 #map-coordinate-mask, #map-coordinate-text {
     position: absolute;
