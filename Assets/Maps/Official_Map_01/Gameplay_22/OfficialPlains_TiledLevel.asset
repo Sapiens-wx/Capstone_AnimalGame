@@ -212,6 +212,7 @@ MonoBehaviour:
     level: {fileID: 11400000, guid: da4ab170bf04e364987cb0313759af1e, type: 2}
   - coordinate: {x: 8, y: 11}
     level: {fileID: 11400000, guid: 87c8b4122b89cf44e94654a521ff565d, type: 2}
+  animalSpawnRegions: {fileID: 11400000, guid: fa56e4908ba21fc40b8d6b0599925fdd, type: 2}
   allowMissingTiles: 1
   longitudeRange: {x: 0, y: 1}
   latitudeRange: {x: 0, y: 1}

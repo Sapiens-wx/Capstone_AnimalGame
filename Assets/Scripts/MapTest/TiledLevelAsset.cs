@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.Animals;
 using UnityEngine;
 
 namespace AnimalGame.MapTest
@@ -21,6 +22,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private HeightMapLevelAsset presentation;
         [SerializeField] private Vector2 worldUnitsPerMeter = Vector2.one * (2048f / 30f / 250f);
         [SerializeField] private List<Tile> tiles = new List<Tile>();
+        [SerializeField] private AnimalSpawnRegionsAsset animalSpawnRegions;
         [Tooltip("Allow an irregular tile layout. Missing tiles remain invisible and cannot be traversed.")]
         [SerializeField] private bool allowMissingTiles;
         [Header("Geographic Coordinates")]
@@ -31,6 +33,7 @@ namespace AnimalGame.MapTest
         public Vector2 LongitudeRange => longitudeRange;
         public Vector2 LatitudeRange => latitudeRange;
         public IReadOnlyList<Tile> Tiles => tiles;
+        public AnimalSpawnRegionsAsset AnimalSpawnRegions => animalSpawnRegions;
         public bool AllowMissingTiles => allowMissingTiles;
         public HeightMapLevelAsset Presentation => presentation;
         public Vector2 TileSizeMeters => tileSizeMeters;

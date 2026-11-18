@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5d3b62bcd694faeba665bb18cdd1926, type: 3}
+  m_Name: OfficialPlains_TiledLevel Animal Spawn Regions
+  m_EditorClassIdentifier: 
+  muskrat:
+    polygons:
+    - vertices:
+      - {x: 1165.2767, y: 162.50655}
+      - {x: 1591.4666, y: 276.15735}
+      - {x: 1619.8793, y: 730.75964}
+    - vertices:
+      - {x: 1222.034, y: 1030.3884}
+      - {x: 1177.8492, y: 723.54944}
+      - {x: 1580.4219, y: 900.28876}
+  pileatedWoodpecker:
+    polygons: []
+  mountainGoat:
+    polygons: []
+  wolf:
+    polygons: []
+  americanBison:
+    polygons: []
+  pronghorn:
+    polygons: []
+  greaterPrairieChicken:
+    polygons: []
+  groundhog:
+    polygons: []
+  northAmericanPorcupine:
+    polygons: []
