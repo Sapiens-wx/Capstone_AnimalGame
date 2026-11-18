@@ -19,6 +19,9 @@ namespace AnimalGame.Animals.UI
     {
         public Shader compositeShader;
         public static bool BlocksGameplay { get; private set; }
+        private const float OpenHoldSeconds = .5f;
+        public static float OpenHoldProgress { get; private set; }
+        public static float OpenHoldElapsed => OpenHoldProgress * OpenHoldSeconds;
         private enum Page { Photos, Inspection, Catalog, Species }
         private sealed class Location
         {
@@ -361,10 +364,16 @@ namespace AnimalGame.Animals.UI
                 bool shoulder = Input.GetKey(KeyCode.JoystickButton4); lb |= shoulder && !leftShoulder; leftShoulder = shoulder;
             }
             if (!upHeld) { holdTime = 0; holdLatched = false; }
+            OpenHoldProgress = Mathf.Clamp01(holdTime / OpenHoldSeconds);
             if (!BlocksGameplay)
             {
                 if (Input.GetKeyDown(KeyCode.V)) { Open(); return; }
-                if (upHeld && !holdLatched) { holdTime += Time.unscaledDeltaTime; if (holdTime >= .5f) { holdLatched = true; Open(); } }
+                if (upHeld && !holdLatched)
+                {
+                    holdTime += Time.unscaledDeltaTime;
+                    OpenHoldProgress = Mathf.Clamp01(holdTime / OpenHoldSeconds);
+                    if (holdTime >= OpenHoldSeconds) { holdLatched = true; Open(); }
+                }
                 return;
             }
             bool deleteHeld = Input.GetKey(KeyCode.X) || AdaptiveLegacyGamepadInput.IsWestFaceButtonHeld();
@@ -423,7 +432,7 @@ namespace AnimalGame.Animals.UI
             }
         }
 
-        private void OnDisable() { if (root != null) Close(); }
+        private void OnDisable() { OpenHoldProgress = 0; if (root != null) Close(); }
         private void OnDestroy() { SaveSystem.Changed -= Refresh; photosView?.Dispose(); }
     }
 }

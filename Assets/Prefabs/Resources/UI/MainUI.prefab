@@ -261,7 +261,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  gamepadOpenHoldSeconds: 0.4
+  gamepadOpenHoldSeconds: 0.5
+  gamepadCloseHoldSeconds: 0.4
   inventoryRewards: {fileID: 11400000, guid: f8afad1a7512481e958dffe5fd896144, type: 2}
   newItemBlinkPeriod: 1
   inventoryStickDeadzone: 0.5

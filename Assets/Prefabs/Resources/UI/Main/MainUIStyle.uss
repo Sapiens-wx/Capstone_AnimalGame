@@ -7,6 +7,25 @@ Label {
     padding: 0;
 }
 
+.dpad-hold-hint {
+    position: absolute;
+    left: 48px; bottom: 39px;
+    width: 46.667px; height: 46.667px;
+    display: none;
+    overflow: visible;
+}
+.dpad-hold-caption {
+    position: absolute;
+    left: 60px; top: 1.333px;
+    height: 44px;
+    white-space: nowrap;
+    color: white;
+    font-size: 26px;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+    -unity-font-style: normal;
+    -unity-text-align: middle-left;
+}
+
 .stage {
     transform-origin: 50% 50%;
 }
