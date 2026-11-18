@@ -53,8 +53,9 @@ namespace AnimalGame.Editor
             settings.ApplyModifiedPropertiesWithoutUndo();
             Require(level.DynamicContourShader != null, "The existing contour shader is missing.");
             AssetDatabase.CreateAsset(level, LevelPath);
-            Selection.activeObject = level;
-            Require(EditorApplication.ExecuteMenuItem("Animal Game/Pre-Bake Height Map"), "Height prebake menu could not run.");
+            var tiled = TiledLevelAssetEditorUtility.WrapSingle(level);
+            Selection.activeObject = tiled;
+            Require(EditorApplication.ExecuteMenuItem(HeightMapPrebakeEditor.BakeMenuPath), "Height prebake menu could not run.");
             Require(level.PrebakedHeightField != null && level.PrebakedHeightField.Matches(level), "Height prebake failed.");
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -62,7 +63,7 @@ namespace AnimalGame.Editor
             mapObject.SetActive(false);
             var map = mapObject.AddComponent<MapTestSceneController>();
             var mapSettings = new SerializedObject(map);
-            mapSettings.FindProperty("levelAsset").objectReferenceValue = TiledLevelAssetEditorUtility.WrapSingle(level);
+            mapSettings.FindProperty("levelAsset").objectReferenceValue = tiled;
             // Match runtime resolution in the editor so the small ledges also line up there.
             mapSettings.FindProperty("editorHeightResolution").intValue = 513;
             mapSettings.ApplyModifiedPropertiesWithoutUndo();

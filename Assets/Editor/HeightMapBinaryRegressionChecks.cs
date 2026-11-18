@@ -14,6 +14,7 @@ namespace AnimalGame.Editor
         {
             string folder = "Assets/__BinaryHeightChecks_" + Guid.NewGuid().ToString("N");
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(folder));
+            Object previousSelection = Selection.activeObject;
             try
             {
                 var source = new Texture2D(17, 17, TextureFormat.R16, false, true);
@@ -72,10 +73,61 @@ namespace AnimalGame.Editor
                         "Malformed binary length was accepted.");
                 }
                 finally { Object.DestroyImmediate(invalid); }
+                VerifyTiledPrebake(folder, level, data);
                 Debug.Log("PASS: binary meter heights; all channels and interpolation; raw/detail deduplication; "
-                    + "distinct smoothing; imported assets; stable GUIDs on rebake; malformed data rejection; GPU texture; no height-array allocation on load.");
+                    + "distinct smoothing; imported assets; stable GUIDs on rebake; malformed data rejection; GPU texture; "
+                    + "no height-array allocation on load; tiled prebake output and cleanup.");
             }
-            finally { AssetDatabase.DeleteAsset(folder); }
+            finally
+            {
+                Selection.activeObject = previousSelection;
+                string resources = HeightMapAssetPaths.PrebakeDirectory(folder + "/Level.asset");
+                if (AssetDatabase.IsValidFolder(resources)) AssetDatabase.DeleteAsset(resources);
+                if (AssetDatabase.IsValidFolder(resources + "_Map")) AssetDatabase.DeleteAsset(resources + "_Map");
+                AssetDatabase.DeleteAsset(folder);
+            }
+        }
+
+        private static void VerifyTiledPrebake(string folder, HeightMapLevelAsset level, HeightMapPrebakedData legacy)
+        {
+            string mapName = Path.GetFileName(folder) + "_Map";
+            AssetDatabase.CreateFolder(folder, mapName);
+            string tiledPath = folder + "/" + mapName + "/TiledLevel.asset";
+            string directory = HeightMapAssetPaths.PrebakeDirectory(tiledPath);
+            var tiled = ScriptableObject.CreateInstance<TiledLevelAsset>();
+            tiled.Configure(level.MapSizeMeters, Vector2.one, level,
+                new[] { new TiledLevelAsset.Tile(Vector2Int.zero, level) });
+            AssetDatabase.CreateAsset(tiled, tiledPath);
+
+            HeightMapPrebakeEditor.Clean(tiled);
+            Require(level.PrebakedHeightField == legacy, "Cleaning changed an existing cache outside prebake_data.");
+
+            Selection.activeObject = level;
+            Require(EditorApplication.ExecuteMenuItem(HeightMapPrebakeEditor.BakeMenuPath), "Prebake menu could not run.");
+            var data = level.PrebakedHeightField;
+            Require(data != null && data.Matches(level) && data != legacy, "Tiled bake did not assign a new valid cache.");
+            foreach (Object asset in new Object[] { data, data.RawDetailHeightData, data.DetailHeightData,
+                data.SurfaceHeightData, data.SurfaceTexture })
+                Require(Path.GetDirectoryName(AssetDatabase.GetAssetPath(asset)).Replace('\\', '/') == directory,
+                    "An output was written outside the owning tiled level's prebake_data.");
+            Require(level.PrebakedHeightPath == HeightMapAssetPaths.ResourcePath(AssetDatabase.GetAssetPath(data)),
+                "Tile did not save its Resources path.");
+            using (var runtime = new TiledMapRuntime(tiled, true, spawnPosition: Vector2.zero))
+                Require(runtime.TrySample(Vector2.zero, out _) && !runtime.HasPendingLoads,
+                    "The spawn tile did not load synchronously.");
+
+            Directory.CreateDirectory(directory + "/Nested");
+            File.WriteAllText(directory + "/Nested/Unreferenced.txt", "test");
+            HeightMapPrebakeEditor.Clean(tiled);
+            Require(Directory.Exists(directory) && Directory.GetFileSystemEntries(directory).Length == 0,
+                "Cleaning did not empty prebake_data.");
+            Require(level.PrebakedHeightField == null && File.Exists(AssetDatabase.GetAssetPath(legacy))
+                && level.HeightMap != null, "Cleaning did not clear only the generated cache.");
+
+            Selection.activeObject = tiled;
+            Require(EditorApplication.ExecuteMenuItem(HeightMapPrebakeEditor.BakeMenuPath)
+                && level.PrebakedHeightField != null && level.PrebakedHeightField.Matches(level),
+                "Tiled level could not be baked after cleaning.");
         }
 
         private static void VerifySamples(HeightMapLevelAsset level)

@@ -14,8 +14,16 @@ namespace AnimalGame.MapTest
             string directory = Path.GetDirectoryName(levelPath).Replace('\\', '/');
             return IsOrganized(levelPath) ? directory + "/data" : directory;
         }
-        public static string PrebakePath(string levelPath) => DataDirectory(levelPath) + "/"
+        public static string PrebakePath(string levelPath, string outputDirectory = null) => (outputDirectory ?? DataDirectory(levelPath)) + "/"
             + Path.GetFileNameWithoutExtension(levelPath) + "_HeightPrebake.asset";
+
+        public const string ResourcesDirectory = "Assets/Resources/";
+
+        public static string PrebakeDirectory(string ownerPath) => ResourcesDirectory + "prebake_data/"
+            + Path.GetFileName(Path.GetDirectoryName(ownerPath));
+
+        public static string ResourcePath(string assetPath) => assetPath.Substring(ResourcesDirectory.Length,
+            assetPath.Length - ResourcesDirectory.Length - ".asset".Length);
     }
 }
 #endif

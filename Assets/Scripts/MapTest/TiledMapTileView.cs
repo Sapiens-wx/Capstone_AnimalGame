@@ -46,6 +46,8 @@ namespace AnimalGame.MapTest
 
         public void RefreshProperties(MaterialPropertyBlock properties)
         {
+            Renderer.enabled = tile.Field != null;
+            if (!Renderer.enabled) return;
             properties.Clear();
             var level = tile.Level;
             properties.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
@@ -82,6 +84,11 @@ namespace AnimalGame.MapTest
             }
             ConfigureWater(properties, tile);
             Renderer.SetPropertyBlock(properties);
+        }
+
+        public void RefreshNewlyLoaded(MaterialPropertyBlock properties)
+        {
+            if (!Renderer.enabled && tile.Field != null) RefreshProperties(properties);
         }
 
         internal static void ConfigureWater(MaterialPropertyBlock properties, TiledMapRuntime.Tile tile)

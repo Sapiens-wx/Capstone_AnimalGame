@@ -96,6 +96,7 @@ namespace AnimalGame.MapTest
         public float ContourIntervalMeters => contourIntervalMeters;
         public Color BackgroundColor => backgroundColor;
         public bool HasGeneratedMap => runtimeMap != null && tileViews.Count == runtimeMap.TileCount && tileViews.Count > 0;
+        public bool HasPendingHeightLoads => runtimeMap != null && runtimeMap.HasPendingLoads;
 #if UNITY_EDITOR
         public IReadOnlyList<SpriteRenderer> EditorTileRenderers => tileRenderers;
         public static event System.Action EditorTilesChanged;
@@ -159,7 +160,17 @@ namespace AnimalGame.MapTest
 
         private void Update()
         {
-            if (Application.isPlaying || rebuildingMap)
+            if (Application.isPlaying)
+            {
+                if (runtimeMap != null && runtimeMap.CompletePendingLoads())
+                {
+                    var properties = new MaterialPropertyBlock();
+                    foreach (var view in tileViews) view.RefreshNewlyLoaded(properties);
+                    nextVisibleRangeSampleTime = 0;
+                }
+                return;
+            }
+            if (rebuildingMap)
                 return;
 
             RefreshContourMaterialSettings();
@@ -172,9 +183,18 @@ namespace AnimalGame.MapTest
             }
         }
 
-        public float SampleHeight(Vector2 uv) => TrySampleMapPosition(Vector2.Scale(uv, MapSizeMeters), out float h) ? h : minimumHeightMeters;
-        public float SampleDetailHeight(Vector2 uv) => TrySampleDetailMapPosition(Vector2.Scale(uv, MapSizeMeters), out float h) ? h : minimumHeightMeters;
-        public float SampleRawDetailHeight(Vector2 uv) => TrySampleRawDetailMapPosition(Vector2.Scale(uv, MapSizeMeters), out float h) ? h : minimumHeightMeters;
+        public float SampleHeight(Vector2 uv) => SampleHeightChannel(uv, 0);
+        public float SampleDetailHeight(Vector2 uv) => SampleHeightChannel(uv, 1);
+        public float SampleRawDetailHeight(Vector2 uv) => SampleHeightChannel(uv, 2);
+
+        private float SampleHeightChannel(Vector2 uv, int channel)
+        {
+            Vector2 position = Vector2.Scale(uv, MapSizeMeters);
+            if (TrySample(position, out float height, channel)) return height;
+            if (HasPendingHeightLoads && runtimeMap.TryLocate(position, out var tile, out _) && tile.Field == null)
+                return 0f;
+            return minimumHeightMeters;
+        }
         public bool TrySampleWorldPosition(Vector2 worldPosition, out Vector2 mapPositionMeters, out float heightMeters)
         {
             mapPositionMeters = Vector2.zero;
@@ -344,7 +364,8 @@ namespace AnimalGame.MapTest
                     throw new System.InvalidOperationException("Tiled maps require positive scale and zero rotation.");
                 ApplyFixedLevelAsset();
                 runtimeMap = new TiledMapRuntime(levelAsset, Application.isPlaying,
-                    Application.isPlaying ? int.MaxValue : editorHeightResolution);
+                    Application.isPlaying ? int.MaxValue : editorHeightResolution,
+                    Application.isPlaying ? FindPlayerSpawn() : null);
                 CreateDynamicContourMaterial();
                 foreach (var tile in runtimeMap.Tiles)
                 {
@@ -379,6 +400,15 @@ namespace AnimalGame.MapTest
             }
         }
 
+        private Vector2 FindPlayerSpawn()
+        {
+            foreach (var root in gameObject.scene.GetRootGameObjects())
+            {
+                var bootstrap = root.GetComponentInChildren<HeightMapPlayerSceneBootstrap>();
+                if (bootstrap != null) return bootstrap.PlayerSpawnMapPositionMeters;
+            }
+            return Vector2.Scale(levelAsset.Tiles[0].coordinate, levelAsset.TileSizeMeters);
+        }
 
         private void ApplyFixedLevelAsset()
         {

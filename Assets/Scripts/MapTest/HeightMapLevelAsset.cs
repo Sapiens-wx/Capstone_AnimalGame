@@ -163,8 +163,9 @@ namespace AnimalGame.MapTest
         [SerializeField, Min(0f)] private float largeStepConfirmationDistanceMeters = 1f;
 
         [Header("Pre-Baked Height Field")]
-        [Tooltip("Generated with Animal Game/Pre-Bake Height Map after changing physical height settings.")]
-        [SerializeField] private HeightMapPrebakedData prebakedHeightField;
+        [Tooltip("Generated with Animal Game/Prebake/Prebake Height Map after changing physical height settings.")]
+        [SerializeField] private string prebakedHeightPath;
+        private HeightMapPrebakedData prebakedHeightField;
 
         [Header("Map Presentation")]
         [SerializeField, Min(1f)] private float contourIntervalMeters = 8f;
@@ -446,21 +447,25 @@ namespace AnimalGame.MapTest
             preserveLargeStepHeightMeters;
         public float LargeStepConfirmationDistanceMeters =>
             largeStepConfirmationDistanceMeters;
-        public HeightMapPrebakedData PrebakedHeightField
+        public string PrebakedHeightPath => prebakedHeightPath;
+
+        internal HeightMapPrebakedData LoadPrebakedHeightField()
         {
-            get
-            {
-                if (prebakedHeightField != null) return prebakedHeightField;
-#if UNITY_EDITOR
-                string localPath = LocalPrebakeCachePath;
-                if (localPath != null)
-                    return UnityEditor.AssetDatabase.LoadAssetAtPath<HeightMapPrebakedData>(localPath);
-#endif
-                return prebakedHeightField;
-            }
+            if (prebakedHeightField == null && !string.IsNullOrEmpty(prebakedHeightPath))
+                prebakedHeightField = Resources.Load<HeightMapPrebakedData>(prebakedHeightPath);
+            return prebakedHeightField;
         }
+
+        internal ResourceRequest RequestPrebakedHeightField() => string.IsNullOrEmpty(prebakedHeightPath)
+            ? null : Resources.LoadAsync<HeightMapPrebakedData>(prebakedHeightPath);
+
+        internal void AssignLoadedPrebake(HeightMapPrebakedData data) => prebakedHeightField = data;
+
 #if UNITY_EDITOR
-        public bool UsesLocalPrebakeCache => LocalPrebakeCachePath != null;
+        public HeightMapPrebakedData PrebakedHeightField => prebakedHeightField
+            ?? UnityEditor.AssetDatabase.LoadAssetAtPath<HeightMapPrebakedData>(
+                string.IsNullOrEmpty(prebakedHeightPath) ? LocalPrebakeCachePath
+                    : HeightMapAssetPaths.ResourcesDirectory + prebakedHeightPath + ".asset");
 
         private string LocalPrebakeCachePath
         {
@@ -471,7 +476,7 @@ namespace AnimalGame.MapTest
                 return path.StartsWith("Assets/Maps/TerrainGridV1/", StringComparison.Ordinal)
                     && path.EndsWith(".asset", StringComparison.Ordinal)
                     ? HeightMapAssetPaths.PrebakePath(path)
-                    : null;
+                    : string.Empty;
             }
         }
 #endif
@@ -710,6 +715,12 @@ namespace AnimalGame.MapTest
         public void SetPrebakedHeightField(HeightMapPrebakedData data)
         {
             prebakedHeightField = data;
+        }
+
+        public void SetPrebakedHeightPath(string path)
+        {
+            prebakedHeightPath = path;
+            prebakedHeightField = null;
         }
 
         public IReadOnlyList<TerrainSurfaceDefinition> SurfacePalette =>

@@ -23,7 +23,7 @@ MonoBehaviour:
   detailSmoothingSigmaMeters: 0
   preserveLargeStepHeightMeters: 1.8
   largeStepConfirmationDistanceMeters: 1
-  prebakedHeightField: {fileID: 11400000, guid: b1ba0006e5ca8684f97cb4bcb1cba335, type: 2}
+  prebakedHeightPath:
   contourIntervalMeters: 7
   dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}
   minimumContourWidth: 0.7
