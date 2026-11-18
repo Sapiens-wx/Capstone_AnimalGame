@@ -440,7 +440,8 @@ namespace AnimalGame.World.Map
                 if (coordinatesVisible) coordinatesHiding = true;
             }
             // Start rotating 0.15 seconds before the one-second text reveal delay.
-            bool rotateOpen = !coordinatesHiding && now - hoverIdleSince >= .85f;
+            const float coordinateRevealDelay = .5f;
+            bool rotateOpen = !coordinatesHiding && now - hoverIdleSince >= coordinateRevealDelay - .15f;
             coordinateRotationProgress = Mathf.MoveTowards(coordinateRotationProgress,
                 rotateOpen ? 1f : 0f, Time.unscaledDeltaTime / .3f);
             cursor.style.rotate = new Rotate(120f * Mathf.SmoothStep(0f, 1f, coordinateRotationProgress));
@@ -450,7 +451,7 @@ namespace AnimalGame.World.Map
                 if (coordinatesVisible) UpdateCoordinateMask();
                 return;
             }
-            if (now - hoverIdleSince < 1f) return;
+            if (now - hoverIdleSince < coordinateRevealDelay) return;
             if (!coordinatesVisible)
             {
                 var level = map.LevelAsset;

@@ -9,7 +9,7 @@ Label {
 
 .dpad-hold-hint {
     position: absolute;
-    left: 48px; bottom: 39px;
+    left: 66px; bottom: 39px;
     width: 46.667px; height: 46.667px;
     display: none;
     overflow: visible;

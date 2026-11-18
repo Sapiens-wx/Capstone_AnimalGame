@@ -6,7 +6,7 @@ namespace AnimalGame.RobotArm
     {
         [Header("Inventory arm presentation")]
         [SerializeField, Range(.1f, .9f)] private float inventoryHandReachOfArmLength = .18f;
-        [SerializeField, Min(.01f)] private float inventoryArmPoseDuration = .25f;
+        [SerializeField, Min(.01f)] private float inventoryArmPoseDuration = 1f;
         [SerializeField, Range(0f, .5f)] private float inventoryHandHorizontalRangeOfBody = .18f;
         [SerializeField, Range(0f, 90f)] private float inventoryBodyArmAngleDegrees = 15f;
 
@@ -44,7 +44,7 @@ namespace AnimalGame.RobotArm
             if (!initialized || !isActiveAndEnabled || !CanOperate) return;
             inventoryPresentationActive = inventoryPresentationOpen = true;
             inventoryArmPoseElapsed = 0f;
-            inventoryArmStartTarget = deploymentTime > .00001f ? NormalHandCentre
+            inventoryArmStartTarget = HandsDeployed ? NormalHandCentre
                 : Vector2.up * armLength * .8f;
             inventoryArmGoal = Vector2.up * armLength * inventoryHandReachOfArmLength;
             inventoryPoseRandom ??= new System.Random(GetInstanceID());
@@ -72,6 +72,7 @@ namespace AnimalGame.RobotArm
                 : inventoryPoseRandom.NextDouble() < .5 ? -1f : 1f;
             inventoryArmStartTarget = targetLocal;
             inventoryArmGoal.x = direction * range * Mathf.Lerp(.35f, 1f, (float)inventoryPoseRandom.NextDouble());
+            if (!HandsDeployed) inventoryArmStartTarget = Vector2.up * armLength * .8f;
             inventoryArmPoseElapsed = 0f;
         }
 
@@ -79,12 +80,28 @@ namespace AnimalGame.RobotArm
         {
             Pose pose = DesiredPose(arm, deploymentTime);
             pose.HasSocket = false;
+            // Lower is the body-side thick segment; Upper is the hand-side segment.
+            bool turningBodyArm = inventoryPresentationOpen
+                && Mathf.Abs(Mathf.DeltaAngle(arm.Pose.LowerAngle, inventoryBodyArmAngleDegrees)) > .01f;
             pose.LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle,
                 inventoryBodyArmAngleDegrees,
                 180f * stepDelta / inventoryArmPoseDuration);
+            if (turningBodyArm)
+            {
+                // Carry the forearm with the elbow, retaining its bend until the body arm stops.
+                pose.UpperAngle = arm.Pose.UpperAngle
+                    + Mathf.DeltaAngle(arm.Pose.LowerAngle, pose.LowerAngle);
+                return pose;
+            }
             Vector2 elbow = arm.Socket + Direction(pose.LowerAngle) * arm.LowerLength;
-            Vector2 desired = targetLocal;
-            pose.UpperAngle = Vector2.SignedAngle(Vector2.up, desired - elbow);
+            // Aim directly at the final hand position, rather than chasing the interpolated
+            // target through the elbow and reversing the forearm partway through its turn.
+            Vector2 desired = inventoryPresentationOpen ? inventoryArmGoal : targetLocal;
+            float handArmAngle = Vector2.SignedAngle(Vector2.up, desired - elbow);
+            pose.UpperAngle = inventoryPresentationOpen
+                ? Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, handArmAngle,
+                    180f * stepDelta / inventoryArmPoseDuration)
+                : handArmAngle;
             return pose;
         }
 
@@ -102,18 +119,26 @@ namespace AnimalGame.RobotArm
             IsRecycleReady = IsBlocked = false;
             IsArmModeActive = inventoryPresentationOpen;
             mover.SetArmInputCaptured(false);
-            if (inventoryPresentationOpen)
+            // Finish the ordinary mirrored deployment before moving the right hand to the chest.
+            bool readyForInventoryPose = HandsDeployed;
+            bool bodyArmAligned = Mathf.Abs(Mathf.DeltaAngle(right.Pose.LowerAngle,
+                inventoryBodyArmAngleDegrees)) <= .01f;
+            if (inventoryPresentationOpen && readyForInventoryPose && bodyArmAligned)
             {
                 inventoryArmPoseElapsed = Mathf.Min(inventoryArmPoseDuration, inventoryArmPoseElapsed + stepDelta);
                 targetLocal = Vector2.Lerp(inventoryArmStartTarget,
                     inventoryArmGoal,
                     Mathf.SmoothStep(0f, 1f, inventoryArmPoseElapsed / inventoryArmPoseDuration));
             }
+            else if (inventoryPresentationOpen)
+                targetLocal = Vector2.up * armLength * .8f;
             deploymentTime = inventoryPresentationOpen
-                ? Mathf.Min(TotalDeploymentTime, deploymentTime + stepDelta)
+                ? Mathf.Min(TotalDeploymentTime, deploymentTime + stepDelta * 2f)
                 : Mathf.Max(0f, deploymentTime - stepDelta * TotalDeploymentTime / retractDuration);
             left.Pose = DesiredPose(left, deploymentTime, Vector2.up * armLength * .8f);
-            right.Pose = InventoryPose(right);
+            right.Pose = inventoryPresentationOpen && !readyForInventoryPose
+                ? DesiredPose(right, deploymentTime, Vector2.up * armLength * .8f)
+                : InventoryPose(right);
             State = inventoryPresentationOpen ? HandsDeployed ? RobotArmState.OuterOperating : RobotArmState.Extending
                 : deploymentTime > 0f ? RobotArmState.Retracting : RobotArmState.Retracted;
             SetHandGrip(false);

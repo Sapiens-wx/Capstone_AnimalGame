@@ -1130,7 +1130,7 @@ MonoBehaviour:
   inventoryHandReachOfArmLength: 0.18
   inventoryHandHorizontalRangeOfBody: 0.18
   inventoryBodyArmAngleDegrees: 15
-  inventoryArmPoseDuration: 0.25
+  inventoryArmPoseDuration: 1
   normalSpeedExponent: 1.5
   normalFollowEnterMagnitude: 0.45
   normalFollowExitMagnitude: 0.35
