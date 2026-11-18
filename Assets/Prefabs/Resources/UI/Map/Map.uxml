@@ -11,6 +11,18 @@
         <ui:VisualElement name="pin-1" class="map-circle" picking-mode="Ignore" />
         <ui:VisualElement name="pin-2" class="map-circle" picking-mode="Ignore" />
         <ui:VisualElement name="map-cursor" picking-mode="Ignore" />
+        <ui:VisualElement name="map-north" picking-mode="Ignore">
+            <ui:Label name="map-north-label" text="N" picking-mode="Ignore" />
+        </ui:VisualElement>
+       </ui:VisualElement>
+       <ui:VisualElement name="map-pin-selector" picking-mode="Ignore">
+            <ui:Label name="map-pin-previous-key" text="LB" class="map-pin-cycle-key" picking-mode="Ignore" />
+            <ui:VisualElement name="map-pin-options" picking-mode="Ignore">
+                <ui:VisualElement name="map-pin-choice-0" class="map-pin-choice" picking-mode="Ignore" />
+                <ui:VisualElement name="map-pin-choice-1" class="map-pin-choice" picking-mode="Ignore" />
+                <ui:VisualElement name="map-pin-choice-2" class="map-pin-choice" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:Label name="map-pin-next-key" text="RB" class="map-pin-cycle-key" picking-mode="Ignore" />
        </ui:VisualElement>
       </ui:VisualElement>
         <ui:VisualElement name="map-controls" picking-mode="Ignore">
