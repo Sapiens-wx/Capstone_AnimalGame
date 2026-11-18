@@ -22,12 +22,16 @@ namespace AnimalGame.MainUI.Inventory
     {
         public InventoryRewardTable Rewards;
         public VisualTreeAsset ItemTemplate;
-        public float BlinkPeriod, StickDeadzone, RepeatDelay, RepeatInterval, OpenHoldSeconds;
+        public float BlinkPeriod, StickDeadzone, RepeatDelay, RepeatInterval, OpenHoldSeconds, CloseHoldSeconds;
     }
 
     public sealed class InventoryController : IDisposable
     {
         public const int SlotCount = 8;
+        public float OpenHoldProgress => Mathf.Clamp01(openHoldElapsed / Mathf.Max(.1f, settings.OpenHoldSeconds));
+        public float OpenHoldElapsed => openHoldElapsed;
+        public float CloseHoldProgress => Mathf.Clamp01(closeHoldElapsed / Mathf.Max(.1f, settings.CloseHoldSeconds));
+        public float CloseHoldElapsed => closeHoldElapsed;
         private readonly IInventoryHost host;
         private InventoryControllerSettings settings;
         private VisualElement root, inventory, grid;
@@ -461,7 +465,7 @@ namespace AnimalGame.MainUI.Inventory
         private bool IsCloseHoldPending()
         {
             if (!host.IsInventoryOpen || closeHoldLatched
-                || closeHoldElapsed + Time.unscaledDeltaTime < Mathf.Max(.1f, settings.OpenHoldSeconds))
+                || closeHoldElapsed + Time.unscaledDeltaTime < Mathf.Max(.1f, settings.CloseHoldSeconds))
                 return false;
 #if ENABLE_INPUT_SYSTEM
             foreach (Gamepad pad in Gamepad.all)
@@ -564,7 +568,7 @@ namespace AnimalGame.MainUI.Inventory
             else if (!closeHoldLatched)
             {
                 closeHoldElapsed += Time.unscaledDeltaTime;
-                if (closeHoldElapsed >= Mathf.Max(.1f, settings.OpenHoldSeconds))
+                if (closeHoldElapsed >= Mathf.Max(.1f, settings.CloseHoldSeconds))
                 {
                     closeHoldLatched = true;
                     openHoldElapsed = 0f;

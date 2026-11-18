@@ -15,7 +15,7 @@ namespace AnimalGame.MainUI
     [DefaultExecutionOrder(-200)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UIDocument))]
-    public sealed class MainUI : MonoBehaviour, IInventoryHost
+    public sealed partial class MainUI : MonoBehaviour, IInventoryHost
     {
         [SerializeField] private UIDocument document;
         [SerializeField] private GameObject animalDebugPrefab;
@@ -40,7 +40,8 @@ namespace AnimalGame.MainUI
             new Keyframe(1f, 1f, 0f, 0f));
         [Tooltip("Seconds to hold D-pad right to open, or D-pad left to close, the inventory.")]
         [InspectorName("Gamepad Inventory Hold Seconds")]
-        [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .4f;
+        [SerializeField, Min(.1f)] private float gamepadOpenHoldSeconds = .5f;
+        [SerializeField, Min(.1f)] private float gamepadCloseHoldSeconds = .4f;
 
         [Header("Inventory interactions")]
         [SerializeField] private InventoryRewardTable inventoryRewards;
@@ -61,7 +62,7 @@ namespace AnimalGame.MainUI
                     Rewards = inventoryRewards, ItemTemplate = emptyItemTemplate,
                     BlinkPeriod = newItemBlinkPeriod, StickDeadzone = inventoryStickDeadzone,
                     RepeatDelay = inventoryRepeatDelay, RepeatInterval = inventoryRepeatInterval,
-                    OpenHoldSeconds = gamepadOpenHoldSeconds
+                    OpenHoldSeconds = gamepadOpenHoldSeconds, CloseHoldSeconds = gamepadCloseHoldSeconds
                 });
                 inventoryController.InitializeInventoryData(defaultItems);
                 return inventoryController;
@@ -176,6 +177,7 @@ namespace AnimalGame.MainUI
             if (nextRoot == null) return;
             root = nextRoot;
             stage = root.Q("Stage");
+            dpadHoldHint = root.Q<DpadHoldHintElement>("DpadHoldHint");
             view = root.Q("HudView");
             ring = root.Q("ViewRing");
             innerRing = root.Q<ViewRingElement>("InnerRing");
@@ -249,6 +251,7 @@ namespace AnimalGame.MainUI
             if (bootstrap != null && bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing) return;
             if (inventoryOpen) return;
             inventoryOpen = true;
+            dpadHintVisibleUntil = 0f;
             AcquirePause();
             InventoryOpenChanged?.Invoke(true);
         }
@@ -257,6 +260,7 @@ namespace AnimalGame.MainUI
             inventoryController?.ResetInventoryInteraction();
             if (!inventoryOpen) return;
             inventoryOpen = false;
+            dpadHintVisibleUntil = 0f;
             InventoryOpenChanged?.Invoke(false);
         }
 
@@ -314,7 +318,11 @@ namespace AnimalGame.MainUI
             powerRingFlickerRemaining = (powerRingLit ? powerRingOnDuration : powerRingOffDuration).Sample();
         }
 
-        private void LateUpdate() => RefreshLatePresentation();
+        private void LateUpdate()
+        {
+            RefreshLatePresentation();
+            RefreshDpadHoldHint();
+        }
 
         private void UpdateLevelIndicator()
         {
