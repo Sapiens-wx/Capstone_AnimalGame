@@ -8721,8 +8721,6 @@ MonoBehaviour:
   contourIntervalMeters: 8
   editorHeightResolution: 512
   dynamicContourShader: {fileID: 4800000, guid: 66c17e2481f6472cb3cd86fe63c9f57a, type: 3}
-  dashSubmergedContours: 0
-  smoothContourEdges: 0
   minimumContourOpacity: 0.15
   maximumContourOpacity: 1
   outsideRevealDarkening: 0.85
