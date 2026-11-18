@@ -26,14 +26,19 @@
         { path: "event:/Robot/Terrain/WaterMove", file: "Terrain/T01_Water_Move_Loop.wav", loop: true,
             loopStart: 0.08, loopEnd: 54.4473242630, crossfade: 0.20 },
         { path: "event:/Robot/Terrain/BushCrush", file: "Terrain/T02_Bush_Crush_Loop.wav", loop: true,
-            loopStart: 0, loopEnd: 18.6410657596, crossfade: 0.10 },
-        { path: "event:/Robot/Terrain/DeadTreeImpact", file: "Terrain/T03_DeadTree_Impact.wav" },
-        { path: "event:/Robot/Terrain/LiveTreeImpact", file: "Terrain/T04_LiveTree_Impact.wav" },
+            loopStart: 0, loopEnd: 5.4982086167, crossfade: 0.10 },
+        { path: "event:/Robot/Terrain/DeadTreeImpact", file: "Terrain/T03_DeadTree_Impact.wav", trimEnd: 1.102 },
+        { path: "event:/Robot/Terrain/LiveTreeImpact", file: "Terrain/T04_LiveTree_Impact.wav", trimEnd: 1.102 },
         // Exclude only the exact two-second silent export tail in event metadata.
         // The WAV remains complete. Runtime randomizes within this audible loop.
         { path: "event:/Robot/Terrain/ReedRustle", file: "Terrain/T05_Reed_Rustle_Loop.wav", loop: true,
             trimEnd: 32.1167800453, loopStart: 0, loopEnd: 32.0167, crossfade: 0.10 },
-        { path: "event:/Robot/Terrain/RuinImpact", file: "Terrain/T06_Ruin_Metal_Impact.wav" },
+        { path: "event:/Robot/Terrain/RuinImpact", file: "Terrain/T06_Ruin_Metal_Impact.wav", trimEnd: 1.600 },
+        { path: "event:/Robot/Terrain/BigGarbageImpact", layers: [
+            { file: "Terrain/T07_Garbage_Impact.wav", track: "Impact", trimEnd: 1.0, volumeDb: -1.5 },
+            { file: "Arm/A09_Drop_01.wav", sourceRoot: reusedSourceRoot, track: "Garbage Drop",
+                trimStart: 0.075, trimEnd: 0.750, timelineStart: 0.035, volumeDb: -4.436975, fadeIn: 0.005 }
+        ] },
         // Six inventory deliveries; Discard follows the confirmed inventory deletion.
         { path: "event:/Robot/Inventory/Open", file: "C01_Inventory_Open.wav", sourceRoot: inventorySourceRoot,
             trimEnd: 0.50, fadeOut: 0.04 },
@@ -149,7 +154,7 @@
     function closeEnough(a, b) { return Math.abs(a - b) < 0.000001; }
     function leafName(path) { return path.substring(path.lastIndexOf("/") + 1); }
     function layersFor(definition) { return definition.layers || [definition]; }
-    function sourcePath(definition, layer) { return (definition.sourceRoot || sourceRoot) + layer.file; }
+    function sourcePath(definition, layer) { return (layer.sourceRoot || definition.sourceRoot || sourceRoot) + layer.file; }
     function timelineStart(layer) {
         var start = layer.timelineStart === undefined ? 0 : layer.timelineStart;
         requireCondition(typeof start === "number" && isFinite(start) && start >= 0,

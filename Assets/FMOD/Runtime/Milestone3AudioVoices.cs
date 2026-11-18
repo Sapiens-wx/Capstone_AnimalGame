@@ -28,7 +28,7 @@ namespace Capstone.Audio
             internal bool Active, Failed, Fading, Paused, RecycleHolding;
             internal PARAMETER_ID RecycleHoldId;
             internal float Gain, Envelope = 1f, LastVolume = -1f, PollTime;
-            internal float AppliedPitch = 1f, FadeInSeconds;
+            internal float AppliedPitch = 1f, FadeInSeconds, FadeOutRate;
             internal int LengthMilliseconds;
         }
         private readonly Milestone3AudioSettings settings;
@@ -312,8 +312,15 @@ namespace Capstone.Audio
         private void StopSlot(Slot slot, bool immediate)
         {
             if (!slot.Active) return;
-            if (immediate || slot.Paused || settings.FadeOutSeconds <= 0f) Release(slot);
-            else slot.Fading = true;
+            float seconds = slot.Cue == Milestone3Cue.WaterMove ? settings.WaterFadeOutSeconds : settings.FadeOutSeconds;
+            if (immediate || slot.Paused || seconds <= 0f) Release(slot);
+            else if (!slot.Fading)
+            {
+                // Water keeps its full release time even if motion ends during the attack.
+                float start = slot.Cue == Milestone3Cue.WaterMove ? slot.Envelope : 1f;
+                slot.FadeOutRate = start / Mathf.Max(0.001f, seconds);
+                slot.Fading = true;
+            }
         }
         internal void Tick(float deltaTime)
         {
@@ -323,9 +330,10 @@ namespace Capstone.Audio
                 if (!slot.Active || slot.Paused) continue;
                 if (slot.Fading || slot.Envelope < 1f)
                 {
-                    slot.Envelope = Mathf.MoveTowards(slot.Envelope, slot.Fading ? 0f : 1f,
-                        deltaTime / Mathf.Max(0.001f, !slot.Fading && slot.FadeInSeconds > 0f
-                            ? slot.FadeInSeconds : settings.FadeOutSeconds));
+                    float step = slot.Fading ? deltaTime * slot.FadeOutRate
+                        : deltaTime / Mathf.Max(0.001f, slot.FadeInSeconds > 0f
+                            ? slot.FadeInSeconds : settings.FadeOutSeconds);
+                    slot.Envelope = Mathf.MoveTowards(slot.Envelope, slot.Fading ? 0f : 1f, step);
                     ApplyVolume(slot);
                     if (!slot.Active) continue;
                     if (slot.Envelope <= 0f) { Release(slot); continue; }

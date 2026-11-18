@@ -14,7 +14,8 @@ namespace Capstone.Audio
         HeavyBreak, FragmentScatter, GarbageSlide, GarbageBreak, GarbageImpact,
         BushRustle, SmallGarbageClimb, ClimbableLand, ScanDeploy, ScanReady, ScanHit,
         RecycleCrush, RecycleCrushSmall, HeavyTearMiddle, HeavyTearLate,
-        WaterMove, BushCrush, DeadTreeImpact, LiveTreeImpact, ReedRustle, RuinImpact, Count
+        WaterMove, BushCrush, DeadTreeImpact, LiveTreeImpact, ReedRustle, RuinImpact,
+        BigGarbageImpact, Count
     }
 
     internal enum Milestone3Parameter { Speed, Progress, Effort, Impact, Count }
@@ -52,7 +53,8 @@ namespace Capstone.Audio
             "event:/Robot/Garbage/HeavyTearMiddle", "event:/Robot/Garbage/HeavyTearLate",
             "event:/Robot/Terrain/WaterMove", "event:/Robot/Terrain/BushCrush",
             "event:/Robot/Terrain/DeadTreeImpact", "event:/Robot/Terrain/LiveTreeImpact",
-            "event:/Robot/Terrain/ReedRustle", "event:/Robot/Terrain/RuinImpact"
+            "event:/Robot/Terrain/ReedRustle", "event:/Robot/Terrain/RuinImpact",
+            "event:/Robot/Terrain/BigGarbageImpact"
         };
 
         private static readonly string[] Files =
@@ -79,7 +81,8 @@ namespace Capstone.Audio
             "HeavyGarbage/G05_G09_HeavyPull_Tear.wav", "HeavyGarbage/G05_G09_HeavyPull_Tear.wav",
             "Terrain/T01_Water_Move_Loop.wav", "Terrain/T02_Bush_Crush_Loop.wav",
             "Terrain/T03_DeadTree_Impact.wav", "Terrain/T04_LiveTree_Impact.wav",
-            "Terrain/T05_Reed_Rustle_Loop.wav", "Terrain/T06_Ruin_Metal_Impact.wav"
+            "Terrain/T05_Reed_Rustle_Loop.wav", "Terrain/T06_Ruin_Metal_Impact.wav",
+            "Terrain/T07_Garbage_Impact.wav"
         };
 
         private static readonly string[,] ParameterNames = CreateParameterNames();

@@ -71,6 +71,7 @@ namespace Capstone.Audio
             }
             terrainCollision = config.HasCue(Milestone3Cue.DeadTreeImpact)
                 || config.HasCue(Milestone3Cue.LiveTreeImpact) || config.HasCue(Milestone3Cue.RuinImpact)
+                || config.HasCue(Milestone3Cue.BigGarbageImpact)
                 ? new Milestone3TerrainCollisionAudio(config, voices) : null;
             if (terrainCollision != null)
             {
