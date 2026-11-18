@@ -101,7 +101,6 @@ namespace AnimalGame.MapTest
         public static event System.Action EditorTilesChanged;
 #endif
 
-        // Capture reads the live contour material; it never owns or destroys this renderer.
         internal IReadOnlyList<SpriteRenderer> PhotoContourRenderers => tileRenderers;
 
         internal void GetPhotoSnapshotCircle(out Vector2 centerPixels, out float radiusPixels)
@@ -360,7 +359,7 @@ namespace AnimalGame.MapTest
                 }
                 else ShowCompleteContourRange();
                 RefreshSurfaceMaterialSettings();
-                RefreshTileMaterials();
+                RefreshTileProperties();
                 generatedForPlayMode = Application.isPlaying;
                 editorConfigurationHash = CalculateEditorConfigurationHash();
             }
@@ -439,7 +438,7 @@ namespace AnimalGame.MapTest
         private void RefreshEditorSurfaceIfChanged()
         {
             RefreshSurfaceMaterialSettings();
-            RefreshTileMaterials();
+            RefreshTileProperties();
         }
 
 
@@ -456,10 +455,11 @@ namespace AnimalGame.MapTest
             contourMaterial = new Material(shader) { name = "Shared Map Presentation", hideFlags = HideFlags.DontSave };
             RefreshContourMaterialSettings();
         }
-        private void RefreshTileMaterials()
+        private void RefreshTileProperties()
         {
             if (contourMaterial == null) return;
-            foreach (var view in tileViews) view.Refresh(contourMaterial);
+            var properties = new MaterialPropertyBlock();
+            foreach (var view in tileViews) view.RefreshProperties(properties);
         }
 
 
@@ -498,8 +498,6 @@ namespace AnimalGame.MapTest
             lastViewportUpdateFrame = Time.frameCount;
             UpdateVisibleContourRange(cameraToRender);
             RefreshSurfaceMaterialSettings();
-            foreach (var view in tileViews)
-                view.UpdateRuntimeSettings(contourMaterial);
         }
 
         private void UpdateVisibleContourRange(Camera cameraToSample)

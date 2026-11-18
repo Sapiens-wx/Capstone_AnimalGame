@@ -9,14 +9,13 @@ namespace AnimalGame.MapTest
         public SpriteRenderer Renderer { get; private set; }
         private readonly TiledMapRuntime.Tile tile;
         private Sprite sprite;
-        private Material material;
         private GameObject root;
         private Matrix4x4 grassMetersToWorld;
         private Vector4 grassTileOrigin;
 
         public TiledMapTileView(TiledMapRuntime.Tile tile) { this.tile = tile; }
 
-        public void Build(Transform parent, TiledLevelAsset definition, Material sharedSettings)
+        public void Build(Transform parent, TiledLevelAsset definition, Material sharedMaterial)
         {
             try
             {
@@ -40,56 +39,49 @@ namespace AnimalGame.MapTest
                 Renderer = root.AddComponent<SpriteRenderer>();
                 Renderer.sprite = sprite;
                 Renderer.sortingOrder = -1000;
-                material = new Material(sharedSettings) { hideFlags = HideFlags.DontSave, name = "Tile Contours " + tile.Coordinate };
-                Renderer.sharedMaterial = material;
-                Refresh(sharedSettings);
+                Renderer.sharedMaterial = sharedMaterial;
             }
             catch { Dispose(); throw; }
         }
 
-        public void Refresh(Material sharedSettings)
+        public void RefreshProperties(MaterialPropertyBlock properties)
         {
-            material.CopyPropertiesFromMaterial(sharedSettings);
+            properties.Clear();
             var level = tile.Level;
-            material.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
-            material.SetFloat("_MinimumHeight", level.MinimumHeightMeters);
-            material.SetFloat("_MaximumHeight", level.MaximumHeightMeters);
-            material.SetVector("_MapSizeMeters", new Vector4(level.MapSizeMeters.x, level.MapSizeMeters.y, 0, 0));
-            material.SetTexture("_SurfaceTex", level.BakedSurfaceVisual ?? Texture2D.blackTexture);
-            material.SetFloat("_SurfaceEnabled", level.BakedSurfaceVisual != null ? 1 : 0);
+            properties.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
+            properties.SetFloat("_MinimumHeight", level.MinimumHeightMeters);
+            properties.SetFloat("_MaximumHeight", level.MaximumHeightMeters);
+            properties.SetVector("_MapSizeMeters", new Vector4(level.MapSizeMeters.x, level.MapSizeMeters.y, 0, 0));
+            Texture2D surface = level.BakedSurfaceVisual;
+            bool hasSurface = surface != null;
+            properties.SetTexture("_SurfaceTex", hasSurface ? surface : Texture2D.blackTexture);
+            properties.SetFloat("_SurfaceEnabled", hasSurface ? 1 : 0);
             bool grass = level.BakedGrasslandMask != null && level.GrasslandPattern != null;
-            material.SetFloat("_GrassEnabled", grass ? 1 : 0);
+            properties.SetFloat("_GrassEnabled", grass ? 1 : 0);
             if (grass)
             {
-                material.SetTexture("_GrassMaskTex", level.BakedGrasslandMask);
-                material.SetTexture("_GrassPatternTex", level.GrasslandPattern);
-                material.SetTexture("_GrassOverlay1", level.Grass1 ?? Texture2D.blackTexture);
-                material.SetTexture("_GrassOverlay2", level.Grass2 ?? Texture2D.blackTexture);
-                material.SetTexture("_GrassOverlay3", level.Grass3 ?? Texture2D.blackTexture);
-                material.SetVector("_GrassOverlaySettings", level.GrassOverlaySettings);
-                material.SetVector("_GrassContourOpacity", new Vector4(level.SurfaceClosedContourEdgeAlphaMultiplier,
+                properties.SetTexture("_GrassMaskTex", level.BakedGrasslandMask);
+                properties.SetTexture("_GrassPatternTex", level.GrasslandPattern);
+                Texture2D grass1 = level.Grass1;
+                Texture2D grass2 = level.Grass2;
+                Texture2D grass3 = level.Grass3;
+                if (grass1 != null) properties.SetTexture("_GrassOverlay1", grass1);
+                if (grass2 != null) properties.SetTexture("_GrassOverlay2", grass2);
+                if (grass3 != null) properties.SetTexture("_GrassOverlay3", grass3);
+                properties.SetVector("_GrassOverlaySettings", level.GrassOverlaySettings);
+                properties.SetVector("_GrassContourOpacity", new Vector4(level.SurfaceClosedContourEdgeAlphaMultiplier,
                     level.SurfaceClosedContourCenterAlphaMultiplier, .02f, .035f));
-                material.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
-                material.SetFloat("_GrassTileSize", level.GrasslandTileSizeMeters);
-                material.SetVector("_GrassLayout", level.GrasslandLayout);
-                material.SetVector("_GrassShape", level.GrasslandShape);
+                properties.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
+                properties.SetFloat("_GrassTileSize", level.GrasslandTileSizeMeters);
+                properties.SetVector("_GrassLayout", level.GrasslandLayout);
+                properties.SetVector("_GrassShape", level.GrasslandShape);
                 Vector2 normalization = level.GrasslandAlphaNormalization;
-                material.SetVector("_GrassAlphaNormalization", new Vector4(normalization.x, normalization.y, 0, 0));
-                material.SetMatrix("_GrassMetersToWorld", grassMetersToWorld);
-                material.SetVector("_GrassTileOrigin", grassTileOrigin);
+                properties.SetVector("_GrassAlphaNormalization", new Vector4(normalization.x, normalization.y, 0, 0));
+                properties.SetMatrix("_GrassMetersToWorld", grassMetersToWorld);
+                properties.SetVector("_GrassTileOrigin", grassTileOrigin);
             }
-            var waterProperties = new MaterialPropertyBlock();
-            ConfigureWater(waterProperties, tile);
-            Renderer.SetPropertyBlock(waterProperties);
-        }
-
-        // Camera-dependent values stay live; authored settings are applied by Build/Refresh.
-        public void UpdateRuntimeSettings(Material sharedSettings)
-        {
-            material.SetFloat("_VisibleMinimumHeight", sharedSettings.GetFloat("_VisibleMinimumHeight"));
-            material.SetFloat("_VisibleMaximumHeight", sharedSettings.GetFloat("_VisibleMaximumHeight"));
-            material.SetVector("_SurfaceRevealCenterPixels", sharedSettings.GetVector("_SurfaceRevealCenterPixels"));
-            material.SetFloat("_SurfaceRevealRadiusPixels", sharedSettings.GetFloat("_SurfaceRevealRadiusPixels"));
+            ConfigureWater(properties, tile);
+            Renderer.SetPropertyBlock(properties);
         }
 
         internal static void ConfigureWater(MaterialPropertyBlock properties, TiledMapRuntime.Tile tile)
@@ -120,8 +112,8 @@ namespace AnimalGame.MapTest
 
         public void Dispose()
         {
-            Destroy(root); Destroy(material); Destroy(sprite);
-            root = null; material = null; sprite = null; Renderer = null;
+            Destroy(root); Destroy(sprite);
+            root = null; sprite = null; Renderer = null;
         }
         private static void Destroy(UnityEngine.Object value)
         {

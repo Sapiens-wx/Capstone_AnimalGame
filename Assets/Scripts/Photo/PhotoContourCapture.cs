@@ -21,8 +21,7 @@ namespace AnimalGame.RobotMap
             RadiusViewportHeight = 0.4f;
             if (source == null || map == null || map.PhotoContourRenderers.Count == 0) return false;
             var terrains = new HashSet<SpriteRenderer>(map.PhotoContourRenderers);
-            var originals = new Dictionary<SpriteRenderer, Material>();
-            var temporaryMaterials = new List<Material>();
+            var originals = new Dictionary<SpriteRenderer, MaterialPropertyBlock>();
             map.GetPhotoSnapshotCircle(out Vector2 center, out float radius);
             radius = Mathf.Max(1, radius);
             CenterViewport = new Vector2(center.x / Screen.width, center.y / Screen.height);
@@ -61,19 +60,19 @@ namespace AnimalGame.RobotMap
                 crop.m13 = -cy * crop.m11;
                 camera.projectionMatrix = crop * source.projectionMatrix;
 
+                var snapshotProperties = new MaterialPropertyBlock();
                 foreach (var terrain in terrains)
                 {
-                    originals.Add(terrain, terrain.sharedMaterial);
-                    var material = new Material(terrain.sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
-                    temporaryMaterials.Add(material);
-                    // Hide tall grass only in the frozen result-map snapshot.
-                    material.SetVector("_GrassOverlaySettings", Vector4.zero);
-                    material.SetFloat("_SurfaceEnabled", 0);
-                    material.SetFloat("_PhotoContoursOnly", 1);
-                    material.SetFloat("_SurfaceRevealEnabled", 0);
-                    material.SetFloat("_WaterEnabled", 0);
-                    material.SetColor("_ContourColor", Color.white);
-                    terrain.sharedMaterial = material;
+                    var original = new MaterialPropertyBlock();
+                    terrain.GetPropertyBlock(original);
+                    originals.Add(terrain, original);
+                    terrain.GetPropertyBlock(snapshotProperties);
+                    snapshotProperties.SetVector("_GrassOverlaySettings", Vector4.zero);
+                    snapshotProperties.SetFloat("_SurfaceEnabled", 0);
+                    snapshotProperties.SetFloat("_PhotoContoursOnly", 1);
+                    snapshotProperties.SetFloat("_SurfaceRevealEnabled", 0);
+                    snapshotProperties.SetColor("_ContourColor", Color.white);
+                    terrain.SetPropertyBlock(snapshotProperties);
                 }
                 // Synchronous render: exclude every other renderer, restoring exactly in finally.
                 foreach (Renderer renderer in UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
@@ -102,11 +101,10 @@ namespace AnimalGame.RobotMap
             finally
             {
                 foreach (var pair in originals)
-                    if (pair.Key != null) pair.Key.sharedMaterial = pair.Value;
+                    if (pair.Key != null) pair.Key.SetPropertyBlock(pair.Value);
                 foreach (Renderer renderer in hidden)
                     if (renderer != null) renderer.forceRenderingOff = false;
                 RenderTexture.active = previousActive;
-                foreach (var material in temporaryMaterials) UnityEngine.Object.Destroy(material);
                 UnityEngine.Object.Destroy(cameraObject);
             }
         }
