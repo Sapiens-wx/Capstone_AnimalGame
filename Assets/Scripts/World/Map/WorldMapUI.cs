@@ -14,6 +14,7 @@ namespace AnimalGame.World.Map
     [DisallowMultipleComponent, RequireComponent(typeof(UIDocument))]
     public sealed class WorldMapUI : MonoBehaviour
     {
+        private const float PinLineWidth = 1.5f;
         [SerializeField] private Shader contourShader;
         [Header("Zoom (visible range / player view at opening)")]
         [SerializeField, Min(.01f)] private float minimumZoom = 1;
@@ -38,14 +39,18 @@ namespace AnimalGame.World.Map
         public float CurrentZoom { get; private set; }
         public MapViewState View { get; } = new MapViewState();
 
-        private VisualElement panel, root, cursor, playerIcon, mapRulers;
+        private VisualElement panel, root, cursor, playerIcon, mapRulers, northIndicator;
         private readonly VisualElement[] pinElements = new VisualElement[MapViewState.PinLimit];
         private readonly VisualElement[] edgePinElements = new VisualElement[MapViewState.PinLimit];
         private readonly System.Action<MeshGenerationContext>[] pinDrawHandlers = new System.Action<MeshGenerationContext>[MapViewState.PinLimit];
+        private readonly VisualElement[] pinChoices = new VisualElement[MapViewState.PinLimit];
+        private readonly System.Action<MeshGenerationContext>[] pinChoiceDrawHandlers = new System.Action<MeshGenerationContext>[MapViewState.PinLimit];
+        private Label previousPinKey, nextPinKey;
+        private VisualElement pinSelector;
         private Image mapImage;
         private PhotoResultGridElement mapGrid;
         private float cursorPinSpread;
-        private bool centeringOnPlayer;
+        private bool centeringMapView;
         private float centeringElapsed;
         private Vector2 centeringStart, centeringCursorStart, centeringTarget;
         private VisualElement controls;
@@ -80,6 +85,8 @@ namespace AnimalGame.World.Map
             root = panel.Q("map-viewport");
             mapImage = root.Q<Image>("map-image");
             mapGrid = root.Q<PhotoResultGridElement>("map-grid");
+            northIndicator = root.Q("map-north");
+            northIndicator.generateVisualContent += DrawNorthIndicator;
             coordinateMask = root.Q("map-coordinate-mask");
             coordinateText = root.Q<Label>("map-coordinate-text");
             coordinateText.enableRichText = true;
@@ -130,6 +137,9 @@ namespace AnimalGame.World.Map
             pinKey = controls.Q<Label>("map-pin-key");
             centerKey = controls.Q<Label>("map-center-key");
             closeKey = controls.Q<Label>("map-close-key");
+            previousPinKey = panel.Q<Label>("map-pin-previous-key");
+            nextPinKey = panel.Q<Label>("map-pin-next-key");
+            pinSelector = panel.Q("map-pin-selector");
             UpdateControlHints();
             for (int i = 0; i < pinElements.Length; i++)
             {
@@ -152,9 +162,45 @@ namespace AnimalGame.World.Map
                 edge.generateVisualContent += pinDrawHandlers[i];
                 edgePinElements[i] = edge;
                 root.Insert(root.IndexOf(cursor), edge);
+                var choice = panel.Q("map-pin-choice-" + i);
+                pinChoices[i] = choice;
+                pinChoiceDrawHandlers[i] = context =>
+                {
+                    bool selected = View.SelectedPinShape == index;
+                    bool placed = View.HasPinShape(index);
+                    Color color = placed ? Color.white : (Color)new Color32(0xD4, 0xB8, 0x54, 255);
+                    color.a = selected ? (placed ? .75f : 1f) : .3f;
+                    float radius = index == 1 ? 17f : index == 0 ? 14f : 12f;
+                    radius *= selected ? 1.35f : 1f;
+                    Vector2 center = choice.contentRect.center;
+                    if (index == 0) center.y += radius * .25f;
+                    // Compensate for the selector's smaller transform so its stroke
+                    // matches the placed map pins in screen pixels.
+                    float stroke = PinLineWidth * element.resolvedStyle.scale.value.x
+                        / pinSelector.resolvedStyle.scale.value.x;
+                    DrawPinShape(context.painter2D, center, radius, index, color, stroke);
+                };
+                choice.generateVisualContent += pinChoiceDrawHandlers[i];
             }
             coordinateText.BringToFront();
             panel.style.display = DisplayStyle.None;
+        }
+
+        private void DrawNorthIndicator(MeshGenerationContext context)
+        {
+            var painter = context.painter2D;
+            painter.strokeColor = Color.white;
+            painter.lineWidth = 1f;
+            painter.lineCap = LineCap.Butt;
+            painter.BeginPath();
+            painter.MoveTo(new Vector2(60, 146.4f));
+            painter.LineTo(new Vector2(60, 69.6f));
+            painter.MoveTo(new Vector2(24, 108));
+            painter.LineTo(new Vector2(96, 108));
+            painter.MoveTo(new Vector2(55.2f, 74.4f));
+            painter.LineTo(new Vector2(60, 69.6f));
+            painter.LineTo(new Vector2(64.8f, 74.4f));
+            painter.Stroke();
         }
 
         private void DrawMapRulers(MeshGenerationContext context)
@@ -188,9 +234,13 @@ namespace AnimalGame.World.Map
         }
 
         public static void DrawPinShape(Painter2D painter, Vector2 center, float radius, int shape)
+            => DrawPinShape(painter, center, radius, shape, new Color32(0xD4, 0xB8, 0x54, 255));
+
+        private static void DrawPinShape(Painter2D painter, Vector2 center, float radius, int shape, Color color,
+            float lineWidth = PinLineWidth)
         {
-            painter.strokeColor = new Color32(0xD4, 0xB8, 0x54, 255);
-            painter.lineWidth = 1.5f;
+            painter.strokeColor = color;
+            painter.lineWidth = lineWidth;
             int sides = shape == 0 ? 3 : 4;
             float startAngle = shape == 1 ? -135f : -90f;
             painter.BeginPath();
@@ -256,6 +306,10 @@ namespace AnimalGame.World.Map
                 return;
             }
             Vector2 size = MapScreenSize();
+            if ((pad != null && pad.leftShoulder.wasPressedThisFrame)
+                || (keyboard != null && keyboard.qKey.wasPressedThisFrame)) CyclePinSelection(-1);
+            if ((pad != null && pad.rightShoulder.wasPressedThisFrame)
+                || (keyboard != null && keyboard.eKey.wasPressedThisFrame)) CyclePinSelection(1);
             if (size != lastSize)
             {
                 baseViewSize.x = baseViewSize.y * size.x / size.y;
@@ -271,8 +325,8 @@ namespace AnimalGame.World.Map
             if (keyboard != null)
                 movement += new Vector2((keyboard.dKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed ? 1 : 0),
                     (keyboard.wKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed ? 1 : 0));
-            if (movement.sqrMagnitude > .0001f) centeringOnPlayer = false;
-            if (!centeringOnPlayer)
+            if (movement.sqrMagnitude > .0001f) centeringMapView = false;
+            if (!centeringMapView)
             {
                 Vector2 beforePan = View.Center;
                 View.Move(Vector2.ClampMagnitude(movement, 1) * (cursorSpeed * Time.unscaledDeltaTime), size, map.MapSizeMeters);
@@ -299,27 +353,23 @@ namespace AnimalGame.World.Map
                 - wheel * wheelZoomSpeed), MinimumZoom, MaximumZoom);
             if (!Mathf.Approximately(nextZoom, CurrentZoom))
             {
-                centeringOnPlayer = false;
+                centeringMapView = false;
                 CurrentZoom = nextZoom;
                 ResizeView();
             }
             if ((pad != null && pad.buttonNorth.wasPressedThisFrame)
                 || (keyboard != null && keyboard.yKey.wasPressedThisFrame))
             {
-                centeringStart = View.Center;
-                centeringCursorStart = View.DisplayCursor;
-                centeringTarget = WorldToMap(HeightMapPlayerSceneBootstrap.inst.robotObject.transform.position);
-                centeringElapsed = 0f;
-                centeringOnPlayer = true;
+                BeginCentering(WorldToMap(HeightMapPlayerSceneBootstrap.inst.robotObject.transform.position));
             }
-            if (centeringOnPlayer)
+            if (centeringMapView)
             {
                 centeringElapsed += Time.unscaledDeltaTime;
                 float progress = Mathf.Clamp01(centeringElapsed / .45f);
                 float eased = Mathf.SmoothStep(0f, 1f, progress);
                 View.SetFocus(Vector2.Lerp(centeringStart, centeringTarget, eased),
                     Vector2.Lerp(centeringCursorStart, centeringTarget, eased), map.MapSizeMeters);
-                if (progress >= 1f) centeringOnPlayer = false;
+                if (progress >= 1f) centeringMapView = false;
             }
             else
             {
@@ -333,7 +383,23 @@ namespace AnimalGame.World.Map
             cursor.MarkDirtyRepaint();
             UpdateControlHints();
             RefreshVisuals(size);
-            UpdateHoverCoordinates(movement.sqrMagnitude > .0001f || centeringOnPlayer);
+            UpdateHoverCoordinates(movement.sqrMagnitude > .0001f || centeringMapView);
+        }
+
+        private void BeginCentering(Vector2 position)
+        {
+            centeringStart = View.Center;
+            centeringCursorStart = View.DisplayCursor;
+            centeringTarget = position;
+            centeringElapsed = 0f;
+            centeringMapView = true;
+        }
+
+        private void CyclePinSelection(int direction)
+        {
+            View.CyclePinShape(direction);
+            centeringMapView = false;
+            if (View.TryGetPinPosition(View.SelectedPinShape, out Vector2 position)) BeginCentering(position);
         }
 
         private void HideHoverCoordinates(bool resetRotation = false)
@@ -442,6 +508,8 @@ namespace AnimalGame.World.Map
             pinKey.text = gamepad ? "A" : "Space";
             centerKey.text = "Y";
             closeKey.text = gamepad ? "B" : "Esc";
+            previousPinKey.text = gamepad ? "LB" : "Q";
+            nextPinKey.text = gamepad ? "RB" : "E";
         }
 
         public void Open()
@@ -548,6 +616,7 @@ namespace AnimalGame.World.Map
 
         private void RefreshVisuals(Vector2 screenSize)
         {
+            foreach (var choice in pinChoices) choice.MarkDirtyRepaint();
             Texture fog = checkpointManager != null ? checkpointManager.GetFog(map) : null;
             int fogRevision = checkpointManager != null ? checkpointManager.Revision : 0;
             if (dirty || View.Center != lastRenderedCenter || View.ViewSize != lastRenderedSize || lastFogRevision != fogRevision)
@@ -625,7 +694,7 @@ namespace AnimalGame.World.Map
             if (!IsOpen) return;
             IsOpen = false;
             HideHoverCoordinates(true);
-            centeringOnPlayer = false;
+            centeringMapView = false;
             if (active == this) active = null;
             closedFrame = Time.frameCount;
             panel.style.display = DisplayStyle.None;
@@ -643,10 +712,12 @@ namespace AnimalGame.World.Map
         {
             Close();
             if (cursor != null) cursor.generateVisualContent -= DrawMapCursor;
+            if (northIndicator != null) northIndicator.generateVisualContent -= DrawNorthIndicator;
             for (int i = 0; i < pinElements.Length; i++)
             {
                 if (pinElements[i] != null) pinElements[i].generateVisualContent -= pinDrawHandlers[i];
                 edgePinElements[i]?.RemoveFromHierarchy();
+                if (pinChoices[i] != null) pinChoices[i].generateVisualContent -= pinChoiceDrawHandlers[i];
             }
             checkpointLayer?.RemoveFromHierarchy();
             mapRulers?.RemoveFromHierarchy();

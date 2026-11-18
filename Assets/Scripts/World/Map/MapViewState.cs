@@ -11,6 +11,15 @@ namespace AnimalGame.World.Map
         public IReadOnlyList<Vector2> Pins => pins;
         private readonly List<int> pinShapes = new List<int>(PinLimit);
         public int GetPinShape(int index) => pinShapes[index];
+        public int SelectedPinShape { get; private set; }
+        public bool HasPinShape(int shape) => pinShapes.Contains(shape);
+        public void CyclePinShape(int direction) => SelectedPinShape = (SelectedPinShape + direction + PinLimit) % PinLimit;
+        public bool TryGetPinPosition(int shape, out Vector2 position)
+        {
+            int index = pinShapes.IndexOf(shape);
+            position = index >= 0 ? pins[index] : Vector2.zero;
+            return index >= 0;
+        }
         public Vector2 Center { get; private set; }
         public Vector2 Cursor { get; private set; }
         public Vector2 DisplayCursor => SelectedPin >= 0 ? pins[SelectedPin]
@@ -27,6 +36,7 @@ namespace AnimalGame.World.Map
             ViewSize = viewSize;
             SelectedPin = -1;
             SelectedCheckpoint = -1;
+            SelectedPinShape = 0;
         }
 
         public void SetFocus(Vector2 center, Vector2 cursor, Vector2 mapSize)
@@ -100,17 +110,20 @@ namespace AnimalGame.World.Map
                 return;
             }
             Cursor = DisplayCursor;
-            if (pins.Count == PinLimit)
+            int existing = pinShapes.IndexOf(SelectedPinShape);
+            if (existing >= 0)
             {
-                pins.RemoveAt(0);
-                pinShapes.RemoveAt(0);
+                pins[existing] = Cursor;
+                SelectedPin = existing;
             }
-            int shape = 0;
-            while (pinShapes.Contains(shape)) shape++;
-            pinShapes.Add(shape);
-            pins.Add(Cursor);
-            SelectedPin = pins.Count - 1;
+            else
+            {
+                pinShapes.Add(SelectedPinShape);
+                pins.Add(Cursor);
+                SelectedPin = pins.Count - 1;
+            }
             SelectedCheckpoint = -1;
+            CyclePinShape(1);
         }
 
         public Vector2 ToScreen(Vector2 position, Vector2 screenSize)
