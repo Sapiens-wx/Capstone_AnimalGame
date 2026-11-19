@@ -92,19 +92,28 @@ namespace AnimalGame.Editor
                             {
                                 Set(arms, "targetLocal", direction * (float)Get(arms, "armLength") * .8f);
                                 object pose = typeof(RobotArmController).GetMethod("DesiredPose",
-                                    BindingFlags.NonPublic | BindingFlags.Instance).Invoke(arms, new[] { arm, (object)time });
+                                    BindingFlags.NonPublic | BindingFlags.Instance, null, new[] { arm.GetType(), typeof(float) }, null)
+                                    .Invoke(arms, new[] { arm, (object)time });
                                 arm.GetType().GetField("Pose").SetValue(arm, pose);
                                 Set(arms, "deploymentTime", time);
+                                Vector3 previousUpperScale = upper.transform.localScale;
+                                Vector3 previousLowerScale = lower.transform.localScale;
+                                Vector3 previousHandScale = hand.transform.localScale;
                                 Call(arms, "ApplyVisuals", arm);
+                                Require(upper.transform.parent.gameObject.activeSelf == (time > 0f),
+                                    "Arm visibility did not follow deployment");
+                                if (time == 0f)
+                                {
+                                    Require(upper.transform.localScale == previousUpperScale
+                                        && lower.transform.localScale == previousLowerScale
+                                        && hand.transform.localScale == previousHandScale, "Hidden arm scales changed");
+                                    continue;
+                                }
                                 Vector3 anchorAfter = loop.localPosition + loop.localRotation * Vector3.Scale(loop.localScale, anchorPoint);
                                 Require(Vector3.Distance(anchorBefore, anchorAfter) < .00001f,
                                     "Loopable body-side endpoint moved during scaling");
                                 Require(upper.color.a == 1f && lower.color.a == 1f,
                                     "Deployment faded the arm instead of scaling it");
-                                if (time == 0f)
-                                    Require(upper.transform.localScale == new Vector3(upperTarget.x, 0f, upperTarget.z)
-                                        && lower.transform.localScale == new Vector3(lowerTarget.x, 0f, lowerTarget.z)
-                                        && hand.transform.localScale == Vector3.zero, "Retracted arm Y scale was not zero");
                                 if (time == connector * .5f)
                                     Require(Vector3.Distance(lower.transform.localScale,
                                         new Vector3(lowerTarget.x, lowerTarget.y * .5f, lowerTarget.z)) < .00001f
@@ -194,7 +203,7 @@ namespace AnimalGame.Editor
             Check("Chest-zone A and L3 release starts recycling without a drop", CheckSimultaneousRecycleRelease);
             Check("Recycle cancels cleanly on falling, photo mode, external control or disable", CheckRecycleCancellation);
             Check("Recycle completion may disable the controller without restoring its input capture", CheckRecycleCompletionDisable);
-            Check("Release A drops before retracting and ignores a stale L3 hold", CheckRetracting);
+            Check("Release A drops before retracting, idle arms stay still, and deployment resumes", RunRetractionChecks);
             Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
             Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
             Check("Player-local rate input, boundary body following and fallen restrictions", CheckTurning);
@@ -1346,7 +1355,7 @@ namespace AnimalGame.Editor
         private static Vector2 ChestInlet(RobotArmController arms, bool medium) =>
             (float)Get(arms, "armLength") * (Vector2)Get(arms, medium ? "mediumDockPosition" : "smallDockPosition");
 
-        private static void CheckRetracting()
+        public static void RunRetractionChecks()
         {
             using (var f = new Fixture())
             {
@@ -1359,6 +1368,20 @@ namespace AnimalGame.Editor
                 Vector3 dropped = item.transform.position;
                 f.Tick(60, Vector2.zero, false, false);
                 Require(f.Arms.State == RobotArmState.Retracted && item.transform.position == dropped, "Dropped object moved with retracting arm");
+
+                var probe = item.gameObject.AddComponent<WorldInteractionQueryProbe>();
+                probe.SetKind(WorldInteractionKind.Grabbable);
+                object left = Get(f.Arms, "left");
+                FieldInfo pose = left.GetType().GetField("Pose");
+                object stowedPose = pose.GetValue(left);
+                Set(f.Arms, "targetLocal", Vector2.left * (float)Get(f.Arms, "armLength") * .8f);
+                f.Tick(5, Vector2.zero, false, false);
+                Require(probe.ShapeReads == 0 && stowedPose.Equals(pose.GetValue(left)),
+                    "A fully retracted arm queried world contacts or changed its joint pose");
+
+                f.Tick(90, Vector2.zero, false);
+                Require(f.Arms.State == RobotArmState.OuterOperating, "Reopening did not fully deploy the arms");
+                Require(probe.ShapeReads > 0, "Reopening did not resume spatial queries");
             }
         }
         private static void CheckDeploymentCollision()
