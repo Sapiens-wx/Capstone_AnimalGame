@@ -111,24 +111,30 @@ namespace Capstone.Audio
             if (observeLoose) TickLoose(deltaTime);
             if (observeClimb) TickClimb((distance + turnDistance) / deltaTime, first);
             if (observeWater || reeds != null)
-                TickTerrain(distance / deltaTime, (distance + turnDistance) / deltaTime, first, deltaTime);
+                TickTerrain(distance / deltaTime, first, deltaTime);
         }
 
-        private void TickTerrain(float travelSpeed, float contactSpeed, bool first, float deltaTime)
+        private void TickTerrain(float travelSpeed, bool first, float deltaTime)
         {
             bool airborne = Usable(height) && height.IsAirborne;
-            bool inWater = mover.CurrentWaterSpeedMultiplier < 1f && !mover.IgnoreCollisionAndTerrain;
-            bool available = !first && !airborne && mover.MovementMode == RobotMovementMode.Driven;
+            bool unavailable = airborne || mover.IgnoreCollisionAndTerrain || mover.MovementMode != RobotMovementMode.Driven;
+            if (unavailable)
+            {
+                if (observeWater) voices.Stop(Milestone3Cue.WaterMove, true);
+                if (reeds != null) voices.Stop(Milestone3Cue.ReedRustle, true);
+                waterMoving = false;
+                return;
+            }
+            bool movingInWater = !first && mover.CurrentWaterSpeedMultiplier < 1f && travelSpeed > settings.WorldMotionThreshold;
             if (observeWater)
             {
-                bool moving = available && inWater && travelSpeed > settings.WorldMotionThreshold;
                 // DefaultMoveSpeed is dry, scaled forward speed. Apply the public
                 // water multiplier once; extra resistance still reduces the sound's pitch.
                 float referenceSpeed = (mover.DebugMoveSpeed ?? mover.DefaultMoveSpeed)
                     * mover.CurrentWaterSpeedMultiplier;
-                float strength = Mathf.Clamp01(travelSpeed / Mathf.Max(settings.WorldMotionThreshold, referenceSpeed));
-                voices.SetParameter(Milestone3Cue.WaterMove, Milestone3Parameter.Speed, strength);
-                if (moving)
+                float strength = movingInWater
+                    ? Mathf.Clamp01(travelSpeed / Mathf.Max(settings.WorldMotionThreshold, referenceSpeed)) : 0f;
+                if (movingInWater)
                 {
                     float target = Mathf.Lerp(settings.WaterMinimumPitch, 1f, strength);
                     float blend = settings.WaterPitchSmoothingSeconds > 0f
@@ -136,20 +142,17 @@ namespace Capstone.Audio
                     waterPitch = waterMoving ? Mathf.Lerp(waterPitch, target, blend) : target;
                     if (Mathf.Abs(waterPitch - target) < 0.0001f) waterPitch = target;
                 }
-                if (airborne) voices.Stop(Milestone3Cue.WaterMove, true);
-                else voices.SetWaterMove(moving, waterPitch);
-                waterMoving = moving;
+                voices.SetWaterMove(strength, waterPitch, Time.unscaledDeltaTime);
+                waterMoving = movingInWater;
             }
             if (reeds != null)
             {
                 // Footprint contact uses the player's actual position, never visual
                 // fading (animals can also fade plants) or a predicted input path.
-                bool touching = available && inWater && contactSpeed > settings.WorldMotionThreshold
-                    && reeds.IsTouching(deltaTime);
-                float strength = Mathf.Clamp01(contactSpeed / settings.WorldReferenceSpeed);
+                bool touching = movingInWater && reeds.IsTouching(deltaTime);
+                float strength = Mathf.Clamp01(travelSpeed / settings.WorldReferenceSpeed);
                 voices.SetParameter(Milestone3Cue.ReedRustle, Milestone3Parameter.Speed, strength);
-                if (airborne) voices.Stop(Milestone3Cue.ReedRustle, true);
-                else voices.SetTerrainContact(Milestone3Cue.ReedRustle, touching);
+                voices.SetTerrainContact(Milestone3Cue.ReedRustle, touching);
             }
         }
 

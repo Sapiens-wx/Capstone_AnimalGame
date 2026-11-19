@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using AnimalGame.Demos.WasteRobot;
+using AnimalGame.Garbage;
 using AnimalGame.MapTest;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
@@ -17,6 +18,7 @@ namespace Capstone.Audio
         private const float MinimumSpeed = .01f;
         private const float PositionToleranceSquared = .00000001f;
         private const float MaximumFrameRotation = 5f;
+        private const double RuinImpactCooldownSeconds = .35;
         private readonly Milestone3AudioSettings settings;
         private readonly Milestone3AudioVoices voices;
         private readonly List<WorldInteraction> contacts = new List<WorldInteraction>(32);
@@ -26,6 +28,7 @@ namespace Capstone.Audio
         private Vector2 lastPosition, samplePosition, sampleVelocity;
         private Quaternion sampleRotation;
         private float sampleDeltaTime, sampleSpeed, sampleDriveSpeed, sampleReferenceSpeed;
+        private double nextRuinImpactTime;
         private int baselineFrame = -1, sampleFrame = -1;
         private bool wasBlocked;
 
@@ -106,19 +109,24 @@ namespace Capstone.Audio
             WasteRobotBase machine = contact.GetComponentInParent<WasteRobotBase>();
             if (tree != null && machine != null) return;
             Milestone3Cue cue;
-            float gain;
             if (Usable(tree))
             {
                 cue = tree.IsDead ? Milestone3Cue.DeadTreeImpact : Milestone3Cue.LiveTreeImpact;
-                gain = Mathf.Clamp(sampleSpeed / sampleReferenceSpeed, .08f, 1f);
             }
             else if (Usable(machine))
             {
-                cue = Milestone3Cue.RuinImpact;
-                gain = 1f;
+                double now = Time.timeAsDouble;
+                if (now >= nextRuinImpactTime && settings.HasCue(Milestone3Cue.RuinImpact)
+                    && voices.Play(Milestone3Cue.RuinImpact))
+                    nextRuinImpactTime = now + RuinImpactCooldownSeconds;
+                return;
             }
+            else if (contact.TryGetComponent(out GarbageItem garbage) && Usable(garbage)
+                && garbage.Size == RecyclableSize.Big)
+                cue = Milestone3Cue.BigGarbageImpact;
             else return;
-            if (settings.HasCue(cue)) voices.Play(cue, gain);
+            if (settings.HasCue(cue))
+                voices.Play(cue, Mathf.Clamp(sampleSpeed / sampleReferenceSpeed, .08f, 1f));
         }
 
         private bool CanObserve() => Usable(mover) && Usable(arm) && arm.gameObject == mover.gameObject
@@ -138,6 +146,7 @@ namespace Capstone.Audio
             voices.Stop(Milestone3Cue.DeadTreeImpact, true);
             voices.Stop(Milestone3Cue.LiveTreeImpact, true);
             voices.Stop(Milestone3Cue.RuinImpact, true);
+            voices.Stop(Milestone3Cue.BigGarbageImpact, true);
         }
 
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

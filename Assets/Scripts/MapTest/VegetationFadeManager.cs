@@ -60,7 +60,6 @@ namespace AnimalGame.MapTest
                 player.gameObject.scene,
                 nearbyVegetation);
             nextRefreshTime = Time.time + RefreshInterval;
-            Debug.Log("Refresh "+nearbyVegetation.Count);
         }
     }
 }

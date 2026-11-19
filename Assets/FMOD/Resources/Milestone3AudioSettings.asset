@@ -471,7 +471,7 @@ MonoBehaviour:
         Data3: 1318389388
         Data4: 924096627
       Path: event:/Robot/Terrain/ReedRustle
-    gainDb: 0
+    gainDb: 3.5218252
     readBySoundUI: 1
     soundUIStrength: 0.5
   - eventReference:
@@ -481,6 +481,16 @@ MonoBehaviour:
         Data3: -859380859
         Data4: -114158460
       Path: event:/Robot/Terrain/RuinImpact
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -869656187
+        Data2: 1279123939
+        Data3: 1458795413
+        Data4: 829066949
+      Path: event:/Robot/Terrain/BigGarbageImpact
     gainDb: 0
     readBySoundUI: 1
     soundUIStrength: 0.5
