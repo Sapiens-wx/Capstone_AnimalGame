@@ -77,6 +77,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private Material terrainPreviewMaterial;
     private Mesh terrainPreviewMesh;
     private bool terrainPreviewDirty = true;
+    [SerializeField] private bool receiveSceneEvents = true;
     [SerializeField] private TiledLevelAsset terrainRegionLevel;
     [SerializeField] private bool showTerrainRegions;
     [SerializeField] private float terrainRegionCellSize = 1f;
@@ -516,11 +517,21 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         DrawTerrainPreview();
         DrawTerrainRegionPreview();
         HeightMapPainterSceneInput.DrawSelectedTileBounds(mapController, sourceLevelAsset);
-        if (!paintInScene || EditorApplication.isPlaying || mapController == null || !mapController.HasGeneratedMap)
+        bool acceptsInput = receiveSceneEvents && paintInScene && !EditorApplication.isPlaying
+            && mapController != null && mapController.HasGeneratedMap;
+        if (!acceptsInput && !strokeActive)
             return;
 
         int controlId = GUIUtility.GetControlID("HeightMapSurfacePainter".GetHashCode(), FocusType.Passive);
         bool ownsStroke = strokeActive && GUIUtility.hotControl == controlId;
+        if (!acceptsInput)
+        {
+            if (ownsStroke)
+                GUIUtility.hotControl = 0;
+            EndStroke();
+            return;
+        }
+
         bool hasPosition = HeightMapPainterSceneInput.TryGetTileAtCursor(mapController, current.mousePosition,
             out HeightMapLevelAsset hitLevel, out Vector2 mapPosition);
 
@@ -796,6 +807,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private void DrawTerrainRegionSettings()
     {
         EditorGUILayout.Space();
+        receiveSceneEvents = EditorGUILayout.Toggle("Receive Scene Events", receiveSceneEvents);
         EditorGUILayout.LabelField("Terrain Regions", EditorStyles.boldLabel);
         if (mapController == null)
         {

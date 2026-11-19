@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using AnimalGame.Animals;
 using AnimalGame.MapTest;
+using Clipper2Lib;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -210,18 +212,160 @@ namespace AnimalGame.Editor
                     }
                 }
 
-                using (new EditorGUI.DisabledScope(!isDrawingForSpecies && (drawingPolygon || !map.HasGeneratedMap)))
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button(isDrawingForSpecies ? "Finish" : "Add Polygon"))
+                    using (new EditorGUI.DisabledScope(!isDrawingForSpecies && (drawingPolygon || !map.HasGeneratedMap)))
                     {
-                        if (isDrawingForSpecies)
-                            FinishPolygon(regions);
-                        else
+                        if (GUILayout.Button(isDrawingForSpecies ? "Finish" : "Add Polygon"))
                         {
-                            drawingPolygon = true;
-                            SelectPolygon(species, -1);
+                            if (isDrawingForSpecies)
+                                FinishPolygon(regions);
+                            else
+                            {
+                                drawingPolygon = true;
+                                SelectPolygon(species, -1);
+                            }
                         }
                     }
+
+                    if (!isDrawingForSpecies)
+                    {
+                        using var disabled = new EditorGUI.DisabledScope(drawingPolygon);
+                        if (GUILayout.Button(new GUIContent("⋯", "Polygon actions"), GUILayout.Width(26)))
+                            ShowPolygonMenu(regions);
+                    }
+                }
+            }
+        }
+
+        private void ShowPolygonMenu(AnimalSpawnRegionsAsset.SpeciesRegions regions)
+        {
+            var menu = new GenericMenu();
+            var intersect = new GUIContent("Calc Intersect");
+            int index = editingSpecies == regions.species ? selectedPolygon : -1;
+            if (index >= 0 && index < regions.polygons.Length)
+                menu.AddItem(intersect, false, () => IntersectPolygons(regions, index));
+            else
+                menu.AddDisabledItem(intersect);
+
+            var intersectAll = new GUIContent("Calc Intersect All");
+            if (regions.polygons.Length > 0)
+                menu.AddItem(intersectAll, false, () => IntersectPolygons(regions, -1));
+            else
+                menu.AddDisabledItem(intersectAll);
+
+            menu.ShowAsContext();
+        }
+
+        private void IntersectPolygons(AnimalSpawnRegionsAsset.SpeciesRegions regions, int targetIndex)
+        {
+            if (!AnimalInfoLibrary.Active.BySpecies.TryGetValue(regions.species, out var entry) ||
+                entry.spawnInfo == null || entry.spawnInfo.AllowedTerrains.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Calc Intersect",
+                    $"Set Allowed Terrains in the Spawn Info for {ObjectNames.NicifyVariableName(regions.species.ToString())}.", "OK");
+                return;
+            }
+
+            TerrainRegionsPrebake terrain = level.LoadPrebakedTerrainRegions();
+            if (terrain == null)
+            {
+                EditorUtility.DisplayDialog("Calc Intersect",
+                    "Bake Terrain Regions for this Tiled Level in the Surface Painter first.", "OK");
+                return;
+            }
+
+            Paths64 clip = BuildTerrainClip(terrain, entry.spawnInfo.AllowedTerrains);
+            var result = new List<AnimalSpawnRegionsAsset.Polygon>(regions.polygons.Length);
+            int nextSelection = -1;
+            for (int i = 0; i < regions.polygons.Length; i++)
+            {
+                int firstResult = result.Count;
+                if (targetIndex < 0 || i == targetIndex)
+                    AppendIntersection(regions.polygons[i], clip, result);
+                else
+                    result.Add(regions.polygons[i]);
+
+                if (editingSpecies == regions.species && i == selectedPolygon && result.Count > firstResult)
+                    nextSelection = firstResult;
+            }
+
+            RecordEdit(targetIndex < 0 ? "Intersect All Spawn Polygons" : "Intersect Spawn Polygon");
+            regions.polygons = result.ToArray();
+            if (editingSpecies == regions.species)
+                selectedPolygon = nextSelection;
+            Repaint();
+        }
+
+        private static Paths64 BuildTerrainClip(TerrainRegionsPrebake terrain, List<TerrainKind> allowedTerrains)
+        {
+            var clip = new Paths64();
+            foreach (var region in terrain.Regions)
+            {
+                if (!allowedTerrains.Contains(region.Terrain))
+                    continue;
+
+                foreach (var polygon in region.Polygons)
+                {
+                    clip.Add(ToClipperPath(polygon.Outer, isHole: false));
+                    foreach (Vector2[] hole in polygon.Holes)
+                        clip.Add(ToClipperPath(hole, isHole: true));
+                }
+            }
+            return clip;
+        }
+
+        private static void AppendIntersection(AnimalSpawnRegionsAsset.Polygon polygon, Paths64 clip,
+            List<AnimalSpawnRegionsAsset.Polygon> result)
+        {
+            if (polygon.vertices.Length < 3 || clip.Count == 0)
+                return;
+
+            var clipper = new Clipper64 { PreserveCollinear = false };
+            clipper.AddSubject(ToClipperPath(polygon.vertices, isHole: false));
+            foreach (var hole in polygon.holes)
+                clipper.AddSubject(ToClipperPath(hole.vertices, isHole: true));
+
+            // NonZero treats all allowed terrain rings as one filled area, including shared borders.
+            clipper.AddClip(clip);
+            var tree = new PolyTree64();
+            if (!clipper.Execute(ClipType.Intersection, FillRule.NonZero, tree))
+                throw new InvalidOperationException("Could not intersect the spawn polygon with terrain regions.");
+
+            AppendPolygons(tree, result);
+        }
+
+        private static Path64 ToClipperPath(Vector2[] ring, bool isHole)
+        {
+            var path = new Path64(ring.Length);
+            foreach (Vector2 point in ring)
+                path.Add(new Point64(point.x * TerrainRegionsBaker.UnitsPerMeter,
+                    point.y * TerrainRegionsBaker.UnitsPerMeter));
+
+            if (Clipper.IsPositive(path) == isHole)
+                path.Reverse();
+            return path;
+        }
+
+        private static void AppendPolygons(PolyPath64 parent, List<AnimalSpawnRegionsAsset.Polygon> result)
+        {
+            for (int i = 0; i < parent.Count; i++)
+            {
+                PolyPath64 outer = parent[i];
+                var polygon = new AnimalSpawnRegionsAsset.Polygon
+                {
+                    vertices = TerrainRegionsBaker.InMeters(outer.Polygon),
+                    holes = new AnimalSpawnRegionsAsset.Ring[outer.Count]
+                };
+                result.Add(polygon);
+                for (int j = 0; j < outer.Count; j++)
+                {
+                    PolyPath64 hole = outer[j];
+                    polygon.holes[j] = new AnimalSpawnRegionsAsset.Ring
+                    {
+                        vertices = TerrainRegionsBaker.InMeters(hole.Polygon)
+                    };
+                    AppendPolygons(hole, result);
                 }
             }
         }
@@ -288,6 +432,7 @@ namespace AnimalGame.Editor
             bool removeVertex = (current.control || current.command) && GUIUtility.hotControl == 0;
             float closestDistance = PickRadius;
             int pickedPolygon = -1;
+            int pickedRing = -1;
             int pickedPoint = -1;
             Vector3 edgeStart = default;
             Vector3 edgeEnd = default;
@@ -295,34 +440,39 @@ namespace AnimalGame.Editor
             for (int index = 0; index < polygons.Length; index++)
             {
                 bool selected = index == selectedPolygon;
-                Vector2[] vertices = polygons[index].vertices;
+                var polygon = polygons[index];
                 using var outline = new Handles.DrawingScope(selected ? SelectedColor : OutlineColor);
-                for (int point = 0; point < vertices.Length; point++)
+                for (int ring = 0; ring <= polygon.holes.Length; ring++)
                 {
-                    Vector3 start = map.MapPositionToWorld(vertices[point]);
-                    Vector3 end = map.MapPositionToWorld(vertices[(point + 1) % vertices.Length]);
-                    if (current.type == EventType.Repaint)
+                    Vector2[] vertices = polygon.GetRing(ring);
+                    for (int point = 0; point < vertices.Length; point++)
                     {
-                        if (vertices.Length == 1)
-                            DrawPoint(start);
-                        else
-                            Handles.DrawLine(start, end, selected ? 3f : 2f);
+                        Vector3 start = map.MapPositionToWorld(vertices[point]);
+                        Vector3 end = map.MapPositionToWorld(vertices[(point + 1) % vertices.Length]);
+                        if (current.type == EventType.Repaint)
+                        {
+                            if (vertices.Length == 1)
+                                DrawPoint(start);
+                            else
+                                Handles.DrawLine(start, end, selected ? 3f : 2f);
+                        }
+
+                        if (drawingPolygon || current.alt || (removeVertex && (!selected || vertices.Length <= 3)))
+                            continue;
+
+                        float distance = removeVertex || vertices.Length == 1
+                            ? Vector2.Distance(current.mousePosition, HandleUtility.WorldToGUIPoint(start))
+                            : HandleUtility.DistanceToLine(start, end);
+                        if (distance > closestDistance || (distance == closestDistance && !selected))
+                            continue;
+
+                        closestDistance = distance;
+                        pickedPolygon = index;
+                        pickedRing = ring;
+                        pickedPoint = point;
+                        edgeStart = start;
+                        edgeEnd = end;
                     }
-
-                    if (drawingPolygon || current.alt || (removeVertex && (!selected || vertices.Length <= 3)))
-                        continue;
-
-                    float distance = removeVertex || vertices.Length == 1
-                        ? Vector2.Distance(current.mousePosition, HandleUtility.WorldToGUIPoint(start))
-                        : HandleUtility.DistanceToLine(start, end);
-                    if (distance > closestDistance || (distance == closestDistance && !selected))
-                        continue;
-
-                    closestDistance = distance;
-                    pickedPolygon = index;
-                    pickedPoint = point;
-                    edgeStart = start;
-                    edgeEnd = end;
                 }
             }
 
@@ -339,7 +489,12 @@ namespace AnimalGame.Editor
             }
 
             if (selectedPolygon >= 0 && !removeVertex)
-                DrawVertexHandles(polygons[selectedPolygon]);
+            {
+                var polygon = polygons[selectedPolygon];
+                using var vertices = new Handles.DrawingScope(SelectedColor);
+                for (int ring = 0; ring <= polygon.holes.Length; ring++)
+                    DrawVertexHandles(polygon.GetRing(ring));
+            }
 
             if (pickedPolygon < 0 || GUIUtility.hotControl != 0 ||
                 HandleUtility.nearestControl != pickControl)
@@ -382,12 +537,12 @@ namespace AnimalGame.Editor
             else if (removeVertex)
             {
                 RecordEdit("Remove Spawn Polygon Vertex");
-                ArrayUtility.RemoveAt(ref polygons[pickedPolygon].vertices, pickedPoint);
+                ArrayUtility.RemoveAt(ref polygons[pickedPolygon].GetRing(pickedRing), pickedPoint);
             }
             else
             {
                 RecordEdit("Insert Spawn Polygon Vertex");
-                ArrayUtility.Insert(ref polygons[pickedPolygon].vertices, pickedPoint + 1, WorldToMap(edgePoint));
+                ArrayUtility.Insert(ref polygons[pickedPolygon].GetRing(pickedRing), pickedPoint + 1, WorldToMap(edgePoint));
             }
             current.Use();
         }
@@ -451,12 +606,11 @@ namespace AnimalGame.Editor
                 HandleUtility.GetHandleSize(point) * 0.055f, EventType.Repaint);
         }
 
-        private void DrawVertexHandles(AnimalSpawnRegionsAsset.Polygon polygon)
+        private void DrawVertexHandles(Vector2[] vertices)
         {
-            using var vertices = new Handles.DrawingScope(SelectedColor);
-            for (int index = 0; index < polygon.vertices.Length; index++)
+            for (int index = 0; index < vertices.Length; index++)
             {
-                Vector3 position = map.MapPositionToWorld(polygon.vertices[index]);
+                Vector3 position = map.MapPositionToWorld(vertices[index]);
                 EditorGUI.BeginChangeCheck();
                 Vector3 moved = Handles.Slider2D(position, Vector3.forward, Vector3.right, Vector3.up,
                     HandleUtility.GetHandleSize(position) * 0.055f, Handles.DotHandleCap, 0f);
@@ -464,11 +618,11 @@ namespace AnimalGame.Editor
                     continue;
 
                 Vector2 mapPosition = WorldToMap(moved);
-                if (mapPosition == polygon.vertices[index])
+                if (mapPosition == vertices[index])
                     continue;
 
                 RecordEdit("Move Spawn Polygon Vertex");
-                polygon.vertices[index] = mapPosition;
+                vertices[index] = mapPosition;
             }
         }
 

@@ -280,7 +280,7 @@ namespace AnimalGame.Editor
             }
         }
 
-        private static Vector2[] InMeters(Path64 path)
+        internal static Vector2[] InMeters(Path64 path)
         {
             var points = new Vector2[path.Count];
             for (int i = 0; i < points.Length; i++)
