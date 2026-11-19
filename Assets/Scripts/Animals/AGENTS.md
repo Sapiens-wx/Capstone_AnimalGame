@@ -60,3 +60,5 @@
 - `AnimalTurnDeformation` ????? `bodyRenderer`????? Renderer ???
 
 - 植物交互统一在根节点的 `Vegetation : WorldInteraction`；动物视线使用 `SightBlocking` 标记的线段四叉树查询，不维护植物遮挡列表。
+
+- `AnimalSpawnRegionsAsset` 用数组保存生成区域，每个物种保留一项，在 Inspector 中选择 `AnimalSpecies`，在 Animal Spawn Regions 窗口编辑多边形。

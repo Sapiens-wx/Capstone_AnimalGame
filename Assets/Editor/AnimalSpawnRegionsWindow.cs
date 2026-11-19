@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using AnimalGame.Animals;
@@ -15,7 +14,6 @@ namespace AnimalGame.Editor
         private const float PickRadius = 8f;
         private static readonly Color OutlineColor = new(0.15f, 0.78f, 0.24f);
         private static readonly Color SelectedColor = new(0.58f, 1f, 0.62f);
-        private static readonly AnimalSpecies[] Species = (AnimalSpecies[])Enum.GetValues(typeof(AnimalSpecies));
 
         private readonly HashSet<AnimalSpecies> expanded = new();
         private readonly List<Vector2> draftVertices = new();
@@ -120,6 +118,12 @@ namespace AnimalGame.Editor
                 return;
             }
 
+            if (asset.Regions.Count == 0)
+            {
+                EditorGUILayout.HelpBox("Add a Species Regions entry and assign its Species in the asset Inspector.", MessageType.Info);
+                return;
+            }
+
             if (!map.HasGeneratedMap)
                 EditorGUILayout.HelpBox("Generate the map to edit polygon vertices in the Scene view.", MessageType.Info);
             else if (drawingPolygon)
@@ -128,10 +132,14 @@ namespace AnimalGame.Editor
                 EditorGUILayout.HelpBox("Drag a vertex to move it. Click an edge to insert a vertex. Ctrl/Cmd-click a vertex to remove it.", MessageType.None);
 
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            foreach (AnimalSpecies species in Species)
+            foreach (var regions in asset.Regions)
             {
-                if (species != AnimalSpecies.Unknown)
-                    DrawSpecies(species);
+                if (regions.species == AnimalSpecies.Unknown)
+                    EditorGUILayout.HelpBox("Assign a species to each entry in the asset Inspector.", MessageType.Warning);
+                else if (asset.GetRegions(regions.species) != regions)
+                    EditorGUILayout.HelpBox($"Keep one entry for {ObjectNames.NicifyVariableName(regions.species.ToString())} in the asset Inspector.", MessageType.Warning);
+                else
+                    DrawSpecies(regions);
             }
             EditorGUILayout.EndScrollView();
         }
@@ -151,10 +159,12 @@ namespace AnimalGame.Editor
             AssetDatabase.SaveAssetIfDirty(regions);
             AssetDatabase.SaveAssetIfDirty(level);
             UpdateAsset();
+            Selection.activeObject = regions;
         }
 
-        private void DrawSpecies(AnimalSpecies species)
+        private void DrawSpecies(AnimalSpawnRegionsAsset.SpeciesRegions regions)
         {
+            AnimalSpecies species = regions.species;
             bool isExpanded = expanded.Contains(species);
             bool isDrawingForSpecies = drawingPolygon && editingSpecies == species;
             using (new EditorGUILayout.HorizontalScope())
@@ -180,7 +190,6 @@ namespace AnimalGame.Editor
                     return;
             }
 
-            var regions = asset.GetRegions(species);
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
                 for (int index = 0; index < regions.polygons.Length; index++)
@@ -262,6 +271,18 @@ namespace AnimalGame.Editor
                 EditorApplication.isPlayingOrWillChangePlaymode)
                 return;
 
+            var regions = asset.GetRegions(editingSpecies);
+            if (regions == null)
+            {
+                ClearDraft();
+                SelectPolygon(AnimalSpecies.Unknown, -1);
+                return;
+            }
+
+            var polygons = regions.polygons;
+            if (selectedPolygon >= polygons.Length)
+                selectedPolygon = -1;
+
             Event current = Event.current;
             int pickControl = GUIUtility.GetControlID(FocusType.Passive);
             bool removeVertex = (current.control || current.command) && GUIUtility.hotControl == 0;
@@ -270,7 +291,6 @@ namespace AnimalGame.Editor
             int pickedPoint = -1;
             Vector3 edgeStart = default;
             Vector3 edgeEnd = default;
-            var polygons = asset.GetRegions(editingSpecies).polygons;
 
             for (int index = 0; index < polygons.Length; index++)
             {

@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5d3b62bcd694faeba665bb18cdd1926, type: 3}
   m_Name: OfficialPlains_TiledLevel Animal Spawn Regions
   m_EditorClassIdentifier: 
-  muskrat:
+  speciesRegions:
+  - species: 1
     polygons:
     - vertices:
       - {x: 1165.2767, y: 162.50655}
@@ -22,19 +23,19 @@ MonoBehaviour:
       - {x: 1222.034, y: 1030.3884}
       - {x: 1177.8492, y: 723.54944}
       - {x: 1580.4219, y: 900.28876}
-  pileatedWoodpecker:
+  - species: 2
     polygons: []
-  mountainGoat:
+  - species: 3
     polygons: []
-  wolf:
+  - species: 4
     polygons: []
-  americanBison:
+  - species: 5
     polygons: []
-  pronghorn:
+  - species: 6
     polygons: []
-  greaterPrairieChicken:
+  - species: 7
     polygons: []
-  groundhog:
+  - species: 8
     polygons: []
-  northAmericanPorcupine:
+  - species: 9
     polygons: []

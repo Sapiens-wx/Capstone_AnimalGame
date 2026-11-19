@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AnimalGame.Animals
@@ -15,31 +16,23 @@ namespace AnimalGame.Animals
         [Serializable]
         public sealed class SpeciesRegions
         {
+            public AnimalSpecies species;
             public Polygon[] polygons = Array.Empty<Polygon>();
         }
 
-        [SerializeField] private SpeciesRegions muskrat = new();
-        [SerializeField] private SpeciesRegions pileatedWoodpecker = new();
-        [SerializeField] private SpeciesRegions mountainGoat = new();
-        [SerializeField] private SpeciesRegions wolf = new();
-        [SerializeField] private SpeciesRegions americanBison = new();
-        [SerializeField] private SpeciesRegions pronghorn = new();
-        [SerializeField] private SpeciesRegions greaterPrairieChicken = new();
-        [SerializeField] private SpeciesRegions groundhog = new();
-        [SerializeField] private SpeciesRegions northAmericanPorcupine = new();
+        [SerializeField] private SpeciesRegions[] speciesRegions = Array.Empty<SpeciesRegions>();
 
-        public SpeciesRegions GetRegions(AnimalSpecies species) => species switch
+        public IReadOnlyList<SpeciesRegions> Regions => speciesRegions;
+
+        public SpeciesRegions GetRegions(AnimalSpecies species)
         {
-            AnimalSpecies.Muskrat => muskrat,
-            AnimalSpecies.PileatedWoodpecker => pileatedWoodpecker,
-            AnimalSpecies.MountainGoat => mountainGoat,
-            AnimalSpecies.Wolf => wolf,
-            AnimalSpecies.AmericanBison => americanBison,
-            AnimalSpecies.Pronghorn => pronghorn,
-            AnimalSpecies.GreaterPrairieChicken => greaterPrairieChicken,
-            AnimalSpecies.Groundhog => groundhog,
-            AnimalSpecies.NorthAmericanPorcupine => northAmericanPorcupine,
-            _ => throw new ArgumentOutOfRangeException(nameof(species), species, null)
-        };
+            foreach (SpeciesRegions regions in speciesRegions)
+            {
+                if (regions.species == species)
+                    return regions;
+            }
+
+            return null;
+        }
     }
 }
