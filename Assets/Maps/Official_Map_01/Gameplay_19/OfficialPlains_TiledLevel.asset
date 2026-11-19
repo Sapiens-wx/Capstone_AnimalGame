@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tileSizeMeters: {x: 250, y: 250}
   presentation: {fileID: 11400000, guid: 728db274c8222364cba7b259a5a21d18, type: 2}
+  mapParams: {fileID: 11400000, guid: 8b9d8ac6f3cfcab2c529f56fa37436c8, type: 2}
   worldUnitsPerMeter: {x: 0.27306667, y: 0.27306667}
   tiles:
   - coordinate: {x: 5, y: 0}

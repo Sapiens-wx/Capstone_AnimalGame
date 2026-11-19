@@ -17,9 +17,12 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private static readonly string[] WaterAuthoringProperties =
     {
         "staticWaterDepthMap", "staticWaterFlowAngleMap", "staticWaterFlowSpeedMap", "staticWaterResolution",
-        "staticWaterPixelBounds", "staticWaterDataResolution",
-        "maximumStaticWaterDepthMeters", "maximumPassableStaticWaterDepthMeters",
-        "staticWaterEditorTexture", "staticWaterEditorTint",
+        "staticWaterPixelBounds", "staticWaterDataResolution", "maximumStaticWaterDepthMeters"
+    };
+
+    private static readonly string[] LocalWaterSettingsProperties =
+    {
+        "maximumPassableStaticWaterDepthMeters", "staticWaterEditorTexture", "staticWaterEditorTint",
         "staticWaterEditorTileSizeMeters",
         "staticWaterLayerOneSpeedMetersPerSecond",
         "staticWaterLayerTwoSpeedMetersPerSecond", "staticWaterLayerTwoScale",
@@ -210,6 +213,42 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             "staticWaterResolution");
         SerializedProperty maximumDepth = serializedLevel.FindProperty(
             "maximumStaticWaterDepthMeters");
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Water Map", EditorStyles.boldLabel);
+        EditorGUI.BeginChangeCheck();
+        EditorGUILayout.PropertyField(resolution, new GUIContent("Full Map Resolution"));
+        EditorGUILayout.PropertyField(
+            maximumDepth,
+            new GUIContent("Maximum Depth (m)"));
+        if (levelAsset.MapParams == null)
+        {
+            DrawLocalWaterSettings();
+        }
+        else
+        {
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.ObjectField("Map Params", levelAsset.MapParams, typeof(MapParams), false);
+            if (GUILayout.Button("Edit Map Params"))
+                Selection.activeObject = levelAsset.MapParams;
+        }
+        bool settingsChanged = EditorGUI.EndChangeCheck();
+        if (serializedLevel.hasModifiedProperties)
+            editState.RecordChange("Change Static Water Settings");
+        serializedLevel.ApplyModifiedProperties();
+
+        if (!settingsChanged)
+            return;
+
+        levelAsset.EnsureStaticWaterAuthoringData();
+        targetDepthMeters = Mathf.Clamp(
+            targetDepthMeters,
+            0f,
+            levelAsset.MaximumStaticWaterDepthMeters);
+        RefreshPreview(true);
+    }
+
+    private void DrawLocalWaterSettings()
+    {
         SerializedProperty passableDepth = serializedLevel.FindProperty(
             "maximumPassableStaticWaterDepthMeters");
         SerializedProperty previewTexture = serializedLevel.FindProperty(
@@ -231,13 +270,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         SerializedProperty waveLength = serializedLevel.FindProperty(
             "staticWaterWaveLengthMeters");
 
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Water Map", EditorStyles.boldLabel);
-        EditorGUI.BeginChangeCheck();
-        EditorGUILayout.PropertyField(resolution, new GUIContent("Full Map Resolution"));
-        EditorGUILayout.PropertyField(
-            maximumDepth,
-            new GUIContent("Maximum Depth (m)"));
         EditorGUILayout.PropertyField(
             passableDepth,
             new GUIContent("Maximum Passable Depth (m)"));
@@ -268,20 +300,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         EditorGUILayout.PropertyField(
             waveLength,
             new GUIContent("Wave Length (m)"));
-        bool settingsChanged = EditorGUI.EndChangeCheck();
-        if (serializedLevel.hasModifiedProperties)
-            editState.RecordChange("Change Static Water Settings");
-        serializedLevel.ApplyModifiedProperties();
-
-        if (!settingsChanged)
-            return;
-
-        levelAsset.EnsureStaticWaterAuthoringData();
-        targetDepthMeters = Mathf.Clamp(
-            targetDepthMeters,
-            0f,
-            levelAsset.MaximumStaticWaterDepthMeters);
-        RefreshPreview(true);
     }
 
     private void DrawBrushSettings()
@@ -1725,6 +1743,11 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         var destination = new SerializedObject(sourceLevelAsset);
         foreach (string property in WaterAuthoringProperties)
             destination.CopyFromSerializedProperty(serializedLevel.FindProperty(property));
+        if (sourceLevelAsset.MapParams == null)
+        {
+            foreach (string property in LocalWaterSettingsProperties)
+                destination.CopyFromSerializedProperty(serializedLevel.FindProperty(property));
+        }
         destination.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(sourceLevelAsset);
         bool saved = HeightMapStaticWaterMaskBaker.Bake(sourceLevelAsset, false, workingWaterUv);

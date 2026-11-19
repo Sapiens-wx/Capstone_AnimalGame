@@ -16,9 +16,8 @@
 
 # AnimalInfo 结构
 
-- `AnimalInfoLibrary` 是动物数据的统一入口；每个 `AnimalInfoEntry` 包含 `AnimalSpecies` 和 `photo`、`behaviour`、`info` 三个引用。
-- 三个引用分别指向 `AnimalPhotoLibrary`（照片及显示名称）、`AnimalSpeciesConfig`（行为配置）、`AnimalInfo`（图鉴文字和插图）；它们不重复序列化物种枚举。
-- 资产位于 `Assets/Data/Animals/`：父目录放 `AnimalInfoLibrary.asset`，`Photo/`、`Behaviour/`、`Info/` 分别存放三类资产。
+- `AnimalInfoLibrary` 是动物数据的统一入口；每个 `AnimalInfoEntry` 包含 `AnimalSpecies` 和 `photo`、`behaviour`、`info`、`spawnInfo` 四个引用，分别指向 `AnimalPhotoLibrary`、`AnimalSpeciesConfig`、`AnimalInfo`、`AnimalSpawnInfo`。
+- 资产位于 `Assets/Data/Animals/`：父目录放 `AnimalInfoLibrary.asset`，`Photo/`、`Behaviour/`、`Info/`、`Spawn/` 分别存放对应资产；生成配置脚本位于 `Spawning/`。
 - 游戏启动时由 List 建立 Dictionary，通过 `AnimalInfoLibrary.Active.BySpecies[species]` 获取条目；新增动物需在此注册完整引用。
 - `AnimalInfoLibrary.TryChoosePhoto()` 委托普通辅助类 `AnimalPhotoSelector` 处理选图、裁剪和近期去重；`AnimalPhotoSubject` 的物种身份仍独立配置。
 

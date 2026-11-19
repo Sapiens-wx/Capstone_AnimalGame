@@ -20,6 +20,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private Vector2 tileSizeMeters = new Vector2(250, 250);
         [Tooltip("Explicit source of shared contour, color and traversal settings. Tile textures/water remain local.")]
         [SerializeField] private HeightMapLevelAsset presentation;
+        [SerializeField] private MapParams mapParams;
         [SerializeField] private Vector2 worldUnitsPerMeter = Vector2.one * (2048f / 30f / 250f);
         [SerializeField] private List<Tile> tiles = new List<Tile>();
         [SerializeField] private AnimalSpawnRegionsAsset animalSpawnRegions;
@@ -45,6 +46,7 @@ namespace AnimalGame.MapTest
         }
         public bool AllowMissingTiles => allowMissingTiles;
         public HeightMapLevelAsset Presentation => presentation;
+        public MapParams MapParams => mapParams;
         public Vector2 TileSizeMeters => tileSizeMeters;
         public Vector2 WorldUnitsPerMeter => worldUnitsPerMeter;
         public Vector2Int GridSize
@@ -64,6 +66,8 @@ namespace AnimalGame.MapTest
             error = null;
             if (presentation == null || !presentation.IsValid || tiles == null || tiles.Count == 0)
                 error = "Assign a presentation source and at least one valid tile.";
+            else if (mapParams != null && presentation.MapParams != mapParams)
+                error = "The presentation tile must use this level's Map Params.";
             else if (!FinitePositive(tileSizeMeters.x) || !FinitePositive(tileSizeMeters.y)
                      || !FinitePositive(worldUnitsPerMeter.x) || !FinitePositive(worldUnitsPerMeter.y))
                 error = "Tile dimensions and world units per meter must be finite and positive.";
@@ -74,6 +78,8 @@ namespace AnimalGame.MapTest
                 {
                     if (tile == null || tile.level == null || !tile.level.IsValid)
                     { error = "Every tile must reference a valid height-map level."; break; }
+                    if (mapParams != null && tile.level.MapParams == null)
+                    { error = "Every tile must use Map Params when the level uses shared settings."; break; }
                     if (tile.coordinate.x < 0 || tile.coordinate.y < 0 || !coordinates.Add(tile.coordinate))
                     { error = "Tile coordinates must be unique and nonnegative."; break; }
                     if ((tile.level.MapSizeMeters - tileSizeMeters).sqrMagnitude > 0.000001f)
@@ -120,6 +126,15 @@ namespace AnimalGame.MapTest
             presentation = settings;
             tiles = new List<Tile>(entries);
             this.allowMissingTiles = allowMissingTiles;
+            if (mapParams != null)
+            {
+                foreach (var tile in tiles)
+                {
+                    if (tile?.level != null && tile.level.MapParams == null)
+                        tile.level.AssignMapParams(mapParams);
+                }
+                presentation.AssignMapParams(mapParams);
+            }
         }
 #endif
     }

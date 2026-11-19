@@ -11,16 +11,25 @@ public sealed class HeightMapLevelAssetEditor : Editor
     public override void OnInspectorGUI()
     {
         serializedObject.UpdateIfRequiredOrScript();
+        var tile = (HeightMapLevelAsset)target;
+        using var settings = tile.MapParams != null ? new SerializedObject(tile.MapParams) : null;
         SerializedProperty property = serializedObject.GetIterator();
         bool enterChildren = true;
         while (property.NextVisible(enterChildren))
         {
-            using (new EditorGUI.DisabledScope(property.propertyPath == "m_Script"))
-                EditorGUILayout.PropertyField(property, true);
             enterChildren = false;
+            if (settings != null && property.propertyPath != "m_Script" &&
+                settings.FindProperty(property.propertyPath) != null)
+                continue;
+            using (new EditorGUI.DisabledScope(property.propertyPath == "m_Script" ||
+                (settings != null && property.propertyPath == "mapParams")))
+                EditorGUILayout.PropertyField(property, true);
         }
 
-        HeightMapSurfaceSettings.ApplyEdits(serializedObject);
+        if (settings != null)
+            serializedObject.ApplyModifiedProperties();
+        else
+            HeightMapSurfaceSettings.ApplyEdits(serializedObject);
         if (!((HeightMapLevelAsset)target).TryValidateSurfacePalette(out string paletteError))
             EditorGUILayout.HelpBox(paletteError, MessageType.Error);
 
@@ -261,6 +270,13 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void DrawSurfaceSettings()
     {
+        if (levelAsset.MapParams != null)
+        {
+            EditorGUILayout.ObjectField("Map Params", levelAsset.MapParams, typeof(MapParams), false);
+            if (GUILayout.Button("Edit Map Params"))
+                Selection.activeObject = levelAsset.MapParams;
+            return;
+        }
         if (serializedLevel == null
             || serializedLevel.targetObject != levelAsset)
         {
@@ -1113,7 +1129,7 @@ internal static class HeightMapSurfaceSettings
 {
     private const string MaskResolutionPath = "surfaceMaskResolution";
     private const string BakeVersionPath = "surfaceBakeGeneratorVersion";
-    private static readonly string[] BakedPaths =
+    internal static readonly string[] BakedPaths =
     {
         "surfacePalette",
         "surfaceTransitionWidthMeters",
@@ -1191,10 +1207,13 @@ internal static class HeightMapSurfaceSettings
 
     internal static void CopyAuthoring(SerializedObject source, SerializedObject destination)
     {
-        foreach (string path in BakedPaths)
-            destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
-        foreach (string path in RuntimePaths)
-            destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+        if (((HeightMapLevelAsset)destination.targetObject).MapParams == null)
+        {
+            foreach (string path in BakedPaths)
+                destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+            foreach (string path in RuntimePaths)
+                destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+        }
         destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty("surfaceMask"));
         destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty("surfaceDataVersion"));
     }
@@ -1212,7 +1231,7 @@ internal static class HeightMapSurfaceSettings
 
     internal static void CopyAll(HeightMapLevelAsset source, TiledLevelAsset map)
     {
-        if (!source.HasUsableSurfaceDefinitions || !source.TryValidateSurfacePalette(out _))
+        if (source.MapParams != null || !source.HasUsableSurfaceDefinitions || !source.TryValidateSurfacePalette(out _))
             return;
         if (CopySettings(source, map, BakedPaths, RuntimePaths))
         {
@@ -1230,7 +1249,7 @@ internal static class HeightMapSurfaceSettings
         foreach (TiledLevelAsset.Tile entry in map.Tiles)
         {
             HeightMapLevelAsset target = entry.level;
-            if (target == source)
+            if (target == source || target.MapParams != null)
                 continue;
 
             using var destination = new SerializedObject(target);
