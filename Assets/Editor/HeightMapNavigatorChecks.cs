@@ -92,6 +92,12 @@ public static class HeightMapNavigatorChecks
                 level.SetBakedSurfaceVisual(Solid(colors[x]));
                 entries.Add(new TiledLevelAsset.Tile(new Vector2Int(x, 0), level));
             }
+            const int grassTile = 1;
+            Texture2D grassPattern = Solid(Color.white);
+            var grassLevel = entries[grassTile].level;
+            grassLevel.SetBakedGrassland(Solid(Color.clear), grassPattern,
+                Enumerable.Repeat(new Vector4(0, 0, 1, 1), 8).ToArray(), 1.6f, Vector2.one);
+            Set(grassLevel, "grass1", grassPattern);
             Set(definition, "tileSizeMeters", new Vector2(10, 10));
             Set(definition, "worldUnitsPerMeter", Vector2.one);
             Set(definition, "presentation", entries[0].level);
@@ -107,6 +113,22 @@ public static class HeightMapNavigatorChecks
             Require(orphan == null && root.transform.childCount == entries.Count,
                 "Rebuilding did not delete all previous children before generating the new tiles.");
             SpriteRenderer[] tiles = map.EditorTileRenderers.OrderBy(tile => tile.transform.position.x).ToArray();
+            Material sharedMaterial = tiles[0].sharedMaterial;
+            var properties = new MaterialPropertyBlock();
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                Require(tiles[i].sharedMaterial == sharedMaterial, "Map tiles must share the controller's material.");
+                tiles[i].GetPropertyBlock(properties);
+                Require(properties.GetTexture("_SurfaceTex") == entries[i].level.BakedSurfaceVisual,
+                    "The property block must retain the tile's own surface texture.");
+            }
+            tiles[grassTile].GetPropertyBlock(properties);
+            Require(properties.GetFloat("_GrassEnabled") == 1f
+                && properties.GetTexture("_GrassOverlay1") == grassPattern
+                && properties.GetVector("_GrassOverlaySettings").z == 1f,
+                "The grass tile must enable grass and select only the assigned overlay.");
+            Require(properties.GetTexture("_GrassOverlay2") == null && properties.GetTexture("_GrassOverlay3") == null,
+                "Unassigned grass overlays must be left out of the property block.");
             tiles[3].gameObject.SetActive(false);
 
             window = ScriptableObject.CreateInstance<HeightMapNavigatorWindow>();

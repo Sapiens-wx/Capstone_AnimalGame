@@ -51,6 +51,7 @@ namespace AnimalGame.World.Map
             Vector2 tileSize = map.LevelAsset.TileSizeMeters;
             foreach (var tile in map.RuntimeMap.Tiles)
             {
+                if (tile.Field == null) continue;
                 Vector2 origin = Vector2.Scale(tile.Coordinate, tileSize);
                 if (!view.Overlaps(new Rect(origin, tileSize))) continue;
                 properties.Clear();
@@ -72,6 +73,7 @@ namespace AnimalGame.World.Map
             Vector2 tileSize = map.LevelAsset.TileSizeMeters;
             foreach (var tile in map.RuntimeMap.Tiles)
             {
+                if (tile.Field == null) continue;
                 Vector2 origin = Vector2.Scale(tile.Coordinate, tileSize);
                 Vector2 lo = Vector2.Max(view.min, origin);
                 Vector2 hi = Vector2.Min(view.max, origin + tileSize);

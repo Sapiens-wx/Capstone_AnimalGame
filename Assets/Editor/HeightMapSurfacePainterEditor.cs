@@ -11,16 +11,25 @@ public sealed class HeightMapLevelAssetEditor : Editor
     public override void OnInspectorGUI()
     {
         serializedObject.UpdateIfRequiredOrScript();
+        var tile = (HeightMapLevelAsset)target;
+        using var settings = tile.MapParams != null ? new SerializedObject(tile.MapParams) : null;
         SerializedProperty property = serializedObject.GetIterator();
         bool enterChildren = true;
         while (property.NextVisible(enterChildren))
         {
-            using (new EditorGUI.DisabledScope(property.propertyPath == "m_Script"))
-                EditorGUILayout.PropertyField(property, true);
             enterChildren = false;
+            if (settings != null && property.propertyPath != "m_Script" &&
+                settings.FindProperty(property.propertyPath) != null)
+                continue;
+            using (new EditorGUI.DisabledScope(property.propertyPath == "m_Script" ||
+                (settings != null && property.propertyPath == "mapParams")))
+                EditorGUILayout.PropertyField(property, true);
         }
 
-        HeightMapSurfaceSettings.ApplyEdits(serializedObject);
+        if (settings != null)
+            serializedObject.ApplyModifiedProperties();
+        else
+            HeightMapSurfaceSettings.ApplyEdits(serializedObject);
         if (!((HeightMapLevelAsset)target).TryValidateSurfacePalette(out string paletteError))
             EditorGUILayout.HelpBox(paletteError, MessageType.Error);
 
@@ -68,6 +77,18 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private Material terrainPreviewMaterial;
     private Mesh terrainPreviewMesh;
     private bool terrainPreviewDirty = true;
+    [SerializeField] private bool receiveSceneEvents = true;
+    [SerializeField] private TiledLevelAsset terrainRegionLevel;
+    [SerializeField] private bool showTerrainRegions;
+    [SerializeField] private float terrainRegionCellSize = 1f;
+    [SerializeField] private float terrainRegionTolerance = 2f;
+    [SerializeField] private float terrainRegionMinimumArea = 36f;
+    private TiledLevelAsset previewedTerrainRegionLevel;
+    private (TerrainKind Terrain, Vector3[] Lines)[] terrainRegionLines;
+    private string terrainRegionError;
+
+    private TiledLevelAsset TerrainRegionLevel => mapController != null
+        ? mapController.LevelAsset : terrainRegionLevel;
 
     [MenuItem("Animal Game/Level/Terrain Surface Painter")]
     public static void Open()
@@ -95,6 +116,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Undo.undoRedoPerformed += HandleUndoRedo;
         if (levelAsset == null)
             TryAdoptCurrentSelection();
+        ResolveSceneMap();
     }
 
     private void OnDisable()
@@ -118,6 +140,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     {
         ResolveSceneMap();
         Repaint();
+    }
+
+    private void OnProjectChange()
+    {
+        if (showTerrainRegions) ReloadTerrainRegionPreview();
     }
 
     private void OnGUI()
@@ -158,6 +185,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
                 true);
         }
 
+        DrawTerrainRegionSettings();
         if (levelAsset == null)
         {
             EditorGUILayout.HelpBox(
@@ -243,6 +271,13 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
 
     private void DrawSurfaceSettings()
     {
+        if (levelAsset.MapParams != null)
+        {
+            EditorGUILayout.ObjectField("Map Params", levelAsset.MapParams, typeof(MapParams), false);
+            if (GUILayout.Button("Edit Map Params"))
+                Selection.activeObject = levelAsset.MapParams;
+            return;
+        }
         if (serializedLevel == null
             || serializedLevel.targetObject != levelAsset)
         {
@@ -480,12 +515,23 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     {
         Event current = Event.current;
         DrawTerrainPreview();
+        DrawTerrainRegionPreview();
         HeightMapPainterSceneInput.DrawSelectedTileBounds(mapController, sourceLevelAsset);
-        if (!paintInScene || EditorApplication.isPlaying || mapController == null || !mapController.HasGeneratedMap)
+        bool acceptsInput = receiveSceneEvents && paintInScene && !EditorApplication.isPlaying
+            && mapController != null && mapController.HasGeneratedMap;
+        if (!acceptsInput && !strokeActive)
             return;
 
         int controlId = GUIUtility.GetControlID("HeightMapSurfacePainter".GetHashCode(), FocusType.Passive);
         bool ownsStroke = strokeActive && GUIUtility.hotControl == controlId;
+        if (!acceptsInput)
+        {
+            if (ownsStroke)
+                GUIUtility.hotControl = 0;
+            EndStroke();
+            return;
+        }
+
         bool hasPosition = HeightMapPainterSceneInput.TryGetTileAtCursor(mapController, current.mousePosition,
             out HeightMapLevelAsset hitLevel, out Vector2 mapPosition);
 
@@ -758,6 +804,132 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         _ => throw new ArgumentOutOfRangeException(nameof(terrain), terrain, null)
     };
 
+    private void DrawTerrainRegionSettings()
+    {
+        EditorGUILayout.Space();
+        receiveSceneEvents = EditorGUILayout.Toggle("Receive Scene Events", receiveSceneEvents);
+        EditorGUILayout.LabelField("Terrain Regions", EditorStyles.boldLabel);
+        if (mapController == null)
+        {
+            terrainRegionLevel = (TiledLevelAsset)EditorGUILayout.ObjectField(
+                "Tiled Level", terrainRegionLevel, typeof(TiledLevelAsset), false);
+        }
+
+        bool show = EditorGUILayout.Toggle("Show Region Polygons", showTerrainRegions);
+        if (show != showTerrainRegions || (show && previewedTerrainRegionLevel != TerrainRegionLevel))
+        {
+            showTerrainRegions = show;
+            ReloadTerrainRegionPreview();
+        }
+        terrainRegionCellSize = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Input Cell Size (m)",
+            "0 uses the native terrain ID grid. Larger cells sample the terrain ID at their center."),
+            terrainRegionCellSize));
+        terrainRegionTolerance = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Boundary Tolerance (m)",
+            "0 preserves the grid outline. Positive values simplify land and water boundaries."),
+            terrainRegionTolerance));
+        terrainRegionMinimumArea = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Minimum Region Area (m²)",
+            "Omit disconnected polygons below this area, after subtracting their holes."),
+            terrainRegionMinimumArea));
+        if (editState != null && editState.HasChanges)
+            EditorGUILayout.HelpBox("Update uses saved terrain IDs and Water Masks. Current brush edits are still unsaved.", MessageType.Info);
+        using (new EditorGUI.DisabledScope(TerrainRegionLevel == null || EditorApplication.isPlayingOrWillChangePlaymode))
+            if (GUILayout.Button("Update Terrain Regions"))
+                UpdateTerrainRegions();
+        if (!string.IsNullOrEmpty(terrainRegionError))
+            EditorGUILayout.HelpBox(terrainRegionError, MessageType.Error);
+        else if (showTerrainRegions && TerrainRegionLevel != null && terrainRegionLines == null)
+            EditorGUILayout.HelpBox("No terrain regions have been generated for this level.", MessageType.Info);
+    }
+
+    private void UpdateTerrainRegions()
+    {
+        try
+        {
+            EditorUtility.DisplayProgressBar("Terrain Regions", "Baking the saved terrain IDs and Water Masks…", 0.5f);
+            TerrainRegionsPrebake data = AnimalGame.Editor.TerrainRegionsBaker.Update(TerrainRegionLevel,
+                terrainRegionCellSize, terrainRegionTolerance, terrainRegionMinimumArea);
+            terrainRegionError = null;
+            if (showTerrainRegions) SetTerrainRegionPreview(data);
+        }
+        catch (Exception error)
+        {
+            terrainRegionError = error.Message;
+            Debug.LogException(error);
+        }
+        finally
+        {
+            EditorUtility.ClearProgressBar();
+        }
+    }
+
+    private void ReloadTerrainRegionPreview()
+    {
+        terrainRegionError = null;
+        SetTerrainRegionPreview(null);
+        if (!showTerrainRegions || previewedTerrainRegionLevel == null) return;
+        try
+        {
+            SetTerrainRegionPreview(previewedTerrainRegionLevel.LoadPrebakedTerrainRegions());
+        }
+        catch (Exception error) when (error is IOException || error is InvalidDataException)
+        {
+            terrainRegionError = error.Message;
+        }
+    }
+
+    private void SetTerrainRegionPreview(TerrainRegionsPrebake data)
+    {
+        previewedTerrainRegionLevel = TerrainRegionLevel;
+        terrainRegionLines = null;
+        if (data != null)
+        {
+            terrainRegionLines = new (TerrainKind, Vector3[])[data.Regions.Length];
+            for (int i = 0; i < data.Regions.Length; i++)
+            {
+                var region = data.Regions[i];
+                var lines = new List<Vector3>();
+                foreach (var polygon in region.Polygons)
+                {
+                    AddRegionRing(lines, polygon.Outer);
+                    foreach (Vector2[] hole in polygon.Holes) AddRegionRing(lines, hole);
+                }
+                terrainRegionLines[i] = (region.Terrain, lines.ToArray());
+            }
+        }
+        SceneView.RepaintAll();
+        Repaint();
+    }
+
+    private static void AddRegionRing(List<Vector3> lines, Vector2[] ring)
+    {
+        for (int i = 0; i < ring.Length; i++)
+        {
+            lines.Add(ring[i]);
+            lines.Add(ring[(i + 1) % ring.Length]);
+        }
+    }
+
+    private void DrawTerrainRegionPreview()
+    {
+        if (Event.current.type != EventType.Repaint || !showTerrainRegions || terrainRegionLines == null
+            || mapController == null || !mapController.HasGeneratedMap || EditorApplication.isPlaying
+            || mapController.LevelAsset != previewedTerrainRegionLevel)
+            return;
+
+        Bounds bounds = mapController.WorldBounds;
+        Vector2 mapSize = mapController.MapSizeMeters;
+        var matrix = Matrix4x4.TRS(new Vector3(bounds.min.x, bounds.min.y, bounds.center.z),
+            Quaternion.identity, new Vector3(bounds.size.x / mapSize.x, bounds.size.y / mapSize.y, 1));
+        var previousZTest = Handles.zTest;
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        foreach (var (terrain, lines) in terrainRegionLines)
+        {
+            using var scope = new Handles.DrawingScope(TerrainPreviewColor(terrain), matrix);
+            Handles.DrawLines(lines);
+        }
+        Handles.zTest = previousZTest;
+    }
+
     private void DrawTerrainPreview()
     {
         if (Event.current.type != EventType.Repaint || !paintInScene || EditorApplication.isPlaying
@@ -969,7 +1141,7 @@ internal static class HeightMapSurfaceSettings
 {
     private const string MaskResolutionPath = "surfaceMaskResolution";
     private const string BakeVersionPath = "surfaceBakeGeneratorVersion";
-    private static readonly string[] BakedPaths =
+    internal static readonly string[] BakedPaths =
     {
         "surfacePalette",
         "surfaceTransitionWidthMeters",
@@ -1047,10 +1219,13 @@ internal static class HeightMapSurfaceSettings
 
     internal static void CopyAuthoring(SerializedObject source, SerializedObject destination)
     {
-        foreach (string path in BakedPaths)
-            destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
-        foreach (string path in RuntimePaths)
-            destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+        if (((HeightMapLevelAsset)destination.targetObject).MapParams == null)
+        {
+            foreach (string path in BakedPaths)
+                destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+            foreach (string path in RuntimePaths)
+                destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty(path));
+        }
         destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty("surfaceMask"));
         destination.CopyFromSerializedPropertyIfDifferent(source.FindProperty("surfaceDataVersion"));
     }
@@ -1068,7 +1243,7 @@ internal static class HeightMapSurfaceSettings
 
     internal static void CopyAll(HeightMapLevelAsset source, TiledLevelAsset map)
     {
-        if (!source.HasUsableSurfaceDefinitions || !source.TryValidateSurfacePalette(out _))
+        if (source.MapParams != null || !source.HasUsableSurfaceDefinitions || !source.TryValidateSurfacePalette(out _))
             return;
         if (CopySettings(source, map, BakedPaths, RuntimePaths))
         {
@@ -1086,7 +1261,7 @@ internal static class HeightMapSurfaceSettings
         foreach (TiledLevelAsset.Tile entry in map.Tiles)
         {
             HeightMapLevelAsset target = entry.level;
-            if (target == source)
+            if (target == source || target.MapParams != null)
                 continue;
 
             using var destination = new SerializedObject(target);

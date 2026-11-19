@@ -11,6 +11,7 @@ namespace AnimalGame.Animals
         public AnimalPhotoLibrary photo;
         public AnimalSpeciesConfig behaviour;
         public AnimalInfo info;
+        public AnimalSpawnInfo spawnInfo;
     }
 
     [CreateAssetMenu(menuName = "Animal Game/Animals/Animal Info Library")]

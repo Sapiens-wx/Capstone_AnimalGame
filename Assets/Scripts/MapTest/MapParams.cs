@@ -1,0 +1,254 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace AnimalGame.MapTest
+{
+    [CreateAssetMenu(fileName = "Map Params", menuName = "Animal Game/Map Params")]
+    public sealed class MapParams : ScriptableObject
+    {
+        [Header("Physical Height Field")]
+        [SerializeField, Range(128, 4096)] private int bakedHeightResolution = 2048;
+        [SerializeField] private bool normalizeSourceRange = true;
+        [SerializeField, Min(0f)] private float surfaceSmoothingSigmaMeters = 0.75f;
+        [Tooltip("Gaussian standard deviation in map meters applied only to the detail-height channel used by normal traversal step detection. Set to zero to preserve the original behavior for a level.")]
+        [SerializeField, Min(0f)] private float detailSmoothingSigmaMeters;
+        [Tooltip("A raw step at least this tall can bypass detail smoothing when it remains present across the confirmation distance. Set to zero to disable raw large-step preservation.")]
+        [SerializeField, Min(0f)] private float preserveLargeStepHeightMeters = 1.8f;
+        [Tooltip("Distance sampled on each side of a suspected raw step to distinguish a persistent ledge or cliff from a narrow image artifact.")]
+        [SerializeField, Min(0f)] private float largeStepConfirmationDistanceMeters = 1f;
+
+        [Header("Map Presentation")]
+        [SerializeField, Min(1f)] private float contourIntervalMeters = 8f;
+        [Tooltip("Direct shader reference keeps the runtime-created contour material available in standalone builds.")]
+        [SerializeField] private Shader dynamicContourShader;
+        [SerializeField, Range(0.1f, 10f)] private float minimumContourWidth = 0.7f;
+        [SerializeField, Range(0.1f, 10f)] private float maximumContourWidth = 3.68f;
+        [SerializeField, Range(0.1f, 0.7f)] private float maximumContourCoverage = 0.3f;
+        [SerializeField, Range(0.1f, 1.5f)] private float contourEdgeSoftness = 0.4f;
+        [SerializeField, Range(4, 128)] private int viewportEdgeSamples = 32;
+        [SerializeField, Range(2, 128)] private int viewportGridHeightSamples = 16;
+
+        [Header("View Ring and Contour Opacity")]
+        [Tooltip("Opacity of the lowest contour currently visible in the camera.")]
+        [SerializeField, Range(0f, 1f)] private float minimumContourOpacity = 0.15f;
+        [Tooltip("Opacity of the highest contour currently visible in the camera.")]
+        [SerializeField, Range(0f, 1f)] private float maximumContourOpacity = 1f;
+        [Tooltip("Darkening outside the view ring: zero leaves the map unchanged; one makes it black.")]
+        [SerializeField, Range(0f, 1f)] private float outsideRevealDarkening = 0.3f;
+
+        [Header("Color Palette")]
+        [SerializeField] private Color backgroundColor =
+            new Color(0.008f, 0.012f, 0.017f, 1f);
+        [SerializeField] private Color contourColor =
+            new Color(0.92f, 0.97f, 1f, 1f);
+
+#if UNITY_EDITOR
+        [Header("Terrain Surface Palette")]
+        [Tooltip("One visual definition per shared Terrain Kind. Unknown is reserved for unpainted terrain.")]
+        [SerializeField] private List<TerrainSurfaceDefinition> surfacePalette =
+            new List<TerrainSurfaceDefinition>();
+#endif
+
+#if UNITY_EDITOR
+        [Header("Baked Terrain Transitions")]
+        [Tooltip("Total map-space width of a transition between two terrain kinds.")]
+        [SerializeField, Min(0.1f)]
+        private float surfaceTransitionWidthMeters = 3f;
+        [Tooltip("Width around the noisy boundary that receives additional premultiplied-alpha smoothing.")]
+        [SerializeField, Min(0f)]
+        private float surfaceAlphaCoreWidthMeters = 0.8f;
+        [Tooltip("How far the continuous premultiplied-alpha fade expands from the narrow core toward the full transition width.")]
+        [SerializeField, Range(0f, 1f)]
+        private float surfaceAlphaBlendShare = 0.6f;
+        [Tooltip("Map-space size of the broad noise that makes biome boundaries irregular.")]
+        [SerializeField, Min(0.1f)]
+        private float surfaceBoundaryNoiseScaleMeters = 5f;
+        [Tooltip("Maximum map-space distance by which broad noise may push the boundary.")]
+        [SerializeField, Min(0f)]
+        private float surfaceBoundaryNoiseAmplitudeMeters = 0.8f;
+        [Tooltip("Map-space scale of the fine noise used to roughen only the terrain boundary. It never cuts up the pattern itself.")]
+        [SerializeField, Min(0.05f)]
+        private float surfaceScatterCellSizeMeters = 0.5f;
+        [Tooltip("Strength of the fine boundary-detail noise. The texture on either side remains continuous.")]
+        [SerializeField, Range(0f, 1f)]
+        private float surfaceScatterStrength = 0.35f;
+        [Tooltip("Deterministic map-space seed. Keeping this fixed makes every rebake reproduce exactly the same boundary.")]
+        [SerializeField] private int surfaceNoiseSeed = 1337;
+        [Tooltip("Resolution of the permanent RGBA visual generated by the Editor. Runtime only reads this finished texture.")]
+        [SerializeField, Range(256, 4096)] private int surfaceBakeResolution = 2048;
+        [Tooltip("How strongly the Editor normalizes each pattern's non-transparent alpha values before baking. Zero preserves source alpha; one makes differently authored textures use a more consistent visual alpha range. Fully transparent pixels stay transparent.")]
+        [SerializeField, Range(0f, 1f)]
+        private float surfacePatternAlphaNormalizationStrength = 0.75f;
+#endif
+
+        [Header("Static Closed-Contour Alpha")]
+        [Tooltip("Multiplier applied to terrain texture alpha at a closed contour boundary.")]
+        [SerializeField, Range(0f, 2f)]
+        private float surfaceClosedContourEdgeAlphaMultiplier = 0.3466667f;
+        [Tooltip("Multiplier applied to terrain texture alpha at the deepest point inside a closed contour region.")]
+        [SerializeField, Range(0f, 2f)]
+        private float surfaceClosedContourCenterAlphaMultiplier = 0.2f;
+#if UNITY_EDITOR
+        [Tooltip("Permanently bakes stronger terrain texture alpha near contour-region boundaries and weaker alpha toward each region's centre. The map's four straight sides can close contour lines that reach an edge. This is Editor-only and never reacts to the player at runtime.")]
+        [SerializeField] private bool surfaceClosedContourAlphaEnabled = true;
+        [Tooltip("Resolution used only while the Editor identifies closed contours and calculates distance from their boundaries.")]
+        [SerializeField, Range(128, 1024)]
+        private int surfaceClosedContourAlphaResolution = 512;
+        [Tooltip("Physical distance from a closed contour boundary that keeps the full boundary alpha multiplier before fading begins.")]
+        [SerializeField, Min(0f)]
+        private float surfaceClosedContourEdgeHoldDistanceMeters = 1.5f;
+        [Tooltip("Physical distance from a closed contour boundary where terrain texture alpha reaches the centre multiplier. Larger regions remain at the centre multiplier beyond this distance.")]
+        [SerializeField, Min(0.1f)]
+        private float surfaceClosedContourFadeDistanceMeters = 10f;
+        [Tooltip("Strength of the permanent edge-to-interior fade. Values above one make the texture disappear faster after leaving the boundary.")]
+        [SerializeField, Range(0.1f, 8f)]
+        private float surfaceClosedContourDistanceCurve = 2f;
+        [Tooltip("Closed contour components smaller than this physical area are ignored to prevent tiny height-map specks from changing alpha.")]
+        [SerializeField, Min(0f)]
+        private float surfaceClosedContourMinimumAreaSquareMeters = 4f;
+        [Tooltip("Alpha multiplier for terrain that is not inside any closed contour region.")]
+        [SerializeField, Range(0f, 2f)]
+        private float surfaceOutsideClosedContourAlphaMultiplier;
+#endif
+
+        [Header("Terrain Surface Queries")]
+        [Tooltip("Resolution of the persistent terrain authoring map. Each byte stores a shared TerrainKind value for terrain queries; rendering uses the baked visual.")]
+        [SerializeField, Range(64, 1024)] private int surfaceMaskResolution = 512;
+
+        [Header("Grassland Layout")]
+        [SerializeField] private int grasslandLayoutSeed;
+        [SerializeField, Range(0f, .4f)] private float grasslandPositionJitter = .4f;
+        [Tooltip("Direction region width as a multiple of the grassland repeat size.")]
+        [SerializeField, Min(1f)] private float grasslandDirectionRegionScale = 20f;
+        [SerializeField, Range(0f, 30f)] private float grasslandBladeAngleVariation = 10f;
+        [SerializeField, Range(.1f, 2f)] private float grasslandDensity = .5f;
+        [SerializeField, Range(.1f, 1f)] private float grasslandBladeLengthScale = 1f;
+
+        [Header("Grassland Overlay Patches")]
+        [SerializeField] private Texture2D grass1;
+        [SerializeField] private Texture2D grass2;
+        [SerializeField] private Texture2D grass3;
+        [Tooltip("Coverage of the noise-driven tall-grass regions; zero hides the overlay.")]
+        [SerializeField, Range(0f, 1f)] private float grassOverlayDensity = .95f;
+        [SerializeField, Range(.1f, .7f)] private float grassOverlaySize = .65f;
+        [Tooltip("Softness of the screen-space UI reveal boundary in pixels. This affects only the circular display cutoff, not painted terrain boundaries.")]
+        [SerializeField, Min(0f)] private float surfaceRevealEdgePixels = 4f;
+
+        [Header("Static Water Visual")]
+        [Tooltip("Pattern animated by the runtime map shader inside the authored water range.")]
+        [SerializeField] private Texture2D staticWaterEditorTexture;
+
+        [Tooltip("Map-space size of one animated water-pattern tile.")]
+        [SerializeField, Min(0.1f)]
+        private float staticWaterEditorTileSizeMeters = 8f;
+
+        [Tooltip("Map-space movement velocity of the primary water-pattern layer, in meters per second.")]
+        [SerializeField] private Vector2 staticWaterLayerOneSpeedMetersPerSecond =
+            new Vector2(0.36f, 0.04f);
+
+        [Tooltip("Map-space movement velocity of the secondary water-pattern layer, in meters per second.")]
+        [SerializeField] private Vector2 staticWaterLayerTwoSpeedMetersPerSecond =
+            new Vector2(-0.14f, 0.22f);
+
+        [Tooltip("Tiling multiplier of the rotated secondary pattern layer.")]
+        [SerializeField, Min(0.1f)]
+        private float staticWaterLayerTwoScale = 1.35f;
+
+        [Tooltip("Small UV distortion that makes the water lines bend like waves instead of sliding rigidly.")]
+        [SerializeField, Range(0f, 0.2f)]
+        private float staticWaterWaveDistortion = 0.03f;
+
+        [Tooltip("Speed of the sinusoidal wave distortion.")]
+        [SerializeField, Min(0f)] private float staticWaterWaveSpeed = 0.8f;
+
+        [Tooltip("Map-space wavelength of the broad distortion.")]
+        [SerializeField, Min(0.1f)]
+        private float staticWaterWaveLengthMeters = 12f;
+
+#if UNITY_EDITOR
+        [Header("Static Water Scene Preview")]
+        [Tooltip("Tint used only by the Scene-view static-water preview.")]
+        [SerializeField] private Color staticWaterEditorTint =
+            new Color(0.18f, 0.72f, 1f, 1f);
+#endif
+
+        [Header("Static Water")]
+        [Tooltip("Water at or below this depth remains traversable. Deeper water is treated as a hard movement blocker.")]
+        [SerializeField, Min(0f)]
+        private float maximumPassableStaticWaterDepthMeters = 1.2f;
+
+        public int BakedHeightResolution => bakedHeightResolution;
+        public bool NormalizeSourceRange => normalizeSourceRange;
+        public float SurfaceSmoothingSigmaMeters => surfaceSmoothingSigmaMeters;
+        public float DetailSmoothingSigmaMeters => detailSmoothingSigmaMeters;
+        public float PreserveLargeStepHeightMeters => preserveLargeStepHeightMeters;
+        public float LargeStepConfirmationDistanceMeters => largeStepConfirmationDistanceMeters;
+        public float ContourIntervalMeters => contourIntervalMeters;
+        public Shader DynamicContourShader => dynamicContourShader;
+        public float MinimumContourWidth => minimumContourWidth;
+        public float MaximumContourWidth => maximumContourWidth;
+        public float MaximumContourCoverage => maximumContourCoverage;
+        public float ContourEdgeSoftness => contourEdgeSoftness;
+        public int ViewportEdgeSamples => viewportEdgeSamples;
+        public int ViewportGridHeightSamples => viewportGridHeightSamples;
+        public float MinimumContourOpacity => minimumContourOpacity;
+        public float MaximumContourOpacity => maximumContourOpacity;
+        public float OutsideRevealDarkening => outsideRevealDarkening;
+        public Color BackgroundColor => backgroundColor;
+        public Color ContourColor => contourColor;
+        public float SurfaceClosedContourEdgeAlphaMultiplier => surfaceClosedContourEdgeAlphaMultiplier;
+        public float SurfaceClosedContourCenterAlphaMultiplier => surfaceClosedContourCenterAlphaMultiplier;
+        public int SurfaceMaskResolution => surfaceMaskResolution;
+        public int GrasslandLayoutSeed => grasslandLayoutSeed;
+        public float GrasslandPositionJitter => grasslandPositionJitter;
+        public float GrasslandDirectionRegionScale => grasslandDirectionRegionScale;
+        public float GrasslandBladeAngleVariation => grasslandBladeAngleVariation;
+        public float GrasslandDensity => grasslandDensity;
+        public float GrasslandBladeLengthScale => grasslandBladeLengthScale;
+        public Texture2D Grass1 => grass1;
+        public Texture2D Grass2 => grass2;
+        public Texture2D Grass3 => grass3;
+        public float GrassOverlayDensity => grassOverlayDensity;
+        public float GrassOverlaySize => grassOverlaySize;
+        public float SurfaceRevealEdgePixels => surfaceRevealEdgePixels;
+        public float MaximumPassableStaticWaterDepthMeters => maximumPassableStaticWaterDepthMeters;
+        public Texture2D StaticWaterTexture => staticWaterEditorTexture;
+        public float StaticWaterTileSizeMeters => staticWaterEditorTileSizeMeters;
+        public Vector2 StaticWaterLayerOneSpeedMetersPerSecond => staticWaterLayerOneSpeedMetersPerSecond;
+        public Vector2 StaticWaterLayerTwoSpeedMetersPerSecond => staticWaterLayerTwoSpeedMetersPerSecond;
+        public float StaticWaterLayerTwoScale => staticWaterLayerTwoScale;
+        public float StaticWaterWaveDistortion => staticWaterWaveDistortion;
+        public float StaticWaterWaveSpeed => staticWaterWaveSpeed;
+        public float StaticWaterWaveLengthMeters => staticWaterWaveLengthMeters;
+
+#if UNITY_EDITOR
+        public IReadOnlyList<TerrainSurfaceDefinition> SurfacePalette => surfacePalette;
+        public float SurfaceTransitionWidthMeters => surfaceTransitionWidthMeters;
+        public float SurfaceAlphaCoreWidthMeters => surfaceAlphaCoreWidthMeters;
+        public float SurfaceAlphaBlendShare => surfaceAlphaBlendShare;
+        public float SurfaceBoundaryNoiseScaleMeters => surfaceBoundaryNoiseScaleMeters;
+        public float SurfaceBoundaryNoiseAmplitudeMeters => surfaceBoundaryNoiseAmplitudeMeters;
+        public float SurfaceScatterCellSizeMeters => surfaceScatterCellSizeMeters;
+        public float SurfaceScatterStrength => surfaceScatterStrength;
+        public int SurfaceNoiseSeed => surfaceNoiseSeed;
+        public int SurfaceBakeResolution => surfaceBakeResolution;
+        public float SurfacePatternAlphaNormalizationStrength => surfacePatternAlphaNormalizationStrength;
+        public bool SurfaceClosedContourAlphaEnabled => surfaceClosedContourAlphaEnabled;
+        public int SurfaceClosedContourAlphaResolution => surfaceClosedContourAlphaResolution;
+        public float SurfaceClosedContourEdgeHoldDistanceMeters => surfaceClosedContourEdgeHoldDistanceMeters;
+        public float SurfaceClosedContourFadeDistanceMeters => surfaceClosedContourFadeDistanceMeters;
+        public float SurfaceClosedContourFadeStrength => surfaceClosedContourDistanceCurve;
+        public float SurfaceClosedContourMinimumAreaSquareMeters => surfaceClosedContourMinimumAreaSquareMeters;
+        public float SurfaceOutsideClosedContourAlphaMultiplier => surfaceOutsideClosedContourAlphaMultiplier;
+        public Color StaticWaterEditorTint => staticWaterEditorTint;
+#endif
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            foreach (TerrainSurfaceDefinition definition in surfacePalette)
+                definition?.Validate();
+        }
+#endif
+    }
+}

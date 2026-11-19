@@ -57,7 +57,7 @@ namespace AnimalGame.Editor
                     HeightMapLevelAsset level = ConfigureLevel(name, source);
                     // Matches checks settings, not source pixel contents. Always rebake so a
                     // partially failed previous export cannot reuse heights from an older RAW.
-                    HeightMapPrebakeEditor.Bake(level, preserveAssetGuid: true);
+                    HeightMapPrebakeEditor.Bake(level);
                     Require(level.PrebakedHeightField != null && level.PrebakedHeightField.Matches(level),
                         name + " has no matching V1 prebake.");
                     VerifyBakedChannels(level.PrebakedHeightField);
@@ -147,7 +147,7 @@ namespace AnimalGame.Editor
             {
                 SetFloat(serialized, "contourIntervalMeters", 7f);
                 // Copy the V1 presentation, never its physical/painted caches or authored masks.
-                SetObject(serialized, "prebakedHeightField", null);
+                Property(serialized, "prebakedHeightPath").stringValue = string.Empty;
                 SetObject(serialized, "staticWaterEditorTexture", null);
                 SetObject(serialized, "bakedStaticWaterMask", null);
                 SetObject(serialized, "bakedSurfaceVisual", null);

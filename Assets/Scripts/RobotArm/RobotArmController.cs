@@ -471,6 +471,8 @@ namespace AnimalGame.RobotArm
 
         private void AdvanceArms(bool extending)
         {
+            // Keep the last joint angles as the starting pose for the next deployment.
+            if (!extending && deploymentTime == 0f) return;
             if (IsTumbleArmLayoutActive) { AdvanceTumbleArms(extending); return; }
             if (normalManualActive && normalHoldPose) return;
             float next = extending ? Mathf.Min(TotalDeploymentTime, deploymentTime + stepDelta)
@@ -1219,7 +1221,12 @@ namespace AnimalGame.RobotArm
         }
         private void ApplyVisuals(Arm arm)
         {
-            arm.Root.gameObject.SetActive(deploymentTime > 0f);
+            if (deploymentTime <= 0f)
+            {
+                if (arm.Root.gameObject.activeSelf) arm.Root.gameObject.SetActive(false);
+                return;
+            }
+            if (!arm.Root.gameObject.activeSelf) arm.Root.gameObject.SetActive(true);
             Pose visualPose = arm.Pose;
             Vector2 socket = SocketAt(arm, visualPose);
             if (mediumRecycleActive && visualPose.Hand > 0f)

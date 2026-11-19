@@ -155,8 +155,18 @@ namespace AnimalGame.Editor
     {
         public override void OnInspectorGUI()
         {
-            DrawDefaultInspector();
             var level = (TiledLevelAsset)target;
+            MapParams previous = level.MapParams;
+            if (DrawDefaultInspector())
+            {
+                foreach (var tile in level.Tiles)
+                {
+                    if (tile?.level != null && (tile.level.MapParams == previous || tile.level.MapParams == null))
+                        MapParamsEditor.Assign(tile.level, level.MapParams);
+                }
+                if (level.Presentation != null)
+                    MapParamsEditor.Assign(level.Presentation, level.MapParams);
+            }
             if (!level.Validate(out string error))
                 EditorGUILayout.HelpBox(error, MessageType.Error);
             else

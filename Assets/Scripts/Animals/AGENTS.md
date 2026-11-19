@@ -16,9 +16,8 @@
 
 # AnimalInfo 结构
 
-- `AnimalInfoLibrary` 是动物数据的统一入口；每个 `AnimalInfoEntry` 包含 `AnimalSpecies` 和 `photo`、`behaviour`、`info` 三个引用。
-- 三个引用分别指向 `AnimalPhotoLibrary`（照片及显示名称）、`AnimalSpeciesConfig`（行为配置）、`AnimalInfo`（图鉴文字和插图）；它们不重复序列化物种枚举。
-- 资产位于 `Assets/Data/Animals/`：父目录放 `AnimalInfoLibrary.asset`，`Photo/`、`Behaviour/`、`Info/` 分别存放三类资产。
+- `AnimalInfoLibrary` 是动物数据的统一入口；每个 `AnimalInfoEntry` 包含 `AnimalSpecies` 和 `photo`、`behaviour`、`info`、`spawnInfo` 四个引用，分别指向 `AnimalPhotoLibrary`、`AnimalSpeciesConfig`、`AnimalInfo`、`AnimalSpawnInfo`。
+- 资产位于 `Assets/Data/Animals/`：父目录放 `AnimalInfoLibrary.asset`，`Photo/`、`Behaviour/`、`Info/`、`Spawn/` 分别存放对应资产；生成配置脚本位于 `Spawning/`。
 - 游戏启动时由 List 建立 Dictionary，通过 `AnimalInfoLibrary.Active.BySpecies[species]` 获取条目；新增动物需在此注册完整引用。
 - `AnimalInfoLibrary.TryChoosePhoto()` 委托普通辅助类 `AnimalPhotoSelector` 处理选图、裁剪和近期去重；`AnimalPhotoSubject` 的物种身份仍独立配置。
 
@@ -60,3 +59,6 @@
 - `AnimalTurnDeformation` ????? `bodyRenderer`????? Renderer ???
 
 - 植物交互统一在根节点的 `Vegetation : WorldInteraction`；动物视线使用 `SightBlocking` 标记的线段四叉树查询，不维护植物遮挡列表。
+
+- `AnimalSpawnRegionsAsset` 用数组保存生成区域，每个物种保留一项，在 Inspector 中选择 `AnimalSpecies`，在 Animal Spawn Regions 窗口编辑多边形。
+- `AnimalSpawnInfo.AllowedTerrains` 使用地表 Palette 的 `TerrainKind`，`IsAquatic` 标记水生。Animal Spawn Regions 使用当前 Tiled Level 的 TerrainRegions 裁剪多边形并保留内洞。水生只与从 Water Mask 烘焙的 Water 区域求交。

@@ -5,6 +5,8 @@
 # Recommended: add any editor/OS/tool-specific ignore rules from the Global/ templates as needed.
 # See: https://github.com/github/gitignore/tree/main/Global
 #
+prebake_data/
+prebake_data.meta
 output/
 /docs/
 .utmp/
@@ -111,20 +113,9 @@ InitTestScene*.unity*
 /Assets/StreamingAssets/Milestone2/NatureAmbience/
 /Assets/StreamingAssets/Milestone2/NatureAmbience.meta
 
-# Regenerable V1 terrain height caches remain local; keep TerrainData, PNG and MapData.
-/Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset
-/Assets/Maps/TerrainGridV1/**/*_HeightPrebake.asset.meta
-
-# Regenerable prairie sample height caches stay local.
-/Assets/Maps/PlainsSample500/**/*_HeightPrebake.asset
-/Assets/Maps/PlainsSample500/**/*_HeightPrebake.asset.meta
-
 # Official-map play tests rebuild height caches locally.
-/Assets/Maps/Official_Map_01/Gameplay*/**/*_HeightPrebake.asset
-/Assets/Maps/Official_Map_01/Gameplay*/**/*_HeightPrebake.asset.meta
+*_HeightPrebake.asset
+*_HeightPrebake.asset.meta
 
 # Local source snapshots before the official grassland blockout; never duplicate them in Git.
-/LocalBackups/OfficialMap01/RoughBlockout/
-
-# Named TerrainData saves and automatic recovery versions stay local.
-/LocalBackups/TerrainSaves/
+/LocalBackups/

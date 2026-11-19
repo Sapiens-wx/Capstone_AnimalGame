@@ -246,25 +246,29 @@ public sealed class HeightMapNavigatorWindow : EditorWindow
         RenderTexture previous = RenderTexture.active;
         try
         {
+            var properties = new MaterialPropertyBlock();
             foreach (var map in maps)
-            foreach (var source in map.EditorTileRenderers)
             {
-                var go = new GameObject("Navigator Tile") { hideFlags = HideFlags.HideAndDontSave };
-                go.transform.SetPositionAndRotation(source.transform.position, source.transform.rotation);
-                go.transform.localScale = source.transform.lossyScale;
-                var renderer = go.AddComponent<SpriteRenderer>();
-                renderer.sprite = source.sprite;
-                renderer.sortingOrder = source.sortingOrder;
-                var material = new Material(source.sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
+                var tiles = map.EditorTileRenderers;
+                if (tiles.Count == 0) continue;
+                var material = new Material(tiles[0].sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
+                materials.Add(material);
                 material.SetFloat("_SurfaceRevealEnabled", 0f);
                 material.SetFloat("_VisibleMinimumHeight", map.Presentation.MinimumHeightMeters);
                 material.SetFloat("_VisibleMaximumHeight", map.Presentation.MaximumHeightMeters);
-                materials.Add(material);
-                renderer.sharedMaterial = material;
-                var properties = new MaterialPropertyBlock();
-                source.GetPropertyBlock(properties);
-                renderer.SetPropertyBlock(properties);
-                preview.AddSingleGO(go);
+                foreach (var source in tiles)
+                {
+                    var go = new GameObject("Navigator Tile") { hideFlags = HideFlags.HideAndDontSave };
+                    go.transform.SetPositionAndRotation(source.transform.position, source.transform.rotation);
+                    go.transform.localScale = source.transform.lossyScale;
+                    var renderer = go.AddComponent<SpriteRenderer>();
+                    renderer.sprite = source.sprite;
+                    renderer.sortingOrder = source.sortingOrder;
+                    renderer.sharedMaterial = material;
+                    source.GetPropertyBlock(properties);
+                    renderer.SetPropertyBlock(properties);
+                    preview.AddSingleGO(go);
+                }
             }
             Camera camera = preview.camera;
             camera.orthographic = true;

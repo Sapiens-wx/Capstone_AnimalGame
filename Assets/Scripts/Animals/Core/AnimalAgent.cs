@@ -161,7 +161,7 @@ namespace AnimalGame.Animals
             if (Map == null)
                 foreach (GameObject root in gameObject.scene.GetRootGameObjects())
                 { Map = root.GetComponentInChildren<MapTestSceneController>(); if (Map != null) break; }
-            if (Map == null || !Map.HasGeneratedMap) return false;
+            if (Map == null || !Map.HasGeneratedMap || Map.HasPendingHeightLoads) return false;
             if (!Map.TrySampleWorldPosition(transform.position, out Vector2 home, out _))
                 return Reject("Animal spawn is outside the generated map.");
             Motor = GetComponent<AnimalMotor>();

@@ -141,6 +141,9 @@ namespace AnimalGame.MapTest
         public const int CurrentStaticWaterMaskBakeGeneratorVersion = 3;
 #endif
 
+        [SerializeField] private MapParams mapParams;
+        public MapParams MapParams => mapParams;
+
         [Header("Height Source")]
         [SerializeField] private Texture2D heightMap;
         [SerializeField, Min(1f)] private float mapWidthMeters = 250f;
@@ -163,8 +166,9 @@ namespace AnimalGame.MapTest
         [SerializeField, Min(0f)] private float largeStepConfirmationDistanceMeters = 1f;
 
         [Header("Pre-Baked Height Field")]
-        [Tooltip("Generated with Animal Game/Pre-Bake Height Map after changing physical height settings.")]
-        [SerializeField] private HeightMapPrebakedData prebakedHeightField;
+        [Tooltip("Generated with Animal Game/Prebake/Prebake Height Map after changing physical height settings.")]
+        [SerializeField] private string prebakedHeightPath;
+        private HeightMapPrebakedData prebakedHeightField;
 
         [Header("Map Presentation")]
         [SerializeField, Min(1f)] private float contourIntervalMeters = 8f;
@@ -355,8 +359,8 @@ namespace AnimalGame.MapTest
         [SerializeField, Range(0f, 2f)]
         private float surfaceClosedContourCenterAlphaMultiplier = 0.2f;
 
-        public float SurfaceClosedContourEdgeAlphaMultiplier => surfaceClosedContourEdgeAlphaMultiplier;
-        public float SurfaceClosedContourCenterAlphaMultiplier => surfaceClosedContourCenterAlphaMultiplier;
+        public float SurfaceClosedContourEdgeAlphaMultiplier => mapParams != null ? mapParams.SurfaceClosedContourEdgeAlphaMultiplier : surfaceClosedContourEdgeAlphaMultiplier;
+        public float SurfaceClosedContourCenterAlphaMultiplier => mapParams != null ? mapParams.SurfaceClosedContourCenterAlphaMultiplier : surfaceClosedContourCenterAlphaMultiplier;
 
         [Header("Terrain Surface Queries")]
         [Tooltip("Resolution of the persistent terrain authoring map. Each byte stores a shared TerrainKind value for terrain queries; rendering uses the baked visual.")]
@@ -394,15 +398,17 @@ namespace AnimalGame.MapTest
         [Tooltip("Coverage of the noise-driven tall-grass regions; zero hides the overlay.")]
         [SerializeField, Range(0f, 1f)] private float grassOverlayDensity = .95f;
         [SerializeField, Range(.1f, .7f)] private float grassOverlaySize = .65f;
-        public Texture2D Grass1 => grass1;
-        public Texture2D Grass2 => grass2;
-        public Texture2D Grass3 => grass3;
+        public Texture2D Grass1 => mapParams != null ? mapParams.Grass1 : grass1;
+        public Texture2D Grass2 => mapParams != null ? mapParams.Grass2 : grass2;
+        public Texture2D Grass3 => mapParams != null ? mapParams.Grass3 : grass3;
         public Vector4 GrassOverlaySettings
         {
             get
             {
-                return new Vector4(grassOverlayDensity, grassOverlaySize,
-                    (grass1 != null ? 1 : 0) + (grass2 != null ? 2 : 0) + (grass3 != null ? 4 : 0), GrasslandOpacity);
+                return new Vector4(
+                    mapParams != null ? mapParams.GrassOverlayDensity : grassOverlayDensity,
+                    mapParams != null ? mapParams.GrassOverlaySize : grassOverlaySize,
+                    (Grass1 != null ? 1 : 0) + (Grass2 != null ? 2 : 0) + (Grass3 != null ? 4 : 0), GrasslandOpacity);
             }
         }
         private float GrasslandOpacity =>
@@ -415,9 +421,14 @@ namespace AnimalGame.MapTest
         public Vector4[] GrasslandBladeRects => grasslandBladeRects;
         public float GrasslandTileSizeMeters => grasslandTileSizeMeters;
         public Vector2 GrasslandAlphaNormalization => grasslandAlphaNormalization;
-        public Vector4 GrasslandLayout => new Vector4(grasslandLayoutSeed, grasslandPositionJitter,
-            grasslandDirectionRegionScale, grasslandBladeAngleVariation * Mathf.Deg2Rad);
-        public Vector4 GrasslandShape => new Vector4(grasslandDensity, grasslandBladeLengthScale, 0, 0);
+        public Vector4 GrasslandLayout => mapParams != null
+            ? new Vector4(mapParams.GrasslandLayoutSeed, mapParams.GrasslandPositionJitter,
+                mapParams.GrasslandDirectionRegionScale, mapParams.GrasslandBladeAngleVariation * Mathf.Deg2Rad)
+            : new Vector4(grasslandLayoutSeed, grasslandPositionJitter,
+                grasslandDirectionRegionScale, grasslandBladeAngleVariation * Mathf.Deg2Rad);
+        public Vector4 GrasslandShape => mapParams != null
+            ? new Vector4(mapParams.GrasslandDensity, mapParams.GrasslandBladeLengthScale, 0, 0)
+            : new Vector4(grasslandDensity, grasslandBladeLengthScale, 0, 0);
 
         [Tooltip("Softness of the screen-space UI reveal boundary in pixels. This affects only the circular display cutoff, not painted terrain boundaries.")]
         [SerializeField, Min(0f)] private float surfaceRevealEdgePixels = 4f;
@@ -434,33 +445,38 @@ namespace AnimalGame.MapTest
         [SerializeField] private Color contourColor =
             new Color(0.92f, 0.97f, 1f, 1f);
 
+        public int SurfaceMaskResolution => mapParams != null ? mapParams.SurfaceMaskResolution : surfaceMaskResolution;
         public Texture2D HeightMap => heightMap;
         public Vector2 MapSizeMeters => new Vector2(mapWidthMeters, mapHeightMeters);
         public float MinimumHeightMeters => minimumHeightMeters;
         public float MaximumHeightMeters => maximumHeightMeters;
-        public int BakedHeightResolution => bakedHeightResolution;
-        public bool NormalizeSourceRange => normalizeSourceRange;
-        public float SurfaceSmoothingSigmaMeters => surfaceSmoothingSigmaMeters;
-        public float DetailSmoothingSigmaMeters => detailSmoothingSigmaMeters;
+        public int BakedHeightResolution => mapParams != null ? mapParams.BakedHeightResolution : bakedHeightResolution;
+        public bool NormalizeSourceRange => mapParams != null ? mapParams.NormalizeSourceRange : normalizeSourceRange;
+        public float SurfaceSmoothingSigmaMeters => mapParams != null ? mapParams.SurfaceSmoothingSigmaMeters : surfaceSmoothingSigmaMeters;
+        public float DetailSmoothingSigmaMeters => mapParams != null ? mapParams.DetailSmoothingSigmaMeters : detailSmoothingSigmaMeters;
         public float PreserveLargeStepHeightMeters =>
-            preserveLargeStepHeightMeters;
+            mapParams != null ? mapParams.PreserveLargeStepHeightMeters : preserveLargeStepHeightMeters;
         public float LargeStepConfirmationDistanceMeters =>
-            largeStepConfirmationDistanceMeters;
-        public HeightMapPrebakedData PrebakedHeightField
+            mapParams != null ? mapParams.LargeStepConfirmationDistanceMeters : largeStepConfirmationDistanceMeters;
+        public string PrebakedHeightPath => prebakedHeightPath;
+
+        internal HeightMapPrebakedData LoadPrebakedHeightField()
         {
-            get
-            {
-                if (prebakedHeightField != null) return prebakedHeightField;
-#if UNITY_EDITOR
-                string localPath = LocalPrebakeCachePath;
-                if (localPath != null)
-                    return UnityEditor.AssetDatabase.LoadAssetAtPath<HeightMapPrebakedData>(localPath);
-#endif
-                return prebakedHeightField;
-            }
+            if (prebakedHeightField == null && !string.IsNullOrEmpty(prebakedHeightPath))
+                prebakedHeightField = Resources.Load<HeightMapPrebakedData>(prebakedHeightPath);
+            return prebakedHeightField;
         }
+
+        internal ResourceRequest RequestPrebakedHeightField() => string.IsNullOrEmpty(prebakedHeightPath)
+            ? null : Resources.LoadAsync<HeightMapPrebakedData>(prebakedHeightPath);
+
+        internal void AssignLoadedPrebake(HeightMapPrebakedData data) => prebakedHeightField = data;
+
 #if UNITY_EDITOR
-        public bool UsesLocalPrebakeCache => LocalPrebakeCachePath != null;
+        public HeightMapPrebakedData PrebakedHeightField => prebakedHeightField
+            ?? UnityEditor.AssetDatabase.LoadAssetAtPath<HeightMapPrebakedData>(
+                string.IsNullOrEmpty(prebakedHeightPath) ? LocalPrebakeCachePath
+                    : HeightMapAssetPaths.ResourcesDirectory + prebakedHeightPath + ".asset");
 
         private string LocalPrebakeCachePath
         {
@@ -471,18 +487,18 @@ namespace AnimalGame.MapTest
                 return path.StartsWith("Assets/Maps/TerrainGridV1/", StringComparison.Ordinal)
                     && path.EndsWith(".asset", StringComparison.Ordinal)
                     ? HeightMapAssetPaths.PrebakePath(path)
-                    : null;
+                    : string.Empty;
             }
         }
 #endif
-        public float ContourIntervalMeters => contourIntervalMeters;
-        public Shader DynamicContourShader => dynamicContourShader;
-        public float MinimumContourWidth => minimumContourWidth;
-        public float MaximumContourWidth => maximumContourWidth;
-        public float MaximumContourCoverage => maximumContourCoverage;
-        public float ContourEdgeSoftness => contourEdgeSoftness;
-        public int ViewportEdgeSamples => viewportEdgeSamples;
-        public int ViewportGridHeightSamples => viewportGridHeightSamples;
+        public float ContourIntervalMeters => mapParams != null ? mapParams.ContourIntervalMeters : contourIntervalMeters;
+        public Shader DynamicContourShader => mapParams != null ? mapParams.DynamicContourShader : dynamicContourShader;
+        public float MinimumContourWidth => mapParams != null ? mapParams.MinimumContourWidth : minimumContourWidth;
+        public float MaximumContourWidth => mapParams != null ? mapParams.MaximumContourWidth : maximumContourWidth;
+        public float MaximumContourCoverage => mapParams != null ? mapParams.MaximumContourCoverage : maximumContourCoverage;
+        public float ContourEdgeSoftness => mapParams != null ? mapParams.ContourEdgeSoftness : contourEdgeSoftness;
+        public int ViewportEdgeSamples => mapParams != null ? mapParams.ViewportEdgeSamples : viewportEdgeSamples;
+        public int ViewportGridHeightSamples => mapParams != null ? mapParams.ViewportGridHeightSamples : viewportGridHeightSamples;
         public int StaticWaterResolution => staticWaterResolution;
         public RectInt StaticWaterPixelBounds => staticWaterPixelBounds.width > 0
             ? staticWaterPixelBounds
@@ -499,27 +515,31 @@ namespace AnimalGame.MapTest
         public float MaximumStaticWaterDepthMeters =>
             maximumStaticWaterDepthMeters;
         public float MaximumPassableStaticWaterDepthMeters =>
-            maximumPassableStaticWaterDepthMeters;
-        public Texture2D StaticWaterTexture => staticWaterEditorTexture;
+            mapParams != null ? mapParams.MaximumPassableStaticWaterDepthMeters : maximumPassableStaticWaterDepthMeters;
+        public Texture2D StaticWaterTexture =>
+            mapParams != null ? mapParams.StaticWaterTexture : staticWaterEditorTexture;
         public Texture2D BakedStaticWaterMask => bakedStaticWaterMask;
         public Texture2D BakedStaticWaterUv => bakedStaticWaterUv;
         public Rect BakedStaticWaterBounds => bakedStaticWaterBounds;
         public float StaticWaterTileSizeMeters =>
-            staticWaterEditorTileSizeMeters;
+            mapParams != null ? mapParams.StaticWaterTileSizeMeters : staticWaterEditorTileSizeMeters;
         public Vector2 StaticWaterLayerOneSpeedMetersPerSecond =>
-            staticWaterLayerOneSpeedMetersPerSecond;
+            mapParams != null ? mapParams.StaticWaterLayerOneSpeedMetersPerSecond : staticWaterLayerOneSpeedMetersPerSecond;
         public Vector2 StaticWaterLayerTwoSpeedMetersPerSecond =>
-            staticWaterLayerTwoSpeedMetersPerSecond;
-        public float StaticWaterLayerTwoScale => staticWaterLayerTwoScale;
-        public float StaticWaterWaveDistortion => staticWaterWaveDistortion;
-        public float StaticWaterWaveSpeed => staticWaterWaveSpeed;
+            mapParams != null ? mapParams.StaticWaterLayerTwoSpeedMetersPerSecond : staticWaterLayerTwoSpeedMetersPerSecond;
+        public float StaticWaterLayerTwoScale =>
+            mapParams != null ? mapParams.StaticWaterLayerTwoScale : staticWaterLayerTwoScale;
+        public float StaticWaterWaveDistortion =>
+            mapParams != null ? mapParams.StaticWaterWaveDistortion : staticWaterWaveDistortion;
+        public float StaticWaterWaveSpeed =>
+            mapParams != null ? mapParams.StaticWaterWaveSpeed : staticWaterWaveSpeed;
         public float StaticWaterWaveLengthMeters =>
-            staticWaterWaveLengthMeters;
+            mapParams != null ? mapParams.StaticWaterWaveLengthMeters : staticWaterWaveLengthMeters;
 #if UNITY_EDITOR
-        public Color StaticWaterEditorTint => staticWaterEditorTint;
+        public Color StaticWaterEditorTint => mapParams != null ? mapParams.StaticWaterEditorTint : staticWaterEditorTint;
 #endif
         public Texture2D BakedSurfaceVisual => bakedSurfaceVisual;
-        public float SurfaceRevealEdgePixels => surfaceRevealEdgePixels;
+        public float SurfaceRevealEdgePixels => mapParams != null ? mapParams.SurfaceRevealEdgePixels : surfaceRevealEdgePixels;
         public int SurfacePresentationHash
         {
             get
@@ -529,10 +549,11 @@ namespace AnimalGame.MapTest
                     int hash = bakedSurfaceVisual != null
                         ? bakedSurfaceVisual.GetInstanceID()
                         : 0;
-                    hash = hash * 397 ^ surfaceRevealEdgePixels.GetHashCode();
+                    hash = hash * 397 ^ SurfaceRevealEdgePixels.GetHashCode();
                     hash = hash * 397 ^ surfaceBakeRevision;
-                    hash = hash * 397 ^ (staticWaterEditorTexture != null
-                        ? staticWaterEditorTexture.GetInstanceID()
+                    Texture2D waterPattern = StaticWaterTexture;
+                    hash = hash * 397 ^ (waterPattern != null
+                        ? waterPattern.GetInstanceID()
                         : 0);
                     hash = hash * 397 ^ (bakedStaticWaterMask != null
                         ? bakedStaticWaterMask.GetInstanceID()
@@ -541,29 +562,29 @@ namespace AnimalGame.MapTest
                         ? bakedStaticWaterUv.GetInstanceID()
                         : 0);
                     hash = hash * 397
-                           ^ staticWaterEditorTileSizeMeters.GetHashCode();
+                           ^ StaticWaterTileSizeMeters.GetHashCode();
                     hash = hash * 397
-                           ^ staticWaterLayerOneSpeedMetersPerSecond.GetHashCode();
+                           ^ StaticWaterLayerOneSpeedMetersPerSecond.GetHashCode();
                     hash = hash * 397
-                           ^ staticWaterLayerTwoSpeedMetersPerSecond.GetHashCode();
+                           ^ StaticWaterLayerTwoSpeedMetersPerSecond.GetHashCode();
                     hash = hash * 397
-                           ^ staticWaterLayerTwoScale.GetHashCode();
+                           ^ StaticWaterLayerTwoScale.GetHashCode();
                     hash = hash * 397
-                           ^ staticWaterWaveDistortion.GetHashCode();
+                           ^ StaticWaterWaveDistortion.GetHashCode();
                     hash = hash * 397
-                           ^ staticWaterWaveSpeed.GetHashCode();
+                           ^ StaticWaterWaveSpeed.GetHashCode();
                     hash = hash * 397
-                           ^ staticWaterWaveLengthMeters.GetHashCode();
+                           ^ StaticWaterWaveLengthMeters.GetHashCode();
                     hash = hash * 397 ^ staticWaterMaskBakeRevision;
                     return hash;
                 }
             }
         }
-        public Color BackgroundColor => backgroundColor;
-        public Color ContourColor => contourColor;
-        public float MinimumContourOpacity => minimumContourOpacity;
-        public float MaximumContourOpacity => maximumContourOpacity;
-        public float OutsideRevealDarkening => outsideRevealDarkening;
+        public Color BackgroundColor => mapParams != null ? mapParams.BackgroundColor : backgroundColor;
+        public Color ContourColor => mapParams != null ? mapParams.ContourColor : contourColor;
+        public float MinimumContourOpacity => mapParams != null ? mapParams.MinimumContourOpacity : minimumContourOpacity;
+        public float MaximumContourOpacity => mapParams != null ? mapParams.MaximumContourOpacity : maximumContourOpacity;
+        public float OutsideRevealDarkening => mapParams != null ? mapParams.OutsideRevealDarkening : outsideRevealDarkening;
         public bool IsValid => heightMap != null
                                && mapWidthMeters > 0f
                                && mapHeightMeters > 0f
@@ -659,28 +680,28 @@ namespace AnimalGame.MapTest
                     hash = hash * 397 ^ mapHeightMeters.GetHashCode();
                     hash = hash * 397 ^ minimumHeightMeters.GetHashCode();
                     hash = hash * 397 ^ maximumHeightMeters.GetHashCode();
-                    hash = hash * 397 ^ bakedHeightResolution;
-                    hash = hash * 397 ^ normalizeSourceRange.GetHashCode();
-                    hash = hash * 397 ^ surfaceSmoothingSigmaMeters.GetHashCode();
-                    hash = hash * 397 ^ detailSmoothingSigmaMeters.GetHashCode();
-                    hash = hash * 397 ^ preserveLargeStepHeightMeters.GetHashCode();
+                    hash = hash * 397 ^ BakedHeightResolution;
+                    hash = hash * 397 ^ NormalizeSourceRange.GetHashCode();
+                    hash = hash * 397 ^ SurfaceSmoothingSigmaMeters.GetHashCode();
+                    hash = hash * 397 ^ DetailSmoothingSigmaMeters.GetHashCode();
+                    hash = hash * 397 ^ PreserveLargeStepHeightMeters.GetHashCode();
                     hash = hash * 397 ^
-                           largeStepConfirmationDistanceMeters.GetHashCode();
-                    hash = hash * 397 ^ contourIntervalMeters.GetHashCode();
-                    hash = hash * 397 ^ (dynamicContourShader != null
-                        ? dynamicContourShader.GetInstanceID()
+                           LargeStepConfirmationDistanceMeters.GetHashCode();
+                    hash = hash * 397 ^ ContourIntervalMeters.GetHashCode();
+                    hash = hash * 397 ^ (DynamicContourShader != null
+                        ? DynamicContourShader.GetInstanceID()
                         : 0);
-                    hash = hash * 397 ^ minimumContourWidth.GetHashCode();
-                    hash = hash * 397 ^ maximumContourWidth.GetHashCode();
-                    hash = hash * 397 ^ maximumContourCoverage.GetHashCode();
-                    hash = hash * 397 ^ contourEdgeSoftness.GetHashCode();
-                    hash = hash * 397 ^ viewportEdgeSamples;
-                    hash = hash * 397 ^ viewportGridHeightSamples;
-                    hash = hash * 397 ^ backgroundColor.GetHashCode();
-                    hash = hash * 397 ^ contourColor.GetHashCode();
-                    hash = hash * 397 ^ minimumContourOpacity.GetHashCode();
-                    hash = hash * 397 ^ maximumContourOpacity.GetHashCode();
-                    hash = hash * 397 ^ outsideRevealDarkening.GetHashCode();
+                    hash = hash * 397 ^ MinimumContourWidth.GetHashCode();
+                    hash = hash * 397 ^ MaximumContourWidth.GetHashCode();
+                    hash = hash * 397 ^ MaximumContourCoverage.GetHashCode();
+                    hash = hash * 397 ^ ContourEdgeSoftness.GetHashCode();
+                    hash = hash * 397 ^ ViewportEdgeSamples;
+                    hash = hash * 397 ^ ViewportGridHeightSamples;
+                    hash = hash * 397 ^ BackgroundColor.GetHashCode();
+                    hash = hash * 397 ^ ContourColor.GetHashCode();
+                    hash = hash * 397 ^ MinimumContourOpacity.GetHashCode();
+                    hash = hash * 397 ^ MaximumContourOpacity.GetHashCode();
+                    hash = hash * 397 ^ OutsideRevealDarkening.GetHashCode();
                     return hash;
                 }
             }
@@ -690,16 +711,21 @@ namespace AnimalGame.MapTest
         public TerrainKind SampleSurfaceType(Vector2 mapPositionMeters)
         {
             Vector2 size = MapSizeMeters;
+            int resolution = SurfaceMaskResolution;
             if (float.IsNaN(mapPositionMeters.x) || float.IsNaN(mapPositionMeters.y)
                 || mapPositionMeters.x < 0f || mapPositionMeters.y < 0f
                 || mapPositionMeters.x > size.x || mapPositionMeters.y > size.y
-                || surfaceMask == null || surfaceMaskResolution <= 0
-                || surfaceMask.Length != surfaceMaskResolution * surfaceMaskResolution)
+                || surfaceMask == null || resolution <= 0
+                || surfaceMask.Length != resolution * resolution)
                 return TerrainKind.Unknown;
 
-            int x = Mathf.Min((int)(mapPositionMeters.x / size.x * surfaceMaskResolution), surfaceMaskResolution - 1);
-            int y = Mathf.Min((int)(mapPositionMeters.y / size.y * surfaceMaskResolution), surfaceMaskResolution - 1);
-            byte value = surfaceMask[y * surfaceMaskResolution + x];
+            int x = Mathf.Min((int)(mapPositionMeters.x / size.x * resolution), resolution - 1);
+            int y = Mathf.Min((int)(mapPositionMeters.y / size.y * resolution), resolution - 1);
+            return DecodeSurfaceType(surfaceMask[y * resolution + x]);
+        }
+
+        private TerrainKind DecodeSurfaceType(byte value)
+        {
             // Match the migration of legacy single-surface masks without mutating them.
             if (surfaceDataVersion < 1 && value != 0) return TerrainKind.GridTest;
             return Enum.IsDefined(typeof(TerrainKind), (TerrainKind)value)
@@ -707,44 +733,76 @@ namespace AnimalGame.MapTest
         }
 
 #if UNITY_EDITOR
+        public byte[] CopySurfaceTypeMap()
+        {
+            if (surfaceMask == null || surfaceMask.Length != SurfaceMaskResolution * SurfaceMaskResolution)
+                return Array.Empty<byte>();
+            var copy = new byte[surfaceMask.Length];
+            Span<byte> lookup = stackalloc byte[256];
+            for (int i = 0; i < lookup.Length; i++)
+                lookup[i] = (byte)DecodeSurfaceType((byte)i);
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = lookup[surfaceMask[i]];
+            return copy;
+        }
+
         public void SetPrebakedHeightField(HeightMapPrebakedData data)
         {
             prebakedHeightField = data;
         }
 
+        public void SetPrebakedHeightPath(string path)
+        {
+            prebakedHeightPath = path;
+            prebakedHeightField = null;
+        }
+
         public IReadOnlyList<TerrainSurfaceDefinition> SurfacePalette =>
-            surfacePalette;
+            mapParams != null ? mapParams.SurfacePalette : surfacePalette;
         public float SurfaceTransitionWidthMeters =>
-            surfaceTransitionWidthMeters;
+            mapParams != null ? mapParams.SurfaceTransitionWidthMeters : surfaceTransitionWidthMeters;
         public float SurfaceAlphaCoreWidthMeters =>
-            surfaceAlphaCoreWidthMeters;
-        public float SurfaceAlphaBlendShare => surfaceAlphaBlendShare;
+            mapParams != null ? mapParams.SurfaceAlphaCoreWidthMeters : surfaceAlphaCoreWidthMeters;
+        public float SurfaceAlphaBlendShare => mapParams != null ? mapParams.SurfaceAlphaBlendShare : surfaceAlphaBlendShare;
         public float SurfaceBoundaryNoiseScaleMeters =>
-            surfaceBoundaryNoiseScaleMeters;
+            mapParams != null ? mapParams.SurfaceBoundaryNoiseScaleMeters : surfaceBoundaryNoiseScaleMeters;
         public float SurfaceBoundaryNoiseAmplitudeMeters =>
-            surfaceBoundaryNoiseAmplitudeMeters;
+            mapParams != null ? mapParams.SurfaceBoundaryNoiseAmplitudeMeters : surfaceBoundaryNoiseAmplitudeMeters;
         public float SurfaceScatterCellSizeMeters =>
-            surfaceScatterCellSizeMeters;
-        public float SurfaceScatterStrength => surfaceScatterStrength;
-        public int SurfaceNoiseSeed => surfaceNoiseSeed;
-        public int SurfaceBakeResolution => surfaceBakeResolution;
-        public int SurfaceMaskResolution => surfaceMaskResolution;
+            mapParams != null ? mapParams.SurfaceScatterCellSizeMeters : surfaceScatterCellSizeMeters;
+        public float SurfaceScatterStrength => mapParams != null ? mapParams.SurfaceScatterStrength : surfaceScatterStrength;
+        public int SurfaceNoiseSeed => mapParams != null ? mapParams.SurfaceNoiseSeed : surfaceNoiseSeed;
+        public int SurfaceBakeResolution => mapParams != null ? mapParams.SurfaceBakeResolution : surfaceBakeResolution;
         public float SurfacePatternAlphaNormalizationStrength =>
-            surfacePatternAlphaNormalizationStrength;
+            mapParams != null ? mapParams.SurfacePatternAlphaNormalizationStrength : surfacePatternAlphaNormalizationStrength;
         public bool SurfaceClosedContourAlphaEnabled =>
-            surfaceClosedContourAlphaEnabled;
+            mapParams != null ? mapParams.SurfaceClosedContourAlphaEnabled : surfaceClosedContourAlphaEnabled;
         public int SurfaceClosedContourAlphaResolution =>
-            surfaceClosedContourAlphaResolution;
+            mapParams != null ? mapParams.SurfaceClosedContourAlphaResolution : surfaceClosedContourAlphaResolution;
         public float SurfaceClosedContourEdgeHoldDistanceMeters =>
-            surfaceClosedContourEdgeHoldDistanceMeters;
+            mapParams != null ? mapParams.SurfaceClosedContourEdgeHoldDistanceMeters : surfaceClosedContourEdgeHoldDistanceMeters;
         public float SurfaceClosedContourFadeDistanceMeters =>
-            surfaceClosedContourFadeDistanceMeters;
+            mapParams != null ? mapParams.SurfaceClosedContourFadeDistanceMeters : surfaceClosedContourFadeDistanceMeters;
         public float SurfaceClosedContourFadeStrength =>
-            surfaceClosedContourDistanceCurve;
+            mapParams != null ? mapParams.SurfaceClosedContourFadeStrength : surfaceClosedContourDistanceCurve;
         public float SurfaceClosedContourMinimumAreaSquareMeters =>
-            surfaceClosedContourMinimumAreaSquareMeters;
+            mapParams != null ? mapParams.SurfaceClosedContourMinimumAreaSquareMeters : surfaceClosedContourMinimumAreaSquareMeters;
         public float SurfaceOutsideClosedContourAlphaMultiplier =>
-            surfaceOutsideClosedContourAlphaMultiplier;
+            mapParams != null ? mapParams.SurfaceOutsideClosedContourAlphaMultiplier : surfaceOutsideClosedContourAlphaMultiplier;
+        public void AssignMapParams(MapParams settings)
+        {
+            if (mapParams == settings)
+                return;
+
+            int resolution = SurfaceMaskResolution;
+            mapParams = settings;
+            if (SurfaceMaskResolution != resolution)
+                EnsureSurfaceAuthoringData();
+            InvalidateSurfaceBake();
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+
+        public void InvalidateSurfaceBake() => surfaceBakeGeneratorVersion = 0;
         public bool SurfaceBakeNeedsUpgrade =>
             surfaceBakeGeneratorVersion < CurrentSurfaceBakeGeneratorVersion;
         public bool StaticWaterMaskBakeNeedsUpgrade =>
@@ -886,7 +944,7 @@ namespace AnimalGame.MapTest
                 hash = hash * 397
                        ^ maximumStaticWaterDepthMeters.GetHashCode();
                 hash = hash * 397
-                       ^ maximumPassableStaticWaterDepthMeters.GetHashCode();
+                       ^ MaximumPassableStaticWaterDepthMeters.GetHashCode();
                 if (staticWaterDepthMap != null)
                 {
                     for (int index = 0;
@@ -1183,10 +1241,10 @@ namespace AnimalGame.MapTest
         {
             get
             {
-                if (surfacePalette == null)
+                if (SurfacePalette == null)
                     return false;
 
-                foreach (TerrainSurfaceDefinition definition in surfacePalette)
+                foreach (TerrainSurfaceDefinition definition in SurfacePalette)
                 {
                     if (definition != null && definition.IsUsable)
                         return true;
@@ -1198,10 +1256,10 @@ namespace AnimalGame.MapTest
 
         public TerrainSurfaceDefinition GetSurfaceDefinition(TerrainKind terrain)
         {
-            if (surfacePalette == null || terrain == TerrainKind.Unknown)
+            if (SurfacePalette == null || terrain == TerrainKind.Unknown)
                 return null;
 
-            foreach (TerrainSurfaceDefinition definition in surfacePalette)
+            foreach (TerrainSurfaceDefinition definition in SurfacePalette)
             {
                 if (definition != null && definition.Terrain == terrain)
                     return definition;
@@ -1213,9 +1271,9 @@ namespace AnimalGame.MapTest
         public bool TryValidateSurfacePalette(out string error)
         {
             var used = new HashSet<TerrainKind>();
-            if (surfacePalette != null)
+            if (SurfacePalette != null)
             {
-                foreach (TerrainSurfaceDefinition definition in surfacePalette)
+                foreach (TerrainSurfaceDefinition definition in SurfacePalette)
                 {
                     if (definition == null) continue;
                     TerrainKind terrain = definition.Terrain;
@@ -1238,35 +1296,38 @@ namespace AnimalGame.MapTest
         public bool EnsureSurfaceAuthoringData()
         {
             bool changed = false;
-            if (surfacePalette == null)
+            if (mapParams == null)
             {
-                surfacePalette = new List<TerrainSurfaceDefinition>();
-                changed = true;
-            }
-
-            if (surfacePalette.Count == 0)
-            {
-                surfacePalette.Add(new TerrainSurfaceDefinition(
-                    TerrainKind.GridTest,
-                    "Grid Test",
-                    surfacePatternTexture,
-                    surfaceTint,
-                    surfaceOpacity,
-                    surfaceTileSizeMeters));
-                changed = true;
-            }
-
-            for (int index = 0; index < surfacePalette.Count; index++)
-            {
-                TerrainSurfaceDefinition definition = surfacePalette[index];
-                if (definition == null)
+                if (surfacePalette == null)
                 {
-                    definition = new TerrainSurfaceDefinition();
-                    surfacePalette[index] = definition;
+                    surfacePalette = new List<TerrainSurfaceDefinition>();
                     changed = true;
                 }
 
-                definition.Validate();
+                if (surfacePalette.Count == 0)
+                {
+                    surfacePalette.Add(new TerrainSurfaceDefinition(
+                        TerrainKind.GridTest,
+                        "Grid Test",
+                        surfacePatternTexture,
+                        surfaceTint,
+                        surfaceOpacity,
+                        surfaceTileSizeMeters));
+                    changed = true;
+                }
+
+                for (int index = 0; index < surfacePalette.Count; index++)
+                {
+                    TerrainSurfaceDefinition definition = surfacePalette[index];
+                    if (definition == null)
+                    {
+                        definition = new TerrainSurfaceDefinition();
+                        surfacePalette[index] = definition;
+                        changed = true;
+                    }
+
+                    definition.Validate();
+                }
             }
 
             if (ResizeSurfaceTypeMapIfNeeded())
@@ -1294,27 +1355,27 @@ namespace AnimalGame.MapTest
             unchecked
             {
                 int hash = surfaceDataVersion;
-                hash = hash * 397 ^ surfaceTransitionWidthMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceAlphaCoreWidthMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceAlphaBlendShare.GetHashCode();
-                hash = hash * 397 ^ surfaceBoundaryNoiseScaleMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceBoundaryNoiseAmplitudeMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceScatterCellSizeMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceScatterStrength.GetHashCode();
-                hash = hash * 397 ^ surfaceNoiseSeed;
-                hash = hash * 397 ^ surfaceBakeResolution;
-                hash = hash * 397 ^ surfaceMaskResolution;
+                hash = hash * 397 ^ SurfaceTransitionWidthMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceAlphaCoreWidthMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceAlphaBlendShare.GetHashCode();
+                hash = hash * 397 ^ SurfaceBoundaryNoiseScaleMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceBoundaryNoiseAmplitudeMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceScatterCellSizeMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceScatterStrength.GetHashCode();
+                hash = hash * 397 ^ SurfaceNoiseSeed;
+                hash = hash * 397 ^ SurfaceBakeResolution;
+                hash = hash * 397 ^ SurfaceMaskResolution;
                 hash = hash * 397
-                       ^ surfacePatternAlphaNormalizationStrength.GetHashCode();
-                hash = hash * 397 ^ surfaceClosedContourAlphaEnabled.GetHashCode();
-                hash = hash * 397 ^ surfaceClosedContourAlphaResolution;
-                hash = hash * 397 ^ surfaceClosedContourEdgeAlphaMultiplier.GetHashCode();
-                hash = hash * 397 ^ surfaceClosedContourEdgeHoldDistanceMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceClosedContourFadeDistanceMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceClosedContourCenterAlphaMultiplier.GetHashCode();
-                hash = hash * 397 ^ surfaceClosedContourDistanceCurve.GetHashCode();
-                hash = hash * 397 ^ surfaceClosedContourMinimumAreaSquareMeters.GetHashCode();
-                hash = hash * 397 ^ surfaceOutsideClosedContourAlphaMultiplier.GetHashCode();
+                       ^ SurfacePatternAlphaNormalizationStrength.GetHashCode();
+                hash = hash * 397 ^ SurfaceClosedContourAlphaEnabled.GetHashCode();
+                hash = hash * 397 ^ SurfaceClosedContourAlphaResolution;
+                hash = hash * 397 ^ SurfaceClosedContourEdgeAlphaMultiplier.GetHashCode();
+                hash = hash * 397 ^ SurfaceClosedContourEdgeHoldDistanceMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceClosedContourFadeDistanceMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceClosedContourCenterAlphaMultiplier.GetHashCode();
+                hash = hash * 397 ^ SurfaceClosedContourFadeStrength.GetHashCode();
+                hash = hash * 397 ^ SurfaceClosedContourMinimumAreaSquareMeters.GetHashCode();
+                hash = hash * 397 ^ SurfaceOutsideClosedContourAlphaMultiplier.GetHashCode();
                 hash = hash * 397 ^ (heightMap != null
                     ? heightMap.GetInstanceID()
                     : 0);
@@ -1322,13 +1383,13 @@ namespace AnimalGame.MapTest
                 hash = hash * 397 ^ mapHeightMeters.GetHashCode();
                 hash = hash * 397 ^ minimumHeightMeters.GetHashCode();
                 hash = hash * 397 ^ maximumHeightMeters.GetHashCode();
-                hash = hash * 397 ^ normalizeSourceRange.GetHashCode();
-                hash = hash * 397 ^ surfaceSmoothingSigmaMeters.GetHashCode();
-                hash = hash * 397 ^ contourIntervalMeters.GetHashCode();
-                if (surfacePalette != null)
+                hash = hash * 397 ^ NormalizeSourceRange.GetHashCode();
+                hash = hash * 397 ^ SurfaceSmoothingSigmaMeters.GetHashCode();
+                hash = hash * 397 ^ ContourIntervalMeters.GetHashCode();
+                if (SurfacePalette != null)
                 {
-                    hash = hash * 397 ^ surfacePalette.Count;
-                    foreach (TerrainSurfaceDefinition definition in surfacePalette)
+                    hash = hash * 397 ^ SurfacePalette.Count;
+                    foreach (TerrainSurfaceDefinition definition in SurfacePalette)
                     {
                         hash = definition != null
                             ? definition.AppendConfigurationHash(hash)
@@ -1370,7 +1431,7 @@ namespace AnimalGame.MapTest
             if (terrain != TerrainKind.Unknown && brushDefinition == null && GetSurfaceDefinition(terrain) == null)
                 return false;
 
-            int resolution = Mathf.Clamp(surfaceMaskResolution, 64, 1024);
+            int resolution = Mathf.Clamp(SurfaceMaskResolution, 64, 1024);
             byte[] typeMap = surfaceMask;
             bool hasPixels = typeMap != null && typeMap.Length > 0;
             // Scene strokes leave blank tiles untouched until a pixel changes.
@@ -1431,7 +1492,7 @@ namespace AnimalGame.MapTest
                         beforeChange?.Invoke();
                         TerrainSurfaceDefinition existingDefinition = brushDefinition == null
                             ? null : GetSurfaceDefinition(terrain);
-                        if (brushDefinition != null && existingDefinition?.IsUsable != true)
+                        if (mapParams == null && brushDefinition != null && existingDefinition?.IsUsable != true)
                         {
                             surfacePalette ??= new List<TerrainSurfaceDefinition>();
                             int definitionIndex = surfacePalette.IndexOf(existingDefinition);
@@ -1480,7 +1541,7 @@ namespace AnimalGame.MapTest
 
         private bool ResizeSurfaceTypeMapIfNeeded()
         {
-            int requestedResolution = Mathf.Clamp(surfaceMaskResolution, 64, 1024);
+            int requestedResolution = Mathf.Clamp(SurfaceMaskResolution, 64, 1024);
             int requestedLength = requestedResolution * requestedResolution;
             if (surfaceMask != null && surfaceMask.Length == requestedLength)
                 return false;

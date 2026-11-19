@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tileSizeMeters: {x: 250, y: 250}
   presentation: {fileID: 11400000, guid: 70499653279435646acccdef569104b1, type: 2}
+  mapParams: {fileID: 11400000, guid: 68fa0cd48cdcb6b1ce5e54652a32fdde, type: 2}
   worldUnitsPerMeter: {x: 0.27306667, y: 0.27306667}
   tiles:
   - coordinate: {x: 5, y: 0}
@@ -212,6 +213,8 @@ MonoBehaviour:
     level: {fileID: 11400000, guid: da4ab170bf04e364987cb0313759af1e, type: 2}
   - coordinate: {x: 8, y: 11}
     level: {fileID: 11400000, guid: 87c8b4122b89cf44e94654a521ff565d, type: 2}
+  animalSpawnRegions: {fileID: 11400000, guid: fa56e4908ba21fc40b8d6b0599925fdd, type: 2}
+  prebakedTerrainRegionsPath: prebake_data/Gameplay_22/OfficialPlains_TiledLevel_TerrainRegions
   allowMissingTiles: 1
   longitudeRange: {x: 0, y: 1}
   latitudeRange: {x: 0, y: 1}

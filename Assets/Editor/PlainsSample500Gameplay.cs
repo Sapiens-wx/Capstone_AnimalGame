@@ -92,7 +92,7 @@ namespace AnimalGame.Editor
                     settings.FindProperty("maximumHeightMeters").floatValue = HeightRange;
                     settings.FindProperty("contourIntervalMeters").floatValue = 7;
                     settings.FindProperty("backgroundColor").colorValue = Color.black;
-                    settings.FindProperty("prebakedHeightField").objectReferenceValue = null;
+                    settings.FindProperty("prebakedHeightPath").stringValue = string.Empty;
                     settings.ApplyModifiedPropertiesWithoutUndo();
                     EditorUtility.SetDirty(level);
                     AssetDatabase.SaveAssetIfDirty(level);
