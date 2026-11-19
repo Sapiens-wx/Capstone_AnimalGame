@@ -71,6 +71,7 @@ namespace AnimalGame.Animals
         private float revealProgress;
         private float revealTarget;
         private float externalVisibility = 1f;
+        private float appliedKnownVisibility = float.NaN;
         private bool subscribed;
         private bool coloursCached;
         private bool animationInitialized;
@@ -116,6 +117,7 @@ namespace AnimalGame.Animals
                 CacheBaseColours();
             if (!animationInitialized)
                 InitializeUnknownAnimation();
+            appliedKnownVisibility = float.NaN;
             ApplyImmediateState();
         }
 
@@ -128,44 +130,62 @@ namespace AnimalGame.Animals
 
         private void Update()
         {
+            float deltaTime = Time.deltaTime;
             if (unknownRenderer != null
-                && (unknownRenderer.enabled || revealTarget < 1f))
+                && (revealTarget < 1f || unknownRenderer.enabled))
             {
-                UpdateUnknownAnimation(Time.deltaTime);
+                UpdateUnknownAnimation(deltaTime);
             }
 
-            float duration = Mathf.Max(0.01f, revealDuration);
-            revealProgress = Mathf.MoveTowards(
-                revealProgress,
-                revealTarget,
-                Time.deltaTime / duration);
-            ApplyPresentation();
+            if (revealProgress != revealTarget)
+            {
+                float duration = Mathf.Max(0.01f, revealDuration);
+                revealProgress = Mathf.MoveTowards(
+                    revealProgress,
+                    revealTarget,
+                    deltaTime / duration);
+            }
         }
 
         private void LateUpdate()
         {
+            float revealVisibility = Mathf.SmoothStep(0f, 1f, revealProgress);
+            ApplyKnownPresentation(revealVisibility * externalVisibility);
             if (unknownRenderer == null)
                 return;
 
-            if (!unknownRenderer.enabled)
+            float unknownVisibility = (1f - revealVisibility) * externalVisibility;
+            if (unknownVisibility <= 0.001f)
             {
-                RestoreUnknownAuthoredPosition();
-                ResetUnknownPositionRefresh();
+                if (unknownRenderer.enabled || unknownPositionSampleInitialized)
+                {
+                    ApplyUnknownPresentation(unknownVisibility);
+                    RestoreUnknownAuthoredPosition();
+                    ResetUnknownPositionRefresh();
+                }
                 return;
             }
 
             UpdateUnknownDisplayedPosition(Time.deltaTime);
-            ApplyPresentation();
 
             // The uncertainty field deliberately conceals both continuous
             // movement and the animal's exact facing direction.
             unknownRenderer.transform.rotation = Quaternion.identity;
+            ApplyUnknownPresentation(unknownVisibility);
         }
 
         public void SetExternalVisibility(float visibility)
         {
-            externalVisibility = Mathf.Clamp01(visibility);
-            ApplyPresentation();
+            visibility = Mathf.Clamp01(visibility);
+            if (externalVisibility == visibility)
+                return;
+
+            externalVisibility = visibility;
+            float revealVisibility = Mathf.SmoothStep(0f, 1f, revealProgress);
+            ApplyKnownPresentation(revealVisibility * externalVisibility);
+            // Active visuals submit the snow field after its position refresh in LateUpdate.
+            if (!isActiveAndEnabled && unknownRenderer != null)
+                ApplyUnknownPresentation((1f - revealVisibility) * externalVisibility);
         }
 
 #if UNITY_EDITOR
@@ -200,15 +220,16 @@ namespace AnimalGame.Animals
             bool discovered = discoverable != null && discoverable.IsDiscovered;
             revealProgress = discovered ? 1f : 0f;
             revealTarget = revealProgress;
-            ApplyPresentation();
+            ApplyKnownPresentation(revealProgress * externalVisibility);
+            if (unknownRenderer != null)
+                ApplyUnknownPresentation((1f - revealProgress) * externalVisibility);
         }
 
-        private void ApplyPresentation()
+        private void ApplyKnownPresentation(float knownVisibility)
         {
-            float knownVisibility = Mathf.SmoothStep(
-                0f,
-                1f,
-                revealProgress) * externalVisibility;
+            if (appliedKnownVisibility == knownVisibility)
+                return;
+
             for (int i = 0; i < knownRenderers.Length; i++)
             {
                 SpriteRenderer renderer = knownRenderers[i];
@@ -222,23 +243,21 @@ namespace AnimalGame.Animals
                 renderer.color = colour;
                 renderer.enabled = colour.a > 0.001f;
             }
+            appliedKnownVisibility = knownVisibility;
+        }
 
-            if (unknownRenderer == null)
-                return;
-
-            float unknownVisibility = (1f - Mathf.SmoothStep(
-                0f,
-                1f,
-                revealProgress)) * externalVisibility;
+        private void ApplyUnknownPresentation(float unknownVisibility)
+        {
             Color unknownColour = unknownBaseColour;
             unknownColour.a *= unknownVisibility
                                * unknownPositionRefreshVisibility;
             unknownRenderer.color = unknownColour;
             // Keep the renderer enabled while a position refresh is fully
             // transparent so its world position can change invisibly.
-            unknownRenderer.enabled = unknownVisibility > 0.001f;
+            bool visible = unknownVisibility > 0.001f;
+            unknownRenderer.enabled = visible;
 
-            if (!unknownRenderer.enabled)
+            if (!visible)
                 return;
 
             if (propertyBlock == null)
@@ -531,6 +550,7 @@ namespace AnimalGame.Animals
 
         private void CacheBaseColours()
         {
+            appliedKnownVisibility = float.NaN;
             if (knownRenderers == null)
                 knownRenderers = Array.Empty<SpriteRenderer>();
 
