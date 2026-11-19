@@ -62,7 +62,7 @@
 
 - 岸边地形贴图由 MapWater.cginc 的 MapShoreTerrainOpacity 使用实际水体遮罩、约 1.5 米的加权邻域生成透明度淡出，邻域水体覆盖量在 0–0.25 间进行 SmoothStep，再将剩余不透明度平方，使接触岸线时接近零；DynamicHeightContours 在合成静态地表与大小草后统一应用，仅影响地形贴图，等高线与水体自身保持原绘制方式，无需重烘焙。
 
-- Grassland 运行时保留靠近等高线的原不透明度，小草与高草的远端内部最低 Alpha 分别设为 2% 和 3.5%；_GrassContourOpacity 传入烘焙近/远端系数与两层目标值，水体岸边淡出继续叠加。
+- Grassland 运行时小草与高草统一从靠近等高线的 30% Alpha 渐变至远端内部的 10%；_GrassContourOpacity 传入烘焙近/远端系数与目标近/远端 Alpha，解码时保留地形混合覆盖；覆盖遮罩使用五点滤波，以普通 SmoothStep 平缓衰减，取消近线影响平方，草叶自身不模糊；缩小时仍采样独立草叶，不再以整张图集平均 Alpha 铺底，水体岸边淡出继续叠加。
 
 - Grassland 当前平铺尺寸：主地图/Tutorial 为 1.6 米，RockyMountain 为 0.8 米；Official_Map_Test_22 使用的 Gameplay_22 全部 98 个分块也已统一为 1.6 米并重新烘焙。按参考图将原平铺边长减半，底层草与高草均使用此世界尺度。
 

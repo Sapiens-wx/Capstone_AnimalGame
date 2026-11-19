@@ -1,8 +1,9 @@
 sampler2D _GrassMaskTex;
+float4 _GrassMaskTex_TexelSize;
 sampler2D _GrassPatternTex;
 sampler2D _GrassOverlay1, _GrassOverlay2, _GrassOverlay3;
 float4 _GrassOverlaySettings;
-float4 _GrassContourOpacity; // baked edge/interior multipliers, small/tall interior opacity
+float4 _GrassContourOpacity; // baked edge/interior multipliers, target edge/interior opacity
 float _GrassEnabled;
 float _GrassTileSize;
 float4 _GrassTileOrigin;
@@ -270,43 +271,37 @@ float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float an
 
 float4 SampleGrassland(float2 tileUv, float animate)
 {
+    // Smooth the low-alpha 8-bit bake before expanding its range to 10%-30%.
+    // Filter coverage only; grass silhouettes and their source texture stay sharp.
     float4 mask = tex2D(_GrassMaskTex, tileUv);
+    float2 maskStep = _GrassMaskTex_TexelSize.xy * 1.5;
+    mask.a = (mask.a * 4
+        + tex2D(_GrassMaskTex, tileUv + float2(maskStep.x, 0)).a
+        + tex2D(_GrassMaskTex, tileUv - float2(maskStep.x, 0)).a
+        + tex2D(_GrassMaskTex, tileUv + float2(0, maskStep.y)).a
+        + tex2D(_GrassMaskTex, tileUv - float2(0, maskStep.y)).a) * .125;
     float2 meters = tileUv * _MapSizeMeters.xy + _GrassTileOrigin.xy;
     float2 pixelDx = ddx(meters), pixelDy = ddy(meters);
     if (mask.a < .0001) return 0;
 
-    // Once a pixel spans a blade's width, a single sample can miss the blade.
-    // The last atlas mip is the area average of all eight blade slices per repeat.
-    float footprint = max(length(pixelDx), length(pixelDy));
-    float bladeWidth = _GrassRects[0].z * _GrassTileSize;
-    float averageWeight = smoothstep(.5, 1.5, footprint / max(.0001, bladeWidth));
-    float4 result = 0;
-    [branch] if (averageWeight < 1)
-        result = SampleGrassBlades(meters, pixelDx, pixelDy, animate);
-    [branch] if (averageWeight > 0)
-    {
-        float4 average = tex2Dlod(_GrassPatternTex, float4(.5, .5, 0, 16));
-        average.a = saturate(average.a * _GrassShape.x * _GrassShape.y);
-        float3 premultiplied = lerp(result.rgb * result.a, average.rgb * average.a, averageWeight);
-        result.a = lerp(result.a, average.a, averageWeight);
-        result.rgb = result.a > .0001 ? premultiplied / result.a : 0;
-    }
+    // Keep empty space transparent at every zoom; a whole-atlas average creates a grey floor.
+    float4 result = SampleGrassBlades(meters, pixelDx, pixelDy, animate);
 
     result.rgb *= mask.rgb;
-    // Keep the palette opacity as the full-strength endpoint of the small blades.
-    // Lift faint baked coverage before compositing thin blades over the black map.
+    // Decode contour fading from the baked mask separately from terrain blending.
     float baseOpacity = max(.001, _GrassOverlaySettings.w);
     float contourCoverage = mask.a / baseOpacity;
     float interior = saturate((_GrassContourOpacity.x - contourCoverage)
         / max(.001, _GrassContourOpacity.x - _GrassContourOpacity.y));
-    float smallInteriorScale = _GrassContourOpacity.z
-        / max(.001, baseOpacity * sqrt(max(0, _GrassContourOpacity.y)));
-    result.a *= sqrt(mask.a * max(mask.a, _GrassOverlaySettings.w))
-        * lerp(1, smallInteriorScale, interior);
+    float contourMultiplier = lerp(_GrassContourOpacity.x, _GrassContourOpacity.y, interior);
+    float terrainCoverage = saturate(contourCoverage / max(.001, contourMultiplier));
+    // Use the full smooth transition without squaring away the intermediate opacity range.
+    float edgeInfluence = 1 - smoothstep(0, 1, interior);
+    float grassOpacity = terrainCoverage * lerp(_GrassContourOpacity.w, _GrassContourOpacity.z,
+        edgeInfluence);
+    result.a *= grassOpacity;
     float4 overlay = SampleGrassOverlay(meters, pixelDx, pixelDy, animate);
-    // Remove the base palette opacity from coverage: overlay retains source alpha at full strength.
-    float tallInteriorScale = _GrassContourOpacity.w / max(.001, _GrassContourOpacity.y);
-    overlay.a *= saturate(contourCoverage) * lerp(1, tallInteriorScale, interior);
+    overlay.a *= grassOpacity;
     float alpha = overlay.a + result.a * (1 - overlay.a);
     result.rgb = alpha > .0001 ? (overlay.rgb * overlay.a + result.rgb * result.a * (1 - overlay.a)) / alpha : 0;
     result.a = alpha;

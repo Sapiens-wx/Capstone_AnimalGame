@@ -149,7 +149,8 @@ public static class GrasslandDynamicsChecks
             distant = Capture(material, 384, 384);
             Color32[] broadPixels = distant.GetPixels32();
             int visible = Array.FindAll(broadPixels, pixel => pixel.a > 0).Length;
-            Require(visible >= broadPixels.Length * .95f, "Distant flat grass disappeared with the tall overlay disabled");
+            Require(visible > 0 && visible < broadPixels.Length * .95f,
+                "Distant grass disappeared or filled transparent gaps with a uniform grey floor");
 
             material.SetVector("_MapSizeMeters", new Vector4(12, 12, 0, 0));
             nearby = Capture(material, 384, 384);

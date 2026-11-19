@@ -7,6 +7,7 @@ Shader "Hidden/AnimalGame/Grassland Render Probe"
         _GrassTileSize ("Tile", Float) = 1
         _GrassLayout ("Layout", Vector) = (0, 0.4, 20, 0.17453293)
         _GrassShape ("Density And Length", Vector) = (0.5, 1, 0, 0)
+        _GrassContourOpacity ("Baked Edge, Interior, Target Edge Alpha, Interior Alpha", Vector) = (0.235, 0.05, 0.3, 0.1)
         _MapSizeMeters ("Map size", Vector) = (1,1,0,0)
     }
     SubShader
