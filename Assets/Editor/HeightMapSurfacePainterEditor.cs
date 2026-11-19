@@ -68,6 +68,17 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     private Material terrainPreviewMaterial;
     private Mesh terrainPreviewMesh;
     private bool terrainPreviewDirty = true;
+    [SerializeField] private TiledLevelAsset terrainRegionLevel;
+    [SerializeField] private bool showTerrainRegions;
+    [SerializeField] private float terrainRegionCellSize = 1f;
+    [SerializeField] private float terrainRegionTolerance = 2f;
+    [SerializeField] private float terrainRegionMinimumArea = 36f;
+    private TiledLevelAsset previewedTerrainRegionLevel;
+    private (TerrainKind Terrain, Vector3[] Lines)[] terrainRegionLines;
+    private string terrainRegionError;
+
+    private TiledLevelAsset TerrainRegionLevel => mapController != null
+        ? mapController.LevelAsset : terrainRegionLevel;
 
     [MenuItem("Animal Game/Level/Terrain Surface Painter")]
     public static void Open()
@@ -95,6 +106,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         Undo.undoRedoPerformed += HandleUndoRedo;
         if (levelAsset == null)
             TryAdoptCurrentSelection();
+        ResolveSceneMap();
     }
 
     private void OnDisable()
@@ -118,6 +130,11 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     {
         ResolveSceneMap();
         Repaint();
+    }
+
+    private void OnProjectChange()
+    {
+        if (showTerrainRegions) ReloadTerrainRegionPreview();
     }
 
     private void OnGUI()
@@ -158,6 +175,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
                 true);
         }
 
+        DrawTerrainRegionSettings();
         if (levelAsset == null)
         {
             EditorGUILayout.HelpBox(
@@ -480,6 +498,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     {
         Event current = Event.current;
         DrawTerrainPreview();
+        DrawTerrainRegionPreview();
         HeightMapPainterSceneInput.DrawSelectedTileBounds(mapController, sourceLevelAsset);
         if (!paintInScene || EditorApplication.isPlaying || mapController == null || !mapController.HasGeneratedMap)
             return;
@@ -757,6 +776,131 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         TerrainKind.Sand => new Color32(212, 184, 84, 255), // #D4B854
         _ => throw new ArgumentOutOfRangeException(nameof(terrain), terrain, null)
     };
+
+    private void DrawTerrainRegionSettings()
+    {
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Terrain Regions", EditorStyles.boldLabel);
+        if (mapController == null)
+        {
+            terrainRegionLevel = (TiledLevelAsset)EditorGUILayout.ObjectField(
+                "Tiled Level", terrainRegionLevel, typeof(TiledLevelAsset), false);
+        }
+
+        bool show = EditorGUILayout.Toggle("Show Region Polygons", showTerrainRegions);
+        if (show != showTerrainRegions || (show && previewedTerrainRegionLevel != TerrainRegionLevel))
+        {
+            showTerrainRegions = show;
+            ReloadTerrainRegionPreview();
+        }
+        terrainRegionCellSize = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Input Cell Size (m)",
+            "0 uses the native terrain ID grid. Larger cells sample the terrain ID at their center."),
+            terrainRegionCellSize));
+        terrainRegionTolerance = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Boundary Tolerance (m)",
+            "0 preserves the grid outline. Positive values simplify shared boundaries together."),
+            terrainRegionTolerance));
+        terrainRegionMinimumArea = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Minimum Region Area (m²)",
+            "Omit disconnected polygons below this area, after subtracting their holes."),
+            terrainRegionMinimumArea));
+        if (editState != null && editState.HasChanges)
+            EditorGUILayout.HelpBox("Update uses saved terrain IDs. Current brush edits are still unsaved.", MessageType.Info);
+        using (new EditorGUI.DisabledScope(TerrainRegionLevel == null || EditorApplication.isPlayingOrWillChangePlaymode))
+            if (GUILayout.Button("Update Terrain Regions"))
+                UpdateTerrainRegions();
+        if (!string.IsNullOrEmpty(terrainRegionError))
+            EditorGUILayout.HelpBox(terrainRegionError, MessageType.Error);
+        else if (showTerrainRegions && TerrainRegionLevel != null && terrainRegionLines == null)
+            EditorGUILayout.HelpBox("No terrain regions have been generated for this level.", MessageType.Info);
+    }
+
+    private void UpdateTerrainRegions()
+    {
+        try
+        {
+            EditorUtility.DisplayProgressBar("Terrain Regions", "Baking the saved terrain IDs…", 0.5f);
+            TerrainRegionsPrebake data = AnimalGame.Editor.TerrainRegionsBaker.Update(TerrainRegionLevel,
+                terrainRegionCellSize, terrainRegionTolerance, terrainRegionMinimumArea);
+            terrainRegionError = null;
+            if (showTerrainRegions) SetTerrainRegionPreview(data);
+        }
+        catch (Exception error)
+        {
+            terrainRegionError = error.Message;
+            Debug.LogException(error);
+        }
+        finally
+        {
+            EditorUtility.ClearProgressBar();
+        }
+    }
+
+    private void ReloadTerrainRegionPreview()
+    {
+        terrainRegionError = null;
+        SetTerrainRegionPreview(null);
+        if (!showTerrainRegions || previewedTerrainRegionLevel == null) return;
+        try
+        {
+            SetTerrainRegionPreview(previewedTerrainRegionLevel.LoadPrebakedTerrainRegions());
+        }
+        catch (Exception error) when (error is IOException || error is InvalidDataException)
+        {
+            terrainRegionError = error.Message;
+        }
+    }
+
+    private void SetTerrainRegionPreview(TerrainRegionsPrebake data)
+    {
+        previewedTerrainRegionLevel = TerrainRegionLevel;
+        terrainRegionLines = null;
+        if (data != null)
+        {
+            terrainRegionLines = new (TerrainKind, Vector3[])[data.Regions.Length];
+            for (int i = 0; i < data.Regions.Length; i++)
+            {
+                var region = data.Regions[i];
+                var lines = new List<Vector3>();
+                foreach (var polygon in region.Polygons)
+                {
+                    AddRegionRing(lines, polygon.Outer);
+                    foreach (Vector2[] hole in polygon.Holes) AddRegionRing(lines, hole);
+                }
+                terrainRegionLines[i] = (region.Terrain, lines.ToArray());
+            }
+        }
+        SceneView.RepaintAll();
+        Repaint();
+    }
+
+    private static void AddRegionRing(List<Vector3> lines, Vector2[] ring)
+    {
+        for (int i = 0; i < ring.Length; i++)
+        {
+            lines.Add(ring[i]);
+            lines.Add(ring[(i + 1) % ring.Length]);
+        }
+    }
+
+    private void DrawTerrainRegionPreview()
+    {
+        if (Event.current.type != EventType.Repaint || !showTerrainRegions || terrainRegionLines == null
+            || mapController == null || !mapController.HasGeneratedMap || EditorApplication.isPlaying
+            || mapController.LevelAsset != previewedTerrainRegionLevel)
+            return;
+
+        Bounds bounds = mapController.WorldBounds;
+        Vector2 mapSize = mapController.MapSizeMeters;
+        var matrix = Matrix4x4.TRS(new Vector3(bounds.min.x, bounds.min.y, bounds.center.z),
+            Quaternion.identity, new Vector3(bounds.size.x / mapSize.x, bounds.size.y / mapSize.y, 1));
+        var previousZTest = Handles.zTest;
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        foreach (var (terrain, lines) in terrainRegionLines)
+        {
+            using var scope = new Handles.DrawingScope(TerrainPreviewColor(terrain), matrix);
+            Handles.DrawLines(lines);
+        }
+        Handles.zTest = previousZTest;
+    }
 
     private void DrawTerrainPreview()
     {

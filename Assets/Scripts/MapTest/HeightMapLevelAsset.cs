@@ -704,7 +704,11 @@ namespace AnimalGame.MapTest
 
             int x = Mathf.Min((int)(mapPositionMeters.x / size.x * surfaceMaskResolution), surfaceMaskResolution - 1);
             int y = Mathf.Min((int)(mapPositionMeters.y / size.y * surfaceMaskResolution), surfaceMaskResolution - 1);
-            byte value = surfaceMask[y * surfaceMaskResolution + x];
+            return DecodeSurfaceType(surfaceMask[y * surfaceMaskResolution + x]);
+        }
+
+        private TerrainKind DecodeSurfaceType(byte value)
+        {
             // Match the migration of legacy single-surface masks without mutating them.
             if (surfaceDataVersion < 1 && value != 0) return TerrainKind.GridTest;
             return Enum.IsDefined(typeof(TerrainKind), (TerrainKind)value)
@@ -712,6 +716,19 @@ namespace AnimalGame.MapTest
         }
 
 #if UNITY_EDITOR
+        public byte[] CopySurfaceTypeMap()
+        {
+            if (surfaceMask == null || surfaceMask.Length != surfaceMaskResolution * surfaceMaskResolution)
+                return Array.Empty<byte>();
+            var copy = new byte[surfaceMask.Length];
+            Span<byte> lookup = stackalloc byte[256];
+            for (int i = 0; i < lookup.Length; i++)
+                lookup[i] = (byte)DecodeSurfaceType((byte)i);
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = lookup[surfaceMask[i]];
+            return copy;
+        }
+
         public void SetPrebakedHeightField(HeightMapPrebakedData data)
         {
             prebakedHeightField = data;

@@ -23,6 +23,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private Vector2 worldUnitsPerMeter = Vector2.one * (2048f / 30f / 250f);
         [SerializeField] private List<Tile> tiles = new List<Tile>();
         [SerializeField] private AnimalSpawnRegionsAsset animalSpawnRegions;
+        [SerializeField, HideInInspector] private string prebakedTerrainRegionsPath;
         [Tooltip("Allow an irregular tile layout. Missing tiles remain invisible and cannot be traversed.")]
         [SerializeField] private bool allowMissingTiles;
         [Header("Geographic Coordinates")]
@@ -34,6 +35,14 @@ namespace AnimalGame.MapTest
         public Vector2 LatitudeRange => latitudeRange;
         public IReadOnlyList<Tile> Tiles => tiles;
         public AnimalSpawnRegionsAsset AnimalSpawnRegions => animalSpawnRegions;
+        public string PrebakedTerrainRegionsPath => prebakedTerrainRegionsPath;
+
+        public TerrainRegionsPrebake LoadPrebakedTerrainRegions()
+        {
+            if (string.IsNullOrEmpty(prebakedTerrainRegionsPath)) return null;
+            var data = Resources.Load<TextAsset>(prebakedTerrainRegionsPath);
+            return data == null ? null : TerrainRegionsPrebake.Read(data.bytes);
+        }
         public bool AllowMissingTiles => allowMissingTiles;
         public HeightMapLevelAsset Presentation => presentation;
         public Vector2 TileSizeMeters => tileSizeMeters;
@@ -101,6 +110,8 @@ namespace AnimalGame.MapTest
             return false;
         }
 #if UNITY_EDITOR
+        public void SetPrebakedTerrainRegionsPath(string path) => prebakedTerrainRegionsPath = path;
+
         public void Configure(Vector2 size, Vector2 scale, HeightMapLevelAsset settings, IEnumerable<Tile> entries,
             bool allowMissingTiles = false)
         {
