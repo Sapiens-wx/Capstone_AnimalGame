@@ -259,8 +259,15 @@ namespace AnimalGame.Editor
 
         private void IntersectPolygons(AnimalSpawnRegionsAsset.SpeciesRegions regions, int targetIndex)
         {
-            if (!AnimalInfoLibrary.Active.BySpecies.TryGetValue(regions.species, out var entry) ||
-                entry.spawnInfo == null || entry.spawnInfo.AllowedTerrains.Count == 0)
+            AnimalInfoLibrary.Active.BySpecies.TryGetValue(regions.species, out var entry);
+            AnimalSpawnInfo spawnInfo = entry?.spawnInfo;
+            if (spawnInfo == null)
+            {
+                EditorUtility.DisplayDialog("Calc Intersect",
+                    $"Assign Spawn Info for {ObjectNames.NicifyVariableName(regions.species.ToString())}.", "OK");
+                return;
+            }
+            if (!spawnInfo.IsAquatic && spawnInfo.AllowedTerrains.Count == 0)
             {
                 EditorUtility.DisplayDialog("Calc Intersect",
                     $"Set Allowed Terrains in the Spawn Info for {ObjectNames.NicifyVariableName(regions.species.ToString())}.", "OK");
@@ -268,14 +275,14 @@ namespace AnimalGame.Editor
             }
 
             TerrainRegionsPrebake terrain = level.LoadPrebakedTerrainRegions();
-            if (terrain == null)
+            if (terrain == null || !terrain.IncludesWaterMask)
             {
                 EditorUtility.DisplayDialog("Calc Intersect",
-                    "Bake Terrain Regions for this Tiled Level in the Surface Painter first.", "OK");
+                    "Run Update Terrain Regions for this Tiled Level in the Surface Painter to bake the current land and water regions.", "OK");
                 return;
             }
 
-            Paths64 clip = BuildTerrainClip(terrain, entry.spawnInfo.AllowedTerrains);
+            Paths64 clip = BuildTerrainClip(terrain, spawnInfo);
             var result = new List<AnimalSpawnRegionsAsset.Polygon>(regions.polygons.Length);
             int nextSelection = -1;
             for (int i = 0; i < regions.polygons.Length; i++)
@@ -297,12 +304,14 @@ namespace AnimalGame.Editor
             Repaint();
         }
 
-        private static Paths64 BuildTerrainClip(TerrainRegionsPrebake terrain, List<TerrainKind> allowedTerrains)
+        private static Paths64 BuildTerrainClip(TerrainRegionsPrebake terrain, AnimalSpawnInfo spawnInfo)
         {
             var clip = new Paths64();
             foreach (var region in terrain.Regions)
             {
-                if (!allowedTerrains.Contains(region.Terrain))
+                bool allowed = spawnInfo.IsAquatic ? region.Terrain == TerrainKind.Water
+                    : spawnInfo.AllowedTerrains.Contains(region.Terrain);
+                if (!allowed)
                     continue;
 
                 foreach (var polygon in region.Polygons)

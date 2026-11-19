@@ -825,13 +825,13 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             "0 uses the native terrain ID grid. Larger cells sample the terrain ID at their center."),
             terrainRegionCellSize));
         terrainRegionTolerance = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Boundary Tolerance (m)",
-            "0 preserves the grid outline. Positive values simplify shared boundaries together."),
+            "0 preserves the grid outline. Positive values simplify land and water boundaries."),
             terrainRegionTolerance));
         terrainRegionMinimumArea = Mathf.Max(0, EditorGUILayout.FloatField(new GUIContent("Minimum Region Area (m²)",
             "Omit disconnected polygons below this area, after subtracting their holes."),
             terrainRegionMinimumArea));
         if (editState != null && editState.HasChanges)
-            EditorGUILayout.HelpBox("Update uses saved terrain IDs. Current brush edits are still unsaved.", MessageType.Info);
+            EditorGUILayout.HelpBox("Update uses saved terrain IDs and Water Masks. Current brush edits are still unsaved.", MessageType.Info);
         using (new EditorGUI.DisabledScope(TerrainRegionLevel == null || EditorApplication.isPlayingOrWillChangePlaymode))
             if (GUILayout.Button("Update Terrain Regions"))
                 UpdateTerrainRegions();
@@ -845,7 +845,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
     {
         try
         {
-            EditorUtility.DisplayProgressBar("Terrain Regions", "Baking the saved terrain IDs…", 0.5f);
+            EditorUtility.DisplayProgressBar("Terrain Regions", "Baking the saved terrain IDs and Water Masks…", 0.5f);
             TerrainRegionsPrebake data = AnimalGame.Editor.TerrainRegionsBaker.Update(TerrainRegionLevel,
                 terrainRegionCellSize, terrainRegionTolerance, terrainRegionMinimumArea);
             terrainRegionError = null;

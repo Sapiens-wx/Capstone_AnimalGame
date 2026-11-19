@@ -15,5 +15,5 @@ MonoBehaviour:
   BaseSpawnProbability: 0
   ProbabilityReduction: 0
   TerrainValue: 0
-  AllowedTerrains: 00
+  AllowedTerrains: 030604
   IsAquatic: 0

@@ -8,7 +8,7 @@ namespace AnimalGame.MapTest
     public sealed class TerrainRegionsPrebake
     {
         private const uint Magic = 0x4E475254; // TRGN
-        private const int Version = 1;
+        private const int Version = 2;
 
         // Rings are implicitly closed. Holes belong to the outer ring of their polygon.
         public sealed class Polygon
@@ -36,14 +36,24 @@ namespace AnimalGame.MapTest
         }
 
         public Region[] Regions { get; }
+        public bool IncludesWaterMask { get; }
 
-        public TerrainRegionsPrebake(Region[] regions) => Regions = regions;
+        public TerrainRegionsPrebake(Region[] regions) : this(regions, true) { }
+
+        private TerrainRegionsPrebake(Region[] regions, bool includesWaterMask)
+        {
+            Regions = regions;
+            IncludesWaterMask = includesWaterMask;
+        }
 
         public static TerrainRegionsPrebake Read(byte[] bytes)
         {
             using var stream = new MemoryStream(bytes, false);
             using var reader = new BinaryReader(stream);
-            if (reader.ReadUInt32() != Magic || reader.ReadInt32() != Version)
+            if (reader.ReadUInt32() != Magic)
+                throw new InvalidDataException("Unsupported terrain regions prebake format.");
+            int version = reader.ReadInt32();
+            if (version != 1 && version != Version)
                 throw new InvalidDataException("Unsupported terrain regions prebake format.");
 
             var regions = new Region[ReadCount(reader, 5)];
@@ -65,7 +75,7 @@ namespace AnimalGame.MapTest
             }
             if (stream.Position != stream.Length)
                 throw new InvalidDataException("Unexpected trailing terrain region data.");
-            return new TerrainRegionsPrebake(regions);
+            return new TerrainRegionsPrebake(regions, version == Version);
         }
 
         private static Vector2[] ReadRing(BinaryReader reader)
@@ -92,7 +102,7 @@ namespace AnimalGame.MapTest
         {
             using var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true);
             writer.Write(Magic);
-            writer.Write(Version);
+            writer.Write(IncludesWaterMask ? Version : 1);
             writer.Write(Regions.Length);
             foreach (Region region in Regions)
             {

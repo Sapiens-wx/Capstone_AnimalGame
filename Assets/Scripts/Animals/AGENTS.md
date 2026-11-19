@@ -61,4 +61,4 @@
 - 植物交互统一在根节点的 `Vegetation : WorldInteraction`；动物视线使用 `SightBlocking` 标记的线段四叉树查询，不维护植物遮挡列表。
 
 - `AnimalSpawnRegionsAsset` 用数组保存生成区域，每个物种保留一项，在 Inspector 中选择 `AnimalSpecies`，在 Animal Spawn Regions 窗口编辑多边形。
-- `AnimalSpawnInfo.AllowedTerrains` 使用地表 Palette 的 `TerrainKind`，`IsAquatic` 标记水生。Animal Spawn Regions 的交集菜单使用当前 Tiled Level 的 TerrainRegions 预烘焙裁剪生成多边形，保留结果的内洞。
+- `AnimalSpawnInfo.AllowedTerrains` 使用地表 Palette 的 `TerrainKind`，`IsAquatic` 标记水生。Animal Spawn Regions 使用当前 Tiled Level 的 TerrainRegions 裁剪多边形并保留内洞。水生只与从 Water Mask 烘焙的 Water 区域求交。

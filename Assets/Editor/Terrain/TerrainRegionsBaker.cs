@@ -21,12 +21,14 @@ namespace AnimalGame.Editor
             internal readonly Vector2Int Coordinate;
             internal readonly int Resolution;
             internal readonly byte[] Surface;
+            internal readonly Paths64 Water;
 
-            internal Tile(Vector2Int coordinate, int resolution, byte[] surface)
+            internal Tile(Vector2Int coordinate, int resolution, byte[] surface, Paths64 water = null)
             {
                 Coordinate = coordinate;
                 Resolution = resolution;
                 Surface = surface;
+                Water = water;
             }
         }
 
@@ -54,7 +56,8 @@ namespace AnimalGame.Editor
                 var tile = level.Tiles[i];
                 if (EditorUtility.IsDirty(tile.level))
                     throw new InvalidOperationException($"Save the source asset {tile.level.name} before baking terrain regions.");
-                tiles[i] = new Tile(tile.coordinate, tile.level.SurfaceMaskResolution, tile.level.CopySurfaceTypeMap());
+                tiles[i] = new Tile(tile.coordinate, tile.level.SurfaceMaskResolution, tile.level.CopySurfaceTypeMap(),
+                    ReadWaterTile(tile.level, tile.coordinate, level.TileSizeMeters));
             }
 
             var data = Build(tiles, level.TileSizeMeters, cellSize, tolerance, minimumArea);
@@ -139,24 +142,32 @@ namespace AnimalGame.Editor
             // dissolves collinear overlaps even when adjacent edges have different lengths.
             var trees = new PolyTree64[TerrainKinds.Length];
             var paths = new Paths64[TerrainKinds.Length];
+            int waterKind = (int)TerrainKind.Water;
             for (int kind = 1; kind < trees.Length; kind++)
             {
+                if (kind == waterKind) continue;
                 var combined = new Paths64();
                 foreach (Paths64[] tile in tilePaths)
                     if (tile[kind] != null) combined.AddRange(tile[kind]);
                 if (combined.Count == 0) continue;
 
-                var tree = new PolyTree64();
-                var clipper = new Clipper64 { PreserveCollinear = false };
-                clipper.AddSubject(combined);
-                if (!clipper.Execute(ClipType.Union, FillRule.NonZero, tree))
-                    throw new InvalidOperationException("Could not merge the terrain region polygons.");
+                PolyTree64 tree = BuildTree(combined);
                 trees[kind] = tree;
                 if (tolerance > 0)
                 {
                     paths[kind] = new Paths64();
                     CollectRings(tree, paths[kind]);
                 }
+            }
+
+            var water = new Paths64();
+            foreach (Tile tile in tiles)
+                if (tile.Water != null) water.AddRange(tile.Water);
+            if (water.Count > 0)
+            {
+                trees[waterKind] = BuildTree(water);
+                water.Clear();
+                CollectRings(trees[waterKind], water);
             }
 
             if (tolerance > 0)
@@ -170,8 +181,33 @@ namespace AnimalGame.Editor
                     width = Math.Max(width, tile.Coordinate.x + 1);
                     height = Math.Max(height, tile.Coordinate.y + 1);
                 }
-                TerrainRegionBoundaries.Simplify(paths, tolerance * UnitsPerMeter,
-                    occupied.Count == (long)width * height ? null : occupied, size);
+                HashSet<Vector2Int> mapTiles = occupied.Count == (long)width * height ? null : occupied;
+                double toleranceUnits = tolerance * UnitsPerMeter;
+                TerrainRegionBoundaries.Simplify(paths, toleranceUnits, mapTiles, size);
+                if (water.Count > 0)
+                {
+                    // Water still overlaps land here, so simplify its rings independently.
+                    TerrainRegionBoundaries.Simplify(new[] { water }, toleranceUnits, mapTiles, size);
+                    trees[waterKind] = BuildTree(water);
+                    water.Clear();
+                    CollectRings(trees[waterKind], water);
+                }
+            }
+
+            if (water.Count > 0)
+            {
+                // Cut after simplification so both sides use the same shoreline.
+                for (int kind = 1; kind < trees.Length; kind++)
+                {
+                    if (kind == waterKind || trees[kind] == null) continue;
+                    Paths64 land = paths[kind];
+                    if (land == null)
+                    {
+                        land = new Paths64();
+                        CollectRings(trees[kind], land);
+                    }
+                    trees[kind] = BuildTree(land, water);
+                }
             }
 
             var regions = new List<TerrainRegionsPrebake.Region>();
@@ -180,12 +216,26 @@ namespace AnimalGame.Editor
                 PolyTree64 tree = trees[kind];
                 if (tree == null) continue;
                 var polygons = new List<TerrainRegionsPrebake.Polygon>();
+                double areaThreshold = kind == waterKind ? 0 : minimumArea * UnitsPerMeter * UnitsPerMeter;
                 for (int i = 0; i < tree.Count; i++)
-                    CollectPolygons(tree[i], minimumArea * UnitsPerMeter * UnitsPerMeter, polygons);
+                    CollectPolygons(tree[i], areaThreshold, polygons);
                 if (polygons.Count > 0)
                     regions.Add(new TerrainRegionsPrebake.Region(TerrainKinds[kind], polygons.ToArray()));
             }
             return new TerrainRegionsPrebake(regions.ToArray());
+        }
+
+        private static PolyTree64 BuildTree(Paths64 subject, Paths64 clip = null)
+        {
+            var tree = new PolyTree64();
+            var clipper = new Clipper64 { PreserveCollinear = false };
+            clipper.AddSubject(subject);
+            if (clip != null) clipper.AddClip(clip);
+            if (!clipper.Execute(clip == null ? ClipType.Union : ClipType.Difference, FillRule.NonZero, tree))
+                throw new InvalidOperationException(clip == null
+                    ? "Could not merge the terrain region polygons."
+                    : "Could not subtract water from the terrain region polygons.");
+            return tree;
         }
 
         private static void CollectRings(PolyPath64 parent, Paths64 paths)
@@ -217,7 +267,7 @@ namespace AnimalGame.Editor
                     int end = start + 1;
                     while (end < width && tile.Surface[row + SampleCenter(end, width, tile.Resolution)] == kind)
                         end++;
-                    if (kind != (byte)TerrainKind.Unknown)
+                    if (kind != (byte)TerrainKind.Unknown && kind != (byte)TerrainKind.Water)
                     {
                         Paths64 rectangles = paths[kind] ??= new Paths64();
                         rectangles.Add(new Path64
@@ -236,6 +286,59 @@ namespace AnimalGame.Editor
             return paths;
         }
 
+        private static Paths64 ReadWaterTile(HeightMapLevelAsset level, Vector2Int coordinate, Vector2 size)
+        {
+            if (level.BakedStaticWaterMask == null) return null;
+
+            // Decode the saved mask at its native dimensions. The imported texture is GPU-only.
+            string path = AssetDatabase.GetAssetPath(level.BakedStaticWaterMask);
+            var mask = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+            try
+            {
+                if (!ImageConversion.LoadImage(mask, File.ReadAllBytes(path)))
+                    throw new InvalidDataException($"Could not decode Water Mask: {path}");
+
+                return BuildWaterTile(coordinate, size, level.BakedStaticWaterBounds,
+                    mask.width, mask.height, mask.GetPixels32());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(mask);
+            }
+        }
+
+        private static Paths64 BuildWaterTile(Vector2Int coordinate, Vector2 size, Rect bounds,
+            int width, int height, Color32[] pixels)
+        {
+            long[] xEdges = CellEdges(coordinate.x, size.x, width, bounds.x, bounds.width);
+            long[] yEdges = CellEdges(coordinate.y, size.y, height, bounds.y, bounds.height);
+            var rectangles = new Paths64();
+            for (int y = 0; y < height; y++)
+            {
+                int row = y * width;
+                for (int x = 0; x < width;)
+                {
+                    // Red is the binary wet range. The remaining channels encode depth and flow.
+                    if (pixels[row + x].r == 0)
+                    {
+                        x++;
+                        continue;
+                    }
+
+                    int start = x++;
+                    while (x < width && pixels[row + x].r != 0) x++;
+                    rectangles.Add(new Path64
+                    {
+                        new Point64(xEdges[start], yEdges[y]),
+                        new Point64(xEdges[x], yEdges[y]),
+                        new Point64(xEdges[x], yEdges[y + 1]),
+                        new Point64(xEdges[start], yEdges[y + 1])
+                    });
+                }
+            }
+            return Union(rectangles);
+        }
+
         private static Paths64 Union(Paths64 input)
         {
             if (input.Count == 0) return input;
@@ -252,11 +355,11 @@ namespace AnimalGame.Editor
 
         private static int SampleCenter(int index, int count, int native) => (2 * index + 1) * native / (2 * count);
 
-        private static long[] CellEdges(int tile, float size, int count)
+        private static long[] CellEdges(int tile, float size, int count, double origin = 0, double range = 1)
         {
             var edges = new long[count + 1];
             for (int i = 0; i <= count; i++)
-                edges[i] = checked((long)Math.Round((tile + (double)i / count) * size * UnitsPerMeter));
+                edges[i] = checked((long)Math.Round((tile + origin + range * i / count) * size * UnitsPerMeter));
             return edges;
         }
 
