@@ -56,19 +56,56 @@ namespace AnimalGame.World
 
     public static class WorldInteractionQuery
     {
-        private static readonly WorldInteractionQuadTree tree = new();
+        private const WorldInteractionKind DeformationKind = WorldInteractionKind.VegetationDeformation;
+        private static readonly WorldInteractionQuadTree tree = new(static item => item is not VegetationSpriteDeformation);
+        private static readonly WorldInteractionQuadTree deformationTree = new(static item => item is VegetationSpriteDeformation);
+        private static int vegetationDeformationVersion;
+        internal static int VegetationDeformationVersion => System.Threading.Volatile.Read(ref vegetationDeformationVersion);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetIndex() => tree.Clear();
+        private static void ResetIndex()
+        {
+            tree.Clear();
+            deformationTree.Clear();
+        }
 
-        internal static void Remove(WorldInteraction item) => tree.Remove(item);
-        internal static void MarkDirty(WorldInteraction item) => tree.MarkDirty(item);
+        internal static void Remove(WorldInteraction item)
+        {
+            if (item is VegetationSpriteDeformation)
+            {
+                deformationTree.Remove(item);
+                System.Threading.Interlocked.Increment(ref vegetationDeformationVersion);
+            }
+            else tree.Remove(item);
+        }
+
+        internal static void MarkDirty(WorldInteraction item)
+        {
+            if (item is VegetationSpriteDeformation deformation) MarkDeformationDirty(deformation);
+            else
+            {
+                tree.MarkDirty(item);
+                if (item is Vegetation plant && plant.Deformation is { } linked)
+                    MarkDeformationDirty(linked);
+            }
+        }
+
+        private static void MarkDeformationDirty(VegetationSpriteDeformation item)
+        {
+            deformationTree.MarkDirty(item);
+            System.Threading.Interlocked.Increment(ref vegetationDeformationVersion);
+        }
 
         /// <summary>
         /// Rebuild on the next query after global changes (map coordinates, bulk
         /// scene edits, or Undo). Normal object changes should call MarkSpatialDirty.
         /// </summary>
-        public static void InvalidateSpatialIndex() => tree.Invalidate();
+        public static void InvalidateSpatialIndex()
+        {
+            tree.Invalidate();
+            deformationTree.Invalidate();
+            System.Threading.Interlocked.Increment(ref vegetationDeformationVersion);
+        }
 
         // Combine kinds with | to match any requested kind.
         public static bool Query(InteractionShape shape, WorldInteractionKind kindMask,
@@ -78,10 +115,22 @@ namespace AnimalGame.World
         {
             results?.Clear();
             if (kindMask == WorldInteractionKind.None) return false;
-            tree.FlushPending(map, scene);
             var visitor = new QueryVisitor { Shape = shape, KindMask = kindMask, Scene = scene,
                 Results = results, Ignore = ignore, Previous = previous, IgnoreHeld = ignoreHeld, RestrictTo = restrictTo };
-            tree.Query(WorldInteractionQuadTree.BoundsOf(shape), kindMask, ref visitor);
+            Rect bounds = WorldInteractionQuadTree.BoundsOf(shape);
+            // Deformation queries should not flush pending movement from gameplay objects.
+            if ((kindMask & DeformationKind) != 0)
+            {
+                deformationTree.FlushPending(map, scene);
+                deformationTree.Query(bounds, DeformationKind, ref visitor);
+                if (visitor.Found && results == null) return true;
+            }
+            WorldInteractionKind gameplayKinds = kindMask & ~DeformationKind;
+            if (gameplayKinds != WorldInteractionKind.None)
+            {
+                tree.FlushPending(map, scene);
+                tree.Query(bounds, gameplayKinds, ref visitor);
+            }
             return visitor.Found;
         }
 

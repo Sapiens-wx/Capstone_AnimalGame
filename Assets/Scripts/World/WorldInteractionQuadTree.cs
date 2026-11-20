@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 
 namespace AnimalGame.World
 {
-    // One shared tree for every kind in the current scene/map query context.
+    // Each tree indexes its configured items in one scene/map query context.
     // Switching contexts rebuilds it; coordinates from different maps never mix.
     internal sealed class WorldInteractionQuadTree
     {
@@ -37,6 +37,7 @@ namespace AnimalGame.World
         }
 
         private readonly Dictionary<WorldInteraction, Entry> entries = new();
+        private readonly System.Predicate<WorldInteraction> includesItem;
         // OnValidate may enqueue from Unity's loading thread. Geometry is only read
         // on the main thread when a query flushes this queue.
         private readonly object dirtyLock = new();
@@ -46,6 +47,8 @@ namespace AnimalGame.World
         private Node root;
         private Scene scene;
         private MapTestSceneController map;
+
+        internal WorldInteractionQuadTree(System.Predicate<WorldInteraction> includesItem) => this.includesItem = includesItem;
 
         internal static Rect BoundsOf(InteractionShape shape)
         {
@@ -109,7 +112,8 @@ namespace AnimalGame.World
                 map = queryMap;
                 needsFullRefresh = false;
                 foreach (WorldInteraction item in WorldInteraction.Active)
-                    if (item != null && item.gameObject.scene == queryScene) MarkDirty(item);
+                    if (item != null && includesItem(item) && item.gameObject.scene == queryScene)
+                        MarkDirty(item);
             }
             lock (dirtyLock)
             {

@@ -19,7 +19,8 @@ namespace AnimalGame.World
         Actor = 1 << 5, // Bodies: flight ignores props while retaining actor separation.
         Checkpoint = 1 << 6, // Non-blocking arrival regions.
         Vegetation = 1 << 7,
-        SightBlocking = 1 << 8
+        SightBlocking = 1 << 8,
+        VegetationDeformation = 1 << 9
     }
     public enum SightBlockingMode { MatchTraversal, AlwaysBlock }
     public enum RecyclableSize { Small, Medium, Big }

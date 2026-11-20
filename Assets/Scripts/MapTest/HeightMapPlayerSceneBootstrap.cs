@@ -83,9 +83,11 @@ namespace AnimalGame.MapTest
             playerSpawnMapPositionMeters;
 
         private AnimalWorldQuery animalWorld;
+        private VegetationSpriteDeformation.Driver vegetationDeformation;
         public float InitialViewRadiusMeters => animalWorld?.InitialViewRadiusMeters ?? 0f;
         private System.Collections.IEnumerator Start()
         {
+            vegetationDeformation.PrepareRendering();
             float metersPerPixel = mapCamera.orthographicSize * 2f / mapCamera.pixelHeight
                 / map.MapMetersToWorldDistance(Vector2.right, 1f);
             float pixels;
@@ -200,7 +202,9 @@ namespace AnimalGame.MapTest
             photoMode.InitializeCamera(cameraFollow, cameraShake);
             scanChargeUi.SetPhotoModeController(photoMode);
             armController.BindInventory(mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>());
-            robot.GetComponent<RobotMarkerView>().BindScanInnerRing(scanChargeUi);
+            var marker = robot.GetComponent<RobotMarkerView>();
+            marker.BindScanInnerRing(scanChargeUi);
+            vegetationDeformation = new VegetationSpriteDeformation.Driver(this, marker);
             mainUiObject.GetComponent<AnimalGame.MainUI.MainUIProjection>()?.Initialize(mapCamera);
             bioScan.Initialize(scanChargeUi, mapCamera);
             photoModeUi.Initialize(photoMode, mapCamera);
@@ -234,10 +238,15 @@ namespace AnimalGame.MapTest
                 UpdatePlayerHeight();
         }
 
+        private void OnDestroy() => vegetationDeformation?.Dispose();
+
         private void LateUpdate()
         {
             if (map == null || robot == null || robot.IgnoreCollisionAndTerrain || robot.HasTowerSupport)
+            {
+                vegetationDeformation?.LateUpdate();
                 return;
+            }
 
             if (AdaptiveLegacyGamepadInput.WasDpadLeftPressedThisFrame())
                 TryUnstuck();
@@ -248,6 +257,7 @@ namespace AnimalGame.MapTest
             position.y = Mathf.Clamp(position.y, bounds.min.y, bounds.max.y);
             robot.transform.position = position;
             WorldInteraction.MarkHierarchySpatialDirty(robot.transform);
+            vegetationDeformation?.LateUpdate();
         }
 
         private void TryUnstuck()

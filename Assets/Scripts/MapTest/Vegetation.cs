@@ -24,6 +24,7 @@ namespace AnimalGame.MapTest
         public override WorldInteractionKind Kind => base.Kind | WorldInteractionKind.Vegetation;
 
         public VegetationContactFade ContactFade { get; private set; }
+        internal VegetationSpriteDeformation Deformation { get; set; }
 
         protected override void OnEnable()
         {

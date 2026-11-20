@@ -33,6 +33,14 @@ namespace AnimalGame.Editor
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
+            if (target is VegetationSpriteDeformation)
+            {
+                SerializedProperty property = serializedObject.FindProperty("deformedSprites");
+                do { EditorGUILayout.PropertyField(property, true); }
+                while (property.NextVisible(false));
+                serializedObject.ApplyModifiedProperties();
+                return;
+            }
             if (target is AnimalGame.RobotMap.PlayerWorldBody)
             {
                 EditorGUILayout.HelpBox("Player collision geometry is configured on Robot Mover.", MessageType.Info);

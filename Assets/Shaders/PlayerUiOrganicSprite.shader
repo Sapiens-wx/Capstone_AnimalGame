@@ -34,6 +34,7 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             #pragma target 2.0
             #pragma multi_compile _ PIXELSNAP_ON
             #pragma multi_compile _ ETC1_EXTERNAL_ALPHA
+            #pragma multi_compile_local _ VEGETATION_DEFORMATION
 
             #include "UnityCG.cginc"
 
@@ -41,6 +42,9 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             {
                 float4 vertex : POSITION;
                 float2 texcoord : TEXCOORD0;
+                #ifdef VEGETATION_DEFORMATION
+                float2 spriteLocal : TEXCOORD1;
+                #endif
                 fixed4 color : COLOR;
             };
 
@@ -61,10 +65,38 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             float _PlayerUiClipRadiusPixels;
             float _PlayerUiClipSoftnessPixels;
 
+            #ifdef VEGETATION_DEFORMATION
+            float4x4 _VegetationLocalToWorld;
+            float4 _VegetationCenterRadius;
+            float4 _VegetationDirectionPull;
+            float4 _VegetationGripPinchOffset;
+
+            float4 VegetationToClip(float2 vertex)
+            {
+                float4 world = mul(_VegetationLocalToWorld, float4(vertex, 0, 1));
+                float2 relative = world.xy - _VegetationCenterRadius.xy;
+                float radius = _VegetationCenterRadius.z;
+                float2 direction = _VegetationDirectionPull.xy;
+                float2 across = float2(-direction.y, direction.x);
+                float along = dot(relative, direction);
+                float side = dot(relative, across) - _VegetationGripPinchOffset.x;
+                float front = smoothstep(0.05 * radius, 0.85 * radius, along);
+                float width = 1.0 - smoothstep(0.0, 0.9 * radius, abs(side));
+                float2 movement = direction * _VegetationDirectionPull.z
+                    - across * (side * (1.0 - front) * _VegetationGripPinchOffset.y);
+                world.xy += movement * (front * width) + _VegetationGripPinchOffset.zw;
+                return mul(UNITY_MATRIX_VP, world);
+            }
+            #endif
+
             Varyings Vert(AppData input)
             {
                 Varyings output;
+                #ifdef VEGETATION_DEFORMATION
+                output.vertex = VegetationToClip(input.spriteLocal);
+                #else
                 output.vertex = UnityObjectToClipPos(input.vertex);
+                #endif
                 #ifdef PIXELSNAP_ON
                 output.vertex = UnityPixelSnap(output.vertex);
                 #endif
