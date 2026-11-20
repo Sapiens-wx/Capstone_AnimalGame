@@ -100,6 +100,8 @@ namespace AnimalGame.Animals.UI
                     && !(fromPhotoResult && bootstrap.photoResultUi.IsResultVisible))
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
             collections.Clear();
+            // Refresh preserves the selected collection while rebuilding the sidebar.
+            if (fromPhotoResult && initialPage == Page.Photos) collections.Add(initialSpecies);
             previousLocation = null; page = initialPage; collection = 0; catalogIndex = -1;
             species = initialSpecies;
             lastRenderedPage = null;
@@ -111,11 +113,17 @@ namespace AnimalGame.Animals.UI
             root.style.display = DisplayStyle.Flex; nextMove = Time.unscaledTime + .2f;
             openedFrame = Time.frameCount;
             Refresh();
+            if (fromPhotoResult && initialPage == Page.Species)
+            {
+                var result = bootstrap.photoResultUi.DisplayedResult;
+                root.Q<CatalogRecognitionElement>("recognition").Animate(result.RecognitionBefore, result.RecognitionAfter);
+            }
         }
 
         public void Close()
         {
             if (!BlocksGameplay) return;
+            root.Q<CatalogRecognitionElement>("recognition").FinishAnimation();
             BlocksGameplay = false;
             buttonFeedback.Stop(); deleteWasHeld = false;
             deleteHold.Cancel(); photosView.SetDeleteProgress(0);
@@ -168,6 +176,7 @@ namespace AnimalGame.Animals.UI
         private void Refresh()
         {
             if (!BlocksGameplay || root == null) return;
+            if (page != Page.Species) root.Q<CatalogRecognitionElement>("recognition").FinishAnimation();
             var selectedCollection = collections.Count == 0 ? null : collections[collection];
             collections.Clear();
             collections.Add(null); // All Collection has no species filter.
@@ -331,6 +340,8 @@ namespace AnimalGame.Animals.UI
         {
             if (root == null || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
                 || (BlocksGameplay && Time.frameCount == openedFrame)) return;
+            if (BlocksGameplay && page == Page.Species)
+                root.Q<CatalogRecognitionElement>("recognition").Tick(Time.unscaledDeltaTime);
             Vector2 direction = AdaptiveLegacyGamepadInput.ReadLeftStick();
             Vector2 right = AdaptiveLegacyGamepadInput.ReadRightStick();
             bool upHeld = Input.GetKey(KeyCode.G), confirm = Input.GetKeyDown(KeyCode.Return),

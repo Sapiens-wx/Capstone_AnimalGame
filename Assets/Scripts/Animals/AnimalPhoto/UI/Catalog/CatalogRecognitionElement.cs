@@ -8,6 +8,8 @@ namespace AnimalGame.Animals.UI
     {
         private readonly Label percent, caption;
         private int value = -1;
+        private float displayed, animationBefore, animationAfter, animationElapsed;
+        private bool animating;
 
         [UxmlAttribute]
         public int Value
@@ -15,14 +17,50 @@ namespace AnimalGame.Animals.UI
             get => value;
             set
             {
-                int next = Mathf.Clamp(value, 0, 100);
-                if (this.value == next) return;
-                this.value = next;
+                animating = false;
+                SetDisplayed(value);
+            }
+        }
+
+        public void Animate(int before, int after)
+        {
+            animationBefore = Mathf.Clamp(before, 0, 100);
+            animationAfter = Mathf.Clamp(after, 0, 100);
+            animationElapsed = 0;
+            animating = animationBefore != animationAfter;
+            SetDisplayed(animationBefore);
+        }
+
+        public void Tick(float unscaledDeltaTime)
+        {
+            if (!animating) return;
+            animationElapsed = Mathf.Min(1f, animationElapsed + Mathf.Max(0, unscaledDeltaTime));
+            float next = Mathf.Lerp(animationBefore, animationAfter, Mathf.SmoothStep(0, 1, animationElapsed));
+            // Show every integer percentage, including when a slow frame crosses multiple ticks.
+            next = animationAfter >= animationBefore ? Mathf.Min(next, value + 1f) : Mathf.Max(next, value - 1f);
+            SetDisplayed(next);
+            if (animationElapsed >= 1f && displayed == animationAfter) animating = false;
+        }
+
+        public void FinishAnimation()
+        {
+            if (!animating) return;
+            animating = false;
+            SetDisplayed(animationAfter);
+        }
+
+        private void SetDisplayed(float amount)
+        {
+            displayed = Mathf.Clamp(amount, 0, 100);
+            int next = Mathf.FloorToInt(displayed);
+            if (value != next)
+            {
+                value = next;
                 percent.text = next + "%";
                 caption.style.display = next < 100 ? DisplayStyle.Flex : DisplayStyle.None;
-                LayoutCaptions();
-                MarkDirtyRepaint();
             }
+            LayoutCaptions();
+            MarkDirtyRepaint();
         }
 
         public CatalogRecognitionElement()
@@ -48,7 +86,7 @@ namespace AnimalGame.Animals.UI
             Rect rect = contentRect;
             float textWidth = percent.layout.width;
             if (rect.width <= 0f || float.IsNaN(textWidth)) return;
-            float end = rect.xMin + rect.width * value / 100f;
+            float end = rect.xMin + rect.width * displayed / 100f;
             float left = Mathf.Max(rect.xMin, end - textWidth - 4f);
             percent.style.left = left;
             caption.style.left = Mathf.Max(end + 8f, left + textWidth + 8f);
@@ -59,17 +97,21 @@ namespace AnimalGame.Animals.UI
             Rect rect = contentRect;
             if (rect.width <= 0f || rect.height <= 0f) return;
             var painter = context.painter2D;
-            painter.strokeColor = new Color32(212, 184, 84, 255);
-            painter.lineWidth = 3f;
-            painter.lineCap = LineCap.Butt;
-            painter.BeginPath();
-            for (int tick = 1; tick <= value; tick++)
+            painter.fillColor = new Color32(212, 184, 84, 255);
+            const float halfWidth = 3f;
+            for (int tick = 0; tick <= displayed; tick++)
             {
                 float x = rect.xMin + rect.width * tick / 100f;
-                painter.MoveTo(new Vector2(x, rect.yMin));
-                painter.LineTo(new Vector2(x, rect.yMax));
+                float left = Mathf.Max(rect.xMin, x - halfWidth);
+                float right = Mathf.Min(rect.xMax, x + halfWidth);
+                painter.BeginPath();
+                painter.MoveTo(new Vector2(left, rect.yMin));
+                painter.LineTo(new Vector2(right, rect.yMin));
+                painter.LineTo(new Vector2(right, rect.yMax));
+                painter.LineTo(new Vector2(left, rect.yMax));
+                painter.ClosePath();
+                painter.Fill();
             }
-            painter.Stroke();
         }
     }
 }

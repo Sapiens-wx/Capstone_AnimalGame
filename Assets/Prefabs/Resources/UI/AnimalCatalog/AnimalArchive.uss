@@ -125,9 +125,9 @@ Button:disabled { opacity: 0.35; }
 #distribution-section { margin-bottom: 8px; }
 #distribution-heading { margin-top: 0; }
 #species-recognition { flex-grow: 1; min-width: 0; flex-direction: row; align-items: center; margin-right: 30px; translate: 0 -4px; }
-#species-recognition > Label { color: #D4B854; font-size: 30px; margin-right: 20px; flex-shrink: 0; }
-#recognition { height: 30px; flex-grow: 1; min-width: 0; border-width: 1px; border-color: white; background-color: black; overflow: hidden; translate: 0 4px; }
-#recognition-percent { position: absolute; top: 0; bottom: 0; font-size: 24px; color: white; background-color: black; -unity-text-align: middle-center; margin: 0; padding: 0 4px; white-space: nowrap; }
+#species-recognition > Label { color: #D4B854; font-size: 30px; -unity-font-style: bold; margin-right: 20px; flex-shrink: 0; }
+#recognition { height: 30px; flex-grow: 1; min-width: 0; border-width: 2px; border-color: white; background-color: black; overflow: hidden; translate: 0 4px; }
+#recognition-percent { position: absolute; top: 0; bottom: 0; font-size: 23px; -unity-font-style: bold; color: white; background-color: black; -unity-text-align: middle-center; margin: 0; padding: 0 4px; white-space: nowrap; }
 #recognition-caption { position: absolute; top: 0; bottom: 0; font-size: 24px; color: white; -unity-text-align: middle-left; margin: 0; padding: 0; white-space: nowrap; }
 .archive-neighbor-navigation { position: absolute; top: 64px; right: 0; height: 72px; min-width: 0; flex-direction: row; margin: 0; padding: 0; border-width: 1px; border-color: white; background-color: black; overflow: hidden; }
 #collection-navigation { left: 298px; border-left-width: 0; }
