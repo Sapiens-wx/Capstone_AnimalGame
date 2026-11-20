@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 8237090822054639901}
   - component: {fileID: 7810835485949653995}
   - component: {fileID: 11400001}
+  - component: {fileID: 11400003}
   m_Layer: 0
   m_Name: Test_Tree
   m_TagString: Untagged
@@ -89,6 +90,27 @@ MonoBehaviour:
   crownRadiiMeters: {x: 3, y: 3}
   crownOffsetMeters: {x: 0, y: 0}
   trunkActivityWidthMeters: 0.6
+--- !u!114 &11400003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 072e9d332a644c039d408bc7d38923d9, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  deformedSprites:
+  - {fileID: 21200002}
+  triggerOnImpact: 1
+  impactSeconds: 0.28
+  impactPositionStrength: 0.035
+  bendStrength: 0.07
+  recoverySeconds: 0.35
+  subdivisions: 15
+  neckPinch: 0.02
 --- !u!1 &100001
 GameObject:
   m_ObjectHideFlags: 0
