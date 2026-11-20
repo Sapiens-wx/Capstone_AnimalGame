@@ -25,7 +25,7 @@ Shader "Hidden/AnimalGame/Grassland Render Probe"
             #ifdef GRASS_WIDE_NEIGHBOURHOOD
             #define GRASS_NEIGHBOUR_RADIUS 2
             #endif
-            #include "../Shaders/GrasslandDynamics.cginc"
+            #include "../../../Shaders/GrasslandDynamics.cginc"
             float4 frag(v2f_img input) : SV_Target
             {
                 float2 meters = input.uv * _MapSizeMeters.xy + _GrassTileOrigin.xy;
