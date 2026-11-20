@@ -229,7 +229,6 @@ namespace AnimalGame.Editor
         private static void CheckEscape()
         {
             using var f = new Fixture(true);
-            f.Bird.Settings.FleeSafeDistanceMultiplier = 1000f;
             Vector2 before = f.Agent.Motor.CurrentMapPosition;
             f.Agent.NotifyThreat(f.Threat(before - Vector2.right * 2f));
             Require(f.Agent.CurrentState == AnimalState.Fleeing && !f.Agent.IsHidden, "Bird entered curiosity or hiding");
@@ -242,17 +241,16 @@ namespace AnimalGame.Editor
                 Require(f.Bird.TargetTree == null && f.Agent.CurrentState == AnimalState.Fleeing, "Escape returned to tree");
             }
             Require(Vector2.Distance(before, f.Agent.Motor.CurrentMapPosition) > 10f, "Escape made no progress");
-            f.Bird.Settings.FleeSafeDistanceMultiplier = 1f;
-            // A camera encompassing the whole map must suppress distance-only despawn.
-            Camera camera = f.New("Test camera").AddComponent<Camera>();
-            camera.orthographic = true; camera.orthographicSize = 200f;
-            camera.transform.position = new Vector3(0f, 0f, -10f);
-            typeof(AnimalWorldQuery).GetProperty("Camera").SetValue(f.Agent.Simulation.World, camera);
-            for (int i = 0; i < 150; i++) f.Step(.02f);
-            Require(!f.Agent.Runtime.Removed, "Visible fleeing bird was despawned by distance only");
-            camera.transform.position = new Vector3(-1000f, -1000f, -10f);
-            for (int i = 0; i < 150 && !f.Agent.Runtime.Removed; i++) f.Step(.02f);
-            Require(f.Agent.Runtime.Removed, "Distant offscreen escape was not reclaimed");
+            var world = f.Agent.Simulation.World;
+            var player = f.New("Player").AddComponent<AnimalGame.RobotMap.RobotMover>();
+            typeof(AnimalWorldQuery).GetProperty("Player").SetValue(world, player);
+            world.ConfigureView(f.Map, 2f);
+            player.transform.position = f.Agent.transform.position;
+            f.Agent.SimulationTick(.02f);
+            Require(!f.Agent.Runtime.Removed, "Nearby fleeing bird was despawned");
+            player.transform.position += Vector3.right * f.Map.MapMetersToWorldDistance(Vector2.right, 11f);
+            f.Agent.SimulationTick(.02f);
+            Require(f.Agent.Runtime.Removed, "Fleeing bird outside five view radii was not reclaimed");
         }
         private static void CheckRecoveryAndCooldown()
         {

@@ -14,4 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   BaseSpawnProbability: 0
   ProbabilityReduction: 0
+  Prefab: {fileID: 4469252213503976378, guid: fdc1fce5c4b0a3a4cadcad02ad16b836, type: 3}
+  MaximumAltitude: 2147483647
   TerrainValue: 0

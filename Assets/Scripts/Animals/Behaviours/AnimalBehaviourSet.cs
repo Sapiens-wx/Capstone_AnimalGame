@@ -28,7 +28,6 @@ namespace AnimalGame.Animals
         public virtual AnimalAction CreateAggressiveAction() => new AggressiveAction();
         public virtual void OnDamaged(Transform attacker, AnimalState stateWhenHit) { }
         public virtual AnimalState ThreatResponse => AnimalState.Curious;
-        public virtual bool UsesCustomFleeDespawn => false;
         // Debug commands bypass scheduling, but validate physical/species prerequisites
         // before interrupting the current action. Factories must not enter the action.
         public virtual bool CanRunDailyForDebug(AnimalDailyBehaviourSettings settings, out string reason)

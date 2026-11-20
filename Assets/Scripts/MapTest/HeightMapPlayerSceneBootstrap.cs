@@ -82,6 +82,19 @@ namespace AnimalGame.MapTest
         public Vector2 PlayerSpawnMapPositionMeters =>
             playerSpawnMapPositionMeters;
 
+        private AnimalWorldQuery animalWorld;
+        public float InitialViewRadiusMeters => animalWorld?.InitialViewRadiusMeters ?? 0f;
+        private System.Collections.IEnumerator Start()
+        {
+            float metersPerPixel = mapCamera.orthographicSize * 2f / mapCamera.pixelHeight
+                / map.MapMetersToWorldDistance(Vector2.right, 1f);
+            float pixels;
+            while ((pixels = scanChargeUi.GetUiRingScreenRadiusPixels()) <= 0f)
+                yield return null;
+            animalWorld = AnimalSimulation.ForScene(gameObject.scene).World;
+            animalWorld.ConfigureView(map, pixels * metersPerPixel);
+        }
+
         protected override void Awake()
         {
             base.Awake();

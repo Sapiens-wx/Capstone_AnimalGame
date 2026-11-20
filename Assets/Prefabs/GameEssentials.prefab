@@ -44,6 +44,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7493002695849521002}
   - component: {fileID: 7493002695849521003}
+  - component: {fileID: 5526222540338241436}
   m_Layer: 0
   m_Name: Managers
   m_TagString: Untagged
@@ -78,6 +79,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0810cf15159f4934a9a364f9a344710e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &5526222540338241436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7493002695849521001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a6c1a7b671e4e26bfaa88b05b68d455, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maximumAnimals: 30
 --- !u!1001 &3269098513782301236
 PrefabInstance:
   m_ObjectHideFlags: 0

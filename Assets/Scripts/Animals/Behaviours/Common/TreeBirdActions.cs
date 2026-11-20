@@ -247,7 +247,7 @@ namespace AnimalGame.Animals
         private readonly TreeBirdBehaviour bird;
         private Vector2 direction, threatPosition;
         private bool hasThreatPosition;
-        private float offscreenTime, retryTime;
+        private float retryTime;
         public Vector2 Direction => direction;
         public override AnimalState PhotoState => AnimalState.Fleeing;
         public BirdFleeAction(TreeBirdBehaviour bird) { this.bird = bird; }
@@ -302,18 +302,6 @@ namespace AnimalGame.Animals
         {
             if (c.Agent.Perception.TryGetPlayerMapPosition(out Vector2 player))
             { threatPosition = player; hasThreatPosition = true; }
-            Camera camera = c.Agent.Simulation.World.Camera;
-            bool outside = camera == null;
-            if (camera != null)
-            {
-                Vector3 view = camera.WorldToViewportPoint(c.Agent.transform.position);
-                outside = view.z < 0f || view.x < -.05f || view.x > 1.05f || view.y < -.05f || view.y > 1.05f;
-            }
-            bool distant = hasThreatPosition && Vector2.Distance(c.Motor.CurrentMapPosition, threatPosition)
-                > c.Config.AlertRadiusMeters * Mathf.Max(1f, bird.Settings.FleeSafeDistanceMultiplier);
-            offscreenTime = outside && distant ? offscreenTime + dt : 0f;
-            if (offscreenTime >= Mathf.Max(.01f, bird.Settings.FleeOffscreenDelaySeconds))
-            { c.Agent.Despawn(); return AnimalActionStatus.Running; }
             retryTime -= dt;
             if ((!c.Motor.HasTarget || c.Motor.Result == AnimalMovementResult.Blocked
                 || c.Motor.Result == AnimalMovementResult.NoProgress) && retryTime <= 0f)

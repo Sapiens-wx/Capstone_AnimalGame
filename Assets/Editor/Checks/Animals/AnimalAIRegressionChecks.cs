@@ -272,7 +272,7 @@ namespace AnimalGame.Editor
             bird.Brain.Request(AnimalState.Fleeing); bird.BeginHiding(); bird.CompleteHiding();
             Require(bird.CurrentState == AnimalState.Fleeing, "Bird must not re-enter tree hiding");
         }
-        private static void CheckViewLifecycle()
+        public static void CheckViewLifecycle()
         {
             using var f = new Fixture();
             var player = f.New("Lifecycle player", f.Map.MapPositionToWorld(new Vector2(2f, 2f))).AddComponent<RobotMover>();
@@ -280,11 +280,12 @@ namespace AnimalGame.Editor
             camera.orthographic = true; camera.orthographicSize = .25f; camera.aspect = 1f;
             Set(f.Simulation.World, "<Player>k__BackingField", player);
             Set(f.Simulation.World, "<Camera>k__BackingField", camera);
+            f.Simulation.World.ConfigureView(f.Map, 2f);
             var animal = f.Animal("Distant animal", new Vector2(20f, 20f));
-            Require(f.Simulation.World.IsBeyondView(animal), "Three-screen-width distance threshold");
+            Require(f.Simulation.World.IsBeyondView(animal), "Five view radii distance threshold");
             animal.ReceiveDamage(1000f, null);
             f.Simulation.Tick(.01f);
-            Require(!animal.Runtime.Removed, "Distance culling removed a corpse before decay");
+            Require(animal.Runtime.Removed, "Distant corpse remained outside five view radii");
 
             var dormant = f.Animal("Dormant wildlife", new Vector2(24f, 20f), waitForPlayerInRange: true);
             f.Simulation.Tick(.01f);

@@ -14,6 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BaseSpawnProbability: 0
   ProbabilityReduction: 0
+  Prefab: {fileID: 950923351353688800, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
+  BoundVegetation: 0
+  MinimumAltitude: 110
+  MaximumAltitude: 2147483647
   TerrainValue: 0
-  AllowedTerrains: 030604
+  AllowedTerrains: 040605
   IsAquatic: 0

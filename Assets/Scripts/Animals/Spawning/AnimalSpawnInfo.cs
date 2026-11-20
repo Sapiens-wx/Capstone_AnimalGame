@@ -9,6 +9,10 @@ namespace AnimalGame.Animals
     {
         [Range(0f, 1f)] public float BaseSpawnProbability;
         [Range(0f, 1f)] public float ProbabilityReduction;
+        public AnimalAgent Prefab;
+        public VegetationKind BoundVegetation;
+        public int MinimumAltitude;
+        public int MaximumAltitude = int.MaxValue;
         public int TerrainValue;
         public List<TerrainKind> AllowedTerrains = new();
         public bool IsAquatic;

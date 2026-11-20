@@ -99,21 +99,20 @@ namespace AnimalGame.Animals
                 if (waitForPlayerInRange)
                 {
                     AnimalWorldQuery world = Simulation.World;
-                    if (world.Player == null || world.Camera == null || world.IsBeyondView(this))
+                    if (world.Player == null || world.InitialViewRadiusMeters <= 0f || world.IsBeyondView(this))
                         return;
                 }
                 if (!TryInitialize()) return;
             }
             if (deltaTime <= 0f) return;
             Runtime.Time = Simulation.Time;
+            if (Simulation.World.IsBeyondView(this)) { Despawn(); return; }
             if (Health.IsDead)
             {
                 Health.Tick(deltaTime);
                 if (Health.CorpseRemaining <= .00001f) Despawn();
                 return;
             }
-            if (!(CurrentState == AnimalState.Fleeing && behaviourSet.UsesCustomFleeDespawn)
-                && Simulation.World.IsBeyondView(this)) { Despawn(); return; }
             detectionGraceRemaining = Mathf.Max(0f, detectionGraceRemaining - deltaTime);
             if (!IsHidden && !behaviourSet.IgnoresThreats && !PerceptionSuppressed && detectionGraceRemaining <= 0f && Perception.TickDetection(deltaTime))
                 NotifyThreat(Perception.PrimaryThreat, true);
@@ -151,7 +150,7 @@ namespace AnimalGame.Animals
             if (Application.isPlaying) Destroy(gameObject);
         }
         private bool CanAct => initialized && !Health.IsDead && !Runtime.Removed;
-        public bool TryInitialize()
+        public bool TryInitialize(bool spawnedAtRuntime = false)
         {
             if (initialized) return true;
             if (rejected) return false;
@@ -183,8 +182,9 @@ namespace AnimalGame.Animals
             Motor.Initialize(Map, config);
             body.Initialize(this);
             if (!Motor.CanOccupyMapPosition(home, behaviourSet is TreeBirdBehaviour))
-                return Reject("Animal spawn overlaps an obstacle or another actor.");
+                return spawnedAtRuntime ? false : Reject("Animal spawn overlaps an obstacle or another actor.");
             Perception.Initialize(Map, config);
+            if (spawnedAtRuntime && behaviourSet is TreeBirdBehaviour bird) bird.KeepSpawnPosition();
             behaviourSet.Initialize(this);
             soundEmitter?.Initialize(this);
             placeholderView?.RestoreVisibleAppearance();

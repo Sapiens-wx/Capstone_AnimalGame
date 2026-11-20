@@ -14,8 +14,6 @@ namespace AnimalGame.Animals
         [Range(0f, 1f)] public float ArcProbability = .35f;
         [Min(.05f)] public float CrawlSpeedMetersPerSecond = .35f;
         public Vector2 CrawlPauseSeconds = new Vector2(.7f, 2f);
-        [Min(1f)] public float FleeSafeDistanceMultiplier = 2f;
-        [Min(0f)] public float FleeOffscreenDelaySeconds = 2f;
     }
 
     [DisallowMultipleComponent]
@@ -48,19 +46,26 @@ namespace AnimalGame.Animals
         private float MinimumTreeStay => DailyFlightDefinition != null ? DailyFlightDefinition.MinimumTreeStaySeconds : Settings.MinimumTreeStaySeconds;
         private float FlightCooldown => DailyFlightDefinition != null ? DailyFlightDefinition.FlightCooldownSeconds : Settings.FlightCooldownSeconds;
         public override AnimalState ThreatResponse => AnimalState.Fleeing;
-        public override bool UsesCustomFleeDespawn => true;
         public override bool SupportsAggression => false;
         public override AnimalAction CreateEscapeAction() => new BirdFleeAction(this);
         protected virtual bool StationaryTreeActivity => false;
         internal bool StationaryActivity => StationaryTreeActivity;
         internal virtual bool FaceTrunkWhilePerched => false;
 
+        private bool keepSpawnPosition;
+        internal void KeepSpawnPosition() => keepSpawnPosition = true;
+
         public override void Initialize(AnimalAgent agent)
         {
             base.Initialize(agent);
             quietCountdown = Agent.SoundEmitter != null ? Agent.SoundEmitter.ChooseRepeatInterval(AnimalSoundKind.Idle) : 5f;
             if (!IsUsableTree(birthTree)) birthTree = FindNearestTree();
-            SnapToBirthPerch();
+            if (keepSpawnPosition)
+            {
+                CurrentTree = birthTree;
+                Motor.SetPerchedMode(CurrentTree != null);
+            }
+            else SnapToBirthPerch();
             nextFlightTime = Agent.Runtime.Time + Mathf.Max(0f, MinimumTreeStay);
         }
 

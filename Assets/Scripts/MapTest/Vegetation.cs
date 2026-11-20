@@ -3,12 +3,16 @@ using UnityEngine;
 
 namespace AnimalGame.MapTest
 {
+    public enum VegetationKind { None, Tree, DeadTree, Bush, Lotus, Australis }
+
     // The root owns the single circle shared by collision, climbing and sight.
     [DisallowMultipleComponent]
     [RequireComponent(typeof(HeightMapPlacedObject))]
     [AddComponentMenu("Animal Game/Level/Vegetation")]
     public sealed class Vegetation : WorldInteraction
     {
+        public VegetationKind vegetationKind;
+
         [Tooltip("Interpret Collider Radius in logical map metres instead of scaled local units.")]
         [SerializeField] private bool radiusInMapMeters = true;
         public bool RadiusInMapMeters

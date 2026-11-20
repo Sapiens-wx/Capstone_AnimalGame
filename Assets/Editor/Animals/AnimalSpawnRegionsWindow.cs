@@ -254,10 +254,19 @@ namespace AnimalGame.Editor
             else
                 menu.AddDisabledItem(intersectAll);
 
+            var altitude = new GUIContent("Calc Altitude Intersect");
+            var altitudeAll = new GUIContent("Calc Altitude Intersect All");
+            bool ready = map != null && map.HasGeneratedMap && !map.HasPendingHeightLoads;
+            if (ready && index >= 0 && index < regions.polygons.Length)
+                menu.AddItem(altitude, false, () => IntersectPolygons(regions, index, true));
+            else menu.AddDisabledItem(altitude);
+            if (ready && regions.polygons.Length > 0)
+                menu.AddItem(altitudeAll, false, () => IntersectPolygons(regions, -1, true));
+            else menu.AddDisabledItem(altitudeAll);
             menu.ShowAsContext();
         }
 
-        private void IntersectPolygons(AnimalSpawnRegionsAsset.SpeciesRegions regions, int targetIndex)
+        private void IntersectPolygons(AnimalSpawnRegionsAsset.SpeciesRegions regions, int targetIndex, bool altitude = false)
         {
             AnimalInfoLibrary.Active.BySpecies.TryGetValue(regions.species, out var entry);
             AnimalSpawnInfo spawnInfo = entry?.spawnInfo;
@@ -267,29 +276,32 @@ namespace AnimalGame.Editor
                     $"Assign Spawn Info for {ObjectNames.NicifyVariableName(regions.species.ToString())}.", "OK");
                 return;
             }
-            if (!spawnInfo.IsAquatic && spawnInfo.AllowedTerrains.Count == 0)
+            if (!altitude && !spawnInfo.IsAquatic && spawnInfo.AllowedTerrains.Count == 0)
             {
                 EditorUtility.DisplayDialog("Calc Intersect",
                     $"Set Allowed Terrains in the Spawn Info for {ObjectNames.NicifyVariableName(regions.species.ToString())}.", "OK");
                 return;
             }
 
-            TerrainRegionsPrebake terrain = level.LoadPrebakedTerrainRegions();
-            if (terrain == null || !terrain.IncludesWaterMask)
+            TerrainRegionsPrebake terrain = altitude ? null : level.LoadPrebakedTerrainRegions();
+            if (!altitude && (terrain == null || !terrain.IncludesWaterMask))
             {
                 EditorUtility.DisplayDialog("Calc Intersect",
                     "Run Update Terrain Regions for this Tiled Level in the Surface Painter to bake the current land and water regions.", "OK");
                 return;
             }
 
-            Paths64 clip = BuildTerrainClip(terrain, spawnInfo);
+            Paths64 clip = altitude ? null : BuildTerrainClip(terrain, spawnInfo);
             var result = new List<AnimalSpawnRegionsAsset.Polygon>(regions.polygons.Length);
             int nextSelection = -1;
             for (int i = 0; i < regions.polygons.Length; i++)
             {
                 int firstResult = result.Count;
                 if (targetIndex < 0 || i == targetIndex)
-                    AppendIntersection(regions.polygons[i], clip, result);
+                {
+                    var polygon = regions.polygons[i];
+                    AppendIntersection(polygon, altitude ? BuildAltitudeClip(map, polygon, spawnInfo) : clip, result);
+                }
                 else
                     result.Add(regions.polygons[i]);
 
@@ -302,6 +314,66 @@ namespace AnimalGame.Editor
             if (editingSpecies == regions.species)
                 selectedPolygon = nextSelection;
             Repaint();
+        }
+
+        private const int AltitudeCellSize = 1;
+        private const float AltitudeBoundaryTolerance = 2f;
+        private const float MinimumAltitudeRegionArea = 16f;
+
+        internal static Paths64 BuildAltitudeClip(MapTestSceneController map, AnimalSpawnRegionsAsset.Polygon polygon, AnimalSpawnInfo info)
+        {
+            var strips = new Paths64();
+            if (polygon.vertices.Length < 3) return strips;
+            Vector2 min = polygon.vertices[0], max = min;
+            foreach (var vertex in polygon.vertices)
+            {
+                min = Vector2.Min(min, vertex);
+                max = Vector2.Max(max, vertex);
+            }
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(min.x / AltitudeCellSize));
+            int x1 = Mathf.CeilToInt(Mathf.Min(map.MapSizeMeters.x, max.x) / AltitudeCellSize);
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(min.y / AltitudeCellSize));
+            int y1 = Mathf.CeilToInt(Mathf.Min(map.MapSizeMeters.y, max.y) / AltitudeCellSize);
+            double units = TerrainRegionsBaker.UnitsPerMeter * AltitudeCellSize;
+            for (int y = y0; y < y1; y++)
+            {
+                int run = x0;
+                for (int x = x0; x <= x1; x++)
+                {
+                    if (x < x1 && map.TrySampleMapPosition(new Vector2(x + .5f, y + .5f) * AltitudeCellSize,
+                        out float height) && height >= info.MinimumAltitude && height <= info.MaximumAltitude)
+                        continue;
+                    if (run < x)
+                        strips.Add(new Path64 { new Point64(run * units, y * units), new Point64(x * units, y * units),
+                            new Point64(x * units, (y + 1) * units), new Point64(run * units, (y + 1) * units) });
+                    run = x + 1;
+                }
+            }
+            var merged = Clipper.Union(strips, FillRule.NonZero);
+            var simplified = Clipper.SimplifyPaths(merged, AltitudeBoundaryTolerance * TerrainRegionsBaker.UnitsPerMeter);
+            var tree = new PolyTree64();
+            var clipper = new Clipper64();
+            clipper.AddSubject(simplified);
+            clipper.Execute(ClipType.Union, FillRule.NonZero, tree);
+            var result = new Paths64();
+            CollectAltitudeRegions(tree, result);
+            return result;
+        }
+
+        private static void CollectAltitudeRegions(PolyPath64 parent, Paths64 result)
+        {
+            for (int i = 0; i < parent.Count; i++)
+            {
+                var outer = parent[i];
+                double area = Math.Abs(Clipper.Area(outer.Polygon));
+                for (int j = 0; j < outer.Count; j++) area -= Math.Abs(Clipper.Area(outer[j].Polygon));
+                if (area >= MinimumAltitudeRegionArea * TerrainRegionsBaker.UnitsPerMeter * TerrainRegionsBaker.UnitsPerMeter)
+                {
+                    result.Add(outer.Polygon);
+                    for (int j = 0; j < outer.Count; j++) result.Add(outer[j].Polygon);
+                }
+                for (int j = 0; j < outer.Count; j++) CollectAltitudeRegions(outer[j], result);
+            }
         }
 
         private static Paths64 BuildTerrainClip(TerrainRegionsPrebake terrain, AnimalSpawnInfo spawnInfo)

@@ -32,14 +32,22 @@ namespace AnimalGame.Animals
                 { clock = root.GetComponentInChildren<AnimalGame.MainUI.MainUI>(); if (clock != null) break; }
         }
 
+        private MapTestSceneController viewMap;
+        public float InitialViewRadiusMeters { get; private set; }
+
+        public void ConfigureView(MapTestSceneController map, float radius)
+        {
+            viewMap = map;
+            InitialViewRadiusMeters = radius;
+        }
+
         public bool IsBeyondView(AnimalAgent animal)
         {
-            if (Player == null || Camera == null) return false;
-            float plane = Camera.WorldToScreenPoint(animal.transform.position).z;
-            if (plane <= 0f) return false;
-            float width = Vector3.Distance(Camera.ScreenToWorldPoint(new Vector3(0f, 0f, plane)),
-                Camera.ScreenToWorldPoint(new Vector3(Camera.pixelWidth, 0f, plane)));
-            return width > 0f && Vector2.Distance(Player.transform.position, animal.transform.position) > width * 3f;
+            if (Player == null || InitialViewRadiusMeters <= 0f) return false;
+            var map = viewMap;
+            Vector2 delta = InteractionShape.ToQuery(Player.transform.position, map)
+                - InteractionShape.ToQuery(animal.transform.position, map);
+            return delta.magnitude > AnimalSpawner.OuterRadiusMultiplier * InitialViewRadiusMeters;
         }
 
         public bool Sweep(AnimalAgent animal, Vector2 start, Vector2 end)

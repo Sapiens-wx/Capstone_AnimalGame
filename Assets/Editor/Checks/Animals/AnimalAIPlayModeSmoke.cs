@@ -61,7 +61,6 @@ namespace AnimalGame.Editor
                 GameObject birdObject = new GameObject("Smoke woodpecker");
                 birdObject.transform.position = map.MapPositionToWorld(new Vector2(20f, 18f));
                 var behaviour = birdObject.AddComponent<PileatedWoodpeckerBehaviour>();
-                behaviour.Settings.FleeSafeDistanceMultiplier = 1000f;
                 bird = birdObject.AddComponent<AnimalAgent>();
                 behaviour.BindBirthTree(tree, false);
                 bird.ConfigureEditorDefaults(config, behaviour, null);

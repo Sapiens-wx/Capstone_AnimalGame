@@ -20,15 +20,8 @@ namespace AnimalGame.MapTest
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;
             map = bootstrap.map;
             player = bootstrap.robot.transform;
-            Camera camera = bootstrap.mapCamera;
-            // Freeze the initial camera scale while waiting for the UI's first layout.
-            float mapMetersPerPixel = camera.orthographicSize * 2f / camera.pixelHeight
-                / map.MapMetersToWorldDistance(Vector2.right, 1f);
-            float radiusPixels;
-            while ((radiusPixels = bootstrap.scanChargeUi.GetUiRingScreenRadiusPixels()) <= 0f)
-                yield return null;
-
-            viewRadiusMeters = radiusPixels * mapMetersPerPixel * 1.5f;
+            while (bootstrap.InitialViewRadiusMeters <= 0f) yield return null;
+            viewRadiusMeters = bootstrap.InitialViewRadiusMeters * 1.5f;
             RefreshVegetation();
         }
 
