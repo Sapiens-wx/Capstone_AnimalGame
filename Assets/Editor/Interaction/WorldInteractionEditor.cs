@@ -43,6 +43,8 @@ namespace AnimalGame.Editor
             if (climbKind.hasMultipleDifferentValues || (climbKind.intValue & (int)WorldInteractionKind.SightBlocking) != 0)
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("sightBlockingMode"));
             bool vegetation = target is Vegetation;
+            if (vegetation)
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(Vegetation.vegetationKind)));
             bool climbable = (climbKind.intValue & (int)WorldInteractionKind.Climbable) != 0;
             if (climbable || climbKind.hasMultipleDifferentValues)
             {
