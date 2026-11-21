@@ -67,6 +67,7 @@ namespace AnimalGame.RobotMap
                     terrain.GetPropertyBlock(original);
                     originals.Add(terrain, original);
                     terrain.GetPropertyBlock(snapshotProperties);
+                    snapshotProperties.SetFloat("_GrassEnabled", 0);
                     snapshotProperties.SetVector("_GrassOverlaySettings", Vector4.zero);
                     snapshotProperties.SetFloat("_SurfaceEnabled", 0);
                     snapshotProperties.SetFloat("_PhotoContoursOnly", 1);

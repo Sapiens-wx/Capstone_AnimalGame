@@ -113,6 +113,15 @@ MonoBehaviour:
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
+  - terrain: 10
+    displayName: Snow
+    patternTexture: {fileID: 2800000, guid: de125a2465f77a24cbbcecce19aaadf5, type: 3}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+    opacity: 0.5
+    tileSizeMeters: 4.5254836
+    transitionMode: 3
+    transitionWidthMultiplier: 1
+    noiseStrengthMultiplier: 1
   surfaceTransitionWidthMeters: 3
   surfaceAlphaCoreWidthMeters: 0.8
   surfaceAlphaBlendShare: 0.6
@@ -123,11 +132,11 @@ MonoBehaviour:
   surfaceNoiseSeed: 1337
   surfaceBakeResolution: 2048
   surfacePatternAlphaNormalizationStrength: 0.75
+  surfaceClosedContourEdgeAlphaMultiplier: 0.235
+  surfaceClosedContourCenterAlphaMultiplier: 0.05
   surfaceClosedContourAlphaEnabled: 1
   surfaceClosedContourAlphaResolution: 512
-  surfaceClosedContourEdgeAlphaMultiplier: 0.235
   surfaceClosedContourEdgeHoldDistanceMeters: 1.5
-  surfaceClosedContourCenterAlphaMultiplier: 0.05
   surfaceClosedContourFadeDistanceMeters: 10
   surfaceClosedContourDistanceCurve: 2
   surfaceClosedContourMinimumAreaSquareMeters: 4

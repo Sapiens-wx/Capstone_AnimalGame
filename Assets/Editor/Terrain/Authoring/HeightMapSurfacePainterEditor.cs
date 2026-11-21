@@ -801,6 +801,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         TerrainKind.Water => new Color32(65, 155, 245, 255),
         TerrainKind.Web => new Color32(225, 75, 80, 255),
         TerrainKind.Sand => new Color32(212, 184, 84, 255), // #D4B854
+        TerrainKind.Snow => new Color32(235, 245, 255, 255),
         _ => throw new ArgumentOutOfRangeException(nameof(terrain), terrain, null)
     };
 
@@ -1398,6 +1399,8 @@ internal static class HeightMapSurfaceBaker
                     bakeMaterial.SetTexture("_RockPattern", definition.PatternTexture);
                 if (definition.Terrain == TerrainKind.Sand)
                     bakeMaterial.SetTexture("_SandPattern", definition.PatternTexture);
+                if (definition.Terrain == TerrainKind.Gravel)
+                    bakeMaterial.SetTexture("_GravelPattern", definition.PatternTexture);
             }
             bakeMaterial.SetTexture("_TerrainPairTex", pairTexture);
             bakeMaterial.SetTexture(

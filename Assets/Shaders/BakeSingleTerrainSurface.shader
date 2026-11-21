@@ -5,6 +5,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
         _PatternAtlas ("Pattern Atlas", 2D) = "black" {}
         _RockPattern ("Original Rock Pattern", 2D) = "black" {}
         _SandPattern ("Original Sand Pattern", 2D) = "black" {}
+        _GravelPattern ("Original Gravel Pattern", 2D) = "black" {}
         _TerrainPairTex ("Terrain Pair Distance Map", 2D) = "black" {}
         _StaticContourAlphaTex ("Static Closed-Contour Alpha", 2D) = "white" {}
         _PaletteTintTex ("Palette Tint", 2D) = "black" {}
@@ -40,6 +41,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
             sampler2D _PatternAtlas;
             sampler2D _RockPattern;
             sampler2D _SandPattern;
+            sampler2D _GravelPattern;
             sampler2D _TerrainPairTex;
             sampler2D _StaticContourAlphaTex;
             sampler2D _PaletteTintTex;
@@ -118,6 +120,32 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 return 3.0;
             }
 
+            float4 RandomPatternOverlay(sampler2D patternTexture, float2 tilePosition)
+            {
+                float2 cell = floor(tilePosition);
+                float2 blend = frac(tilePosition);
+                blend = blend * blend * (3.0 - 2.0 * blend);
+                float4 result = 0;
+                // Fixed spatial seeds and smooth blending avoid visible tile boundaries.
+                [unroll] for (int y = 0; y <= 1; y++)
+                [unroll] for (int x = 0; x <= 1; x++)
+                {
+                    float2 corner = float2(x, y);
+                    float2 seed = cell + corner + _NoiseSeed;
+                    float angle = Hash21(seed) * 6.2831853;
+                    float sine, cosine;
+                    sincos(angle, sine, cosine);
+                    float2 p = tilePosition - cell - corner;
+                    float2 uv = float2(cosine * p.x - sine * p.y, sine * p.x + cosine * p.y);
+                    uv += float2(Hash21(seed + 17.1), Hash21(seed + 73.7));
+                    float4 sampleColor = tex2Dlod(patternTexture, float4(frac(uv), 0, 0));
+                    float weight = (x == 0 ? 1 - blend.x : blend.x) * (y == 0 ? 1 - blend.y : blend.y);
+                    result += float4(sampleColor.rgb * sampleColor.a, sampleColor.a) * weight;
+                }
+                result.rgb = result.a > .00001 ? result.rgb / result.a : 0;
+                return result;
+            }
+
             float4 SampleTerrainPattern(float terrainId, float2 mapMeters)
             {
                 if (terrainId < 0.5)
@@ -141,8 +169,19 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 float4 pattern = abs(terrainId - 6.0) < .5
                     ? tex2D(_RockPattern, repeatedUv)
                     : abs(terrainId - 9.0) < .5 ? tex2D(_SandPattern, repeatedUv)
+                    : abs(terrainId - 5.0) < .5 ? tex2D(_GravelPattern, repeatedUv)
                     : tex2D(_PatternAtlas, atlasPixel / 2048.0);
                 float4 tint = ReadPaletteTint(terrainId);
+                if (abs(terrainId - 9.0) < .5 || abs(terrainId - 5.0) < .5)
+                {
+                    float4 overlay = abs(terrainId - 5.0) < .5
+                        ? RandomPatternOverlay(_GravelPattern, mapMeters / tileSizeMeters)
+                        : RandomPatternOverlay(_SandPattern, mapMeters / tileSizeMeters);
+                    float alpha = overlay.a + pattern.a * (1 - overlay.a);
+                    pattern.rgb = alpha > .00001
+                        ? (overlay.rgb * overlay.a + pattern.rgb * pattern.a * (1 - overlay.a)) / alpha : 0;
+                    pattern.a = alpha;
+                }
                 pattern.rgb *= tint.rgb;
                 pattern.a *= tint.a;
                 return pattern;
