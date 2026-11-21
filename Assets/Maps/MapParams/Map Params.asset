@@ -36,7 +36,7 @@ MonoBehaviour:
     displayName: Grid Test
     patternTexture: {fileID: 2800000, guid: c3897b4bc6474024aaf596e85a1eb144, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.35
+    opacity: 1
     tileSizeMeters: 12
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -45,7 +45,7 @@ MonoBehaviour:
     displayName: Grass Test
     patternTexture: {fileID: 2800000, guid: 73a13eb11e97f5d4bb1fd2ff59874c6f, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.35
+    opacity: 1
     tileSizeMeters: 4
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -54,7 +54,7 @@ MonoBehaviour:
     displayName: Grass
     patternTexture: {fileID: 2800000, guid: f3e1b95583b0e4b43a52c1f82cf37d56, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.35
+    opacity: 1
     tileSizeMeters: 8
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -63,7 +63,7 @@ MonoBehaviour:
     displayName: Grassland
     patternTexture: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.2
+    opacity: 1
     tileSizeMeters: 3.2
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -72,8 +72,8 @@ MonoBehaviour:
     displayName: Gravel
     patternTexture: {fileID: 2800000, guid: d6606b1204025a341a04ddd64b2ed411, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.35
-    tileSizeMeters: 4.5
+    opacity: 1
+    tileSizeMeters: 2.25
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
@@ -81,7 +81,7 @@ MonoBehaviour:
     displayName: Rock
     patternTexture: {fileID: 2800000, guid: bfc7b968cbb6b2943868fa4967dbc3f4, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.5
+    opacity: 1
     tileSizeMeters: 4.5254836
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -90,7 +90,7 @@ MonoBehaviour:
     displayName: Water
     patternTexture: {fileID: 2800000, guid: f14cf7b4b026aad46abb88d4d128977a, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.35
+    opacity: 1
     tileSizeMeters: 8
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -99,7 +99,7 @@ MonoBehaviour:
     displayName: Web
     patternTexture: {fileID: 2800000, guid: 60656b14ece6dc2429bbfa58a73c3947, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.35
+    opacity: 1
     tileSizeMeters: 8
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -108,8 +108,8 @@ MonoBehaviour:
     displayName: Sand
     patternTexture: {fileID: 2800000, guid: 18163b6aeee572248a242baf140ed304, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.5
-    tileSizeMeters: 4.5254836
+    opacity: 1
+    tileSizeMeters: 1.6
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
@@ -117,7 +117,7 @@ MonoBehaviour:
     displayName: Snow
     patternTexture: {fileID: 2800000, guid: de125a2465f77a24cbbcecce19aaadf5, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
-    opacity: 0.5
+    opacity: 1
     tileSizeMeters: 4.5254836
     transitionMode: 3
     transitionWidthMultiplier: 1
@@ -132,21 +132,21 @@ MonoBehaviour:
   surfaceNoiseSeed: 1337
   surfaceBakeResolution: 2048
   surfacePatternAlphaNormalizationStrength: 0.75
-  surfaceClosedContourEdgeAlphaMultiplier: 0.235
-  surfaceClosedContourCenterAlphaMultiplier: 0.05
+  surfaceClosedContourEdgeAlphaMultiplier: 0.3
+  surfaceClosedContourCenterAlphaMultiplier: 0.06
   surfaceClosedContourAlphaEnabled: 1
   surfaceClosedContourAlphaResolution: 512
   surfaceClosedContourEdgeHoldDistanceMeters: 1.5
   surfaceClosedContourFadeDistanceMeters: 10
   surfaceClosedContourDistanceCurve: 2
   surfaceClosedContourMinimumAreaSquareMeters: 4
-  surfaceOutsideClosedContourAlphaMultiplier: 0.05
+  surfaceOutsideClosedContourAlphaMultiplier: 0.06
   surfaceMaskResolution: 512
   grasslandLayoutSeed: 0
   grasslandPositionJitter: 0.4
   grasslandDirectionRegionScale: 20
   grasslandBladeAngleVariation: 10
-  grasslandDensity: 1.365
+  grasslandDensity: 1.092
   grasslandBladeLengthScale: 0.56
   grass1: {fileID: 2800000, guid: 7e301ec7867006a43b8a578d1efb8e28, type: 3}
   grass2: {fileID: 0}

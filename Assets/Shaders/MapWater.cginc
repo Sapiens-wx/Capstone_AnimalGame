@@ -101,7 +101,7 @@ fixed4 SampleWaterPattern(
     float3 combinedRgb = max(
         primary.rgb,
         secondary.rgb * secondaryStrength);
-    float depthOpacity = lerp(0.2, 1.0, depth);
+    float depthOpacity = lerp(0.06, 0.3, depth);
     return fixed4(
         combinedRgb,
         combinedAlpha * depthOpacity);
