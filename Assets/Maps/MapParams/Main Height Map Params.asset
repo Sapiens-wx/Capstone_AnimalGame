@@ -73,7 +73,7 @@ MonoBehaviour:
     patternTexture: {fileID: 2800000, guid: d6606b1204025a341a04ddd64b2ed411, type: 3}
     tint: {r: 1, g: 1, b: 1, a: 1}
     opacity: 0.35
-    tileSizeMeters: 12.8
+    tileSizeMeters: 6.4
     transitionMode: 3
     transitionWidthMultiplier: 1
     noiseStrengthMultiplier: 1
