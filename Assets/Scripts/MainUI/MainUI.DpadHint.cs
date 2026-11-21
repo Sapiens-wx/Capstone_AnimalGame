@@ -17,7 +17,7 @@ namespace AnimalGame.MainUI
         private void RefreshDpadHoldHint()
         {
             if (!started || dpadHoldHint == null) return;
-            bool blocked = AnimalGame.World.Map.WorldMapUI.BlocksGameplay
+            bool blocked = AnimalGame.MapTest.OfficialMapOpening.IsPlaying || AnimalGame.World.Map.WorldMapUI.BlocksGameplay
                 || AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
                 || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels;
             Vector2 direction = Vector2.zero;
@@ -32,9 +32,9 @@ namespace AnimalGame.MainUI
             const float hintDelay = .2f;
             bool showUp = !blocked && !inventoryOpen && direction.y > .1f
                 && AnimalArchiveUI.OpenHoldElapsed >= hintDelay;
-            bool showRight = !blocked && !inventoryOpen && direction.x > .1f
+            bool showRight = !blocked && !IsCargoLocked && !inventoryOpen && direction.x > .1f
                 && InventoryController.OpenHoldElapsed >= hintDelay;
-            bool showLeft = !blocked && inventoryOpen && direction.x < -.1f
+            bool showLeft = !blocked && !IsCargoLocked && inventoryOpen && direction.x < -.1f
                 && InventoryController.CloseHoldElapsed >= hintDelay;
             if (showUp || showRight || showLeft)
             {

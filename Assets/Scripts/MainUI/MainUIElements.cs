@@ -609,6 +609,8 @@ namespace AnimalGame.MainUI
         private float bottomNotchHeightValue = 32;
         private float topNotchChamferValue = 14;
         private float bottomNotchChamferValue = 14;
+        private OpeningScanBand[] openingScanBands;
+        private int openingScanMask;
 
         [UxmlAttribute] public float margin { get => marginValue; set => SetDimension(ref marginValue, value); }
         [UxmlAttribute] public float cornerChamfer { get => cornerChamferValue; set => SetDimension(ref cornerChamferValue, value); }
@@ -637,6 +639,14 @@ namespace AnimalGame.MainUI
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += Draw;
+        }
+
+        internal void SetOpeningScan(OpeningScanBand[] bands, int mask)
+        {
+            openingScanBands = bands;
+            if (openingScanMask == mask) return;
+            openingScanMask = mask;
+            MarkDirtyRepaint();
         }
 
         private void Draw(MeshGenerationContext context)
@@ -690,9 +700,39 @@ namespace AnimalGame.MainUI
             {
                 p.strokeColor = Color.white;
                 p.lineWidth = 1.5f * scale;
-                HudDrawing.Polygon(p, points);
+                if (openingScanMask == 0) HudDrawing.Polygon(p, points);
+                else DrawOpeningOutline(p, points, w, h);
             }
             return points;
+        }
+
+        private void DrawOpeningOutline(Painter2D painter, Vector2[] points, float width, float height)
+        {
+            // Project onto the preview's 118-degree scan direction in the native frame's viewport.
+            Vector2 axis = HudDrawing.Radial(28f);
+            float span = axis.x * width + axis.y * height;
+            for (int i = 0; i < points.Length; i++)
+            {
+                Vector2 a = points[i], b = points[(i + 1) % points.Length];
+                float from = Vector2.Dot(axis, a) / span, to = Vector2.Dot(axis, b) / span;
+                if (to < from)
+                {
+                    (a, b) = (b, a);
+                    (from, to) = (to, from);
+                }
+                float cursor = 0f;
+                for (int j = 0; j < openingScanBands.Length; j++)
+                {
+                    if ((openingScanMask & (1 << j)) == 0) continue;
+                    OpeningScanBand cut = openingScanBands[j];
+                    if (cut.To <= from || cut.From >= to) continue;
+                    if (Mathf.Approximately(from, to)) { cursor = 1f; break; }
+                    float start = Mathf.Clamp01((cut.From - from) / (to - from));
+                    if (start > cursor) HudDrawing.Line(painter, Vector2.Lerp(a, b, cursor), Vector2.Lerp(a, b, start));
+                    cursor = Mathf.Clamp01((cut.To - from) / (to - from));
+                }
+                if (cursor < 1f) HudDrawing.Line(painter, Vector2.Lerp(a, b, cursor), b);
+            }
         }
 
         private static Vector2[] Notch(float x, float edge, float width, float height, float bevel, float direction)

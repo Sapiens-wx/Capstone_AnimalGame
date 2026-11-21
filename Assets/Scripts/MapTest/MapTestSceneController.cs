@@ -12,6 +12,13 @@ namespace AnimalGame.MapTest
     {
         private const float DefaultSurfaceRevealRadiusPixels = 430f;
         private const float VisibleRangeSamplesPerSecond = 2f;
+        private static readonly int OpeningMapScanId = Shader.PropertyToID("_OpeningMapScan");
+
+        public const float OpeningContourStart = 3.79f;
+        public const float OpeningContourReady = 4.58f;
+        public const float OpeningSurfaceStart = 4.86f;
+        public const float OpeningSurfaceDrop = 5.08f;
+        public const float OpeningSurfaceReady = 5.28f;
 
         [Header("Fixed Level Asset")]
         [Tooltip("Required tiled definition. Use a single-tile definition for standalone maps.")]
@@ -344,6 +351,18 @@ namespace AnimalGame.MapTest
         {
             surfaceRevealUi = scanUi;
             RefreshSurfaceMaterialSettings();
+        }
+
+        public void SetOpeningScanTime(float mapTime)
+        {
+            float contours = mapTime < OpeningContourStart ? 0f : mapTime < OpeningContourReady ? 1f : 2f;
+            float surface = mapTime < OpeningSurfaceStart ? 0f : mapTime < OpeningSurfaceReady ? 1f : 2f;
+            contourMaterial.SetVector(OpeningMapScanId, new Vector4(contours, surface, mapTime, OpeningSurfaceDrop));
+        }
+
+        public void ClearOpeningScan()
+        {
+            if (contourMaterial != null) SetOpeningScanTime(OpeningSurfaceReady);
         }
 
         private void RebuildGeneratedMap()

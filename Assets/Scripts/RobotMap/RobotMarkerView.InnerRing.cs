@@ -42,6 +42,7 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(.01f)] private float innerRingPhotoRecoverDuration = .18f;
 
         private Transform innerRing;
+        private SpriteRenderer innerRingArtwork;
         private float innerRingBaseScale, innerRingAngle, innerRingIdleTime;
         private float innerRingSpinSpeed;
         private float innerRingDisplayedBaseScale;
@@ -68,7 +69,7 @@ namespace AnimalGame.RobotMap
             innerRing = layer.transform;
             innerRing.SetParent(bodyVisualRoot, false);
             innerRing.localPosition = Vector3.forward * ArtworkDepth;
-            var renderer = layer.GetComponent<SpriteRenderer>();
+            var renderer = innerRingArtwork = layer.GetComponent<SpriteRenderer>();
             renderer.sprite = innerRingSprite;
             renderer.color = bodyOutlineColor;
             renderer.sortingLayerID = bodyArtwork.sortingLayerID;

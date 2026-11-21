@@ -156,9 +156,11 @@ namespace AnimalGame.RobotMap
         private void LateUpdate()
         {
             hasDisplayedScreenPositions = false;
+            float openingStatusOpacity = markerView != null ? markerView.OpeningStatusOpacity : 1f;
             if (!showBalanceDisplay
                 || balance == null
-                || graphic == null)
+                || graphic == null
+                || openingStatusOpacity <= 0f)
             {
                 if (canvasObject != null)
                     canvasObject.SetActive(false);
@@ -216,6 +218,7 @@ namespace AnimalGame.RobotMap
                                              && tumble.HasTumbleBalanceState
                 ? tumbleBalanceOpacityMultiplier
                 : 1f;
+            float opacityMultiplier = tumbleOpacityMultiplier * openingStatusOpacity;
             bool showFallenPointCross = (selfRighting != null
                                          && selfRighting.HasBalancePresentation
                     ? selfRighting.ShowBalancePointAsCross
@@ -230,14 +233,14 @@ namespace AnimalGame.RobotMap
                     centeredGuideAlpha,
                     edgeGuideAlpha,
                     visibilityProgress)
-                * tumbleOpacityMultiplier);
+                * opacityMultiplier);
             Color displayedLineColor = WithAlpha(
                 lineColor,
                 Mathf.Lerp(
                     centeredGuideAlpha,
                     edgeGuideAlpha,
                     visibilityProgress)
-                * tumbleOpacityMultiplier);
+                * opacityMultiplier);
             Color activePointColor = selfRighting != null
                                      && selfRighting.UseRecoveryBalancePointColor
                 ? selfRightingBalancePointColor
@@ -248,7 +251,7 @@ namespace AnimalGame.RobotMap
                     centeredPointAlpha,
                     edgePointAlpha,
                     visibilityProgress)
-                * tumbleOpacityMultiplier);
+                * opacityMultiplier);
             int trailSampleCount = UpdateTumbleBalanceTrail(displayOffset);
             graphic.SetBalance(
                 displayOffset,

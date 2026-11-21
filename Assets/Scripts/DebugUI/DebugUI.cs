@@ -142,6 +142,7 @@ namespace AnimalGame.AnimalDebug
 
         private void Update()
         {
+            if (AnimalGame.MapTest.OfficialMapOpening.IsPlaying) return;
             if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
             if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             Bind();

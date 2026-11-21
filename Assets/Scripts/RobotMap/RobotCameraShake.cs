@@ -530,6 +530,7 @@ namespace AnimalGame.RobotMap
         private Vector2 lastSentMediumRecycleRumble;
         private float nextRumbleRefreshTime;
         private bool rumbleWasSent;
+        private bool openingRumbleWasSent;
         private float lastLandingRumbleTime = float.NegativeInfinity;
         private float lastLandingRumbleStrength;
         private float tumbleHighIntensityUntil = float.NegativeInfinity;
@@ -557,9 +558,8 @@ namespace AnimalGame.RobotMap
         private bool mediumRecycleFinished;
         private int mediumRecyclePlayedStageMask;
         private bool mediumRecycleFeedbackFocused = true;
-        private bool mediumRecycleFeedbackPaused;
         private bool heavyBreakFeedbackFocused = true;
-        private bool heavyBreakFeedbackPaused;
+        private bool applicationPaused;
 
         private readonly struct GarbageGrabPulse
         {
@@ -619,7 +619,7 @@ namespace AnimalGame.RobotMap
         public void PlayHeavyGarbageBreakFeedback(Vector2 worldDirection)
         {
             if (!isActiveAndEnabled || !enableHeavyGarbageBreakFeedback || Time.timeScale <= 0.0001f
-                || !heavyBreakFeedbackFocused || heavyBreakFeedbackPaused)
+                || !heavyBreakFeedbackFocused || applicationPaused)
                 return;
 
             if (enableGamepadRumble && enableHeavyGarbageBreakRumble)
@@ -642,7 +642,7 @@ namespace AnimalGame.RobotMap
         private Vector2 GetHeavyGarbageBreakMotorSpeeds(float now)
         {
             if (!enableGamepadRumble || !enableHeavyGarbageBreakFeedback || !enableHeavyGarbageBreakRumble
-                || !heavyBreakFeedbackFocused || heavyBreakFeedbackPaused || Time.timeScale <= 0.0001f)
+                || !heavyBreakFeedbackFocused || applicationPaused || Time.timeScale <= 0.0001f)
             {
                 ClearHeavyGarbageBreakFeedback();
                 return Vector2.zero;
@@ -815,7 +815,7 @@ namespace AnimalGame.RobotMap
         }
 
         private bool CanUseMediumRecycleFeedback => isActiveAndEnabled && mediumRecycleFeedbackEnabled
-            && mediumRecycleFeedbackFocused && !mediumRecycleFeedbackPaused && Time.timeScale > 0.0001f;
+            && mediumRecycleFeedbackFocused && !applicationPaused && Time.timeScale > 0.0001f;
 
         private bool TryClaimMediumRecycleOwner(UnityEngine.Object owner)
         {
@@ -2188,6 +2188,28 @@ namespace AnimalGame.RobotMap
                 Mathf.Max(0f, speed) * deltaTime);
         }
 
+        // The opening uses unscaled time while the gameplay rumble channel is paused.
+        internal void SetOpeningRumble(Vector2 motors)
+        {
+            if (motors == Vector2.zero || !enableGamepadRumble || !isActiveAndEnabled
+                || !Application.isFocused || applicationPaused)
+            {
+                StopOpeningRumble();
+                return;
+            }
+
+            AdaptiveLegacyGamepadInput.RefreshDeviceIfNeeded();
+            openingRumbleWasSent |= AdaptiveGamepadRumble.SetMotorSpeeds(
+                gamepadIndex, motors.x, motors.y, CreateSonyRumbleCalibration(false), outputGain: 2f);
+        }
+
+        internal void StopOpeningRumble()
+        {
+            if (!openingRumbleWasSent) return;
+            AdaptiveGamepadRumble.SetMotorSpeeds(gamepadIndex, 0f, 0f, default);
+            openingRumbleWasSent = false;
+        }
+
         private void StopGamepadRumble()
         {
             if (rumbleWasSent
@@ -2526,6 +2548,7 @@ namespace AnimalGame.RobotMap
             UnsubscribeFromSelfRightingEvents();
             ResetShakeState();
             StopGamepadRumble();
+            StopOpeningRumble();
             elevationZoomMultiplier = 1f;
             scanZoomMultiplier = 1f;
             photoFocusMagnification = 1f;
@@ -2578,18 +2601,19 @@ namespace AnimalGame.RobotMap
             {
                 InvalidateMediumRecycleSession();
                 StopGamepadRumble();
+                StopOpeningRumble();
                 ClearHeavyGarbageBreakCamera();
             }
         }
 
         private void OnApplicationPause(bool pauseStatus)
         {
-            heavyBreakFeedbackPaused = pauseStatus;
-            mediumRecycleFeedbackPaused = pauseStatus;
+            applicationPaused = pauseStatus;
             if (pauseStatus)
             {
                 InvalidateMediumRecycleSession();
                 StopGamepadRumble();
+                StopOpeningRumble();
                 ClearHeavyGarbageBreakCamera();
             }
         }
@@ -2958,7 +2982,8 @@ namespace AnimalGame.RobotMap
             Vector2 heavyBreakSpeeds = default,
             SonyRumbleCalibration heavyBreakCalibration = default,
             Vector2 mediumRecycleSpeeds = default,
-            SonyRumbleCalibration mediumRecycleCalibration = default)
+            SonyRumbleCalibration mediumRecycleCalibration = default,
+            float outputGain = 1f)
         {
             bool stopping = lowFrequency <= 0f && highFrequency <= 0f
                 && grabSpeeds.x <= 0f && grabSpeeds.y <= 0f
@@ -2993,7 +3018,8 @@ namespace AnimalGame.RobotMap
                         heavyBreakSpeeds,
                         heavyBreakCalibration,
                         mediumRecycleSpeeds,
-                        mediumRecycleCalibration))
+                        mediumRecycleCalibration,
+                        outputGain))
                 {
                     activeBackend = RumbleBackend.SonyInputSystem;
                     return true;
@@ -3013,6 +3039,7 @@ namespace AnimalGame.RobotMap
             Vector2 xInputSpeeds = ComposeAllFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
                 grabSpeeds, heavyBreakSpeeds, mediumRecycleSpeeds, false, sonyCalibration, grabCalibration,
                 heavyBreakCalibration, mediumRecycleCalibration);
+            xInputSpeeds = ApplyOutputGain(xInputSpeeds, outputGain);
             bool xInputSucceeded = WindowsXInputRumble.SetMotorSpeeds(
                 gamepadIndex,
                 xInputSpeeds.x,
@@ -3021,6 +3048,9 @@ namespace AnimalGame.RobotMap
                 activeBackend = RumbleBackend.XInput;
             return xInputSucceeded;
         }
+
+        internal static Vector2 ApplyOutputGain(Vector2 motors, float gain) =>
+            new Vector2(Mathf.Clamp01(motors.x * gain), Mathf.Clamp01(motors.y * gain));
 
         // Calibrate each source before mixing, preserving existing chassis and grip settings.
         internal static Vector2 ComposeMotorSpeeds(Vector2 regular, Vector2 grab, bool sony,
@@ -3084,7 +3114,8 @@ namespace AnimalGame.RobotMap
             Vector2 heavyBreakSpeeds,
             SonyRumbleCalibration heavyBreakCalibration,
             Vector2 mediumRecycleSpeeds,
-            SonyRumbleCalibration mediumRecycleCalibration)
+            SonyRumbleCalibration mediumRecycleCalibration,
+            float outputGain)
         {
             Gamepad gamepad = ResolveSonyGamepad();
             if (gamepad == null)
@@ -3093,6 +3124,7 @@ namespace AnimalGame.RobotMap
             Vector2 mixed = AdaptiveGamepadRumble.ComposeAllFeedbackMotorSpeeds(new Vector2(lowFrequency, highFrequency),
                 grabSpeeds, heavyBreakSpeeds, mediumRecycleSpeeds, true, calibration, grabCalibration,
                 heavyBreakCalibration, mediumRecycleCalibration);
+            mixed = AdaptiveGamepadRumble.ApplyOutputGain(mixed, outputGain);
             gamepad.SetMotorSpeeds(mixed.x, mixed.y);
             return true;
         }

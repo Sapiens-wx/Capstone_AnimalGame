@@ -21,6 +21,12 @@ namespace AnimalGame.RobotMap
             ui = FindFirstObjectByType<AnimalGame.MainUI.MainUI>();
             if (ui != null) CurrentHealth = ui.Integrity * maximumHealth;
         }
+        internal void InitializeIntegrity(AnimalGame.MainUI.MainUI hud, float integrity)
+        {
+            ui = hud;
+            ui.Integrity = integrity;
+            CurrentHealth = ui.Integrity * maximumHealth;
+        }
         public void Damage(float damage)
         {
             if (damage <= 0f || (mover != null && mover.IgnoreAnimalDetection)) return;

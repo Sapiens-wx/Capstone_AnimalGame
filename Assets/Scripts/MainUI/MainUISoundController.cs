@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AnimalGame.MapTest;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -20,6 +21,7 @@ namespace AnimalGame.MainUI
         public static float MaximumStrength { get; private set; }
         internal static long Session { get; private set; }
         internal static double SessionStartedAt { get; private set; }
+        internal static double ClockTime => OfficialMapOpening.IsPlaying ? Time.unscaledTimeAsDouble : Time.timeAsDouble;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Reset()
@@ -38,7 +40,7 @@ namespace AnimalGame.MainUI
             if (sounds.Count == 0)
             {
                 Session++;
-                SessionStartedAt = Time.timeAsDouble;
+                SessionStartedAt = ClockTime;
             }
             var handle = new SoundHandle(++nextId);
             sounds.Add(handle.Id, strength);
@@ -111,7 +113,7 @@ namespace AnimalGame.MainUI
 
         private void LateUpdate()
         {
-            Advance(Time.deltaTime);
+            Advance(OfficialMapOpening.IsPlaying ? Time.unscaledDeltaTime : Time.deltaTime);
             if (document == null || !document.isActiveAndEnabled) return;
             VisualElement nextRoot = document.rootVisualElement;
             if (root != nextRoot || element == null)
@@ -142,7 +144,7 @@ namespace AnimalGame.MainUI
                 if (session != SoundUIPlayback.Session)
                 {
                     session = SoundUIPlayback.Session;
-                    elapsed = (float)System.Math.Max(0, Time.timeAsDouble - SoundUIPlayback.SessionStartedAt);
+                    elapsed = (float)System.Math.Max(0, SoundUIPlayback.ClockTime - SoundUIPlayback.SessionStartedAt);
                 }
                 else elapsed += deltaTime;
                 float progress = expansionSeconds > 0f ? Mathf.Clamp01(elapsed / expansionSeconds) : 1f;

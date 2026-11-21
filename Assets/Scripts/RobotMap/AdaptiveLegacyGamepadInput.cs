@@ -310,7 +310,7 @@ namespace AnimalGame.RobotMap
             RefreshDeviceIfNeeded(true);
         }
 
-        private static void RefreshDeviceIfNeeded(bool force = false)
+        internal static void RefreshDeviceIfNeeded(bool force = false)
         {
             if (!force && Time.unscaledTime < nextDeviceRefreshTime)
                 return;
@@ -443,6 +443,23 @@ namespace AnimalGame.RobotMap
                 return Vector2.ClampMagnitude(gamepad.leftStick.ReadUnprocessedValue(), 1f);
 #endif
             return Vector2.ClampMagnitude(ReadLeftStick(), 1f);
+        }
+
+        internal static bool WasSouthFaceButtonPressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            bool hasInputSystemGamepad = false;
+            foreach (Gamepad gamepad in Gamepad.all)
+            {
+                if (!gamepad.added) continue;
+                hasInputSystemGamepad = true;
+                if (gamepad.buttonSouth.wasPressedThisFrame) return true;
+            }
+            if (hasInputSystemGamepad) return false;
+#endif
+            RefreshDeviceIfNeeded();
+            return Input.GetKeyDown(ActiveFamily == LegacyGamepadFamily.Sony
+                ? KeyCode.JoystickButton1 : KeyCode.JoystickButton0);
         }
 
         public static bool IsSouthFaceButtonHeld()

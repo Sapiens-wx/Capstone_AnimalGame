@@ -71,6 +71,50 @@ Label {
     color: white;
 }
 
+.opening-driving-hint {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform-origin: 0% 0%;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.driving-control {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 2px 0;
+    padding: 4px 3px;
+    background-color: rgba(0, 0, 0, 0.86);
+    border-radius: 4px;
+}
+
+.driving-control-key {
+    width: 36px;
+    height: 28px;
+    margin-right: 7px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: rgb(212, 184, 84);
+    border-radius: 5px;
+    color: rgb(212, 184, 84);
+    font-size: 16px;
+    -unity-text-align: middle-center;
+}
+
+.driving-control-stick {
+    width: 28px;
+    margin-right: 15px;
+    border-radius: 50%;
+}
+
+.driving-control-action {
+    font-size: 18px;
+    white-space: nowrap;
+}
+
 .unstuck-failure {
     display: none;
     position: absolute;
