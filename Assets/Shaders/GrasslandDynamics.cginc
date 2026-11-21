@@ -271,7 +271,7 @@ float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float an
 
 float4 SampleGrassland(float2 tileUv, float animate)
 {
-    // Smooth the low-alpha 8-bit bake before expanding its range to 10%-30%.
+    // Smooth the low-alpha 8-bit bake before mapping it to the target opacity range.
     // Filter coverage only; grass silhouettes and their source texture stay sharp.
     float4 mask = tex2D(_GrassMaskTex, tileUv);
     float2 maskStep = _GrassMaskTex_TexelSize.xy * 1.5;
@@ -304,7 +304,7 @@ float4 SampleGrassland(float2 tileUv, float animate)
     overlay.a *= grassOpacity;
     float alpha = overlay.a + result.a * (1 - overlay.a);
     result.rgb = alpha > .0001 ? (overlay.rgb * overlay.a + result.rgb * result.a * (1 - overlay.a)) / alpha : 0;
-    result.a = alpha;
+    result.a = min(alpha, grassOpacity);
     return result;
 }
 

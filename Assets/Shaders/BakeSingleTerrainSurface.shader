@@ -180,7 +180,8 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                     float alpha = overlay.a + pattern.a * (1 - overlay.a);
                     pattern.rgb = alpha > .00001
                         ? (overlay.rgb * overlay.a + pattern.rgb * pattern.a * (1 - overlay.a)) / alpha : 0;
-                    pattern.a = alpha;
+                    // Merge raw layers before applying palette opacity and contour fading once.
+                    pattern.a = saturate(alpha);
                 }
                 pattern.rgb *= tint.rgb;
                 pattern.a *= tint.a;
@@ -217,7 +218,8 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                     1.0,
                     bakedMultiplier,
                     saturate(_StaticContourAlphaEnabled));
-                color.a = saturate(color.a * multiplier);
+                // The combined pattern cannot exceed the region's final opacity ceiling.
+                color.a = min(saturate(color.a * multiplier), saturate(multiplier));
                 return color;
             }
 
