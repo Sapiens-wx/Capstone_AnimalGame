@@ -1,3 +1,4 @@
+using AnimalGame.RobotMap;
 using UnityEngine;
 
 namespace AnimalGame.RobotArm
@@ -6,6 +7,9 @@ namespace AnimalGame.RobotArm
     // This layout is used only while tumbling, fallen, or returning exposed arms to their ordinary sockets.
     public sealed partial class RobotArmController
     {
+        private const float FallenSocketCentre = 90f;
+        private const float TumbleSocketGap = 90f;
+
         [Header("Tumble Arm Layout")]
         [Tooltip("Time for an exposed arm socket to travel 90 degrees along the body edge.")]
         [SerializeField, Min(.01f)] private float tumbleSocketQuarterTurnDuration = .35f;
@@ -78,7 +82,8 @@ namespace AnimalGame.RobotArm
                 EnableTumbleSocketPoses();
                 tumbleLayoutActive = true;
                 tumbleReturning = false;
-                BeginTumbleSocketTransition(45f + 90f * tumbleQuadrant, 90f);
+                float centre = tumble.State == RobotTumbleState.Fallen ? FallenSocketCentre : 45f + 90f * tumbleQuadrant;
+                BeginTumbleSocketTransition(centre, TumbleSocketGap);
                 if (deploymentTime <= .00001f)
                 {
                     SetHiddenTumbleSockets();
@@ -90,6 +95,33 @@ namespace AnimalGame.RobotArm
                 tumbleReturning = true;
                 BeginTumbleSocketTransition(90f, 180f);
             }
+        }
+
+        internal void AlignFallenArmSockets(Vector2 directionWorld)
+        {
+            if (!initialized || deploymentTime <= .00001f) return;
+
+            tumbleDirectionWorld = directionWorld;
+            tumbleLayoutActive = tumbleWasNonUpright = true;
+            tumbleReturning = tumbleClearingArms = false;
+            EnableTumbleSocketPoses();
+            BeginTumbleSocketTransition(FallenSocketCentre, TumbleSocketGap);
+            SetHiddenTumbleSockets();
+
+            Vector2 tangent = Vector2.right;
+            float reach = Mathf.Min(TumbleForwardReach(left, Vector2.up, tangent),
+                TumbleForwardReach(right, Vector2.up, tangent));
+            targetLocal = Vector2.up * Mathf.Min(targetLocal.magnitude, reach);
+            AimFallenArm(left);
+            AimFallenArm(right);
+        }
+
+        private void AimFallenArm(Arm arm)
+        {
+            Vector2 target = targetLocal + Vector2.right * arm.Side * handSpacing * .5f;
+            SolveIK(target - SocketAt(arm, arm.Pose), arm.LowerLength, arm.UpperLength, arm.Side,
+                out arm.Pose.LowerAngle, out arm.Pose.UpperAngle);
+            ApplyVisuals(arm);
         }
 
         // Counter-clockwise quadrants: upper-right, upper-left, lower-left, lower-right.
