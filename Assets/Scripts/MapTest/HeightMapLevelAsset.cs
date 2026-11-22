@@ -137,7 +137,7 @@ namespace AnimalGame.MapTest
 #endif
     {
 #if UNITY_EDITOR
-        public const int CurrentSurfaceBakeGeneratorVersion = 10;
+        public const int CurrentSurfaceBakeGeneratorVersion = 11;
         public const int CurrentStaticWaterMaskBakeGeneratorVersion = 3;
 #endif
 
@@ -372,8 +372,20 @@ namespace AnimalGame.MapTest
         [SerializeField, HideInInspector] private int surfaceDataVersion;
 
         [Header("Baked Terrain Surface Runtime")]
-        [Tooltip("Permanent Editor-baked terrain visual. The runtime never composes or modifies this texture.")]
+#if UNITY_EDITOR
+        [Tooltip("Editor-only surface preview. Runtime samples original patterns using terrain coverage masks.")]
         [SerializeField] private Texture2D bakedSurfaceVisual;
+#endif
+        [SerializeField] private Texture2DArray terrainCoverage;
+        [SerializeField] private Texture2D[] terrainPatterns = Array.Empty<Texture2D>();
+        [SerializeField] private Vector4[] terrainPatternSettings = Array.Empty<Vector4>();
+        [SerializeField] private Vector4[] terrainPatternTints = Array.Empty<Vector4>();
+        [SerializeField] private float terrainPatternSeed;
+        public Texture2DArray TerrainCoverage => terrainCoverage;
+        public Texture2D[] TerrainPatterns => terrainPatterns;
+        public Vector4[] TerrainPatternSettings => terrainPatternSettings;
+        public Vector4[] TerrainPatternTints => terrainPatternTints;
+        public float TerrainPatternSeed => terrainPatternSeed;
         [SerializeField] private Texture2D bakedGrasslandMask;
         [SerializeField, HideInInspector] private Texture2D grasslandPattern;
         [SerializeField, HideInInspector] private Vector4[] grasslandBladeRects = Array.Empty<Vector4>();
@@ -538,7 +550,9 @@ namespace AnimalGame.MapTest
 #if UNITY_EDITOR
         public Color StaticWaterEditorTint => mapParams != null ? mapParams.StaticWaterEditorTint : staticWaterEditorTint;
 #endif
+#if UNITY_EDITOR
         public Texture2D BakedSurfaceVisual => bakedSurfaceVisual;
+#endif
         public float SurfaceRevealEdgePixels => mapParams != null ? mapParams.SurfaceRevealEdgePixels : surfaceRevealEdgePixels;
         public int SurfacePresentationHash
         {
@@ -546,8 +560,8 @@ namespace AnimalGame.MapTest
             {
                 unchecked
                 {
-                    int hash = bakedSurfaceVisual != null
-                        ? bakedSurfaceVisual.GetInstanceID()
+                    int hash = terrainCoverage != null
+                        ? terrainCoverage.GetInstanceID()
                         : 0;
                     hash = hash * 397 ^ SurfaceRevealEdgePixels.GetHashCode();
                     hash = hash * 397 ^ surfaceBakeRevision;
@@ -1586,6 +1600,12 @@ namespace AnimalGame.MapTest
             {
                 surfaceBakeRevision++;
             }
+        }
+
+        public void SetTerrainCoverage(Texture2DArray coverage, Texture2D[] patterns, Vector4[] settings, Vector4[] tints, float seed)
+        {
+            terrainCoverage = coverage; terrainPatterns = patterns;
+            terrainPatternSettings = settings; terrainPatternTints = tints; terrainPatternSeed = seed;
         }
 
         public void SetBakedGrassland(Texture2D mask, Texture2D pattern, Vector4[] rects,

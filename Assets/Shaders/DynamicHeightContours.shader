@@ -7,7 +7,6 @@ Shader "AnimalGame/Dynamic Height Contours"
         [HideInInspector] _DashSubmergedContours ("Dash Submerged Contours", Float) = 0
         [HideInInspector] _SmoothContourEdges ("Smooth Contour Edges", Float) = 0
         _HeightTex ("Height Map", 2D) = "black" {}
-        _SurfaceTex ("Editor-Baked Terrain Surface", 2D) = "black" {}
         _SurfaceEnabled ("Surface Enabled", Float) = 0
         _GrassMaskTex ("Grassland Coverage", 2D) = "black" {}
         _GrassPatternTex ("Grassland Blades", 2D) = "black" {}
@@ -97,7 +96,6 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _DashSubmergedContours;
             float _SmoothContourEdges;
             sampler2D _HeightTex;
-            sampler2D _SurfaceTex;
             float _SurfaceEnabled;
             float _SurfaceRevealEnabled;
             float4 _SurfaceRevealCenterPixels;
@@ -119,6 +117,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _EdgeSoftness;
 
             #include "GrasslandDynamics.cginc"
+            #include "TerrainOriginalPatterns.cginc"
             #include "HeightContourLines.cginc"
             #include "MapWater.cginc"
 
@@ -193,7 +192,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                         : step(distanceFromUiCentre, revealRadius);
                 }
 
-                // Terrain remains one Editor-baked texture and is revealed only
+                // Original terrain patterns are revealed only
                 // inside the player UI. Water is a persistent natural feature:
                 // it stays visible everywhere, while this same reveal mask only
                 // selects whether its pattern is static or animated.
@@ -207,7 +206,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                     landVisibility -= _DashSubmergedContours * smoothstep(0.02, 0.5, waterData.r);
 
                     fixed4 terrainSurface = _SurfaceEnabled > 0.5
-                        ? tex2D(_SurfaceTex, input.uv)
+                        ? SampleOriginalTerrain(input.uv)
                         : fixed4(0.0, 0.0, 0.0, 0.0);
                     if (_GrassEnabled > .5 && revealMask > .0001)
                         terrainSurface = CombineGrassland(terrainSurface,

@@ -180,7 +180,6 @@ public static class GrasslandDynamicsChecks
         {
             map.SetFloat("_GrassEnabled", 1);
             map.SetFloat("_SurfaceEnabled", 1);
-            map.SetTexture("_SurfaceTex", Texture2D.blackTexture);
             map.SetTexture("_GrassMaskTex", Texture2D.whiteTexture);
             map.SetTexture("_GrassPatternTex", level.GrasslandPattern);
             map.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
