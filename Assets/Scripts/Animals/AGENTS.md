@@ -58,7 +58,7 @@
 
 # Contact Options
 
-- `Animal Game/Communication/OptionEditor` 从 `Contacts.asset` 加载联系人，为缺失配置的联系人在 `Data/Communication/Options/` 创建同名资产。节点 ID 为列表索引加一，交换删除时同步入口与连接引用。
+- `Animal Game/Communication/OptionEditor` 从 `Contacts.asset` 加载联系人，为缺失配置的联系人在 `Data/Communication/Options/` 创建同名资产。节点 ID 为列表索引加一，连接存于各节点的 `children`，允许多个节点指向同一目标。交换删除时同步入口与连接引用。
 
 - `AnimalTurnDeformation` ????? `bodyRenderer`????? Renderer ???
 

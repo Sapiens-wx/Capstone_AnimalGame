@@ -15,20 +15,22 @@ MonoBehaviour:
   nodes:
   - sender: 0
     message: abcdesdfjkhesdfasefsdfasefxc sdfasejhf asdkfjhgsef fasef
-    parent: 0
     children: 0300000002000000
     position: {x: 209.09334, y: -108.66667}
     size: {x: 201.33334, y: 144.66667}
   - sender: 1
     message: 
-    parent: 1
-    children: 
-    position: {x: 460.47998, y: -40.666687}
+    children: 04000000
+    position: {x: 460.6667, y: -39.333344}
     size: {x: 152, y: 81.33334}
   - sender: 1
     message: 
-    parent: 1
+    children: 04000000
+    position: {x: 469.33334, y: -148}
+    size: {x: 0, y: 0}
+  - sender: 0
+    message: 
     children: 
-    position: {x: 474.66663, y: -120}
+    position: {x: 707.04004, y: -121.33334}
     size: {x: 0, y: 0}
   entryNodeId: 1

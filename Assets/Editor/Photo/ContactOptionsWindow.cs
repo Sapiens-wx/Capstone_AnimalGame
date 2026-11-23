@@ -292,8 +292,9 @@ namespace AnimalGame.Editor
             if (!options.CanConnect(fromId, toId))
             {
                 string reason = fromId == toId ? "A node cannot connect to itself." :
-                    options.GetNode(toId).Parent != 0 ? "The target already has a parent." :
-                    "Connect a Player node to an Npc node or vice versa.";
+                    options.GetNode(fromId).Sender == options.GetNode(toId).Sender
+                        ? "Connect a Player node to an Npc node or vice versa."
+                        : "These nodes are already connected in this direction.";
                 window.ShowNotification(new GUIContent(reason));
                 return;
             }
@@ -388,7 +389,7 @@ namespace AnimalGame.Editor
                 style.minHeight = 32;
                 titleContainer.style.display = DisplayStyle.None;
                 topContainer.style.display = DisplayStyle.None;
-                Input = new MessagePort(Direction.Input, Port.Capacity.Single);
+                Input = new MessagePort(Direction.Input, Port.Capacity.Multi);
                 Output = new MessagePort(Direction.Output, Port.Capacity.Multi);
                 hierarchy.Add(Input);
                 hierarchy.Add(Output);
@@ -419,6 +420,9 @@ namespace AnimalGame.Editor
                 message.text = string.IsNullOrEmpty(node.Message) ? title : $"{title}  {node.Message}";
                 tooltip = message.text;
             }
+
+            // The graph supplies the contact node menu.
+            public override void BuildContextualMenu(ContextualMenuPopulateEvent evt) { }
 
             public override void OnSelected()
             {
