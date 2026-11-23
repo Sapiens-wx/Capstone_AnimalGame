@@ -13,6 +13,7 @@ namespace AnimalGame.Animals.Communication
         public ContactId contact;
         public string profession;
         public Sprite portrait;
+        public ContactOptions options;
         public string Name => ContactName(contact);
         public static string ContactName(ContactId id) => id == ContactId.CrewLounge ? "Crew lounge" : id.ToString();
     }

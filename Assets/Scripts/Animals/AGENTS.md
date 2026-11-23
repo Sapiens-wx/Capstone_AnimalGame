@@ -56,6 +56,10 @@
 - `GameSave.conversations` 保存各联系人的文字/照片消息；照片引用相册索引，删除相册照片时同步移除和调整消息索引。
 - `SaveSystem.SharePhotos` 持久化消息、全局 sent 标记和已发送数量；上传不再增加认知度或解锁等级。
 
+# Contact Options
+
+- `Animal Game/Communication/OptionEditor` 从 `Contacts.asset` 加载联系人，为缺失配置的联系人在 `Data/Communication/Options/` 创建同名资产。节点 ID 为列表索引加一，交换删除时同步入口与连接引用。
+
 - `AnimalTurnDeformation` ????? `bodyRenderer`????? Renderer ???
 
 - 植物交互统一在根节点的 `Vegetation : WorldInteraction`；动物视线使用 `SightBlocking` 标记的线段四叉树查询，不维护植物遮挡列表。
