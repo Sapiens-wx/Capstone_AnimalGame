@@ -58,6 +58,8 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
             float _NoiseSeed;
             float _StaticContourAlphaEnabled;
             float _GrassBakeMode;
+            float _CoverageBakeMode;
+            float _CoverageTerrainId;
 
             float2 PaletteUv(float terrainId)
             {
@@ -151,6 +153,9 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 if (terrainId < 0.5)
                     return float4(0.0, 0.0, 0.0, 0.0);
 
+                if (_CoverageBakeMode > .5)
+                    return float4(1, 1, 1, abs(terrainId - _CoverageTerrainId) < .5 ? ReadPaletteTint(terrainId).a : 0);
+
                 float4 settings = ReadPaletteSettings(terrainId);
                 if (abs(terrainId - 4.0) < .5)
                     return _GrassBakeMode > .5 ? ReadPaletteTint(terrainId) : float4(0, 0, 0, 0);
@@ -172,11 +177,9 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                     : abs(terrainId - 5.0) < .5 ? tex2D(_GravelPattern, repeatedUv)
                     : tex2D(_PatternAtlas, atlasPixel / 2048.0);
                 float4 tint = ReadPaletteTint(terrainId);
-                if (abs(terrainId - 9.0) < .5 || abs(terrainId - 5.0) < .5)
+                if (abs(terrainId - 9.0) < .5)
                 {
-                    float4 overlay = abs(terrainId - 5.0) < .5
-                        ? RandomPatternOverlay(_GravelPattern, mapMeters / tileSizeMeters)
-                        : RandomPatternOverlay(_SandPattern, mapMeters / tileSizeMeters);
+                    float4 overlay = RandomPatternOverlay(_SandPattern, mapMeters / tileSizeMeters);
                     float alpha = overlay.a + pattern.a * (1 - overlay.a);
                     pattern.rgb = alpha > .00001
                         ? (overlay.rgb * overlay.a + pattern.rgb * pattern.a * (1 - overlay.a)) / alpha : 0;

@@ -908,6 +908,19 @@ namespace AnimalGame.RobotMap
             Vector3 start = transform.position;
             Quaternion rotation = transform.rotation;
             MapTestSceneController map = traversalEvaluator != null ? traversalEvaluator.Map : null;
+            if (end.Equals(start) && collisionShape == CollisionShape.Circle && colliderCenter.Equals(Vector2.zero)
+                && transform.parent == null && rotation.x == 0f && rotation.y == 0f
+                && endRotation.x == 0f && endRotation.y == 0f)
+            {
+                Vector2 units = InteractionShape.WorldUnitsPerQueryUnit(map);
+                if (units.x == units.y)
+                {
+                    // This in-place turn leaves the centred circle unchanged in map space.
+                    transform.rotation = endRotation;
+                    WorldInteraction.MarkHierarchySpatialDirty(transform);
+                    return;
+                }
+            }
             float travel = Vector2.Distance(InteractionShape.ToQuery(start, map), InteractionShape.ToQuery(end, map))
                 + Quaternion.Angle(rotation, endRotation) * Mathf.Deg2Rad
                 * (BodyRadiusInQuery(map) + ColliderCenter.magnitude);

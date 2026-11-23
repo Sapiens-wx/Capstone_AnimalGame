@@ -14,6 +14,7 @@ namespace AnimalGame.MapTest
         Water = 7,
         Web = 8,
         Sand = 9,
-        Snow = 10
+        Snow = 10,
+        Dirt = 11
     }
 }

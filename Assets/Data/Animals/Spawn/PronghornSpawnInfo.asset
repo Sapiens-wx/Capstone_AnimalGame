@@ -12,8 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57a7b57ae308977278cbf114f9b9aad3, type: 3}
   m_Name: PronghornSpawnInfo
   m_EditorClassIdentifier:
-  BaseSpawnProbability: 0
-  ProbabilityReduction: 0
+  BaseSpawnProbability: 0.21
+  ProbabilityReduction: 0.1
   Prefab: {fileID: 4469252213503976378, guid: fdc1fce5c4b0a3a4cadcad02ad16b836, type: 3}
-  MaximumAltitude: 2147483647
+  BoundVegetation: 0
+  MinimumAltitude: 0
+  MaximumAltitude: 145
   TerrainValue: 0
+  AllowedTerrains: 040b09
+  IsAquatic: 0

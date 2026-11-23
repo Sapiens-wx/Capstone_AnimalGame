@@ -24,6 +24,7 @@ namespace AnimalGame.Editor
             CheckBodyCommitOrder();
             CheckArmPushResistance();
             CheckRotation();
+            CheckBodyRotation();
             CheckMapScaleAndBoundary();
             CheckGripLifecycle();
             CheckArmBlocksBeforeCommit();
@@ -190,6 +191,39 @@ namespace AnimalGame.Editor
                 Require(WorldInteractionQuery.Penetration(held.GetShape(null), obstacle.GetShape(null)) < .0001f,
                     "Held corner ended inside wall");
             }
+        }
+
+        private static void CheckBodyRotation()
+        {
+            using var fixture = new Fixture(false);
+            var robot = new GameObject("Body rotation probe");
+            SceneManager.MoveGameObjectToScene(robot, fixture.Scene);
+            var mover = robot.AddComponent<RobotMover>();
+            mover.ColliderRadius = .3f;
+            var quarterTurn = Quaternion.Euler(0, 0, 90);
+            var obstacle = fixture.Item(new Vector2(0, .8f), Vector2.one * .1f, WorldInteractionKind.BodyCollision);
+            var before = mover.GetCollisionShape(null);
+            mover.ConstrainCollisionPose(Vector3.zero, quarterTurn);
+            var after = mover.GetCollisionShape(null);
+            Require(Quaternion.Angle(robot.transform.rotation, quarterTurn) < .01f
+                && before.Center.Equals(after.Center) && Mathf.Abs(before.Radius - after.Radius) < .00001f,
+                "A centred circular body failed to turn in place without changing its footprint");
+
+            robot.transform.rotation = Quaternion.identity;
+            mover.ColliderCenter = new Vector2(.8f, 0);
+            mover.ConstrainCollisionPose(Vector3.zero, quarterTurn);
+            Require(Quaternion.Angle(robot.transform.rotation, quarterTurn) > 1f
+                && WorldInteractionQuery.Penetration(mover.GetCollisionShape(null), obstacle.GetShape(null)) < .0001f,
+                "An offset circle bypassed its rotation sweep");
+
+            robot.transform.rotation = Quaternion.identity;
+            mover.ColliderCenter = Vector2.zero;
+            mover.CollisionShape = CollisionShape.Box;
+            mover.LocalSize = new Vector2(2, .2f);
+            mover.ConstrainCollisionPose(Vector3.zero, quarterTurn);
+            Require(Quaternion.Angle(robot.transform.rotation, quarterTurn) > 1f
+                && WorldInteractionQuery.Penetration(mover.GetCollisionShape(null), obstacle.GetShape(null)) < .0001f,
+                "A box bypassed its rotation sweep");
         }
 
         private static void CheckMapScaleAndBoundary()

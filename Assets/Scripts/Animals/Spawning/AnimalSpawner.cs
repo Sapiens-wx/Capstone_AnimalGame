@@ -38,12 +38,17 @@ namespace AnimalGame.Animals
 
         public void Check(MapTestSceneController map, Vector2 center, float radius)
         {
+            float outer = radius * OuterRadiusMultiplier;
+            float outerSquared = outer * outer;
             int count = 0;
             foreach (var animal in AnimalAgent.ActiveAgents)
-                if (animal.gameObject.scene == gameObject.scene) count++;
+            {
+                if (animal.gameObject.scene != gameObject.scene) continue;
+                Vector2 position = InteractionShape.ToQuery(animal.transform.position, map);
+                if ((position - center).sqrMagnitude <= outerSquared) count++;
+            }
             if (count >= maximumAnimals) return;
 
-            float outer = radius * OuterRadiusMultiplier;
             var origin = ToPoint(center);
             const int sides = 128;
             // Circumscribe the exclusion circle so every sampled point is at least 2R away.
@@ -133,6 +138,11 @@ namespace AnimalGame.Animals
                 float u = Mathf.Sqrt(Random.value);
                 point = Vector2.Lerp(InMeters(t[0]), Vector2.Lerp(InMeters(t[1]), InMeters(t[2]), Random.value), u);
             }
+            if ((c.Info.MinimumAltitude > 0 || c.Info.MaximumAltitude < int.MaxValue)
+                && (!map.TrySampleMapPosition(point, out float altitude)
+                    || altitude < c.Info.MinimumAltitude || altitude > c.Info.MaximumAltitude))
+                return false;
+
             var animal = Instantiate(c.Info.Prefab, map.MapPositionToWorld(point), c.Info.Prefab.transform.rotation, map.transform);
             if (vegetation != null && animal.Behaviour is TreeBirdBehaviour bird)
                 bird.BindBirthTree(vegetation.GetComponentInParent<TreeHabitat>(), false);
