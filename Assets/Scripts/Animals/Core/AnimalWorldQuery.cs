@@ -1,5 +1,6 @@
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,9 +13,7 @@ namespace AnimalGame.Animals
         public Camera Camera { get; private set; }
         public Scene Scene { get; }
         private float nextResolve;
-        private AnimalGame.MainUI.MainUI clock;
-        public System.DateTime CalendarDate => clock != null && clock.CurrentGameTime != default
-            ? clock.CurrentGameTime : new System.DateTime(2000, 1, 1, 12, 0, 0);
+        public System.DateTime CalendarDate => SaveSystem.CurrentGameTime;
         public AnimalWorldQuery(Scene scene) { Scene = scene; }
         public void Resolve(float time)
         {
@@ -27,9 +26,6 @@ namespace AnimalGame.Animals
                     if (Player != null) break;
                 }
             if (Camera == null || !Camera.isActiveAndEnabled) Camera = Camera.main;
-            if (clock == null)
-                foreach (GameObject root in Scene.GetRootGameObjects())
-                { clock = root.GetComponentInChildren<AnimalGame.MainUI.MainUI>(); if (clock != null) break; }
         }
 
         private MapTestSceneController viewMap;

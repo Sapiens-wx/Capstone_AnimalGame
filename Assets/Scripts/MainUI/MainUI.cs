@@ -5,6 +5,7 @@ using AnimalGame.Animals;
 using AnimalGame.MainUI.Inventory;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -127,10 +128,8 @@ namespace AnimalGame.MainUI
         private float outerRingHeadingDegrees;
         private Vector2 viewportOffset, ringDisplacement, photoOffset, cachedCenter;
         private float cachedRadius;
-        private DateTime lastCoordinateRefresh, gameTime;
-        public DateTime CurrentGameTime => gameTime;
-        private double elapsedGameClockSeconds;
-        private bool gameClockInitialized;
+        private DateTime lastCoordinateRefresh;
+        public DateTime CurrentGameTime => SaveSystem.CurrentGameTime;
         private bool telemetryNeedsRefresh = true;
         private bool powerRingLit = true;
         private float powerRingFlickerRemaining;
@@ -217,7 +216,7 @@ namespace AnimalGame.MainUI
                 emptyItemTemplate = Resources.Load<VisualTreeAsset>("UI/Main/EmptyInventoryItem");
             InventoryController.Bind(root, inventory, grid, root.Q<InventorySelectionElement>("InventorySelection"));
             ClearCoordinates();
-            InitializeGameClock(DateTime.Now);
+            RefreshGameClock(CurrentGameTime, true);
             RefreshTelemetry(DateTime.Now, true);
             lastPower = lastIntegrity = -1;
             ApplyLayout();
@@ -553,31 +552,20 @@ namespace AnimalGame.MainUI
         {
             if (dateLabel != null) dateLabel.text = date.ToString("MM_dd\nyyyy", CultureInfo.InvariantCulture);
         }
-        private void InitializeGameClock(DateTime now)
+        private void RefreshGameClock(DateTime previous, bool force = false)
         {
-            if (!gameClockInitialized)
-            {
-                gameTime = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMinute));
-                elapsedGameClockSeconds = 0;
-                gameClockInitialized = true;
-            }
-            // Rebind a rebuilt UI to the current clock without restarting time.
-            SetDate(gameTime);
-            SetDayProgress((float)(gameTime.TimeOfDay.TotalMinutes / 1440d));
+            DateTime time = CurrentGameTime;
+            if (force || time.Date != previous.Date) SetDate(time);
+            if (force || time.Ticks / TimeSpan.TicksPerMinute != previous.Ticks / TimeSpan.TicksPerMinute)
+                SetDayProgress((float)((time.TimeOfDay.Ticks / TimeSpan.TicksPerMinute) / 1440d));
         }
 
         private void AdvanceGameClock(float deltaTime)
         {
-            if (!gameClockInitialized || deltaTime <= 0) return;
-            elapsedGameClockSeconds += deltaTime;
-            double minutesToAdvance = Math.Floor(elapsedGameClockSeconds);
-            if (minutesToAdvance < 1) return;
-
-            elapsedGameClockSeconds -= minutesToAdvance;
-            DateTime previousDate = gameTime.Date;
-            gameTime = gameTime.AddMinutes(minutesToAdvance);
-            if (gameTime.Date != previousDate) SetDate(gameTime);
-            SetDayProgress((float)(gameTime.TimeOfDay.TotalMinutes / 1440d));
+            if (deltaTime <= 0) return;
+            DateTime previous = CurrentGameTime;
+            SaveSystem.Current.gameTime = previous.AddTicks((long)(deltaTime * (double)TimeSpan.TicksPerMinute));
+            RefreshGameClock(previous);
         }
 
         private void RefreshTelemetry(DateTime now, bool force)
