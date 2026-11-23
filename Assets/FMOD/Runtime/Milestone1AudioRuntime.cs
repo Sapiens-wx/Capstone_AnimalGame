@@ -1,4 +1,5 @@
 using AnimalGame.RobotMap;
+using AnimalGame.World.Map;
 using FMODUnity;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -14,6 +15,8 @@ namespace Capstone.Audio
         private static Milestone1AudioRuntime instance;
         private Milestone1ScanAudio scanAudio;
         private Milestone1CameraAudio cameraAudio;
+        private MapAudioObserver mapAudio;
+        private bool mapAudioPaused;
         private Transform listenerTransform;
         private Camera listenerCamera;
         private float nextDiscoveryTime;
@@ -57,6 +60,7 @@ namespace Capstone.Audio
             if (initialized)
             {
                 ReleaseBindings();
+                mapAudioPaused = false;
                 shuttingDown = false;
                 enabled = true;
                 DiscoverSources();
@@ -77,6 +81,7 @@ namespace Capstone.Audio
 
             scanAudio = new Milestone1ScanAudio(settings);
             cameraAudio = new Milestone1CameraAudio(settings);
+            mapAudio = new MapAudioObserver(settings);
             var listenerObject = new GameObject("FMOD Listener");
             listenerTransform = listenerObject.transform;
             listenerTransform.SetParent(transform, false);
@@ -105,6 +110,8 @@ namespace Capstone.Audio
             float deltaTime = Mathf.Max(0f, Time.unscaledDeltaTime);
             scanAudio.Tick(deltaTime);
             cameraAudio.Tick(deltaTime);
+            // The map deliberately pauses the world while its UI keeps updating.
+            if (!mapAudioPaused) mapAudio.Tick(WorldMapUI.Instance, deltaTime);
 
             if (listenerCamera == null || !listenerCamera.isActiveAndEnabled)
                 listenerCamera = Camera.main;
@@ -164,6 +171,8 @@ namespace Capstone.Audio
                 scanAudio.Bind(null);
             if (cameraAudio.Source == null || cameraAudio.Source.gameObject.scene == scene)
                 cameraAudio.Bind(null);
+            if (mapAudio.Source == null || mapAudio.Source.gameObject.scene == scene)
+                mapAudio.Reset();
             nextDiscoveryTime = 0f;
             listenerCamera = null;
         }
@@ -174,7 +183,14 @@ namespace Capstone.Audio
             cameraAudio?.Bind(null);
             scanAudio?.StopAllImmediately();
             cameraAudio?.StopAllImmediately();
+            mapAudio?.Reset();
             listenerCamera = null;
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            mapAudioPaused = paused;
+            if (paused) mapAudio?.Reset();
         }
 
         private void OnApplicationQuit()

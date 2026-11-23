@@ -1,10 +1,15 @@
 using AnimalGame.RobotMap;
+using AnimalGame.MapTest;
+using AnimalGame.World;
 using UnityEngine;
 
 namespace Capstone.Audio
 {
     internal sealed class Milestone2MovementAudio
     {
+        private const int GrassAccelerationIntroMs = 2400;
+        private const float SurfaceFullSpeedFraction = .98f;
+        private const float SurfaceReaccelerationFraction = .20f;
         private readonly Milestone2ActionSettings settings;
         private readonly Milestone2ActionVoices voices;
         private RobotMover source;
@@ -15,6 +20,15 @@ namespace Capstone.Audio
         private bool linearMotion, turnMotion, engineReleasing;
         private bool hasBaseline, wasMoving, slipEpisode, wasAirborne, groundTurnLooping;
         private bool tumbleSlideActive;
+        private readonly bool hasSurfaceAudio;
+        private Milestone2ActionCue surfaceCue = Milestone2ActionCue.Count;
+        private float surfaceSampleRemaining;
+        private float grassIntroRemaining;
+        private float grassPreviousStrength, grassLowStrength = 1f;
+        private bool surfaceIntro;
+        private int surfaceSeekMs = -1;
+        private float surfaceSeekGain = 1f;
+        private float surfacePeakStrength, surfaceLowStrength;
         private float tumbleSlideRemaining;
         private int lastTumbleStartFrame = -1;
 
@@ -26,6 +40,8 @@ namespace Capstone.Audio
         {
             this.settings = settings;
             this.voices = voices;
+            hasSurfaceAudio = settings.HasCue(Milestone2ActionCue.GrassRoll) || settings.HasCue(Milestone2ActionCue.SandRoll)
+                || settings.HasCue(Milestone2ActionCue.RockRoll) || settings.HasCue(Milestone2ActionCue.GravelRoll);
             forwardReference = settings.DriveReferenceSpeed;
         }
 
@@ -64,6 +80,7 @@ namespace Capstone.Audio
             float turnSpeed = Mathf.Abs(Mathf.DeltaAngle(previousAngle, angle)) / deltaTime;
             bool airborne = height != null && height.isActiveAndEnabled && height.HasData && height.IsAirborne;
             bool driven = source.MovementMode == RobotMovementMode.Driven;
+            bool wasTranslating = linearMotion;
             bool translating = false, turning = false;
             if (driven && !airborne)
             {
@@ -152,8 +169,20 @@ namespace Capstone.Audio
 
             // Slipping does not remove terrain contact. Keep the delivered ground
             // layer for actual sliding translation or uncontrolled ground rotation.
-            voices.SetLoop(Milestone2ActionCue.GroundMove, driven && !airborne
-                && (translating || (slip && turning)));
+            bool rolling = driven && !airborne && (translating || (slip && turning));
+            if (hasSurfaceAudio)
+            {
+                var previousSurface = surfaceCue;
+                UpdateSurface(rolling && !source.IgnoreCollisionAndTerrain && !source.HasTowerSupport
+                    && !source.CurrentClimbableSurface.IsActive && source.CurrentWaterSpeedMultiplier >= 1f, deltaTime);
+                if (surfaceCue == Milestone2ActionCue.GrassRoll)
+                    UpdateGrassRoll(!wasTranslating && translating, speed, longitudinalSpeed, deltaTime);
+                else if (surfaceCue != Milestone2ActionCue.Count)
+                    UpdateSurfaceRoll(previousSurface != surfaceCue, !wasTranslating && !wasAirborne, speed, longitudinalSpeed);
+            }
+            // Each assigned material supplies the complete translational ground sound.
+            voices.SetLoop(Milestone2ActionCue.GroundMove, rolling
+                && (surfaceCue == Milestone2ActionCue.Count || !translating));
             UpdateGroundTurn(settings.StationaryTurnGroundAudioEnabled && driven && !airborne
                 && !slip && !translating && turning,
                 settings.StationaryTurnGroundAudioEnabled && driven && !airborne && !slip);
@@ -240,6 +269,15 @@ namespace Capstone.Audio
 
         private void StopGroundImmediately(bool preserveTumbleSlide = false)
         {
+            if (hasSurfaceAudio)
+            {
+                // A previous surface can still be in its exit fade at takeoff.
+                for (var cue = Milestone2ActionCue.GrassRoll; cue <= Milestone2ActionCue.GrassRollAccel; cue++)
+                    voices.Stop(cue, true);
+                surfaceCue = Milestone2ActionCue.Count;
+                surfaceSampleRemaining = 0f;
+                ResetGrassMotion();
+            }
             voices.Stop(Milestone2ActionCue.GroundMove, true);
             voices.Stop(Milestone2ActionCue.GroundTurn, true);
             if (!preserveTumbleSlide)
@@ -251,6 +289,199 @@ namespace Capstone.Audio
             }
             slipEpisode = false;
             groundTurnLooping = false;
+        }
+
+        private void UpdateSurface(bool rollingOnTerrain, float deltaTime)
+        {
+            var next = Milestone2ActionCue.Count;
+            if (rollingOnTerrain)
+            {
+                surfaceSampleRemaining -= deltaTime;
+                if (surfaceSampleRemaining > 0f) return;
+                surfaceSampleRemaining = 0.08f;
+                var bootstrap = HeightMapPlayerSceneBootstrap.inst;
+                var map = bootstrap != null && bootstrap.robot == source ? bootstrap.map : null;
+                if (WorldTerrainQuery.TrySampleWorldPosition(map, source.MapPosition, out var terrain))
+                {
+                    switch (terrain)
+                    {
+                        case TerrainKind.Grass:
+                        case TerrainKind.Grassland: next = Milestone2ActionCue.GrassRoll; break;
+                        case TerrainKind.Sand: next = Milestone2ActionCue.SandRoll; break;
+                        case TerrainKind.Rock: next = Milestone2ActionCue.RockRoll; break;
+                        case TerrainKind.Gravel: next = Milestone2ActionCue.GravelRoll; break;
+                    }
+                    if (next != Milestone2ActionCue.Count && !settings.HasCue(next)) next = Milestone2ActionCue.Count;
+                }
+            }
+            else surfaceSampleRemaining = 0f;
+            if (next == surfaceCue) return;
+            if (surfaceCue != Milestone2ActionCue.Count) voices.Stop(surfaceCue);
+            if (surfaceCue == Milestone2ActionCue.GrassRoll)
+            {
+                voices.Stop(Milestone2ActionCue.GrassRollAccel);
+                ResetGrassMotion();
+            }
+            surfaceCue = next;
+        }
+
+        private float SurfaceSpeedFraction(float speed, float longitudinalSpeed)
+        {
+            float ratedSpeed = longitudinalSpeed < -settings.MovementThreshold ? source.UnloadedReverseSpeed
+                : (source.DebugMoveSpeed ?? source.DefaultMoveSpeed);
+            float strength = Mathf.Clamp01(speed / Mathf.Max(.01f, ratedSpeed));
+            return strength >= SurfaceFullSpeedFraction ? 1f : strength;
+        }
+
+        private void UpdateSurfaceRoll(bool entered, bool starting, float speed, float longitudinalSpeed)
+        {
+            if (!linearMotion)
+            {
+                voices.Stop(surfaceCue);
+                return;
+            }
+            int sustainMs = surfaceCue == Milestone2ActionCue.SandRoll ? 2500 : 2000;
+            float strength = SurfaceSpeedFraction(speed, longitudinalSpeed);
+            bool cruiseImmediately = strength == 1f && surfaceCue != Milestone2ActionCue.RockRoll;
+            int entryMs = 0;
+            if (entered || starting)
+            {
+                // Sand contains the gravel recording on its own synchronized track.
+                // Retire a previous copy even if a narrow tile left it fading.
+                if (surfaceCue == Milestone2ActionCue.SandRoll)
+                {
+                    voices.Stop(Milestone2ActionCue.GravelRoll, true);
+                    voices.Stop(Milestone2ActionCue.GroundMove, true);
+                }
+                else if (surfaceCue == Milestone2ActionCue.GravelRoll)
+                    voices.Stop(Milestone2ActionCue.SandRoll, true);
+
+                // The sand mix and its standalone gravel layer both skip their intro
+                // when the first motion sample already measures full speed.
+                bool startFromRest = starting && !cruiseImmediately;
+                entryMs = startFromRest ? 0 : Mathf.RoundToInt(sustainMs * strength);
+                surfaceIntro = entryMs < sustainMs;
+                surfaceSeekGain = 1f;
+                surfaceSeekMs = -1;
+                surfacePeakStrength = strength;
+                surfaceLowStrength = -1f;
+                if (voices.TryGetTimelinePosition(surfaceCue, out int currentMs))
+                {
+                    // Brief material changes may return to a still-fading voice.
+                    // Only genuine rest can rewind it to the onset.
+                    surfaceIntro &= startFromRest || currentMs < sustainMs;
+                    int toleranceMs = entryMs == sustainMs ? 0 : 60;
+                    if (startFromRest || currentMs < entryMs - toleranceMs)
+                        surfaceSeekMs = entryMs;
+                }
+            }
+            else
+            {
+                ObserveSurfaceReacceleration(strength, sustainMs);
+                if (surfaceIntro && strength == 1f)
+                {
+                    surfaceIntro = false;
+                    // A natural handoff (or a rise straight to full speed) needs no rewind.
+                    int toleranceMs = cruiseImmediately ? 0 : 60;
+                    surfaceSeekMs = voices.TryGetTimelinePosition(surfaceCue, out int currentMs)
+                        && currentMs < sustainMs - toleranceMs ? sustainMs : -1;
+                }
+            }
+
+            // Attenuate around a live seek, using the same voice and source. A low
+            // floor masks the splice without inserting a silent frame at the boundary.
+            if (surfaceSeekMs == sustainMs && (entered || cruiseImmediately)) surfaceSeekGain = .03f;
+            float dt = Time.unscaledDeltaTime;
+            surfaceSeekGain = surfaceSeekMs >= 0
+                ? Mathf.MoveTowards(surfaceSeekGain, .03f, dt / .025f)
+                : Mathf.MoveTowards(surfaceSeekGain, 1f, dt / .04f);
+            voices.SetLoopFrom(surfaceCue, true, entryMs, gain: Mathf.Lerp(.7f, 1f, strength) * surfaceSeekGain);
+            if (surfaceSeekMs >= 0 && surfaceSeekGain <= .03f)
+            {
+                voices.SetTimelinePosition(surfaceCue, surfaceSeekMs);
+                surfaceSeekMs = -1;
+            }
+        }
+
+        private void ObserveSurfaceReacceleration(float strength, int sustainMs)
+        {
+            if (surfaceLowStrength < 0f)
+            {
+                surfacePeakStrength = Mathf.Max(surfacePeakStrength, strength);
+                if (surfacePeakStrength - strength < SurfaceReaccelerationFraction) return;
+                surfacePeakStrength = strength;
+                if (surfaceSeekMs >= 0) return;
+                if (surfaceIntro)
+                {
+                    // Sample on a significant drop only. The intro may already
+                    // have crossed into the native loop at less than full speed.
+                    if (!voices.TryGetTimelinePosition(surfaceCue, out int ms) || ms < sustainMs) return;
+                    surfaceIntro = false;
+                }
+                surfaceLowStrength = strength;
+                return;
+            }
+
+            surfaceLowStrength = Mathf.Min(surfaceLowStrength, strength);
+            if (strength - surfaceLowStrength < SurfaceReaccelerationFraction) return;
+            surfaceLowStrength = -1f;
+            surfacePeakStrength = strength;
+            if (strength < 1f)
+            {
+                surfaceSeekMs = Mathf.RoundToInt(sustainMs * strength);
+                surfaceIntro = true;
+            }
+        }
+
+        private void UpdateGrassRoll(bool starting, float speed, float longitudinalSpeed, float deltaTime)
+        {
+            if (!linearMotion)
+            {
+                // Uncontrolled ground rotation can keep a material selected at rest.
+                voices.Stop(Milestone2ActionCue.GrassRollAccel);
+                voices.Stop(Milestone2ActionCue.GrassRoll);
+                ResetGrassMotion();
+                return;
+            }
+            float strength = SurfaceSpeedFraction(speed, longitudinalSpeed);
+            if (settings.HasCue(Milestone2ActionCue.GrassRollAccel))
+            {
+                if (starting && strength < 1f && voices.Play(Milestone2ActionCue.GrassRollAccel))
+                    grassIntroRemaining = GrassAccelerationIntroMs / 1000f;
+                else if (!starting && !voices.IsAlive(Milestone2ActionCue.GrassRollAccel)
+                    && strength - grassLowStrength >= SurfaceReaccelerationFraction)
+                {
+                    grassLowStrength = 1f;
+                    voices.PlayFrom(Milestone2ActionCue.GrassRollAccel, Mathf.RoundToInt(GrassAccelerationIntroMs * strength));
+                }
+
+                // Track a settled or falling speed. An ongoing accent absorbs rises
+                // while it plays, so a single ramp cannot queue another onset.
+                if (starting || voices.IsAlive(Milestone2ActionCue.GrassRollAccel)) grassLowStrength = 1f;
+                if (strength <= grassPreviousStrength + .01f * deltaTime)
+                    grassLowStrength = Mathf.Min(grassLowStrength, strength);
+                grassPreviousStrength = strength;
+            }
+            if (!starting && grassIntroRemaining > 0f)
+            {
+                grassIntroRemaining -= Time.unscaledDeltaTime;
+                // Only sample near the transition. Mixer startup can lag a frame.
+                if (strength < 1f && grassIntroRemaining <= 0f && voices.TryGetTimelinePosition(
+                    Milestone2ActionCue.GrassRollAccel, out int ms))
+                    grassIntroRemaining = (GrassAccelerationIntroMs - ms) / 1000f;
+            }
+            if (strength == 1f) grassIntroRemaining = 0f;
+            if (grassIntroRemaining > 0f) return;
+
+            // Once joined, the loop tracks actual speed. The one-shot keeps its
+            // original timeline and authored ending through both fast and slow travel.
+            voices.SetLoopFrom(Milestone2ActionCue.GrassRoll, true, 0, gain: Mathf.Lerp(.7f, 1f, strength));
+        }
+
+        private void ResetGrassMotion()
+        {
+            grassIntroRemaining = grassPreviousStrength = 0f;
+            grassLowStrength = 1f;
         }
 
         private void OnTumbleStarted(RobotTumbleStartedInfo info)

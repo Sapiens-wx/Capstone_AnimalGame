@@ -70,3 +70,5 @@
 - VegetationSpriteDeformation 参考 HeavyGarbageVisual：按原精灵三角形细分网格，以玩家实际位移和灌木接触直接驱动局部拉伸/收颈，不读取草地轨迹。Test_Bush 枝条、叶片和中心三层均参与变形，默认最大拉伸为半径的 27.5%，15 级细分、8% 收颈，停止后约 0.35 秒回弹，空中/塔顶不触发；灌木虚拟可攀爬表面仍响应。中心锚点、源 SpriteRenderer 碰撞范围不变，网格同步原颜色/排序及全局视野裁切，暂停冻结、禁用释放临时资源。
 
 - Test_Tree 仅 Leaves 层启用 VegetationSpriteDeformation 的碰撞模式：沿真实树干/玩家碰撞边缘与驾驶输入触发，0.28 秒内做半径 3.5% 的衰减位置抖动和 7% 的局部网格变形，快速恢复；持续顶住不循环，离开或松开后再次撞击可重新触发。树干、中心、遮挡和碰撞位置不动，透明度/排序/视野裁切沿用原设置。
+
+- 所有普通地形由 TerrainOriginalPatterns.cginc 在运行时直接采样原始纹理；HeightMapSurfaceBaker 生成 512 分辨率的 TerrainCoverage R8 数组，仅记录各地形的混合覆盖与最终透明度，并序列化原纹理、尺寸、颜色与种子以供 Player 使用。Grassland 与水体保留各自动态采样，Sand 保留固定随机旋转覆盖，Gravel 为单层。地图原点使用全地图米制坐标，跨分块连续；SurfaceVisual 仅供编辑器预览，不进入 Player 数据。地表烘焙版本为 11，现有 99 张地图/分块已转换。

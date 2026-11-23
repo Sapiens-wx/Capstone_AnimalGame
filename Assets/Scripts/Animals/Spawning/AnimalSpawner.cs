@@ -38,10 +38,7 @@ namespace AnimalGame.Animals
 
         public void Check(MapTestSceneController map, Vector2 center, float radius)
         {
-            int count = 0;
-            foreach (var animal in AnimalAgent.ActiveAgents)
-                if (animal.gameObject.scene == gameObject.scene) count++;
-            if (count >= maximumAnimals) return;
+            if (AnimalAgent.ActiveAgentCount >= maximumAnimals) return;
 
             float outer = radius * OuterRadiusMultiplier;
             var origin = ToPoint(center);
@@ -102,7 +99,7 @@ namespace AnimalGame.Animals
                 {
                     if (c.Probability <= 0f) continue;
                     if ((c.Probability >= 1f || Random.value < c.Probability) && TrySpawn(c, map))
-                        if (++count >= maximumAnimals) return;
+                        if (AnimalAgent.ActiveAgentCount >= maximumAnimals) return;
                     float next = c.Probability - c.Info.ProbabilityReduction;
                     c.Probability = next < c.Probability ? next : 0f;
                     remaining |= c.Probability > 0f;
@@ -133,6 +130,11 @@ namespace AnimalGame.Animals
                 float u = Mathf.Sqrt(Random.value);
                 point = Vector2.Lerp(InMeters(t[0]), Vector2.Lerp(InMeters(t[1]), InMeters(t[2]), Random.value), u);
             }
+            if ((c.Info.MinimumAltitude > 0 || c.Info.MaximumAltitude < int.MaxValue)
+                && (!map.TrySampleMapPosition(point, out float altitude)
+                    || altitude < c.Info.MinimumAltitude || altitude > c.Info.MaximumAltitude))
+                return false;
+
             var animal = Instantiate(c.Info.Prefab, map.MapPositionToWorld(point), c.Info.Prefab.transform.rotation, map.transform);
             if (vegetation != null && animal.Behaviour is TreeBirdBehaviour bird)
                 bird.BindBirthTree(vegetation.GetComponentInParent<TreeHabitat>(), false);

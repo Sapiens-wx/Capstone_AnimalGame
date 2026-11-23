@@ -15,7 +15,7 @@ namespace Capstone.Audio
         BushRustle, SmallGarbageClimb, ClimbableLand, ScanDeploy, ScanReady, ScanHit,
         RecycleCrush, RecycleCrushSmall, HeavyTearMiddle, HeavyTearLate,
         WaterMove, BushCrush, DeadTreeImpact, LiveTreeImpact, ReedRustle, RuinImpact,
-        BigGarbageImpact, Count
+        BigGarbageImpact, HatchOpen, HatchClose, Count
     }
 
     internal enum Milestone3Parameter { Speed, Progress, Effort, Impact, Count }
@@ -54,7 +54,8 @@ namespace Capstone.Audio
             "event:/Robot/Terrain/WaterMove", "event:/Robot/Terrain/BushCrush",
             "event:/Robot/Terrain/DeadTreeImpact", "event:/Robot/Terrain/LiveTreeImpact",
             "event:/Robot/Terrain/ReedRustle", "event:/Robot/Terrain/RuinImpact",
-            "event:/Robot/Terrain/BigGarbageImpact"
+            "event:/Robot/Terrain/BigGarbageImpact",
+            "event:/Robot/Arm/HatchOpen", "event:/Robot/Arm/HatchClose"
         };
 
         private static readonly string[] Files =
@@ -82,7 +83,8 @@ namespace Capstone.Audio
             "Terrain/T01_Water_Move_Loop.wav", "Terrain/T02_Bush_Crush_Loop.wav",
             "Terrain/T03_DeadTree_Impact.wav", "Terrain/T04_LiveTree_Impact.wav",
             "Terrain/T05_Reed_Rustle_Loop.wav", "Terrain/T06_Ruin_Metal_Impact.wav",
-            "Terrain/T07_Garbage_Impact.wav"
+            "Terrain/T07_Garbage_Impact.wav",
+            "Arm/A11_Hatch_Open.wav", "Arm/A12_Hatch_Close.wav"
         };
 
         private static readonly string[,] ParameterNames = CreateParameterNames();

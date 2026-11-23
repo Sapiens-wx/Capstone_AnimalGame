@@ -18,6 +18,7 @@
     var sourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone3/PlayerActions/";
     var reusedSourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone2/PlayerActions/";
     var inventorySourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone3/UI/Inventory/";
+    var mapSourceRoot = "C:/Users/PC/Capstone_AnimalGame/FMOD/SourceAudio/Milestone3/UI/Map/";
     var bankName = "RobotFoley";
     var parameterKinds = ["Speed", "Progress", "Effort", "Impact"];
     var definitions = [
@@ -34,11 +35,32 @@
         { path: "event:/Robot/Terrain/ReedRustle", file: "Terrain/T05_Reed_Rustle_Loop.wav", loop: true,
             trimEnd: 32.1167800453, loopStart: 0, loopEnd: 32.0167, crossfade: 0.10 },
         { path: "event:/Robot/Terrain/RuinImpact", file: "Terrain/T06_Ruin_Metal_Impact.wav", trimEnd: 1.600 },
+        // Medium and large body impacts share this existing layered event and GUID.
         { path: "event:/Robot/Terrain/BigGarbageImpact", layers: [
             { file: "Terrain/T07_Garbage_Impact.wav", track: "Impact", trimEnd: 1.0, volumeDb: -1.5 },
             { file: "Arm/A09_Drop_01.wav", sourceRoot: reusedSourceRoot, track: "Garbage Drop",
                 trimStart: 0.075, trimEnd: 0.750, timelineStart: 0.035, volumeDb: -4.436975, fadeIn: 0.005 }
         ] },
+        { path: "event:/Robot/Arm/HatchOpen", file: "Arm/A11_Hatch_Open.wav" },
+        { path: "event:/Robot/Arm/HatchClose", file: "Arm/A12_Hatch_Close.wav" },
+        // The steady recording has a silent export tail after 6.108 s.
+        { path: "event:/Robot/Terrain/GrassRoll", file: "Terrain/TE01_Grass_Roll_Loop.wav", loop: true,
+            trimEnd: 6.108, loopStart: 0, loopEnd: 6.0, crossfade: 0.10, volumeDb: 10.0,
+            limiterCeilingDb: -3.0 },
+        // Play the full acceleration pass; its ending is shared by both speed cases.
+        { path: "event:/Robot/Terrain/GrassRollAccel", file: "Terrain/TE01_Grass_Roll_Accel.wav", fadeOut: 0.50 },
+        { path: "event:/Robot/Terrain/SandRoll", loop: true, loopStart: 2.5, loopEnd: 7.66, crossfade: 0.10,
+            layers: [
+                { track: "Sand grains", file: "Terrain/TE02_Sand_Grains_Loop.wav" },
+                { track: "Gravel base", file: "Terrain/TE04_Gravel_Roll_Loop.wav", introSourceEnd: 2.0 }
+            ] },
+        { path: "event:/Robot/Terrain/RockRoll", file: "Terrain/TE03_Rock_Roll_Loop.wav", loop: true,
+            loopStart: 2.0, loopEnd: 7.80179, crossfade: 0.10 },
+        { path: "event:/Robot/Terrain/GravelRoll", file: "Terrain/TE04_Gravel_Roll_Loop.wav", loop: true,
+            loopStart: 2.0, loopEnd: 7.80179, crossfade: 0.10 },
+        { path: "event:/Robot/Map/PinPlace", file: "M02_Map_Pin_Place.wav", sourceRoot: mapSourceRoot },
+        { path: "event:/Robot/Map/PinRemove", file: "M03_Map_Pin_Remove.wav", sourceRoot: mapSourceRoot },
+        { path: "event:/Robot/Map/Select", file: "M04_Map_Select.wav", sourceRoot: mapSourceRoot, trimEnd: 0.38 },
         // Six inventory deliveries; Discard follows the confirmed inventory deletion.
         { path: "event:/Robot/Inventory/Open", file: "C01_Inventory_Open.wav", sourceRoot: inventorySourceRoot,
             trimEnd: 0.50, fadeOut: 0.04 },
@@ -192,15 +214,17 @@
         requireCondition(event.banks.length === 0 ||
             (bank && event.banks.length === 1 && event.banks[0].id === bank.id),
             "Existing event belongs to another bank: " + definition.path);
-        var layerCount = layersFor(definition).length;
-        requireCondition(event.groupTracks.length <= layerCount, "Refusing to replace extra tracks in " + definition.path);
-        requireCondition(event.timeline.modules.length <= layerCount && event.timeline.modules.every(function (module) {
-            return exactType(module, "SingleSound");
+        var layerSpecs = layersFor(definition);
+        requireCondition(event.groupTracks.length <= layerSpecs.length, "Refusing to replace extra tracks in " + definition.path);
+        requireCondition(event.timeline.modules.every(function (module) {
+            return exactType(module, "SingleSound") && module.audioTrack && event.groupTracks.some(function (track) {
+                return module.audioTrack.id === track.id;
+            });
         }), "Refusing to replace complex timeline content in " + definition.path);
-        event.groupTracks.forEach(function (track) {
+        event.groupTracks.forEach(function (track, index) {
             requireCondition(event.timeline.modules.filter(function (module) {
                 return module.audioTrack && module.audioTrack.id === track.id;
-            }).length <= 1, "Refusing to replace multiple sounds on one track in " + definition.path);
+            }).length <= (layerSpecs[index].introSourceEnd ? 2 : 1), "Refusing to replace extra sounds in " + definition.path);
         });
         var loops = existingLoops(event);
         requireCondition(loops.length <= (definition.loop ? 1 : 0), "Unexpected loop regions in " + definition.path);
@@ -212,11 +236,14 @@
                 conditions[0].parameter.presetOwner.name !== definition.holdName)) return false;
             var transition = loop.transitionTimeline;
             return !transition || (definition.crossfade > 0 && exactType(transition, "TransitionTimeline") &&
-                transition.modules.length === 2 && transition.modules.filter(function (module) {
-                    return exactType(module, "TransitionSourceSound");
-                }).length === 1 && transition.modules.filter(function (module) {
-                    return exactType(module, "TransitionDestinationSound");
-                }).length === 1);
+                transition.modules.length === 2 * event.groupTracks.length && event.groupTracks.every(function (track) {
+                    var proxies = transition.modules.filter(function (module) {
+                        return module.audioTrack && module.audioTrack.id === track.id;
+                    });
+                    return proxies.length === 2 && proxies.some(function (module) {
+                        return exactType(module, "TransitionSourceSound");
+                    }) && proxies.some(function (module) { return exactType(module, "TransitionDestinationSound"); });
+                }));
         }), "Refusing to replace custom loop conditions or transitions in " + definition.path);
         parameterKinds.forEach(function (kind) {
             var name = parameterName(definition, kind);
@@ -333,7 +360,9 @@
         }
         transition.length = seconds;
         function proxy(type) {
-            var matches = transition.modules.filter(function (module) { return exactType(module, type); });
+            var matches = transition.modules.filter(function (module) {
+                return exactType(module, type) && module.audioTrack && module.audioTrack.id === sound.audioTrack.id;
+            });
             requireCondition(matches.length <= 1, "Duplicate transition proxy " + type);
             var result = matches.length ? matches[0] : studio.project.create(type);
             result.audioTrack = sound.audioTrack;
@@ -345,7 +374,6 @@
         }
         var source = proxy("TransitionSourceSound");
         var destination = proxy("TransitionDestinationSound");
-        requireCondition(transition.modules.length === 2, "Unexpected transition content");
         function fade(owner, related, fadeIn) {
             var type = fadeIn ? "TransitionDestinationFadeInCurve" : "TransitionSourceFadeOutCurve";
             var relation = fadeIn ? "fadeInCurve" : "fadeOutCurve";
@@ -417,9 +445,12 @@
             }), "Invalid or duplicate root asset for " + layer.file);
             if (matches.length) {
                 var window = sourceWindow(layer, matches[0]);
-                if (definition.loopEnd !== undefined)
-                    requireCondition(definition.loopEnd + (definition.crossfade || 0) <= window.length,
+                if (definition.loopEnd !== undefined) {
+                    var steadyStart = layer.introSourceEnd === undefined ? timelineStart(layer) : definition.loopStart;
+                    var clipEnd = steadyStart + window.end - (layer.introSourceEnd === undefined ? window.start : layer.introSourceEnd);
+                    requireCondition(definition.loopStart >= steadyStart && definition.loopEnd + (definition.crossfade || 0) <= clipEnd,
                         "Loop and crossfade exceed source " + layer.file);
+                }
             }
         });
         var event = studio.project.lookup(definition.path);
@@ -451,7 +482,23 @@
             var track = event.groupTracks.length > index ? event.groupTracks[index] : event.addGroupTrack(layer.track || "Audio");
             var sounds = event.timeline.modules.filter(function (module) {
                 return module.audioTrack && module.audioTrack.id === track.id;
-            });
+            }).sort(function (a, b) { return a.start - b.start; });
+            if (layer.introSourceEnd !== undefined) {
+                // Stretch only this source's attack; split at steady speed so direct seeks also land on the right sample.
+                var introLength = definition.loopStart - start;
+                var sourceLength = layer.introSourceEnd - window.start;
+                requireCondition(introLength > 0 && sourceLength > 0 && layer.introSourceEnd < window.end,
+                    "Invalid acceleration window in " + definition.path);
+                var intro = sounds.length ? sounds.shift() : track.addSound(event.timeline, "SingleSound", start, introLength);
+                intro.audioFile = asset;
+                intro.start = start;
+                intro.length = introLength;
+                intro.pitch = 12 * Math.log(sourceLength / introLength) / Math.LN2;
+                intro.startOffset = 100 * window.start / asset.length;
+                if (layer.volumeDb !== undefined) intro.volume = layer.volumeDb;
+                start = definition.loopStart;
+                window = { start: layer.introSourceEnd, end: window.end, length: window.end - layer.introSourceEnd };
+            }
             requireCondition(sounds.length <= 1, "Unexpected extra layer sounds in " + definition.path);
             var sound = sounds.length ? sounds[0] : track.addSound(event.timeline, "SingleSound", start, window.length);
             sound.audioFile = asset;
@@ -475,12 +522,12 @@
         });
         var sound = authored[0].sound;
         if (definition.loop) {
-            requireCondition(authored.length === 1, "Looping layered events are unsupported");
             var loopStart = definition.loopStart === undefined ? 0 : definition.loopStart;
             var loopEnd = definition.loopEnd === undefined ? sound.length : definition.loopEnd;
             var crossfade = definition.crossfade || 0;
-            requireCondition(loopStart >= 0 && loopEnd > loopStart && loopEnd + crossfade <= sound.length,
-                "Loop and crossfade exceed source " + definition.file);
+            requireCondition(loopStart >= 0 && loopEnd > loopStart && authored.every(function (layer) {
+                return layer.sound.start <= loopStart && loopEnd + crossfade <= layer.sound.start + layer.sound.length;
+            }), "Loop and crossfade exceed a source in " + definition.path);
             if (definition.tailStart !== undefined)
                 requireCondition(loopEnd + crossfade < definition.tailStart && definition.tailStart < sound.length,
                     "Loop crosses the closing tail in " + definition.path);
@@ -491,8 +538,20 @@
             loop.position = loopStart;
             loop.length = loopEnd - loopStart;
             if (definition.holdName) configureHold(event, loop, definition.holdName);
-            if (crossfade > 0) configureCrossfade(loop, sound, crossfade);
+            if (crossfade > 0) {
+                authored.forEach(function (layer) { configureCrossfade(loop, layer.sound, crossfade); });
+                requireCondition(loop.transitionTimeline.modules.length === 2 * authored.length, "Unexpected transition content");
+            }
             requireCondition(loop.isValid && closeEnough(loop.position + loop.length, loopEnd), "Invalid loop in " + definition.path);
+        }
+        if (definition.limiterCeilingDb !== undefined) {
+            // Catch isolated peaks in the grass texture without limiting other tracks.
+            var chain = event.masterTrack.mixerGroup.effectChain;
+            var limiters = chain.effects.filter(function (effect) { return exactType(effect, "LimiterEffect"); });
+            requireCondition(limiters.length <= 1, "Duplicate limiter in " + definition.path);
+            var limiter = limiters.length ? limiters[0] : chain.addEffect("LimiterEffect");
+            limiter.ceiling = definition.limiterCeilingDb;
+            limiter.release = 10;
         }
         var parameters = configureParameters(event, definition);
         requireCondition(sound.isValid && !event.is3D(), "Invalid or non-2D event " + definition.path);

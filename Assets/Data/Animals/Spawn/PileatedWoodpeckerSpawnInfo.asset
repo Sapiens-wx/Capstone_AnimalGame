@@ -12,8 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57a7b57ae308977278cbf114f9b9aad3, type: 3}
   m_Name: PileatedWoodpeckerSpawnInfo
   m_EditorClassIdentifier:
-  BaseSpawnProbability: 0
-  ProbabilityReduction: 0
+  BaseSpawnProbability: 0.13
+  ProbabilityReduction: 0.13
   Prefab: {fileID: 1275120524590967715, guid: 584d974b1c461ef40b5dcfe8ec8ee817, type: 3}
+  BoundVegetation: 2
+  MinimumAltitude: 0
   MaximumAltitude: 2147483647
   TerrainValue: 0
+  AllowedTerrains: 040b0605
+  IsAquatic: 0

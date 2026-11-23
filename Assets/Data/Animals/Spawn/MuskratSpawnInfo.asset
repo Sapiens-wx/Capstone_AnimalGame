@@ -11,13 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 57a7b57ae308977278cbf114f9b9aad3, type: 3}
   m_Name: MuskratSpawnInfo
-  m_EditorClassIdentifier: 
-  BaseSpawnProbability: 0
-  ProbabilityReduction: 0
+  m_EditorClassIdentifier:
+  BaseSpawnProbability: 0.22
+  ProbabilityReduction: 0.14
   Prefab: {fileID: 950923351353688800, guid: b59cd149fd1c7e54cab51cbb402bdd97, type: 3}
   BoundVegetation: 0
-  MinimumAltitude: 110
+  MinimumAltitude: 0
   MaximumAltitude: 2147483647
   TerrainValue: 0
-  AllowedTerrains: 040605
-  IsAquatic: 0
+  AllowedTerrains: 07
+  IsAquatic: 1

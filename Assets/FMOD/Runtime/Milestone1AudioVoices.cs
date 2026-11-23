@@ -113,6 +113,9 @@ namespace Capstone.Audio
                 case Milestone1Cue.CameraMove: return "event:/Robot/Camera/Move";
                 case Milestone1Cue.CameraFocus: return "event:/Robot/Camera/Focus";
                 case Milestone1Cue.CameraShutter: return "event:/Robot/Camera/Shutter";
+                case Milestone1Cue.MapPinPlace: return "event:/Robot/Map/PinPlace";
+                case Milestone1Cue.MapPinRemove: return "event:/Robot/Map/PinRemove";
+                case Milestone1Cue.MapSelect: return "event:/Robot/Map/Select";
                 default: return cue.ToString();
             }
         }

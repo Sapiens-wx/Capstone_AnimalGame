@@ -89,6 +89,27 @@ MonoBehaviour:
     gainDb: 0
     readBySoundUI: 1
     soundUIStrength: 0.7
+  mapPinPlace:
+    eventReference:
+      Guid: {Data1: 1549908091, Data2: 1151702288, Data3: -1232143685, Data4: 1306685260}
+      Path: event:/Robot/Map/PinPlace
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0
+  mapPinRemove:
+    eventReference:
+      Guid: {Data1: -2110332275, Data2: 1307787800, Data3: 4794290, Data4: 506031026}
+      Path: event:/Robot/Map/PinRemove
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0
+  mapSelect:
+    eventReference:
+      Guid: {Data1: -1086251469, Data2: 1218972793, Data3: 195882418, Data4: -1122037004}
+      Path: event:/Robot/Map/Select
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0
   fadeOutSeconds: 0.05
   cameraMoveThreshold: 0.01
   cameraMoveStopDelay: 0.05

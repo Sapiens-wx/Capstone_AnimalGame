@@ -54,9 +54,26 @@ namespace AnimalGame.MapTest
             properties.SetFloat("_MinimumHeight", level.MinimumHeightMeters);
             properties.SetFloat("_MaximumHeight", level.MaximumHeightMeters);
             properties.SetVector("_MapSizeMeters", new Vector4(level.MapSizeMeters.x, level.MapSizeMeters.y, 0, 0));
-            Texture2D surface = level.BakedSurfaceVisual;
-            bool hasSurface = surface != null;
-            properties.SetTexture("_SurfaceTex", hasSurface ? surface : Texture2D.blackTexture);
+            bool hasSurface = level.TerrainCoverage != null;
+            if (hasSurface)
+            {
+                properties.SetTexture("_TerrainCoverage", level.TerrainCoverage);
+                properties.SetVectorArray("_TerrainSettings", level.TerrainPatternSettings);
+                properties.SetVectorArray("_TerrainTints", level.TerrainPatternTints);
+                properties.SetVector("_TerrainOrigin", grassTileOrigin);
+                properties.SetFloat("_TerrainSeed", level.TerrainPatternSeed);
+                var patterns = level.TerrainPatterns;
+                var samplerPattern = patterns[(int)TerrainKind.GridTest];
+                for (int id = 2; id < patterns.Length; id++)
+                {
+                    if (id == (int)TerrainKind.Grassland) continue;
+                    var pattern = patterns[id];
+                    if (samplerPattern == null) samplerPattern = pattern;
+                    properties.SetTexture("_TerrainPattern" + id, pattern != null ? pattern : Texture2D.blackTexture);
+                }
+                // Every static pattern uses slot 1's sampler, even on maps without Grid Test.
+                properties.SetTexture("_TerrainPattern1", samplerPattern != null ? samplerPattern : Texture2D.blackTexture);
+            }
             properties.SetFloat("_SurfaceEnabled", hasSurface ? 1 : 0);
             bool grass = level.BakedGrasslandMask != null && level.GrasslandPattern != null;
             properties.SetFloat("_GrassEnabled", grass ? 1 : 0);

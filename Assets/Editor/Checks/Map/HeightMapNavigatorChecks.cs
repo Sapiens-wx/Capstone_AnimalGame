@@ -90,6 +90,15 @@ public static class HeightMapNavigatorChecks
                 Set(level, "mapHeightMeters", 10f);
                 Set(level, "normalizeSourceRange", false);
                 level.SetBakedSurfaceVisual(Solid(colors[x]));
+                var coverage = new Texture2DArray(2, 2, 11, TextureFormat.R8, false, true);
+                resources.Add(coverage);
+                for (int layer = 0; layer < 11; layer++)
+                    coverage.SetPixelData(Enumerable.Repeat(layer == 5 ? (byte)255 : (byte)0, 4).ToArray(), 0, layer);
+                coverage.Apply();
+                var patterns = new Texture2D[11]; patterns[5] = Solid(colors[x]);
+                var patternSettings = new Vector4[11]; patternSettings[5] = new Vector4(8, 0, 0, 0);
+                var patternTints = Enumerable.Repeat(Vector4.one, 11).ToArray();
+                level.SetTerrainCoverage(coverage, patterns, patternSettings, patternTints, 1337);
                 entries.Add(new TiledLevelAsset.Tile(new Vector2Int(x, 0), level));
             }
             const int grassTile = 1;
@@ -119,8 +128,11 @@ public static class HeightMapNavigatorChecks
             {
                 Require(tiles[i].sharedMaterial == sharedMaterial, "Map tiles must share the controller's material.");
                 tiles[i].GetPropertyBlock(properties);
-                Require(properties.GetTexture("_SurfaceTex") == entries[i].level.BakedSurfaceVisual,
-                    "The property block must retain the tile's own surface texture.");
+                Require(properties.GetTexture("_TerrainCoverage") == entries[i].level.TerrainCoverage
+                    && properties.GetTexture("_TerrainPattern5") == entries[i].level.TerrainPatterns[5],
+                    "The property block must retain the tile's own coverage and original pattern.");
+                Require(properties.GetTexture("_TerrainPattern1") == entries[i].level.TerrainPatterns[5],
+                    "A tile without Grid Test must bind its first static pattern as the sampler source.");
             }
             tiles[grassTile].GetPropertyBlock(properties);
             Require(properties.GetFloat("_GrassEnabled") == 1f
