@@ -47,10 +47,11 @@ namespace AnimalGame.Editor
         private static void CheckFallenAlignment()
         {
             foreach (bool exposed in new[] { false, true })
+            foreach (Vector2 localDirection in new[] { Vector2.up, Vector2.down, Vector2.right, new Vector2(-2f, -1f).normalized })
             using (var f = new Fixture())
             {
-                f.Root.transform.rotation = Quaternion.Euler(0f, 0f, 73f);
-                Vector2 localDirection = new Vector2(-2f, -1f).normalized;
+                Quaternion heading = Quaternion.Euler(0f, 0f, 73f);
+                f.Root.transform.rotation = heading;
                 f.Fall(localDirection);
                 if (exposed) f.Tick(180, localDirection);
 
@@ -60,19 +61,27 @@ namespace AnimalGame.Editor
                 Call(f.Tumble, "Settle", RobotTumbleSettleReason.EnergyDepleted);
                 Require(f.Tumble.State == RobotTumbleState.Fallen && f.Root.transform.position == position,
                     "Settling changed the landing position or failed to enter Fallen");
-                Require(Vector2.Angle(f.Root.transform.up, direction) < .01f,
-                    "The chassis did not face the world fall direction on the landing frame");
+                Require(f.Root.transform.rotation == heading,
+                    "Settling changed the original chassis heading");
                 Require(f.Arms.VisibleDeployment01 == deployment, "Landing changed arm deployment progress");
 
-                if (!exposed) f.Tick(1, Vector2.up);
-                f.RequireSockets(new Vector2(-1f, 1f).normalized, Vector2.one.normalized);
+                if (!exposed) f.Tick(1, localDirection);
+                Vector2 tangent = new Vector2(localDirection.y, -localDirection.x);
+                f.RequireSockets(-tangent, tangent);
                 if (exposed)
                 {
                     f.RequireVisualAttachment("left");
                     f.RequireVisualAttachment("right");
                 }
-                f.Tick(180, Vector2.up);
+                f.Tick(180, localDirection);
                 Require(f.Arms.IsTumbleArmSupportReady, "Aligned arms could not provide self-righting support");
+                Require((bool)Call(f.Tumble, "BeginSelfRightingVisual")
+                    && (bool)Call(f.Tumble, "CompleteSelfRighting", direction, -direction, 0f, 0f, 0f),
+                    "Self-righting did not return the chassis to upright");
+                f.Tick(180, Vector2.up);
+                f.RequireSockets(Vector2.left, Vector2.right);
+                Require(f.Root.transform.rotation == heading && !f.Arms.IsTumbleArmLayoutActive,
+                    "Standing up changed the chassis heading or retained the fallen arm layout");
             }
         }
 

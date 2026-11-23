@@ -1257,10 +1257,6 @@ namespace AnimalGame.RobotMap
                 BalanceRecoveryProgress01 = 0f;
                 State = RobotTumbleState.Fallen;
                 mover?.MarkFallenPermanently();
-                float heading = Vector2.SignedAngle(Vector2.up, DirectionWorld);
-                transform.rotation = Quaternion.Euler(0f, 0f, heading);
-                WorldInteraction.MarkHierarchySpatialDirty(transform);
-                PublishTumbleBalanceState(TumbleBalanceState.NormalizedWorldOffset, Vector2.zero);
                 GetComponent<RobotArmController>()?.AlignFallenArmSockets(DirectionWorld);
             }
 
