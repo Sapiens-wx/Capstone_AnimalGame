@@ -37,7 +37,8 @@ namespace AnimalGame.Animals.Communication
         public bool fromPlayer;
         public int hour, minute;
         public MessageKind kind;
-        public string text;
+        public int nodeId;
+        public DateTime sentAt;
         public int[] photoIndices = Array.Empty<int>();
     }
 }

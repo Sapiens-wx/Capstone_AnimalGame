@@ -35,10 +35,8 @@ namespace AnimalGame.Animals.Communication
     [Serializable]
     public sealed class ContactHistoryDate
     {
-        [SerializeField] private int nodeId;
         [SerializeField] private long gameTimeTicks;
 
-        public int NodeId { get => nodeId; internal set => nodeId = value; }
         public DateTime GameTime
         {
             get => new DateTime(gameTimeTicks);
@@ -82,40 +80,57 @@ namespace AnimalGame.Animals.Communication
 
         public void UpdateHistory()
         {
-            var previousDates = new Dictionary<int, ContactHistoryDate>();
-            foreach (var date in historyDates) previousDates.Add(date.NodeId, date);
+            int count = 0;
+            foreach (int id in GetHistoryNodeIds()) count++;
+            if (historyDates.Count > count) historyDates.RemoveRange(count, historyDates.Count - count);
+            while (historyDates.Count < count)
+                historyDates.Add(new ContactHistoryDate { GameTime = GameSave.InitialGameTime });
+        }
 
+        public IEnumerable<int> GetHistoryNodeIds()
+        {
             var visited = new HashSet<int>();
-            var updatedDates = new List<ContactHistoryDate>();
             int id = historyEntryNodeId;
             while (id != 0 && visited.Add(id))
             {
-                AddDate(id);
-                var node = GetNode(id);
-                if (node.Children.Count == 0 || node.HasChild(entryNodeId)) break;
-                id = node.Children[0];
-            }
-            if (entryNodeId != 0 && !visited.Contains(entryNodeId)) AddDate(entryNodeId);
-            historyDates = updatedDates;
-
-            void AddDate(int nodeId)
-            {
-                updatedDates.Add(previousDates.TryGetValue(nodeId, out var date)
-                    ? date
-                    : new ContactHistoryDate { NodeId = nodeId, GameTime = GameSave.InitialGameTime });
+                yield return id;
+                var children = GetNode(id).Children;
+                if (id == entryNodeId || children.Count == 0) yield break;
+                id = children[0];
             }
         }
 
-        public void SetHistoryDate(int nodeId, DateTime gameTime)
+        public void SetHistoryDate(int index, DateTime gameTime) => historyDates[index].GameTime = gameTime;
+
+        public int GetCurrentNodeId(ContactConversation conversation)
         {
-            historyDates.Find(date => date.NodeId == nodeId).GameTime = gameTime;
+            if (conversation != null)
+                for (int i = conversation.messages.Count - 1; i >= 0; i--)
+                {
+                    var message = conversation.messages[i];
+                    if (message.kind == MessageKind.Text && ContainsNode(message.nodeId)) return message.nodeId;
+                }
+
+            int currentId = entryNodeId;
+            foreach (int id in GetHistoryNodeIds()) currentId = id;
+            return currentId;
+        }
+
+        public const int MaxReplies = 3;
+
+        public IEnumerable<int> GetReplyNodeIds(int currentId)
+        {
+            if (currentId == 0) yield break;
+            var children = GetNode(currentId).Children;
+            if (children.Count == 0 || GetNode(children[0]).Sender != Sender.Player) yield break;
+            for (int i = 0; i < Math.Min(MaxReplies, children.Count); i++)
+                yield return children[i];
         }
 
         public bool CanConnect(int fromId, int toId)
         {
             var source = GetNode(fromId);
-            return fromId != toId && source.Sender != GetNode(toId).Sender
-                && !source.HasChild(toId);
+            return fromId != toId && ContainsNode(toId) && !source.HasChild(toId);
         }
 
         public bool TryConnect(int fromId, int toId)
@@ -141,26 +156,11 @@ namespace AnimalGame.Animals.Communication
 
             entryNodeId = RemapReference(entryNodeId);
             historyEntryNodeId = RemapReference(historyEntryNodeId);
-            historyDates.RemoveAll(date => date.NodeId == id);
-            foreach (var date in historyDates) date.NodeId = RemapReference(date.NodeId);
 
             int RemapReference(int reference) => reference == id ? 0 : reference == lastId ? id : reference;
         }
 
-        public bool CanSetSender(int id, Sender sender)
-        {
-            var node = GetNode(id);
-            return sender == node.Sender
-                || (node.Children.Count == 0 && !nodes.Exists(parent => parent.HasChild(id)));
-        }
-
-        public bool TrySetSender(int id, Sender sender)
-        {
-            if (!CanSetSender(id, sender)) return false;
-            GetNode(id).Sender = sender;
-            return true;
-        }
-
+        public void SetSender(int id, Sender sender) => GetNode(id).Sender = sender;
         public void SetMessage(int id, string message) => GetNode(id).Message = message;
         public void SetPosition(int id, Vector2 position) => GetNode(id).Position = position;
         public void SetSize(int id, Vector2 size) => GetNode(id).Size = size;

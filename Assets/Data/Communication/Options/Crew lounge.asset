@@ -15,22 +15,52 @@ MonoBehaviour:
   nodes:
   - sender: 0
     message: abcdesdfjkhesdfasefsdfasefxc sdfasejhf asdkfjhgsef fasef
-    children: 0300000002000000
-    position: {x: 209.09334, y: -108.66667}
+    children: 03000000
+    position: {x: 193.46666, y: -88.799995}
     size: {x: 201.33334, y: 144.66667}
   - sender: 1
-    message: 
+    message: history message
     children: 04000000
-    position: {x: 460.6667, y: -39.333344}
-    size: {x: 152, y: 81.33334}
+    position: {x: -275.00482, y: -35.697132}
+    size: {x: 0, y: 0}
   - sender: 1
-    message: 
-    children: 04000000
-    position: {x: 469.33334, y: -148}
+    message: hello from npc
+    children: 050000000600000007000000
+    position: {x: 443.74008, y: -55.500023}
     size: {x: 0, y: 0}
   - sender: 0
-    message: 
+    message: player history message
+    children: 01000000
+    position: {x: -59.600002, y: -37.433372}
+    size: {x: 0, y: 0}
+  - sender: 0
+    message: return to hello
+    children: 03000000
+    position: {x: 654.27747, y: -143.13068}
+    size: {x: 0, y: 0}
+  - sender: 0
+    message: next response
+    children: 08000000
+    position: {x: 655.8334, y: -29.133345}
+    size: {x: 0, y: 0}
+  - sender: 0
+    message: player response 3
     children: 
-    position: {x: 707.04004, y: -121.33334}
+    position: {x: 655.3334, y: 67.23334}
+    size: {x: 0, y: 0}
+  - sender: 1
+    message: npc next response
+    children: 09000000
+    position: {x: 844.8333, y: -24.533356}
+    size: {x: 0, y: 0}
+  - sender: 1
+    message: npc next next response
+    children: 
+    position: {x: 1021.46136, y: -23.966654}
     size: {x: 0, y: 0}
   entryNodeId: 1
+  historyEntryNodeId: 2
+  historyDates:
+  - gameTimeTicks: 639028224000000000
+  - gameTimeTicks: 639029088000000000
+  - gameTimeTicks: 639029952000000000

@@ -42,12 +42,18 @@ namespace AnimalGame.Editor
             if (options == null) return;
             if (options.HistoryEntryNodeId == 0)
                 rows.Add(new Label("Set a history entry node.") { style = { whiteSpace = WhiteSpace.Normal } });
-            foreach (var date in options.HistoryDates)
-                AddDateRow(options, date);
+            int index = 0;
+            foreach (int nodeId in options.GetHistoryNodeIds())
+            {
+                if (index >= options.HistoryDates.Count) break;
+                AddDateRow(options, index, nodeId);
+                index++;
+            }
         }
 
-        private void AddDateRow(ContactOptions asset, ContactHistoryDate date)
+        private void AddDateRow(ContactOptions asset, int index, int nodeId)
         {
+            var date = asset.HistoryDates[index];
             var row = new VisualElement();
             row.style.marginBottom = 6;
             var dateLine = new VisualElement();
@@ -55,8 +61,12 @@ namespace AnimalGame.Editor
             dateLine.style.alignItems = Align.Center;
             row.Add(dateLine);
 
-            var title = new Label($"#{date.NodeId}");
+            var title = new Label($"#{nodeId}");
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.color = Color.black;
+            title.style.backgroundColor = (Color)new Color32(211, 211, 211, 255);
+            title.style.paddingLeft = 3;
+            title.style.paddingRight = 3;
             title.style.flexShrink = 0;
             title.style.marginRight = 3;
             dateLine.Add(title);
@@ -83,7 +93,7 @@ namespace AnimalGame.Editor
                 error.style.display = DisplayStyle.None;
                 if (time == date.GameTime) return;
                 Undo.RecordObject(asset, "Edit Contact History Date");
-                asset.SetHistoryDate(date.NodeId, time);
+                asset.SetHistoryDate(index, time);
                 Save(asset);
             });
             rows.Add(row);

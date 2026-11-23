@@ -38,44 +38,70 @@ namespace AnimalGame.Animals.Communication
             root.Q<Label>("conversation-name").text = contact.Name;
             root.Q<Label>("conversation-profession").text = contact.profession;
             root.Q<Label>("conversation-date").text = time.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
+            var options = contact.options;
+            if (options != null)
+            {
+                int index = 0;
+                foreach (int id in options.GetHistoryNodeIds())
+                {
+                    DateTime sentAt = index < options.HistoryDates.Count
+                        ? options.HistoryDates[index].GameTime : GameSave.InitialGameTime;
+                    AddTextMessage(contact, options.GetNode(id), sentAt);
+                    index++;
+                }
+            }
             var conversation = save.conversations.Find(c => c.contact == contact.contact);
-            if (conversation == null || conversation.messages.Count == 0)
+            if (conversation != null)
+                foreach (var message in conversation.messages)
+                {
+                    if (message.kind == MessageKind.Photos) AddPhotoMessage(save, contact, message);
+                    else if (options != null && options.ContainsNode(message.nodeId))
+                        AddTextMessage(contact, options.GetNode(message.nodeId), message.sentAt);
+                }
+            if (messages.childCount == 0)
             {
                 var empty = new Label("No messages yet. Send a reply or share a photograph."); empty.AddToClassList("message-empty"); messages.Add(empty);
             }
-            else foreach (var message in conversation.messages) AddMessage(save, contact, message);
             ResizePhotos();
             scroll.schedule.Execute(() => { ResizePhotos(); ScrollToBottom(); });
         }
 
-        private void AddMessage(GameSave save, ContactDefinition contact, ChatMessage message)
+        private VisualElement AddMessage(ContactDefinition contact, bool fromPlayer, string time)
         {
-            var item = new VisualElement(); item.AddToClassList("message"); item.EnableInClassList("player", message.fromPlayer);
+            var item = new VisualElement(); item.AddToClassList("message"); item.EnableInClassList("player", fromPlayer);
             var header = new VisualElement(); header.AddToClassList("message-header");
-            if (!message.fromPlayer) header.Add(new Label(contact.Name));
-            header.Add(new Label($"{message.hour:00}:{message.minute:00}")); item.Add(header);
-            if (message.kind == MessageKind.Text)
-            {
-                var text = new Label(message.text); text.AddToClassList("message-body"); item.Add(text);
-            }
-            else
-            {
-                var frame = new VisualElement(); frame.AddToClassList("message-photos");
-                var grid = new VisualElement(); grid.AddToClassList("message-photo-grid"); frame.Add(grid);
-                foreach (int index in message.photoIndices)
-                {
-                    var texture = save.photos[index].RestorePhoto().Render(192); thumbnails.Add(texture);
-                    var photo = new Image { image = texture, scaleMode = ScaleMode.ScaleToFit }; photo.AddToClassList("message-photo"); grid.Add(photo);
-                }
-                var count = new Label(message.photoIndices.Length == 0 ? "Photos removed from album" : $"{message.photoIndices.Length} photos");
-                count.AddToClassList("message-photo-count"); frame.Add(count);
-                foreach (string side in new[] { "top", "bottom" })
-                {
-                    var corner = new VisualElement { pickingMode = PickingMode.Ignore }; corner.AddToClassList("photo-corner"); corner.AddToClassList(side); frame.Add(corner);
-                }
-                item.Add(frame); batches.Add((frame, grid, message.photoIndices.Length));
-            }
+            if (!fromPlayer) header.Add(new Label(contact.Name));
+            header.Add(new Label(time)); item.Add(header);
             messages.Add(item);
+            return item;
+        }
+
+        private void AddTextMessage(ContactDefinition contact, ContactMessageNode node, DateTime sentAt)
+        {
+            var item = AddMessage(contact, node.Sender == Sender.Player,
+                sentAt.ToString("yyyy.MM.dd HH:mm", CultureInfo.InvariantCulture));
+            var text = new Label(node.Message) { enableRichText = false };
+            text.AddToClassList("message-body");
+            item.Add(text);
+        }
+
+        private void AddPhotoMessage(GameSave save, ContactDefinition contact, ChatMessage message)
+        {
+            var item = AddMessage(contact, message.fromPlayer, $"{message.hour:00}:{message.minute:00}");
+            var frame = new VisualElement(); frame.AddToClassList("message-photos");
+            var grid = new VisualElement(); grid.AddToClassList("message-photo-grid"); frame.Add(grid);
+            foreach (int index in message.photoIndices)
+            {
+                var texture = save.photos[index].RestorePhoto().Render(192); thumbnails.Add(texture);
+                var photo = new Image { image = texture, scaleMode = ScaleMode.ScaleToFit }; photo.AddToClassList("message-photo"); grid.Add(photo);
+            }
+            var count = new Label(message.photoIndices.Length == 0 ? "Photos removed from album" : $"{message.photoIndices.Length} photos");
+            count.AddToClassList("message-photo-count"); frame.Add(count);
+            foreach (string side in new[] { "top", "bottom" })
+            {
+                var corner = new VisualElement { pickingMode = PickingMode.Ignore }; corner.AddToClassList("photo-corner"); corner.AddToClassList(side); frame.Add(corner);
+            }
+            item.Add(frame); batches.Add((frame, grid, message.photoIndices.Length));
         }
 
         private void ResizePhotos()

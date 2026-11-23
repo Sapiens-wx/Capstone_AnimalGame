@@ -53,13 +53,14 @@
 
 - `AnimalPhoto/Communication/` 管理联系人、对话、方向键焦点与 4 列 × 3 行选照片窗口；L 开关，A 确认，Y 分享/全选，X 发送，B 返回。
 - Prefab/UXML/USS 位于 `Assets/Prefabs/Resources/UI/Communication/`；`Assets/Data/Communication/Contacts.asset` 配置联系人枚举、职业和 Sprite 头像。
-- `GameSave.conversations` 保存各联系人的文字/照片消息；照片引用相册索引，删除相册照片时同步移除和调整消息索引。
+- `GameSave.conversations` 以节点 ID 和分钟精度的游戏时间保存文字消息，当前节点从最后一条有效文字消息恢复；第 5 版存档迁移会移除旧版无节点 ID 的文字。照片消息沿用相册索引，删除相册照片时同步移除和调整消息索引。
+- Earthline 先显示联系人的预设历史，再显示存档消息。打开对话或发送回复后，连续发送首个 NPC 子节点，遇到玩家回复分支时显示前三个选项。照片分享不推进对话。
 - `SaveSystem.SharePhotos` 持久化消息、全局 sent 标记和已发送数量；上传不再增加认知度或解锁等级。
 
 # Contact Options
 
 - `Animal Game/Communication/OptionEditor` 从 `Contacts.asset` 加载联系人，为缺失配置的联系人在 `Data/Communication/Options/` 创建同名资产。节点 ID 为列表索引加一，连接存于各节点的 `children`，允许多个节点指向同一目标。交换删除时同步入口与连接引用。
-- 每份 `ContactOptions` 独立保存普通入口、历史入口和历史日期。History 标签页只沿第一个子节点生成历史，遇到无子节点、任一子节点指向普通入口或即将重复访问时停止。生成结果始终包含已设置的普通入口，保留仍在列表中的日期。
+- 每份 `ContactOptions` 独立保存普通入口、历史入口和按显示顺序排列的日期。历史沿第一个子节点前进，到达普通入口、没有子节点或即将重复访问时停止。缺少历史入口时不显示预设历史，缺少日期时使用游戏初始时间。发送者可以自由连接。
 
 - `AnimalTurnDeformation` ????? `bodyRenderer`????? Renderer ???
 

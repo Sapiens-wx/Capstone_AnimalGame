@@ -275,6 +275,7 @@ namespace AnimalGame.Editor
             SaveOptions();
             if (oldId != 0) RefreshNode(options, oldId);
             RefreshNode(options, id);
+            window.RefreshHistory();
         }
 
         private void SetHistoryEntry(int id)
@@ -341,10 +342,8 @@ namespace AnimalGame.Editor
             int toId = node.Id;
             if (!options.CanConnect(fromId, toId))
             {
-                string reason = fromId == toId ? "A node cannot connect to itself." :
-                    options.GetNode(fromId).Sender == options.GetNode(toId).Sender
-                        ? "Connect a Player node to an Npc node or vice versa."
-                        : "These nodes are already connected in this direction.";
+                string reason = fromId == toId ? "A node cannot connect to itself."
+                    : "These nodes are already connected in this direction.";
                 window.ShowNotification(new GUIContent(reason));
                 return;
             }
@@ -354,6 +353,7 @@ namespace AnimalGame.Editor
             options.TryConnect(fromId, toId);
             AddEdge(fromId, toId);
             SaveOptions();
+            window.RefreshHistory();
             ClearSelection();
             AddToSelection(views[fromId - 1]);
         }
@@ -398,7 +398,7 @@ namespace AnimalGame.Editor
             foreach (int id in nodeIds) options.RemoveNode(id);
             SaveOptions();
             Rebuild();
-            if (nodeIds.Length > 0) window.RefreshHistory();
+            window.RefreshHistory();
         }
 
         private GraphViewChange SaveMovedNodes(GraphViewChange change)
@@ -562,8 +562,6 @@ namespace AnimalGame.Editor
             details.Add(nodeLabel);
             var sender = new EnumField("Sender", Sender.Player);
             details.Add(sender);
-            var senderHint = new HelpBox("Remove the node's connections to change its sender.", HelpBoxMessageType.Info);
-            details.Add(senderHint);
             details.Add(new Label("Message"));
             var message = new TextField { multiline = true };
             message.style.minHeight = 72;
@@ -595,9 +593,9 @@ namespace AnimalGame.Editor
             });
             sender.RegisterValueChangedCallback(evt =>
             {
-                if (node == null || !options.CanSetSender(id, (Sender)evt.newValue)) return;
+                if (node == null) return;
                 Undo.RecordObject(options, "Edit Contact Sender");
-                options.TrySetSender(id, (Sender)evt.newValue);
+                options.SetSender(id, (Sender)evt.newValue);
                 SaveAndRefresh();
             });
 
@@ -614,9 +612,6 @@ namespace AnimalGame.Editor
 
                 nodeLabel.text = $"Node #{id}";
                 sender.SetValueWithoutNotify(node.Sender);
-                bool canChangeSender = options.CanSetSender(id, node.Sender == Sender.Player ? Sender.Npc : Sender.Player);
-                sender.SetEnabled(canChangeSender);
-                senderHint.style.display = canChangeSender ? DisplayStyle.None : DisplayStyle.Flex;
                 displayedMessage = node.Message;
                 message.SetValueWithoutNotify(displayedMessage);
                 children.Clear();

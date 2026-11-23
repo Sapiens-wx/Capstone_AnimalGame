@@ -25,8 +25,8 @@ namespace AnimalGame.Animals.Communication
         public EarthlineFocus Focus { get; private set; }
         public int ContactIndex { get; private set; }
         public int ReplyIndex { get; private set; }
-        private static readonly string[] Replies = {
-            "What are you all doing tonight?", "What would you like to see from Earth?", "I'll check in again after my walk." };
+        private readonly Button[] replyButtons = new Button[ContactOptions.MaxReplies];
+        private readonly List<int> replyNodeIds = new();
         private VisualElement root;
         private EarthlineConversationView conversation;
         private EarthlinePhotoPicker picker;
@@ -64,11 +64,18 @@ namespace AnimalGame.Animals.Communication
                 var profession = new Label(contact.profession); profession.AddToClassList("contact-item-profession"); details.Add(profession);
                 item.Add(details); list.Add(item); contactItems.Add(item);
             }
-            for (int i = 0; i < Replies.Length; i++)
+            for (int i = 0; i < replyButtons.Length; i++)
             {
                 int index = i;
-                root.Q<Button>("reply-" + i).text = $"{i + 1:00}   {Replies[i]}";
-                root.Q<Button>("reply-" + i).clicked += () => { ReplyIndex = index; SetFocus(EarthlineFocus.Replies); Confirm(); };
+                var button = replyButtons[i] = root.Q<Button>("reply-" + i);
+                button.enableRichText = false;
+                button.clicked += () =>
+                {
+                    if (Focus == EarthlineFocus.Photos || index >= replyNodeIds.Count) return;
+                    ReplyIndex = index;
+                    SetFocus(EarthlineFocus.Replies);
+                    Confirm();
+                };
             }
             root.Q<Button>("share-photo").clicked += OpenPhotoPicker;
             root.Q<Button>("picker-close").clicked += ClosePhotoPicker;
@@ -92,7 +99,8 @@ namespace AnimalGame.Animals.Communication
             ReplyIndex = 0; previousDirection = Vector2.zero; nextMove = Time.unscaledTime + .2f;
             root.Q("conversation-panel").style.display = DisplayStyle.Flex;
             root.Q("photo-picker").style.display = DisplayStyle.None;
-            SetFocus(EarthlineFocus.Contacts); Refresh();
+            SetFocus(EarthlineFocus.Contacts);
+            OpenConversation();
         }
 
         public void Close()
@@ -108,9 +116,18 @@ namespace AnimalGame.Animals.Communication
         public void SelectContact(int index)
         {
             if (Focus == EarthlineFocus.Photos) return;
-            ContactIndex = Mathf.Clamp(index, 0, contacts.contacts.Count - 1);
-            SetFocus(EarthlineFocus.Contacts); Refresh();
+            int selectedIndex = Mathf.Clamp(index, 0, contacts.contacts.Count - 1);
+            bool changed = ContactIndex != selectedIndex;
+            ContactIndex = selectedIndex;
+            ReplyIndex = 0;
+            SetFocus(EarthlineFocus.Contacts);
+            if (isOpen && changed) OpenConversation();
             root.Q<ScrollView>("contacts-list").ScrollTo(contactItems[ContactIndex]);
+        }
+
+        private void OpenConversation()
+        {
+            if (!SaveSystem.AdvanceConversation(SelectedContact, GameTime)) Refresh();
         }
 
         private void Refresh()
@@ -121,7 +138,28 @@ namespace AnimalGame.Animals.Communication
             root.Q<Label>("contact-name").text = contact.Name;
             root.Q<Label>("contact-profession").text = contact.profession;
             conversation.Render(SaveSystem.Current, contact, GameTime);
+            UpdateReplies(contact);
             UpdateFocus();
+        }
+
+        private void UpdateReplies(ContactDefinition contact)
+        {
+            replyNodeIds.Clear();
+            var options = contact.options;
+            if (options != null)
+            {
+                var thread = SaveSystem.Current.conversations.Find(c => c.contact == contact.contact);
+                replyNodeIds.AddRange(options.GetReplyNodeIds(options.GetCurrentNodeId(thread)));
+            }
+            ReplyIndex = Mathf.Clamp(ReplyIndex, 0, Mathf.Max(0, replyNodeIds.Count - 1));
+            if (replyNodeIds.Count == 0 && Focus == EarthlineFocus.Replies) Focus = EarthlineFocus.Chat;
+            for (int i = 0; i < replyButtons.Length; i++)
+            {
+                bool available = i < replyNodeIds.Count;
+                var button = replyButtons[i];
+                button.style.display = available ? DisplayStyle.Flex : DisplayStyle.None;
+                button.text = available ? $"{i + 1:00}   {options.GetNode(replyNodeIds[i]).Message}" : "";
+            }
         }
 
         private void SetFocus(EarthlineFocus focus) { Focus = focus; UpdateFocus(); }
@@ -129,8 +167,8 @@ namespace AnimalGame.Animals.Communication
         {
             root.Q("contacts-sidebar").EnableInClassList("contacts-focused", Focus == EarthlineFocus.Contacts);
             for (int i = 0; i < contactItems.Count; i++) contactItems[i].EnableInClassList("current", i == ContactIndex);
-            for (int i = 0; i < Replies.Length; i++)
-                root.Q("reply-" + i).EnableInClassList("reply-selected", Focus == EarthlineFocus.Replies && i == ReplyIndex);
+            for (int i = 0; i < replyButtons.Length; i++)
+                replyButtons[i].EnableInClassList("reply-selected", Focus == EarthlineFocus.Replies && i == ReplyIndex);
             conversation.Focus(Focus == EarthlineFocus.Chat);
         }
 
@@ -145,21 +183,27 @@ namespace AnimalGame.Animals.Communication
             else if (Focus == EarthlineFocus.Chat)
             {
                 if (x < 0) SetFocus(EarthlineFocus.Contacts);
-                else if (y < 0 && conversation.AtBottom) { ReplyIndex = 0; SetFocus(EarthlineFocus.Replies); }
+                else if (y < 0 && conversation.AtBottom && replyNodeIds.Count > 0) { ReplyIndex = 0; SetFocus(EarthlineFocus.Replies); }
                 else if (y != 0) conversation.Scroll(y);
             }
             else
             {
                 if (x < 0) SetFocus(EarthlineFocus.Contacts);
                 else if (y > 0 && ReplyIndex == 0) SetFocus(EarthlineFocus.Chat);
-                else if (y != 0) { ReplyIndex = Mathf.Clamp(ReplyIndex - y, 0, Replies.Length - 1); UpdateFocus(); }
+                else if (y != 0) { ReplyIndex = Mathf.Clamp(ReplyIndex - y, 0, replyNodeIds.Count - 1); UpdateFocus(); }
             }
         }
 
         public void Confirm()
         {
+            if (!isOpen) return;
             if (Focus == EarthlineFocus.Photos) picker.ToggleHighlighted();
-            else if (Focus == EarthlineFocus.Replies) SaveSystem.SendText(SelectedContact.contact, Replies[ReplyIndex], GameTime);
+            else if (Focus == EarthlineFocus.Replies && ReplyIndex < replyNodeIds.Count)
+            {
+                int id = replyNodeIds[ReplyIndex];
+                ReplyIndex = 0;
+                if (!SaveSystem.AdvanceConversation(SelectedContact, GameTime, id)) Refresh();
+            }
         }
 
         public void OpenPhotoPicker()

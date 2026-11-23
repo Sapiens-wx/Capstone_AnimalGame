@@ -25,7 +25,11 @@ namespace AnimalGame.Editor
         { checks++; if (!condition) throw new InvalidOperationException(message); }
 
         [MenuItem("Animal Game/Validation/Run Earthline Checks")]
-        public static void Run()
+        public static void Run() => Run(true);
+
+        public static void RunAssertions() => Run(false);
+
+        private static void Run(bool captureScreenshots)
         {
             Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Earthline checks run in Edit Mode.");
             checks = 0;
@@ -39,16 +43,20 @@ namespace AnimalGame.Editor
             GameObject instance = null, clockObject = null;
             RenderTexture target = null;
             PanelSettings panel = null;
+            Contacts testContacts = null;
+            ContactOptions dialogue = null;
             try
             {
-                Directory.CreateDirectory(Output);
+                if (captureScreenshots) Directory.CreateDirectory(Output);
                 SetCurrent(Fixture(true));
                 CheckMessages();
+                SetCurrent(new GameSave());
+                CheckOpeningDialogue();
                 SetCurrent(Fixture());
                 clockObject = new GameObject("Earthline clock fixture"); clockObject.SetActive(false);
                 SceneManager.MoveGameObjectToScene(clockObject, scene);
                 var clock = clockObject.AddComponent<GameMainUI>();
-                typeof(GameMainUI).GetField("gameTime", Flags).SetValue(clock, new DateTime(2026, 11, 4, 19, 12, 0));
+                SaveSystem.Current.gameTime = new DateTime(2026, 11, 4, 19, 12, 0);
                 typeof(GameMainUI).GetProperty("Active", Flags).SetValue(null, clock);
                 instance = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(
                     "Assets/Prefabs/Resources/UI/Communication/EarthlineUI.prefab"), scene);
@@ -57,15 +65,30 @@ namespace AnimalGame.Editor
                 panel.scaleMode = PanelScaleMode.ConstantPixelSize;
                 target = new RenderTexture(1920, 1080, 24); target.Create();
                 panel.targetTexture = target; document.panelSettings = panel;
-                var ui = instance.GetComponent<EarthlineUI>(); ui.InitializeView();
+                var ui = instance.GetComponent<EarthlineUI>();
+                testContacts = Object.Instantiate(ui.contacts);
+                dialogue = CreateMaraDialogue();
+                foreach (var contact in testContacts.contacts) contact.options = null;
+                testContacts.contacts[1].options = dialogue;
+                ui.contacts = testContacts;
+                ui.InitializeView();
                 var root = document.rootVisualElement;
                 ui.Open(); Settle(root, new Vector2(1920, 1080));
                 Require(EarthlineUI.BlocksGameplay && GameMainUI.BlocksGameplay && Time.timeScale == 0,
                     "Opening Earthline pauses and blocks gameplay.");
                 Require(ui.contacts.contacts.Count == 3 && ui.contacts.contacts.All(c => c.portrait != null), "All three contacts have editable sprite portraits.");
-                Require(root.Q<CatalogHeadingElement>("contacts-heading").Flip, "Contacts heading is flipped.");
+                Require(root.Q<CatalogHeadingElement>("contacts-heading").text == "CONTACTS & CHANNELS", "Contacts heading is present.");
                 Require(ui.Focus == EarthlineFocus.Contacts, "Opening focuses contacts.");
                 ui.Navigate(0, -1); Require(ui.ContactIndex == 1, "Down selects Mara.");
+                var historyLabels = root.Q("chat-messages").Query<Label>(className: "message-body").ToList();
+                Require(historyLabels.Select(label => label.text).SequenceEqual(new[] {
+                    "Earlier transmission", "Second transmission", "Opening transmission" }),
+                    "History follows the first child through the ordinary entry.");
+                var historyTimes = root.Q("chat-messages").Children().Select(item => item.Q(className: "message-header").Children().Last())
+                    .Cast<Label>().Select(label => label.text);
+                Require(historyTimes.SequenceEqual(new[] { "2026.10.01 05:30", "2026.10.03 06:45", "2026.01.01 00:00" }),
+                    "History uses positional timestamps and falls back to the initial game time.");
+                Require(SaveSystem.Current.conversations.Count == 0, "The authored history is displayed without writing it to the save.");
                 ui.Navigate(1, 0); Require(ui.Focus == EarthlineFocus.Chat, "Right focuses the chat.");
                 Require(!root.Q("contacts-sidebar").ClassListContains("contacts-focused"), "Contact retains an unfocused selection style.");
                 root.Q<ScrollView>("chat-scroll").scrollOffset = new Vector2(0, Math.Max(0, root.Q<ScrollView>("chat-scroll").verticalScroller.highValue));
@@ -73,8 +96,18 @@ namespace AnimalGame.Editor
                 ui.Navigate(0, -1); Require(ui.ReplyIndex == 1, "Down selects another reply.");
                 ui.Navigate(0, 1); ui.Navigate(0, 1); Require(ui.Focus == EarthlineFocus.Chat, "Up from the first reply returns to chat.");
                 Require(!root.Q("reply-0").ClassListContains("reply-selected"), "Replies have no selection without focus.");
+                Require(root.Q<Button>("reply-2").text.Contains("Third reply") && !root.Q<Button>("reply-2").text.Contains("Fourth reply"),
+                    "The reply UI shows at most the first three children.");
                 ui.Navigate(0, -1); ui.Confirm();
-                Require(SaveSystem.Current.conversations.Single().messages.Single().kind == MessageKind.Text, "A reply creates a real text message.");
+                var conversation = SaveSystem.Current.conversations.Single();
+                Require(conversation.messages.Single().nodeId == 4 && root.Q<Button>("reply-0").text.Contains("Follow-up"),
+                    "Sending a player message records its node and presents consecutive player replies.");
+                ui.Confirm();
+                Require(conversation.messages.Select(message => message.nodeId).SequenceEqual(new[] { 4, 8, 9, 10 })
+                    && conversation.messages.All(message => message.sentAt == new DateTime(2026, 11, 4, 19, 12, 0)),
+                    "A reply records consecutive NPC messages at the current game time.");
+                Require(root.Q<Button>("reply-0").text.Contains("Continue later") && root.Q<Button>("reply-1").style.display.value == DisplayStyle.None,
+                    "Unused reply buttons are hidden after the NPC chain.");
                 Require(root.Q<Label>("conversation-date").text == "2026.11.04", "Header uses the in-game date.");
                 ui.OpenPhotoPicker(); Settle(root, new Vector2(1920, 1080));
                 var picker = (EarthlinePhotoPicker)typeof(EarthlineUI).GetField("picker", Flags).GetValue(ui);
@@ -92,9 +125,7 @@ namespace AnimalGame.Editor
                 Require(ui.Focus == EarthlineFocus.Chat && SaveSystem.Current.photos[12].sent, "Sending closes the picker and marks the photo sent.");
                 Require(SaveSystem.LoadOrCreate(SaveSystem.SavePath).conversations.Single().messages.Last().photoIndices.Single() == 12,
                     "Shared photos survive the binary reload.");
-                var conversation = SaveSystem.Current.conversations.Single();
-                conversation.messages.Add(new ChatMessage { fromPlayer = false, kind = MessageKind.Text, hour = 19, minute = 13,
-                    text = "Thanks for sharing. These photographs will help us understand how the habitat is changing." });
+                Require(dialogue.GetCurrentNodeId(conversation) == 10, "Sharing photos preserves the current dialogue node.");
                 SaveSystem.SharePhotos(ContactId.Mara, new[] { 0, 1, 2, 3, 4, 5, 6 }, new DateTime(2026, 11, 4, 19, 14, 0));
                 Settle(root, new Vector2(1920, 1080));
                 var scroller = root.Q<ScrollView>("chat-scroll");
@@ -102,7 +133,7 @@ namespace AnimalGame.Editor
                 Require(root.Query(className: "message-photo").ToList().Count == 8, "Photo batches render every shared image.");
                 scroller.scrollOffset = new Vector2(0, Mathf.Max(0, scroller.verticalScroller.highValue));
                 Settle(root, new Vector2(1920, 1080));
-                Capture(root, target, "earthline-chat.png");
+                if (captureScreenshots) Capture(root, target, "earthline-chat.png");
                 ui.OpenPhotoPicker(); Settle(root, new Vector2(1920, 1080));
                 Require(picker.AvailableCount == 18, "Every previously sent photo is excluded across contacts.");
                 foreach (var tile in root.Q("picker-tiles").Children())
@@ -112,16 +143,18 @@ namespace AnimalGame.Editor
                     Require(tile.worldBound.yMax <= root.Q<ScrollView>("picker-scroll").contentViewport.worldBound.yMax + 1,
                         "All twelve photo cards fit the visible picker.");
                 }
-                Capture(root, target, "earthline-photos.png");
+                if (captureScreenshots) Capture(root, target, "earthline-photos.png");
                 ui.ClosePhotoPicker(); Require(ui.Focus == EarthlineFocus.Chat, "B returns from picker to chat.");
                 ui.Close(); Require(!EarthlineUI.BlocksGameplay && Time.timeScale == timeScale, "Closing restores gameplay and the original time scale.");
-                File.WriteAllText(Path.Combine(Output, "checks.txt"), $"PASS: {checks} Earthline assertions.\n");
-                Debug.Log($"EARTHLINE CHECKS PASSED: {checks} assertions. Screenshots: {Output}");
+                if (captureScreenshots) File.WriteAllText(Path.Combine(Output, "checks.txt"), $"PASS: {checks} Earthline assertions.\n");
+                Debug.Log($"EARTHLINE CHECKS PASSED: {checks} assertions.");
             }
             finally
             {
                 if (instance != null) Object.DestroyImmediate(instance);
                 if (clockObject != null) Object.DestroyImmediate(clockObject);
+                if (testContacts != null) Object.DestroyImmediate(testContacts);
+                if (dialogue != null) Object.DestroyImmediate(dialogue);
                 if (panel != null) Object.DestroyImmediate(panel);
                 if (target != null) { target.Release(); Object.DestroyImmediate(target); }
                 EditorSceneManager.ClosePreviewScene(scene);
@@ -164,7 +197,16 @@ namespace AnimalGame.Editor
             int recognitionBeforeUpload = progress.recognition;
             Require(progress.Tier == 3 && progress.sentPhotos == 0, "Capture recognition unlocks all tiers without uploading.");
             var time = new DateTime(2026, 11, 4, 19, 11, 0);
-            SaveSystem.SendText(ContactId.Lin, "Hello from Earth.", time);
+            var options = ScriptableObject.CreateInstance<ContactOptions>();
+            try
+            {
+                int entry = AddMessage(options, Sender.Npc, "Opening");
+                int reply = AddMessage(options, Sender.Player, "Hello from Earth.");
+                options.SetEntryNode(entry);
+                options.TryConnect(entry, reply);
+                SaveSystem.AdvanceConversation(new ContactDefinition { contact = ContactId.Lin, options = options }, time, reply);
+            }
+            finally { Object.DestroyImmediate(options); }
             SaveSystem.SharePhotos(ContactId.Lin, new[] { 0 }, time);
             Require(progress.recognition == recognitionBeforeUpload && progress.sentPhotos == 1, "Uploading marks a photo sent without granting recognition again.");
             catalog.Render(AnimalSpecies.AmericanBison);
@@ -184,7 +226,9 @@ namespace AnimalGame.Editor
             catalog.Render(AnimalSpecies.AmericanBison);
             Require(!catalogRoot.Q<Label>("lifespan").text.Contains("Requires"), "Level three unlocks lifespan and the final fields.");
             var loaded = SaveSystem.LoadOrCreate(SaveSystem.SavePath);
-            Require(loaded.conversations.Count == 3 && loaded.conversations[0].messages[0].text == "Hello from Earth.", "All contact threads and text round-trip.");
+            var savedText = loaded.conversations[0].messages[0];
+            Require(loaded.conversations.Count == 3 && savedText.kind == MessageKind.Text && savedText.nodeId == 2 && savedText.sentAt == time,
+                "Contact threads, node IDs and full text timestamps round-trip.");
             var message = loaded.conversations[2].messages[0];
             Require(message.fromPlayer && message.hour == 19 && message.minute == 11 && message.photoIndices.SequenceEqual(Enumerable.Range(7, 14)),
                 "Photo message ownership, hour, minute and indices round-trip.");
@@ -193,14 +237,105 @@ namespace AnimalGame.Editor
             Require(save.conversations[1].messages[0].photoIndices.SequenceEqual(Enumerable.Range(1, 5)), "Deleting a shared photo removes it and remaps subsequent indices.");
             Require(save.photos[save.conversations[2].messages[0].photoIndices.Last()].id == lastId, "Photo deletion preserves the identity of remaining historical attachments.");
             Require(SaveSystem.LoadOrCreate(SaveSystem.SavePath).photos.Count == 25, "Remapped photo messages remain readable from disk.");
-            string legacy = Path.Combine(Output, "legacy-test.bin");
+            string legacy = Path.GetTempFileName();
             try
             {
                 using (var writer = new BinaryWriter(File.Create(legacy)))
                 { writer.Write(0x41475356); writer.Write(1); writer.Write(0); writer.Write(0); }
                 Require(SaveSystem.LoadOrCreate(legacy).conversations.Count == 0, "Version-one binary saves still load with empty conversations.");
+                using (var writer = new BinaryWriter(File.Create(legacy)))
+                {
+                    writer.Write(0x41475356); writer.Write(4); writer.Write(0); writer.Write(0);
+                    writer.Write(1); writer.Write((int)ContactId.Lin); writer.Write(2);
+                    writer.Write(true); writer.Write(19); writer.Write(11); writer.Write((int)MessageKind.Text);
+                    writer.Write(true); writer.Write("A v4 text message without a node.");
+                    writer.Write(true); writer.Write(19); writer.Write(12); writer.Write((int)MessageKind.Photos); writer.Write(0);
+                    writer.Write(time.Ticks);
+                }
+                var migrated = SaveSystem.LoadOrCreate(legacy);
+                Require(migrated.gameTime == time && migrated.conversations.Single().messages.Single().kind == MessageKind.Photos,
+                    "V4 migration skips unbound text while preserving photo messages and game time.");
             }
             finally { File.Delete(legacy); }
+        }
+
+        private static ContactOptions CreateMaraDialogue()
+        {
+            var options = ScriptableObject.CreateInstance<ContactOptions>();
+            AddMessage(options, Sender.Npc, "Earlier transmission");
+            AddMessage(options, Sender.Npc, "Second transmission");
+            AddMessage(options, Sender.Npc, "Opening transmission");
+            AddMessage(options, Sender.Player, "First reply");
+            AddMessage(options, Sender.Player, "Second reply");
+            AddMessage(options, Sender.Player, "Third reply");
+            AddMessage(options, Sender.Player, "Fourth reply");
+            AddMessage(options, Sender.Player, "Follow-up");
+            AddMessage(options, Sender.Npc, "First response");
+            AddMessage(options, Sender.Npc, "Second response");
+            AddMessage(options, Sender.Player, "Continue later");
+            options.SetEntryNode(3);
+            options.SetHistoryEntryNode(1);
+            options.TryConnect(1, 2);
+            options.UpdateHistory();
+            options.SetHistoryDate(0, new DateTime(2026, 10, 1, 5, 30, 0));
+            options.SetHistoryDate(1, new DateTime(2026, 10, 3, 6, 45, 0));
+            options.TryConnect(2, 3);
+            for (int reply = 4; reply <= 7; reply++) options.TryConnect(3, reply);
+            options.TryConnect(4, 8);
+            options.TryConnect(8, 9);
+            options.TryConnect(9, 10);
+            options.TryConnect(10, 11);
+            return options;
+        }
+
+        private static void CheckOpeningDialogue()
+        {
+            var options = ScriptableObject.CreateInstance<ContactOptions>();
+            try
+            {
+                AddMessage(options, Sender.Npc, "Hidden entry");
+                AddMessage(options, Sender.Npc, "First message");
+                AddMessage(options, Sender.Npc, "Next message");
+                AddMessage(options, Sender.Player, "Player choice");
+                options.SetEntryNode(1);
+                options.TryConnect(1, 2);
+                options.TryConnect(1, 4);
+                options.TryConnect(2, 3);
+                options.TryConnect(3, 4);
+                var contact = new ContactDefinition { contact = ContactId.Lin, options = options };
+                var time = new DateTime(2026, 11, 4, 19, 12, 17);
+                var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                    "Assets/Prefabs/Resources/UI/Communication/Earthline.uxml").CloneTree();
+                using var view = new EarthlineConversationView(root);
+                view.Render(SaveSystem.Current, contact, time);
+                Require(!root.Q("chat-messages").Query<Label>(className: "message-body").ToList().Any(),
+                    "An ordinary entry alone is not displayed as authored history.");
+                Require(SaveSystem.AdvanceConversation(contact, time), "Opening starts consecutive NPC messages.");
+                var thread = SaveSystem.Current.conversations.Single();
+                Require(thread.messages.Select(message => message.nodeId).SequenceEqual(new[] { 2, 3 })
+                    && thread.messages.All(message => message.sentAt.Second == 0),
+                    "Opening ignores the secondary branch, omits the hidden entry, and records minute-precision timestamps.");
+                Require(!SaveSystem.AdvanceConversation(contact, time) && options.GetCurrentNodeId(thread) == 3,
+                    "Reopening stops at the same player decision.");
+                view.Render(SaveSystem.Current, contact, time);
+                Require(root.Q("chat-messages").Query<Label>(className: "message-body").ToList()
+                    .Select(label => label.text).SequenceEqual(new[] { "First message", "Next message" }),
+                    "Without authored history the view reads only saved messages.");
+                options.TryConnect(3, 1);
+                Require(options.GetReplyNodeIds(3).SequenceEqual(new[] { 4, 1 }),
+                    "When the first child belongs to the player, the first three positions are offered as authored.");
+                options.Disconnect(3, 4);
+                Require(!SaveSystem.AdvanceConversation(contact, time) && thread.messages.Count == 2,
+                    "Reopening an NPC-only cycle does not replay the hidden anchor or earlier NPC messages.");
+            }
+            finally { Object.DestroyImmediate(options); }
+        }
+
+        private static int AddMessage(ContactOptions options, Sender sender, string message)
+        {
+            int id = options.AddNode(sender, Vector2.zero);
+            options.SetMessage(id, message);
+            return id;
         }
 
         private static void SetCurrent(GameSave save) => typeof(SaveSystem).GetProperty("Current", Flags).SetValue(null, save);

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using AnimalGame.Animals.Communication;
@@ -11,7 +12,8 @@ namespace AnimalGame.Save
     {
         private const int FileSignature = 0x41475356; // AGSV
         private const int CaptureRecognitionVersion = 3;
-        private const int FileVersion = 4;
+        private const int NodeMessageVersion = 5;
+        private const int FileVersion = NodeMessageVersion;
         public static GameSave Current { get; private set; }
         public static DateTime CurrentGameTime => Current?.gameTime ?? GameSave.InitialGameTime;
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
@@ -80,20 +82,41 @@ namespace AnimalGame.Save
                     int messageCount = ReadCount(reader);
                     for (int j = 0; j < messageCount; j++)
                     {
-                        var message = new ChatMessage { fromPlayer = reader.ReadBoolean(), hour = reader.ReadInt32(),
-                            minute = reader.ReadInt32(), kind = (MessageKind)reader.ReadInt32() };
-                        if (message.kind == MessageKind.Text) message.text = ReadString(reader);
-                        else if (message.kind == MessageKind.Photos)
+                        var message = new ChatMessage();
+                        if (version >= NodeMessageVersion)
                         {
-                            message.photoIndices = new int[ReadCount(reader)];
-                            for (int k = 0; k < message.photoIndices.Length; k++)
+                            message.kind = (MessageKind)reader.ReadInt32();
+                            if (message.kind == MessageKind.Text)
                             {
-                                int index = reader.ReadInt32();
-                                if (index < 0 || index >= save.photos.Count) throw new InvalidDataException("Invalid message photo index.");
-                                message.photoIndices[k] = index;
+                                message.nodeId = reader.ReadInt32();
+                                message.sentAt = new DateTime(reader.ReadInt64());
+                                conversation.messages.Add(message);
+                                continue;
                             }
+                            if (message.kind != MessageKind.Photos) throw new InvalidDataException("Unknown chat message kind.");
                         }
-                        else throw new InvalidDataException("Unknown chat message kind.");
+
+                        message.fromPlayer = reader.ReadBoolean();
+                        message.hour = reader.ReadInt32();
+                        message.minute = reader.ReadInt32();
+                        if (version < NodeMessageVersion)
+                        {
+                            message.kind = (MessageKind)reader.ReadInt32();
+                            if (message.kind == MessageKind.Text)
+                            {
+                                // Legacy free text has no node ID and cannot be replayed by the graph.
+                                ReadString(reader);
+                                continue;
+                            }
+                            if (message.kind != MessageKind.Photos) throw new InvalidDataException("Unknown chat message kind.");
+                        }
+                        message.photoIndices = new int[ReadCount(reader)];
+                        for (int k = 0; k < message.photoIndices.Length; k++)
+                        {
+                            int index = reader.ReadInt32();
+                            if (index < 0 || index >= save.photos.Count) throw new InvalidDataException("Invalid message photo index.");
+                            message.photoIndices[k] = index;
+                        }
                         conversation.messages.Add(message);
                     }
                     save.conversations.Add(conversation);
@@ -138,11 +161,15 @@ namespace AnimalGame.Save
                         writer.Write(conversation.messages.Count);
                         foreach (var message in conversation.messages)
                         {
-                            writer.Write(message.fromPlayer); writer.Write(message.hour); writer.Write(message.minute);
                             writer.Write((int)message.kind);
-                            if (message.kind == MessageKind.Text) WriteString(writer, message.text);
+                            if (message.kind == MessageKind.Text)
+                            {
+                                writer.Write(message.nodeId);
+                                writer.Write(message.sentAt.Ticks);
+                            }
                             else if (message.kind == MessageKind.Photos)
                             {
+                                writer.Write(message.fromPlayer); writer.Write(message.hour); writer.Write(message.minute);
                                 writer.Write(message.photoIndices.Length);
                                 foreach (int index in message.photoIndices) writer.Write(index);
                             }
@@ -219,12 +246,58 @@ namespace AnimalGame.Save
             Changed?.Invoke();
         }
 
-        public static void SendText(ContactId contact, string text, DateTime time)
+        public static bool AdvanceConversation(ContactDefinition contact, DateTime time, int replyId = 0)
         {
             Initialize();
-            AppendMessage(contact, new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute,
-                kind = MessageKind.Text, text = text });
+            var options = contact.options;
+            if (options == null) return false;
+            var conversation = Current.conversations.Find(c => c.contact == contact.contact);
+            int currentId = options.GetCurrentNodeId(conversation);
+            var pending = new List<ChatMessage>();
+            var visited = new HashSet<int>();
+            var sentAt = new DateTime(time.Ticks - time.Ticks % TimeSpan.TicksPerMinute);
+
+            if (replyId != 0)
+            {
+                if (!options.GetReplyNodeIds(currentId).Contains(replyId)) return false;
+                currentId = replyId;
+                AddText(currentId);
+            }
+            else if (conversation != null)
+            {
+                // Reopening a thread must not replay an NPC-only cycle from the last turn.
+                bool reachedPlayer = false;
+                for (int i = conversation.messages.Count - 1; i >= 0; i--)
+                {
+                    var message = conversation.messages[i];
+                    if (message.kind != MessageKind.Text || !options.ContainsNode(message.nodeId)) continue;
+                    if (options.GetNode(message.nodeId).Sender == Sender.Player)
+                    {
+                        reachedPlayer = true;
+                        break;
+                    }
+                    visited.Add(message.nodeId);
+                }
+                if (!reachedPlayer) visited.Add(options.GetCurrentNodeId(null));
+            }
+
+            visited.Add(currentId);
+            while (currentId != 0)
+            {
+                var children = options.GetNode(currentId).Children;
+                if (children.Count == 0) break;
+                int nextId = children[0];
+                if (options.GetNode(nextId).Sender != Sender.Npc || !visited.Add(nextId)) break;
+                AddText(nextId);
+                currentId = nextId;
+            }
+
+            if (pending.Count == 0) return false;
+            AppendMessages(contact.contact, pending);
             Changed?.Invoke();
+            return true;
+
+            void AddText(int id) => pending.Add(new ChatMessage { kind = MessageKind.Text, nodeId = id, sentAt = sentAt });
         }
 
         public static void SharePhotos(ContactId contact, int[] indices, DateTime time)
@@ -246,8 +319,8 @@ namespace AnimalGame.Save
             }
             try
             {
-                AppendMessage(contact, new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute,
-                    kind = MessageKind.Photos, photoIndices = (int[])indices.Clone() });
+                AppendMessages(contact, new[] { new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute,
+                    kind = MessageKind.Photos, photoIndices = (int[])indices.Clone() } });
             }
             catch
             {
@@ -258,16 +331,17 @@ namespace AnimalGame.Save
             Changed?.Invoke();
         }
 
-        private static void AppendMessage(ContactId contact, ChatMessage message)
+        private static void AppendMessages(ContactId contact, IReadOnlyList<ChatMessage> messages)
         {
             var conversation = Current.conversations.Find(c => c.contact == contact);
             bool created = conversation == null;
             if (created) { conversation = new ContactConversation { contact = contact }; Current.conversations.Add(conversation); }
-            conversation.messages.Add(message);
+            int first = conversation.messages.Count;
+            conversation.messages.AddRange(messages);
             try { WriteTo(SavePath, Current); }
             catch
             {
-                conversation.messages.Remove(message);
+                conversation.messages.RemoveRange(first, messages.Count);
                 if (created) Current.conversations.Remove(conversation);
                 throw;
             }
