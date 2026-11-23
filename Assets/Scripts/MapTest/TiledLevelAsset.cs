@@ -23,6 +23,7 @@ namespace AnimalGame.MapTest
         [SerializeField] private MapParams mapParams;
         [SerializeField] private Vector2 worldUnitsPerMeter = Vector2.one * (2048f / 30f / 250f);
         [SerializeField] private List<Tile> tiles = new List<Tile>();
+        [Tooltip("Animal spawn regions imported from a .spawnregions file.")]
         [SerializeField] private AnimalSpawnRegionsAsset animalSpawnRegions;
         [SerializeField, HideInInspector] private string prebakedTerrainRegionsPath;
         [Tooltip("Allow an irregular tile layout. Missing tiles remain invisible and cannot be traversed.")]

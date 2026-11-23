@@ -51,6 +51,9 @@ namespace AnimalGame.Animals
             List<WorldInteraction> vegetation = null;
             foreach (var species in map.LevelAsset.AnimalSpawnRegions.Regions)
             {
+                if (species.species == AnimalSpecies.Unknown)
+                    continue;
+
                 var info = AnimalInfoLibrary.Active.BySpecies[species.species].spawnInfo;
                 if (info == null || info.Prefab == null || info.BaseSpawnProbability <= 0f) continue;
                 var paths = new Paths64();

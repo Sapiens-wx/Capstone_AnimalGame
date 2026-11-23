@@ -60,7 +60,7 @@
 
 - 植物交互统一在根节点的 `Vegetation : WorldInteraction`；动物视线使用 `SightBlocking` 标记的线段四叉树查询，不维护植物遮挡列表。
 
-- `AnimalSpawnRegionsAsset` 用数组保存生成区域，每个物种保留一项，在 Inspector 中选择 `AnimalSpecies`，在 Animal Spawn Regions 窗口编辑多边形。
+- `TiledLevelAsset` 引用由二进制 `.spawnregions` 导入的 `AnimalSpawnRegionsAsset`。在 Animal Spawn Regions 窗口增删动物、选择物种和编辑多边形，点击 Save 写盘。已知物种各保留一项，`Unknown` 条目不参与生成。
 - `AnimalSpawnInfo.AllowedTerrains` 使用地表 Palette 的 `TerrainKind`，`IsAquatic` 标记水生。Animal Spawn Regions 使用当前 Tiled Level 的 TerrainRegions 裁剪多边形并保留内洞。水生只与从 Water Mask 烘焙的 Water 区域求交。
 
 - `AnimalSpawner` uses the initial view radius in map meters. It samples species regions between 2R and 5R and uses the optional vegetation kind and prefab from `AnimalSpawnInfo`. The spawn limit uses the count of the global active-agent registry. Initialized animals beyond 5R despawn in every state. Altitude clipping edits the current species polygons in the editor, and spawning checks the configured altitude at the sampled position.

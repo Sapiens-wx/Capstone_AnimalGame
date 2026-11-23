@@ -39,6 +39,10 @@ namespace AnimalGame.Animals
 
         public IReadOnlyList<SpeciesRegions> Regions => speciesRegions;
 
+#if UNITY_EDITOR
+        public ref SpeciesRegions[] EditableRegions => ref speciesRegions;
+#endif
+
         public SpeciesRegions GetRegions(AnimalSpecies species)
         {
             foreach (SpeciesRegions regions in speciesRegions)

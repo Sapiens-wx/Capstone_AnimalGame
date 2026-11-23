@@ -213,7 +213,7 @@ MonoBehaviour:
     level: {fileID: 11400000, guid: da4ab170bf04e364987cb0313759af1e, type: 2}
   - coordinate: {x: 8, y: 11}
     level: {fileID: 11400000, guid: 87c8b4122b89cf44e94654a521ff565d, type: 2}
-  animalSpawnRegions: {fileID: 11400000, guid: fa56e4908ba21fc40b8d6b0599925fdd, type: 2}
+  animalSpawnRegions: {fileID: -1159316200678259567, guid: 8418e643d26409f49b341616868f721d, type: 3}
   prebakedTerrainRegionsPath: prebake_data/Gameplay_22/OfficialPlains_TiledLevel_TerrainRegions
   allowMissingTiles: 1
   longitudeRange: {x: 0, y: 1}

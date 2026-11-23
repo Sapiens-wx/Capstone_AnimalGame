@@ -17,12 +17,13 @@ namespace AnimalGame.Editor
         private static readonly Color OutlineColor = new(0.15f, 0.78f, 0.24f);
         private static readonly Color SelectedColor = new(0.58f, 1f, 0.62f);
 
-        private readonly HashSet<AnimalSpecies> expanded = new();
+        private readonly HashSet<int> expanded = new();
         private readonly List<Vector2> draftVertices = new();
         private MapTestSceneController map;
-        private TiledLevelAsset level;
-        private AnimalSpawnRegionsAsset asset;
-        private AnimalSpecies editingSpecies;
+        [SerializeField] private TiledLevelAsset level;
+        [SerializeField] private AnimalSpawnRegionsAsset source;
+        [SerializeField] private AnimalSpawnRegionsAsset draft;
+        private int editingEntry = -1;
         private bool drawingPolygon;
         private int selectedPolygon = -1;
         private Vector2 scrollPosition;
@@ -32,6 +33,8 @@ namespace AnimalGame.Editor
 
         private void OnEnable()
         {
+            saveChangesMessage = "Save your changes to Animal Spawn Regions?";
+            RefreshUnsavedState();
             EditorApplication.hierarchyChanged += FindMap;
             EditorSceneManager.activeSceneChangedInEditMode += OnActiveSceneChanged;
             SceneView.duringSceneGui += DrawScene;
@@ -46,6 +49,11 @@ namespace AnimalGame.Editor
             SceneView.duringSceneGui -= DrawScene;
             Undo.undoRedoPerformed -= OnUndoRedo;
             SceneView.RepaintAll();
+        }
+
+        private void OnDestroy()
+        {
+            DestroyDraft();
         }
 
         private void OnActiveSceneChanged(Scene previous, Scene current)
@@ -74,25 +82,71 @@ namespace AnimalGame.Editor
 
         private void UpdateAsset()
         {
-            TiledLevelAsset currentLevel = map != null ? map.LevelAsset : null;
-            AnimalSpawnRegionsAsset currentAsset = currentLevel != null ? currentLevel.AnimalSpawnRegions : null;
-            if (level == currentLevel && asset == currentAsset)
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
                 return;
 
+            TiledLevelAsset currentLevel = map != null ? map.LevelAsset : null;
+            AnimalSpawnRegionsAsset currentAsset = currentLevel != null ? currentLevel.AnimalSpawnRegions : null;
+            if (level == currentLevel && source == currentAsset && (source == null || draft != null))
+                return;
+
+            if (hasUnsavedChanges && EditorUtility.DisplayDialog(
+                "Animal Spawn Regions", saveChangesMessage, "Save", "Discard"))
+                SaveChanges();
+
+            DestroyDraft();
             level = currentLevel;
-            asset = currentAsset;
+            source = currentAsset;
+            if (source != null)
+            {
+                draft = Instantiate(source);
+                draft.hideFlags = HideFlags.HideAndDontSave;
+            }
+
+            hasUnsavedChanges = false;
+            expanded.Clear();
             ClearDraft();
-            editingSpecies = AnimalSpecies.Unknown;
+            editingEntry = -1;
             selectedPolygon = -1;
             SceneView.RepaintAll();
+        }
+
+        private void DestroyDraft()
+        {
+            if (draft == null)
+                return;
+
+            Undo.ClearUndo(draft);
+            DestroyImmediate(draft);
+        }
+
+        public override void SaveChanges()
+        {
+            Undo.FlushUndoRecordObjects();
+            source = AnimalSpawnRegionsImporter.Save(AssetDatabase.GetAssetPath(source), draft);
+            base.SaveChanges();
         }
 
         private void OnUndoRedo()
         {
             UpdateAsset();
+            RefreshUnsavedState();
+            if (draft != null && editingEntry >= draft.Regions.Count)
+                editingEntry = -1;
             selectedPolygon = -1;
             Repaint();
             SceneView.RepaintAll();
+        }
+
+        private void RefreshUnsavedState()
+        {
+            if (source == null || draft == null)
+                return;
+
+            using var draftObject = new SerializedObject(draft);
+            using var sourceObject = new SerializedObject(source);
+            hasUnsavedChanges = !SerializedProperty.DataEquals(
+                draftObject.FindProperty("speciesRegions"), sourceObject.FindProperty("speciesRegions"));
         }
 
         private void OnGUI()
@@ -113,17 +167,21 @@ namespace AnimalGame.Editor
             using (new EditorGUI.DisabledScope(true))
                 EditorGUILayout.ObjectField("Level", level, typeof(TiledLevelAsset), false);
 
-            if (asset == null)
+            if (draft == null)
             {
                 if (GUILayout.Button("Create Spawn Regions Asset"))
                     CreateAsset();
                 return;
             }
 
-            if (asset.Regions.Count == 0)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.HelpBox("Add a Species Regions entry and assign its Species in the asset Inspector.", MessageType.Info);
-                return;
+                using (new EditorGUI.DisabledScope(!hasUnsavedChanges || drawingPolygon))
+                    if (GUILayout.Button("Save", GUILayout.Width(65)))
+                        SaveChanges();
+
+                if (hasUnsavedChanges)
+                    GUILayout.Label("Unsaved changes", EditorStyles.miniLabel);
             }
 
             if (!map.HasGeneratedMap)
@@ -133,17 +191,20 @@ namespace AnimalGame.Editor
             else if (selectedPolygon >= 0)
                 EditorGUILayout.HelpBox("Drag a vertex to move it. Click an edge to insert a vertex. Ctrl/Cmd-click a vertex to remove it.", MessageType.None);
 
-            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            foreach (var regions in asset.Regions)
+            using var scroll = new EditorGUILayout.ScrollViewScope(scrollPosition);
+            scrollPosition = scroll.scrollPosition;
+            for (int i = 0; i < draft.Regions.Count; i++)
+                DrawSpecies(i);
+
+            using (new EditorGUI.DisabledScope(drawingPolygon))
             {
-                if (regions.species == AnimalSpecies.Unknown)
-                    EditorGUILayout.HelpBox("Assign a species to each entry in the asset Inspector.", MessageType.Warning);
-                else if (asset.GetRegions(regions.species) != regions)
-                    EditorGUILayout.HelpBox($"Keep one entry for {ObjectNames.NicifyVariableName(regions.species.ToString())} in the asset Inspector.", MessageType.Warning);
-                else
-                    DrawSpecies(regions);
+                if (GUILayout.Button("Add"))
+                {
+                    RecordEdit("Add Animal");
+                    expanded.Add(draft.Regions.Count);
+                    ArrayUtility.Add(ref draft.EditableRegions, new AnimalSpawnRegionsAsset.SpeciesRegions());
+                }
             }
-            EditorGUILayout.EndScrollView();
         }
 
         private void CreateAsset()
@@ -151,24 +212,32 @@ namespace AnimalGame.Editor
             string levelPath = AssetDatabase.GetAssetPath(level);
             string directory = Path.GetDirectoryName(levelPath).Replace('\\', '/');
             string path = AssetDatabase.GenerateUniqueAssetPath(
-                $"{directory}/{Path.GetFileNameWithoutExtension(levelPath)} Animal Spawn Regions.asset");
-            var regions = CreateInstance<AnimalSpawnRegionsAsset>();
-            AssetDatabase.CreateAsset(regions, path);
+                $"{directory}/{Path.GetFileNameWithoutExtension(levelPath)} Animal Spawn Regions.{AnimalSpawnRegionsImporter.Extension}");
+            var empty = CreateInstance<AnimalSpawnRegionsAsset>();
+            AnimalSpawnRegionsAsset regions;
+            try
+            {
+                regions = AnimalSpawnRegionsImporter.Save(path, empty);
+            }
+            finally
+            {
+                DestroyImmediate(empty);
+            }
 
             using var levelObject = new SerializedObject(level);
             levelObject.FindProperty("animalSpawnRegions").objectReferenceValue = regions;
             levelObject.ApplyModifiedPropertiesWithoutUndo();
-            AssetDatabase.SaveAssetIfDirty(regions);
             AssetDatabase.SaveAssetIfDirty(level);
             UpdateAsset();
             Selection.activeObject = regions;
         }
 
-        private void DrawSpecies(AnimalSpawnRegionsAsset.SpeciesRegions regions)
+        private void DrawSpecies(int entry)
         {
+            var regions = draft.Regions[entry];
             AnimalSpecies species = regions.species;
-            bool isExpanded = expanded.Contains(species);
-            bool isDrawingForSpecies = drawingPolygon && editingSpecies == species;
+            bool isExpanded = expanded.Contains(entry);
+            bool isDrawingForSpecies = drawingPolygon && editingEntry == entry;
             using (new EditorGUILayout.HorizontalScope())
             {
                 bool show;
@@ -177,15 +246,38 @@ namespace AnimalGame.Editor
                 if (show != isExpanded)
                 {
                     if (show)
-                        expanded.Add(species);
+                        expanded.Add(entry);
                     else
-                        expanded.Remove(species);
+                        expanded.Remove(entry);
                 }
 
-                using (new EditorGUI.DisabledScope(drawingPolygon || editingSpecies == species))
+                using (new EditorGUI.DisabledScope(drawingPolygon || editingEntry == entry))
                 {
-                    if (GUILayout.Button(editingSpecies == species ? "Editing" : "Edit", GUILayout.Width(60)))
-                        SelectPolygon(species, -1);
+                    if (GUILayout.Button(editingEntry == entry ? "Editing" : "Edit", GUILayout.Width(60)))
+                        SelectPolygon(entry, -1);
+                }
+
+                using (new EditorGUI.DisabledScope(drawingPolygon))
+                {
+                    if (GUILayout.Button("-", GUILayout.Width(24)))
+                    {
+                        RecordEdit("Remove Animal");
+                        ArrayUtility.RemoveAt(ref draft.EditableRegions, entry);
+                        for (int i = entry; i < draft.Regions.Count; i++)
+                        {
+                            expanded.Remove(i);
+                            if (expanded.Contains(i + 1))
+                                expanded.Add(i);
+                        }
+                        expanded.Remove(draft.Regions.Count);
+
+                        if (editingEntry == entry)
+                            SelectPolygon(-1, -1);
+                        else if (editingEntry > entry)
+                            editingEntry--;
+
+                        GUIUtility.ExitGUI();
+                    }
                 }
 
                 if (!show)
@@ -194,20 +286,36 @@ namespace AnimalGame.Editor
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
+                using (new EditorGUI.DisabledScope(drawingPolygon))
+                {
+                    var nextSpecies = (AnimalSpecies)EditorGUILayout.EnumPopup("Species", species);
+                    if (nextSpecies != species)
+                    {
+                        if (nextSpecies != AnimalSpecies.Unknown && draft.GetRegions(nextSpecies) != null)
+                            EditorUtility.DisplayDialog("Animal Spawn Regions",
+                                $"An entry for {ObjectNames.NicifyVariableName(nextSpecies.ToString())} already exists.", "OK");
+                        else
+                        {
+                            RecordEdit("Change Animal Species");
+                            regions.species = nextSpecies;
+                        }
+                    }
+                }
+
                 for (int index = 0; index < regions.polygons.Length; index++)
                 {
                     using var row = new EditorGUILayout.HorizontalScope();
                     using var disabled = new EditorGUI.DisabledScope(drawingPolygon);
-                    bool selected = editingSpecies == species && selectedPolygon == index;
+                    bool selected = editingEntry == entry && selectedPolygon == index;
                     if (GUILayout.Toggle(selected, $"Polygon {index + 1}", EditorStyles.miniButton) && !selected)
-                        SelectPolygon(species, index);
+                        SelectPolygon(entry, index);
 
                     if (GUILayout.Button("Remove", GUILayout.Width(60)))
                     {
                         RecordEdit("Remove Spawn Polygon");
                         ArrayUtility.RemoveAt(ref regions.polygons, index);
-                        if (editingSpecies == species && selectedPolygon >= index)
-                            SelectPolygon(species, selectedPolygon == index ? -1 : selectedPolygon - 1);
+                        if (editingEntry == entry && selectedPolygon >= index)
+                            SelectPolygon(entry, selectedPolygon == index ? -1 : selectedPolygon - 1);
                         return;
                     }
                 }
@@ -223,7 +331,7 @@ namespace AnimalGame.Editor
                             else
                             {
                                 drawingPolygon = true;
-                                SelectPolygon(species, -1);
+                                SelectPolygon(entry, -1);
                             }
                         }
                     }
@@ -232,17 +340,17 @@ namespace AnimalGame.Editor
                     {
                         using var disabled = new EditorGUI.DisabledScope(drawingPolygon);
                         if (GUILayout.Button(new GUIContent("⋯", "Polygon actions"), GUILayout.Width(26)))
-                            ShowPolygonMenu(regions);
+                            ShowPolygonMenu(entry, regions);
                     }
                 }
             }
         }
 
-        private void ShowPolygonMenu(AnimalSpawnRegionsAsset.SpeciesRegions regions)
+        private void ShowPolygonMenu(int entry, AnimalSpawnRegionsAsset.SpeciesRegions regions)
         {
             var menu = new GenericMenu();
             var intersect = new GUIContent("Calc Intersect");
-            int index = editingSpecies == regions.species ? selectedPolygon : -1;
+            int index = editingEntry == entry ? selectedPolygon : -1;
             if (index >= 0 && index < regions.polygons.Length)
                 menu.AddItem(intersect, false, () => IntersectPolygons(regions, index));
             else
@@ -305,13 +413,14 @@ namespace AnimalGame.Editor
                 else
                     result.Add(regions.polygons[i]);
 
-                if (editingSpecies == regions.species && i == selectedPolygon && result.Count > firstResult)
+                if (editingEntry >= 0 && draft.Regions[editingEntry] == regions &&
+                    i == selectedPolygon && result.Count > firstResult)
                     nextSelection = firstResult;
             }
 
             RecordEdit(targetIndex < 0 ? "Intersect All Spawn Polygons" : "Intersect Spawn Polygon");
             regions.polygons = result.ToArray();
-            if (editingSpecies == regions.species)
+            if (editingEntry >= 0 && draft.Regions[editingEntry] == regions)
                 selectedPolygon = nextSelection;
             Repaint();
         }
@@ -474,9 +583,9 @@ namespace AnimalGame.Editor
             draftVertices.Clear();
         }
 
-        private void SelectPolygon(AnimalSpecies species, int index)
+        private void SelectPolygon(int entry, int index)
         {
-            editingSpecies = species;
+            editingEntry = entry;
             selectedPolygon = index;
             Repaint();
             SceneView.RepaintAll();
@@ -484,26 +593,20 @@ namespace AnimalGame.Editor
 
         private void RecordEdit(string action)
         {
-            Undo.RecordObject(asset, action);
-            EditorUtility.SetDirty(asset);
+            Undo.RecordObject(draft, action);
+            hasUnsavedChanges = true;
+            Repaint();
             SceneView.RepaintAll();
         }
 
         private void DrawScene(SceneView view)
         {
             UpdateAsset();
-            if (editingSpecies == AnimalSpecies.Unknown || map == null || !map.HasGeneratedMap ||
+            if (editingEntry < 0 || map == null || !map.HasGeneratedMap ||
                 EditorApplication.isPlayingOrWillChangePlaymode)
                 return;
 
-            var regions = asset.GetRegions(editingSpecies);
-            if (regions == null)
-            {
-                ClearDraft();
-                SelectPolygon(AnimalSpecies.Unknown, -1);
-                return;
-            }
-
+            var regions = draft.Regions[editingEntry];
             var polygons = regions.polygons;
             if (selectedPolygon >= polygons.Length)
                 selectedPolygon = -1;
@@ -614,7 +717,7 @@ namespace AnimalGame.Editor
                 return;
 
             if (pickedPolygon != selectedPolygon)
-                SelectPolygon(editingSpecies, pickedPolygon);
+                SelectPolygon(editingEntry, pickedPolygon);
             else if (removeVertex)
             {
                 RecordEdit("Remove Spawn Polygon Vertex");

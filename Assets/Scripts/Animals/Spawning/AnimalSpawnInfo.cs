@@ -13,7 +13,6 @@ namespace AnimalGame.Animals
         public VegetationKind BoundVegetation;
         public int MinimumAltitude;
         public int MaximumAltitude = int.MaxValue;
-        public int TerrainValue;
         public List<TerrainKind> AllowedTerrains = new();
         public bool IsAquatic;
     }
