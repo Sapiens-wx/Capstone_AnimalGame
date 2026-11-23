@@ -15,8 +15,10 @@ namespace AnimalGame.Editor
         private const string OptionsFolder = "Assets/Data/Communication/Options";
 
         private ContactOptionsGraph graph;
+        private ContactOptionsHistoryView history;
         private ContactNodeSelection inspectorSelection;
         [SerializeField] private int contactIndex;
+        [SerializeField] private bool showHistory;
 
         [MenuItem("Animal Game/Communication/OptionEditor")]
         private static void Open() => GetWindow<ContactOptionsWindow>("Contact Options");
@@ -28,10 +30,27 @@ namespace AnimalGame.Editor
 
             rootVisualElement.Clear();
             rootVisualElement.style.flexDirection = FlexDirection.Row;
-            var sidebar = new ScrollView();
+            var sidebar = new VisualElement();
             sidebar.style.width = 160;
             sidebar.style.flexShrink = 0;
             rootVisualElement.Add(sidebar);
+
+            var tabs = new VisualElement();
+            tabs.style.flexDirection = FlexDirection.Row;
+            var contactsTab = new Button { text = "Contacts" };
+            var historyTab = new Button { text = "History" };
+            contactsTab.style.flexGrow = 1;
+            historyTab.style.flexGrow = 1;
+            tabs.Add(contactsTab);
+            tabs.Add(historyTab);
+            sidebar.Add(tabs);
+            var contactList = new ScrollView();
+            contactList.style.flexGrow = 1;
+            sidebar.Add(contactList);
+            history = new ContactOptionsHistoryView();
+            sidebar.Add(history);
+            contactsTab.clicked += () => ShowTab(false);
+            historyTab.clicked += () => ShowTab(true);
 
             graph = new ContactOptionsGraph(this);
             rootVisualElement.Add(graph);
@@ -41,17 +60,29 @@ namespace AnimalGame.Editor
                 int index = i;
                 var button = new Button(() => SelectContact(index)) { text = contacts.contacts[i].Name };
                 buttons.Add(button);
-                sidebar.Add(button);
+                contactList.Add(button);
             }
 
             if (buttons.Count > 0) SelectContact(Mathf.Clamp(contactIndex, 0, buttons.Count - 1));
+            ShowTab(showHistory);
 
             void SelectContact(int index)
             {
                 contactIndex = index;
-                graph.Load(contacts.contacts[index].options);
+                var contact = contacts.contacts[index];
+                graph.Load(contact.options);
+                history.Load(contact.Name, contact.options);
                 for (int i = 0; i < buttons.Count; i++)
                     buttons[i].SetEnabled(i != index);
+            }
+
+            void ShowTab(bool show)
+            {
+                showHistory = show;
+                contactsTab.SetEnabled(show);
+                historyTab.SetEnabled(!show);
+                contactList.style.display = show ? DisplayStyle.None : DisplayStyle.Flex;
+                history.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             }
         }
 
@@ -84,7 +115,11 @@ namespace AnimalGame.Editor
             if (inspectorSelection != null) DestroyImmediate(inspectorSelection);
         }
 
-        private void OnUndoRedo() => graph?.Rebuild();
+        private void OnUndoRedo()
+        {
+            graph?.Rebuild();
+            history?.Refresh();
+        }
 
         internal void InspectNode(ContactOptions options, int id)
         {
@@ -108,6 +143,7 @@ namespace AnimalGame.Editor
         }
 
         internal void RefreshNode(ContactOptions options, int id) => graph.RefreshNode(options, id);
+        internal void RefreshHistory() => history.Refresh();
     }
 
     internal sealed class ContactOptionsGraph : GraphView
@@ -182,6 +218,8 @@ namespace AnimalGame.Editor
                 evt.menu.AppendAction("Make Connection", _ => StartConnection(node.Id, pointer));
                 evt.menu.AppendAction("Set as Entry Node", _ => SetEntry(node.Id),
                     options.EntryNodeId == node.Id ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
+                evt.menu.AppendAction("Set as History Entry Node", _ => SetHistoryEntry(node.Id),
+                    options.HistoryEntryNodeId == node.Id ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
                 return;
             }
 
@@ -237,6 +275,18 @@ namespace AnimalGame.Editor
             SaveOptions();
             if (oldId != 0) RefreshNode(options, oldId);
             RefreshNode(options, id);
+        }
+
+        private void SetHistoryEntry(int id)
+        {
+            int oldId = options.HistoryEntryNodeId;
+            if (id == oldId && options.EntryNodeId != 0) return;
+            Undo.RecordObject(options, "Set Contact History Entry Node");
+            options.SetHistoryEntryNode(id);
+            SaveOptions();
+            if (oldId != 0) RefreshNode(options, oldId);
+            RefreshNode(options, id);
+            window.RefreshHistory();
         }
 
         private void StartConnection(int fromId, Vector2 pointer)
@@ -348,6 +398,7 @@ namespace AnimalGame.Editor
             foreach (int id in nodeIds) options.RemoveNode(id);
             SaveOptions();
             Rebuild();
+            if (nodeIds.Length > 0) window.RefreshHistory();
         }
 
         private GraphViewChange SaveMovedNodes(GraphViewChange change)
@@ -413,7 +464,8 @@ namespace AnimalGame.Editor
             {
                 var node = options.GetNode(Id);
                 title = $"#{Id}";
-                Color color = Id == options.EntryNodeId ? new Color32(166, 77, 31, 255)
+                Color color = Id == options.HistoryEntryNodeId ? new Color32(82, 82, 82, 255)
+                    : Id == options.EntryNodeId ? new Color32(166, 77, 31, 255)
                     : node.Sender == Sender.Player ? new Color32(48, 87, 125, 255)
                     : new Color32(70, 100, 61, 255);
                 mainContainer.style.backgroundColor = color;

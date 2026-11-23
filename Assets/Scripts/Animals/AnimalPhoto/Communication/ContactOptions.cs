@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimalGame.Save;
 using UnityEngine;
 
 namespace AnimalGame.Animals.Communication
@@ -31,14 +32,32 @@ namespace AnimalGame.Animals.Communication
         }
     }
 
+    [Serializable]
+    public sealed class ContactHistoryDate
+    {
+        [SerializeField] private int nodeId;
+        [SerializeField] private long gameTimeTicks;
+
+        public int NodeId { get => nodeId; internal set => nodeId = value; }
+        public DateTime GameTime
+        {
+            get => new DateTime(gameTimeTicks);
+            internal set => gameTimeTicks = value.Ticks - value.Ticks % TimeSpan.TicksPerMinute;
+        }
+    }
+
     public sealed class ContactOptions : ScriptableObject
     {
         // Node IDs are one-based list indices. Zero denotes an unset entry.
         [SerializeField, HideInInspector] private List<ContactMessageNode> nodes = new();
         [SerializeField, HideInInspector] private int entryNodeId;
+        [SerializeField, HideInInspector] private int historyEntryNodeId;
+        [SerializeField, HideInInspector] private List<ContactHistoryDate> historyDates = new();
 
         public int NodeCount => nodes.Count;
         public int EntryNodeId => entryNodeId;
+        public int HistoryEntryNodeId => historyEntryNodeId;
+        public IReadOnlyList<ContactHistoryDate> HistoryDates => historyDates;
         public ContactMessageNode GetNode(int id) => nodes[id - 1];
         public bool ContainsNode(int id) => id > 0 && id <= nodes.Count;
 
@@ -52,6 +71,44 @@ namespace AnimalGame.Animals.Communication
         {
             if (id != 0) GetNode(id);
             entryNodeId = id;
+        }
+
+        public void SetHistoryEntryNode(int id)
+        {
+            if (id != 0) GetNode(id);
+            historyEntryNodeId = id;
+            if (entryNodeId == 0) entryNodeId = id;
+        }
+
+        public void UpdateHistory()
+        {
+            var previousDates = new Dictionary<int, ContactHistoryDate>();
+            foreach (var date in historyDates) previousDates.Add(date.NodeId, date);
+
+            var visited = new HashSet<int>();
+            var updatedDates = new List<ContactHistoryDate>();
+            int id = historyEntryNodeId;
+            while (id != 0 && visited.Add(id))
+            {
+                AddDate(id);
+                var node = GetNode(id);
+                if (node.Children.Count == 0 || node.HasChild(entryNodeId)) break;
+                id = node.Children[0];
+            }
+            if (entryNodeId != 0 && !visited.Contains(entryNodeId)) AddDate(entryNodeId);
+            historyDates = updatedDates;
+
+            void AddDate(int nodeId)
+            {
+                updatedDates.Add(previousDates.TryGetValue(nodeId, out var date)
+                    ? date
+                    : new ContactHistoryDate { NodeId = nodeId, GameTime = GameSave.InitialGameTime });
+            }
+        }
+
+        public void SetHistoryDate(int nodeId, DateTime gameTime)
+        {
+            historyDates.Find(date => date.NodeId == nodeId).GameTime = gameTime;
         }
 
         public bool CanConnect(int fromId, int toId)
@@ -82,8 +139,12 @@ namespace AnimalGame.Animals.Communication
                 if (id != lastId) node.ReplaceChild(lastId, id);
             }
 
-            if (entryNodeId == id) entryNodeId = 0;
-            else if (entryNodeId == lastId) entryNodeId = id;
+            entryNodeId = RemapReference(entryNodeId);
+            historyEntryNodeId = RemapReference(historyEntryNodeId);
+            historyDates.RemoveAll(date => date.NodeId == id);
+            foreach (var date in historyDates) date.NodeId = RemapReference(date.NodeId);
+
+            int RemapReference(int reference) => reference == id ? 0 : reference == lastId ? id : reference;
         }
 
         public bool CanSetSender(int id, Sender sender)
