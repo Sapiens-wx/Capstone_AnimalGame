@@ -3,6 +3,7 @@ Shader "AnimalGame/Interaction Marker"
     Properties
     {
         _Color ("Tint", Color) = (1, 1, 1, 1)
+        _RequirePlayerUiClip ("Keep Edge Inside Player Disk", Float) = 0
     }
 
     SubShader
@@ -36,6 +37,7 @@ Shader "AnimalGame/Interaction Marker"
             };
 
             fixed4 _Color;
+            float _RequirePlayerUiClip;
             // Shared view geometry is supplied by the gameplay HUD, never by this material.
             float _PlayerUiClipEnabled;
             float4 _PlayerUiClipCenterPixels;
@@ -63,7 +65,7 @@ Shader "AnimalGame/Interaction Marker"
                 float radius = max(0.0, _PlayerUiClipRadiusPixels);
                 float softness = max(0.001, _PlayerUiClipSoftnessPixels);
                 float visibility = 1.0 - smoothstep(max(0.0, radius - softness),
-                    radius + softness, distanceFromCenter);
+                    radius + (_RequirePlayerUiClip > 0.5 ? 0.0 : softness), distanceFromCenter);
                 fixed4 color = input.color;
                 color.a *= visibility;
                 clip(color.a - 0.001);

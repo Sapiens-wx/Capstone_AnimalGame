@@ -1,0 +1,257 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5845fd4cebb6436594a54b821c57c433, type: 3}
+  m_Name: OpeningAudioSettings
+  m_EditorClassIdentifier:
+  woodpeckerPeck:
+    eventReference:
+      Guid:
+        Data1: -1983192578
+        Data2: 1329111484
+        Data3: -680509816
+        Data4: -564585612
+      Path: event:/Robot/Terrain/DeadTreeImpact
+    gainDb: -10
+    readBySoundUI: 1
+    soundUIStrength: 0.4
+  woodpeckerWaveShader: {fileID: 4800000, guid: e6f2a8c1d4b7457e90a3c5b8f1d6e2a9, type: 3}
+  restartConfirmed:
+    eventReference:
+      Guid:
+        Data1: 670722289
+        Data2: 1139876286
+        Data3: -94358359
+        Data4: 593104232
+      Path: event:/Robot/Inventory/MoveConfirm
+    gainDb: -12
+    readBySoundUI: 0
+    soundUIStrength: 0
+  statusScan:
+    eventReference:
+      Guid:
+        Data1: -426163616
+        Data2: 1166628914
+        Data3: 1275208328
+        Data4: -1613403830
+      Path: event:/Robot/Inventory/Open
+    gainDb: -9
+    readBySoundUI: 0
+    soundUIStrength: 0
+  statusGlitch:
+    eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0
+  title:
+    eventReference:
+      Guid:
+        Data1: 211225229
+        Data2: 1322910354
+        Data3: -1295385720
+        Data4: -1304870988
+      Path: event:/Robot/Inventory/Navigate
+    gainDb: -17
+    readBySoundUI: 0
+    soundUIStrength: 0
+  confirm:
+    eventReference:
+      Guid:
+        Data1: 670722289
+        Data2: 1139876286
+        Data3: -94358359
+        Data4: 593104232
+      Path: event:/Robot/Inventory/MoveConfirm
+    gainDb: -15
+    readBySoundUI: 0
+    soundUIStrength: 0
+  typing:
+    eventReference:
+      Guid:
+        Data1: 1885960042
+        Data2: 1208824450
+        Data3: -1837721167
+        Data4: -743332979
+      Path: event:/Robot/Inventory/MoveSelect
+    gainDb: -28
+    readBySoundUI: 0
+    soundUIStrength: 0
+  testResult:
+    eventReference:
+      Guid:
+        Data1: -470234703
+        Data2: 1330429046
+        Data3: 1033890178
+        Data4: 1724335349
+      Path: event:/Robot/Balance/ForceAccepted
+    gainDb: -18
+    readBySoundUI: 0
+    soundUIStrength: 0
+  instrumentOnline:
+    eventReference:
+      Guid:
+        Data1: 1885960042
+        Data2: 1208824450
+        Data3: -1837721167
+        Data4: -743332979
+      Path: event:/Robot/Inventory/MoveSelect
+    gainDb: -17
+    readBySoundUI: 0
+    soundUIStrength: 0
+  instrumentGlitch:
+    eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0
+  armDeploy:
+    eventReference:
+      Guid:
+        Data1: 66713483
+        Data2: 1323250135
+        Data3: -2089050993
+        Data4: 922751772
+      Path: event:/Robot/Arm/Deploy
+    gainDb: -9
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  armServo:
+    eventReference:
+      Guid:
+        Data1: -1909701297
+        Data2: 1148086182
+        Data3: 784715660
+        Data4: 1456026666
+      Path: event:/Robot/Arm/Servo
+    gainDb: -15
+    readBySoundUI: 1
+    soundUIStrength: 0.35
+  armJam:
+    eventReference:
+      Guid:
+        Data1: -706394584
+        Data2: 1164006509
+        Data3: -427704954
+        Data4: -1354302477
+      Path: event:/Robot/Arm/Blocked
+    gainDb: -9
+    readBySoundUI: 1
+    soundUIStrength: 0.55
+  armRetract:
+    eventReference:
+      Guid:
+        Data1: 710530657
+        Data2: 1138356866
+        Data3: -156119113
+        Data4: -1174354338
+      Path: event:/Robot/Arm/Retract
+    gainDb: -9
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  armSettled:
+    eventReference:
+      Guid:
+        Data1: 2046136790
+        Data2: 1140686344
+        Data3: -1415981671
+        Data4: -470298585
+      Path: event:/Robot/Arm/HandClose
+    gainDb: -14
+    readBySoundUI: 1
+    soundUIStrength: 0.4
+  sensorsRestart:
+    eventReference:
+      Guid:
+        Data1: 1227666986
+        Data2: 1091633469
+        Data3: 1620161177
+        Data4: -856313512
+      Path: event:/Robot/Scan/Charge
+    gainDb: -17
+    readBySoundUI: 1
+    soundUIStrength: 0.45
+  contourReveal:
+    eventReference:
+      Guid:
+        Data1: 1731406516
+        Data2: 1234519415
+        Data3: -1127775850
+        Data4: 1724700800
+      Path: event:/Robot/Scan/Pulse
+    gainDb: -13
+    readBySoundUI: 1
+    soundUIStrength: 0.65
+  contourDrop:
+    eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0
+  terrainReveal:
+    eventReference:
+      Guid:
+        Data1: 317682470
+        Data2: 1139770060
+        Data3: -910220877
+        Data4: 183146200
+      Path: event:/Robot/Scan/Hit
+    gainDb: -13
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  terrainDrop:
+    eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0
+  mapReady:
+    eventReference:
+      Guid:
+        Data1: -470234703
+        Data2: 1330429046
+        Data3: 1033890178
+        Data4: 1724335349
+      Path: event:/Robot/Balance/ForceAccepted
+    gainDb: -13
+    readBySoundUI: 0
+    soundUIStrength: 0
+  handoff:
+    eventReference:
+      Guid:
+        Data1: 0
+        Data2: 0
+        Data3: 0
+        Data4: 0
+      Path:
+    gainDb: 0
+    readBySoundUI: 0
+    soundUIStrength: 0

@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using AnimalGame.Animals;
+using AnimalGame.Animals.UI;
+using AnimalGame.MainUI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace AnimalGame.Demos.CheckpointRefit
 {
     /// <summary>
-    /// Maintenance presentation that emits equipment requests for the terminal to handle.
-    /// Gameplay input and changes to the player's equipment remain outside the view.
+    /// Maintenance presentation. The terminal owns gameplay input, equipment, and repair transactions.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UIDocument))]
@@ -24,7 +25,31 @@ namespace AnimalGame.Demos.CheckpointRefit
         private VisualElement screen;
         private VisualElement stage;
         private VisualElement content;
+        private VisualElement repairContent;
+        private VisualElement footer;
+        private VisualElement refitFooterActions;
+        private VisualElement tabs;
+        private VisualElement tabSelection;
+        private VisualElement tabSelectionBorder;
+        private Button repairTab;
+        private Button refitTab;
+        private ArchiveButtonFeedback tabFeedback;
         private VisualElement inspectionModal;
+        private CircularProgressElement repairIntegrityRing;
+        private CircularProgressElement repairPowerRing;
+        private Label repairIntegrity;
+        private Label repairPower;
+        private Label repairAfter;
+        private Label repairCargo;
+        private Label repairStorage;
+        private Label repairTotal;
+        private Label repairCost;
+        private Label repairRemaining;
+        private Label repairMessage;
+        private Image repairIcon;
+        private Button repairConfirm;
+        private ArchiveHoldCircleElement repairHold;
+        private int repairPointerId = -1;
         private Label prompt;
         private Label checkpoint;
         private Label libraryLabel;
@@ -56,6 +81,9 @@ namespace AnimalGame.Demos.CheckpointRefit
         public event Action EquipRequested;
         public bool IsVisible { get; private set; }
         public bool IsInspectionOpen { get; private set; }
+        public bool IsRepairPage { get; private set; }
+        public bool IsPageSwitchPending => tabFeedback?.IsWaitingForAction ?? false;
+        public bool IsRepairPointerHeld => repairPointerId >= 0;
         public int SelectedSlotIndex { get; private set; }
         public int SelectedModuleIndex { get; private set; }
         public int SlotCount => SlotNames.Length;
@@ -92,11 +120,13 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         public void RequestEquipSelected()
         {
-            if (!IsVisible || IsInspectionOpen || !CanEquipSelection) return;
+            if (!CanUseRefit || !CanEquipSelection) return;
             EquipRequested?.Invoke();
         }
 
         public void RefreshEquipment() => RefreshSelection();
+
+        private bool CanUseRefit => IsVisible && !IsInspectionOpen && !IsRepairPage && !IsPageSwitchPending;
 
         private bool CanEquipSelection => SelectedSlotIndex == 1 && IsSelectedModuleAvailable
             && !IsSelectedModuleInstalled && cameraEquipment != null && cameraEquipment.IsAvailable;
@@ -130,10 +160,12 @@ namespace AnimalGame.Demos.CheckpointRefit
                 + " / " + (string.IsNullOrWhiteSpace(checkpointId) ? "DEMO-01" : checkpointId.ToUpperInvariant());
             IsVisible = true;
             IsInspectionOpen = false;
+            IsRepairPage = false;
             screen.style.display = DisplayStyle.Flex;
             inspectionModal.style.display = DisplayStyle.None;
-            content.SetEnabled(true);
+            SetInspectionControlsEnabled(true);
             SetPrompt(string.Empty, false);
+            RefreshPage();
             RefreshSelection();
             FitStage();
             moduleButtons[SelectedModuleIndex]?.Focus();
@@ -141,13 +173,67 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         public void Hide()
         {
+            tabFeedback?.Stop();
+            ReleaseRepairPointer();
+            SetRepairHoldProgress(0);
             IsVisible = false;
             IsInspectionOpen = false;
+            IsRepairPage = false;
             if (screen != null) screen.style.display = DisplayStyle.None;
             if (inspectionModal != null) inspectionModal.style.display = DisplayStyle.None;
-            if (content != null) content.SetEnabled(true);
+            SetInspectionControlsEnabled(true);
             if (prompt != null) prompt.style.display = DisplayStyle.None;
         }
+
+        public bool RequestPage(bool repair)
+        {
+            if (!IsVisible || IsInspectionOpen || IsPageSwitchPending || repair == IsRepairPage) return false;
+            ReleaseRepairPointer();
+            SetRepairHoldProgress(0);
+            tabFeedback.Run((repair ? repairTab : refitTab).name, () =>
+            {
+                IsRepairPage = repair;
+                RefreshPage();
+                if (repair) repairTab.Focus();
+                else moduleButtons[SelectedModuleIndex]?.Focus();
+            });
+            return true;
+        }
+
+        public void SetRepairStatus(float integrity, float power, float afterIntegrity, int cargo, int? storage,
+            int cost, Sprite icon, bool canRepair, string message)
+        {
+            if (!EnsureBound()) return;
+            int total = cargo + storage.GetValueOrDefault();
+            repairIntegrityRing.SetProgress(integrity);
+            repairIntegrityRing.SetPreviewProgress(afterIntegrity);
+            repairPowerRing.SetProgress(power);
+            repairIntegrity.text = FormatPercent(integrity);
+            repairPower.text = FormatPercent(power);
+            repairAfter.text = FormatPercent(afterIntegrity);
+            repairCargo.text = cargo.ToString();
+            repairStorage.text = storage?.ToString() ?? "\u2014";
+            repairStorage.tooltip = storage.HasValue ? null : "Storage unavailable";
+            repairTotal.text = total.ToString();
+            repairCost.text = cost > 0 ? "\u2212" + cost : "0";
+            repairRemaining.text = total >= cost ? (total - cost).ToString() : "\u2014";
+            repairMessage.text = message ?? string.Empty;
+            repairIcon.sprite = icon;
+            if (!canRepair)
+            {
+                ReleaseRepairPointer();
+                SetRepairHoldProgress(0);
+            }
+            repairConfirm.SetEnabled(canRepair);
+        }
+
+        public void SetRepairHoldProgress(float progress)
+        {
+            if (repairHold != null && repairHold.Progress != progress) repairHold.Progress = progress;
+        }
+
+        private static string FormatPercent(float value) =>
+            float.IsNaN(value) ? "\u2014" : Mathf.RoundToInt(value * 100f) + "%";
 
         public void SetPrompt(string text, bool visible)
         {
@@ -171,23 +257,23 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         public void NavigateSlot(int delta)
         {
-            if (!IsVisible || IsInspectionOpen || delta == 0) return;
+            if (!CanUseRefit || delta == 0) return;
             SelectSlot(Wrap(SelectedSlotIndex + delta, SlotNames.Length));
             slotButtons[SelectedSlotIndex]?.Focus();
         }
 
         public void NavigateModule(int delta)
         {
-            if (!IsVisible || IsInspectionOpen || delta == 0) return;
+            if (!CanUseRefit || delta == 0) return;
             SelectModule(Wrap(SelectedModuleIndex + delta, moduleButtons.Length));
             moduleButtons[SelectedModuleIndex]?.Focus();
         }
 
         public void OpenInspection()
         {
-            if (!IsVisible || IsInspectionOpen || inspectionModal == null || !IsSelectedModuleAvailable) return;
+            if (!CanUseRefit || inspectionModal == null || !IsSelectedModuleAvailable) return;
             IsInspectionOpen = true;
-            content.SetEnabled(false);
+            SetInspectionControlsEnabled(false);
             inspectionModal.style.display = DisplayStyle.Flex;
             inspectionCloseButton?.Focus();
         }
@@ -197,9 +283,81 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (!IsInspectionOpen) return false;
             IsInspectionOpen = false;
             if (inspectionModal != null) inspectionModal.style.display = DisplayStyle.None;
-            if (content != null) content.SetEnabled(true);
+            SetInspectionControlsEnabled(true);
             inspectButton?.Focus();
             return true;
+        }
+
+        private void SetInspectionControlsEnabled(bool enabled)
+        {
+            content?.SetEnabled(enabled);
+            tabs?.SetEnabled(enabled);
+            footer?.SetEnabled(enabled);
+        }
+
+        private void RefreshPage()
+        {
+            content.style.display = IsRepairPage ? DisplayStyle.None : DisplayStyle.Flex;
+            repairContent.style.display = IsRepairPage ? DisplayStyle.Flex : DisplayStyle.None;
+            refitFooterActions.style.display = IsRepairPage ? DisplayStyle.None : DisplayStyle.Flex;
+            repairTab.EnableInClassList("active-tab", IsRepairPage);
+            refitTab.EnableInClassList("active-tab", !IsRepairPage);
+            UpdateTabSelection();
+        }
+
+        private void UpdateTabSelection()
+        {
+            var tab = IsRepairPage ? repairTab : refitTab;
+            if (!(tab.layout.width > 0)) return;
+            var style = tab.resolvedStyle;
+            Vector2 bottomLeft = tab.ChangeCoordinatesTo(tabSelection.parent,
+                new Vector2(0, tab.layout.height - style.borderBottomWidth * .5f));
+            tabSelection.style.left = bottomLeft.x;
+            tabSelection.style.top = bottomLeft.y;
+            tabSelection.style.width = tab.layout.width - style.borderRightWidth;
+            tabSelectionBorder.style.height = style.borderBottomWidth;
+            tabSelectionBorder.style.backgroundColor = style.borderBottomColor;
+        }
+
+        private void OnTabGeometryChanged(GeometryChangedEvent evt) => UpdateTabSelection();
+
+        private void OnRepairPointerDown(PointerDownEvent evt)
+        {
+            if (evt.button != 0 || !IsVisible || !IsRepairPage || IsPageSwitchPending
+                || IsRepairPointerHeld || !repairConfirm.enabledInHierarchy) return;
+            repairConfirm.Focus();
+            repairPointerId = evt.pointerId;
+            repairConfirm.CapturePointer(repairPointerId);
+            evt.StopImmediatePropagation();
+        }
+
+        private void OnRepairPointerMove(PointerMoveEvent evt)
+        {
+            if (evt.pointerId == repairPointerId && !repairConfirm.worldBound.Contains((Vector2)evt.position))
+                ReleaseRepairPointer();
+        }
+
+        private void OnRepairPointerUp(PointerUpEvent evt)
+        {
+            if (evt.pointerId == repairPointerId && evt.button == 0) ReleaseRepairPointer();
+        }
+
+        private void OnRepairPointerCancel(PointerCancelEvent evt)
+        {
+            if (evt.pointerId == repairPointerId) ReleaseRepairPointer();
+        }
+
+        private void OnRepairPointerCaptureOut(PointerCaptureOutEvent evt)
+        {
+            if (evt.pointerId == repairPointerId) repairPointerId = -1;
+        }
+
+        private void ReleaseRepairPointer()
+        {
+            if (!IsRepairPointerHeld) return;
+            int pointerId = repairPointerId;
+            repairPointerId = -1;
+            repairConfirm.ReleasePointer(pointerId);
         }
 
         private bool EnsureBound()
@@ -214,6 +372,39 @@ namespace AnimalGame.Demos.CheckpointRefit
             boundRoot.pickingMode = PickingMode.Ignore;
             stage = root.Q<VisualElement>("refit-stage");
             content = root.Q<VisualElement>("refit-content");
+            repairContent = root.Q<VisualElement>("repair-content");
+            footer = root.Q<VisualElement>("refit-footer");
+            refitFooterActions = root.Q<VisualElement>("refit-footer-actions");
+            tabs = root.Q<VisualElement>("maintenance-tabs");
+            repairTab = tabs.Q<Button>("repair-tab");
+            refitTab = tabs.Q<Button>("refit-tab");
+            tabSelection = root.Q<VisualElement>("tab-selection");
+            tabSelectionBorder = tabSelection.Q<VisualElement>("tab-selection-border");
+            tabFeedback = new ArchiveButtonFeedback(stage);
+            repairIntegrityRing = repairContent.Q<CircularProgressElement>("repair-integrity-ring");
+            repairPowerRing = repairContent.Q<CircularProgressElement>("repair-power-ring");
+            repairIntegrity = repairContent.Q<Label>("repair-integrity");
+            repairPower = repairContent.Q<Label>("repair-power");
+            repairAfter = repairContent.Q<Label>("repair-after");
+            repairCargo = repairContent.Q<Label>("repair-cargo");
+            repairStorage = repairContent.Q<Label>("repair-storage");
+            repairTotal = repairContent.Q<Label>("repair-total");
+            repairCost = repairContent.Q<Label>("repair-cost");
+            repairRemaining = repairContent.Q<Label>("repair-remaining");
+            repairMessage = repairContent.Q<Label>("repair-message");
+            repairIcon = repairContent.Q<Image>("repair-icon");
+            repairIcon.scaleMode = ScaleMode.ScaleToFit;
+            repairConfirm = repairContent.Q<Button>("repair-confirm");
+            repairHold = repairConfirm.Q<ArchiveHoldCircleElement>("repair-hold");
+            BindClick(repairTab, () => RequestPage(true));
+            BindClick(refitTab, () => RequestPage(false));
+            repairTab.RegisterCallback<GeometryChangedEvent>(OnTabGeometryChanged);
+            refitTab.RegisterCallback<GeometryChangedEvent>(OnTabGeometryChanged);
+            repairConfirm.RegisterCallback<PointerDownEvent>(OnRepairPointerDown, TrickleDown.TrickleDown);
+            repairConfirm.RegisterCallback<PointerMoveEvent>(OnRepairPointerMove);
+            repairConfirm.RegisterCallback<PointerUpEvent>(OnRepairPointerUp);
+            repairConfirm.RegisterCallback<PointerCancelEvent>(OnRepairPointerCancel);
+            repairConfirm.RegisterCallback<PointerCaptureOutEvent>(OnRepairPointerCaptureOut);
             prompt = root.Q<Label>("refit-interaction-prompt");
             inspectionModal = root.Q<VisualElement>("refit-inspection-modal");
             checkpoint = root.Q<Label>("refit-checkpoint");
@@ -263,6 +454,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             root.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             screen.style.display = IsVisible ? DisplayStyle.Flex : DisplayStyle.None;
             inspectionModal.style.display = DisplayStyle.None;
+            RefreshPage();
             RefreshSelection();
             FitStage();
             return true;
@@ -277,6 +469,19 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void Unbind()
         {
+            tabFeedback?.Stop();
+            tabFeedback = null;
+            ReleaseRepairPointer();
+            repairTab?.UnregisterCallback<GeometryChangedEvent>(OnTabGeometryChanged);
+            refitTab?.UnregisterCallback<GeometryChangedEvent>(OnTabGeometryChanged);
+            if (repairConfirm != null)
+            {
+                repairConfirm.UnregisterCallback<PointerDownEvent>(OnRepairPointerDown, TrickleDown.TrickleDown);
+                repairConfirm.UnregisterCallback<PointerMoveEvent>(OnRepairPointerMove);
+                repairConfirm.UnregisterCallback<PointerUpEvent>(OnRepairPointerUp);
+                repairConfirm.UnregisterCallback<PointerCancelEvent>(OnRepairPointerCancel);
+                repairConfirm.UnregisterCallback<PointerCaptureOutEvent>(OnRepairPointerCaptureOut);
+            }
             foreach (var pair in clickHandlers) pair.Key.clicked -= pair.Value;
             clickHandlers.Clear();
             if (boundRoot != null)
@@ -292,7 +497,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void SelectSlot(int index)
         {
-            if (!IsVisible || IsInspectionOpen) return;
+            if (!CanUseRefit) return;
             RefreshCameraModuleOrder();
             SelectedSlotIndex = Wrap(index, SlotNames.Length);
             SelectedModuleIndex = 0;
@@ -301,7 +506,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void SelectModule(int index)
         {
-            if (!IsVisible || IsInspectionOpen) return;
+            if (!CanUseRefit) return;
             SelectedModuleIndex = Wrap(index, moduleButtons.Length);
             RefreshSelection();
         }
@@ -379,7 +584,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (photoExpand != null) photoExpand.style.display = selectedAvailable ? DisplayStyle.Flex : DisplayStyle.None;
             if (noData != null) noData.style.display = selectedAvailable ? DisplayStyle.None : DisplayStyle.Flex;
             if (modalNoData != null) modalNoData.style.display = selectedAvailable ? DisplayStyle.None : DisplayStyle.Flex;
-            if (selectionMoved && IsVisible && !IsInspectionOpen) moduleButtons[SelectedModuleIndex]?.Focus();
+            if (selectionMoved && CanUseRefit) moduleButtons[SelectedModuleIndex]?.Focus();
         }
 
         private bool RefreshCameraModuleOrder()
@@ -442,7 +647,9 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void SuppressSubmit(NavigationSubmitEvent evt)
         {
-            if (IsVisible) evt.StopImmediatePropagation();
+            if (!IsVisible) return;
+            boundRoot.focusController?.IgnoreEvent(evt);
+            evt.StopImmediatePropagation();
         }
 
         private void SuppressCancel(NavigationCancelEvent evt)

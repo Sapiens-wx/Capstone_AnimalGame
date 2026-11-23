@@ -22,6 +22,22 @@
     left: 0; top: 0; right: 0; bottom: 0;
     overflow: hidden;
 }
+#map-data-notice {
+    display: none;
+    position: absolute;
+    top: 76%; left: 54%;
+    translate: -50% -50%;
+    margin: 0;
+    padding: 8px 16px;
+    border-left-width: 2px;
+    border-left-color: #D4B854;
+    background-color: rgba(0, 0, 0, 0.9);
+    color: #D4B854;
+    font-size: 22px;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+}
 #map-pin-selector {
     position: absolute;
     left: 50%; bottom: 0;
@@ -61,6 +77,35 @@
     position: absolute;
     left: 0; top: 0; right: 0; bottom: 0;
     overflow: hidden;
+}
+#map-unknown-signal {
+    position: absolute;
+    display: none;
+}
+#map-unknown-signal-mark {
+    position: absolute;
+    left: 50%; top: 50%;
+    translate: -50% -50%;
+    width: 32px; height: 32px;
+    margin: 0; padding: 0;
+    border-radius: 50%;
+    background-color: black;
+    color: #D4B854;
+    font-size: 24px;
+    -unity-font-definition: resource('UI/Font/Orbitron-Bold');
+    -unity-text-align: middle-center;
+}
+#map-unknown-signal-label {
+    position: absolute;
+    left: 50%; top: 50%;
+    translate: -50% 0;
+    margin: 26px 0 0;
+    padding: 3px 6px;
+    background-color: rgba(0, 0, 0, 0.86);
+    color: #D4B854;
+    font-size: 16px;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+    white-space: nowrap;
 }
 #map-cursor {
     position: absolute;

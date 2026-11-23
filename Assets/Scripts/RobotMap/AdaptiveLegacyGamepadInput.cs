@@ -251,16 +251,24 @@ namespace AnimalGame.RobotMap
             return Input.GetKeyDown(KeyCode.JoystickButton3);
         }
 
-        public static bool WasDpadLeftPressedThisFrame() => WasDpadPressedThisFrame(left: true);
-        public static bool WasDpadRightPressedThisFrame() => WasDpadPressedThisFrame(left: false);
+        private enum DpadDirection { Left, Right, Down }
+        public static bool WasDpadLeftPressedThisFrame() => WasDpadPressedThisFrame(DpadDirection.Left);
+        public static bool WasDpadRightPressedThisFrame() => WasDpadPressedThisFrame(DpadDirection.Right);
+        public static bool WasDpadDownPressedThisFrame() => WasDpadPressedThisFrame(DpadDirection.Down);
 
-        private static bool WasDpadPressedThisFrame(bool left)
+        private static bool WasDpadPressedThisFrame(DpadDirection direction)
         {
 #if ENABLE_INPUT_SYSTEM
             foreach (Gamepad gamepad in Gamepad.all)
             {
-                if (gamepad.added && (left ? gamepad.dpad.left : gamepad.dpad.right).wasPressedThisFrame)
-                    return true;
+                if (!gamepad.added) continue;
+                var button = direction switch
+                {
+                    DpadDirection.Left => gamepad.dpad.left,
+                    DpadDirection.Right => gamepad.dpad.right,
+                    _ => gamepad.dpad.down
+                };
+                if (button.wasPressedThisFrame) return true;
             }
 #endif
 
@@ -310,7 +318,7 @@ namespace AnimalGame.RobotMap
             RefreshDeviceIfNeeded(true);
         }
 
-        private static void RefreshDeviceIfNeeded(bool force = false)
+        internal static void RefreshDeviceIfNeeded(bool force = false)
         {
             if (!force && Time.unscaledTime < nextDeviceRefreshTime)
                 return;
@@ -443,6 +451,23 @@ namespace AnimalGame.RobotMap
                 return Vector2.ClampMagnitude(gamepad.leftStick.ReadUnprocessedValue(), 1f);
 #endif
             return Vector2.ClampMagnitude(ReadLeftStick(), 1f);
+        }
+
+        internal static bool WasSouthFaceButtonPressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            bool hasInputSystemGamepad = false;
+            foreach (Gamepad gamepad in Gamepad.all)
+            {
+                if (!gamepad.added) continue;
+                hasInputSystemGamepad = true;
+                if (gamepad.buttonSouth.wasPressedThisFrame) return true;
+            }
+            if (hasInputSystemGamepad) return false;
+#endif
+            RefreshDeviceIfNeeded();
+            return Input.GetKeyDown(ActiveFamily == LegacyGamepadFamily.Sony
+                ? KeyCode.JoystickButton1 : KeyCode.JoystickButton0);
         }
 
         public static bool IsSouthFaceButtonHeld()

@@ -1,20 +1,25 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:refit="AnimalGame.Demos.CheckpointRefit" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:refit="AnimalGame.Demos.CheckpointRefit" xmlns:hud="AnimalGame.MainUI" xmlns:archive="AnimalGame.Animals.UI" editor-extension-mode="False">
     <Style src="CheckpointRefit.uss" />
     <ui:VisualElement name="refit-host" class="refit-host" picking-mode="Ignore">
     <ui:Label name="refit-interaction-prompt" class="refit-interaction-prompt" picking-mode="Ignore" />
     <ui:VisualElement name="refit-screen" class="refit-screen">
         <ui:VisualElement name="refit-stage" class="refit-stage">
-            <ui:VisualElement name="refit-content" class="refit-content">
-                <ui:VisualElement class="refit-header">
-                    <ui:VisualElement class="refit-heading">
-                        <ui:Label text="REFIT" class="refit-title" />
-                        <ui:Label text="MAINTENANCE" class="refit-eyebrow" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="refit-location">
-                        <ui:Label name="refit-checkpoint" text="WEATHER TOWER / WX-03" class="refit-checkpoint" />
-                        <ui:Label text="SERVICE LINK CONNECTED" class="refit-link-state" />
-                    </ui:VisualElement>
+            <ui:VisualElement class="maintenance-frame" picking-mode="Ignore" />
+            <ui:VisualElement name="maintenance-tabs" class="maintenance-tabs" picking-mode="Ignore">
+                <ui:Button name="repair-tab" class="maintenance-tab">
+                    <ui:Label name="repair-tab-key" text="LB" class="key-badge" picking-mode="Ignore" />
+                    <ui:Label text="Repair" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Button name="refit-tab" class="maintenance-tab active-tab">
+                    <ui:Label text="Refit" picking-mode="Ignore" />
+                    <ui:Label name="refit-tab-key" text="RB" class="key-badge" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:VisualElement name="tab-selection" class="maintenance-tab-selection" picking-mode="Ignore">
+                    <ui:VisualElement name="tab-selection-border" class="maintenance-tab-selection-border" picking-mode="Ignore" />
                 </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="refit-content" class="refit-content" picking-mode="Ignore">
+                <ui:Label name="refit-checkpoint" class="refit-checkpoint" picking-mode="Ignore" />
                 <ui:VisualElement class="refit-slot-navigation">
                     <ui:Label text="BODY SLOTS" class="refit-eyebrow refit-nav-heading" />
                     <ui:Button name="refit-slot-0" text="LEGS" class="refit-slot refit-selected" />
@@ -76,17 +81,75 @@
                         <ui:Button name="refit-equip" text="INSTALLED" class="refit-equip-button" enabled="false" tooltip="Initial installed assembly" />
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="refit-footer">
-                    <ui:Label text="PROTOTYPE / CURRENT CONFIGURATION" class="refit-footer-note" />
-                    <ui:VisualElement class="refit-controls">
-                        <ui:Label text="LB / RB   SLOT" class="refit-control-hint" />
+            </ui:VisualElement>
+            <ui:VisualElement name="repair-content" class="repair-content" picking-mode="Ignore">
+                <ui:VisualElement class="repair-gauge repair-integrity-gauge" picking-mode="Ignore">
+                    <ui:Label text="INTEGRITY" class="repair-gauge-title" picking-mode="Ignore" />
+                    <refit:RefitMechanicalFrameElement frame-kind="unit" class="repair-gauge-frame" />
+                    <hud:CircularProgressElement name="repair-integrity-ring" progress="0" show-track="true" line-width="6" notch-depth="36" class="repair-gauge-ring" />
+                    <ui:Label name="repair-integrity" text="—" class="repair-gauge-number" picking-mode="Ignore" />
+                    <ui:Label text="CURRENT" class="repair-gauge-caption" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="repair-gauge repair-power-gauge" picking-mode="Ignore">
+                    <ui:Label text="POWER" class="repair-gauge-title" picking-mode="Ignore" />
+                    <refit:RefitMechanicalFrameElement frame-kind="unit" class="repair-gauge-frame" />
+                    <hud:CircularProgressElement name="repair-power-ring" progress="0" show-track="true" outside="true" length="18" line-width="6" class="repair-gauge-ring" />
+                    <ui:Label name="repair-power" text="—" class="repair-gauge-number" picking-mode="Ignore" />
+                    <ui:Label text="CURRENT" class="repair-gauge-caption" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="repair-after-row" picking-mode="Ignore">
+                    <ui:Label text="AFTER REPAIR" class="repair-row-caption" />
+                    <ui:Label name="repair-after" text="—" class="repair-row-number repair-after-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="repair-divider" picking-mode="Ignore" />
+                <ui:VisualElement class="repair-materials" picking-mode="Ignore">
+                    <ui:VisualElement class="repair-material-heading" picking-mode="Ignore">
+                        <ui:VisualElement class="repair-icon-frame" picking-mode="Ignore">
+                            <ui:Image name="repair-icon" class="repair-material-icon" scale-mode="ScaleToFit" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                        <ui:Label text="Metal Scrap" class="repair-material-title" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="repair-ledger" picking-mode="Ignore">
+                        <ui:VisualElement class="repair-row">
+                            <ui:Label text="CARGO" class="repair-row-caption" />
+                            <ui:Label name="repair-cargo" text="—" class="repair-row-number" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="repair-row">
+                            <ui:Label text="STORAGE" class="repair-row-caption" />
+                            <ui:Label name="repair-storage" text="—" class="repair-row-number" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="repair-row repair-total-row">
+                            <ui:Label text="TOTAL AVAILABLE" class="repair-row-caption" />
+                            <ui:Label name="repair-total" text="—" class="repair-row-number" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="repair-row">
+                            <ui:Label text="REPAIR COST" class="repair-row-caption" />
+                            <ui:Label name="repair-cost" text="—" class="repair-row-number repair-cost-value" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="repair-row">
+                            <ui:Label text="REMAINING" class="repair-row-caption" />
+                            <ui:Label name="repair-remaining" text="—" class="repair-row-number" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Button name="repair-confirm" class="repair-confirm" enabled="false">
+                        <archive:ArchiveHoldCircleElement name="repair-hold" text="A" class="repair-hold" picking-mode="Ignore" />
+                        <ui:Label text="HOLD TO REPAIR" class="repair-confirm-caption" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:Label name="repair-message" class="repair-message" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="refit-footer" class="refit-footer">
+                <ui:Label text="Q / E   SWITCH PAGE" class="refit-footer-note" />
+                <ui:VisualElement class="refit-controls">
+                    <ui:VisualElement name="refit-footer-actions" class="refit-footer-actions">
+                        <ui:Label text="UP / DOWN   SLOT" class="refit-control-hint" />
                         <ui:Label text="LEFT / RIGHT   MODULE" class="refit-control-hint" />
                         <ui:Button name="refit-equip-footer" text="A / ENTER   EQUIP" class="refit-footer-button" />
                         <ui:VisualElement name="refit-inspect-help">
                             <ui:Button name="refit-inspect-footer" text="X / I   INSPECT" class="refit-footer-button" />
                         </ui:VisualElement>
-                        <ui:Button name="refit-close" text="B / ESC   BACK" class="refit-footer-button" />
                     </ui:VisualElement>
+                    <ui:Button name="refit-close" text="B / ESC   BACK" class="refit-footer-button" />
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="refit-inspection-modal" class="refit-inspection-modal">
@@ -104,7 +167,6 @@
                 </ui:VisualElement>
                 <ui:Label name="refit-modal-caption" text="Standard tracked undercarriage." class="refit-modal-caption" />
             </ui:VisualElement>
-            <refit:RefitMechanicalFrameElement frame-kind="outer" class="refit-outer-frame" />
         </ui:VisualElement>
     </ui:VisualElement>
     </ui:VisualElement>

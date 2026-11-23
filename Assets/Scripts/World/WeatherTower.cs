@@ -8,11 +8,11 @@ using UnityEngine.InputSystem;
 
 namespace AnimalGame.World
 {
-    public enum WeatherTowerPhase { Exterior, Ground, Ascending, Outdoor, Indoor, Descending }
+    public enum WeatherTowerPhase { Exterior, Ground, Ascending, Outdoor, Descending }
 
     [DefaultExecutionOrder(110)]
     [DisallowMultipleComponent]
-    public sealed class WeatherTower : MonoBehaviour
+    public sealed partial class WeatherTower : MonoBehaviour
     {
         [Header("Registered Floor Views")]
         [SerializeField] private GameObject exteriorView;
@@ -22,19 +22,18 @@ namespace AnimalGame.World
         [SerializeField] private Vector2 liftSize;
         [SerializeField] private Transform groundDoor;
         [SerializeField] private float groundDoorWidth;
-        [SerializeField] private Transform door;
-        [SerializeField] private float doorWidth;
         [SerializeField] private GameObject groundGate;
         [SerializeField] private GameObject roofGate;
         [SerializeField] private GameObject liftPrompt;
+        [Tooltip("Optional second lift between the east exterior dock and the upper floor.")]
+        [SerializeField] private Transform exitLift;
+        [SerializeField] private GameObject exitLiftPrompt;
 
         [Header("Lift and Camera")]
         [SerializeField] private RobotMover playerOverride;
         [SerializeField, Min(.1f)] private float towerHeightMeters = 12f;
         [SerializeField, Min(.1f)] private float travelSeconds = 2.4f;
         [SerializeField, Min(1f)] private float outdoorZoomMultiplier = 2.25f;
-        [SerializeField, Min(.1f)] private float indoorCameraSize = 7f;
-        [SerializeField, Min(0f)] private float indoorBlendSeconds = .65f;
 
         private const float DoorHysteresis = .08f;
         private const float MaxBoardingSpeed = .2f;
@@ -45,28 +44,33 @@ namespace AnimalGame.World
         private RobotHeightMotionDetector heightMotion;
         private PlayerCombatReceiver combat;
         private MapTestSceneController map;
+        private SpriteRenderer exteriorArt;
         private SpriteRenderer groundArt;
         private SpriteRenderer roofArt;
         private LineRenderer groundGateArt;
         private LineRenderer roofGateArt;
         private float groundHeight;
+        private float liftBaseHeight;
         private float liftProgress;
+        private bool ridingExitLift;
         private bool interactWasHeld;
         private Vector2 previousPlayerPosition;
+        private CommunicationsSignalWave[] communicationsSignals;
 
         public WeatherTowerPhase Phase { get; private set; }
+        internal event System.Action PlayerEntered;
         public RobotMover Player => player;
         public Transform Lift => lift;
+        public Transform ExitLift => exitLift;
         public Transform GroundDoor => groundDoor;
-        public Transform Door => door;
         public float HeightAboveGroundMeters => Mathf.SmoothStep(0f, towerHeightMeters, liftProgress);
         private bool IsRiding => Phase == WeatherTowerPhase.Ascending || Phase == WeatherTowerPhase.Descending;
-        private bool IsInside => Phase == WeatherTowerPhase.Indoor;
         private bool OnUpperView => liftProgress >= .5f;
 
         public void Configure(GameObject exterior, GameObject ground, GameObject upper, Transform liftAnchor,
-            Vector2 platformSize, Transform southDoor, float southOpeningWidth, Transform indoorDoor,
-            float upperOpeningWidth, GameObject lowerGate, GameObject upperGate, GameObject prompt)
+            Vector2 platformSize, Transform southDoor, float southOpeningWidth,
+            GameObject lowerGate, GameObject upperGate, GameObject prompt,
+            Transform eastLift = null, GameObject eastPrompt = null)
         {
             exteriorView = exterior;
             groundView = ground;
@@ -75,36 +79,47 @@ namespace AnimalGame.World
             liftSize = platformSize;
             groundDoor = southDoor;
             groundDoorWidth = southOpeningWidth;
-            door = indoorDoor;
-            doorWidth = upperOpeningWidth;
             groundGate = lowerGate;
             roofGate = upperGate;
             liftPrompt = prompt;
+            exitLift = eastLift;
+            exitLiftPrompt = eastPrompt;
             InitializeViews();
         }
 
         private void Awake()
         {
+            // Initialize inactive roof devices before RefreshViews can hide their floor.
+            CommunicationsStation[] stations = GetComponentsInChildren<CommunicationsStation>(true);
+            communicationsSignals = new CommunicationsSignalWave[stations.Length];
+            for (int index = 0; index < stations.Length; index++)
+                communicationsSignals[index] = stations[index].InitializeSignal(true);
+            if (HasOpenGround) InitializeSite();
             ScopeCollisions(roofView);
+            if (exitLift != null) ScopeCollisions(groundView);
             InitializeViews();
         }
 
         private void InitializeViews()
         {
+            exteriorArt = exteriorView.GetComponentInChildren<SpriteRenderer>(true);
             groundArt = groundView.GetComponentInChildren<SpriteRenderer>(true);
             roofArt = roofView.GetComponentInChildren<SpriteRenderer>(true);
-            groundGateArt = groundGate.GetComponent<LineRenderer>();
-            roofGateArt = roofGate.GetComponent<LineRenderer>();
+            groundGateArt = groundGate != null ? groundGate.GetComponent<LineRenderer>() : null;
+            roofGateArt = roofGate != null ? roofGate.GetComponent<LineRenderer>() : null;
             RefreshViews();
         }
 
         private void Update()
         {
+            foreach (CommunicationsSignalWave signal in communicationsSignals)
+                signal.Tick(Time.deltaTime, player);
             bool interactHeld = IsInteractHeld();
             bool interactPressed = interactHeld && !interactWasHeld;
             interactWasHeld = interactHeld;
             float deltaTime = Time.deltaTime;
             if (deltaTime <= 0f) return;
+            if (HasOpenGround) TickLiftCalls(deltaTime);
 
             if (!IsScenePlayer(player))
             {
@@ -119,41 +134,59 @@ namespace AnimalGame.World
             if (player.IgnoreCollisionAndTerrain)
             {
                 if (Phase != WeatherTowerPhase.Exterior) ResetTower();
-                SetActive(liftPrompt, false);
+                SetLiftPrompt(null);
                 return;
             }
 
             if (IsRiding)
                 AdvanceLift(deltaTime);
-            else if (OnUpperView)
-                CheckUpperDoor(previous, position);
-            else
+            else if (!OnUpperView)
                 CheckGroundDoor(previous, position);
 
-            bool canRide = CanUseLift();
-            SetActive(liftPrompt, canRide);
-            if (canRide && interactPressed) TryStartLift();
+            Transform availableLift = AvailableLift();
+            Landing? call = availableLift == null ? AvailableLiftCall() : null;
+            SetLiftPrompt(availableLift, call);
+            if (interactPressed)
+            {
+                if (availableLift != null) TryStartLift(availableLift);
+                else if (call.HasValue) StartLiftCall(call.Value);
+            }
 
             if (IsRiding || OnUpperView)
-                towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, IsInside,
-                    outdoorZoomMultiplier, indoorCameraSize, indoorBlendSeconds, deltaTime);
+                towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, outdoorZoomMultiplier);
         }
 
         public bool TryStartLift()
         {
-            if (Time.deltaTime <= 0f || !CanUseLift() || !towerCamera.Acquire(this, player))
+            Transform availableLift = AvailableLift();
+            return availableLift != null && TryStartLift(availableLift);
+        }
+
+        private bool TryStartLift(Transform availableLift)
+        {
+            if (Time.deltaTime <= 0f || !towerCamera.Acquire(this, player))
                 return false;
 
-            bool goingUp = Phase == WeatherTowerPhase.Ground;
-            if (!player.SetTowerSupport(this, ActiveCollisionRoot(), groundHeight + HeightAboveGroundMeters, true))
+            bool goingUp = Phase != WeatherTowerPhase.Outdoor;
+            bool useExitLift = availableLift == exitLift;
+            float datum = Phase == WeatherTowerPhase.Exterior ? SampleGround(lift) : groundHeight;
+            float baseHeight = useExitLift ? SampleGround(exitLift) : datum;
+            Transform boardingFloor = goingUp
+                ? (useExitLift ? exteriorView : groundView).transform
+                : roofView.transform;
+            float boardingHeight = goingUp ? baseHeight : datum + towerHeightMeters;
+            if (!player.SetTowerSupport(this, boardingFloor, boardingHeight, true))
             {
                 towerCamera.Release();
                 return false;
             }
 
+            ridingExitLift = useExitLift;
+            groundHeight = datum;
+            liftBaseHeight = baseHeight;
             Phase = goingUp ? WeatherTowerPhase.Ascending : WeatherTowerPhase.Descending;
             towerCamera.ApplyLiftFeedback(0f, travelSeconds, goingUp);
-            SetActive(liftPrompt, false);
+            SetLiftPrompt(null);
             RefreshViews();
             return true;
         }
@@ -165,14 +198,25 @@ namespace AnimalGame.World
             towerCamera.ApplyLiftFeedback(goingUp ? liftProgress : 1f - liftProgress, travelSeconds, goingUp);
             if (!goingUp && liftProgress <= 0f)
             {
+                if (HasOpenGround) DockRiddenLift(false);
+                if (ridingExitLift)
+                {
+                    ResetTower();
+                    return;
+                }
                 Phase = WeatherTowerPhase.Ground;
                 towerCamera.Release();
             }
             if (goingUp && liftProgress >= 1f)
+            {
+                if (HasOpenGround) DockRiddenLift(true);
                 Phase = WeatherTowerPhase.Outdoor;
+            }
 
             RefreshViews();
-            player.SetTowerSupport(this, ActiveCollisionRoot(), groundHeight + HeightAboveGroundMeters, IsRiding);
+            float supportHeight = Mathf.Lerp(liftBaseHeight, groundHeight + towerHeightMeters,
+                HeightAboveGroundMeters / towerHeightMeters);
+            player.SetTowerSupport(this, ActiveCollisionRoot(), supportHeight, IsRiding);
         }
 
         private void CheckGroundDoor(Vector2 previous, Vector2 position)
@@ -186,18 +230,12 @@ namespace AnimalGame.World
                 return;
             }
 
-            float height = map != null && map.TrySampleWorldPosition(lift.position, out _, out float sampledHeight)
-                ? sampledHeight : 0f;
+            float height = SampleGround(lift);
             if (!player.SetTowerSupport(this, groundView.transform, height, false)) return;
             groundHeight = height;
             Phase = WeatherTowerPhase.Ground;
             RefreshViews();
-        }
-
-        private void CheckUpperDoor(Vector2 previous, Vector2 position)
-        {
-            if (!CrossedDoor(door, doorWidth, previous, position, IsInside)) return;
-            Phase = IsInside ? WeatherTowerPhase.Outdoor : WeatherTowerPhase.Indoor;
+            PlayerEntered?.Invoke();
         }
 
         private bool CrossedDoor(Transform portal, float openingWidth, Vector2 previous, Vector2 position,
@@ -215,21 +253,34 @@ namespace AnimalGame.World
             return Mathf.Abs(crossingX) + Clearance(portal, Vector2.right) < openingWidth * .5f;
         }
 
-        private bool CanUseLift()
-        {
-            if ((Phase != WeatherTowerPhase.Ground && Phase != WeatherTowerPhase.Outdoor)
-                || !IsScenePlayer(player) || player.IgnoreCollisionAndTerrain
-                || player.IsMovementLocked || player.IsPhotoModeInputLocked
-                || Mathf.Abs(player.CurrentSpeed) > MaxBoardingSpeed
-                || (arm != null && arm.State != RobotArmState.Retracted)
-                || (photo != null && photo.IsActive)
-                || (heightMotion != null && heightMotion.IsAirborne)
-                || (combat != null && combat.IsDisplaced))
-                return false;
+        private float SampleGround(Transform anchor) =>
+            map != null && map.TrySampleWorldPosition(anchor.position, out _, out float sampledHeight) ? sampledHeight : 0f;
 
-            Vector2 local = lift.InverseTransformPoint(player.transform.position);
-            return Mathf.Abs(local.x) + Clearance(lift, Vector2.right) < liftSize.x * .5f
-                && Mathf.Abs(local.y) + Clearance(lift, Vector2.up) < liftSize.y * .5f;
+        private Transform AvailableLift()
+        {
+            if (!CanUseLiftControls()) return null;
+            if (Phase != WeatherTowerPhase.Exterior && CanBoard(lift, MainLanding)) return lift;
+            return Phase != WeatherTowerPhase.Ground && exitLift != null && CanBoard(exitLift, EastLanding)
+                ? exitLift : null;
+        }
+
+        private bool CanUseLiftControls() =>
+            !IsRiding && IsScenePlayer(player) && !player.IgnoreCollisionAndTerrain
+            && !player.IsMovementLocked && !player.IsPhotoModeInputLocked
+            && Mathf.Abs(player.CurrentSpeed) <= MaxBoardingSpeed
+            && (arm == null || arm.State == RobotArmState.Retracted)
+            && (photo == null || !photo.IsActive)
+            && (heightMotion == null || !heightMotion.IsAirborne)
+            && (combat == null || !combat.IsDisplaced);
+
+        private bool CanBoard(Transform anchor, Landing landing) =>
+            (!HasOpenGround || (IsLandingOpen(landing) && ClearOfLiftDoors(anchor))) && OnLift(anchor);
+
+        private bool OnLift(Transform anchor)
+        {
+            Vector2 local = anchor.InverseTransformPoint(player.transform.position);
+            return Mathf.Abs(local.x) + Clearance(anchor, Vector2.right) < liftSize.x * .5f
+                && Mathf.Abs(local.y) + Clearance(anchor, Vector2.up) < liftSize.y * .5f;
         }
 
         private float Clearance(Transform frame, Vector2 localAxis)
@@ -282,36 +333,51 @@ namespace AnimalGame.World
             && candidate.gameObject.scene == gameObject.scene;
 
         private Transform ActiveCollisionRoot() =>
-            (OnUpperView ? roofView : groundView).transform;
+            (OnUpperView ? roofView : ridingExitLift ? exteriorView : groundView).transform;
 
         private void RefreshViews()
         {
             bool outside = Phase == WeatherTowerPhase.Exterior;
             float roofOpacity = Mathf.SmoothStep(0f, 1f, liftProgress);
-            float groundOpacity = outside ? 0f : 1f - roofOpacity;
+            bool blendExterior = outside || (IsRiding && ridingExitLift);
+            float exteriorOpacity = blendExterior ? 1f - roofOpacity : 0f;
+            float groundOpacity = blendExterior ? 0f : 1f - roofOpacity;
+            if (exitLift != null) SetArtOpacity(exteriorArt, exteriorOpacity);
             SetFloorOpacity(groundArt, groundGateArt, groundOpacity);
             SetFloorOpacity(roofArt, roofGateArt, roofOpacity);
 
             // The scopes still select just one floor for collisions while both views are visible.
-            SetActive(exteriorView, outside);
+            // Once the roof fully covers it, stop ground-floor props and their owned interaction UI.
+            SetActive(groundView, (outside && exitLift == null) || groundOpacity > 0f);
+            SetActive(exteriorView, HasOpenGround ? roofOpacity < 1f : exteriorOpacity > 0f);
             SetActive(roofView, roofOpacity > 0f);
             SetActive(groundGate, Phase != WeatherTowerPhase.Ground);
             SetActive(roofGate, IsRiding);
+            if (doorLines != null)
+            {
+                SetArtOpacity(upperCover, (1f - roofOpacity) * (1f - Mathf.SmoothStep(0f, 1f, underpass)));
+                RefreshLandings();
+            }
         }
 
         private static void SetFloorOpacity(SpriteRenderer art, LineRenderer gate, float opacity)
         {
-            Color color = art.color;
-            color.a = opacity;
-            art.color = color;
-            art.enabled = opacity > 0f;
-
+            SetArtOpacity(art, opacity);
+            if (gate == null) return;
             Color start = gate.startColor;
             Color end = gate.endColor;
             start.a = end.a = opacity;
             gate.startColor = start;
             gate.endColor = end;
             gate.enabled = opacity > 0f;
+        }
+
+        private static void SetArtOpacity(SpriteRenderer art, float opacity)
+        {
+            Color color = art.color;
+            color.a = opacity;
+            art.color = color;
+            art.enabled = opacity > 0f;
         }
 
         private static void ScopeCollisions(GameObject view)
@@ -326,15 +392,45 @@ namespace AnimalGame.World
             towerCamera.Release();
             Phase = WeatherTowerPhase.Exterior;
             liftProgress = 0f;
-            SetActive(liftPrompt, false);
+            ridingExitLift = false;
+            SetLiftPrompt(null);
             RefreshViews();
         }
 
-        private void OnDisable() => ResetTower();
+        private void OnDisable()
+        {
+            ResetTower();
+            doorLines?.Hide();
+            deckLines?.Hide();
+            if (communicationsSignals == null) return;
+            foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Hide();
+        }
+
+        private void OnDestroy()
+        {
+            doorLines?.Dispose();
+            deckLines?.Dispose();
+            if (communicationsSignals == null) return;
+            foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Dispose();
+        }
 
         private static void SetActive(GameObject target, bool active)
         {
             if (target != null && target.activeSelf != active) target.SetActive(active);
+        }
+
+        private void SetLiftPrompt(Transform availableLift, Landing? call = null)
+        {
+            bool callEast = call.HasValue && IsEast(call.Value);
+            bool showMain = availableLift == lift || (call.HasValue && !callEast);
+            bool showEast = (exitLift != null && availableLift == exitLift) || callEast;
+            if (HasOpenGround)
+            {
+                if (showMain) PositionLiftPrompt(liftPrompt, lift, call);
+                if (showEast) PositionLiftPrompt(exitLiftPrompt, exitLift, call);
+            }
+            SetActive(liftPrompt, showMain);
+            SetActive(exitLiftPrompt, showEast);
         }
 
         private static bool IsInteractHeld()

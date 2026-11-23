@@ -580,7 +580,7 @@ namespace AnimalGame.RobotMap
                     targetColor = bodyFillBackgroundCamera.backgroundColor;
             }
 
-            targetColor.a = 1f;
+            targetColor.a = openingBodyOpacity;
             bodyFill.color = targetColor;
         }
 
@@ -927,7 +927,8 @@ namespace AnimalGame.RobotMap
             Color projectedColor = indicatorColor;
             float combinedVisibility = safeVisibility
                                        * indicatorArmModeVisibility
-                                       * GetPhotoModeIndicatorVisibility();
+                                       * GetPhotoModeIndicatorVisibility()
+                                       * openingHeadingOpacity;
             projectedColor.a *= combinedVisibility;
             directionIndicator.color = projectedColor;
             directionIndicator.enabled = directionIndicator.sprite != null

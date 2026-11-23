@@ -93,13 +93,16 @@ namespace AnimalGame.MainUI
         public void SelectItem(int index) => InventoryController.SelectItem(index);
 
         private const float DesignWidth = 1920, DesignHeight = 1080;
+        private const float DriveDamageWarningDuration = 1.2f;
+        private const float DriveDamageWarningFadeDuration = .2f;
 
         public static MainUI Active { get; private set; }
-        public static bool BlocksGameplay => AnimalGame.World.Map.WorldMapUI.BlocksGameplay
+        public static bool BlocksGameplay => OfficialMapOpening.IsPlaying || AnimalGame.World.Map.WorldMapUI.BlocksGameplay
             || AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay
             || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
             || (Active != null && Active.isActiveAndEnabled && Active.pauseOwned);
         public bool IsInventoryOpen => inventoryOpen;
+        public bool IsCargoLocked { get; private set; }
         public event Action<bool> InventoryOpenChanged;
         public float InventoryProgress => progress;
         public int SelectedIndex => InventoryController.SelectedIndex;
@@ -108,6 +111,7 @@ namespace AnimalGame.MainUI
         public InventoryItem[] Items => InventoryController.Items;
 
         private VisualElement root, stage, view, ring, status, time, sound, inventory, grid, compassHost, coordinates;
+        private VisualElement openingDrivingHint;
         private ViewRingElement innerRing, outerRing;
         private CircularProgressElement powerRing, integrityRing;
         private CompassElement compass;
@@ -116,6 +120,8 @@ namespace AnimalGame.MainUI
         private TimeOrbitElement timeOrbit;
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
         private Label latitudeHemisphereLabel, longitudeHemisphereLabel;
+        private Label driveDamageWarning;
+        private float driveDamageWarningUntil;
         private Label unstuckFailure;
         private Font unstuckFailureFont;
         private float unstuckFailureUntil;
@@ -190,6 +196,10 @@ namespace AnimalGame.MainUI
             compass = root.Q<CompassElement>("Compass");
             levelIndicator = root.Q<LevelIndicatorElement>("LevelIndicator");
             compassHost = root.Q("CompassHost");
+            openingDrivingHint = root.Q("OpeningDrivingHint");
+            openingSignalPrompt = root.Q("OpeningSignalPrompt");
+            openingSignalMapKey = root.Q<Label>("OpeningSignalMapKey");
+            openingTraversalHint = root.Q("OpeningTraversalHint");
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
             powerRing = root.Q<CircularProgressElement>("PowerRing");
@@ -203,6 +213,7 @@ namespace AnimalGame.MainUI
             altitudeLabel = root.Q<Label>("Altitude");
             latitudeHemisphereLabel = root.Q<Label>("LatitudeHemisphere");
             longitudeHemisphereLabel = root.Q<Label>("LongitudeHemisphere");
+            driveDamageWarning = root.Q<Label>("DriveDamageWarning");
             unstuckFailure = root.Q<Label>("UnstuckFailure");
             if (stage == null || view == null || innerRing == null || grid == null) return;
 
@@ -215,11 +226,14 @@ namespace AnimalGame.MainUI
             if (emptyItemTemplate == null)
                 emptyItemTemplate = Resources.Load<VisualTreeAsset>("UI/Main/EmptyInventoryItem");
             InventoryController.Bind(root, inventory, grid, root.Q<InventorySelectionElement>("InventorySelection"));
+            if (navigationTelemetryUnavailable) ApplyUnknownCoordinateLayout();
+            UpdateCargoVisibility();
             ClearCoordinates();
             RefreshGameClock(CurrentGameTime, true);
             RefreshTelemetry(DateTime.Now, true);
             lastPower = lastIntegrity = -1;
             ApplyLayout();
+            BindRobotNotebook();
             UpdateStatus();
         }
 
@@ -237,9 +251,38 @@ namespace AnimalGame.MainUI
             unstuckFailureUntil = Time.unscaledTime + 2f;
         }
 
+        internal void ShowDriveDamageWarning()
+        {
+            if (driveDamageWarning == null || BlocksGameplay || Time.timeScale <= 0f) return;
+            driveDamageWarningUntil = Time.unscaledTime + DriveDamageWarningDuration;
+            driveDamageWarning.style.opacity = 1f;
+            driveDamageWarning.style.display = DisplayStyle.Flex;
+        }
+
+        private void UpdateDriveDamageWarning()
+        {
+            if (driveDamageWarningUntil <= 0f) return;
+            float remaining = driveDamageWarningUntil - Time.unscaledTime;
+            if (remaining <= 0f || BlocksGameplay || Time.timeScale <= 0f)
+            {
+                HideDriveDamageWarning();
+                return;
+            }
+            if (driveDamageWarning == null) return;
+            driveDamageWarning.style.display = DisplayStyle.Flex;
+            driveDamageWarning.style.opacity = Mathf.Clamp01(remaining / DriveDamageWarningFadeDuration);
+        }
+
+        private void HideDriveDamageWarning()
+        {
+            driveDamageWarningUntil = 0f;
+            if (driveDamageWarning != null) driveDamageWarning.style.display = DisplayStyle.None;
+        }
+
         public void ToggleInventory() { if (inventoryOpen) InventoryController.BackInventory(); else OpenInventory(); }
         public void OpenInventory()
         {
+            if (IsCargoLocked || OfficialMapOpening.IsPlaying) return;
             if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
             if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
@@ -254,6 +297,13 @@ namespace AnimalGame.MainUI
             AcquirePause();
             InventoryOpenChanged?.Invoke(true);
         }
+
+        public void UnlockCargo()
+        {
+            IsCargoLocked = false;
+            UpdateCargoVisibility();
+        }
+
         public void CloseInventory()
         {
             inventoryController?.ResetInventoryInteraction();
@@ -294,9 +344,10 @@ namespace AnimalGame.MainUI
             }
             AdvanceGameClock(Time.deltaTime);
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
-            InventoryController.Tick();
+            if (UpdateRobotNotebookInput()) InventoryController.ConsumeOpenHold();
+            if (!IsCargoLocked && !OfficialMapOpening.IsPlaying) InventoryController.Tick();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
-            UpdatePowerRingFlicker(Time.unscaledDeltaTime);
+            if (openingPresentation == null) UpdatePowerRingFlicker(Time.unscaledDeltaTime);
         }
 
         private void ResetPowerRingFlicker()
@@ -321,6 +372,11 @@ namespace AnimalGame.MainUI
         {
             RefreshLatePresentation();
             RefreshDpadHoldHint();
+            AdvanceOpeningDrivingHint(Time.unscaledDeltaTime);
+            AdvanceOpeningSignalPrompt(Time.unscaledDeltaTime);
+            AdvanceOpeningTraversalHint(Time.unscaledDeltaTime);
+            UpdateDriveDamageWarning();
+            RefreshRobotNotebook(Time.unscaledDeltaTime);
         }
 
         private void UpdateLevelIndicator()
@@ -351,6 +407,11 @@ namespace AnimalGame.MainUI
             if (!inventoryOpen && progress == 0) ReleasePause();
         }
 
+        private void UpdateCargoVisibility()
+        {
+            if (inventory != null) inventory.style.opacity = IsCargoLocked ? 0f : StyleKeyword.Null;
+        }
+
         private float EaseInventory(float value)
         {
             float normalized = Mathf.Clamp01(value);
@@ -369,6 +430,7 @@ namespace AnimalGame.MainUI
             if (!Positive(size.x) || !Positive(size.y)) return;
             fit = Mathf.Min(size.x / DesignWidth, size.y / DesignHeight);
             viewportOffset = (size - new Vector2(DesignWidth, DesignHeight) * fit) * .5f;
+            UpdateOpeningDrivingHint();
             // Keep authored layout coordinates intact; apply screen fitting through transforms only.
             Vector2 viewOffset = viewportOffset + view.layout.position * (fit - 1);
             view.style.translate = new Translate(viewOffset.x, viewOffset.y);
@@ -451,10 +513,11 @@ namespace AnimalGame.MainUI
         private void UpdateStatus()
         {
             if (powerRing == null) return;
-            if (lastPower != power)
+            float shownPower = openingPresentation == null ? power : 1f;
+            if (lastPower != shownPower)
             {
-                powerRing.SetProgress(power); powerLabel.text = Mathf.RoundToInt(powerRing.progress * 100) + "%";
-                lastPower = power;
+                powerRing.SetProgress(shownPower); powerLabel.text = Mathf.RoundToInt(powerRing.progress * 100) + "%";
+                lastPower = shownPower;
             }
             if (lastIntegrity != integrity)
             {
@@ -497,6 +560,9 @@ namespace AnimalGame.MainUI
                 Vector2 panelPoint = viewportOffset + (authoredCenter + ringDisplacement) * fit;
                 Vector2 panelCenter = stage.layout.size * .5f;
                 panelPoint = panelCenter + (panelPoint - panelCenter) * photoScale + photoOffset * fit;
+                if (openingScreenRoll != 0f)
+                    panelPoint = panelCenter + (Vector2)(Quaternion.Euler(0f, 0f, openingScreenRoll) * (panelPoint - panelCenter));
+                panelPoint += OpeningShakeOffset;
                 panelPoint += stage.layout.position;
                 Vector2 scale = PanelUnitsPerScreenPixel();
                 Vector2 origin = RuntimePanelUtils.ScreenToPanel(root.panel, Vector2.zero);
@@ -532,7 +598,9 @@ namespace AnimalGame.MainUI
         {
             if (stage == null) return;
             stage.style.scale = new Scale(new Vector3(photoScale, photoScale, 1));
-            stage.style.translate = new Translate(photoOffset.x * fit, photoOffset.y * fit);
+            Vector2 offset = photoOffset * fit + OpeningShakeOffset;
+            stage.style.translate = new Translate(offset.x, offset.y);
+            stage.style.rotate = new Rotate(openingScreenRoll);
             stage.style.opacity = photoAlpha;
         }
 
@@ -550,7 +618,9 @@ namespace AnimalGame.MainUI
         /// <summary>Displays the supplied date using the HUD's date format.</summary>
         public void SetDate(DateTime date)
         {
-            if (dateLabel != null) dateLabel.text = date.ToString("MM_dd\nyyyy", CultureInfo.InvariantCulture);
+            if (openingPresentation == null && dateLabel != null)
+                dateLabel.text = navigationTelemetryUnavailable
+                    ? OpeningHudTimeline.UnknownReading : date.ToString("MM_dd\nyyyy", CultureInfo.InvariantCulture);
         }
         private void RefreshGameClock(DateTime previous, bool force = false)
         {
@@ -599,15 +669,17 @@ namespace AnimalGame.MainUI
 
         private void ClearCoordinates()
         {
+            if (altitudeLabel != null) altitudeLabel.text = "--m";
+            if (TryApplyUnknownCoordinates()) return;
             if (latitudeLabel != null) latitudeLabel.text = "--.-----\u00b0";
             if (longitudeLabel != null) longitudeLabel.text = "--.-----\u00b0";
-            if (altitudeLabel != null) altitudeLabel.text = "--m";
             if (latitudeHemisphereLabel != null) latitudeHemisphereLabel.text = "--";
             if (longitudeHemisphereLabel != null) longitudeHemisphereLabel.text = "--";
         }
 
         public void SetCoordinates(float latitude, float longitude)
         {
+            if (TryApplyUnknownCoordinates()) return;
             if (latitudeLabel != null) latitudeLabel.text = Mathf.Abs(latitude).ToString("F5", CultureInfo.InvariantCulture) + "°";
             if (longitudeLabel != null) longitudeLabel.text = Mathf.Abs(longitude).ToString("F5", CultureInfo.InvariantCulture) + "°";
             if (latitudeHemisphereLabel != null) latitudeHemisphereLabel.text = latitude < 0 ? "S" : "N";
@@ -619,6 +691,10 @@ namespace AnimalGame.MainUI
 
         private void OnDisable()
         {
+            EndOpeningPresentation();
+            HideDriveDamageWarning();
+            robotNotebookOpen = false;
+            robotNotebookView?.Tick(false, false, 0f);
             if (animalDebugInstance != null) animalDebugInstance.SetActive(false);
             inventoryController?.Suspend();
             if (powerRing != null) powerRing.visible = true;

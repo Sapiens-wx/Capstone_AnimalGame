@@ -25,6 +25,7 @@ namespace AnimalGame.World.Checkpoints
         public IReadOnlyList<Checkpoint> Checkpoints => checkpoints;
         public IReadOnlyList<Vector2> Positions => positions;
         public int Revision { get; private set; }
+        internal bool HasSurveyData => visitedCount > 0;
 
         protected override void Awake()
         {

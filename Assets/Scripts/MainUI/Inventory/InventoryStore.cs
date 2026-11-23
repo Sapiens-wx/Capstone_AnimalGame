@@ -33,6 +33,39 @@ namespace AnimalGame.MainUI.Inventory
         public int Quantity(int index) => quantities[index];
         public bool IsUnread(int index) => unread[index];
 
+        public int Count(InventoryItem item)
+        {
+            if (item == null) return 0;
+            int total = 0;
+            for (int i = 0; i < Capacity; i++)
+                if (Items[i] == item) total += quantities[i];
+            return total;
+        }
+
+        public bool TryConsume(InventoryItem item, int quantity)
+        {
+            if (quantity <= 0 || Count(item) < quantity) return false;
+
+            var changedSlots = new List<int>();
+            for (int i = 0; i < Capacity && quantity > 0; i++)
+            {
+                if (Items[i] != item) continue;
+                int consumed = Math.Min(quantity, quantities[i]);
+                quantities[i] -= consumed;
+                quantity -= consumed;
+                if (quantities[i] == 0)
+                {
+                    Items[i] = null;
+                    unread[i] = false;
+                }
+                changedSlots.Add(i);
+            }
+
+            // A listener inspecting other slots must see the entire payment.
+            foreach (int slot in changedSlots) Changed?.Invoke(slot);
+            return true;
+        }
+
         public void Set(int index, InventoryItem item, int quantity = 1)
         {
             if (index < 0 || index >= Capacity) throw new ArgumentOutOfRangeException(nameof(index));

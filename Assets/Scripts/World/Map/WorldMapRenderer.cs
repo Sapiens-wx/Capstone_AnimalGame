@@ -11,6 +11,7 @@ namespace AnimalGame.World.Map
         private readonly Mesh quad;
         private readonly CommandBuffer commands = new CommandBuffer { name = "World map contours" };
         private readonly MaterialPropertyBlock properties = new MaterialPropertyBlock();
+        private RenderTexture faultTexture;
         public RenderTexture Texture { get; private set; }
 
         public WorldMapRenderer(Shader shader)
@@ -65,6 +66,31 @@ namespace AnimalGame.World.Map
             Graphics.ExecuteCommandBuffer(commands);
         }
 
+        internal RenderTexture RenderFault(float progress)
+        {
+            if (faultTexture == null || faultTexture.width != Texture.width || faultTexture.height != Texture.height)
+            {
+                EndFault();
+                faultTexture = new RenderTexture(Texture.descriptor)
+                { name = "World map data fault", hideFlags = HideFlags.HideAndDontSave };
+                faultTexture.Create();
+            }
+
+            material.SetFloat("_FaultProgress", progress);
+            commands.Clear();
+            commands.Blit(Texture, faultTexture, material, 1);
+            Graphics.ExecuteCommandBuffer(commands);
+            return faultTexture;
+        }
+
+        internal void EndFault()
+        {
+            if (faultTexture == null) return;
+            faultTexture.Release();
+            CoreUtils.Destroy(faultTexture);
+            faultTexture = null;
+        }
+
         private static void FindVisibleRange(MapTestSceneController map, Rect view, out float minimum, out float maximum)
         {
             minimum = float.PositiveInfinity;
@@ -106,6 +132,7 @@ namespace AnimalGame.World.Map
 
         public void Dispose()
         {
+            EndFault();
             ReleaseTexture();
             commands.Dispose();
             CoreUtils.Destroy(material);

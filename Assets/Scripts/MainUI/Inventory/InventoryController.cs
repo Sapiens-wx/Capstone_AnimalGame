@@ -74,6 +74,12 @@ namespace AnimalGame.MainUI.Inventory
 
         public void Tick() { HandleInput(); UpdateInventoryStars(); }
 
+        internal void ConsumeOpenHold()
+        {
+            openHoldElapsed = 0f;
+            openHoldLatched = true;
+        }
+
         public void Suspend()
         {
             ResetInventoryInteraction();

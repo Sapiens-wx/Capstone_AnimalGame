@@ -83,6 +83,7 @@ namespace AnimalGame.MapTest
             playerSpawnMapPositionMeters;
 
         private AnimalWorldQuery animalWorld;
+        private GameMainUI playerHud;
         private VegetationSpriteDeformation.Driver vegetationDeformation;
         public float InitialViewRadiusMeters => animalWorld?.InitialViewRadiusMeters ?? 0f;
         private System.Collections.IEnumerator Start()
@@ -201,7 +202,9 @@ namespace AnimalGame.MapTest
             cameraObject.GetComponent<RobotCameraElevationZoom>().Initialize(map, robot.transform);
             photoMode.InitializeCamera(cameraFollow, cameraShake);
             scanChargeUi.SetPhotoModeController(photoMode);
-            armController.BindInventory(mainUiObject.GetComponent<AnimalGame.MainUI.MainUI>());
+            playerHud = mainUiObject.GetComponent<GameMainUI>();
+            robot.GetComponent<PlayerCombatReceiver>().BindHud(playerHud);
+            armController.BindInventory(playerHud);
             var marker = robot.GetComponent<RobotMarkerView>();
             marker.BindScanInnerRing(scanChargeUi);
             vegetationDeformation = new VegetationSpriteDeformation.Driver(this, marker);
@@ -248,7 +251,9 @@ namespace AnimalGame.MapTest
                 return;
             }
 
-            if (AdaptiveLegacyGamepadInput.WasDpadLeftPressedThisFrame())
+            bool unstuckPressed = playerHud.HasRobotNotebook ? AdaptiveLegacyGamepadInput.WasDpadDownPressedThisFrame()
+                : AdaptiveLegacyGamepadInput.WasDpadLeftPressedThisFrame();
+            if (unstuckPressed)
                 TryUnstuck();
 
             Bounds bounds = map.WorldBounds;
@@ -274,7 +279,7 @@ namespace AnimalGame.MapTest
 
             RobotUnstuckResult result = RobotUnstuckSearch.Find(robot, traversalEvaluator, map, out Vector2 destination);
             if (result == RobotUnstuckResult.NoSafePosition)
-                mainUiObject.GetComponent<GameMainUI>().ShowUnstuckFailure();
+                playerHud.ShowUnstuckFailure();
             if (result != RobotUnstuckResult.Found)
                 return;
 

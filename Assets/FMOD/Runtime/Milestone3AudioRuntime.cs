@@ -21,6 +21,7 @@ namespace Capstone.Audio
         private Milestone3TerrainMotionSampler terrainMotionSampler;
         private Milestone3ScanAudio scan;
         private RobotMover mover;
+        private RobotMover openingRightingLanding;
         private RobotArmController arm;
         private RobotTumbleController tumble;
         private RobotSelfRightingController righting;
@@ -110,6 +111,9 @@ namespace Capstone.Audio
         private void LateUpdate()
         {
             if (!initialized || shuttingDown || applicationPaused || timePaused || Time.timeScale <= 0f) return;
+            if (openingRightingLanding != null && ReferenceEquals(openingRightingLanding, mover))
+                voices.Play(Milestone3Cue.RightingLand);
+            openingRightingLanding = null;
             balance.Tick(Time.deltaTime);
             garbage.Tick(Time.deltaTime);
             hatch?.Tick();
@@ -157,6 +161,13 @@ namespace Capstone.Audio
             }
             return fallback;
         }
+        internal static void PlayOpeningDriveImpact(RobotMover source, float strength)
+        {
+            if (instance == null || instance.mover != source || !instance.isActiveAndEnabled
+                || instance.shuttingDown || instance.applicationPaused || instance.timePaused) return;
+            instance.voices.Play(Milestone3Cue.RuinImpact, strength);
+        }
+
         private static RobotMover FindMover()
         {
             Scene active = SceneManager.GetActiveScene();
@@ -171,6 +182,23 @@ namespace Capstone.Audio
         }
         private static bool Usable(Behaviour source) => source != null && source.isActiveAndEnabled
             && source.gameObject.scene.IsValid() && source.gameObject.scene.isLoaded;
+
+        internal static void SetOpeningRightingProgress(float progress)
+        {
+            if (instance == null || !instance.isActiveAndEnabled || !instance.initialized
+                || instance.applicationPaused || instance.shuttingDown) return;
+            instance.voices.SetParameter(Milestone3Cue.RightingChassis, Milestone3Parameter.Progress, progress);
+            instance.voices.SetLoop(Milestone3Cue.RightingChassis, true);
+        }
+
+        internal static void EndOpeningRighting(RobotMover landingSource)
+        {
+            if (instance == null) return;
+            instance.voices?.Stop(Milestone3Cue.RightingChassis, true);
+            // Play after Update has rebound the gameplay voices on the first resumed frame.
+            instance.openingRightingLanding = landingSource;
+        }
+
         internal static bool SuppressesOrdinaryLanding(RobotMover source) => instance != null
             && instance.isActiveAndEnabled && !instance.shuttingDown && !instance.applicationPaused
             && !instance.timePaused && instance.balance != null && instance.balance.SuppressesOrdinaryLanding(source);

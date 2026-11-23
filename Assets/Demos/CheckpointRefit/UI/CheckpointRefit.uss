@@ -67,28 +67,78 @@
     transform-origin: 0 0;
 }
 
-.refit-screen .refit-content { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
-.refit-screen .refit-outer-frame { position: absolute; left: 24px; right: 24px; top: 24px; bottom: 24px; }
-.refit-screen .refit-eyebrow { color: rgb(232, 232, 225); -unity-font-style: bold; font-size: 19px; letter-spacing: 1.7px; }
-
-.refit-screen .refit-header {
+.refit-screen .maintenance-frame {
     position: absolute;
-    left: 86px;
-    right: 86px;
-    top: 78px;
-    height: 112px;
-    border-bottom-width: 3px;
-    border-bottom-color: rgb(207, 207, 199);
-    flex-direction: row;
-    justify-content: space-between;
+    left: 50px;
+    right: 50px;
+    top: 108px;
+    bottom: 26px;
+    border-width: 1px;
+    border-color: #9B9C93;
+    border-top-color: #A7A79B;
 }
 
-.refit-screen .refit-heading { flex-direction: row; align-items: flex-start; }
-.refit-screen .refit-title { font-size: 55px; -unity-font-style: bold; letter-spacing: 9px; margin-right: 34px; }
-.refit-screen .refit-heading > .refit-eyebrow { color: rgb(212, 184, 84); font-size: 17px; margin-top: 34px; }
-.refit-screen .refit-location { align-items: flex-end; padding-top: 6px; }
-.refit-screen .refit-checkpoint { font-size: 24px; -unity-font-style: bold; letter-spacing: 1px; }
-.refit-screen .refit-link-state { color: rgb(212, 184, 84); -unity-font-style: bold; font-size: 17px; letter-spacing: 1.2px; margin-top: 10px; }
+.refit-screen .maintenance-tabs {
+    position: absolute;
+    left: 50px;
+    top: 45px;
+    height: 64px;
+    flex-direction: row;
+}
+
+.refit-screen .maintenance-tabs .maintenance-tab {
+    width: 235px;
+    height: 64px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-color: white;
+    background-color: black;
+    color: #E7E7DF;
+    font-size: 48px;
+}
+
+.refit-screen .maintenance-tabs #refit-tab { border-left-width: 0; }
+.refit-screen .maintenance-tabs .maintenance-tab:focus { background-color: black; }
+.refit-screen .maintenance-tabs .maintenance-tab > Label { margin-left: 5px; margin-right: 5px; }
+.refit-screen .maintenance-tabs .maintenance-tab > .key-badge {
+    padding: 4px 10px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: white;
+    background-color: black;
+    color: #D4B854;
+    font-size: 24px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    transform-origin: 50% 50%;
+}
+
+.refit-screen .maintenance-tab-selection {
+    position: absolute;
+    left: 235px;
+    top: 63.5px;
+    width: 234px;
+    height: 8px;
+    translate: 0 -50%;
+    background-color: #D4B854;
+}
+
+.refit-screen .maintenance-tab-selection-border {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    translate: 0 -50%;
+    background-color: white;
+}
+
+.refit-screen .refit-content { position: absolute; left: 0; top: -51px; right: 0; bottom: 51px; }
+.refit-screen .refit-checkpoint { display: none; }
+.refit-screen .refit-eyebrow { color: rgb(232, 232, 225); -unity-font-style: bold; font-size: 19px; letter-spacing: 1.7px; }
 
 .refit-screen .refit-slot-navigation { position: absolute; left: 86px; top: 266px; width: 235px; }
 .refit-screen .refit-nav-heading { margin-bottom: 40px; font-size: 17px; }
@@ -172,7 +222,8 @@
 
 .refit-screen .refit-footer { position: absolute; left: 86px; right: 86px; bottom: 35px; height: 58px; border-top-width: 2px; border-top-color: rgb(207, 207, 199); padding-top: 10px; flex-direction: row; justify-content: space-between; align-items: center; }
 .refit-screen .refit-footer-note { color: rgb(217, 217, 210); -unity-font-style: bold; font-size: 16px; letter-spacing: 1px; }
-.refit-screen .refit-controls { flex-direction: row; align-items: center; }
+.refit-screen .refit-controls,
+.refit-screen .refit-footer-actions { flex-direction: row; align-items: center; }
 .refit-screen .refit-control-hint { color: rgb(232, 232, 225); -unity-font-style: bold; font-size: 16px; margin-left: 27px; }
 .refit-screen .refit-footer-button { height: 39px; margin-left: 27px; color: rgb(212, 184, 84); -unity-font-style: bold; font-size: 17px; padding-left: 9px; padding-right: 9px; }
 
@@ -184,3 +235,123 @@
 .refit-screen .refit-modal-image { position: relative; width: 1160px; height: 650px; background-color: rgb(12, 12, 12); border-width: 2px; border-color: rgb(77, 77, 73); }
 .refit-screen .refit-modal-no-data { position: absolute; left: 0; right: 0; bottom: 45px; -unity-text-align: middle-center; font-size: 25px; color: rgb(225, 225, 217); -unity-font-style: bold; letter-spacing: 4px; }
 .refit-screen .refit-modal-caption { margin-top: 25px; color: rgb(225, 225, 217); -unity-font-style: bold; font-size: 22px; }
+
+.refit-screen .repair-content { display: none; position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.refit-screen .repair-gauge { position: absolute; top: 273px; width: 396px; height: 396px; }
+.refit-screen .repair-integrity-gauge { left: 110px; }
+.refit-screen .repair-power-gauge { left: 593px; }
+.refit-screen .repair-gauge-frame { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.refit-screen .repair-gauge-ring { position: absolute; top: 26px; left: 26px; width: 344px; height: 344px; }
+.refit-screen .repair-gauge-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -64px;
+    height: 38px;
+    font-size: 25px;
+    letter-spacing: 2.5px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.refit-screen .repair-gauge-caption {
+    position: absolute;
+    top: 219px;
+    height: 35px;
+    left: 0;
+    right: 0;
+    color: #C7C7BF;
+    font-size: 19px;
+    letter-spacing: 1.6px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.refit-screen .repair-gauge-number {
+    position: absolute;
+    top: 126px;
+    height: 100px;
+    left: 0;
+    right: 0;
+    color: white;
+    font-size: 77px;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+    -unity-text-align: middle-center;
+}
+
+.refit-screen .repair-divider { position: absolute; left: 1041px; top: 215px; width: 1px; height: 644px; background-color: #3D3D3D; }
+.refit-screen .repair-after-row,
+.refit-screen .repair-row {
+    padding-left: 18px;
+    padding-right: 18px;
+    border-top-width: 1px;
+    border-top-color: #3D3D3D;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.refit-screen .repair-after-row {
+    position: absolute;
+    top: 724px;
+    left: 110px;
+    width: 396px;
+    height: 83px;
+    border-bottom-width: 1px;
+    border-bottom-color: #3D3D3D;
+}
+
+.refit-screen .repair-row-caption { color: #C7C7BF; font-size: 21px; letter-spacing: 1.6px; -unity-font-style: bold; }
+.refit-screen .repair-row-number { color: #E7E7DF; font-size: 31px; -unity-font-definition: resource('UI/Font/Orbitron-Medium'); }
+.refit-screen .repair-after-value { color: #D4B854; font-size: 45px; }
+.refit-screen .repair-materials { position: absolute; left: 1118px; right: 86px; top: 202px; }
+.refit-screen .repair-material-heading { height: 98px; flex-direction: row; align-items: center; }
+.refit-screen .repair-icon-frame {
+    width: 98px;
+    height: 98px;
+    padding: 5px;
+    border-width: 1px;
+    border-color: #3D3D3D;
+    background-color: #0C0C0C;
+}
+
+.refit-screen .repair-material-icon { flex-grow: 1; border-width: 1px; border-color: #82827C; }
+.refit-screen .repair-material-title { margin-left: 27px; font-size: 39px; -unity-font-style: bold; }
+.refit-screen .repair-ledger { margin-top: 34px; border-bottom-width: 1px; border-bottom-color: #3D3D3D; }
+.refit-screen .repair-row { height: 66px; }
+.refit-screen .repair-total-row { height: 72px; background-color: #0C0C0C; }
+.refit-screen .repair-total-row .repair-row-caption { color: #E7E7DF; }
+.refit-screen .repair-total-row .repair-row-number { font-size: 40px; }
+.refit-screen .repair-cost-value { color: #D4B854; }
+
+.refit-screen .repair-materials .repair-confirm {
+    height: 65px;
+    margin-top: 72px;
+    padding-left: 18px;
+    border-width: 1px;
+    border-color: #D4B854;
+    background-color: #110F0A;
+    color: #D4B854;
+    flex-direction: row;
+    align-items: center;
+}
+
+.refit-screen .repair-materials .repair-confirm:hover,
+.refit-screen .repair-materials .repair-confirm:focus { background-color: #211C10; }
+.refit-screen .repair-materials .repair-confirm:disabled { border-color: #3D3D3D; background-color: #0C0C0C; color: #82827C; }
+.refit-screen .repair-hold {
+    width: 42px;
+    height: 42px;
+    margin-right: 16px;
+    border-width: 4px;
+    border-color: #D4B854;
+    border-radius: 50%;
+    background-color: black;
+    color: white;
+    font-size: 28px;
+    -unity-text-align: middle-center;
+}
+
+.refit-screen .repair-confirm:disabled .repair-hold { border-color: #54544F; color: #82827C; }
+.refit-screen .repair-confirm-caption { font-size: 23px; letter-spacing: 1.9px; -unity-font-style: bold; }
+.refit-screen .repair-message { margin-top: 12px; color: #C7C7BF; font-size: 20px; }

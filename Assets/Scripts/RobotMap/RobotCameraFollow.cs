@@ -99,6 +99,12 @@ namespace AnimalGame.RobotMap
                 positionDampingOverrideEndTime = float.PositiveInfinity;
             }
 
+            if (Time.deltaTime <= 0f)
+            {
+                ApplyCameraPose();
+                return;
+            }
+
             float activePositionDamping = positionDampingOverride >= 0f
                 ? positionDampingOverride
                 : positionDamping;

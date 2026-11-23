@@ -114,7 +114,7 @@ namespace AnimalGame.MapTest
 
         private void Update()
         {
-            if (Input.GetKeyDown(ToggleKey))
+            if (!OfficialMapOpening.IsPlaying && Input.GetKeyDown(ToggleKey))
                 SetOverlayVisible(!isOverlayVisible);
         }
 

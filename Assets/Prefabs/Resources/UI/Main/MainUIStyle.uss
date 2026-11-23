@@ -71,6 +71,72 @@ Label {
     color: white;
 }
 
+.opening-control-hint {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform-origin: 0% 0%;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.driving-control {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 2px 0;
+    padding: 4px 3px;
+    background-color: rgba(0, 0, 0, 0.86);
+    border-radius: 4px;
+}
+
+.driving-control-key {
+    width: 36px;
+    height: 28px;
+    margin-right: 7px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: rgb(212, 184, 84);
+    border-radius: 5px;
+    color: rgb(212, 184, 84);
+    font-size: 16px;
+    -unity-text-align: middle-center;
+}
+
+.driving-control-stick {
+    width: 28px;
+    margin-right: 15px;
+    border-radius: 50%;
+}
+
+.driving-control-action {
+    font-size: 18px;
+    white-space: nowrap;
+}
+
+.opening-signal-prompt {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    transform-origin: 50% 50%;
+    align-items: flex-start;
+}
+
+.opening-signal-title {
+    color: rgb(212, 184, 84);
+}
+
+.driving-control-key-wide {
+    width: auto;
+    min-width: 36px;
+    padding-left: 6px;
+    padding-right: 6px;
+    white-space: nowrap;
+}
+
 .unstuck-failure {
     display: none;
     position: absolute;
@@ -89,6 +155,18 @@ Label {
     width: 310px;
     height: 154px;
     transform-origin: 0 0;
+}
+
+.drive-damage-warning {
+    display: none;
+    position: absolute;
+    left: 16px;
+    top: 168px;
+    padding: 7px 12px;
+    background-color: rgba(0, 0, 0, 0.88);
+    color: #D4B854;
+    font-size: 19px;
+    white-space: nowrap;
 }
 
 .integrity-ring {

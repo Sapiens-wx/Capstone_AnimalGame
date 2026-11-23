@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AnimalGame.Animals;
 using AnimalGame.Interaction;
+using AnimalGame.MainUI.Inventory;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using UnityEngine;
@@ -16,6 +17,10 @@ namespace AnimalGame.Demos.CheckpointRefit
     [DisallowMultipleComponent]
     public sealed class CheckpointRefitTerminal : MonoBehaviour
     {
+        private const int RepairCost = 3;
+        private const float RepairAmount = .30f;
+        private const float RepairHoldSeconds = .5f;
+
         [SerializeField] private GameObject uiPrefab;
         [SerializeField] private string checkpointName = "Weather Tower";
         [SerializeField] private string checkpointId = "WX-03";
@@ -23,12 +28,16 @@ namespace AnimalGame.Demos.CheckpointRefit
         [Tooltip("Optional explicit same-scene player. Otherwise binds the map player or the scene's only active RobotMover.")]
         [SerializeField] private RobotMover playerOverride;
         [SerializeField] private InteractionMarker interactionMarker;
+        [SerializeField] private bool useTutorialInteractionHint;
         [SerializeField] private PhotoCameraDefinition zoomLens300;
         [SerializeField] private PhotoCameraDefinition damagedPrime50;
+        [SerializeField] private InventoryItem metalScrap;
 
         private RobotMover player;
+        private PlayerCombatReceiver repairReceiver;
         private MapTestSceneController map;
         private CheckpointRefitView view;
+        private WorldInteractionHint tutorialHint;
         private GameObject uiInstance;
         private RefitGameplayLease lease;
         private RefitCameraEquipment cameraEquipment;
@@ -37,6 +46,8 @@ namespace AnimalGame.Demos.CheckpointRefit
         private bool releasing;
         private bool previousInteract, previousCancel, previousInspection;
         private bool previousShoulderLeft, previousShoulderRight;
+        private bool repairRequiresRelease;
+        private float repairHoldElapsed;
         private int previousNavigationX, previousNavigationY;
         private float repeatAt, nextSearch, nextPromptCheck;
         private bool promptAllowed;
@@ -86,6 +97,8 @@ namespace AnimalGame.Demos.CheckpointRefit
             damagedPrime50 = damaged;
         }
 
+        public void ConfigureRepairMaterial(InventoryItem item) => metalScrap = item;
+
         private void BindCameraEquipment()
         {
             PhotoModeController controller = player.GetComponentInChildren<PhotoModeController>(true);
@@ -116,6 +129,13 @@ namespace AnimalGame.Demos.CheckpointRefit
             // Discovery rings yield to the nearby prompt. Query the live range rather than the cached prompt,
             // so closing-input release and crossing the boundary cannot produce a one-frame flash.
             interactionMarker?.SetSuppressed(!isActiveAndEnabled || IsOpen || lease != null || releasing || IsNearby);
+        }
+
+        private void Awake()
+        {
+            if (!useTutorialInteractionHint) return;
+            tutorialHint = gameObject.AddComponent<WorldInteractionHint>();
+            tutorialHint.enabled = false;
         }
 
         private void Start()
@@ -153,9 +173,22 @@ namespace AnimalGame.Demos.CheckpointRefit
             previousCancel = cancel;
             previousInspection = inspection;
 
+            bool repairPagePressed = false;
+            bool refitPagePressed = false;
+            bool pageInputHeld = false;
+            if (IsOpen || releasing)
+            {
+                ReadPageInput(out bool left, out bool right);
+                repairPagePressed = left && !previousShoulderLeft;
+                refitPagePressed = right && !previousShoulderRight;
+                pageInputHeld = left || right;
+                previousShoulderLeft = left;
+                previousShoulderRight = right;
+            }
+
             if (releasing)
             {
-                if (!interact && !cancel && !inspection)
+                if (!interact && !cancel && !inspection && !pageInputHeld)
                 {
                     ReleaseLease();
                     inputArmed = true;
@@ -176,6 +209,18 @@ namespace AnimalGame.Demos.CheckpointRefit
                 if (cancelPressed)
                 {
                     if (!view.CloseInspection()) Close();
+                    return;
+                }
+                bool pageRequested = repairPagePressed != refitPagePressed && view.RequestPage(repairPagePressed);
+                if (pageRequested || view.IsPageSwitchPending)
+                {
+                    repairRequiresRelease = interact;
+                    ResetRepairHold();
+                    return;
+                }
+                if (view.IsRepairPage)
+                {
+                    UpdateRepair(interact);
                     return;
                 }
                 if (inspectionPressed) view.OpenInspection();
@@ -209,11 +254,14 @@ namespace AnimalGame.Demos.CheckpointRefit
                 }
                 IsOpen = true;
                 inputArmed = false;
-                view.SetPrompt(string.Empty, false);
+                SetPrompt(false);
                 view.SetPlayerPreview(playerPreview.Texture);
                 view.Show(checkpointName, checkpointId);
+                RefreshRepairStatus();
                 previousNavigationX = previousNavigationY = 0;
-                previousShoulderLeft = previousShoulderRight = false;
+                ReadPageInput(out previousShoulderLeft, out previousShoulderRight);
+                repairRequiresRelease = false;
+                repairHoldElapsed = 0f;
                 repeatAt = 0f;
                 return true;
             }
@@ -225,14 +273,68 @@ namespace AnimalGame.Demos.CheckpointRefit
             }
         }
 
+        private (float integrity, float power, int cargo, string message) ReadRepairStatus()
+        {
+            var hud = repairReceiver != null ? repairReceiver.Hud : null;
+            float integrity = repairReceiver != null ? repairReceiver.Integrity : float.NaN;
+            int cargo = hud != null && metalScrap != null ? hud.Inventory.Count(metalScrap) : 0;
+            string message = hud == null || metalScrap == null ? "Repair unavailable."
+                : integrity >= 1f ? "Integrity is full."
+                : cargo < RepairCost ? "Not enough Metal Scrap."
+                : null;
+            return (integrity, hud != null ? hud.Power : float.NaN, cargo, message);
+        }
+
+        private void RefreshRepairStatus()
+        {
+            var (integrity, power, cargo, message) = ReadRepairStatus();
+            float after = float.IsNaN(integrity) ? float.NaN : Mathf.Min(1f, integrity + RepairAmount);
+            view.SetRepairStatus(integrity, power, after, cargo, null, RepairCost,
+                metalScrap != null ? metalScrap.Image : null, message == null, message);
+        }
+
+        private void UpdateRepair(bool interact)
+        {
+            if (!interact && !view.IsRepairPointerHeld)
+            {
+                repairRequiresRelease = false;
+                ResetRepairHold();
+                return;
+            }
+            if (repairRequiresRelease) return;
+
+            if (ReadRepairStatus().message != null)
+            {
+                ResetRepairHold();
+                RefreshRepairStatus();
+                repairRequiresRelease = true;
+                return;
+            }
+
+            repairHoldElapsed = Mathf.Min(RepairHoldSeconds, repairHoldElapsed + Time.unscaledDeltaTime);
+            view.SetRepairHoldProgress(repairHoldElapsed / RepairHoldSeconds);
+            if (repairHoldElapsed < RepairHoldSeconds) return;
+
+            repairRequiresRelease = true;
+            repairReceiver.TryRepairIntegrity(metalScrap, RepairCost, RepairAmount);
+            RefreshRepairStatus();
+        }
+
+        private void ResetRepairHold()
+        {
+            if (repairHoldElapsed == 0f) return;
+            repairHoldElapsed = 0f;
+            view.SetRepairHoldProgress(0f);
+        }
+
         public void Close()
         {
             if (!IsOpen) return;
             IsOpen = false;
             view?.Hide();
-            view?.SetPrompt(string.Empty, false);
+            SetPrompt(false);
             ClearPlayerPreview();
-            // Keep gameplay isolated until the closing A/B/Enter/Escape press is released.
+            // Keep gameplay isolated until maintenance inputs are released.
             releasing = true;
             inputArmed = false;
             nextPromptCheck = 0f;
@@ -241,7 +343,8 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void ForceClose()
         {
             IsOpen = false;
-            if (view != null) { view.Hide(); view.SetPrompt(string.Empty, false); }
+            view?.Hide();
+            SetPrompt(false);
             ClearPlayerPreview();
             ReleaseLease();
             inputArmed = false;
@@ -306,7 +409,19 @@ namespace AnimalGame.Demos.CheckpointRefit
                 promptAllowed = RefitGameplayLease.CanAcquire(player, out _);
             }
             if (!nearby) { nextPromptCheck = 0f; promptAllowed = false; }
-            view.SetPrompt(HasGamepad() ? "[A]  Maintenance" : "[Enter]  Maintenance", nearby && promptAllowed);
+            SetPrompt(nearby && promptAllowed);
+        }
+
+        private void SetPrompt(bool visible)
+        {
+            if (tutorialHint != null)
+            {
+                tutorialHint.enabled = visible;
+                return;
+            }
+
+            string label = visible ? (HasGamepad() ? "[A]  Maintenance" : "[Enter]  Maintenance") : string.Empty;
+            view?.SetPrompt(label, visible);
         }
 
         private float DistanceToPlayer()
@@ -321,6 +436,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void SetPlayer(RobotMover target)
         {
             player = target;
+            repairReceiver = target != null ? target.GetComponent<PlayerCombatReceiver>() : null;
             map = null;
             promptAllowed = false;
             nextPromptCheck = 0f;
@@ -367,7 +483,6 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void Navigate()
         {
             Vector2 axis = Vector2.zero;
-            bool shoulderLeft = false, shoulderRight = false;
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null)
             {
@@ -380,19 +495,11 @@ namespace AnimalGame.Demos.CheckpointRefit
                 Vector2 gamepadAxis = pad.dpad.ReadValue();
                 if (gamepadAxis.sqrMagnitude < .1f) gamepadAxis = pad.leftStick.ReadValue();
                 if (gamepadAxis.sqrMagnitude > axis.sqrMagnitude) axis = gamepadAxis;
-                shoulderLeft |= pad.leftShoulder.isPressed;
-                shoulderRight |= pad.rightShoulder.isPressed;
             }
 #else
             axis.x = (Input.GetKey(KeyCode.RightArrow) ? 1 : 0) - (Input.GetKey(KeyCode.LeftArrow) ? 1 : 0);
             axis.y = (Input.GetKey(KeyCode.UpArrow) ? 1 : 0) - (Input.GetKey(KeyCode.DownArrow) ? 1 : 0);
-            shoulderLeft = Input.GetKey(KeyCode.JoystickButton4);
-            shoulderRight = Input.GetKey(KeyCode.JoystickButton5);
 #endif
-            if (shoulderLeft && !previousShoulderLeft) view.NavigateSlot(-1);
-            else if (shoulderRight && !previousShoulderRight) view.NavigateSlot(1);
-            previousShoulderLeft = shoulderLeft;
-            previousShoulderRight = shoulderRight;
             int x = Mathf.Abs(axis.x) >= .55f ? (axis.x > 0 ? 1 : -1) : 0;
             int y = Mathf.Abs(axis.y) >= .55f ? (axis.y > 0 ? 1 : -1) : 0;
             bool changed = x != previousNavigationX || y != previousNavigationY;
@@ -404,6 +511,30 @@ namespace AnimalGame.Demos.CheckpointRefit
             }
             previousNavigationX = x;
             previousNavigationY = y;
+        }
+
+        private static void ReadPageInput(out bool left, out bool right)
+        {
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            left = keyboard != null && keyboard.qKey.isPressed;
+            right = keyboard != null && keyboard.eKey.isPressed;
+            if (Gamepad.all.Count > 0)
+            {
+                foreach (Gamepad pad in Gamepad.all)
+                {
+                    if (!pad.added) continue;
+                    left |= pad.leftShoulder.isPressed;
+                    right |= pad.rightShoulder.isPressed;
+                }
+                return;
+            }
+#else
+            left = Input.GetKey(KeyCode.Q);
+            right = Input.GetKey(KeyCode.E);
+#endif
+            left |= Input.GetKey(KeyCode.JoystickButton4);
+            right |= AdaptiveLegacyGamepadInput.IsRightShoulderHeld();
         }
 
         private static bool HasGamepad()

@@ -247,6 +247,12 @@ namespace AnimalGame.RobotArm
         {
             ManualRetractRequestedThisFrame = false;
             bool armButtonHeld = Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
+            if (openingArmPresentation)
+            {
+                previousArmButtonHeld = armButtonHeld;
+                armRequiresFreshPress = armButtonHeld;
+                return;
+            }
             if (StepInventoryPresentation(Time.unscaledDeltaTime))
             {
                 previousArmButtonHeld = armButtonHeld;
@@ -401,7 +407,7 @@ namespace AnimalGame.RobotArm
 
         private void LateUpdate()
         {
-            if (!initialized) return;
+            if (!initialized || openingArmPresentation) return;
             // RobotMover runs after this controller. Check its translation AND rotation before rendering.
             if (Upright && deploymentTime > 0f && !IsProcessingRecycle &&
                 (transform.position != framePosition || Quaternion.Angle(transform.rotation, frameRotation) > .00001f))
@@ -1219,15 +1225,16 @@ namespace AnimalGame.RobotArm
             if (marker.ForegroundSpriteMaterial != null) renderer.sharedMaterial = marker.ForegroundSpriteMaterial;
             return renderer;
         }
-        private void ApplyVisuals(Arm arm)
+        private void ApplyVisuals(Arm arm) => ApplyVisuals(arm, arm.Pose, deploymentTime > 0f);
+
+        private void ApplyVisuals(Arm arm, Pose visualPose, bool visible)
         {
-            if (deploymentTime <= 0f)
+            if (!visible)
             {
                 if (arm.Root.gameObject.activeSelf) arm.Root.gameObject.SetActive(false);
                 return;
             }
             if (!arm.Root.gameObject.activeSelf) arm.Root.gameObject.SetActive(true);
-            Pose visualPose = arm.Pose;
             Vector2 socket = SocketAt(arm, visualPose);
             if (mediumRecycleActive && visualPose.Hand > 0f)
             {
@@ -1244,13 +1251,13 @@ namespace AnimalGame.RobotArm
             scale.y *= arm.DeployedLoopScale;
             arm.LoopSprite.transform.localScale = scale;
             arm.LoopSprite.transform.localPosition = LoopPositionAtScale(arm, scale);
-            arm.LoopSprite.enabled = arm.DeployedLoopScale > 0f && arm.Pose.LowerLength > 0f;
-            arm.HandSprite.enabled = arm.Pose.Hand > 0f;
+            arm.LoopSprite.enabled = arm.DeployedLoopScale > 0f && visualPose.LowerLength > 0f;
+            arm.HandSprite.enabled = visualPose.Hand > 0f;
             arm.HandSprite.sortingOrder = inventoryPresentationActive && arm.Side > 0f
                 ? 3 : arm.HandSortingOrder;
             arm.Hand.localRotation = Quaternion.Euler(0f, 0f, visualPose.UpperAngle
                 + (mediumRecycleActive ? arm.Side * handShakeRoll : 0f));
-            arm.Hand.localScale = new Vector3(-arm.Side, 1f, 1f) * handScale * arm.Pose.Hand;
+            arm.Hand.localScale = new Vector3(-arm.Side, 1f, 1f) * handScale * visualPose.Hand;
             // Keep the open hand's attachment offset when swapping sprites of different sizes/pivots.
             arm.Hand.localPosition = elbow + Direction(visualPose.UpperAngle) * visualPose.UpperLength;
         }
@@ -1293,6 +1300,7 @@ namespace AnimalGame.RobotArm
         }
         public void CancelArmControl()
         {
+            EndOpeningPresentation();
             inventoryPresentationActive = inventoryPresentationOpen = false;
             ManualRetractRequestedThisFrame = false;
             ResetNormalArmInput();

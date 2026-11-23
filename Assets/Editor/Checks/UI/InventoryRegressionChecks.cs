@@ -59,8 +59,30 @@ namespace AnimalGame.Editor
             Check(rewards.Grant(RecyclableSize.Big, store).Added == 0, "No invented big garbage reward");
             Check(!store.Move(0, 1), "Occupied destination cannot merge or swap");
             Check(store.Move(0, 7) && store.Quantity(7) == 1 && store.Items[0] == null && store.IsUnread(7), "Move preserves quantity and unread state");
+            CheckConsumption(metal, synthetic);
             CheckUI(metal, synthetic);
             Debug.Log("INVENTORY CHECKS PASSED: " + checks);
+        }
+
+        private static void CheckConsumption(InventoryItem metal, InventoryItem synthetic)
+        {
+            var store = new InventoryStore();
+            store.Add(metal, 13);
+            store.Add(synthetic, 1);
+            int changes = 0;
+            store.Changed += slot =>
+            {
+                Check(slot == changes && store.Count(metal) == 2,
+                    "Consumption notifications see the complete payment in stack order");
+                changes++;
+            };
+
+            Check(!store.TryConsume(metal, 14) && store.Count(metal) == 13 && changes == 0,
+                "An unaffordable payment leaves all stacks unchanged");
+            Check(store.TryConsume(metal, 11) && changes == 2 && store.Items[0] == null && !store.IsUnread(0),
+                "Payment spans stacks and clears the exhausted slot");
+            Check(store.Items[1] == metal && store.Quantity(1) == 2 && store.IsUnread(1) && store.Items[2] == synthetic,
+                "Payment preserves unread partial stacks and other materials");
         }
 
         private static void CheckUI(InventoryItem metal, InventoryItem synthetic)

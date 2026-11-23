@@ -19,7 +19,7 @@ namespace AnimalGame.Editor
             CheckPinShapes();
             CheckAssets();
             CheckGpuContours();
-            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water/cropped bounds/fog, 14m interval, screen line widths and height emphasis.");
+            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water/cropped bounds/unknown survey pattern, 14m interval, screen line widths and height emphasis.");
         }
 
         private static void CheckCursorAndPins()
@@ -216,8 +216,8 @@ namespace AnimalGame.Editor
             pattern.SetPixel(0, 0, Color.green); pattern.Apply();
             var mask = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
             mask.SetPixel(0, 0, new Color(1, 1, 0, 0)); mask.Apply();
-            var fog = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
-            fog.SetPixel(0, 0, Color.white); fog.Apply();
+            var fog = new Texture2D(2, 1, TextureFormat.RGBA32, false, true) { filterMode = FilterMode.Point };
+            fog.SetPixels(new[] { Color.black, Color.white }); fog.Apply();
             try
             {
                 foreach (var tile in map.RuntimeMap.Tiles)
@@ -242,24 +242,28 @@ namespace AnimalGame.Editor
                         "Contours leaked through transparent water pattern gaps.");
                 Require(Sum(transparentWater, 1, 120) > .1f, "Water hid contours outside its bounds.");
                 pattern.SetPixel(0, 0, Color.green); pattern.Apply();
-                type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512, fog });
-                var target = (RenderTexture)type.GetProperty("Texture").GetValue(renderer);
-                RenderTexture previous = RenderTexture.active;
-                var pixel = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
-                try
+                Color[] partiallyKnown = Render(type, renderer, map, state, fog);
+                float darkest = 1f, brightest = 0f;
+                for (int y = 0; y < 512; y++)
+                for (int x = 0; x < 256; x++)
                 {
-                    RenderTexture.active = target;
-                    pixel.ReadPixels(new Rect(280, 256, 1, 1), 0, 0); pixel.Apply();
-                    Require(pixel.GetPixel(0, 0).maxColorComponent < .01f, "Water bypassed checkpoint fog.");
+                    int index = y * 512 + x;
+                    Require(partiallyKnown[index] == water[index], "Known terrain or water changed under a clear mask.");
+                    Color hidden = partiallyKnown[index + 256];
+                    Require(Mathf.Abs(hidden.r - hidden.g) < .01f && Mathf.Abs(hidden.r - hidden.b) < .01f,
+                        "Water color leaked into the unknown survey pattern.");
+                    darkest = Mathf.Min(darkest, hidden.r);
+                    brightest = Mathf.Max(brightest, hidden.r);
                 }
-                finally { RenderTexture.active = previous; Object.DestroyImmediate(pixel); }
+                Require(darkest > .001f && brightest < .4f && brightest - darkest > .03f,
+                    "Unknown terrain should be covered by a dark, visible survey pattern.");
             }
             finally { Object.DestroyImmediate(pattern); Object.DestroyImmediate(mask); Object.DestroyImmediate(fog); }
         }
 
-        private static Color[] Render(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state)
+        private static Color[] Render(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state, Texture fog = null)
         {
-            type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512, null });
+            type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512, fog });
             var texture = (RenderTexture)type.GetProperty("Texture").GetValue(renderer);
             RenderTexture previous = RenderTexture.active;
             var readback = new Texture2D(512, 512, TextureFormat.RGBA32, false, true);

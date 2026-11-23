@@ -15,6 +15,7 @@ namespace AnimalGame.RobotMap
         [SerializeField, Min(1f)] private float bodyHatchOutlineGapPixels = 32f;
 
         private Transform leftBodyHatch, rightBodyHatch;
+        private SpriteRenderer leftBodyHatchArtwork, rightBodyHatchArtwork;
         private Material[] bodyHatchMaterials;
         private Sprite bodyHatchSprite;
         private float bodyHatchOpen01;
@@ -51,11 +52,11 @@ namespace AnimalGame.RobotMap
                 bodyHatchMaterials[i] = material;
             }
             bodyArtwork.sharedMaterial = bodyHatchMaterials[0];
-            leftBodyHatch = CreateBodyHatch("Left Body Hatch", -1f, bodyHatchMaterials[1]);
-            rightBodyHatch = CreateBodyHatch("Right Body Hatch", 1f, bodyHatchMaterials[2]);
+            leftBodyHatch = CreateBodyHatch("Left Body Hatch", -1f, bodyHatchMaterials[1], out leftBodyHatchArtwork);
+            rightBodyHatch = CreateBodyHatch("Right Body Hatch", 1f, bodyHatchMaterials[2], out rightBodyHatchArtwork);
         }
 
-        private Transform CreateBodyHatch(string name, float side, Material material)
+        private Transform CreateBodyHatch(string name, float side, Material material, out SpriteRenderer renderer)
         {
             var hinge = new GameObject(name).transform;
             hinge.SetParent(bodyVisualRoot, false);
@@ -66,7 +67,7 @@ namespace AnimalGame.RobotMap
             artwork.transform.SetParent(hinge, false);
             artwork.transform.localPosition = -pivot;
             artwork.transform.localScale = bodyArtwork.transform.localScale;
-            var renderer = artwork.GetComponent<SpriteRenderer>();
+            renderer = artwork.GetComponent<SpriteRenderer>();
             renderer.sprite = bodyHatchSprite;
             renderer.color = bodyOutlineColor;
             renderer.sharedMaterial = material;
@@ -75,9 +76,12 @@ namespace AnimalGame.RobotMap
             return hinge;
         }
 
-        private void UpdateBodyHatches() => StepBodyHatches(
-            armController != null && armController.IsInventoryPresentationActive
+        private void UpdateBodyHatches()
+        {
+            if (openingMarkerPresentation) return;
+            StepBodyHatches(armController != null && armController.IsInventoryPresentationActive
                 ? Time.unscaledDeltaTime : Time.deltaTime);
+        }
 
         private void StepBodyHatches(float dt)
         {
