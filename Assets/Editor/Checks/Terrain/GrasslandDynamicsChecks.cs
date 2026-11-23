@@ -23,6 +23,13 @@ public static class GrasslandDynamicsChecks
         Vector4[] oldFootprints = Shader.GetGlobalVectorArray("_GrassFootprints");
         try
         {
+            material.SetFloat("_GrassProbeMode", 3);
+            var roll = Capture(material, 128, 1, true);
+            snapshots.Add(roll);
+            foreach (var pixel in roll.GetPixels())
+                Require(Mathf.Abs(pixel.r - .3f) < .001f && Mathf.Abs(pixel.g - .06f) < .001f
+                    && Mathf.Abs(pixel.b - .1f) < .001f,
+                    "Camera roll changed grass coverage or its mip footprint");
             var settings = new SerializedObject(AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/Prefabs/Resources/Robot/RobotMarker.prefab").GetComponent<GrasslandTrampleController>());
             Vector2 periods = settings.FindProperty("windPeriodSeconds").vector2Value;
@@ -32,10 +39,15 @@ public static class GrasslandDynamicsChecks
             Shader.SetGlobalVector("_GrassWindPeriods", new Vector4(periods.x, periods.y, 0, 0));
             var footprints = new Vector4[8];
             for (int i = 0; i < 8; i++) footprints[i] = new Vector4(0, 0, -10000, 0);
-            foreach (string path in new[] { "Assets/Maps/MainHeightMapLevel/MainHeightMapLevel.asset", "Assets/Maps/RockyMountainHeightMapLevel.asset" })
+            foreach (string path in new[]
+            {
+                "Assets/Maps/MainHeightMapLevel/MainHeightMapLevel.asset",
+                "Assets/Maps/Official_Map_01/Gameplay_22/Terrain_5_6_MapData.asset"
+            })
             {
                 var level = AssetDatabase.LoadAssetAtPath<HeightMapLevelAsset>(path);
-                Require(level.GrasslandBladeRects.Length == 8 && level.BakedGrasslandMask != null, "Missing baked grass data");
+                Require(level != null && level.GrasslandBladeRects.Length == 8 && level.BakedGrasslandMask != null,
+                    "Missing baked grass data: " + path);
                 material.SetTexture("_GrassPatternTex", level.GrasslandPattern);
                 material.SetTexture("_GrassMaskTex", Texture2D.whiteTexture);
                 material.SetVectorArray("_GrassRects", level.GrasslandBladeRects);
@@ -120,7 +132,7 @@ public static class GrasslandDynamicsChecks
             foreach (var shader in new[] { material.shader, Shader.Find("AnimalGame/Dynamic Height Contours"),
                 Shader.Find("Hidden/AnimalGame/Bake Terrain Surface Palette") })
                 Require(!ShaderUtil.ShaderHasError(shader), "Shader errors: " + shader.name);
-            File.WriteAllText(directory + "/render-checks.txt", "PASS: both maps; deterministic irregular layout, non-repetition, seed changes, position bounds, smooth regional direction, wind, pause, rotated compression/recovery, 3x3 versus 5x5 support, tile continuity, map shader reveal boundary, shader compilation.");
+            File.WriteAllText(directory + "/render-checks.txt", "PASS: both maps; roll-invariant coverage and mip footprint, deterministic irregular layout, non-repetition, seed changes, position bounds, smooth regional direction, wind, pause, rotated compression/recovery, 3x3 versus 5x5 support, tile continuity, map shader reveal boundary, shader compilation.");
             Debug.Log("Grassland Dynamics GPU checks passed.");
         }
         finally
@@ -150,7 +162,7 @@ public static class GrasslandDynamicsChecks
             Color32[] broadPixels = distant.GetPixels32();
             int visible = Array.FindAll(broadPixels, pixel => pixel.a > 0).Length;
             Require(visible > 0 && visible < broadPixels.Length * .95f,
-                "Distant grass disappeared or filled transparent gaps with a uniform grey floor");
+                $"Distant grass disappeared or filled transparent gaps with a uniform grey floor ({visible}/{broadPixels.Length} visible pixels)");
 
             material.SetVector("_MapSizeMeters", new Vector4(12, 12, 0, 0));
             nearby = Capture(material, 384, 384);
@@ -172,7 +184,7 @@ public static class GrasslandDynamicsChecks
         var scene = EditorSceneManager.NewPreviewScene();
         var root = new GameObject("Grass reveal validation");
         SceneManager.MoveGameObjectToScene(root, scene);
-        var target = RenderTexture.GetTemporary(512,512,0,RenderTextureFormat.ARGB32);
+        var target = RenderTexture.GetTemporary(512,512,24,RenderTextureFormat.ARGB32);
         var previous = RenderTexture.active;
         Texture2D image = null;
         Sprite tileSprite = null;

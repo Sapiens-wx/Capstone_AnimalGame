@@ -35,6 +35,40 @@ float GrassSpacing()
     return _GrassTileSize * rsqrt(8 * _GrassShape.x);
 }
 
+// Estimate how much of the screen pixel is inside this blade's texture rectangle.
+// Restrict the sample to that covered footprint to reduce bleed from nearby atlas blades.
+float GrassClipFootprint(inout float2 uv, inout float2 dx, inout float2 dy, float2 lower, float2 upper, float limitDistantSpread)
+{
+    // Measure the footprint along each texture axis. Its projected length is
+    // invariant under camera roll, unlike the bounds of a rotated screen square.
+    float2 projectedWidth = max(sqrt(dx * dx + dy * dy), .000001);
+    // Broaden edge integration for undersampled blades and taper it off at
+    // overview scales, where widening would fill the gaps between blades.
+    float pixelToBladeWidth = projectedWidth.x / (upper.x - lower.x);
+    float thinBlade = limitDistantSpread * smoothstep(1, 3, pixelToBladeWidth)
+        * (1 - smoothstep(3.05, 3.65, pixelToBladeWidth));
+    float2 width = projectedWidth * (1 + thinBlade);
+    float2 insideMin = max(lower, uv - width * .5);
+    float2 insideMax = min(upper, uv + width * .5);
+    float2 covered = saturate((insideMax - insideMin) / width);
+    float edgeWeight = 1;
+    if (limitDistantSpread > .5)
+    {
+        float2 extent = upper - lower;
+        float2 outside = max(lower - uv, uv - upper);
+        float broadPixel = smoothstep(3, 6, pixelToBladeWidth);
+        // At map scale, keep the thin blade silhouettes from washing over all the gaps.
+        edgeWeight = 1 - broadPixel * smoothstep(0, extent.x * .5, outside.x);
+    }
+    uv = (insideMin + insideMax) * .5;
+    // These equivalent axis-aligned gradients also keep the isotropic mip level
+    // stable when screen X and Y rotate relative to the leaf.
+    float2 clippedWidth = projectedWidth * covered;
+    dx = float2(clippedWidth.x, 0);
+    dy = float2(0, clippedWidth.y);
+    return covered.x * covered.y * edgeWeight;
+}
+
 float GrassDirection(float2 meters)
 {
     float2 p = meters / (_GrassTileSize * _GrassLayout.z);
@@ -119,6 +153,7 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
     float4 result = 0;
     int bits = (int)_GrassOverlaySettings.z;
     int count = (bits & 1) + ((bits >> 1) & 1) + ((bits >> 2) & 1);
+    float pixelRadius = sqrt(.5 * (dot(pixelDx, pixelDx) + dot(pixelDy, pixelDy)));
     // Include neighbouring patch centres, so tall rotated grass is not clipped
     // at the search-cell or map-tile boundary.
     [loop] for (int y = -1; y <= 1; y++)
@@ -127,7 +162,7 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
         float2 groupCell = cell + float2(x, y);
         float3 group = GrassOverlayGroup(groupCell, groupSpacing);
         if (group.z < .5) continue;
-        float groupSupport = spacing * 2.15 + size * 2.88;
+        float groupSupport = spacing * 2.15 + size * 2.88 + pixelRadius;
         float2 groupDelta = meters - group.xy;
         if (dot(groupDelta, groupDelta) > groupSupport * groupSupport) continue;
         [loop] for (int instance = 0; instance < 8; instance++)
@@ -138,7 +173,7 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
                 lerp(.96, 2.4, GrassHash(key + 149)));
             float2 centre = GrassOverlayClusterCentre(groupCell, group, instance, spacing);
             float2 delta = meters - centre;
-            float support = instanceSize.y * .95 + instanceSize.x * .5;
+            float support = instanceSize.y * .95 + instanceSize.x * .5 + pixelRadius;
             if (dot(delta, delta) > support * support) continue;
             float s, c;
             sincos(GrassDirection(centre), s, c);
@@ -173,10 +208,10 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
             float lengthScale = 1;
             float height = (dot(delta, up) / instanceSize.y + .5) / lengthScale;
             float tipOffset = wind * (1 - pressure) + pressure * direction * .30;
+            float bendHeight = saturate(height);
             float2 uv = float2(dot(delta, side) / instanceSize.x + .5
-                - tipOffset * instanceSize.y / instanceSize.x * height * height, height);
-            if (any(uv < 0) || any(uv > 1)) continue;
-            float shear = 2 * tipOffset * height / lengthScale;
+                - tipOffset * instanceSize.y / instanceSize.x * bendHeight * bendHeight, height);
+            float shear = 2 * tipOffset * bendHeight / lengthScale;
             float2 dx = float2((dot(pixelDx, side) - shear * dot(pixelDx, up)) / instanceSize.x,
                 dot(pixelDx, up) / (instanceSize.y * lengthScale));
             float2 dy = float2((dot(pixelDy, side) - shear * dot(pixelDy, up)) / instanceSize.x,
@@ -186,12 +221,15 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
             uv.x = .5 + (uv.x - .5) * flipX;
             dx.x *= flipX;
             dy.x *= flipX;
+            float coverage = GrassClipFootprint(uv, dx, dy, 0, 1, 0);
+            if (coverage <= 0) continue;
             int choice = min(count - 1, (int)floor(GrassHash(key + 83) * count));
             int variant = 0;
             [unroll] for (int i = 0; i < 3; i++)
                 if ((bits & (1 << i)) != 0) { if (choice == 0) { variant = i; break; } choice--; }
             float4 sample = variant == 0 ? tex2Dgrad(_GrassOverlay1, uv, dx, dy)
                 : variant == 1 ? tex2Dgrad(_GrassOverlay2, uv, dx, dy) : tex2Dgrad(_GrassOverlay3, uv, dx, dy);
+            sample.a *= coverage;
             result.rgb = sample.rgb * sample.a + result.rgb * (1 - sample.a);
             result.a = sample.a + result.a * (1 - sample.a);
         }
@@ -202,10 +240,14 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
 
 float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float animate)
 {
-    float2 cell = floor(meters / GrassSpacing());
+    float spacing = GrassSpacing();
+    float2 cell = floor(meters / spacing);
+    float pixelRadius = sqrt(.5 * (dot(pixelDx, pixelDx) + dot(pixelDy, pixelDy)));
+    // At broad zooms the footprint can reach one extra row of candidate blades.
+    int searchRadius = max(GRASS_NEIGHBOUR_RADIUS, 1 + (int)(pixelRadius > spacing * .35));
     float4 result = 0;
-    [loop] for (int y = -GRASS_NEIGHBOUR_RADIUS; y <= GRASS_NEIGHBOUR_RADIUS; y++)
-    [loop] for (int x = -GRASS_NEIGHBOUR_RADIUS; x <= GRASS_NEIGHBOUR_RADIUS; x++)
+    [loop] for (int y = -searchRadius; y <= searchRadius; y++)
+    [loop] for (int x = -searchRadius; x <= searchRadius; x++)
     {
         float2 bladeCell = cell + float2(x, y);
         float3 placement = GrassPlacement(bladeCell);
@@ -214,13 +256,13 @@ float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float an
         float2 delta = meters - placement.xy;
         // Includes the largest configured bend and blade width. With <=40% jitter
         // this support fits the 3x3 neighbourhood even at cell corners.
-        float radius = bladeLength * .72 + rect.z * _GrassTileSize * .5;
+        float radius = bladeLength * .72 + rect.z * _GrassTileSize * .5 + pixelRadius;
         if (dot(delta, delta) > radius * radius) continue;
         float s, c;
         sincos(GrassBladeAngle(bladeCell, placement.xy), s, c);
         float2 side = float2(c, -s), up = float2(s, c);
         float2 q = float2(dot(delta, side), dot(delta, up) + bladeLength * .5);
-        if (q.y < 0 || q.y > bladeLength) continue;
+        if (q.y < -pixelRadius || q.y > bladeLength + pixelRadius) continue;
         float2 centreWorld = mul(_GrassMetersToWorld, float4(placement.xy, 0, 1)).xy;
         float2 sideWorld = mul((float3x3)_GrassMetersToWorld, float3(side, 0)).xy;
         float pressure = 0;
@@ -246,21 +288,21 @@ float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float an
         float wind = animate * _GrassDynamics.x * lerp(.65, 1, random)
             * sin(_GrassNow * 6.2831853 / max(.1, period) + random * 6.2831853);
         float lengthScale = lerp(1, _GrassDynamics.z, pressure);
-        float height = q.y / (bladeLength * lengthScale);
+        float height = saturate(q.y / (bladeLength * lengthScale));
         float tipOffset = wind * (1 - pressure) + direction * pressure * _GrassDynamics.y;
         q.x -= tipOffset * bladeLength * height * height;
         float2 sourceUv = rect.xy + float2(rect.z * .5, 0)
             + float2(q.x, q.y / (lengthScale * _GrassShape.y)) / _GrassTileSize;
-        if (sourceUv.x < rect.x || sourceUv.x > rect.x + rect.z ||
-            sourceUv.y < rect.y || sourceUv.y > rect.y + rect.w) continue;
         // Rotate and deform the sampling footprint too, preserving sharp edges and
         // stable mip selection rather than differentiating random cell identities.
         float shear = 2 * tipOffset * height / lengthScale;
-        float2 dx = float2(dot(pixelDx, side) - shear * dot(pixelDx, up), dot(pixelDx, up) / (lengthScale * _GrassShape.y));
-        float2 dy = float2(dot(pixelDy, side) - shear * dot(pixelDy, up), dot(pixelDy, up) / (lengthScale * _GrassShape.y));
-        float4 grass = tex2Dgrad(_GrassPatternTex, sourceUv, dx / _GrassTileSize, dy / _GrassTileSize);
+        float2 dx = float2(dot(pixelDx, side) - shear * dot(pixelDx, up), dot(pixelDx, up) / (lengthScale * _GrassShape.y)) / _GrassTileSize;
+        float2 dy = float2(dot(pixelDy, side) - shear * dot(pixelDy, up), dot(pixelDy, up) / (lengthScale * _GrassShape.y)) / _GrassTileSize;
+        float coverage = GrassClipFootprint(sourceUv, dx, dy, rect.xy, rect.xy + rect.zw, 1);
+        if (coverage <= 0) continue;
+        float4 grass = tex2Dgrad(_GrassPatternTex, sourceUv, dx, dy);
         grass.a = lerp(grass.a, saturate(grass.a / max(.001, _GrassAlphaNormalization.x)),
-            _GrassAlphaNormalization.y);
+            _GrassAlphaNormalization.y) * coverage;
         result.rgb += grass.rgb * grass.a;
         result.a += grass.a;
     }
@@ -269,7 +311,7 @@ float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float an
     return result;
 }
 
-float4 SampleGrassland(float2 tileUv, float animate)
+float4 SampleGrassland(float2 tileUv, float2 pixelDx, float2 pixelDy, float animate)
 {
     // Smooth the low-alpha 8-bit bake before mapping it to the target opacity range.
     // Filter coverage only; grass silhouettes and their source texture stay sharp.
@@ -281,7 +323,6 @@ float4 SampleGrassland(float2 tileUv, float animate)
         + tex2D(_GrassMaskTex, tileUv + float2(0, maskStep.y)).a
         + tex2D(_GrassMaskTex, tileUv - float2(0, maskStep.y)).a) * .125;
     float2 meters = tileUv * _MapSizeMeters.xy + _GrassTileOrigin.xy;
-    float2 pixelDx = ddx(meters), pixelDy = ddy(meters);
     if (mask.a < .0001) return 0;
 
     // Keep empty space transparent at every zoom; a whole-atlas average creates a grey floor.

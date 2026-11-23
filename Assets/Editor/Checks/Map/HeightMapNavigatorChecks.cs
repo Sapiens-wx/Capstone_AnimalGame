@@ -131,6 +131,8 @@ public static class HeightMapNavigatorChecks
                 Require(properties.GetTexture("_TerrainCoverage") == entries[i].level.TerrainCoverage
                     && properties.GetTexture("_TerrainPattern5") == entries[i].level.TerrainPatterns[5],
                     "The property block must retain the tile's own coverage and original pattern.");
+                Require(properties.GetTexture("_TerrainPattern1") == entries[i].level.TerrainPatterns[5],
+                    "A tile without Grid Test must bind its first static pattern as the sampler source.");
             }
             tiles[grassTile].GetPropertyBlock(properties);
             Require(properties.GetFloat("_GrassEnabled") == 1f

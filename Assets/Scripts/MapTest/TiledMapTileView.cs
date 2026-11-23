@@ -62,9 +62,17 @@ namespace AnimalGame.MapTest
                 properties.SetVectorArray("_TerrainTints", level.TerrainPatternTints);
                 properties.SetVector("_TerrainOrigin", grassTileOrigin);
                 properties.SetFloat("_TerrainSeed", level.TerrainPatternSeed);
-                for (int id = 1; id < level.TerrainPatterns.Length; id++)
-                    if (id != 4) properties.SetTexture("_TerrainPattern" + id,
-                        level.TerrainPatterns[id] != null ? level.TerrainPatterns[id] : Texture2D.blackTexture);
+                var patterns = level.TerrainPatterns;
+                var samplerPattern = patterns[(int)TerrainKind.GridTest];
+                for (int id = 2; id < patterns.Length; id++)
+                {
+                    if (id == (int)TerrainKind.Grassland) continue;
+                    var pattern = patterns[id];
+                    if (samplerPattern == null) samplerPattern = pattern;
+                    properties.SetTexture("_TerrainPattern" + id, pattern != null ? pattern : Texture2D.blackTexture);
+                }
+                // Every static pattern uses slot 1's sampler, even on maps without Grid Test.
+                properties.SetTexture("_TerrainPattern1", samplerPattern != null ? samplerPattern : Texture2D.blackTexture);
             }
             properties.SetFloat("_SurfaceEnabled", hasSurface ? 1 : 0);
             bool grass = level.BakedGrasslandMask != null && level.GrasslandPattern != null;

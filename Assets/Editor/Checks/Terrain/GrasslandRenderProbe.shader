@@ -30,10 +30,20 @@ Shader "Hidden/AnimalGame/Grassland Render Probe"
             float4 frag(v2f_img input) : SV_Target
             {
                 float2 meters = input.uv * _MapSizeMeters.xy + _GrassTileOrigin.xy;
+                if (_GrassProbeMode > 2.5)
+                {
+                    float sine, cosine;
+                    sincos(input.uv.x * 6.2831853, sine, cosine);
+                    float2 uv = float2(.06, .18);
+                    float2 dx = float2(.2 * cosine, .1 * sine);
+                    float2 dy = float2(-.2 * sine, .1 * cosine);
+                    float coverage = GrassClipFootprint(uv, dx, dy, float2(.1, .1), float2(.4, .4), 1);
+                    return float4(coverage, dx.x, dy.y, 1);
+                }
                 if (_GrassProbeMode > 1.5) return GrassDirection(meters);
                 if (_GrassProbeMode > .5)
                     return GrassInstance(floor(meters / GrassSpacing()));
-                return SampleGrassland(input.uv, _GrassActive);
+                return SampleGrassland(input.uv, ddx(meters), ddy(meters), _GrassActive);
             }
             ENDCG
         }

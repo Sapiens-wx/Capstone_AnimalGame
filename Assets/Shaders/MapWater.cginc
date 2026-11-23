@@ -75,25 +75,21 @@ fixed4 SampleWaterPattern(
             - animationTime * _WaterWaveSpeed * 0.83))
         * _WaterWaveDistortion;
 
-    float2 primaryUv = frac(
-        (mapMeters
-            + _WaterLayerOneSpeed.xy * animationTime)
-        / tileSize
-        + distortion);
-    float2 secondaryUv = frac(
-        RotateWaterUv(
+    // Let the repeat sampler wrap continuous UVs so mip selection stays stable at the wrap.
+    float2 primaryUv = (mapMeters + _WaterLayerOneSpeed.xy * animationTime) / tileSize + distortion;
+    float2 secondaryUv = RotateWaterUv(
             mapMeters / tileSize
             * max(0.1, _WaterLayerTwoScale))
         + _WaterLayerTwoSpeed.xy * animationTime / tileSize
-        - distortion * 0.73);
+        - distortion * 0.73;
     // Continuous local-flow displacement, added to the existing
     // fixed-direction animation without phase resets or blending.
     float2 flowUv = localFlow * max(0.0, _WaterFlowSpeed) * animationTime / tileSize;
-    fixed4 primary = tex2D(_WaterPatternTex, frac(primaryUv - flowUv));
+    fixed4 primary = tex2D(_WaterPatternTex, primaryUv - flowUv);
     // Match the existing second layer's fixed coordinate transform.
     // Its orientation never depends on local flow direction.
-    fixed4 secondary = tex2D(_WaterPatternTex, frac(secondaryUv
-        - RotateWaterUv(flowUv * max(0.1, _WaterLayerTwoScale))));
+    fixed4 secondary = tex2D(_WaterPatternTex, secondaryUv
+        - RotateWaterUv(flowUv * max(0.1, _WaterLayerTwoScale)));
     float secondaryStrength = 0.65;
     float combinedAlpha = 1.0
         - (1.0 - primary.a)

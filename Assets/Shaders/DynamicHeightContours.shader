@@ -172,6 +172,9 @@ Shader "AnimalGame/Dynamic Height Contours"
                 float landVisibility = 1.0;
                 float rippleTransmission = 1.0;
                 float2 mapMeters = input.uv * _MapSizeMeters.xy + _WaterOriginMeters.xy;
+                // Differentiate continuous map coordinates before branching on terrain coverage.
+                float2 terrainDx = ddx(input.uv) * _MapSizeMeters.xy;
+                float2 terrainDy = ddy(input.uv) * _MapSizeMeters.xy;
                 if (_SurfaceRevealEnabled > 0.5)
                 {
                     float2 screenUv = input.screenPosition.xy
@@ -205,24 +208,21 @@ Shader "AnimalGame/Dynamic Height Contours"
                     // Fade only on the dry side of the mask's midpoint.
                     landVisibility -= _DashSubmergedContours * smoothstep(0.02, 0.5, waterData.r);
 
-                    fixed4 terrainSurface = _SurfaceEnabled > 0.5
-                        ? SampleOriginalTerrain(input.uv)
-                        : fixed4(0.0, 0.0, 0.0, 0.0);
-                    if (_GrassEnabled > .5 && revealMask > .0001)
-                        terrainSurface = CombineGrassland(terrainSurface,
-                            SampleGrassland(input.uv, _GrassActive * step(.001, revealMask)));
-                    // Authored water owns its complete range, so terrain never
-                    // leaks through transparent gaps in the water pattern.
-                    if (terrainSurface.a * revealMask > .0001)
-                        terrainSurface.a *= MapShoreTerrainOpacity(input.uv, _MapSizeMeters.xy);
-                    float terrainBlend = saturate(
-                        terrainSurface.a
-                        * revealMask
-                        * min(1.0 - waterRange, landVisibility));
-                    baseColor.rgb = lerp(
-                        baseColor.rgb,
-                        terrainSurface.rgb,
-                        terrainBlend);
+                    float landVisibilityFactor = min(1.0 - waterRange, landVisibility);
+                    // Pattern blending is zero outside the reveal or under fully opaque water.
+                    [branch] if (revealMask > 0 && landVisibilityFactor > 0)
+                    {
+                        fixed4 terrainSurface = _SurfaceEnabled > 0.5
+                            ? SampleOriginalTerrain(input.uv, terrainDx, terrainDy)
+                            : fixed4(0.0, 0.0, 0.0, 0.0);
+                        if (_GrassEnabled > .5 && revealMask > .0001)
+                            terrainSurface = CombineGrassland(terrainSurface,
+                                SampleGrassland(input.uv, terrainDx, terrainDy, _GrassActive * step(.001, revealMask)));
+                        if (terrainSurface.a * revealMask > .0001)
+                            terrainSurface.a *= MapShoreTerrainOpacity(input.uv, _MapSizeMeters.xy);
+                        float terrainBlend = saturate(terrainSurface.a * revealMask * landVisibilityFactor);
+                        baseColor.rgb = lerp(baseColor.rgb, terrainSurface.rgb, terrainBlend);
+                    }
 
                     if (_WaterEnabled > 0.5)
                     {
