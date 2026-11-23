@@ -115,20 +115,29 @@ float GrassValueNoise(float2 p)
 
 // The lattice only bounds the search. Widely jittered centres and domain-warped,
 // two-scale noise remove fixed patch intervals and create irregular growing regions.
-float3 GrassOverlayGroup(float2 cell, float groupSpacing)
+float2 GrassOverlayGroupCentre(float2 key, float2 cell, float groupSpacing)
 {
-    float2 seed = _GrassLayout.x * float2(.37, 1.91) + 521.7;
-    float2 key = cell + seed;
     float2 jitter = float2(GrassHash(key + 31), GrassHash(key + 57)) * 2 - 1;
-    float2 centre = (cell + .5 + jitter * .45) * groupSpacing;
+    return (cell + .5 + jitter * .45) * groupSpacing;
+}
+
+float GrassOverlayGroupCount(float2 centre, float2 key, float2 seed, float groupSpacing)
+{
     float2 p = centre / groupSpacing;
     float2 warp = (float2(GrassValueNoise(p * .47 + seed + 13.7),
         GrassValueNoise(p * .47 + seed + 71.3)) - .5) * 1.8;
     float noise = .72 * GrassValueNoise(p * .68 + warp + seed)
         + .28 * GrassValueNoise(p * 1.7 + seed + 91.1);
-    float count = noise < .55 * _GrassOverlaySettings.x
+    return noise < .55 * _GrassOverlaySettings.x
         ? 4 + floor(GrassHash(key + 83) * 5) : 0;
-    return float3(centre, count);
+}
+
+float3 GrassOverlayGroup(float2 cell, float groupSpacing)
+{
+    float2 seed = _GrassLayout.x * float2(.37, 1.91) + 521.7;
+    float2 key = cell + seed;
+    float2 centre = GrassOverlayGroupCentre(key, cell, groupSpacing);
+    return float3(centre, GrassOverlayGroupCount(centre, key, seed, groupSpacing));
 }
 
 float2 GrassOverlayClusterCentre(float2 cell, float3 group, int index, float spacing)
@@ -154,17 +163,23 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
     int bits = (int)_GrassOverlaySettings.z;
     int count = (bits & 1) + ((bits >> 1) & 1) + ((bits >> 2) & 1);
     float pixelRadius = sqrt(.5 * (dot(pixelDx, pixelDx) + dot(pixelDy, pixelDy)));
+    float groupSupport = spacing * 2.15 + size * 2.88 + pixelRadius;
+    float2 groupSeed = _GrassLayout.x * float2(.37, 1.91) + 521.7;
     // Include neighbouring patch centres, so tall rotated grass is not clipped
     // at the search-cell or map-tile boundary.
     [loop] for (int y = -1; y <= 1; y++)
     [loop] for (int x = -1; x <= 1; x++)
     {
         float2 groupCell = cell + float2(x, y);
-        float3 group = GrassOverlayGroup(groupCell, groupSpacing);
+        float2 groupKey = groupCell + groupSeed;
+        float2 displacement = meters - (groupCell + .5) * groupSpacing;
+        float2 nearest = max(0, abs(displacement) - groupSpacing * .45);
+        [branch] if (dot(nearest, nearest) > groupSupport * groupSupport) continue;
+        float2 groupCentre = GrassOverlayGroupCentre(groupKey, groupCell, groupSpacing);
+        float2 groupDelta = meters - groupCentre;
+        [branch] if (dot(groupDelta, groupDelta) > groupSupport * groupSupport) continue;
+        float3 group = float3(groupCentre, GrassOverlayGroupCount(groupCentre, groupKey, groupSeed, groupSpacing));
         if (group.z < .5) continue;
-        float groupSupport = spacing * 2.15 + size * 2.88 + pixelRadius;
-        float2 groupDelta = meters - group.xy;
-        if (dot(groupDelta, groupDelta) > groupSupport * groupSupport) continue;
         [loop] for (int instance = 0; instance < 8; instance++)
         {
             if (instance >= (int)group.z) break;
@@ -189,8 +204,11 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
                     float2 travel = _GrassFootprintDirections[contact].xy;
                     if (dot(travel, travel) < .0001) continue;
                     float age = max(0, _GrassNow - footprint.z);
-                    float influence = (1 - smoothstep(footprint.w * .65, max(.001, footprint.w),
-                        distance(centreWorld, footprint.xy)))
+                    float2 offset = centreWorld - footprint.xy;
+                    float distanceSquared = dot(offset, offset);
+                    float reach = max(.001, footprint.w);
+                    [branch] if (age >= max(.01, _GrassDynamics.w) || distanceSquared >= reach * reach) continue;
+                    float influence = (1 - smoothstep(footprint.w * .65, reach, sqrt(distanceSquared)))
                         * saturate(1 - age / max(.01, _GrassDynamics.w));
                     if (influence > pressure)
                     {
@@ -223,10 +241,17 @@ float4 SampleGrassOverlay(float2 meters, float2 pixelDx, float2 pixelDy, float a
             dy.x *= flipX;
             float coverage = GrassClipFootprint(uv, dx, dy, 0, 1, 0);
             if (coverage <= 0) continue;
-            int choice = min(count - 1, (int)floor(GrassHash(key + 83) * count));
             int variant = 0;
-            [unroll] for (int i = 0; i < 3; i++)
-                if ((bits & (1 << i)) != 0) { if (choice == 0) { variant = i; break; } choice--; }
+            if (count > 1)
+            {
+                int choice = min(count - 1, (int)floor(GrassHash(key + 83) * count));
+                [unroll] for (int i = 0; i < 3; i++)
+                    if ((bits & (1 << i)) != 0) { if (choice == 0) { variant = i; break; } choice--; }
+            }
+            else
+            {
+                variant = bits == 1 ? 0 : bits == 2 ? 1 : 2;
+            }
             float4 sample = variant == 0 ? tex2Dgrad(_GrassOverlay1, uv, dx, dy)
                 : variant == 1 ? tex2Dgrad(_GrassOverlay2, uv, dx, dy) : tex2Dgrad(_GrassOverlay3, uv, dx, dy);
             sample.a *= coverage;
@@ -273,8 +298,11 @@ float4 SampleGrassBlades(float2 meters, float2 pixelDx, float2 pixelDy, float an
             {
                 float4 footprint = _GrassFootprints[contact];
                 float age = max(0, _GrassNow - footprint.z);
-                float distanceToPlayer = distance(centreWorld, footprint.xy);
-                float influence = (1 - smoothstep(footprint.w * .65, max(.001, footprint.w), distanceToPlayer))
+                float2 offset = centreWorld - footprint.xy;
+                float distanceSquared = dot(offset, offset);
+                float reach = max(.001, footprint.w);
+                [branch] if (age >= max(.01, _GrassDynamics.w) || distanceSquared >= reach * reach) continue;
+                float influence = (1 - smoothstep(footprint.w * .65, reach, sqrt(distanceSquared)))
                     * saturate(1 - age / max(.01, _GrassDynamics.w));
                 if (influence > pressure)
                 {

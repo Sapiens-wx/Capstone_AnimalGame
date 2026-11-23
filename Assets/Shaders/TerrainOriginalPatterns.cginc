@@ -9,8 +9,9 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_TerrainPattern7);
 UNITY_DECLARE_TEX2D_NOSAMPLER(_TerrainPattern8);
 UNITY_DECLARE_TEX2D_NOSAMPLER(_TerrainPattern9);
 UNITY_DECLARE_TEX2D_NOSAMPLER(_TerrainPattern10);
-float4 _TerrainSettings[11];
-float4 _TerrainTints[11];
+UNITY_DECLARE_TEX2D_NOSAMPLER(_TerrainPattern11);
+float4 _TerrainSettings[12];
+float4 _TerrainTints[12];
 float4 _TerrainOrigin;
 float _TerrainSeed;
 
@@ -37,6 +38,7 @@ float4 TerrainOriginal(int id, float2 uv, float2 dx, float2 dy)
     if (id == 7) return SAMPLE_TERRAIN_GRAD(_TerrainPattern7, uv, dx, dy);
     if (id == 8) return SAMPLE_TERRAIN_GRAD(_TerrainPattern8, uv, dx, dy);
     if (id == 9) return SAMPLE_TERRAIN_GRAD(_TerrainPattern9, uv, dx, dy);
+    if (id == 11) return SAMPLE_TERRAIN_GRAD(_TerrainPattern11, uv, dx, dy);
     return SAMPLE_TERRAIN_GRAD(_TerrainPattern10, uv, dx, dy);
 }
 #undef SAMPLE_TERRAIN_GRAD
@@ -71,7 +73,7 @@ float4 SampleOriginalTerrain(float2 tileUv, float2 mapDx, float2 mapDy)
 {
     float2 meters = tileUv * _MapSizeMeters.xy + _TerrainOrigin.xy;
     float4 result = 0;
-    [loop] for (int id = 1; id <= 10; id++)
+    [loop] for (int id = 1; id <= 11; id++)
     {
         if (id == 4 || _TerrainSettings[id].x <= 0) continue; // Grassland uses its blade renderer.
         float coverage = UNITY_SAMPLE_TEX2DARRAY(_TerrainCoverage, float3(tileUv, id)).r;
@@ -80,6 +82,12 @@ float4 SampleOriginalTerrain(float2 tileUv, float2 mapDx, float2 mapDy)
         float2 uv = meters * inverseTileSize;
         float2 dx = mapDx * inverseTileSize, dy = mapDy * inverseTileSize;
         float4 pattern = TerrainOriginal(id, uv, dx, dy);
+        if (id == 11)
+        {
+            // Generated soil strokes have faint source alpha; normalize before contour fading.
+            pattern.a = saturate(pattern.a * 8.0);
+            pattern.rgb = 1;
+        }
         if (id == 9)
         {
             float4 overlay = TerrainSandOverlay(uv, dx, dy);

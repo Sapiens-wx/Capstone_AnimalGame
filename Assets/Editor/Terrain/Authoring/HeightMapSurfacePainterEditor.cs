@@ -801,6 +801,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         TerrainKind.Water => new Color32(65, 155, 245, 255),
         TerrainKind.Web => new Color32(225, 75, 80, 255),
         TerrainKind.Sand => new Color32(212, 184, 84, 255), // #D4B854
+        TerrainKind.Dirt => new Color32(160, 115, 80, 255),
         TerrainKind.Snow => new Color32(235, 245, 255, 255),
         _ => throw new ArgumentOutOfRangeException(nameof(terrain), terrain, null)
     };
@@ -1528,7 +1529,7 @@ internal static class HeightMapSurfaceBaker
 
     private static void BakeTerrainCoverage(HeightMapLevelAsset level, Material material, string directory, string levelPath)
     {
-        const int size = 512, count = 11;
+        const int size = 512, count = 12;
         var masks = new Texture2DArray(size, size, count, TextureFormat.R8, false, true)
             { name = "Terrain Coverage", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
         var patterns = new Texture2D[count]; var settings = new Vector4[count]; var tints = new Vector4[count];
