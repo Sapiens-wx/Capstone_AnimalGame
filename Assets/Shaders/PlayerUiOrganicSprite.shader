@@ -4,6 +4,7 @@ Shader "AnimalGame/Player UI Clipped Sprite"
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1, 1, 1, 1)
+        _RequirePlayerUiClip ("Require Active Player Disk", Float) = 0
         [MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
         [PerRendererData] _AlphaTex ("External Alpha", 2D) = "white" {}
         [PerRendererData] _EnableExternalAlpha ("Enable External Alpha", Float) = 0
@@ -60,6 +61,7 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             sampler2D _AlphaTex;
             fixed4 _Color;
             float _EnableExternalAlpha;
+            float _RequirePlayerUiClip;
             float _PlayerUiClipEnabled;
             float4 _PlayerUiClipCenterPixels;
             float _PlayerUiClipRadiusPixels;
@@ -129,9 +131,11 @@ Shader "AnimalGame/Player UI Clipped Sprite"
                 float softness = max(
                     0.001,
                     _PlayerUiClipSoftnessPixels);
+                if (_RequirePlayerUiClip > 0.5 && (_PlayerUiClipEnabled <= 0.5 || radius <= 0.0))
+                    discard;
                 float insideVisibility = 1.0 - smoothstep(
                     max(0.0, radius - softness),
-                    radius + softness,
+                    radius + (_RequirePlayerUiClip > 0.5 ? 0.0 : softness),
                     distanceFromCenter);
                 color.a *= lerp(
                     1.0,

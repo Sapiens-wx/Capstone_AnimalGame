@@ -12,15 +12,21 @@ namespace AnimalGame.MainUI
 {
     public sealed partial class MainUI
     {
-        private const float OpeningDrivingHintFadeSeconds = .6f;
+        private const float OpeningControlHintFadeOut = .6f;
+        private const float OpeningTraversalHintFadeIn = .24f;
+        private const float OpeningTraversalHintDuration = 8f;
         private OpeningPresentation openingPresentation;
         private bool navigationTelemetryUnavailable;
         private Vector2 openingScreenShift;
         private float openingScreenRoll;
-        private RobotMover openingDrivingHintRobot;
+        private RobotMover openingHintRobot;
         private Vector2 openingDrivingHintLinePoint, openingDrivingHintEastNormal;
         private float openingDrivingHintOpacity;
         private bool openingDrivingHintDismissed;
+        private VisualElement openingTraversalHint;
+        private Vector2? openingTraversalHintLinePoint;
+        private Vector2 openingTraversalHintEastNormal;
+        private float openingTraversalHintRemaining;
         private VisualElement openingSignalPrompt;
         private Label openingSignalMapKey;
         private WorldMapUI openingSignalMap;
@@ -49,14 +55,19 @@ namespace AnimalGame.MainUI
 
         internal void UpdateOpeningSkipHold(float progress) => openingPresentation.UpdateSkipHold(progress);
 
-        internal void ShowOpeningDrivingHint(RobotMover robot, Vector2 lineSouth, Vector2 lineNorth)
+        internal void ShowOpeningControlHints(RobotMover robot, Vector2 drivingSouth, Vector2 drivingNorth,
+            Vector2 traversalSouth, Vector2 traversalNorth)
         {
-            Vector2 line = lineNorth - lineSouth;
-            openingDrivingHintRobot = robot;
-            openingDrivingHintLinePoint = lineSouth;
-            openingDrivingHintEastNormal = new Vector2(line.y, -line.x);
+            Vector2 drivingLine = drivingNorth - drivingSouth;
+            Vector2 traversalLine = traversalNorth - traversalSouth;
+            openingHintRobot = robot;
+            openingDrivingHintLinePoint = drivingSouth;
+            openingDrivingHintEastNormal = new Vector2(drivingLine.y, -drivingLine.x);
             openingDrivingHintOpacity = 1f;
             openingDrivingHintDismissed = false;
+            openingTraversalHintLinePoint = traversalSouth;
+            openingTraversalHintEastNormal = new Vector2(traversalLine.y, -traversalLine.x);
+            openingTraversalHintRemaining = 0f;
             UpdateOpeningDrivingHint();
         }
 
@@ -64,11 +75,11 @@ namespace AnimalGame.MainUI
         {
             if (openingDrivingHintOpacity <= 0f || BlocksGameplay) return;
             if (!openingDrivingHintDismissed && Vector2.Dot(openingDrivingHintEastNormal,
-                    openingDrivingHintRobot.MapPosition - openingDrivingHintLinePoint) <= 0f) return;
+                    openingHintRobot.MapPosition - openingDrivingHintLinePoint) <= 0f) return;
 
             openingDrivingHintDismissed = true;
             openingDrivingHintOpacity = Mathf.MoveTowards(openingDrivingHintOpacity, 0f,
-                deltaTime / OpeningDrivingHintFadeSeconds);
+                deltaTime / OpeningControlHintFadeOut);
             UpdateOpeningDrivingHint();
         }
 
@@ -82,6 +93,33 @@ namespace AnimalGame.MainUI
             openingDrivingHint.style.marginLeft = 150f * fit;
             openingDrivingHint.style.marginTop = -132f * fit;
             openingDrivingHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
+        }
+
+        private void AdvanceOpeningTraversalHint(float deltaTime)
+        {
+            if (openingTraversalHintLinePoint == null && openingTraversalHintRemaining <= 0f) return;
+
+            bool blocked = BlocksGameplay;
+            if (!blocked)
+            {
+                openingTraversalHintRemaining = Mathf.Max(0f, openingTraversalHintRemaining - deltaTime);
+                if (openingTraversalHintLinePoint is Vector2 point && Vector2.Dot(openingTraversalHintEastNormal,
+                        openingHintRobot.MapPosition - point) >= 0f)
+                {
+                    openingTraversalHintLinePoint = null;
+                    openingTraversalHintRemaining = OpeningTraversalHintDuration;
+                }
+            }
+
+            bool visible = !blocked && openingTraversalHintRemaining > 0f;
+            openingTraversalHint.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!visible) return;
+            float fadeIn = (OpeningTraversalHintDuration - openingTraversalHintRemaining) / OpeningTraversalHintFadeIn;
+            float fadeOut = openingTraversalHintRemaining / OpeningControlHintFadeOut;
+            openingTraversalHint.style.opacity = Mathf.Clamp01(Mathf.Min(fadeIn, fadeOut));
+            openingTraversalHint.style.marginLeft = 125f * fit;
+            openingTraversalHint.style.marginTop = 54f * fit;
+            openingTraversalHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
         }
 
         internal void ShowOpeningSignalPrompt(WorldMapUI worldMap)
@@ -121,7 +159,7 @@ namespace AnimalGame.MainUI
             openingPresentation.Release();
             openingPresentation = null;
             SetOpeningScreenShake(Vector2.zero, 0f);
-            SetDate(gameTime);
+            SetDate(CurrentGameTime);
             RefreshTelemetry(System.DateTime.Now, true);
             UpdateStatus();
         }

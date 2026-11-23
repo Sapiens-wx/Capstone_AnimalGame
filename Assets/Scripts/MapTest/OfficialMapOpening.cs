@@ -18,7 +18,13 @@ namespace AnimalGame.MapTest
         [Header("Driving tutorial line (map meters)")]
         [SerializeField] private Vector2 drivingHintLineSouth;
         [SerializeField] private Vector2 drivingHintLineNorth;
-        [SerializeField] private Transform weatherTower;
+
+        [Header("Map tutorial signal source")]
+        [SerializeField] private Transform signalTower;
+
+        [Header("Traversal tutorial line (map meters)")]
+        [SerializeField] private Vector2 traversalHintLineSouth;
+        [SerializeField] private Vector2 traversalHintLineNorth;
 
         [Header("Drive fault activation line (map meters)")]
         [SerializeField] private Vector2 damageLineSouth;
@@ -307,8 +313,9 @@ namespace AnimalGame.MapTest
             robot.SetOpeningDriveFaultTrigger(map.MapPositionToWorld(damageLineSouth),
                 map.MapPositionToWorld(damageLineNorth));
             hud.EnableRobotGoalModule();
-            hud.ShowOpeningDrivingHint(robot, map.MapPositionToWorld(drivingHintLineSouth),
-                map.MapPositionToWorld(drivingHintLineNorth));
+            hud.ShowOpeningControlHints(robot, map.MapPositionToWorld(drivingHintLineSouth),
+                map.MapPositionToWorld(drivingHintLineNorth), map.MapPositionToWorld(traversalHintLineSouth),
+                map.MapPositionToWorld(traversalHintLineNorth));
             CommunicationsStation.SignalReceived += OnCommunicationsSignalReceived;
         }
 
@@ -323,12 +330,12 @@ namespace AnimalGame.MapTest
             return skipHoldTime >= SkipHoldDuration;
         }
 
-        private void OnCommunicationsSignalReceived(CommunicationsStation _, RobotMover player)
+        private void OnCommunicationsSignalReceived(CommunicationsStation station, RobotMover player)
         {
-            if (player != robot) return;
+            if (player != robot || !station.transform.IsChildOf(signalTower)) return;
             CommunicationsStation.SignalReceived -= OnCommunicationsSignalReceived;
             WorldMapUI worldMap = WorldMapUI.Instance;
-            worldMap.RevealUnknownSignal(weatherTower.position);
+            worldMap.RevealUnknownSignal(station.SignalOrigin.position);
             hud.ShowOpeningSignalPrompt(worldMap);
         }
 

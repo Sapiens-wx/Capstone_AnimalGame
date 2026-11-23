@@ -8,6 +8,7 @@
         <AnimalGame.RobotMap.PhotoResultGridElement name="map-grid" offset="0,12" grid-length="56" width="1" />
         <ui:VisualElement name="map-unknown-signal" picking-mode="Ignore">
             <ui:Label name="map-unknown-signal-mark" text="?" picking-mode="Ignore" />
+            <ui:Label name="map-unknown-signal-label" text="UNKNOWN SIGNAL SOURCE" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:Label name="map-coordinate-text" picking-mode="Ignore" />
         <ui:VisualElement name="pin-0" class="map-circle" picking-mode="Ignore" />
@@ -18,7 +19,7 @@
             <ui:Label name="map-north-label" text="N" picking-mode="Ignore" />
         </ui:VisualElement>
        </ui:VisualElement>
-       <ui:Label name="map-data-notice" text="CURRENT MAP DATA MISSING" picking-mode="Ignore" />
+       <ui:Label name="map-data-notice" text="MISSING MAP DATA" picking-mode="Ignore" />
        <ui:VisualElement name="map-pin-selector" picking-mode="Ignore">
             <ui:Label name="map-pin-previous-key" text="LB" class="map-pin-cycle-key" picking-mode="Ignore" />
             <ui:VisualElement name="map-pin-options" picking-mode="Ignore">

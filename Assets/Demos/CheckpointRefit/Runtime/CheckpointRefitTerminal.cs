@@ -28,6 +28,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         [Tooltip("Optional explicit same-scene player. Otherwise binds the map player or the scene's only active RobotMover.")]
         [SerializeField] private RobotMover playerOverride;
         [SerializeField] private InteractionMarker interactionMarker;
+        [SerializeField] private bool useTutorialInteractionHint;
         [SerializeField] private PhotoCameraDefinition zoomLens300;
         [SerializeField] private PhotoCameraDefinition damagedPrime50;
         [SerializeField] private InventoryItem metalScrap;
@@ -36,6 +37,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private PlayerCombatReceiver repairReceiver;
         private MapTestSceneController map;
         private CheckpointRefitView view;
+        private WorldInteractionHint tutorialHint;
         private GameObject uiInstance;
         private RefitGameplayLease lease;
         private RefitCameraEquipment cameraEquipment;
@@ -127,6 +129,13 @@ namespace AnimalGame.Demos.CheckpointRefit
             // Discovery rings yield to the nearby prompt. Query the live range rather than the cached prompt,
             // so closing-input release and crossing the boundary cannot produce a one-frame flash.
             interactionMarker?.SetSuppressed(!isActiveAndEnabled || IsOpen || lease != null || releasing || IsNearby);
+        }
+
+        private void Awake()
+        {
+            if (!useTutorialInteractionHint) return;
+            tutorialHint = gameObject.AddComponent<WorldInteractionHint>();
+            tutorialHint.enabled = false;
         }
 
         private void Start()
@@ -245,7 +254,7 @@ namespace AnimalGame.Demos.CheckpointRefit
                 }
                 IsOpen = true;
                 inputArmed = false;
-                view.SetPrompt(string.Empty, false);
+                SetPrompt(false);
                 view.SetPlayerPreview(playerPreview.Texture);
                 view.Show(checkpointName, checkpointId);
                 RefreshRepairStatus();
@@ -323,7 +332,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (!IsOpen) return;
             IsOpen = false;
             view?.Hide();
-            view?.SetPrompt(string.Empty, false);
+            SetPrompt(false);
             ClearPlayerPreview();
             // Keep gameplay isolated until maintenance inputs are released.
             releasing = true;
@@ -334,7 +343,8 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void ForceClose()
         {
             IsOpen = false;
-            if (view != null) { view.Hide(); view.SetPrompt(string.Empty, false); }
+            view?.Hide();
+            SetPrompt(false);
             ClearPlayerPreview();
             ReleaseLease();
             inputArmed = false;
@@ -399,7 +409,19 @@ namespace AnimalGame.Demos.CheckpointRefit
                 promptAllowed = RefitGameplayLease.CanAcquire(player, out _);
             }
             if (!nearby) { nextPromptCheck = 0f; promptAllowed = false; }
-            view.SetPrompt(HasGamepad() ? "[A]  Maintenance" : "[Enter]  Maintenance", nearby && promptAllowed);
+            SetPrompt(nearby && promptAllowed);
+        }
+
+        private void SetPrompt(bool visible)
+        {
+            if (tutorialHint != null)
+            {
+                tutorialHint.enabled = visible;
+                return;
+            }
+
+            string label = visible ? (HasGamepad() ? "[A]  Maintenance" : "[Enter]  Maintenance") : string.Empty;
+            view?.SetPrompt(label, visible);
         }
 
         private float DistanceToPlayer()

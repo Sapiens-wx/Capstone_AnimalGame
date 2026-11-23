@@ -199,6 +199,7 @@ namespace AnimalGame.MainUI
             openingDrivingHint = root.Q("OpeningDrivingHint");
             openingSignalPrompt = root.Q("OpeningSignalPrompt");
             openingSignalMapKey = root.Q<Label>("OpeningSignalMapKey");
+            openingTraversalHint = root.Q("OpeningTraversalHint");
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
             powerRing = root.Q<CircularProgressElement>("PowerRing");
@@ -373,6 +374,7 @@ namespace AnimalGame.MainUI
             RefreshDpadHoldHint();
             AdvanceOpeningDrivingHint(Time.unscaledDeltaTime);
             AdvanceOpeningSignalPrompt(Time.unscaledDeltaTime);
+            AdvanceOpeningTraversalHint(Time.unscaledDeltaTime);
             UpdateDriveDamageWarning();
             RefreshRobotNotebook(Time.unscaledDeltaTime);
         }

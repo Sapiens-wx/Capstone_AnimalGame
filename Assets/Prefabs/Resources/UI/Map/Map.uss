@@ -25,8 +25,8 @@
 #map-data-notice {
     display: none;
     position: absolute;
-    top: 7%; left: 50%;
-    translate: -50% 0;
+    top: 76%; left: 54%;
+    translate: -50% -50%;
     margin: 0;
     padding: 8px 16px;
     border-left-width: 2px;
@@ -94,6 +94,18 @@
     font-size: 24px;
     -unity-font-definition: resource('UI/Font/Orbitron-Bold');
     -unity-text-align: middle-center;
+}
+#map-unknown-signal-label {
+    position: absolute;
+    left: 50%; top: 50%;
+    translate: -50% 0;
+    margin: 26px 0 0;
+    padding: 3px 6px;
+    background-color: rgba(0, 0, 0, 0.86);
+    color: #D4B854;
+    font-size: 16px;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+    white-space: nowrap;
 }
 #map-cursor {
     position: absolute;

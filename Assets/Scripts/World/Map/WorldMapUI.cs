@@ -51,7 +51,7 @@ namespace AnimalGame.World.Map
         private Vector2? unknownSignalWorldPosition;
         private bool frameUnknownSignalOnOpen;
         private Label mapDataNotice;
-        private float mapDataFaultStartedAt = -1f;
+        private float mapDataNoticeStartsAt = -1f;
         private readonly VisualElement[] pinElements = new VisualElement[MapViewState.PinLimit];
         private readonly VisualElement[] edgePinElements = new VisualElement[MapViewState.PinLimit];
         private readonly System.Action<MeshGenerationContext>[] pinDrawHandlers = new System.Action<MeshGenerationContext>[MapViewState.PinLimit];
@@ -61,7 +61,7 @@ namespace AnimalGame.World.Map
         private VisualElement pinSelector;
         private Image mapImage;
         private PhotoResultGridElement mapGrid;
-        private float cursorPinSpread;
+        private float cursorSelectionSpread;
         private bool centeringMapView;
         private float centeringElapsed;
         private Vector2 centeringStart, centeringCursorStart, centeringTarget;
@@ -86,6 +86,7 @@ namespace AnimalGame.World.Map
         private VisualElement checkpointLayer;
         private readonly List<Image> checkpointIcons = new();
         private int lastFogRevision = -1;
+        private bool MissingMapData => checkpointManager != null && !checkpointManager.HasSurveyData;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() { active = null; Instance = null; closedFrame = -1; }
@@ -299,13 +300,13 @@ namespace AnimalGame.World.Map
             Vector2 center = cursor.contentRect.center;
             float radius = Mathf.Max(0, Mathf.Min(cursor.contentRect.width, cursor.contentRect.height) * .5f - 2);
             float breathing = .035f * Mathf.Sin(Time.unscaledTime * (2f * Mathf.PI / 2.4f))
-                * (1f - cursorPinSpread);
+                * (1f - cursorSelectionSpread);
             for (int i = 0; i < 3; i++)
             {
                 float angle = (90f + i * 120f) * Mathf.Deg2Rad;
                 Vector2 radial = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
                 Vector2 tangent = new Vector2(-Mathf.Sin(angle), Mathf.Cos(angle)) * radius;
-                Vector2 pieceCenter = center + radial * (.36f * cursorPinSpread + breathing);
+                Vector2 pieceCenter = center + radial * (.36f * cursorSelectionSpread + breathing);
                 // atan(sqrt(3)) = 60 degrees on each side: a 120-degree corner.
                 // Separate paths and the inset apex leave equal gaps between all three pieces.
                 Vector2 corner = pieceCenter + radial * .25f;
@@ -397,6 +398,7 @@ namespace AnimalGame.World.Map
             {
                 BeginCentering(WorldToMap(HeightMapPlayerSceneBootstrap.inst.robotObject.transform.position));
             }
+            bool cursorOnSignal = false;
             if (centeringMapView)
             {
                 centeringElapsed += Time.unscaledDeltaTime;
@@ -408,13 +410,14 @@ namespace AnimalGame.World.Map
             }
             else
             {
-                View.Snap(size, circleRadius * 1.4f, checkpointManager?.Positions, checkpointIconSizePixels * .6f);
+                cursorOnSignal = unknownSignalWorldPosition is Vector2 source && View.Cursor == WorldToMap(source);
+                View.Snap(size, cursorOnSignal ? 0f : circleRadius * 1.4f,
+                    cursorOnSignal ? null : checkpointManager?.Positions, checkpointIconSizePixels * .6f);
                 if ((keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
                     || (pad != null && pad.buttonSouth.wasPressedThisFrame)) View.Submit();
             }
-            float nextSpread = Mathf.MoveTowards(cursorPinSpread, View.SelectedPin >= 0 ? 1f : 0f,
+            cursorSelectionSpread = Mathf.MoveTowards(cursorSelectionSpread, cursorOnSignal || View.SelectedPin >= 0 ? 1f : 0f,
                 Time.unscaledDeltaTime / .12f);
-            cursorPinSpread = nextSpread;
             cursor.MarkDirtyRepaint();
             UpdateControlHints();
             RefreshVisuals(size);
@@ -466,6 +469,8 @@ namespace AnimalGame.World.Map
 
         private void UpdateHoverCoordinates(bool moving)
         {
+            if (MissingMapData) return;
+
             Vector2 position = View.DisplayCursor;
             float now = Time.unscaledTime;
             if (moving || (position - hoverMapPosition).sqrMagnitude > .000001f)
@@ -602,33 +607,29 @@ namespace AnimalGame.World.Map
             RecalculateZoomLimits();
             CurrentZoom = Mathf.Clamp(defaultZoom, MinimumZoom, MaximumZoom);
             Vector2 player = WorldToMap(bootstrap.robotObject.transform.position);
-            Vector2? openingCenter = null;
-            if (frameUnknownSignalOnOpen)
+            Vector2? openingSignal = frameUnknownSignalOnOpen ? WorldToMap(unknownSignalWorldPosition.Value) : null;
+            if (openingSignal is Vector2 signal)
             {
-                Vector2 signal = WorldToMap(unknownSignalWorldPosition.Value);
                 Vector2 separation = signal - player;
                 // Leave both locations within the central half of the viewport so cursor bounds
                 // don't pan the signal toward the edge on the first input update.
                 float fitSignalZoom = Mathf.Max(Mathf.Abs(separation.x) / baseViewSize.x,
                     Mathf.Abs(separation.y) / baseViewSize.y) / .46f;
                 CurrentZoom = Mathf.Clamp(fitSignalZoom, CurrentZoom, MaximumZoom);
-                openingCenter = (player + signal) * .5f;
-                if (checkpointManager != null && !checkpointManager.HasSurveyData)
-                    mapDataFaultStartedAt = Time.unscaledTime;
                 frameUnknownSignalOnOpen = false;
             }
             Vector2 forward = bootstrap.robot.Forward;
             openingPlayerBearing = Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg;
             View.Open(player, baseViewSize * CurrentZoom, map.MapSizeMeters);
-            if (openingCenter is Vector2 center) View.SetFocus(center, player, map.MapSizeMeters);
+            FitWholeMap();
+            if (openingSignal is Vector2 source) View.SetFocus((player + source) * .5f, source, map.MapSizeMeters);
             hoverMapPosition = View.DisplayCursor;
             hoverIdleSince = Time.unscaledTime;
             HideHoverCoordinates(true);
             mapGrid.offset = new Vector2(0, 12);
             mapRulers.MarkDirtyRepaint();
-            cursorPinSpread = 0f;
+            cursorSelectionSpread = openingSignal.HasValue ? 1f : 0f;
             cursor.MarkDirtyRepaint();
-            FitWholeMap();
             mapRenderer = new WorldMapRenderer(contourShader);
             savedTimeScale = Time.timeScale;
             savedCursorLock = UnityEngine.Cursor.lockState;
@@ -638,6 +639,8 @@ namespace AnimalGame.World.Map
             UnityEngine.Cursor.visible = false;
             active = this;
             IsOpen = true;
+            if (MissingMapData)
+                mapDataNoticeStartsAt = Time.unscaledTime + (openingSignal.HasValue ? MapDataFaultDuration : 0f);
             lastSize = viewportSize;
             panel.style.display = DisplayStyle.Flex;
             dirty = true;
@@ -738,10 +741,10 @@ namespace AnimalGame.World.Map
 
         private void RefreshMapDataPresentation()
         {
-            float age = Time.unscaledTime - mapDataFaultStartedAt;
-            if (mapDataFaultStartedAt >= 0f && age < MapDataFaultDuration)
+            float age = Time.unscaledTime - mapDataNoticeStartsAt;
+            if (age < 0f)
             {
-                mapImage.image = mapRenderer.RenderFault(age / MapDataFaultDuration);
+                mapImage.image = mapRenderer.RenderFault(Mathf.Clamp01(1f + age / MapDataFaultDuration));
                 return;
             }
 
@@ -750,13 +753,13 @@ namespace AnimalGame.World.Map
                 mapImage.image = mapRenderer.Texture;
                 mapRenderer.EndFault();
             }
-            if (mapDataFaultStartedAt < 0f) return;
+            if (mapDataNoticeStartsAt < 0f) return;
 
-            float fade = Mathf.Clamp01((age - MapDataFaultDuration - MapDataNoticeHold) / MapDataNoticeFade);
+            float fade = Mathf.Clamp01((age - MapDataNoticeHold) / MapDataNoticeFade);
             if (fade >= 1f)
             {
                 mapDataNotice.style.display = DisplayStyle.None;
-                mapDataFaultStartedAt = -1f;
+                mapDataNoticeStartsAt = -1f;
                 return;
             }
 
@@ -797,7 +800,7 @@ namespace AnimalGame.World.Map
             closedFrame = Time.frameCount;
             panel.style.display = DisplayStyle.None;
             mapDataNotice.style.display = DisplayStyle.None;
-            mapDataFaultStartedAt = -1f;
+            mapDataNoticeStartsAt = -1f;
             mapImage.image = null;
             checkpointLayer.Clear();
             checkpointIcons.Clear();

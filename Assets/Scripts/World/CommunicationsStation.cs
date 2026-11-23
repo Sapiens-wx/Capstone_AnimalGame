@@ -1,5 +1,6 @@
 using AnimalGame.Animals;
 using AnimalGame.Animals.Communication;
+using AnimalGame.Interaction;
 using AnimalGame.MapTest;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
@@ -17,6 +18,7 @@ namespace AnimalGame.World
     public sealed class CommunicationsStation : MonoBehaviour
     {
         [SerializeField] private GameObject interactionPrompt;
+        [SerializeField] private bool useTutorialInteractionHint;
 
         [Header("Signal Broadcast")]
         [SerializeField] private Transform signalOrigin;
@@ -96,6 +98,7 @@ namespace AnimalGame.World
         private void Awake()
         {
             interactionTrigger = GetComponent<BoxCollider2D>();
+            if (useTutorialInteractionHint) WorldInteractionHint.ReplaceLegacyPrompt(interactionPrompt);
             InitializeSignal(GetComponentInParent<WeatherTower>() != null);
         }
 

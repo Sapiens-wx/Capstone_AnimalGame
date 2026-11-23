@@ -71,7 +71,7 @@ Label {
     color: white;
 }
 
-.opening-driving-hint {
+.opening-control-hint {
     display: none;
     position: absolute;
     left: 50%;
@@ -129,7 +129,7 @@ Label {
     color: rgb(212, 184, 84);
 }
 
-.opening-signal-key {
+.driving-control-key-wide {
     width: auto;
     min-width: 36px;
     padding-left: 6px;
