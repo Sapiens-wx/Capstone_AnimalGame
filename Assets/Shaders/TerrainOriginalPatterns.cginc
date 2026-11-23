@@ -51,8 +51,8 @@ float2 RotateSandUv(float2 value, float sine, float cosine)
 float4 TerrainRandomPattern(int id, float2 p, float2 dx, float2 dy)
 {
     float2 cell = floor(p), blend = frac(p);
-    // Gravel and dirt blend random transforms only in a narrow strip at cell edges.
-    bool narrowBlend = id == 5 || id == 11;
+    // Gravel blends random transforms only in a narrow strip at cell edges.
+    bool narrowBlend = id == 5;
     blend = narrowBlend ? smoothstep(.475, .525, blend) : blend * blend * (3 - 2 * blend);
     float4 result = 0;
     [unroll] for (int y = 0; y <= 1; y++)
@@ -86,8 +86,20 @@ float4 SampleOriginalTerrain(float2 tileUv, float2 mapDx, float2 mapDy)
         float inverseTileSize = rcp(max(.01, _TerrainSettings[id].x));
         float2 uv = meters * inverseTileSize;
         float2 dx = mapDx * inverseTileSize, dy = mapDy * inverseTileSize;
-        float4 pattern = (id == 5 || id == 11) ? TerrainRandomPattern(id, uv, dx, dy)
+        float4 pattern = id == 5 ? TerrainRandomPattern(id, uv, dx, dy)
             : TerrainOriginal(id, uv, dx, dy);
+        if (id == 11)
+        {
+            float sandScale = rcp(max(.01, _TerrainSettings[9].x));
+            float4 sand = TerrainRandomPattern(9, meters * sandScale,
+                mapDx * sandScale, mapDy * sandScale);
+            sand.a = saturate(sand.a * 2);
+            // Composite source patterns first; the shared coverage fades the combined layer once.
+            float combinedAlpha = pattern.a + sand.a * (1 - pattern.a);
+            pattern.rgb = combinedAlpha > .00001
+                ? (pattern.rgb * pattern.a + sand.rgb * sand.a * (1 - pattern.a)) / combinedAlpha : 0;
+            pattern.a = combinedAlpha;
+        }
         if (id == 9)
         {
             float4 overlay = TerrainRandomPattern(9, uv, dx, dy);
