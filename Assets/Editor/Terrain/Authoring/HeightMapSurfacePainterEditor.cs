@@ -801,6 +801,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
         TerrainKind.Water => new Color32(65, 155, 245, 255),
         TerrainKind.Web => new Color32(225, 75, 80, 255),
         TerrainKind.Sand => new Color32(212, 184, 84, 255), // #D4B854
+        TerrainKind.Dirt => new Color32(160, 115, 80, 255),
         TerrainKind.Snow => new Color32(235, 245, 255, 255),
         _ => throw new ArgumentOutOfRangeException(nameof(terrain), terrain, null)
     };
@@ -1501,6 +1502,7 @@ internal static class HeightMapSurfaceBaker
 
             if (registerUndo)
                 Undo.RecordObject(level, "Bake Terrain Surface");
+            BakeTerrainCoverage(level, bakeMaterial, directory, levelPath);
             BakeGrassland(level, bakeMaterial, renderTarget, readableOutput, directory, levelPath);
             level.SetBakedSurfaceVisual(bakedTexture);
             EditorUtility.SetDirty(level);
@@ -1522,6 +1524,53 @@ internal static class HeightMapSurfaceBaker
             DestroyTemporary(paletteTintTexture);
             DestroyTemporary(paletteSettingsTexture);
             DestroyTemporary(readableOutput);
+        }
+    }
+
+    private static void BakeTerrainCoverage(HeightMapLevelAsset level, Material material, string directory, string levelPath)
+    {
+        const int size = 512, count = 12;
+        var masks = new Texture2DArray(size, size, count, TextureFormat.R8, false, true)
+            { name = "Terrain Coverage", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+        var patterns = new Texture2D[count]; var settings = new Vector4[count]; var tints = new Vector4[count];
+        var target = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+        var readable = new Texture2D(size, size, TextureFormat.RGBA32, false, true);
+        var old = RenderTexture.active;
+        try
+        {
+            material.SetFloat("_CoverageBakeMode", 1);
+            foreach (var entry in level.SurfacePalette)
+            {
+                int id = (int)entry.Terrain;
+                patterns[id] = entry.PatternTexture;
+                settings[id] = new Vector4(entry.TileSizeMeters, 0, 0, 0);
+                tints[id] = entry.Tint;
+            }
+            for (int id = 0; id < count; id++)
+            {
+                var alpha = new byte[size * size];
+                if (id != 0 && id != 4 && patterns[id] != null)
+                {
+                    material.SetFloat("_CoverageTerrainId", id);
+                    Graphics.Blit(Texture2D.whiteTexture, target, material);
+                    RenderTexture.active = target;
+                    readable.ReadPixels(new Rect(0, 0, size, size), 0, 0); readable.Apply();
+                    var pixels = readable.GetPixels32();
+                    for (int i = 0; i < alpha.Length; i++) alpha[i] = pixels[i].a;
+                }
+                masks.SetPixelData(alpha, 0, id);
+            }
+            masks.Apply(false, true);
+            string path = Path.Combine(directory, Path.GetFileNameWithoutExtension(levelPath) + "_TerrainCoverage.asset").Replace('\\', '/');
+            var existing = AssetDatabase.LoadAssetAtPath<Texture2DArray>(path);
+            if (existing == null) AssetDatabase.CreateAsset(masks, path);
+            else { EditorUtility.CopySerialized(masks, existing); DestroyTemporary(masks); masks = existing; }
+            level.SetTerrainCoverage(masks, patterns, settings, tints, level.SurfaceNoiseSeed);
+        }
+        finally
+        {
+            material.SetFloat("_CoverageBakeMode", 0);
+            RenderTexture.active = old; RenderTexture.ReleaseTemporary(target); DestroyTemporary(readable);
         }
     }
 

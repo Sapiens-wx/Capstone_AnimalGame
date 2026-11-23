@@ -254,7 +254,7 @@ MonoBehaviour:
   showRobotTerrainData: 0
   animalInfoLibrary: {fileID: 11400000, guid: 62482c67885b0b940acca9f5e07160f0, type: 2}
   initialPhotoCamera: {fileID: 11400000, guid: 59638854e8cb4d759d806e6d41931a9c, type: 2}
-  showFrameRate: 0
+  showFrameRate: 1
   frameRateRefreshInterval: 0.25
   map: {fileID: 0}
   robot: {fileID: 0}
@@ -16388,20 +16388,6 @@ MonoBehaviour:
   viewportEdgeSamples: 32
   viewportGridHeightSamples: 16
   visibleContourRangeSmoothingSpeed: 8
-  elevationFilterKeyboardToggleKey: 104
-  elevationFilterStartsEnabled: 0
-  lowerElevationFilterColor: {r: 0.12, g: 0.54, b: 0.78, a: 1}
-  higherElevationFilterColor: {r: 1, g: 0.82, b: 0.38, a: 1}
-  elevationFilterMaximumOpacity: 0.44
-  elevationFilterRelativeRangeMeters: 15
-  elevationFilterNeutralBandMeters: 1.5
-  elevationFilterResponseExponent: 1.15
-  playerHeightReferenceColor: {r: 1, g: 0.96, b: 0.7, a: 1}
-  playerHeightReferenceLineWidth: 2.4
-  playerHeightReferenceOpacity: 0.95
-  elevationFilterHillshadeStrength: 0.16
-  elevationFilterTransitionDuration: 0.32
-  showElevationFilterLegend: 1
   backgroundColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
   contourColor: {r: 0.92, g: 0.97, b: 1, a: 1}
 --- !u!1 &9100000000000000021
