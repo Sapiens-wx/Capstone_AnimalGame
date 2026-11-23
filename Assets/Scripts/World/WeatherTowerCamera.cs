@@ -8,7 +8,6 @@ namespace AnimalGame.World
         private RobotCameraShake composer;
         private Object owner;
         private float groundSize;
-        private float indoorBlend;
 
         public bool Acquire(Object tower, RobotMover player)
         {
@@ -26,20 +25,13 @@ namespace AnimalGame.World
             return true;
         }
 
-        public void Apply(float travel01, bool inside, float topMultiplier, float indoorSize,
-            float interiorBlendSeconds, float deltaTime)
+        public void Apply(float travel01, float topMultiplier)
         {
             if (composer == null)
                 return;
 
-            float targetBlend = inside ? 1f : 0f;
-            indoorBlend = interiorBlendSeconds > 0f
-                ? Mathf.MoveTowards(indoorBlend, targetBlend, deltaTime / interiorBlendSeconds)
-                : targetBlend;
-            float outdoorSize = groundSize * topMultiplier;
             // The composer stays responsible for the live ground, scan and focus sizes.
-            float towerSize = Mathf.SmoothStep(outdoorSize, Mathf.Min(indoorSize, outdoorSize), indoorBlend);
-            composer.SetWeatherTowerZoom(owner, towerSize, travel01);
+            composer.SetWeatherTowerZoom(owner, groundSize * topMultiplier, travel01);
         }
 
         public void ApplyLiftFeedback(float progress, float duration, bool ascending)
@@ -68,7 +60,6 @@ namespace AnimalGame.World
                 composer.ReleaseWeatherTowerZoom(owner);
             composer = null;
             owner = null;
-            indoorBlend = 0f;
         }
 
         private static RobotCameraShake FindComposer(RobotMover player)

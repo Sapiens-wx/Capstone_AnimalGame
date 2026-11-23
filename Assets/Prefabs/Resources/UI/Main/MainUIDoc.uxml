@@ -24,6 +24,7 @@
                 <ui:Label name="PowerPercent" text="100%" class="power-percent" style="position: absolute; left: 130px; top: 11px;" />
                 <ui:Label text="Power" class="power-name" style="position: absolute; left: 125px; top: 42px;" />
                 <ui:Label name="IntegrityPercent" text="100%" class="integrity-percent" style="position: absolute; left: 27px; top: 27px;" />
+                <ui:Label name="DriveDamageWarning" text="SEVERE CHASSIS DAMAGE!" picking-mode="Ignore" class="drive-damage-warning" />
             </ui:VisualElement>
             <ui:VisualElement name="Time" picking-mode="Ignore" class="time" style="position: absolute; right: 28px; top: 19px;">
                 <hud:TimeOrbitElement name="TimeOrbit" line-width="4" tick-length="12" radius="77" dash-gap="18" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
@@ -63,6 +64,15 @@
             <ui:VisualElement class="driving-control">
                 <ui:Label text="LT" class="driving-control-key" />
                 <ui:Label text="REVERSE" class="driving-control-action" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="OpeningSignalPrompt" picking-mode="Ignore" class="opening-signal-prompt">
+            <ui:VisualElement class="driving-control">
+                <ui:Label text="UNKNOWN SIGNAL DETECTED" class="driving-control-action opening-signal-title" />
+            </ui:VisualElement>
+            <ui:VisualElement class="driving-control">
+                <ui:Label name="OpeningSignalMapKey" class="driving-control-key opening-signal-key" />
+                <ui:Label text="OPEN MAP" class="driving-control-action" />
             </ui:VisualElement>
         </ui:VisualElement>
         <hud:DpadHoldHintElement name="DpadHoldHint" picking-mode="Ignore" class="dpad-hold-hint" />

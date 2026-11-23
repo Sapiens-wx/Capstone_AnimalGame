@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 
 namespace AnimalGame.World
 {
-    public enum WeatherTowerPhase { Exterior, Ground, Ascending, Outdoor, Indoor, Descending }
+    public enum WeatherTowerPhase { Exterior, Ground, Ascending, Outdoor, Descending }
 
     [DefaultExecutionOrder(110)]
     [DisallowMultipleComponent]
@@ -22,8 +22,6 @@ namespace AnimalGame.World
         [SerializeField] private Vector2 liftSize;
         [SerializeField] private Transform groundDoor;
         [SerializeField] private float groundDoorWidth;
-        [SerializeField] private Transform door;
-        [SerializeField] private float doorWidth;
         [SerializeField] private GameObject groundGate;
         [SerializeField] private GameObject roofGate;
         [SerializeField] private GameObject liftPrompt;
@@ -33,8 +31,6 @@ namespace AnimalGame.World
         [SerializeField, Min(.1f)] private float towerHeightMeters = 12f;
         [SerializeField, Min(.1f)] private float travelSeconds = 2.4f;
         [SerializeField, Min(1f)] private float outdoorZoomMultiplier = 2.25f;
-        [SerializeField, Min(.1f)] private float indoorCameraSize = 7f;
-        [SerializeField, Min(0f)] private float indoorBlendSeconds = .65f;
 
         private const float DoorHysteresis = .08f;
         private const float MaxBoardingSpeed = .2f;
@@ -53,20 +49,20 @@ namespace AnimalGame.World
         private float liftProgress;
         private bool interactWasHeld;
         private Vector2 previousPlayerPosition;
+        private CommunicationsSignalWave[] communicationsSignals;
 
         public WeatherTowerPhase Phase { get; private set; }
+        internal event System.Action PlayerEntered;
         public RobotMover Player => player;
         public Transform Lift => lift;
         public Transform GroundDoor => groundDoor;
-        public Transform Door => door;
         public float HeightAboveGroundMeters => Mathf.SmoothStep(0f, towerHeightMeters, liftProgress);
         private bool IsRiding => Phase == WeatherTowerPhase.Ascending || Phase == WeatherTowerPhase.Descending;
-        private bool IsInside => Phase == WeatherTowerPhase.Indoor;
         private bool OnUpperView => liftProgress >= .5f;
 
         public void Configure(GameObject exterior, GameObject ground, GameObject upper, Transform liftAnchor,
-            Vector2 platformSize, Transform southDoor, float southOpeningWidth, Transform indoorDoor,
-            float upperOpeningWidth, GameObject lowerGate, GameObject upperGate, GameObject prompt)
+            Vector2 platformSize, Transform southDoor, float southOpeningWidth,
+            GameObject lowerGate, GameObject upperGate, GameObject prompt)
         {
             exteriorView = exterior;
             groundView = ground;
@@ -75,8 +71,6 @@ namespace AnimalGame.World
             liftSize = platformSize;
             groundDoor = southDoor;
             groundDoorWidth = southOpeningWidth;
-            door = indoorDoor;
-            doorWidth = upperOpeningWidth;
             groundGate = lowerGate;
             roofGate = upperGate;
             liftPrompt = prompt;
@@ -85,6 +79,11 @@ namespace AnimalGame.World
 
         private void Awake()
         {
+            // Initialize inactive roof devices before RefreshViews can hide their floor.
+            CommunicationsStation[] stations = GetComponentsInChildren<CommunicationsStation>(true);
+            communicationsSignals = new CommunicationsSignalWave[stations.Length];
+            for (int index = 0; index < stations.Length; index++)
+                communicationsSignals[index] = stations[index].InitializeSignal(true);
             ScopeCollisions(roofView);
             InitializeViews();
         }
@@ -100,6 +99,8 @@ namespace AnimalGame.World
 
         private void Update()
         {
+            foreach (CommunicationsSignalWave signal in communicationsSignals)
+                signal.Tick(Time.deltaTime, player);
             bool interactHeld = IsInteractHeld();
             bool interactPressed = interactHeld && !interactWasHeld;
             interactWasHeld = interactHeld;
@@ -125,9 +126,7 @@ namespace AnimalGame.World
 
             if (IsRiding)
                 AdvanceLift(deltaTime);
-            else if (OnUpperView)
-                CheckUpperDoor(previous, position);
-            else
+            else if (!OnUpperView)
                 CheckGroundDoor(previous, position);
 
             bool canRide = CanUseLift();
@@ -135,8 +134,7 @@ namespace AnimalGame.World
             if (canRide && interactPressed) TryStartLift();
 
             if (IsRiding || OnUpperView)
-                towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, IsInside,
-                    outdoorZoomMultiplier, indoorCameraSize, indoorBlendSeconds, deltaTime);
+                towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, outdoorZoomMultiplier);
         }
 
         public bool TryStartLift()
@@ -192,12 +190,7 @@ namespace AnimalGame.World
             groundHeight = height;
             Phase = WeatherTowerPhase.Ground;
             RefreshViews();
-        }
-
-        private void CheckUpperDoor(Vector2 previous, Vector2 position)
-        {
-            if (!CrossedDoor(door, doorWidth, previous, position, IsInside)) return;
-            Phase = IsInside ? WeatherTowerPhase.Outdoor : WeatherTowerPhase.Indoor;
+            PlayerEntered?.Invoke();
         }
 
         private bool CrossedDoor(Transform portal, float openingWidth, Vector2 previous, Vector2 position,
@@ -293,6 +286,8 @@ namespace AnimalGame.World
             SetFloorOpacity(roofArt, roofGateArt, roofOpacity);
 
             // The scopes still select just one floor for collisions while both views are visible.
+            // Once the roof fully covers it, stop ground-floor props and their owned interaction UI.
+            SetActive(groundView, outside || groundOpacity > 0f);
             SetActive(exteriorView, outside);
             SetActive(roofView, roofOpacity > 0f);
             SetActive(groundGate, Phase != WeatherTowerPhase.Ground);
@@ -330,7 +325,18 @@ namespace AnimalGame.World
             RefreshViews();
         }
 
-        private void OnDisable() => ResetTower();
+        private void OnDisable()
+        {
+            ResetTower();
+            if (communicationsSignals == null) return;
+            foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Hide();
+        }
+
+        private void OnDestroy()
+        {
+            if (communicationsSignals == null) return;
+            foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Dispose();
+        }
 
         private static void SetActive(GameObject target, bool active)
         {

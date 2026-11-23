@@ -251,16 +251,24 @@ namespace AnimalGame.RobotMap
             return Input.GetKeyDown(KeyCode.JoystickButton3);
         }
 
-        public static bool WasDpadLeftPressedThisFrame() => WasDpadPressedThisFrame(left: true);
-        public static bool WasDpadRightPressedThisFrame() => WasDpadPressedThisFrame(left: false);
+        private enum DpadDirection { Left, Right, Down }
+        public static bool WasDpadLeftPressedThisFrame() => WasDpadPressedThisFrame(DpadDirection.Left);
+        public static bool WasDpadRightPressedThisFrame() => WasDpadPressedThisFrame(DpadDirection.Right);
+        public static bool WasDpadDownPressedThisFrame() => WasDpadPressedThisFrame(DpadDirection.Down);
 
-        private static bool WasDpadPressedThisFrame(bool left)
+        private static bool WasDpadPressedThisFrame(DpadDirection direction)
         {
 #if ENABLE_INPUT_SYSTEM
             foreach (Gamepad gamepad in Gamepad.all)
             {
-                if (gamepad.added && (left ? gamepad.dpad.left : gamepad.dpad.right).wasPressedThisFrame)
-                    return true;
+                if (!gamepad.added) continue;
+                var button = direction switch
+                {
+                    DpadDirection.Left => gamepad.dpad.left,
+                    DpadDirection.Right => gamepad.dpad.right,
+                    _ => gamepad.dpad.down
+                };
+                if (button.wasPressedThisFrame) return true;
             }
 #endif
 

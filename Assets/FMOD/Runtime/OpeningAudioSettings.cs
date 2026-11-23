@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using AnimalGame.Animals;
 using AnimalGame.MainUI;
 using FMOD;
 using FMOD.Studio;
@@ -10,11 +12,11 @@ namespace Capstone.Audio
 {
     internal enum OpeningAudioCue
     {
-        RestartHold, RestartConfirmed, StatusScan, StatusGlitch, Title, Confirm,
+        RestartConfirmed, StatusScan, StatusGlitch, Title, Confirm,
         Typing, TestResult, InstrumentOnline, InstrumentGlitch,
         ArmDeploy, ArmServo, ArmJam, ArmRetract, ArmSettled,
         SensorsRestart, ContourReveal, ContourDrop, TerrainReveal, TerrainDrop,
-        MapReady, Handoff, Count
+        MapReady, Handoff, WoodpeckerPeck, Count
     }
 
     [CreateAssetMenu(menuName = "Audio/Opening Audio Settings")]
@@ -22,8 +24,11 @@ namespace Capstone.Audio
     {
         public const string ResourceName = "OpeningAudioSettings";
 
+        [Header("Woodpecker")]
+        [SerializeField] private AudioCueSettings woodpeckerPeck = new();
+        [SerializeField] private Shader woodpeckerWaveShader;
+
         [Header("Restart and diagnostics")]
-        [SerializeField] private AudioCueSettings restartHold = new();
         [SerializeField] private AudioCueSettings restartConfirmed = new();
         [SerializeField] private AudioCueSettings statusScan = new();
         [SerializeField] private AudioCueSettings statusGlitch = new();
@@ -50,9 +55,10 @@ namespace Capstone.Audio
         [SerializeField] private AudioCueSettings mapReady = new();
         [SerializeField] private AudioCueSettings handoff = new();
 
+        internal Shader WoodpeckerWaveShader => woodpeckerWaveShader;
+
         internal AudioCueSettings GetCue(OpeningAudioCue cue) => cue switch
         {
-            OpeningAudioCue.RestartHold => restartHold,
             OpeningAudioCue.RestartConfirmed => restartConfirmed,
             OpeningAudioCue.StatusScan => statusScan,
             OpeningAudioCue.StatusGlitch => statusGlitch,
@@ -74,6 +80,7 @@ namespace Capstone.Audio
             OpeningAudioCue.TerrainDrop => terrainDrop,
             OpeningAudioCue.MapReady => mapReady,
             OpeningAudioCue.Handoff => handoff,
+            OpeningAudioCue.WoodpeckerPeck => woodpeckerPeck,
             _ => throw new ArgumentOutOfRangeException(nameof(cue), cue, null)
         };
     }
@@ -81,22 +88,137 @@ namespace Capstone.Audio
     // Owns only opening voices. The shared FMOD listener and gameplay voices stay active independently.
     internal sealed class OpeningAudioPlayer
     {
+        private static readonly AnimalSoundWaveSettings peckWave = new(2.5f, .42f, 3, 1f, 1f);
+        private static readonly AnimalSoundWaveSettings takeoffWave = new(3.8f, .55f, 4, 1f, 1f);
+        private static readonly (string File, float Gap)[] woodpeckerCalls =
+        {
+            ("Woodepecker_01.wav", .70f),
+            ("Woodepecker_02.wav", 1.10f),
+            ("Woodepecker_03.wav", .85f),
+            ("Woodepecker_04.wav", 1.15f)
+        };
+        private const string WingRecording = "365485__shanaygroen__bird-in-cage-flapping-wings.wav";
+
         private struct Voice
         {
             public EventInstance Instance;
             public SoundHandle Sound;
+            public double StopAt;
         }
 
         private readonly OpeningAudioSettings settings;
         private readonly Voice[] voices = new Voice[(int)OpeningAudioCue.Count];
         private readonly bool[] failed = new bool[(int)OpeningAudioCue.Count];
+        private Bus recordingBus;
+        private ChannelGroup recordingGroup;
+        private Sound woodpeckerRecording;
+        private Channel woodpeckerChannel;
+        private SoundHandle woodpeckerSound;
+        private bool recordingBusLocked;
+        private int nextWoodpeckerCall;
+        private double nextWoodpeckerCallAt = double.PositiveInfinity;
+        private double woodpeckerRecordingStopAt = double.PositiveInfinity;
 
         internal OpeningAudioPlayer(OpeningAudioSettings settings)
         {
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        internal void Play(OpeningAudioCue cue)
+        internal void PlayWoodpeckerPeck(Vector3 position, float bodyRadius)
+        {
+            PlayCue(OpeningAudioCue.WoodpeckerPeck, pitch: 1.45f, maximumDuration: .21f);
+            EmitWoodpeckerWave(position, bodyRadius, peckWave);
+        }
+
+        internal void StartWoodpeckerCalls() => PlayNextWoodpeckerCall(Time.unscaledTimeAsDouble);
+
+        internal void PlayWoodpeckerTakeoff(Vector3 position, float bodyRadius)
+        {
+            nextWoodpeckerCallAt = double.PositiveInfinity;
+            StopWoodpeckerRecording();
+            if (PlayWoodpeckerRecording(WingRecording, -5f, .35f, 560, out _))
+                woodpeckerRecordingStopAt = Time.unscaledTimeAsDouble + .95;
+            EmitWoodpeckerWave(position, bodyRadius, takeoffWave);
+        }
+
+        private void PlayNextWoodpeckerCall(double now)
+        {
+            var call = woodpeckerCalls[nextWoodpeckerCall];
+            nextWoodpeckerCallAt = double.PositiveInfinity;
+            if (!PlayWoodpeckerRecording(call.File, 4f, .4f, 0, out uint duration)) return;
+
+            nextWoodpeckerCall = (nextWoodpeckerCall + 1) % woodpeckerCalls.Length;
+            nextWoodpeckerCallAt = now + duration * .001 + call.Gap;
+        }
+
+        private bool PlayWoodpeckerRecording(string file, float gainDb, float strength, uint startMs, out uint duration)
+        {
+            duration = 0;
+            string path = Path.Combine(Application.streamingAssetsPath, "Opening", "Woodpecker", file);
+            try
+            {
+                if (!recordingGroup.hasHandle())
+                {
+                    // Route raw recordings through the existing FMOD mixer and its mute controls.
+                    recordingBus = RuntimeManager.GetBus("bus:/");
+                    RESULT lockResult = recordingBus.lockChannelGroup();
+                    // The nature ambience can already own this shared lock.
+                    if (lockResult != RESULT.ERR_ALREADY_LOCKED) Check(lockResult);
+                    recordingBusLocked = lockResult == RESULT.OK;
+                    Check(RuntimeManager.StudioSystem.flushCommands());
+                    Check(recordingBus.getChannelGroup(out recordingGroup));
+                }
+
+                var core = RuntimeManager.CoreSystem;
+                Check(core.createSound(path, MODE._2D | MODE.LOOP_OFF, out woodpeckerRecording));
+                Check(woodpeckerRecording.getLength(out duration, TIMEUNIT.MS));
+                Check(core.playSound(woodpeckerRecording, recordingGroup, true, out woodpeckerChannel));
+                Check(woodpeckerChannel.setVolume(Mathf.Pow(10f, gainDb / 20f)));
+                if (startMs != 0) Check(woodpeckerChannel.setPosition(startMs, TIMEUNIT.MS));
+                Check(woodpeckerChannel.setPaused(false));
+                woodpeckerSound = SoundUIPlayback.BeginSound(strength);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                StopWoodpeckerRecording();
+                ReleaseRecordingBus();
+                UnityEngine.Debug.LogWarning($"[Opening Audio] {file}: {exception.Message}", settings);
+                return false;
+            }
+        }
+
+        private void StopWoodpeckerRecording()
+        {
+            SoundUIPlayback.EndSound(woodpeckerSound);
+            woodpeckerSound = default;
+            if (RuntimeManager.IsInitialized)
+            {
+                if (woodpeckerChannel.hasHandle()) woodpeckerChannel.stop();
+                if (woodpeckerRecording.hasHandle()) woodpeckerRecording.release();
+            }
+            woodpeckerChannel.clearHandle();
+            woodpeckerRecording.clearHandle();
+            woodpeckerRecordingStopAt = double.PositiveInfinity;
+        }
+
+        private void ReleaseRecordingBus()
+        {
+            if (recordingBusLocked && RuntimeManager.IsInitialized && recordingBus.isValid())
+                recordingBus.unlockChannelGroup();
+            recordingBusLocked = false;
+            recordingGroup.clearHandle();
+        }
+
+        private void EmitWoodpeckerWave(Vector3 position, float bodyRadius, AnimalSoundWaveSettings wave)
+        {
+            AnimalSoundWaveManager.Emit(position, wave, settings.WoodpeckerWaveShader,
+                new Color(.88f, .88f, .88f, .9f), .38f, .28f, 995, bodyRadius, 1f, opening: true);
+        }
+
+        internal void Play(OpeningAudioCue cue) => PlayCue(cue);
+
+        private void PlayCue(OpeningAudioCue cue, float pitch = 1f, float maximumDuration = 0f)
         {
             AudioCueSettings binding = settings.GetCue(cue);
             int index = (int)cue;
@@ -108,7 +230,9 @@ namespace Capstone.Audio
             {
                 voice.Instance = RuntimeManager.CreateInstance(binding.EventReference);
                 Check(voice.Instance.setVolume(binding.LinearGain));
+                if (pitch != 1f) Check(voice.Instance.setPitch(pitch));
                 Check(voice.Instance.start());
+                if (maximumDuration > 0f) voice.StopAt = Time.unscaledTimeAsDouble + maximumDuration;
                 if (binding.ReadBySoundUI)
                     voice.Sound = SoundUIPlayback.BeginSound(binding.SoundUIStrength);
                 voices[index] = voice;
@@ -123,9 +247,21 @@ namespace Capstone.Audio
 
         internal void Tick()
         {
+            double now = Time.unscaledTimeAsDouble;
+            if (woodpeckerChannel.hasHandle() && (now >= woodpeckerRecordingStopAt
+                || woodpeckerChannel.isPlaying(out bool playing) != RESULT.OK || !playing))
+                StopWoodpeckerRecording();
+            if (!woodpeckerChannel.hasHandle() && now >= nextWoodpeckerCallAt)
+                PlayNextWoodpeckerCall(now);
+
             for (int i = 0; i < voices.Length; i++)
             {
                 if (!voices[i].Instance.hasHandle()) continue;
+                if (voices[i].StopAt > 0 && now >= voices[i].StopAt)
+                {
+                    Stop((OpeningAudioCue)i);
+                    continue;
+                }
                 RESULT result = voices[i].Instance.getPlaybackState(out PLAYBACK_STATE state);
                 if (result != RESULT.OK || state == PLAYBACK_STATE.STOPPED) Release(ref voices[i], null);
             }
@@ -134,6 +270,7 @@ namespace Capstone.Audio
         internal void Stop(OpeningAudioCue cue)
         {
             ref Voice voice = ref voices[(int)cue];
+            voice.StopAt = 0;
             if (voice.Instance.hasHandle() && voice.Instance.stop(STOP_MODE.ALLOWFADEOUT) != RESULT.OK)
                 Release(ref voice, STOP_MODE.IMMEDIATE);
         }
@@ -142,6 +279,10 @@ namespace Capstone.Audio
         {
             for (int i = 0; i < voices.Length; i++)
                 Release(ref voices[i], STOP_MODE.IMMEDIATE);
+            nextWoodpeckerCallAt = double.PositiveInfinity;
+            StopWoodpeckerRecording();
+            ReleaseRecordingBus();
+            AnimalSoundWaveManager.ClearOpeningWaves();
         }
 
         internal void Finish()

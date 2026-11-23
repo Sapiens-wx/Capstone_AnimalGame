@@ -14,6 +14,10 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
+#endif
 using Object = UnityEngine.Object;
 using Hud = AnimalGame.MainUI.MainUI;
 
@@ -511,6 +515,152 @@ namespace AnimalGame.Editor
                 Object.DestroyImmediate(resultObject);
                 Object.DestroyImmediate(subjectObject);
             }
+        }
+
+        public static void RunRobotNotebookBatch()
+        {
+            var scene = EditorSceneManager.NewPreviewScene();
+            var settings = Object.Instantiate(AssetDatabase.LoadAssetAtPath<PanelSettings>(
+                "Assets/Prefabs/Resources/UI/Main/MainUISetting.asset"));
+            var texture = new RenderTexture(1920, 1080, 24);
+            int exitCode = 0;
+            try
+            {
+                texture.Create();
+                settings.targetTexture = texture;
+                var obj = new GameObject("Robot notebook regression");
+                SceneManager.MoveGameObjectToScene(obj, scene);
+                var document = obj.AddComponent<UIDocument>();
+                document.panelSettings = settings;
+                document.visualTreeAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                    "Assets/Prefabs/Resources/UI/Main/MainUIDoc.uxml");
+                var hud = obj.AddComponent<Hud>();
+                hud.Init();
+                checks = 0;
+                CheckRobotNotebook(hud, document.rootVisualElement);
+                Debug.Log("Robot notebook regression PASS: " + checks + " checks.");
+            }
+            catch (Exception error)
+            {
+                Debug.LogException(error);
+                exitCode = 1;
+            }
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+                texture.Release();
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(settings);
+            }
+            EditorApplication.Exit(exitCode);
+        }
+
+        private static void CheckRobotNotebook(Hud hud, VisualElement root)
+        {
+#if ENABLE_INPUT_SYSTEM
+            var previousSettings = InputSystem.settings;
+            var testSettings = Object.Instantiate(previousSettings);
+            Gamepad gamepad = null;
+            var started = typeof(Hud).GetField("started", Flags);
+            var open = typeof(Hud).GetField("robotNotebookOpen", Flags);
+            var cargoElapsed = typeof(InventoryController).GetField("openHoldElapsed", Flags);
+            try
+            {
+                testSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+                testSettings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+                testSettings.SetInternalFeatureFlag("RUN_PLAYER_UPDATES_IN_EDIT_MODE", true);
+                InputSystem.settings = testSettings;
+                gamepad = InputSystem.AddDevice<Gamepad>();
+                started.SetValue(hud, true);
+                ValidateLayout(root);
+                Step(hud, 0);
+
+                void Input(GamepadState state)
+                {
+                    InputSystem.QueueStateEvent(gamepad, state);
+                    InputSystem.Update();
+                    Invoke(hud, "Update");
+                }
+
+                bool IsOpen() => (bool)open.GetValue(hud);
+
+                var left = new GamepadState().WithButton(GamepadButton.DpadLeft);
+                var right = new GamepadState().WithButton(GamepadButton.DpadRight);
+                Input(left);
+                Assert(!IsOpen(), "HUD without a Goal Module ignores the opening gesture");
+                Input(default);
+
+                Invoke(hud, "EnableRobotGoalModule");
+                Invoke(hud, "RefreshRobotNotebook", 0f);
+                var panel = root.Q("RobotNotebookPanel");
+                var tab = root.Q("RobotNotebookTab");
+                Assert(!IsOpen() && tab.style.display.value == DisplayStyle.Flex,
+                    "The Goal Module starts with its tab visible");
+
+                string ModuleText(string name) => System.Text.RegularExpressions.Regex.Replace(
+                    panel.Q<Label>(name).text, "<[^>]+>", string.Empty);
+
+                Assert(ModuleText("RobotNotebookHeader") == "GOAL MODULE"
+                    && panel.Q<Label>("RobotGoalModuleStatus") == null && panel.Q<Label>("RobotNotebookToggleHint") == null,
+                    "The Goal Module displays its title without a status or hide hint");
+                Assert(ModuleText("RobotGoalModuleDirective") == "HISTORY DIRECTIVE —WRU-04-017:"
+                    && ModuleText("RobotGoalModuleInstruction") == "Locate, collect, and recycle scattered waste (SIZE: SMALL-MEDIEUM).",
+                    "The Goal Module displays its recovered directive and instruction");
+                var logs = panel.Children().OfType<Label>().Where(label => label.text.StartsWith(".", StringComparison.Ordinal)
+                    && label.text.Trim('.') == string.Empty)
+                    .Select(label => label.text);
+                Assert(logs.SequenceEqual(new[] { "......", "........." }),
+                    "The Goal Module displays both incomplete log rows in order");
+                Assert(ModuleText("RobotGoalModuleFaultLog") == "SYSTEM FAULT...",
+                    "The Goal Module displays the fault log");
+                var corruption = panel.Q("RobotGoalModuleCorruption");
+                Assert(corruption != null && corruption.Query<Label>().ToList().Count > 1,
+                    "The Goal Module displays several corrupted log fragments");
+
+                float gameplayTimeScale = Time.timeScale;
+                Input(left);
+                Assert(gamepad.dpad.left.wasPressedThisFrame, "The synthetic left press reaches the Input System");
+                Assert(IsOpen() && !hud.IsInventoryOpen && Time.timeScale == gameplayTimeScale,
+                    "Left opens the notebook and gameplay stays live");
+                Invoke(hud, "RefreshRobotNotebook", 1f);
+                Assert(panel.style.display.value == DisplayStyle.Flex && tab.style.display.value == DisplayStyle.None,
+                    "The panel slides fully out and replaces its tab");
+                Input(default);
+                Input(right);
+                Assert(!IsOpen(), "A right press closes the notebook");
+                Invoke(hud, "RefreshRobotNotebook", 1f);
+                Assert(panel.style.display.value == DisplayStyle.None && tab.style.display.value == DisplayStyle.Flex,
+                    "The panel slides back to its tab");
+
+                // Place the held gesture at its threshold without waiting on the editor frame clock.
+                cargoElapsed.SetValue(hud.InventoryController, 1f);
+                Input(right);
+                Assert(!hud.IsInventoryOpen, "Keeping the notebook's closing press held cannot open Cargo");
+                Input(default);
+                Assert(hud.InventoryController.OpenHoldElapsed == 0, "Releasing right clears the Cargo hold timer");
+                Input(right);
+                cargoElapsed.SetValue(hud.InventoryController, 1f);
+                Input(right);
+                Assert(hud.IsInventoryOpen, "A fresh right hold opens Cargo");
+
+                Input(default);
+                Input(left);
+                Assert(!IsOpen(), "Cargo owns the left gesture while open");
+                Invoke(hud, "RefreshRobotNotebook", 1f);
+                Assert(panel.style.display.value == DisplayStyle.None && tab.style.display.value == DisplayStyle.None,
+                    "Cargo hides the notebook's panel and tab");
+            }
+            finally
+            {
+                if (gamepad != null) InputSystem.RemoveDevice(gamepad);
+                InputSystem.settings = previousSettings;
+                Object.DestroyImmediate(testSettings);
+                started.SetValue(hud, false);
+                hud.CloseInventory();
+                Step(hud, 1);
+                hud.InventoryController.Suspend();
+            }
+#endif
         }
 
         public static void RunBatch()

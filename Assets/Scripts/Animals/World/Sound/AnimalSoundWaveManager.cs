@@ -36,6 +36,7 @@ namespace AnimalGame.Animals
             public MeshRenderer Renderer;
             public MaterialPropertyBlock Properties;
             public bool Active;
+            public bool Opening;
             public float Elapsed;
             public float Duration;
             public float Opacity;
@@ -57,7 +58,8 @@ namespace AnimalGame.Animals
             float irregularity,
             int sortingOrder,
             float radiusMultiplier,
-            float ringCountMultiplier)
+            float ringCountMultiplier,
+            bool opening = false)
         {
             if (settings == null || !settings.Enabled)
                 return;
@@ -74,7 +76,15 @@ namespace AnimalGame.Animals
                 irregularity,
                 sortingOrder,
                 radiusMultiplier,
-                ringCountMultiplier);
+                ringCountMultiplier,
+                opening);
+        }
+
+        internal static void ClearOpeningWaves()
+        {
+            if (instance == null) return;
+            foreach (WaveInstance wave in instance.waves)
+                if (wave.Active && wave.Opening) Deactivate(wave);
         }
 
         private static AnimalSoundWaveManager GetOrCreate(Shader shader)
@@ -141,12 +151,14 @@ namespace AnimalGame.Animals
             float irregularity,
             int sortingOrder,
             float radiusMultiplier,
-            float ringCountMultiplier)
+            float ringCountMultiplier,
+            bool opening)
         {
             WaveInstance wave = GetWaveInstance();
             float radius = settings.ChooseMaximumRadius()
                            * Mathf.Max(0.05f, radiusMultiplier);
             wave.Active = true;
+            wave.Opening = opening;
             wave.Elapsed = 0f;
             wave.Duration = settings.DurationSeconds;
             wave.Opacity = settings.Opacity;
@@ -169,6 +181,7 @@ namespace AnimalGame.Animals
                 radius * 2f,
                 1f);
             wave.Renderer.sortingOrder = sortingOrder;
+            if (opening) wave.Renderer.forceRenderingOff = false;
             wave.GameObject.SetActive(true);
             UpdateWaveVisual(wave, 0f);
         }
@@ -239,16 +252,19 @@ namespace AnimalGame.Animals
                 if (!wave.Active)
                     continue;
 
-                wave.Elapsed += deltaTime;
+                wave.Elapsed += wave.Opening ? Time.unscaledDeltaTime : deltaTime;
                 float normalizedTime = Mathf.Clamp01(
                     wave.Elapsed / Mathf.Max(0.05f, wave.Duration));
                 UpdateWaveVisual(wave, normalizedTime);
                 if (normalizedTime >= 1f)
-                {
-                    wave.Active = false;
-                    wave.GameObject.SetActive(false);
-                }
+                    Deactivate(wave);
             }
+        }
+
+        private static void Deactivate(WaveInstance wave)
+        {
+            wave.Active = false;
+            wave.GameObject.SetActive(false);
         }
 
         private static void UpdateWaveVisual(

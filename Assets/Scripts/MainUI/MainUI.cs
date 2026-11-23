@@ -92,6 +92,8 @@ namespace AnimalGame.MainUI
         public void SelectItem(int index) => InventoryController.SelectItem(index);
 
         private const float DesignWidth = 1920, DesignHeight = 1080;
+        private const float DriveDamageWarningDuration = 1.2f;
+        private const float DriveDamageWarningFadeDuration = .2f;
 
         public static MainUI Active { get; private set; }
         public static bool BlocksGameplay => OfficialMapOpening.IsPlaying || AnimalGame.World.Map.WorldMapUI.BlocksGameplay
@@ -117,6 +119,8 @@ namespace AnimalGame.MainUI
         private TimeOrbitElement timeOrbit;
         private Label powerLabel, integrityLabel, dateLabel, latitudeLabel, longitudeLabel, altitudeLabel;
         private Label latitudeHemisphereLabel, longitudeHemisphereLabel;
+        private Label driveDamageWarning;
+        private float driveDamageWarningUntil;
         private Label unstuckFailure;
         private Font unstuckFailureFont;
         private float unstuckFailureUntil;
@@ -194,6 +198,8 @@ namespace AnimalGame.MainUI
             levelIndicator = root.Q<LevelIndicatorElement>("LevelIndicator");
             compassHost = root.Q("CompassHost");
             openingDrivingHint = root.Q("OpeningDrivingHint");
+            openingSignalPrompt = root.Q("OpeningSignalPrompt");
+            openingSignalMapKey = root.Q<Label>("OpeningSignalMapKey");
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
             powerRing = root.Q<CircularProgressElement>("PowerRing");
@@ -207,6 +213,7 @@ namespace AnimalGame.MainUI
             altitudeLabel = root.Q<Label>("Altitude");
             latitudeHemisphereLabel = root.Q<Label>("LatitudeHemisphere");
             longitudeHemisphereLabel = root.Q<Label>("LongitudeHemisphere");
+            driveDamageWarning = root.Q<Label>("DriveDamageWarning");
             unstuckFailure = root.Q<Label>("UnstuckFailure");
             if (stage == null || view == null || innerRing == null || grid == null) return;
 
@@ -226,6 +233,7 @@ namespace AnimalGame.MainUI
             RefreshTelemetry(DateTime.Now, true);
             lastPower = lastIntegrity = -1;
             ApplyLayout();
+            BindRobotNotebook();
             UpdateStatus();
         }
 
@@ -241,6 +249,34 @@ namespace AnimalGame.MainUI
                 unstuckFailure.style.unityFontDefinition = FontDefinition.FromFont(unstuckFailureFont);
             unstuckFailure.style.display = DisplayStyle.Flex;
             unstuckFailureUntil = Time.unscaledTime + 2f;
+        }
+
+        internal void ShowDriveDamageWarning()
+        {
+            if (driveDamageWarning == null || BlocksGameplay || Time.timeScale <= 0f) return;
+            driveDamageWarningUntil = Time.unscaledTime + DriveDamageWarningDuration;
+            driveDamageWarning.style.opacity = 1f;
+            driveDamageWarning.style.display = DisplayStyle.Flex;
+        }
+
+        private void UpdateDriveDamageWarning()
+        {
+            if (driveDamageWarningUntil <= 0f) return;
+            float remaining = driveDamageWarningUntil - Time.unscaledTime;
+            if (remaining <= 0f || BlocksGameplay || Time.timeScale <= 0f)
+            {
+                HideDriveDamageWarning();
+                return;
+            }
+            if (driveDamageWarning == null) return;
+            driveDamageWarning.style.display = DisplayStyle.Flex;
+            driveDamageWarning.style.opacity = Mathf.Clamp01(remaining / DriveDamageWarningFadeDuration);
+        }
+
+        private void HideDriveDamageWarning()
+        {
+            driveDamageWarningUntil = 0f;
+            if (driveDamageWarning != null) driveDamageWarning.style.display = DisplayStyle.None;
         }
 
         public void ToggleInventory() { if (inventoryOpen) InventoryController.BackInventory(); else OpenInventory(); }
@@ -308,6 +344,7 @@ namespace AnimalGame.MainUI
             }
             AdvanceGameClock(Time.deltaTime);
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
+            if (UpdateRobotNotebookInput()) InventoryController.ConsumeOpenHold();
             if (!IsCargoLocked && !OfficialMapOpening.IsPlaying) InventoryController.Tick();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
             if (openingPresentation == null) UpdatePowerRingFlicker(Time.unscaledDeltaTime);
@@ -336,6 +373,9 @@ namespace AnimalGame.MainUI
             RefreshLatePresentation();
             RefreshDpadHoldHint();
             AdvanceOpeningDrivingHint(Time.unscaledDeltaTime);
+            AdvanceOpeningSignalPrompt(Time.unscaledDeltaTime);
+            UpdateDriveDamageWarning();
+            RefreshRobotNotebook(Time.unscaledDeltaTime);
         }
 
         private void UpdateLevelIndicator()
@@ -662,6 +702,9 @@ namespace AnimalGame.MainUI
         private void OnDisable()
         {
             EndOpeningPresentation();
+            HideDriveDamageWarning();
+            robotNotebookOpen = false;
+            robotNotebookView?.Tick(false, false, 0f);
             if (animalDebugInstance != null) animalDebugInstance.SetActive(false);
             inventoryController?.Suspend();
             if (powerRing != null) powerRing.visible = true;

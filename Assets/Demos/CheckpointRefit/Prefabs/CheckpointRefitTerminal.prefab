@@ -54,6 +54,7 @@ MonoBehaviour:
   interactionMarker: {fileID: 4208451481846643789}
   zoomLens300: {fileID: 11400000, guid: 4197a39da5c1459da8ae34670d152477, type: 2}
   damagedPrime50: {fileID: 11400000, guid: 59638854e8cb4d759d806e6d41931a9c, type: 2}
+  metalScrap: {fileID: 11400000, guid: 4cb9dfc202c74b118e627a9f4703a283, type: 2}
 --- !u!1 &8944633586166491639
 GameObject:
   m_ObjectHideFlags: 0

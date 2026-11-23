@@ -189,8 +189,23 @@ namespace AnimalGame.MainUI
     [UxmlElement]
     public partial class CircularProgressElement : VisualElement
     {
+        private static readonly Color TrackColor = new Color32(61, 61, 61, 255);
         private float value = 1;
         [UxmlAttribute] public float progress { get => value; set => SetProgress(value); }
+        private float preview;
+        private bool showTrackValue;
+        [UxmlAttribute]
+        public bool showTrack
+        {
+            get => showTrackValue;
+            set
+            {
+                if (showTrackValue == value) return;
+                showTrackValue = value;
+                MarkDirtyRepaint();
+            }
+        }
+
         private float lengthValue = 8;
         /// <summary>Length of the yellow radial indicator, measured outward from the ring's inner edge.</summary>
         [UxmlAttribute]
@@ -259,45 +274,69 @@ namespace AnimalGame.MainUI
             MarkDirtyRepaint();
         }
 
+        public void SetPreviewProgress(float normalized)
+        {
+            normalized = float.IsNaN(normalized) || float.IsInfinity(normalized) ? 0 : Mathf.Clamp01(normalized);
+            if (preview == normalized) return;
+            preview = normalized;
+            MarkDirtyRepaint();
+        }
+
         private void Draw(MeshGenerationContext context)
         {
             Painter2D p = context.painter2D;
             Vector2 c = contentRect.center;
             float radius = Mathf.Min(contentRect.width, contentRect.height) * .5f - lineWidth * .5f - 2;
-            if (radius <= 0 || value <= 0 || lineWidth <= 0) return;
+            if (radius <= 0 || lineWidth <= 0) return;
             p.lineWidth = lineWidth; p.lineCap = LineCap.Butt;
-            p.strokeColor = outside ? HudDrawing.Yellow : Color.white;
             if (outside)
             {
                 // Screen angles increase clockwise. Consume counterclockwise from
                 // the upper-right start, keeping the right-hand endpoint fixed.
                 float consumed = (1 - value) * 300;
-                for (int i = 0; i < 10; i++)
-                {
-                    float start = Mathf.Max(consumed, i * 30 + (i == 0 ? 0 : 2));
-                    float end = (i + 1) * 30 - (i == 9 ? 0 : 2);
-                    if (end > start) HudDrawing.Arc(p, c, radius, radius, -60 - start, -(end - start));
-                }
+                if (showTrack) DrawPowerArc(p, c, radius, 0f, TrackColor);
+                if (value <= 0f) return;
+                DrawPowerArc(p, c, radius, consumed, HudDrawing.Yellow);
                 Vector2 d = HudDrawing.Radial(-60 - consumed);
                 float innerRadius = Mathf.Max(0, radius - lineWidth * .5f);
                 if (length > 0)
                     HudDrawing.Line(p, c + d * innerRadius, c + d * (innerRadius + length));
                 return;
             }
+            if (showTrack) DrawIntegrityArc(p, c, radius, 0f, 360f, TrackColor);
+            float sweep = value * 360f;
+            if (value > 0f) DrawIntegrityArc(p, c, radius, 0f, sweep, Color.white);
+            if (preview > value) DrawIntegrityArc(p, c, radius, sweep, preview * 360f, HudDrawing.Yellow);
+        }
+
+        private static void DrawPowerArc(Painter2D painter, Vector2 center, float radius, float consumed, Color color)
+        {
+            painter.strokeColor = color;
+            for (int i = 0; i < 10; i++)
+            {
+                float start = Mathf.Max(consumed, i * 30 + (i == 0 ? 0 : 2));
+                float end = (i + 1) * 30 - (i == 9 ? 0 : 2);
+                if (end > start) HudDrawing.Arc(painter, center, radius, radius, -60 - start, start - end);
+            }
+        }
+
+        private void DrawIntegrityArc(Painter2D painter, Vector2 center, float radius, float start, float end, Color color)
+        {
             // Three asymmetric inward points on the white integrity outline.
-            float sweep = value * 360;
-            p.BeginPath();
+            float sweep = end - start;
+            painter.strokeColor = color;
+            painter.BeginPath();
             int steps = Mathf.Max(1, Mathf.CeilToInt(sweep));
             for (int i = 0; i <= steps; i++)
             {
-                float angle = sweep * i / steps;
+                float angle = start + sweep * i / steps;
                 float phase = Mathf.Repeat(angle, 120);
                 float inset = phase <= 12 ? (1 - phase / 12) * Mathf.Min(notchDepth, radius) : 0;
-                Vector2 point = c + HudDrawing.Radial(-60 + angle) * (radius - inset);
-                if (i == 0) p.MoveTo(point); else p.LineTo(point);
+                Vector2 point = center + HudDrawing.Radial(-60 + angle) * (radius - inset);
+                if (i == 0) painter.MoveTo(point); else painter.LineTo(point);
             }
-            if (value >= 1) p.ClosePath();
-            p.Stroke();
+            if (sweep >= 360f) painter.ClosePath();
+            painter.Stroke();
         }
     }
 

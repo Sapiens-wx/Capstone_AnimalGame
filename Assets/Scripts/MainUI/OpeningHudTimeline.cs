@@ -3,9 +3,9 @@ namespace AnimalGame.MainUI
     /// <summary>The clock shared by the opening's native HUD, arm test and map reveal.</summary>
     public static class OpeningHudTimeline
     {
+        internal const int WakePecksRequired = 5;
+        internal const float WakePromptDelay = .25f;
         internal const float StatusScanDuration = .50f;
-        public const float BodyStart = StatusScanDuration + .12f;
-        public const float BodyReady = StatusScanDuration + .48f;
 
         internal const float RestartStart = StatusScanDuration + .54f;
         internal const string RestartTitle = "SYSTEM RESTART";
@@ -58,11 +58,21 @@ namespace AnimalGame.MainUI
         internal static readonly float ReceiverReady = AudioResult + ReceiverScanDuration;
         internal static readonly float ArmLog = ReceiverReady + InstrumentFeedbackDuration + .12f;
         public static readonly float ArmStart = ArmLog + 1.24f;
-        public const float ArmDuration = 1.94f;
+        internal const float ArmFullyExtended = 1.23f;
+        internal const float ArmRetractionStart = ArmFullyExtended + 1.60f;
+        public const float ArmDuration = ArmRetractionStart + .71f;
         public static readonly float ArmEnd = ArmStart + ArmDuration;
         public static readonly float HeadingStart = ArmStart;
         public static readonly float PlayerStateStart = HeadingStart + .13f;
-        internal static readonly float SensorLogStart = ArmEnd + .14f;
+        internal static readonly float GoalModuleLogStart = ArmEnd + .14f;
+        internal const string GoalModuleMessage = "RESTARTING GOAL MODULE......";
+        internal const float GoalModuleTypingInterval = .030f;
+        internal static readonly float GoalModulePanelOpen = GoalModuleLogStart + .26f;
+        internal static readonly float GoalModuleFault = TypingEnd(GoalModuleMessage, GoalModuleLogStart, GoalModuleTypingInterval) + .22f;
+        internal static readonly float GoalModuleReady = GoalModuleFault + ClockBlinkDuration;
+        internal static readonly float GoalModulePanelClosed = GoalModuleReady + .24f;
+
+        internal static readonly float SensorLogStart = GoalModulePanelClosed + .14f;
         internal const string SensorMessage = "RESTARTING SENSORS......";
         internal const float SensorTypingInterval = .030f;
         public static readonly float SensorLogEnd = TypingEnd(SensorMessage, SensorLogStart, SensorTypingInterval);
@@ -79,7 +89,7 @@ namespace AnimalGame.MainUI
             RestartTitleReady, PowerReady, ClockDisplayReady, ClockReady,
             Positioning.FeedbackReady, FrameReady, CompassTest.FeedbackReady, Level.FeedbackReady,
             ReceiverReady + InstrumentFeedbackDuration,
-            ArmEnd, SensorLogEnd
+            ArmEnd, GoalModuleReady, SensorLogEnd
         };
 
         internal static readonly float[] InstrumentChecks =
@@ -89,6 +99,9 @@ namespace AnimalGame.MainUI
         };
 
         internal static float TypingEnd(string message, float start, float interval) => start + (message.Length - 1) * interval;
+
+        internal static float GoalModuleOpenness(float elapsed) => Ease(elapsed, GoalModuleLogStart, GoalModulePanelOpen)
+            * (1f - Ease(elapsed, GoalModuleReady, GoalModulePanelClosed));
 
         internal static float Ease(float t, float start, float end)
         {

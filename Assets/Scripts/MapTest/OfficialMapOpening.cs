@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using AnimalGame.MainUI;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
+using AnimalGame.World;
+using AnimalGame.World.Map;
 using Capstone.Audio;
 using UnityEngine;
 using GameHud = AnimalGame.MainUI.MainUI;
@@ -16,29 +18,43 @@ namespace AnimalGame.MapTest
         [Header("Driving tutorial line (map meters)")]
         [SerializeField] private Vector2 drivingHintLineSouth;
         [SerializeField] private Vector2 drivingHintLineNorth;
+        [SerializeField] private Transform weatherTower;
 
-        private const float RestartHoldDuration = .65f;
-        private const float RestartTransitionTime = RestartHoldDuration + .10f;
+        [Header("Drive fault activation line (map meters)")]
+        [SerializeField] private Vector2 damageLineSouth;
+        [SerializeField] private Vector2 damageLineNorth;
+
+        [Header("Opening woodpecker")]
+        [SerializeField] private SpriteRenderer woodpeckerAppearance;
+
+        private const float SkipHoldDuration = 1f;
+        private const float RestartPeckInterval = 3f;
         private const float TestRumbleDuration = .18f;
         private const float StartingIntegrity = .32f;
         private const float ArmMotionStart = .08f;
         private const float FirstJam = .42f;
         private const float SecondJam = .75f;
-        private const float RetractionStart = 1.23f;
-        private const float RetractionJam = 1.51f;
+        private const float RetractionJam = OpeningHudTimeline.ArmRetractionStart + .28f;
+        private const float HandoffRightingDuration = .46f;
+        private const float MapScanShakeSettleDuration = .28f;
         private static readonly Vector2 mediumRumble = new(.42f, .48f);
+        private static readonly Impact peckImpact = new(0f, .22f, 12f, -16f, .48f, 18f);
 
         private static readonly Vector2[] leftArm =
         {
             new(0f, 0f), new(ArmMotionStart, 0f), new(.25f, .24f), new(.37f, .19f), new(.60f, .60f), new(.71f, .60f),
-            new(1.04f, .98f), new(RetractionStart, .98f), new(1.45f, .49f), new(1.57f, .26f), new(1.67f, .26f), new(1.81f, 0f)
+            new(1.04f, .98f), new(OpeningHudTimeline.ArmFullyExtended, 1f), new(OpeningHudTimeline.ArmRetractionStart, 1f),
+            new(OpeningHudTimeline.ArmRetractionStart + .22f, .49f), new(OpeningHudTimeline.ArmRetractionStart + .34f, .26f),
+            new(OpeningHudTimeline.ArmRetractionStart + .44f, .26f), new(OpeningHudTimeline.ArmRetractionStart + .58f, 0f)
         };
 
         private static readonly Vector2[] rightArm =
         {
             new(0f, 0f), new(.19f, 0f), new(.38f, .12f), new(.44f, .22f), new(.55f, .22f), new(.63f, .12f),
-            new(.74f, .44f), new(.83f, .32f), new(1f, .79f), new(1.12f, .86f), new(1.28f, .86f),
-            new(1.51f, .42f), new(1.66f, .42f), new(1.79f, .19f), new(OpeningHudTimeline.ArmDuration, 0f)
+            new(.74f, .44f), new(.83f, .32f), new(1f, .79f), new(1.12f, .86f), new(OpeningHudTimeline.ArmFullyExtended, 1f),
+            new(OpeningHudTimeline.ArmRetractionStart + .05f, 1f), new(RetractionJam, .42f),
+            new(OpeningHudTimeline.ArmRetractionStart + .43f, .42f), new(OpeningHudTimeline.ArmRetractionStart + .56f, .19f),
+            new(OpeningHudTimeline.ArmDuration, 0f)
         };
 
         private static readonly Impact[] impacts =
@@ -79,9 +95,9 @@ namespace AnimalGame.MapTest
             new(OpeningHudTimeline.ArmStart + FirstJam, OpeningAudioCue.ArmJam),
             new(OpeningHudTimeline.ArmStart + .71f, OpeningAudioCue.ArmServo),
             new(OpeningHudTimeline.ArmStart + SecondJam, OpeningAudioCue.ArmJam),
-            new(OpeningHudTimeline.ArmStart + RetractionStart, OpeningAudioCue.ArmDeploy, stop: true),
-            new(OpeningHudTimeline.ArmStart + RetractionStart, OpeningAudioCue.ArmServo, stop: true),
-            new(OpeningHudTimeline.ArmStart + RetractionStart, OpeningAudioCue.ArmRetract),
+            new(OpeningHudTimeline.ArmStart + OpeningHudTimeline.ArmFullyExtended, OpeningAudioCue.ArmDeploy, stop: true),
+            new(OpeningHudTimeline.ArmStart + OpeningHudTimeline.ArmFullyExtended, OpeningAudioCue.ArmServo, stop: true),
+            new(OpeningHudTimeline.ArmStart + OpeningHudTimeline.ArmRetractionStart, OpeningAudioCue.ArmRetract),
             new(OpeningHudTimeline.ArmStart + RetractionJam, OpeningAudioCue.ArmJam),
             new(OpeningHudTimeline.ArmEnd, OpeningAudioCue.ArmRetract, stop: true),
             new(OpeningHudTimeline.ArmEnd, OpeningAudioCue.ArmSettled),
@@ -106,17 +122,21 @@ namespace AnimalGame.MapTest
         private RobotCameraFollow cameraFollow;
         private RobotCameraShake cameraShake;
         private OpeningAudioPlayer openingAudio;
+        private OpeningWoodpecker openingWoodpecker;
         private CameraClearFlags originalClearFlags;
         private Color originalBackgroundColor;
         private float originalTimeScale;
         private double previousFrameTime;
         private double nextTypingSoundTime;
+        private double lastPeckTime = double.NegativeInfinity;
+        private double? restartStartedAt;
         private float standbyPromptTime;
-        private float restartHoldTime = -1f;
+        private float skipHoldTime = -1f;
         private float elapsed;
         private float testPromptTime = -1f;
         private float testRumbleRemaining;
         private int testPauseIndex;
+        private int wakePecks;
 
         public static bool IsPlaying => active != null;
 
@@ -167,6 +187,7 @@ namespace AnimalGame.MapTest
             cameraFollow = bootstrap.cameraFollow;
             cameraShake = bootstrap.cameraShake;
             openingAudio = new OpeningAudioPlayer(Resources.Load<OpeningAudioSettings>(OpeningAudioSettings.ResourceName));
+            openingWoodpecker = new OpeningWoodpecker(woodpeckerAppearance, robot.transform, mapCamera);
 
             originalTimeScale = Time.timeScale;
             originalClearFlags = mapCamera.clearFlags;
@@ -199,6 +220,7 @@ namespace AnimalGame.MapTest
                 }
             }
 
+            openingAudio.StartWoodpeckerCalls();
             previousFrameTime = Time.unscaledTimeAsDouble;
         }
 
@@ -209,64 +231,112 @@ namespace AnimalGame.MapTest
             double now = Time.unscaledTimeAsDouble;
             float deltaTime = (float)(now - previousFrameTime);
             previousFrameTime = now;
-            if (restartHoldTime < RestartTransitionTime)
+            if (AdvanceSkipHold(deltaTime, Application.isFocused && Input.GetKey(KeyCode.Escape)))
             {
-                bool held = Application.isFocused
-                    && (AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld() || Input.GetKey(KeyCode.Return));
-                if (held && restartHoldTime < 0f) openingAudio.Play(OpeningAudioCue.RestartHold);
-                if (!held && restartHoldTime >= 0f && restartHoldTime < RestartHoldDuration)
-                    openingAudio.Stop(OpeningAudioCue.RestartHold);
-                if (AdvanceRestartHold(deltaTime, held))
-                {
-                    openingAudio.Stop(OpeningAudioCue.RestartHold);
-                    hud.EndOpeningStandby();
-                    PlayTimedSounds(-1f);
-                    ApplyFrame();
-                }
-                else hud.UpdateOpeningStandby(standbyPromptTime, held ? restartHoldTime / RestartHoldDuration : -1f);
+                CompleteOpening();
+                return;
+            }
+            hud.UpdateOpeningSkipHold(skipHoldTime / SkipHoldDuration);
+            openingWoodpecker.Tick(deltaTime);
+            if (!restartStartedAt.HasValue)
+            {
+                UpdateStandby(deltaTime, now, Application.isFocused && WasContinuePressed());
                 return;
             }
 
-            bool nextTestPressed = testPromptTime >= 0f
-                && (AdaptiveLegacyGamepadInput.WasSouthFaceButtonPressedThisFrame() || Input.GetKeyDown(KeyCode.Return));
+            bool nextTestPressed = testPromptTime >= 0f && WasContinuePressed();
             if (nextTestPressed) openingAudio.Play(OpeningAudioCue.Confirm);
             float previousElapsed = elapsed;
             AdvanceTimeline(deltaTime, nextTestPressed);
             PlayTimedSounds(previousElapsed);
+            float takeoffTime = OpeningHudTimeline.ArmStart + ArmMotionStart;
+            if (previousElapsed < takeoffTime && elapsed >= takeoffTime)
+                openingAudio.PlayWoodpeckerTakeoff(openingWoodpecker.BeginDeparture(), WoodpeckerWaveBodyRadius);
+            else if (elapsed < takeoffTime && now >= System.Math.Max(restartStartedAt.Value, lastPeckTime) + RestartPeckInterval)
+                PeckWoodpecker(now);
             if (elapsed >= OpeningHudTimeline.Duration)
             {
                 openingAudio.Play(OpeningAudioCue.Handoff);
                 openingAudio.Finish();
-                enabled = false;
-                hud.ShowOpeningDrivingHint(robot, map.MapPositionToWorld(drivingHintLineSouth),
-                    map.MapPositionToWorld(drivingHintLineNorth));
+                CompleteOpening();
                 return;
             }
-            ApplyFrame();
+            ApplyFrame(now);
         }
 
-        private bool AdvanceRestartHold(float deltaTime, bool held)
+        private static bool WasContinuePressed() =>
+            AdaptiveLegacyGamepadInput.WasSouthFaceButtonPressedThisFrame() || Input.GetKeyDown(KeyCode.Return);
+
+        private float WoodpeckerWaveBodyRadius =>
+            marker.VisualBodyDiameter * Mathf.Abs(marker.MarkerVisualRoot.lossyScale.x) * .5f;
+
+        private void UpdateStandby(float deltaTime, double now, bool continuePressed)
         {
             standbyPromptTime += deltaTime;
-            // Keep the full ring visible briefly before starting the status scan.
-            if (restartHoldTime >= RestartHoldDuration)
-                restartHoldTime += deltaTime;
-            else if (!held)
-                restartHoldTime = -1f;
-            else if (restartHoldTime < 0f)
-                restartHoldTime = 0f;
-            else
-                restartHoldTime = Mathf.Min(RestartHoldDuration, restartHoldTime + deltaTime);
-            return restartHoldTime >= RestartTransitionTime;
+            if (continuePressed && standbyPromptTime >= OpeningHudTimeline.WakePromptDelay)
+            {
+                if (wakePecks == OpeningHudTimeline.WakePecksRequired)
+                {
+                    restartStartedAt = now;
+                    hud.EndOpeningStandby();
+                    PlayTimedSounds(-1f);
+                    ApplyFrame(now);
+                    return;
+                }
+                if (wakePecks == 0)
+                {
+                    marker.SetOpeningPresentation(1f, 0f, 0f, 0f);
+                    openingWoodpecker.Show();
+                }
+                wakePecks++;
+                PeckWoodpecker(now);
+            }
+            hud.UpdateOpeningStandby(standbyPromptTime, wakePecks);
+            ApplyShake(now, Vector2.zero, 0f, Vector2.zero);
         }
+
+        private void PeckWoodpecker(double now)
+        {
+            lastPeckTime = now;
+            openingAudio.PlayWoodpeckerPeck(openingWoodpecker.Peck(), WoodpeckerWaveBodyRadius);
+        }
+
+        private void CompleteOpening()
+        {
+            enabled = false;
+            robot.SetOpeningDriveFaultTrigger(map.MapPositionToWorld(damageLineSouth),
+                map.MapPositionToWorld(damageLineNorth));
+            hud.EnableRobotGoalModule();
+            hud.ShowOpeningDrivingHint(robot, map.MapPositionToWorld(drivingHintLineSouth),
+                map.MapPositionToWorld(drivingHintLineNorth));
+            CommunicationsStation.SignalReceived += OnCommunicationsSignalReceived;
+        }
+
+        private bool AdvanceSkipHold(float deltaTime, bool held)
+        {
+            if (!held)
+            {
+                skipHoldTime = -1f;
+                return false;
+            }
+            skipHoldTime = skipHoldTime < 0f ? 0f : skipHoldTime + deltaTime;
+            return skipHoldTime >= SkipHoldDuration;
+        }
+
+        private void OnCommunicationsSignalReceived(CommunicationsStation _, RobotMover player)
+        {
+            if (player != robot) return;
+            CommunicationsStation.SignalReceived -= OnCommunicationsSignalReceived;
+            WorldMapUI worldMap = WorldMapUI.Instance;
+            worldMap.RevealUnknownSignal(weatherTower.position);
+            hud.ShowOpeningSignalPrompt(worldMap);
+        }
+
+        private void OnDestroy() => CommunicationsStation.SignalReceived -= OnCommunicationsSignalReceived;
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus && restartHoldTime < RestartHoldDuration)
-            {
-                restartHoldTime = -1f;
-                openingAudio?.Stop(OpeningAudioCue.RestartHold);
-            }
+            if (!hasFocus) skipHoldTime = -1f;
         }
 
         private void PlayTypingSound()
@@ -311,16 +381,20 @@ namespace AnimalGame.MapTest
             testPromptTime = 0f;
         }
 
-        private void ApplyFrame()
+        private void ApplyFrame(double now)
         {
+            float rightingStart = OpeningHudTimeline.Duration - HandoffRightingDuration;
+            if (elapsed >= rightingStart)
+                Milestone3AudioRuntime.SetOpeningRightingProgress((elapsed - rightingStart) / HandoffRightingDuration);
+
             float armTime = elapsed - OpeningHudTimeline.ArmStart;
             float hatch = OpeningHudTimeline.Ease(armTime, 0f, .22f)
-                * (1f - OpeningHudTimeline.Ease(armTime, 1.75f, OpeningHudTimeline.ArmDuration));
+                * (1f - OpeningHudTimeline.Ease(armTime, OpeningHudTimeline.ArmRetractionStart + .52f, OpeningHudTimeline.ArmDuration));
             float jam = FaultPulse(armTime, FirstJam, .50f, .56f, .67f)
                 + FaultPulse(armTime, SecondJam, .82f, .86f, .96f)
-                + .72f * FaultPulse(armTime, RetractionJam, 1.58f, 1.63f, 1.73f);
+                + .72f * FaultPulse(armTime, RetractionJam, RetractionJam + .07f, RetractionJam + .12f, RetractionJam + .22f);
             marker.SetOpeningPresentation(
-                OpeningHudTimeline.Ease(elapsed, OpeningHudTimeline.BodyStart, OpeningHudTimeline.BodyReady),
+                1f,
                 OpeningHudTimeline.Ease(elapsed, OpeningHudTimeline.HeadingStart, OpeningHudTimeline.HeadingStart + .20f),
                 OpeningHudTimeline.Ease(elapsed, OpeningHudTimeline.PlayerStateStart, OpeningHudTimeline.PlayerStateStart + .23f),
                 hatch);
@@ -329,7 +403,8 @@ namespace AnimalGame.MapTest
             map.SetOpeningScanTime(Mathf.Max(0f, elapsed - OpeningHudTimeline.ContourStart + MapTestSceneController.OpeningContourStart));
             if (elapsed >= OpeningHudTimeline.TerrainLock)
                 RestoreWorldRenderers();
-            ApplyShake();
+            SampleShake(elapsed, testRumbleRemaining, (float)now, out Vector2 offset, out float roll, out Vector2 motors);
+            ApplyShake(now, offset, roll, motors);
         }
 
         private static float SampleArm(float time, Vector2[] keyframes)
@@ -346,38 +421,61 @@ namespace AnimalGame.MapTest
         private static float FaultPulse(float time, float start, float peak, float release, float end) =>
             OpeningHudTimeline.Ease(time, start, peak) * (1f - OpeningHudTimeline.Ease(time, release, end));
 
-        private static void SampleShake(float elapsed, float testRumbleRemaining,
+        private static void SampleShake(float elapsed, float testRumbleRemaining, float unscaledTime,
             out Vector2 offset, out float roll, out Vector2 motors)
         {
             offset = Vector2.zero;
             roll = 0f;
             motors = new Vector2(.46f, .49f) * Mathf.Clamp01(testRumbleRemaining / .11f);
+            if (elapsed >= OpeningHudTimeline.SensorLogStart && elapsed < OpeningHudTimeline.Duration)
+            {
+                // Keep the motor load pulsing while the timeline waits for the last confirmation.
+                float effort = .5f + .5f * Mathf.Sin(unscaledTime * (2.35f * 2f * Mathf.PI));
+                var strain = Vector2.Lerp(new Vector2(.20f, .12f), new Vector2(.34f, .24f), effort * effort);
+                motors = Vector2.Max(motors, strain);
+            }
             if (elapsed >= 0f && elapsed < OpeningHudTimeline.StatusScanDuration)
             {
                 float decay = 1f - elapsed / OpeningHudTimeline.StatusScanDuration;
                 float stutter = .72f + .28f * Mathf.Cos(elapsed * 13f * 2f * Mathf.PI);
                 motors = Vector2.Max(motors, new Vector2(.45f, .53f) * (decay * stutter));
             }
-            foreach (Impact impact in impacts)
+            float scanAge = elapsed - OpeningHudTimeline.ContourStart;
+            float scanSettleEnd = OpeningHudTimeline.TerrainLock + MapScanShakeSettleDuration;
+            if (scanAge >= 0f && elapsed < scanSettleEnd)
             {
-                float age = elapsed - impact.Start;
-                if (age < 0f || age >= impact.Duration) continue;
-                float damping = Mathf.Pow(1f - age / impact.Duration, 1.65f);
-                float phase = age * impact.Rate * 2f * Mathf.PI;
-                offset.x += impact.X * Mathf.Cos(phase) * damping;
-                offset.y += impact.Y * Mathf.Cos(.72f * phase) * damping;
-                roll += impact.Turn * Mathf.Cos(.58f * phase) * damping;
-
-                float positionStrength = Mathf.Clamp01(new Vector2(impact.X, impact.Y).magnitude / 30f);
-                float turnStrength = Mathf.Clamp01(Mathf.Abs(impact.Turn) / .76f);
-                var impactMotors = Vector2.Max(mediumRumble, new Vector2(.82f * positionStrength, .62f * turnStrength));
-                motors = Vector2.Max(motors, impactMotors * damping);
+                float terrainStrength = OpeningHudTimeline.Ease(elapsed, OpeningHudTimeline.TerrainStart,
+                    OpeningHudTimeline.TerrainStart + .16f);
+                float settle = 1f - OpeningHudTimeline.Ease(elapsed, OpeningHudTimeline.TerrainLock, scanSettleEnd);
+                float strength = Mathf.Lerp(1f, 1.4f, terrainStrength) * settle;
+                float phase = scanAge * (8.5f * 2f * Mathf.PI);
+                offset = new Vector2(7f * Mathf.Cos(phase) + 2f * Mathf.Sin(1.73f * phase),
+                    5f * Mathf.Sin(.77f * phase) + 1.5f * Mathf.Cos(1.29f * phase)) * strength;
+                roll = .26f * Mathf.Sin(.61f * phase) * strength;
             }
+            foreach (Impact impact in impacts)
+                AddImpact(impact, elapsed, ref offset, ref roll, ref motors);
         }
 
-        private void ApplyShake()
+        private static void AddImpact(Impact impact, float elapsed, ref Vector2 offset, ref float roll, ref Vector2 motors)
         {
-            SampleShake(elapsed, testRumbleRemaining, out Vector2 offset, out float roll, out Vector2 motors);
+            float age = elapsed - impact.Start;
+            if (age < 0f || age >= impact.Duration) return;
+            float damping = Mathf.Pow(1f - age / impact.Duration, 1.65f);
+            float phase = age * impact.Rate * 2f * Mathf.PI;
+            offset.x += impact.X * Mathf.Cos(phase) * damping;
+            offset.y += impact.Y * Mathf.Cos(.72f * phase) * damping;
+            roll += impact.Turn * Mathf.Cos(.58f * phase) * damping;
+
+            float positionStrength = Mathf.Clamp01(new Vector2(impact.X, impact.Y).magnitude / 30f);
+            float turnStrength = Mathf.Clamp01(Mathf.Abs(impact.Turn) / .76f);
+            var impactMotors = Vector2.Max(mediumRumble, new Vector2(.82f * positionStrength, .62f * turnStrength));
+            motors = Vector2.Max(motors, impactMotors * damping);
+        }
+
+        private void ApplyShake(double now, Vector2 offset, float roll, Vector2 motors)
+        {
+            AddImpact(peckImpact, (float)(now - lastPeckTime), ref offset, ref roll, ref motors);
             cameraShake.SetOpeningRumble(motors);
             Vector2 screenShift = new Vector2(offset.x / 1578f, offset.y / 886f);
             hud.SetOpeningScreenShake(screenShift, roll);
@@ -401,6 +499,8 @@ namespace AnimalGame.MapTest
         {
             if (active != this) return;
             openingAudio.StopAll();
+            openingWoodpecker.Dispose();
+            Milestone3AudioRuntime.EndOpeningRighting(elapsed >= OpeningHudTimeline.Duration ? robot : null);
             if (cameraShake != null) cameraShake.StopOpeningRumble();
             if (hud != null) hud.EndOpeningPresentation();
             if (arms != null) arms.EndOpeningPresentation();

@@ -1,5 +1,7 @@
 using System;
+using AnimalGame.MainUI.Inventory;
 using UnityEngine;
+using Hud = AnimalGame.MainUI.MainUI;
 
 namespace AnimalGame.RobotMap
 {
@@ -8,25 +10,46 @@ namespace AnimalGame.RobotMap
     {
         [SerializeField, Min(1f)] private float maximumHealth = 100f;
         public float CurrentHealth { get; private set; }
+        internal float Integrity => ui != null ? ui.Integrity : CurrentHealth / maximumHealth;
+        internal Hud Hud => ui;
         public event Action<float> Damaged;
         public event Action<Vector2> Impacted;
         private RobotMover mover;
-        private AnimalGame.MainUI.MainUI ui;
+        private Hud ui;
         private Vector2 velocity;
         public bool IsDisplaced => velocity.sqrMagnitude > .001f;
         private void Awake()
         {
             mover = GetComponent<RobotMover>();
             CurrentHealth = maximumHealth;
-            ui = FindFirstObjectByType<AnimalGame.MainUI.MainUI>();
-            if (ui != null) CurrentHealth = ui.Integrity * maximumHealth;
+            Hud sceneHud = FindFirstObjectByType<Hud>();
+            if (sceneHud != null) BindHud(sceneHud);
         }
-        internal void InitializeIntegrity(AnimalGame.MainUI.MainUI hud, float integrity)
+
+        internal void BindHud(Hud hud)
         {
             ui = hud;
-            ui.Integrity = integrity;
-            CurrentHealth = ui.Integrity * maximumHealth;
+            CurrentHealth = hud.Integrity * maximumHealth;
         }
+
+        internal void InitializeIntegrity(Hud hud, float integrity)
+        {
+            hud.Integrity = integrity;
+            BindHud(hud);
+        }
+
+        internal bool TryRepairIntegrity(InventoryItem material, int cost, float restoration)
+        {
+            if (ui == null) return false;
+            float current = ui.Integrity;
+            float repaired = Mathf.Clamp01(current + restoration);
+            if (!(repaired > current) || !ui.Inventory.TryConsume(material, cost)) return false;
+
+            ui.Integrity = repaired;
+            CurrentHealth = repaired * maximumHealth;
+            return true;
+        }
+
         public void Damage(float damage)
         {
             if (damage <= 0f || (mover != null && mover.IgnoreAnimalDetection)) return;

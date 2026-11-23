@@ -1,3 +1,4 @@
+using AnimalGame.MainUI;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using AnimalGame.World.Checkpoints;
@@ -15,6 +16,11 @@ namespace AnimalGame.World.Map
     public sealed class WorldMapUI : MonoBehaviour
     {
         private const float PinLineWidth = 1.5f;
+        private const float UnknownSignalRadius = 94f;
+        private const float UnknownSignalPeriod = 2.4f;
+        private const float MapDataFaultDuration = .65f;
+        private const float MapDataNoticeHold = 3f;
+        private const float MapDataNoticeFade = .25f;
         [SerializeField] private Shader contourShader;
         [Header("Zoom (visible range / player view at opening)")]
         [SerializeField, Min(.01f)] private float minimumZoom = 1;
@@ -33,6 +39,7 @@ namespace AnimalGame.World.Map
         private static WorldMapUI active;
         private static int closedFrame = -1;
         public static bool BlocksGameplay => active != null || closedFrame == Time.frameCount;
+        internal static string OpenControlLabel => Gamepad.current?.selectButton.displayName.ToUpperInvariant() ?? "C";
         public bool IsOpen { get; private set; }
         public float MinimumZoom { get; private set; }
         public float MaximumZoom { get; private set; }
@@ -40,6 +47,11 @@ namespace AnimalGame.World.Map
         public MapViewState View { get; } = new MapViewState();
 
         private VisualElement panel, root, cursor, playerIcon, mapRulers, northIndicator;
+        private VisualElement unknownSignal;
+        private Vector2? unknownSignalWorldPosition;
+        private bool frameUnknownSignalOnOpen;
+        private Label mapDataNotice;
+        private float mapDataFaultStartedAt = -1f;
         private readonly VisualElement[] pinElements = new VisualElement[MapViewState.PinLimit];
         private readonly VisualElement[] edgePinElements = new VisualElement[MapViewState.PinLimit];
         private readonly System.Action<MeshGenerationContext>[] pinDrawHandlers = new System.Action<MeshGenerationContext>[MapViewState.PinLimit];
@@ -85,6 +97,9 @@ namespace AnimalGame.World.Map
             root = panel.Q("map-viewport");
             mapImage = root.Q<Image>("map-image");
             mapGrid = root.Q<PhotoResultGridElement>("map-grid");
+            unknownSignal = root.Q("map-unknown-signal");
+            unknownSignal.generateVisualContent += DrawUnknownSignal;
+            mapDataNotice = panel.Q<Label>("map-data-notice");
             northIndicator = root.Q("map-north");
             northIndicator.generateVisualContent += DrawNorthIndicator;
             coordinateMask = root.Q("map-coordinate-mask");
@@ -201,6 +216,26 @@ namespace AnimalGame.World.Map
             painter.LineTo(new Vector2(60, 69.6f));
             painter.LineTo(new Vector2(64.8f, 74.4f));
             painter.Stroke();
+        }
+
+        private void DrawUnknownSignal(MeshGenerationContext context)
+        {
+            var painter = context.painter2D;
+            Vector2 center = unknownSignal.contentRect.center;
+            float cycle = Time.unscaledTime / UnknownSignalPeriod;
+            for (int i = 0; i < 3; i++)
+            {
+                float progress = Mathf.Repeat(cycle + i / 3f, 1f);
+                float radius = Mathf.Lerp(17f, UnknownSignalRadius - 2f, progress);
+                Color color = HudDrawing.Yellow;
+                color.a = .68f * (1f - progress) * (1f - progress);
+                painter.strokeColor = color;
+                painter.lineWidth = Mathf.Lerp(2f, 1f, progress);
+                painter.BeginPath();
+                painter.Arc(center, radius, Angle.Degrees(0f), Angle.Degrees(360f));
+                painter.ClosePath();
+                painter.Stroke();
+            }
         }
 
         private void DrawMapRulers(MeshGenerationContext context)
@@ -513,6 +548,12 @@ namespace AnimalGame.World.Map
             nextPinKey.text = gamepad ? "RB" : "E";
         }
 
+        internal void RevealUnknownSignal(Vector2 worldPosition)
+        {
+            unknownSignalWorldPosition = worldPosition;
+            frameUnknownSignalOnOpen = true;
+        }
+
         public void Open()
         {
             if (IsOpen || BlocksGameplay || AnimalGame.MainUI.MainUI.BlocksGameplay
@@ -561,9 +602,25 @@ namespace AnimalGame.World.Map
             RecalculateZoomLimits();
             CurrentZoom = Mathf.Clamp(defaultZoom, MinimumZoom, MaximumZoom);
             Vector2 player = WorldToMap(bootstrap.robotObject.transform.position);
+            Vector2? openingCenter = null;
+            if (frameUnknownSignalOnOpen)
+            {
+                Vector2 signal = WorldToMap(unknownSignalWorldPosition.Value);
+                Vector2 separation = signal - player;
+                // Leave both locations within the central half of the viewport so cursor bounds
+                // don't pan the signal toward the edge on the first input update.
+                float fitSignalZoom = Mathf.Max(Mathf.Abs(separation.x) / baseViewSize.x,
+                    Mathf.Abs(separation.y) / baseViewSize.y) / .46f;
+                CurrentZoom = Mathf.Clamp(fitSignalZoom, CurrentZoom, MaximumZoom);
+                openingCenter = (player + signal) * .5f;
+                if (checkpointManager != null && !checkpointManager.HasSurveyData)
+                    mapDataFaultStartedAt = Time.unscaledTime;
+                frameUnknownSignalOnOpen = false;
+            }
             Vector2 forward = bootstrap.robot.Forward;
             openingPlayerBearing = Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg;
             View.Open(player, baseViewSize * CurrentZoom, map.MapSizeMeters);
+            if (openingCenter is Vector2 center) View.SetFocus(center, player, map.MapSizeMeters);
             hoverMapPosition = View.DisplayCursor;
             hoverIdleSince = Time.unscaledTime;
             HideHoverCoordinates(true);
@@ -623,14 +680,26 @@ namespace AnimalGame.World.Map
             if (dirty || View.Center != lastRenderedCenter || View.ViewSize != lastRenderedSize || lastFogRevision != fogRevision)
             {
                 mapRenderer.Render(map, View, (int)screenSize.x, (int)screenSize.y, fog);
-                mapImage.image = mapRenderer.Texture;
                 lastRenderedCenter = View.Center;
                 lastRenderedSize = View.ViewSize;
                 dirty = false;
                 lastFogRevision = fogRevision;
             }
+            RefreshMapDataPresentation();
             Vector2 uiSize = root.contentRect.size;
             if (uiSize.x <= 0 || uiSize.y <= 0) return;
+            if (unknownSignalWorldPosition is Vector2 signalWorldPosition)
+            {
+                Vector2 signalPosition = View.ToScreen(WorldToMap(signalWorldPosition), uiSize);
+                bool visible = signalPosition.x >= -UnknownSignalRadius && signalPosition.x <= uiSize.x + UnknownSignalRadius
+                    && signalPosition.y >= -UnknownSignalRadius && signalPosition.y <= uiSize.y + UnknownSignalRadius;
+                unknownSignal.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+                if (visible)
+                {
+                    PositionCircle(unknownSignal, signalPosition, UnknownSignalRadius);
+                    unknownSignal.MarkDirtyRepaint();
+                }
+            }
             float radius = circleRadius * uiSize.y / screenSize.y;
             float iconRadius = checkpointIconSizePixels * .5f * uiSize.y / screenSize.y;
             for (int i = 0; i < checkpointIcons.Count; i++)
@@ -667,6 +736,34 @@ namespace AnimalGame.World.Map
             PositionCircle(cursor, View.ToScreen(View.DisplayCursor, uiSize), radius);
         }
 
+        private void RefreshMapDataPresentation()
+        {
+            float age = Time.unscaledTime - mapDataFaultStartedAt;
+            if (mapDataFaultStartedAt >= 0f && age < MapDataFaultDuration)
+            {
+                mapImage.image = mapRenderer.RenderFault(age / MapDataFaultDuration);
+                return;
+            }
+
+            if (mapImage.image != mapRenderer.Texture)
+            {
+                mapImage.image = mapRenderer.Texture;
+                mapRenderer.EndFault();
+            }
+            if (mapDataFaultStartedAt < 0f) return;
+
+            float fade = Mathf.Clamp01((age - MapDataFaultDuration - MapDataNoticeHold) / MapDataNoticeFade);
+            if (fade >= 1f)
+            {
+                mapDataNotice.style.display = DisplayStyle.None;
+                mapDataFaultStartedAt = -1f;
+                return;
+            }
+
+            mapDataNotice.style.display = DisplayStyle.Flex;
+            mapDataNotice.style.opacity = 1f - fade;
+        }
+
         public Vector2 WorldToMap(Vector2 position)
         {
             Bounds bounds = map.WorldBounds;
@@ -699,6 +796,8 @@ namespace AnimalGame.World.Map
             if (active == this) active = null;
             closedFrame = Time.frameCount;
             panel.style.display = DisplayStyle.None;
+            mapDataNotice.style.display = DisplayStyle.None;
+            mapDataFaultStartedAt = -1f;
             mapImage.image = null;
             checkpointLayer.Clear();
             checkpointIcons.Clear();
@@ -714,6 +813,7 @@ namespace AnimalGame.World.Map
             Close();
             if (cursor != null) cursor.generateVisualContent -= DrawMapCursor;
             if (northIndicator != null) northIndicator.generateVisualContent -= DrawNorthIndicator;
+            if (unknownSignal != null) unknownSignal.generateVisualContent -= DrawUnknownSignal;
             for (int i = 0; i < pinElements.Length; i++)
             {
                 if (pinElements[i] != null) pinElements[i].generateVisualContent -= pinDrawHandlers[i];

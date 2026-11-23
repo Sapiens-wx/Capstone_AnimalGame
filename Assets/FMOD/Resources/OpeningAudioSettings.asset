@@ -12,17 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5845fd4cebb6436594a54b821c57c433, type: 3}
   m_Name: OpeningAudioSettings
   m_EditorClassIdentifier:
-  restartHold:
+  woodpeckerPeck:
     eventReference:
       Guid:
-        Data1: 0
-        Data2: 0
-        Data3: 0
-        Data4: 0
-      Path:
-    gainDb: 0
-    readBySoundUI: 0
-    soundUIStrength: 0
+        Data1: -1983192578
+        Data2: 1329111484
+        Data3: -680509816
+        Data4: -564585612
+      Path: event:/Robot/Terrain/DeadTreeImpact
+    gainDb: -10
+    readBySoundUI: 1
+    soundUIStrength: 0.4
+  woodpeckerWaveShader: {fileID: 4800000, guid: e6f2a8c1d4b7457e90a3c5b8f1d6e2a9, type: 3}
   restartConfirmed:
     eventReference:
       Guid:

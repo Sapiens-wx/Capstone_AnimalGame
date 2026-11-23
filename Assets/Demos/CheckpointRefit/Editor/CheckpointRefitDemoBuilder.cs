@@ -2,6 +2,7 @@ using System;
 using AnimalGame.Animals;
 using AnimalGame.Interaction;
 using AnimalGame.Interaction.Editor;
+using AnimalGame.MainUI.Inventory;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
 using UnityEditor;
@@ -256,6 +257,8 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                 terminal.ConfigureCameras(
                     AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/InstantCamera.asset"),
                     AssetDatabase.LoadAssetAtPath<PhotoCameraDefinition>("Assets/Data/AnimalPhoto/Rendering/HalflyBrokenPrimeCamera50.asset"));
+                terminal.ConfigureRepairMaterial(
+                    AssetDatabase.LoadAssetAtPath<InventoryItem>("Assets/Data/Inventory/Items/MetalScrap.asset"));
                 DrawTerminal(root.transform, material);
                 EnsureInteractionMarker(root);
                 PrefabUtility.SaveAsPrefabAsset(root, TerminalPath, out bool saved);

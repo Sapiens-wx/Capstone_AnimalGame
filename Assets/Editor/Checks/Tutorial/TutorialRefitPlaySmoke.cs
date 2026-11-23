@@ -264,7 +264,7 @@ namespace AnimalGame.Editor
                         Require(!terminal.View.IsSelectedModuleInstalled && bootstrap.photoMode.CurrentCamera == damagedCamera,
                             "Selecting an available lens must not install it.");
                         report.nativeLensSelection = true;
-                        Record("Native RB changes to CAMERA and the horizontal D-pad selects the actual target camera definition, independently of card order.", "refit-lens-selection.png");
+                        Record("The vertical D-pad changes to CAMERA and the horizontal D-pad selects the actual target camera definition, independently of card order.", "refit-lens-selection.png");
                         Begin(Phase.EquipLens); break;
                     case Phase.EquipLens:
                         CheckPausedNativeMenu();
@@ -488,7 +488,7 @@ namespace AnimalGame.Editor
                 || phase == Phase.ReopenNormally || phase == Phase.EquipOldNormally || phase == Phase.EquipTargetNormally)
                 Tap(ref state, GamepadButton.South);
             if (phase == Phase.EquipLens || phase == Phase.HoldAfterEquipment) state = state.WithButton(GamepadButton.South);
-            if (phase == Phase.SelectCameraSlot) Tap(ref state, GamepadButton.RightShoulder);
+            if (phase == Phase.SelectCameraSlot) Tap(ref state, GamepadButton.DpadDown);
             if (phase == Phase.SelectLens || phase == Phase.SelectOldNormally || phase == Phase.SelectTargetNormally)
             {
                 PhotoCameraDefinition cameraToSelect = phase == Phase.SelectOldNormally ? damagedCamera : lesson.TargetCamera;

@@ -838,7 +838,7 @@ MonoBehaviour:
         Zoom Lens 300.
 
         Close the station with {cancel}.'
-      Detail: "{lb}/{rb} \xB7 CAMERA\n\u2190 / \u2192 \xB7 Lens \xB7 {confirm} equip"
+      Detail: "\u2191 / \u2193 \xB7 CAMERA\n\u2190 / \u2192 \xB7 Lens \xB7 {confirm} equip"
       CompleteFeedback: 
     CloseRefit:
       ControlGlyph: '{cancel}'

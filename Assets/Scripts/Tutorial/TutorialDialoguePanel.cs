@@ -2,6 +2,7 @@ using System;
 using AnimalGame.MapTest;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static AnimalGame.MainUI.SideHudCard;
 
 namespace AnimalGame.Tutorial
 {
@@ -13,13 +14,6 @@ namespace AnimalGame.Tutorial
     [DisallowMultipleComponent]
     public sealed class TutorialDialoguePanel : MonoBehaviour
     {
-        private const float DesignWidth = 1920f;
-        private const float DesignHeight = 1080f;
-        private const float PanelWidth = 355f;
-        private const float PanelHeight = 565f;
-        private static readonly Color Gold = new Color(212f / 255f, 184f / 255f, 84f / 255f);
-        private static readonly Color Muted = new Color(.72f, .74f, .74f);
-
         [Tooltip("Optional; copied at runtime. The shared HUD settings are never changed.")]
         [SerializeField] private PanelSettings panelSettingsTemplate;
         [Tooltip("Optional CJK-capable font. Windows uses Microsoft YaHei when this is unassigned.")]
@@ -370,7 +364,7 @@ namespace AnimalGame.Tutorial
             lessonHintLabel = AddLabel(expanded, lessonHint, 27, 88, 301, 21, 14, Muted);
             lessonHintLabel.name = "TutorialLessonHint";
 
-            AddLine(expanded, 27, 112, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
+            AddLine(expanded, 27, 112, PanelWidth - 54, Divider);
             currentLessonLabel = AddLabel(expanded, panelText.CurrentLesson, 27, 128, 180, 26, 16, Muted);
             currentLessonLabel.name = "TutorialCurrentLesson";
             chapterLabel = AddLabel(expanded, "01 / 08", 221, 128, 107, 27, 18, Color.white);
@@ -384,7 +378,7 @@ namespace AnimalGame.Tutorial
             messageLabel = AddLabel(expanded, message, 27, 193, 301, 137, 24, Color.white);
             messageLabel.name = "TutorialMessage";
             messageLabel.style.whiteSpace = WhiteSpace.Normal;
-            AddLine(expanded, 27, 338, PanelWidth - 54, new Color(.8f, .82f, .81f, .65f));
+            AddLine(expanded, 27, 338, PanelWidth - 54, Divider);
             currentActionLabel = AddLabel(expanded, panelText.CurrentAction, 27, 352, 220, 26, 16, Muted);
             currentActionLabel.name = "TutorialCurrentAction";
 
@@ -435,7 +429,7 @@ namespace AnimalGame.Tutorial
 
             collapsedTab = new VisualElement { name = "ExpandTutorial", pickingMode = PickingMode.Position,
                 tooltip = panelText.ExpandTooltip };
-            SetRect(collapsedTab, 0, 0, 58, 218);
+            SetRect(collapsedTab, 0, 0, TabWidth, TabHeight);
             collapsedTab.style.transformOrigin = new TransformOrigin(0, 0, 0);
             collapsedTab.RegisterCallback<ClickEvent>(evt => { SetCollapsed(false); evt.StopPropagation(); });
             collapsedTab.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
@@ -538,28 +532,6 @@ namespace AnimalGame.Tutorial
             lessonHintLabel.style.display = string.IsNullOrWhiteSpace(lessonHint) ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
-        private static void FitText(Label label, int preferredSize, int minimumSize)
-        {
-            if (label == null || label.panel == null || label.resolvedStyle.display == DisplayStyle.None) return;
-            Vector2 box = label.contentRect.size;
-            float measuredFontSize = label.resolvedStyle.fontSize;
-            if (box.x <= 0f || box.y <= 0f || measuredFontSize <= 0f) return;
-            bool wrap = label.resolvedStyle.whiteSpace == WhiteSpace.Normal;
-            int fittedSize = minimumSize;
-            for (int candidate = preferredSize; candidate >= minimumSize; candidate--)
-            {
-                // Measure against the currently resolved font without resetting it first. Scaling
-                // the wrap width predicts the candidate size even before UI Toolkit resolves styles.
-                float scale = measuredFontSize / candidate;
-                Vector2 measured = label.MeasureTextSize(label.text, wrap ? (box.x - 1f) * scale : 0f,
-                    wrap ? VisualElement.MeasureMode.AtMost : VisualElement.MeasureMode.Undefined,
-                    0f, VisualElement.MeasureMode.Undefined);
-                if (measured.y <= (box.y - 1f) * scale && (wrap || measured.x <= (box.x - 1f) * scale))
-                { fittedSize = candidate; break; }
-            }
-            if (Mathf.Abs(label.style.fontSize.value.value - fittedSize) > .01f) label.style.fontSize = fittedSize;
-        }
-
         private void LateUpdate()
         {
             TutorialContinueInput.ObserveRelease();
@@ -578,15 +550,9 @@ namespace AnimalGame.Tutorial
             FitText(detailLabel, 16, 13);
             FitText(statusLabel, 17, 12);
             FitText(continueLabel, 26, 22);
-            float fit = Mathf.Min(size.x / DesignWidth, size.y / DesignHeight);
-            // Same fit as MainUI: on ultrawide displays the card stays close to the right edge;
-            // on narrow displays it remains outside the central 960-unit ring.
-            expanded.style.scale = new Scale(new Vector3(fit, fit, 1));
-            expanded.style.left = size.x - (PanelWidth + 78f) * fit;
-            expanded.style.top = (size.y - DesignHeight * fit) * .5f + 264f * fit;
-            collapsedTab.style.scale = new Scale(new Vector3(fit, fit, 1));
-            collapsedTab.style.left = size.x - 88f * fit;
-            collapsedTab.style.top = size.y * .5f - 109f * fit;
+            float fit = ScreenFit(size);
+            PositionPanel(expanded, size, fit);
+            PositionTab(collapsedTab, size, fit);
         }
 
         private void RefreshVisibility()
@@ -632,87 +598,6 @@ namespace AnimalGame.Tutorial
             if (owned == null) return;
             if (Application.isPlaying) UnityEngine.Object.Destroy(owned);
             else UnityEngine.Object.DestroyImmediate(owned);
-        }
-
-        private static Label AddLabel(VisualElement parent, string text, float x, float y,
-            float width, float height, int fontSize, Color color, bool bold = false)
-        {
-            var label = new Label(text) { pickingMode = PickingMode.Ignore };
-            SetRect(label, x, y, width, height);
-            label.style.fontSize = fontSize;
-            label.style.color = color;
-            label.style.marginLeft = label.style.marginRight = label.style.marginTop = label.style.marginBottom = 0;
-            label.style.paddingLeft = label.style.paddingRight = label.style.paddingTop = label.style.paddingBottom = 0;
-            label.style.unityFontStyleAndWeight = bold ? FontStyle.Bold : FontStyle.Normal;
-            label.style.unityTextAlign = TextAnchor.UpperLeft;
-            parent.Add(label);
-            return label;
-        }
-
-        private static void SetRect(VisualElement element, float x, float y, float width, float height)
-        {
-            element.style.position = Position.Absolute;
-            element.style.left = x; element.style.top = y;
-            element.style.width = width; element.style.height = height;
-        }
-
-        private static void FillParent(VisualElement element)
-        {
-            element.style.position = Position.Absolute;
-            element.style.left = element.style.top = element.style.right = element.style.bottom = 0;
-        }
-
-        private static void AddLine(VisualElement parent, float x, float y, float width, Color color)
-        {
-            var line = new VisualElement { pickingMode = PickingMode.Ignore };
-            SetRect(line, x, y, width, 1);
-            line.style.backgroundColor = color;
-            parent.Add(line);
-        }
-
-        private static void Stroke(Painter2D painter, params Vector2[] points)
-        {
-            if (points.Length < 2) return;
-            painter.BeginPath(); painter.MoveTo(points[0]);
-            for (int i = 1; i < points.Length; i++) painter.LineTo(points[i]);
-            painter.Stroke();
-        }
-
-        private sealed class PanelFrame : VisualElement
-        {
-            public bool IsTab;
-            public bool Successful;
-
-            public PanelFrame()
-            {
-                pickingMode = PickingMode.Ignore;
-                generateVisualContent += Draw;
-            }
-
-            private void Draw(MeshGenerationContext context)
-            {
-                float w = contentRect.width, h = contentRect.height;
-                if (w <= 0 || h <= 0) return;
-                float cut = IsTab ? 10 : 22;
-                Painter2D p = context.painter2D;
-                p.fillColor = new Color(.015f, .021f, .021f, .93f);
-                p.BeginPath(); p.MoveTo(new Vector2(cut, 1));
-                p.LineTo(new Vector2(w - cut, 1)); p.LineTo(new Vector2(w - 1, cut));
-                p.LineTo(new Vector2(w - 1, h - cut)); p.LineTo(new Vector2(w - cut, h - 1));
-                p.LineTo(new Vector2(cut, h - 1)); p.LineTo(new Vector2(1, h - cut));
-                p.LineTo(new Vector2(1, cut)); p.ClosePath(); p.Fill();
-                p.strokeColor = new Color(.91f, .93f, .92f, .95f); p.lineWidth = 1.6f;
-                p.Stroke();
-                p.strokeColor = Gold; p.lineWidth = 2.3f;
-                Stroke(p, new Vector2(1, 42), new Vector2(1, cut), new Vector2(cut, 1), new Vector2(IsTab ? w - cut : 77, 1));
-                Stroke(p, new Vector2(w - (IsTab ? 22 : 72), h - 1), new Vector2(w - cut, h - 1),
-                    new Vector2(w - 1, h - cut), new Vector2(w - 1, h - (IsTab ? 33 : 46)));
-                if (Successful && !IsTab)
-                {
-                    p.lineWidth = 2;
-                    Stroke(p, new Vector2(w - 36, 92), new Vector2(w - 30, 98), new Vector2(w - 19, 85));
-                }
-            }
         }
 
         // Native four-point stars match the scan legend without relying on OS dingbat fonts.

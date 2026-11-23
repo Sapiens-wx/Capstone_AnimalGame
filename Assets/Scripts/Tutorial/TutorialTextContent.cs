@@ -424,7 +424,7 @@ namespace AnimalGame.Tutorial
             "Choose a new lens.");
         public TutorialStepText EquipLens = new TutorialStepText("{confirm}", "Install better lens",
             "At the assembly station,\nchoose CAMERA and\ninstall Zoom Lens 300.\nClose the station with {cancel}.",
-            "{lb}/{rb} · CAMERA\n← / → · Lens · {confirm} equip");
+            "↑ / ↓ · CAMERA\n← / → · Lens · {confirm} equip");
         [HideInInspector] public TutorialStepText CloseRefit = new TutorialStepText("{cancel}", "Return to driving",
             "New lens installed.\nPress {cancel} to close\nthe assembly station\nand resume driving.",
             "{cancel} · Back");

@@ -27,6 +27,9 @@ namespace AnimalGame.RobotMap
 
     public sealed class RobotMover : MonoBehaviour
     {
+        private const float OpeningDriveFaultCycleSeconds = 2.65f;
+        private const float OpeningDriveImpactDuration = .24f;
+
         private PlayerCombatReceiver animalCombat;
         [Header("Collision")]
         [SerializeField] private CollisionShape collisionShape = CollisionShape.Circle;
@@ -401,6 +404,11 @@ namespace AnimalGame.RobotMap
 
         private float currentSpeed;
         private float lastMovingSpeedSign = 1f;
+        private float openingDriveFaultTime = -1f;
+        private float previousOpeningDriveFaultTime;
+        private Vector2 openingDriveFaultInput;
+        private Vector2? openingDriveFaultTriggerPoint;
+        private Vector2 openingDriveFaultTriggerEastNormal;
         private bool wasSteering;
         private HeightMapTraversalEvaluator traversalEvaluator;
         private RobotArmController armController;
@@ -461,8 +469,59 @@ namespace AnimalGame.RobotMap
             CurrentWaterFlowVelocity = Vector2.zero;
         }
 
+        internal void SetOpeningDriveFault(bool active)
+        {
+            openingDriveFaultTriggerPoint = null;
+            openingDriveFaultTime = active ? 0f : -1f;
+            openingDriveFaultInput = Vector2.zero;
+        }
+
+        internal void SetOpeningDriveFaultTrigger(Vector2 lineSouth, Vector2 lineNorth)
+        {
+            Vector2 line = lineNorth - lineSouth;
+            openingDriveFaultTriggerPoint = lineSouth;
+            openingDriveFaultTriggerEastNormal = new Vector2(line.y, -line.x);
+        }
+
+        private void AdvanceOpeningDriveFault(float throttle, float steering, float deltaTime)
+        {
+            if (openingDriveFaultTriggerPoint is Vector2 point)
+            {
+                if (Vector2.Dot(openingDriveFaultTriggerEastNormal, MapPosition - point) <= 0f) return;
+                SetOpeningDriveFault(true);
+            }
+            if (openingDriveFaultTime < 0f) return;
+            openingDriveFaultInput = new Vector2(steering, throttle);
+            previousOpeningDriveFaultTime = openingDriveFaultTime;
+            openingDriveFaultTime = openingDriveFaultInput == Vector2.zero
+                ? 0f : Mathf.Repeat(openingDriveFaultTime + deltaTime, OpeningDriveFaultCycleSeconds);
+        }
+
+        internal bool TryGetOpeningDriveImpact(out Vector2 worldDirection, out float progress, out float strength,
+            out bool started)
+        {
+            worldDirection = Vector2.zero;
+            progress = strength = 0f;
+            started = false;
+            if (openingDriveFaultInput == Vector2.zero || openingDriveFaultTime < .4f) return false;
+
+            (float start, float scale) = openingDriveFaultTime switch
+            {
+                >= 2f => (2f, 1f),
+                >= 1.13f => (1.13f, .70f),
+                _ => (.4f, .92f)
+            };
+            progress = (openingDriveFaultTime - start) / OpeningDriveImpactDuration;
+            if (progress >= 1f) return false;
+            worldDirection = transform.TransformDirection(openingDriveFaultInput);
+            strength = scale * Mathf.Lerp(.6f, 1f, openingDriveFaultInput.magnitude);
+            started = previousOpeningDriveFaultTime < start || previousOpeningDriveFaultTime > openingDriveFaultTime;
+            return true;
+        }
+
         private void Update()
         {
+            openingDriveFaultInput = Vector2.zero;
             ClimbableLandedThisFrame = false;
             ClimbableResistanceVelocityLossThisFrame = Vector2.zero;
             climbableNormalSpeedLimit = float.PositiveInfinity;
@@ -565,6 +624,7 @@ namespace AnimalGame.RobotMap
                 TryMoveSafely((Vector2)transform.up * (CurrentSpeed * Time.deltaTime), null);
                 return;
             }
+            AdvanceOpeningDriveFault(throttle, steering, Time.deltaTime);
             if (balanceController != null)
             {
                 throttle *= balanceController.DriveAuthority;
@@ -1097,6 +1157,7 @@ namespace AnimalGame.RobotMap
 
         private void OnDisable()
         {
+            openingDriveFaultInput = Vector2.zero;
             CurrentWaterFlow = Vector2.zero;
             CurrentWaterFlowVelocity = Vector2.zero;
             ResetClimbableContact();

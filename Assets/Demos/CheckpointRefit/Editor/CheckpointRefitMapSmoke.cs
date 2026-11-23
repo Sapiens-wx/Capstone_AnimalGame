@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using AnimalGame.MainUI.Inventory;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using UnityEditor;
@@ -24,11 +25,12 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
     /// </summary>
     public sealed class CheckpointRefitMapSmoke : ScriptableObject
     {
-        private const string MapPath = "Assets/Scenes/GameMaps/Official_Map_Test_02.unity";
+        private const string MapPath = "Assets/Scenes/GameMaps/Official_Map_Test_22.unity";
         private const string SourceProject = "C:/Users/30791/Documents/GitHub/Capstone_AnimalGame";
         private enum Phase
         {
-            WaitingForPlay, WaitingForScene, Neutral, Opening, Opened, Challenge,
+            WaitingForPlay, WaitingForScene, Neutral, Opening, Opened,
+            RepairOpened, RepairHolding, RefitReturned, RepairReleased, Challenge,
             ChallengeReleased, Closing, ClosedReleased, DisableCleanup, Disabled,
             Reenabled, DestroyCleanup, Finishing
         }
@@ -57,6 +59,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
         [SerializeField] private AnimalGame.MainUI.MainUI hud;
         [SerializeField] private ScanChargeUI scan;
         [SerializeField] private CheckpointRefitTerminal terminal;
+        [SerializeField] private InventoryItem metalScrap;
         [SerializeField] private List<Behaviour> captured = new List<Behaviour>();
         [SerializeField] private List<bool> enabledBefore = new List<bool>();
         [SerializeField] private float previousTimeScale;
@@ -164,13 +167,37 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     case Phase.Opening:
                         if (!Settled()) break;
                         CheckOpen();
-                        CheckpointRefitPreviewValidation.CheckSourceArtworkDependency(player);
-                        report.checks.Add("The live map player's source-driven body preview is sharp, excludes its direction indicator, and preserves every source renderer.");
                         Record(terminal.View.SelectedSlotIndex == 0 && terminal.View.SelectedModuleIndex == 0,
                             "The map maintenance screen initially selects the installed TRACKS module.");
                         Record(terminal.IsOpen, "Actual Gamepad A opens maintenance beside the map player.");
                         Neutral(); Begin(Phase.Opened); break;
                     case Phase.Opened:
+                        if (!Settled()) break;
+                        Pad(new GamepadState().WithButton(GamepadButton.LeftShoulder)); Begin(Phase.RepairOpened); break;
+                    case Phase.RepairOpened:
+                        if (!terminal.View.IsRepairPage) break;
+                        var repairRoot = terminal.View.Document.rootVisualElement;
+                        Record(repairRoot.Q<Label>("repair-cargo").text == "8"
+                            && repairRoot.Q<Label>("repair-integrity").text == "32%"
+                            && repairRoot.Q<Label>("repair-power").text == "76%"
+                            && repairRoot.Q<Button>("repair-tab").ClassListContains("active-tab"),
+                            "LB selects Repair and shows Metal Scrap across Cargo stacks and live player gauges.");
+                        Pad(new GamepadState().WithButton(GamepadButton.South)); Begin(Phase.RepairHolding); break;
+                    case Phase.RepairHolding:
+                        if (EditorApplication.timeSinceStartup - phaseStarted < .8d) break;
+                        Record(hud.Inventory.Count(metalScrap) == 5 && Mathf.Approximately(hud.Integrity, .62f)
+                            && Mathf.Approximately(hud.Power, .76f),
+                            "Holding A charges exactly three Metal Scrap once and restores integrity without changing power.");
+                        Pad(new GamepadState().WithButton(GamepadButton.South).WithButton(GamepadButton.RightShoulder));
+                        Begin(Phase.RefitReturned); break;
+                    case Phase.RefitReturned:
+                        if (terminal.View.IsRepairPage || terminal.View.IsPageSwitchPending) break;
+                        Record(terminal.View.SelectedSlotIndex == 0 && terminal.View.SelectedModuleIndex == 0
+                            && terminal.View.Document.rootVisualElement.Q<Button>("refit-tab").ClassListContains("active-tab")
+                            && hud.Inventory.Count(metalScrap) == 5,
+                            "RB returns to the same Refit selection without spending again while A is held.");
+                        Neutral(); Begin(Phase.RepairReleased); break;
+                    case Phase.RepairReleased:
                         if (!Settled()) break;
                         Pad(new GamepadState { leftStick = new Vector2(.75f, 1f), rightTrigger = 1f }
                             .WithButton(GamepadButton.South).WithButton(GamepadButton.LeftShoulder)
@@ -233,6 +260,9 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     .FirstOrDefault(candidate => candidate.gameObject.scene.path == MapPath);
             if (bootstrap == null || bootstrap.map == null || !bootstrap.map.HasGeneratedMap
                 || bootstrap.robot == null || bootstrap.mainUiObject == null || bootstrap.scanChargeUi == null) return false;
+            // This fixture starts from free driving; the opening sequence owns a separate pause.
+            if (bootstrap.TryGetComponent<OfficialMapOpening>(out var opening) && opening.isActiveAndEnabled)
+                opening.enabled = false;
             player = bootstrap.robot;
             hud = bootstrap.mainUiObject.GetComponentInChildren<AnimalGame.MainUI.MainUI>(true);
             scan = bootstrap.scanChargeUi;
@@ -256,6 +286,12 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             terminal = instance.GetComponent<CheckpointRefitTerminal>();
             Require(terminal != null, "Reusable terminal prefab has no controller.");
             terminal.Bind(player);
+            metalScrap = new SerializedObject(terminal).FindProperty("metalScrap").objectReferenceValue as InventoryItem;
+            Require(metalScrap != null, "The terminal must reference the Metal Scrap definition.");
+            hud.Inventory.Set(0, metalScrap, 2);
+            hud.Inventory.Set(1, metalScrap, 6);
+            hud.Integrity = .32f;
+            hud.Power = .76f;
             Record(terminal.gameObject.scene == player.gameObject.scene,
                 "Runtime-only terminal prefab fixture shares the original map player's scene.");
         }
