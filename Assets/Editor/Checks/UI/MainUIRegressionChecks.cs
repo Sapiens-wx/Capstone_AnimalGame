@@ -9,6 +9,7 @@ using AnimalGame.MainUI.Inventory;
 using AnimalGame.Animals;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -332,56 +333,53 @@ namespace AnimalGame.Editor
 
         private static void CheckGameClock(Hud hud, VisualElement root)
         {
-            var clock = typeof(Hud).GetField("gameTime", Flags);
-            var elapsed = typeof(Hud).GetField("elapsedGameClockSeconds", Flags);
-            var initialized = typeof(Hud).GetField("gameClockInitialized", Flags);
-            DateTime savedTime = (DateTime)clock.GetValue(hud);
-            double savedElapsed = (double)elapsed.GetValue(hud);
+            var current = typeof(SaveSystem).GetProperty(nameof(SaveSystem.Current));
+            var previousSave = SaveSystem.Current;
+            var start = new DateTime(2026, 12, 31, 23, 59, 0);
             float previousScale = Time.timeScale;
             try
             {
-                initialized.SetValue(hud, false);
-                Invoke(hud, "InitializeGameClock", new DateTime(2026, 12, 31, 23, 59, 38));
-                var start = new DateTime(2026, 12, 31, 23, 59, 0);
-                Assert((DateTime)clock.GetValue(hud) == start, "Clock initializes at minute precision");
-                Invoke(hud, "AdvanceGameClock", .75f);
-                Assert((DateTime)clock.GetValue(hud) == start, "Fractional seconds wait for a complete second");
-                Invoke(hud, "AdvanceGameClock", .5f);
-                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(1)
-                    && root.Q<Label>("Date").text == "2027_01_01", "Game clock rolls date across year end");
+                var save = new GameSave { gameTime = start.AddSeconds(45) };
+                current.SetValue(null, save);
+                hud.Init();
+                Assert(hud.CurrentGameTime == start.AddSeconds(45), "Clock starts at the exact saved time");
+                Invoke(hud, "AdvanceGameClock", .125f);
+                Assert(hud.CurrentGameTime == start.AddSeconds(52.5), "Game clock advances fractional minutes");
+                Invoke(hud, "AdvanceGameClock", .125f);
+                Assert(hud.CurrentGameTime == start.AddMinutes(1)
+                    && root.Q<Label>("Date").text == "01_01\n2027", "Game clock rolls date across year end");
                 var orbit = root.Q<TimeOrbitElement>("TimeOrbit");
                 Assert((float)typeof(TimeOrbitElement).GetField("dayProgress", Flags).GetValue(orbit) == 0,
                     "Midnight starts day progress");
+                Invoke(hud, "AdvanceGameClock", .5f);
                 Time.timeScale = 0;
                 Invoke(hud, "AdvanceGameClock", .75f * Time.timeScale);
-                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(1), "Scaled clock stays still while paused");
+                Assert(hud.CurrentGameTime == start.AddSeconds(90), "Scaled clock stays still while paused");
                 Time.timeScale = 1;
-                Invoke(hud, "AdvanceGameClock", .75f);
-                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(2), "Resume preserves fractional time");
+                Invoke(hud, "AdvanceGameClock", .5f);
+                Assert(hud.CurrentGameTime == start.AddMinutes(2), "Resume preserves fractional time");
                 Invoke(hud, "AdvanceGameClock", 3.5f);
-                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(5), "Long frames advance every complete second");
+                Assert(hud.CurrentGameTime == start.AddSeconds(330), "Long frames advance the full interval");
                 hud.Init();
                 Invoke(hud, "AdvanceGameClock", .5f);
-                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(6), "UI reinitialization preserves clock and remainder");
+                Assert(hud.CurrentGameTime == start.AddMinutes(6), "UI reinitialization preserves clock and remainder");
                 Invoke(hud, "RefreshTelemetry", start.AddYears(-1), true);
-                Assert((DateTime)clock.GetValue(hud) == start.AddMinutes(6)
-                    && root.Q<Label>("Date").text == "2027_01_01", "System clock changes do not overwrite game time");
+                Assert(hud.CurrentGameTime == start.AddMinutes(6)
+                    && root.Q<Label>("Date").text == "01_01\n2027", "Telemetry leaves game time intact");
                 // A minute tick must not replace the existing date string on the same day.
                 string dateText = root.Q<Label>("Date").text;
                 Invoke(hud, "AdvanceGameClock", 1f);
                 Assert(ReferenceEquals(dateText, root.Q<Label>("Date").text), "Same-day ticks retain the date text");
-                initialized.SetValue(hud, false);
-                Invoke(hud, "InitializeGameClock", new DateTime(2028, 2, 28, 23, 59, 0));
+                save.gameTime = new DateTime(2028, 2, 28, 23, 59, 0);
+                hud.Init();
                 Invoke(hud, "AdvanceGameClock", 1f);
-                Assert(root.Q<Label>("Date").text == "2028_02_29", "DateTime handles leap-day rollover");
+                Assert(root.Q<Label>("Date").text == "02_29\n2028", "DateTime handles leap-day rollover");
             }
             finally
             {
                 Time.timeScale = previousScale;
-                clock.SetValue(hud, savedTime);
-                elapsed.SetValue(hud, savedElapsed);
-                initialized.SetValue(hud, true);
-                Invoke(hud, "InitializeGameClock", DateTime.Now);
+                current.SetValue(null, previousSave);
+                hud.Init();
             }
         }
 

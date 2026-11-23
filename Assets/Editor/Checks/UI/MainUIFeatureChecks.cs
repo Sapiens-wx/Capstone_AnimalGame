@@ -86,9 +86,10 @@ namespace AnimalGame.Editor
             var date = root.Q<Label>("Date");
             Assert(Mathf.Abs(time.layout.width - time.layout.height) < .01f, "Time uses square bounds");
             Assert(Vector2.Distance(orbit.worldBound.center, date.worldBound.center) < .1f, "Date is centered in orbit");
-            Assert(date.text == DateTime.Now.ToString("yyyy_MM_dd"), "Clock initializes from the computer date");
+            Assert(date.text == hud.CurrentGameTime.ToString("MM_dd\nyyyy", System.Globalization.CultureInfo.InvariantCulture),
+                "HUD displays the current game date");
             hud.SetDate(new DateTime(2026, 10, 12));
-            Assert(date.text == "2026_10_12", "Date interface formats yyyy_mm_dd");
+            Assert(date.text == "10_12\n2026", "Date interface displays month and day above the year");
             hud.SetDate(new DateTime(2026, 1, 1));
         }
 

@@ -1,3 +1,4 @@
+using AnimalGame.RobotMap;
 using UnityEngine;
 
 namespace AnimalGame.RobotArm
@@ -6,6 +7,9 @@ namespace AnimalGame.RobotArm
     // This layout is used only while tumbling, fallen, or returning exposed arms to their ordinary sockets.
     public sealed partial class RobotArmController
     {
+        private const float TumbleSocketGap = 90f;
+        private const float OppositeSocketGap = 180f;
+
         [Header("Tumble Arm Layout")]
         [Tooltip("Time for an exposed arm socket to travel 90 degrees along the body edge.")]
         [SerializeField, Min(.01f)] private float tumbleSocketQuarterTurnDuration = .35f;
@@ -78,18 +82,54 @@ namespace AnimalGame.RobotArm
                 EnableTumbleSocketPoses();
                 tumbleLayoutActive = true;
                 tumbleReturning = false;
-                BeginTumbleSocketTransition(45f + 90f * tumbleQuadrant, 90f);
-                if (deploymentTime <= .00001f)
+                if (tumble.State == RobotTumbleState.Fallen)
+                    SnapFallenSockets();
+                else
                 {
-                    SetHiddenTumbleSockets();
-                    targetLocal = TumbleDirectionLocal * armLength * .8f;
+                    BeginTumbleSocketTransition(45f + 90f * tumbleQuadrant, TumbleSocketGap);
+                    if (deploymentTime <= .00001f) SnapTumbleSocketsToTarget();
                 }
+                if (deploymentTime <= .00001f)
+                    targetLocal = TumbleDirectionLocal * armLength * .8f;
             }
             else if (!nonUpright && tumbleLayoutActive && !tumbleReturning)
             {
                 tumbleReturning = true;
-                BeginTumbleSocketTransition(90f, 180f);
+                BeginTumbleSocketTransition(90f, OppositeSocketGap);
             }
+        }
+
+        internal void AlignFallenArmSockets(Vector2 directionWorld)
+        {
+            if (!initialized || deploymentTime <= .00001f) return;
+
+            tumbleDirectionWorld = directionWorld;
+            tumbleLayoutActive = tumbleWasNonUpright = true;
+            tumbleReturning = tumbleClearingArms = false;
+            EnableTumbleSocketPoses();
+            SnapFallenSockets();
+
+            Vector2 forward = TumbleDirectionLocal;
+            Vector2 tangent = RightOf(forward);
+            float reach = Mathf.Min(TumbleForwardReach(left, forward, tangent),
+                TumbleForwardReach(right, forward, tangent));
+            targetLocal = forward * Mathf.Min(targetLocal.magnitude, reach);
+            AimFallenArm(left, tangent);
+            AimFallenArm(right, tangent);
+        }
+
+        private void SnapFallenSockets()
+        {
+            BeginTumbleSocketTransition(Vector2.SignedAngle(Vector2.right, TumbleDirectionLocal), OppositeSocketGap);
+            SnapTumbleSocketsToTarget();
+        }
+
+        private void AimFallenArm(Arm arm, Vector2 tangent)
+        {
+            Vector2 target = targetLocal + tangent * arm.Side * handSpacing * .5f;
+            SolveIK(target - SocketAt(arm, arm.Pose), arm.LowerLength, arm.UpperLength, arm.Side,
+                out arm.Pose.LowerAngle, out arm.Pose.UpperAngle);
+            ApplyVisuals(arm);
         }
 
         // Counter-clockwise quadrants: upper-right, upper-left, lower-left, lower-right.
@@ -128,7 +168,7 @@ namespace AnimalGame.RobotArm
             tumbleLayoutDuration = Mathf.Max(leftTravel, rightTravel) / 90f * tumbleSocketQuarterTurnDuration;
             tumbleLayoutElapsed = 0f;
         }
-        private void SetHiddenTumbleSockets()
+        private void SnapTumbleSocketsToTarget()
         {
             left.Pose.SocketAngle = tumbleTargetCentre + tumbleTargetGap * .5f;
             right.Pose.SocketAngle = tumbleTargetCentre - tumbleTargetGap * .5f;

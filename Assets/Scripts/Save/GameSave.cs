@@ -8,6 +8,8 @@ namespace AnimalGame.Save
     [Serializable]
     public sealed class GameSave
     {
+        public static readonly DateTime InitialGameTime = new DateTime(2026, 1, 1);
+        public DateTime gameTime = InitialGameTime;
         public List<AnimalPhotoRecord> photos = new();
         public List<SpeciesProgress> speciesProgress = new();
         public List<ContactConversation> conversations = new();

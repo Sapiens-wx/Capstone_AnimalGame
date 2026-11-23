@@ -37,6 +37,7 @@ namespace AnimalGame.Editor
             {
                 Require(File.Exists(path) && data.photos.Count == 0 && data.speciesProgress.Count == 0,
                     "Missing save creates an empty binary save.");
+                Require(data.gameTime == new DateTime(2026, 1, 1), "A new game starts at midnight on January 1, 2026.");
                 Require(!ReferenceEquals(data, SaveSystem.LoadOrCreate(path)), "Binary load creates independent save data.");
                 var source = assets.Photos[AnimalSpecies.AmericanBison].States[0].Photos[0].Image;
                 var snapshots = new PhotoRenderSnapshot[] {
@@ -53,10 +54,12 @@ namespace AnimalGame.Editor
                     Require(!record.sent, "Saving alone does not send a photo.");
                 }
                 data.speciesProgress.Add(new SpeciesProgress { species = AnimalSpecies.AmericanBison, sentPhotos = 1, recognition = 30 });
+                data.gameTime = new DateTime(2026, 11, 1, 9, 30, 42).AddTicks(123);
                 SaveSystem.WriteTo(path, data);
                 SaveSystem.WriteTo(path, data);
                 var loaded = SaveSystem.LoadOrCreate(path);
                 Require(loaded.photos.Count == 3 && loaded.Progress(AnimalSpecies.AmericanBison).Tier == 2, "Disk load restores photos and progress.");
+                Require(loaded.gameTime == data.gameTime, "Disk load restores the exact game time.");
                 for (int i = 0; i < snapshots.Length; i++)
                 {
                     var record = loaded.photos[i]; var original = data.photos[i];
@@ -88,6 +91,13 @@ namespace AnimalGame.Editor
                 RequireInvalidSave(path, "Unsupported binary version is rejected.");
                 File.WriteAllBytes(path, binary.Take(binary.Length - 1).ToArray());
                 RequireInvalidSave(path, "Truncated binary save is rejected.");
+                var withoutClock = binary.Take(binary.Length - sizeof(long)).ToArray();
+                withoutClock[4] = 3;
+                File.WriteAllBytes(path, withoutClock);
+                var recovered = SaveSystem.LoadOrCreate(path);
+                Require(recovered.gameTime == GameSave.InitialGameTime
+                    && recovered.Progress(AnimalSpecies.AmericanBison).recognition == 30,
+                    "A save without a game clock starts at the default without awarding recognition again.");
                 var progress = loaded.speciesProgress[0];
                 foreach (var pair in new[] { (0, 0), (1, 1), (29, 1), (30, 2), (99, 2), (100, 3) })
                 { progress.recognition = pair.Item1; Require(progress.Tier == pair.Item2, "Recognition tier boundary."); }

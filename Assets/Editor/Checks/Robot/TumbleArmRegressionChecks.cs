@@ -16,6 +16,7 @@ namespace AnimalGame.Editor
         [MenuItem("Animal Game/Validation/Run Tumble Arm Checks")]
         public static void Run()
         {
+            CheckFallenAlignment();
             CheckNormalLayout();
             CheckQuadrantsAndLocalDirection();
             CheckCardinalBoundaries();
@@ -41,6 +42,47 @@ namespace AnimalGame.Editor
         {
             try { CheckDirectionReachability(); EditorApplication.Exit(0); }
             catch (Exception error) { Debug.LogException(error); EditorApplication.Exit(1); }
+        }
+
+        private static void CheckFallenAlignment()
+        {
+            foreach (bool exposed in new[] { false, true })
+            foreach (Vector2 localDirection in new[] { Vector2.up, Vector2.down, Vector2.right, new Vector2(-2f, -1f).normalized })
+            using (var f = new Fixture())
+            {
+                Quaternion heading = Quaternion.Euler(0f, 0f, 73f);
+                f.Root.transform.rotation = heading;
+                f.Fall(localDirection);
+                if (exposed) f.Tick(180, localDirection);
+
+                Vector2 direction = f.Tumble.DirectionWorld;
+                Vector3 position = f.Root.transform.position;
+                float deployment = f.Arms.VisibleDeployment01;
+                Call(f.Tumble, "Settle", RobotTumbleSettleReason.EnergyDepleted);
+                Require(f.Tumble.State == RobotTumbleState.Fallen && f.Root.transform.position == position,
+                    "Settling changed the landing position or failed to enter Fallen");
+                Require(f.Root.transform.rotation == heading,
+                    "Settling changed the original chassis heading");
+                Require(f.Arms.VisibleDeployment01 == deployment, "Landing changed arm deployment progress");
+
+                if (!exposed) f.Tick(1, localDirection);
+                Vector2 tangent = new Vector2(localDirection.y, -localDirection.x);
+                f.RequireSockets(-tangent, tangent);
+                if (exposed)
+                {
+                    f.RequireVisualAttachment("left");
+                    f.RequireVisualAttachment("right");
+                }
+                f.Tick(180, localDirection);
+                Require(f.Arms.IsTumbleArmSupportReady, "Aligned arms could not provide self-righting support");
+                Require((bool)Call(f.Tumble, "BeginSelfRightingVisual")
+                    && (bool)Call(f.Tumble, "CompleteSelfRighting", direction, -direction, 0f, 0f, 0f),
+                    "Self-righting did not return the chassis to upright");
+                f.Tick(180, Vector2.up);
+                f.RequireSockets(Vector2.left, Vector2.right);
+                Require(f.Root.transform.rotation == heading && !f.Arms.IsTumbleArmLayoutActive,
+                    "Standing up changed the chassis heading or retained the fallen arm layout");
+            }
         }
 
         private static void CheckNormalLayout()
@@ -467,7 +509,7 @@ namespace AnimalGame.Editor
             public void Fall(Vector2 localDirection)
             {
                 SetDirection(localDirection);
-                SetProperty(Tumble, "State", RobotTumbleState.Fallen);
+                SetProperty(Tumble, "State", RobotTumbleState.FinalRocking);
             }
 
             public void SetDirection(Vector2 localDirection) =>

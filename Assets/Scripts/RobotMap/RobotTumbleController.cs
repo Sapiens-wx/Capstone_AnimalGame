@@ -1,5 +1,6 @@
 using System;
 using AnimalGame.MapTest;
+using AnimalGame.RobotArm;
 using AnimalGame.World;
 using UnityEngine;
 
@@ -1256,6 +1257,7 @@ namespace AnimalGame.RobotMap
                 BalanceRecoveryProgress01 = 0f;
                 State = RobotTumbleState.Fallen;
                 mover?.MarkFallenPermanently();
+                GetComponent<RobotArmController>()?.AlignFallenArmSockets(DirectionWorld);
             }
 
             finalRockWillRecoverUpright = false;

@@ -10,13 +10,20 @@ namespace AnimalGame.Save
     public static class SaveSystem
     {
         private const int FileSignature = 0x41475356; // AGSV
-        private const int FileVersion = 3;
+        private const int CaptureRecognitionVersion = 3;
+        private const int FileVersion = 4;
         public static GameSave Current { get; private set; }
+        public static DateTime CurrentGameTime => Current?.gameTime ?? GameSave.InitialGameTime;
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
         public static event Action Changed;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset() { Current = null; Changed = null; }
+        private static void Reset()
+        {
+            Application.quitting -= SaveOnQuit;
+            Current = null;
+            Changed = null;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void Initialize()
@@ -24,6 +31,13 @@ namespace AnimalGame.Save
             if (Current != null) return;
             AnimalArchiveAssets.Initialize();
             Current = LoadOrCreate(SavePath);
+            if (Application.isPlaying) Application.quitting += SaveOnQuit;
+        }
+
+        private static void SaveOnQuit()
+        {
+            // Clearing the save through the editor menu deletes this file.
+            if (File.Exists(SavePath)) WriteTo(SavePath, Current);
         }
 
         public static GameSave LoadOrCreate(string path)
@@ -35,11 +49,11 @@ namespace AnimalGame.Save
                 return empty;
             }
             var save = ReadFrom(path, out int version);
-            if (version < FileVersion)
+            if (version < CaptureRecognitionVersion)
             {
                 foreach (var photo in save.photos.Where(p => !p.sent)) CreditCapture(save, photo);
-                WriteTo(path, save);
             }
+            if (version < FileVersion) WriteTo(path, save);
             return save;
         }
 
@@ -85,6 +99,7 @@ namespace AnimalGame.Save
                     save.conversations.Add(conversation);
                 }
             }
+            if (version >= 4) save.gameTime = new DateTime(reader.ReadInt64());
             if (stream.Position != stream.Length) throw new InvalidDataException("Unexpected trailing game save data.");
             return save;
         }
@@ -134,6 +149,7 @@ namespace AnimalGame.Save
                             else throw new InvalidDataException("Unknown chat message kind.");
                         }
                     }
+                    writer.Write(data.gameTime.Ticks);
                     writer.Flush();
                     stream.Flush(true);
                 }
