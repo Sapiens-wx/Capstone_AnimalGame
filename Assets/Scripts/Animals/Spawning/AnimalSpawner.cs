@@ -38,17 +38,9 @@ namespace AnimalGame.Animals
 
         public void Check(MapTestSceneController map, Vector2 center, float radius)
         {
-            float outer = radius * OuterRadiusMultiplier;
-            float outerSquared = outer * outer;
-            int count = 0;
-            foreach (var animal in AnimalAgent.ActiveAgents)
-            {
-                if (animal.gameObject.scene != gameObject.scene) continue;
-                Vector2 position = InteractionShape.ToQuery(animal.transform.position, map);
-                if ((position - center).sqrMagnitude <= outerSquared) count++;
-            }
-            if (count >= maximumAnimals) return;
+            if (AnimalAgent.ActiveAgentCount >= maximumAnimals) return;
 
+            float outer = radius * OuterRadiusMultiplier;
             var origin = ToPoint(center);
             const int sides = 128;
             // Circumscribe the exclusion circle so every sampled point is at least 2R away.
@@ -107,7 +99,7 @@ namespace AnimalGame.Animals
                 {
                     if (c.Probability <= 0f) continue;
                     if ((c.Probability >= 1f || Random.value < c.Probability) && TrySpawn(c, map))
-                        if (++count >= maximumAnimals) return;
+                        if (AnimalAgent.ActiveAgentCount >= maximumAnimals) return;
                     float next = c.Probability - c.Info.ProbabilityReduction;
                     c.Probability = next < c.Probability ? next : 0f;
                     remaining |= c.Probability > 0f;

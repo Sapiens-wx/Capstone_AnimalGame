@@ -27,6 +27,7 @@ namespace AnimalGame.Animals
         public bool CanAcceptSocialAction => CurrentState == AnimalState.Daily && behaviourSet != null
             && behaviourSet.CanAcceptSocialAction && !Brain.HasOverrideAction;
         public static IEnumerable<AnimalAgent> ActiveAgents => activeAgents;
+        internal static int ActiveAgentCount => activeAgents.Count;
         public AnimalMotor Motor { get; private set; }
         public AnimalPerception Perception { get; private set; }
         public AnimalPlaceholderView PlaceholderView => placeholderView;
