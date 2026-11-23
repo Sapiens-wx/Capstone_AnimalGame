@@ -83,6 +83,12 @@ namespace Capstone.Audio
             return cues != null && index >= 0 && index < cues.Length ? cues[index] : null;
         }
 
+        internal bool HasCue(Milestone2ActionCue cue)
+        {
+            var config = GetCue(cue);
+            return config != null && !config.EventReference.Guid.IsNull;
+        }
+
         internal bool HasAssignedEvents
         {
             get

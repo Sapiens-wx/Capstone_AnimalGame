@@ -274,6 +274,56 @@ MonoBehaviour:
     gainDb: 0
     readBySoundUI: 1
     soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 281574147
+        Data2: 1135729816
+        Data3: -790967920
+        Data4: 2056189455
+      Path: event:/Robot/Terrain/GrassRoll
+    gainDb: 7.94
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 481061896
+        Data2: 1261006264
+        Data3: 245647766
+        Data4: 1186738624
+      Path: event:/Robot/Terrain/SandRoll
+    gainDb: -6.19
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -122182624
+        Data2: 1087812247
+        Data3: -1237228378
+        Data4: 1544823447
+      Path: event:/Robot/Terrain/RockRoll
+    gainDb: 1.14
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: 1809479759
+        Data2: 1176935617
+        Data3: -1709016389
+        Data4: -1181199219
+      Path: event:/Robot/Terrain/GravelRoll
+    gainDb: -5.27
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -876426398
+        Data2: 1228883333
+        Data3: -1553011576
+        Data4: -583553027
+      Path: event:/Robot/Terrain/GrassRollAccel
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
   fadeOutSeconds: 0.05
   tumbleSlidePitch: 1.1
   tumbleSlideAccentSeconds: 0.2

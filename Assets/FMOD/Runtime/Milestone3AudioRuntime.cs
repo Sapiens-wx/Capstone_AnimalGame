@@ -14,6 +14,7 @@ namespace Capstone.Audio
         private Milestone3AudioVoices voices;
         private Milestone3BalanceAudio balance;
         private Milestone3GarbageAudio garbage;
+        private Milestone3HatchAudio hatch;
         private Milestone3WorldAudio world;
         private Milestone3WorldMotionSampler worldMotionSampler;
         private Milestone3TerrainCollisionAudio terrainCollision;
@@ -61,6 +62,8 @@ namespace Capstone.Audio
             voices = new Milestone3AudioVoices(config);
             balance = new Milestone3BalanceAudio(config, voices);
             garbage = new Milestone3GarbageAudio(config, voices);
+            hatch = config.HasCue(Milestone3Cue.HatchOpen) || config.HasCue(Milestone3Cue.HatchClose)
+                ? new Milestone3HatchAudio(voices) : null;
             // Unbound extensions do not discover world objects or scan UI.
             world = config.HasWorldEvents ? new Milestone3WorldAudio(config, voices) : null;
             if (world != null && world.NeedsMotionSampling)
@@ -109,6 +112,7 @@ namespace Capstone.Audio
             if (!initialized || shuttingDown || applicationPaused || timePaused || Time.timeScale <= 0f) return;
             balance.Tick(Time.deltaTime);
             garbage.Tick(Time.deltaTime);
+            hatch?.Tick();
             world?.Tick(Time.deltaTime);
             terrainCollision?.Tick(Time.deltaTime);
             scan?.Tick(Time.deltaTime);
@@ -128,6 +132,7 @@ namespace Capstone.Audio
             }
             balance.Bind(mover, tumble, righting);
             garbage.Bind(mover, arm);
+            hatch?.Bind(arm);
             world?.Bind(mover, arm);
             worldMotionSampler?.Bind(world);
             terrainCollision?.Bind(mover, arm);
@@ -173,6 +178,7 @@ namespace Capstone.Audio
         {
             balance?.Bind(null, null, null);
             garbage?.Bind(null, null);
+            hatch?.Bind(null);
             world?.Bind(null, null);
             worldMotionSampler?.Bind(null);
             terrainCollision?.Bind(null, null);

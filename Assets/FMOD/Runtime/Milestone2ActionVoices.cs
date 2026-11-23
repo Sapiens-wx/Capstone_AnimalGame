@@ -73,6 +73,12 @@ namespace Capstone.Audio
             return slot.Active && slot.Instance.getTimelinePosition(out milliseconds) == RESULT.OK;
         }
 
+        internal void SetTimelinePosition(Milestone2ActionCue cue, int milliseconds)
+        {
+            Slot slot = slots[(int)cue];
+            if (slot.Active) slot.Instance.setTimelinePosition(milliseconds);
+        }
+
         private bool Start(Milestone2ActionCue cue, int timelineMs, float gain, float fadeInSeconds = 0f)
         {
             Slot slot = slots[(int)cue];
@@ -157,7 +163,7 @@ namespace Capstone.Audio
                 if (!slot.Active || slot.KeyedOff)
                 {
                     Start(cue, timelineMs, gain, fadeInSeconds >= 0f ? fadeInSeconds
-                        : IsMovementLoop(cue) ? settings.MovementFadeInSeconds : 0f);
+                        : UsesMovementFade(cue) ? settings.MovementFadeInSeconds : 0f);
                     return;
                 }
                 if (slot.Fading)
@@ -353,7 +359,7 @@ namespace Capstone.Audio
             if (!slot.Active) return;
             if (immediately) Release(slot);
             else FadeStop(cue, IsEngineCue(cue)
-                ? settings.EngineFadeOutSeconds : IsMovementLoop(cue) ? settings.GroundFadeOutSeconds : settings.FadeOutSeconds);
+                ? settings.EngineFadeOutSeconds : UsesMovementFade(cue) ? settings.GroundFadeOutSeconds : settings.FadeOutSeconds);
         }
 
         internal void FadeStop(Milestone2ActionCue cue, float duration, bool deferFirstTick = false)
@@ -372,8 +378,9 @@ namespace Capstone.Audio
             }
         }
 
-        private static bool IsMovementLoop(Milestone2ActionCue cue) => cue == Milestone2ActionCue.Drive
-            || cue == Milestone2ActionCue.GroundMove || cue == Milestone2ActionCue.GroundTurn;
+        private static bool UsesMovementFade(Milestone2ActionCue cue) => cue == Milestone2ActionCue.Drive
+            || cue == Milestone2ActionCue.GroundMove || cue == Milestone2ActionCue.GroundTurn
+            || Milestone2ActionCatalog.IsSurfaceRoll((int)cue);
 
         private static bool IsEngineCue(Milestone2ActionCue cue) => cue == Milestone2ActionCue.MoveStart
             || cue == Milestone2ActionCue.Drive || cue == Milestone2ActionCue.DriveAcceleration;

@@ -5,7 +5,8 @@ namespace Capstone.Audio
         MoveStart, Drive, Coast, Stop, Brake, Turn, GripLoss, Slide, Airborne, Land,
         ArmDeploy, ArmDeployLock, ArmServo, ArmBlocked, HandClose, HandOpen,
         GrabSmall, GrabMedium, GrabLarge, Drop, ArmRetract, ArmRetractLock,
-        GroundMove, GroundTurn, LandParts, DriveAcceleration, Count
+        GroundMove, GroundTurn, LandParts, DriveAcceleration,
+        GrassRoll, SandRoll, RockRoll, GravelRoll, GrassRollAccel, Count
     }
 
     internal enum ActionAudioParameter { Speed, Direction, Throttle, Load, Effort, Progress, Impact, Count }
@@ -17,6 +18,9 @@ namespace Capstone.Audio
         public const string SourceFolder = "FMOD/SourceAudio/Milestone2/PlayerActions";
         public const string BankName = "RobotActions";
         public const int CueCount = (int)Milestone2ActionCue.Count;
+
+        public static bool IsSurfaceRoll(int index) => index >= (int)Milestone2ActionCue.GrassRoll
+            && index <= (int)Milestone2ActionCue.GrassRollAccel;
 
         public static string EventPath(int index)
         {
@@ -48,6 +52,11 @@ namespace Capstone.Audio
                 case Milestone2ActionCue.GroundTurn: return "event:/Robot/Move/GroundTurn";
                 case Milestone2ActionCue.LandParts: return "event:/Robot/Move/LandParts";
                 case Milestone2ActionCue.DriveAcceleration: return "event:/Robot/Move/Acceleration";
+                case Milestone2ActionCue.GrassRoll: return "event:/Robot/Terrain/GrassRoll";
+                case Milestone2ActionCue.GrassRollAccel: return "event:/Robot/Terrain/GrassRollAccel";
+                case Milestone2ActionCue.SandRoll: return "event:/Robot/Terrain/SandRoll";
+                case Milestone2ActionCue.RockRoll: return "event:/Robot/Terrain/RockRoll";
+                case Milestone2ActionCue.GravelRoll: return "event:/Robot/Terrain/GravelRoll";
                 default: throw new System.ArgumentOutOfRangeException(nameof(index));
             }
         }
@@ -65,7 +74,11 @@ namespace Capstone.Audio
                 case Milestone2ActionCue.ArmServo:
                 case Milestone2ActionCue.ArmRetract: return true;
                 case Milestone2ActionCue.GroundMove:
-                case Milestone2ActionCue.GroundTurn: return true;
+                case Milestone2ActionCue.GroundTurn:
+                case Milestone2ActionCue.GrassRoll:
+                case Milestone2ActionCue.SandRoll:
+                case Milestone2ActionCue.RockRoll:
+                case Milestone2ActionCue.GravelRoll: return true;
                 default: return false;
             }
         }

@@ -16,6 +16,8 @@ namespace Capstone.Audio.Editor
             if (EditorApplication.isPlayingOrWillChangePlaymode)
                 throw new InvalidOperationException("Bind delivered banks from Edit Mode.");
             EventManager.RefreshBanks();
+            Milestone1AudioSetup.BindDeliveredMapEvents();
+            Milestone2ActionSetup.BindTerrainEvents();
             var events = new EditorEventRef[Milestone3AudioCatalog.CueCount];
             int bound = 0;
             for (int i = 0; i < events.Length; i++)

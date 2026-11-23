@@ -14,6 +14,10 @@ namespace Capstone.Audio
         [SerializeField] private AudioCueSettings cameraMove = new AudioCueSettings();
         [SerializeField] private AudioCueSettings cameraFocus = new AudioCueSettings();
         [SerializeField] private AudioCueSettings cameraShutter = new AudioCueSettings();
+        [Header("World Map UI (RobotFoley)")]
+        [SerializeField] private AudioCueSettings mapPinPlace = new AudioCueSettings();
+        [SerializeField] private AudioCueSettings mapPinRemove = new AudioCueSettings();
+        [SerializeField] private AudioCueSettings mapSelect = new AudioCueSettings();
 
         [SerializeField, Min(0f)] private float fadeOutSeconds = 0.05f;
         [Tooltip("Minimum actual aim-point speed required to hear camera movement.")]
@@ -73,6 +77,9 @@ namespace Capstone.Audio
                 case Milestone1Cue.CameraMove: return cameraMove;
                 case Milestone1Cue.CameraFocus: return cameraFocus;
                 case Milestone1Cue.CameraShutter: return cameraShutter;
+                case Milestone1Cue.MapPinPlace: return mapPinPlace;
+                case Milestone1Cue.MapPinRemove: return mapPinRemove;
+                case Milestone1Cue.MapSelect: return mapSelect;
                 default: throw new ArgumentOutOfRangeException(nameof(cue), cue, null);
             }
         }
@@ -102,6 +109,9 @@ namespace Capstone.Audio
         CameraClose,
         CameraMove,
         CameraFocus,
-        CameraShutter
+        CameraShutter,
+        MapPinPlace,
+        MapPinRemove,
+        MapSelect
     }
 }

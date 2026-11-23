@@ -494,6 +494,26 @@ MonoBehaviour:
     gainDb: 0
     readBySoundUI: 1
     soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -747297672
+        Data2: 1244559179
+        Data3: 1922002615
+        Data4: -909859140
+      Path: event:/Robot/Arm/HatchOpen
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
+  - eventReference:
+      Guid:
+        Data1: -2116453404
+        Data2: 1093155747
+        Data3: -8963687
+        Data4: -503418308
+      Path: event:/Robot/Arm/HatchClose
+    gainDb: 0
+    readBySoundUI: 1
+    soundUIStrength: 0.5
   fadeOutSeconds: 0.05
   parameterEpsilon: 0.005
   tumbleMotionThreshold: 0.01

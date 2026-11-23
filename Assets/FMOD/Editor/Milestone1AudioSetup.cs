@@ -11,17 +11,19 @@ namespace Capstone.Audio.Editor
     {
         private const string ConfigPath = "Assets/FMOD/Resources/Milestone1AudioSettings.asset";
         private const string BankPath = "FMOD/Banks/Desktop";
+        private const int FirstMapEvent = 7;
         private static readonly string[] Fields =
         {
             "scanCharge", "scanPulse", "cameraOpen", "cameraClose",
-            "cameraMove", "cameraFocus", "cameraShutter"
+            "cameraMove", "cameraFocus", "cameraShutter", "mapPinPlace", "mapPinRemove", "mapSelect"
         };
         private static readonly string[] Events =
         {
             "event:/Robot/Scan/Charge", "event:/Robot/Scan/Pulse",
             "event:/Robot/Camera/Open", "event:/Robot/Camera/Close",
             "event:/Robot/Camera/Move", "event:/Robot/Camera/Focus",
-            "event:/Robot/Camera/Shutter"
+            "event:/Robot/Camera/Shutter",
+            "event:/Robot/Map/PinPlace", "event:/Robot/Map/PinRemove", "event:/Robot/Map/Select"
         };
 
         [MenuItem("FMOD/Milestone 1/Configure Integration", priority = 100)]
@@ -70,10 +72,29 @@ namespace Capstone.Audio.Editor
                 AssetDatabase.CreateAsset(config, ConfigPath);
             }
 
+            int bound = BindEvents(config, 0, isNew);
+            AssetDatabase.SaveAssetIfDirty(settings);
+            Directory.CreateDirectory(Milestone1AudioValidation.OutputDirectory);
+            File.WriteAllText(Path.Combine(Milestone1AudioValidation.OutputDirectory, "setup.json"),
+                "{\"configured\":true,\"events\":" + bound + ",\"source\":\"FMOD/Banks/Desktop\",\"config\":\"" + ConfigPath + "\"}");
+            Debug.Log("[Milestone 1 Audio] Configured " + bound + " two-dimensional events and relative Desktop banks.");
+        }
+
+        internal static void BindDeliveredMapEvents()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<Milestone1AudioSettings>(ConfigPath);
+            if (config != null) BindEvents(config, FirstMapEvent, false);
+        }
+
+        private static int BindEvents(Milestone1AudioSettings config, int first, bool isNew)
+        {
             var serialized = new SerializedObject(config);
-            for (int i = 0; i < Events.Length; ++i)
+            int bound = 0;
+            for (int i = first; i < Events.Length; ++i)
             {
                 EditorEventRef audioEvent = EventManager.EventFromPath(Events[i]);
+                // The map one-shots live in RobotFoley and are bound on delivery.
+                if (audioEvent == null && i >= FirstMapEvent) continue;
                 if (audioEvent == null)
                     throw new InvalidOperationException("FMOD event missing from the built banks: " + Events[i]);
                 if (audioEvent.Is3D)
@@ -84,14 +105,11 @@ namespace Capstone.Audio.Editor
                 reference.FindPropertyRelative("Guid").boxedValue = audioEvent.Guid;
                 if (isNew)
                     cue.FindPropertyRelative("gainDb").floatValue = 0f;
+                bound++;
             }
             serialized.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.SaveAssetIfDirty(config);
-            AssetDatabase.SaveAssetIfDirty(settings);
-            Directory.CreateDirectory(Milestone1AudioValidation.OutputDirectory);
-            File.WriteAllText(Path.Combine(Milestone1AudioValidation.OutputDirectory, "setup.json"),
-                "{\"configured\":true,\"events\":7,\"source\":\"FMOD/Banks/Desktop\",\"config\":\"" + ConfigPath + "\"}");
-            Debug.Log("[Milestone 1 Audio] Configured 7 two-dimensional events and relative Desktop banks.");
+            return bound;
         }
 
         private static void SetPlatformProperty(Platform platform, string name, int value)
