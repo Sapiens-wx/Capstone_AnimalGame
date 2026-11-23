@@ -115,13 +115,13 @@ MonoBehaviour:
   - {x: 4, y: 0, z: 0, w: 0}
   - {x: 8, y: 0, z: 0, w: 0}
   - {x: 1.6, y: 0, z: 0, w: 0}
-  - {x: 2.8, y: 0, z: 0, w: 0}
+  - {x: 2.3, y: 0, z: 0, w: 0}
   - {x: 4.5254836, y: 0, z: 0, w: 0}
   - {x: 8, y: 0, z: 0, w: 0}
   - {x: 8, y: 0, z: 0, w: 0}
   - {x: 3.2, y: 0, z: 0, w: 0}
   - {x: 4.5254836, y: 0, z: 0, w: 0}
-  - {x: 3.2, y: 0, z: 0, w: 0}
+  - {x: 9, y: 0, z: 0, w: 0}
   terrainPatternTints:
   - {x: 0, y: 0, z: 0, w: 0}
   - {x: 1, y: 1, z: 1, w: 1}
@@ -162,7 +162,7 @@ MonoBehaviour:
   grassOverlayDensity: 0.95
   grassOverlaySize: 0.65
   surfaceRevealEdgePixels: 4
-  surfaceBakeRevision: 498
+  surfaceBakeRevision: 504
   surfaceBakeGeneratorVersion: 11
   backgroundColor: {r: 0.008, g: 0.012, b: 0.017, a: 1}
   contourColor: {r: 0.92, g: 0.97, b: 1, a: 1}
