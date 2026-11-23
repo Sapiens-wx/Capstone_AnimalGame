@@ -16,8 +16,11 @@ MonoBehaviour:
   presentation: {fileID: 11400000, guid: d3dbab9a072046ddb953f7aa427eb177, type: 2}
   mapParams: {fileID: 11400000, guid: 0d7aa6764f5d26c2940888cc2bc8fe1c, type: 2}
   worldUnitsPerMeter: {x: 0.27, y: 0.27}
-  longitudeRange: {x: 117, y: 123}
-  latitudeRange: {x: 43, y: 47}
   tiles:
   - coordinate: {x: 0, y: 0}
     level: {fileID: 11400000, guid: d3dbab9a072046ddb953f7aa427eb177, type: 2}
+  animalSpawnRegions: {fileID: 11400000, guid: ed9dd2fb9a569dd48a88bab4b92deef5, type: 2}
+  prebakedTerrainRegionsPath: prebake_data/MainHeightMapLevel/MainHeightMapLevel_TiledLevel_TerrainRegions
+  allowMissingTiles: 0
+  longitudeRange: {x: 117, y: 123}
+  latitudeRange: {x: 43, y: 47}
