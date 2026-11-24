@@ -94,6 +94,7 @@ Shader "AnimalGame/Dynamic Height Contours"
 
             sampler2D _MainTex;
             float _PhotoContoursOnly;
+            float2 _PhotoWaterMetresPerPixel;
             float _DashSubmergedContours;
             float _SmoothContourEdges;
             float4 _OpeningMapScan;
@@ -121,7 +122,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             #include "GrasslandDynamics.cginc"
             #include "TerrainOriginalPatterns.cginc"
             #include "HeightContourLines.cginc"
-            #include "MapWater.cginc"
+            #include "MapWaterSymbols.cginc"
             #include "OpeningMapScan.cginc"
 
             v2f vert(appdata input)
@@ -205,7 +206,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                         : step(distanceFromUiCentre, revealRadius);
                 }
 
-                if (_SurfaceEnabled > 0.5 || _WaterEnabled > 0.5)
+                if (_PhotoContoursOnly < .5 && (_SurfaceEnabled > 0.5 || _WaterEnabled > 0.5))
                 {
                     float2 waterUv;
                     float insideWaterBounds;
@@ -259,6 +260,18 @@ Shader "AnimalGame/Dynamic Height Contours"
                     contourHeight = SampleContourHeight(contourUv, normalizedHeight, 0.65);
                 float blendAmount = saturate(HeightContourBlend(contourHeight, _SmoothContourEdges > 0.5) * _ContourColor.a)
                     * contourVisibility;
+                if (_PhotoContoursOnly > .5)
+                {
+                    float brightness = blendAmount;
+                    if (_WaterEnabled > .5)
+                    {
+                        float submerged = _DashSubmergedContours > .5
+                            ? .25 * blendAmount * SubmergedContourDash(mapMeters, heightMeters) : 0;
+                        brightness = DrawMapWater(brightness, submerged, contourUv, mapMeters,
+                            _MapSizeMeters.xy, _PhotoWaterMetresPerPixel, float2(1, 1), 0, 16, .03, .20);
+                    }
+                    return fixed4(brightness, brightness, brightness, 1);
+                }
                 if (_DashSubmergedContours > 0.5 && _WaterEnabled > 0.5)
                 {
                     float submergedBlend = blendAmount * (1.0 - landVisibility)

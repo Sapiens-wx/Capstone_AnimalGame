@@ -53,7 +53,7 @@ namespace AnimalGame.Editor
                 {
                     var renderers = map.GetComponentsInChildren<SpriteRenderer>();
                     var originals = renderers.Select(r => r.sharedMaterial).ToArray();
-                    bool captured = (bool)type.GetMethod("Capture").Invoke(capture, new object[] { bootstrap.mapCamera, map, 256 });
+                    bool captured = (bool)type.GetMethod("Capture").Invoke(capture, new object[] { bootstrap.mapCamera, map, 256, 256f });
                     Require(captured, "Multi-tile photo capture failed.");
                     var texture = (RenderTexture)type.GetProperty("Texture").GetValue(capture);
                     Require(texture.width == 256 && texture.height == 256, "Photo output was not bounded.");

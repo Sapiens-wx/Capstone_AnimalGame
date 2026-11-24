@@ -14,7 +14,7 @@ namespace AnimalGame.RobotMap
         public Vector2 CenterViewport { get; private set; }
         public float RadiusViewportHeight { get; private set; }
 
-        public bool Capture(Camera source, MapTestSceneController map, int resolution)
+        public bool Capture(Camera source, MapTestSceneController map, int resolution, float displayDiameter)
         {
             Dispose();
             CenterViewport = Vector2.one * 0.5f;
@@ -60,6 +60,16 @@ namespace AnimalGame.RobotMap
                 crop.m13 = -cy * crop.m11;
                 camera.projectionMatrix = crop * source.projectionMatrix;
 
+                int snapshotSize = Mathf.Clamp(resolution, 128, 2048);
+                if (!(displayDiameter > 0) || float.IsInfinity(displayDiameter))
+                    displayDiameter = snapshotSize;
+                Matrix4x4 clipToWorld = camera.cameraToWorldMatrix * camera.projectionMatrix.inverse;
+                Vector3 across = clipToWorld.MultiplyPoint(Vector3.right) - clipToWorld.MultiplyPoint(Vector3.left);
+                Vector3 vertical = clipToWorld.MultiplyPoint(Vector3.up) - clipToWorld.MultiplyPoint(Vector3.down);
+                Vector2 worldUnits = (Vector2)map.WorldBounds.size / map.MapSizeMeters;
+                var waterMetresPerPixel = new Vector2(
+                    new Vector2(across.x, vertical.x).magnitude / (worldUnits.x * displayDiameter),
+                    new Vector2(across.y, vertical.y).magnitude / (worldUnits.y * displayDiameter));
                 var snapshotProperties = new MaterialPropertyBlock();
                 foreach (var terrain in terrains)
                 {
@@ -71,6 +81,7 @@ namespace AnimalGame.RobotMap
                     snapshotProperties.SetVector("_GrassOverlaySettings", Vector4.zero);
                     snapshotProperties.SetFloat("_SurfaceEnabled", 0);
                     snapshotProperties.SetFloat("_PhotoContoursOnly", 1);
+                    snapshotProperties.SetVector("_PhotoWaterMetresPerPixel", waterMetresPerPixel);
                     snapshotProperties.SetFloat("_SurfaceRevealEnabled", 0);
                     snapshotProperties.SetColor("_ContourColor", Color.white);
                     terrain.SetPropertyBlock(snapshotProperties);
@@ -83,8 +94,7 @@ namespace AnimalGame.RobotMap
                     renderer.forceRenderingOff = true;
                     hidden.Add(renderer);
                 }
-                Texture = new RenderTexture(Mathf.Clamp(resolution, 128, 2048),
-                    Mathf.Clamp(resolution, 128, 2048), 24, RenderTextureFormat.ARGB32)
+                Texture = new RenderTexture(snapshotSize, snapshotSize, 24, RenderTextureFormat.ARGB32)
                 { name = "Frozen Photo Contours", hideFlags = HideFlags.HideAndDontSave };
                 Texture.Create();
                 var request = new UniversalRenderPipeline.SingleCameraRequest { destination = Texture };

@@ -41,6 +41,10 @@ namespace AnimalGame.RobotMap
         [SerializeField, Range(128, 2048)] private int snapshotResolution = 768;
 
         public int SnapshotResolution => snapshotResolution;
+        internal float SnapshotDisplayDiameter => snapshotImage?.parent != null
+            ? snapshotImage.parent.style.width.value.value
+                * Mathf.Min(Screen.width / designSize.x, Screen.height / designSize.y)
+            : snapshotResolution;
         public bool IsReady => root != null;
         public bool IsClosing => animationSettings.IsClosing;
         public bool IsWarmingUp { get; private set; }
