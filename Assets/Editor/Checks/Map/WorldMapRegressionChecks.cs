@@ -19,7 +19,7 @@ namespace AnimalGame.Editor
             CheckPinShapes();
             CheckAssets();
             CheckGpuContours();
-            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water hatch angle, spacing, opacity, dashed shore and fog, unknown survey pattern, 14m interval, screen line widths and height emphasis.");
+            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water hatch angle, spacing, opacity, baked-UV flow, dashed shore and fog, unknown survey pattern, 14m interval, screen line widths and height emphasis.");
         }
 
         private static void CheckCursorAndPins()
@@ -216,6 +216,8 @@ namespace AnimalGame.Editor
         private static void CheckWater(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state)
         {
             var mask = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+            var uv = new Texture2D(2, 2, TextureFormat.RGHalf, false, true)
+                { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
             var fog = new Texture2D(2, 1, TextureFormat.RGBA32, false, true) { filterMode = FilterMode.Point };
             fog.SetPixels(new[] { Color.black, Color.white }); fog.Apply();
             try
@@ -258,7 +260,9 @@ namespace AnimalGame.Editor
                     Require(withFog[i] == (i % 512 < 256 ? water[i] : dryWithFog[i]),
                         "Water changed the unknown survey pattern or was obscured in the known region.");
                 }
-                type.GetProperty("WaterTime", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(renderer, 1f);
+                var waterTime = type.GetProperty("WaterTime", BindingFlags.Instance | BindingFlags.NonPublic);
+                const float flowTime = 12f * 140f / (512f * 10f);
+                waterTime.SetValue(renderer, flowTime);
                 type.GetMethod("RenderWaterFrame", BindingFlags.Instance | BindingFlags.NonPublic)
                     .Invoke(renderer, new object[] { map });
                 // The preceding render used partial fog. Compare its known left half after animation.
@@ -268,8 +272,24 @@ namespace AnimalGame.Editor
                 mask.SetPixels(new[] { eastward, eastward, eastward, eastward }); mask.Apply();
                 CheckWaterTranslation(water, Render(type, renderer, map, state), 12);
 
+                uv.SetPixels(new[] { new Color(1, 1, 0), new Color(1, 36, 0),
+                    new Color(36, 1, 0), new Color(36, 36, 0) });
+                uv.Apply();
+                foreach (var tile in map.RuntimeMap.Tiles) tile.Level.SetBakedStaticWaterUv(uv);
+                waterTime.SetValue(renderer, 0f);
+                Color[] baked = Render(type, renderer, map, state);
+                Require(CountWaterDifferences(water, baked) > 100,
+                    "Baked UV did not reshape the map water hatches.");
+                waterTime.SetValue(renderer, flowTime);
+                Color[] bakedEast = Render(type, renderer, map, state);
+                Require(CountWaterDifferences(baked, bakedEast) > 100, "Baked water hatches did not animate.");
+                mask.SetPixels(new[] { deepFlowing, deepFlowing, deepFlowing, deepFlowing }); mask.Apply();
+                Require(CountWaterDifferences(bakedEast, Render(type, renderer, map, state)) == 0,
+                    "Baked water hatches should move along the UV U axis for either authored angle.");
+                foreach (var tile in map.RuntimeMap.Tiles) tile.Level.SetBakedStaticWaterUv(null);
+
                 mask.SetPixels(new[] { shallow, shallow, shallow, shallow }); mask.Apply();
-                type.GetProperty("WaterTime", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(renderer, 3f);
+                waterTime.SetValue(renderer, 3f);
                 Color[] driftingWater = Render(type, renderer, map, state);
                 int driftingPixels = 0;
                 for (int y = 165; y < 345; y++)
@@ -278,7 +298,25 @@ namespace AnimalGame.Editor
                         driftingPixels++;
                 Require(driftingPixels > 100, "Still water hatches did not drift.");
             }
-            finally { Object.DestroyImmediate(mask); Object.DestroyImmediate(fog); }
+            finally
+            {
+                Object.DestroyImmediate(mask);
+                Object.DestroyImmediate(uv);
+                Object.DestroyImmediate(fog);
+            }
+        }
+
+        private static int CountWaterDifferences(Color[] first, Color[] second)
+        {
+            int differences = 0;
+            for (int y = 165; y < 345; y++)
+            for (int x = 165; x < 244; x++)
+            {
+                int index = y * 512 + x;
+                if (Mathf.Abs(first[index].r - second[index].r) > .012f)
+                    differences++;
+            }
+            return differences;
         }
 
         private static void CheckWaterTranslation(Color[] source, Color[] shifted, int xOffset)
@@ -293,25 +331,29 @@ namespace AnimalGame.Editor
 
         private static void CheckHatchZoom(Color[] normal, Color[] zoomed)
         {
-            int LongestStroke(Color[] frame, bool flipped)
+            int LongestStroke(Color[] frame)
             {
                 int longest = 0;
-                int length = 0;
-                for (int x = 168; x < 344; x++)
+                // Search both readback orientations and sample the centers of nearby hatches.
+                for (int direction = -1; direction <= 1; direction += 2)
+                for (int offset = -24; offset <= 24; offset++)
                 {
-                    int y = flipped ? 511 - x : x;
-                    bool visible = frame[y * 512 + x].r > .06f;
-                    length = visible ? length + 1 : 0;
-                    longest = Mathf.Max(longest, length);
+                    int length = 0;
+                    for (int x = 168; x < 344; x++)
+                    {
+                        int y = (direction < 0 ? 511 - x : x) + offset;
+                        bool visible = frame[y * 512 + x].r > .06f;
+                        length = visible ? length + 1 : 0;
+                        longest = Mathf.Max(longest, length);
+                    }
                 }
                 return longest;
             }
 
-            bool flipped = SystemInfo.graphicsUVStartsAtTop;
-            int before = LongestStroke(normal, flipped);
-            int after = LongestStroke(zoomed, flipped);
+            int before = LongestStroke(normal);
+            int after = LongestStroke(zoomed);
             Require(before >= 10 && Mathf.Abs(after - before * 2) <= 2,
-                "Water hatch lengths did not double at 2× zoom.");
+                $"Water hatch lengths did not double at 2× zoom ({before} to {after}).");
         }
 
         private static void CheckWaterHatch(Color[] frame)

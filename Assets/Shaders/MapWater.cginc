@@ -51,6 +51,21 @@ float2 SampleBakedWaterUv(float2 uv)
         / dot(weights, float4(1, 1, 1, 1));
 }
 
+void ApplyBakedWaterCoordinates(float2 bakedUv, inout float2 mapMeters, inout float2 localFlow)
+{
+    if (any(bakedUv != 0.0))
+    {
+        // Baked coordinates are unwrapped meters, with +U pointing downstream.
+        mapMeters = bakedUv;
+        localFlow = float2(length(localFlow), 0.0);
+    }
+}
+
+float2 WaterFlowDisplacement(float2 localFlow, float animationTime)
+{
+    return localFlow * max(0.0, _WaterFlowSpeed) * animationTime;
+}
+
 fixed4 SampleWaterPattern(
     float2 mapMeters,
     float normalizedDepth,
@@ -59,12 +74,7 @@ fixed4 SampleWaterPattern(
     float2 bakedUv,
     float patternScale)
 {
-    if (any(bakedUv != 0.0))
-    {
-        // Baked coordinates are unwrapped meters, with +U pointing downstream.
-        mapMeters = bakedUv;
-        localFlow = float2(length(localFlow), 0.0);
-    }
+    ApplyBakedWaterCoordinates(bakedUv, mapMeters, localFlow);
     float depth = saturate(normalizedDepth);
     float tileSize = max(0.01, _WaterTileSizeMeters) * patternScale;
     float waveLength = max(0.1, _WaterWaveLengthMeters) * patternScale;
@@ -85,7 +95,7 @@ fixed4 SampleWaterPattern(
         - distortion * 0.73;
     // Continuous local-flow displacement, added to the existing
     // fixed-direction animation without phase resets or blending.
-    float2 flowUv = localFlow * max(0.0, _WaterFlowSpeed) * animationTime / tileSize;
+    float2 flowUv = WaterFlowDisplacement(localFlow, animationTime) / tileSize;
     fixed4 primary = tex2D(_WaterPatternTex, primaryUv - flowUv);
     // Match the existing second layer's fixed coordinate transform.
     // Its orientation never depends on local flow direction.

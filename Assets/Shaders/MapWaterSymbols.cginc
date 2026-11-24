@@ -16,23 +16,9 @@ float WaterStroke(float position, float repeatPixels, float halfWidth)
     return 1 - smoothstep(halfWidth - .45, halfWidth + .45, distanceToCenter);
 }
 
-float2 MapWaterFlow(float2 tileUv)
-{
-    float2 uv = (tileUv - _WaterMaskBounds.xy) / _WaterMaskBounds.zw;
-    float2 texel = _WaterMaskTex_TexelSize.xy;
-    float2 pixel = uv * _WaterMaskTex_TexelSize.zw - .5;
-    float2 origin = (floor(pixel) + .5) * texel;
-    float2 weight = frac(pixel);
-    // Blend decoded vectors so directions across the angle wrap remain continuous.
-    float2 a = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin, 0, 0)));
-    float2 b = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin + float2(texel.x, 0), 0, 0)));
-    float2 c = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin + float2(0, texel.y), 0, 0)));
-    float2 d = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin + texel, 0, 0)));
-    return lerp(lerp(a, b, weight.x), lerp(c, d, weight.x), weight.y);
-}
-
 float DrawMapWater(float brightness, float submerged,
     float2 tileUv, float2 mapPosition, float2 tileSize, float2 metresPerPixel, float2 viewZoom, float waterTime,
+    bool useBakedUv,
     float hatchSpacing, float hatchOpacity, float bankOpacity)
 {
     // At higher zoom keep the shoreline footprint at its opening map-space size.
@@ -45,11 +31,18 @@ float DrawMapWater(float brightness, float submerged,
     float range = MapWaterRange(tileUv);
     if (range > .42)
     {
-        float2 hatchPosition = mapPosition / metresPerPixel;
+        float2 patternMeters = mapPosition;
+        float2 flow = 0;
+        if (useBakedUv)
+        {
+            float2 waterUv = (tileUv - _WaterMaskBounds.xy) / _WaterMaskBounds.zw;
+            if (waterTime > 0)
+                flow = SampleWaterFlow(waterUv);
+            ApplyBakedWaterCoordinates(SampleBakedWaterUv(waterUv), patternMeters, flow);
+        }
+        float2 hatchPosition = (patternMeters - WaterFlowDisplacement(flow, waterTime)) / metresPerPixel;
         if (waterTime > 0)
         {
-            float2 flow = MapWaterFlow(tileUv);
-            hatchPosition -= flow * (12 * waterTime);
             float stillness = 1 - smoothstep(.000001, .001, dot(flow, flow));
             if (stillness > 0)
             {
