@@ -79,24 +79,52 @@ namespace AnimalGame.MainUI.Inventory
         public AddResult Add(InventoryItem item, int quantity)
         {
             if (item == null || quantity <= 0) return new AddResult(0, Math.Max(0, quantity));
+            var changedSlots = new List<int>();
+            var result = Receive(item, quantity, !discovered.Contains(item), changedSlots);
+            foreach (int slot in changedSlots) Changed?.Invoke(slot);
+            return result;
+        }
+
+        /// <summary>Transfers as much of the selected stack as fits. Both stores settle before any slot notifies.</summary>
+        public AddResult TransferTo(int source, InventoryStore destination)
+        {
+            InventoryItem item = Items[source];
+            int quantity = quantities[source];
+            if (item == null || destination == this) return new AddResult(0, quantity);
+            var changedSlots = new List<int>();
+            var result = destination.Receive(item, quantity, unread[source], changedSlots);
+            if (result.Added == 0) return result;
+
+            quantities[source] = result.Remaining;
+            if (result.Remaining == 0)
+            {
+                Items[source] = null;
+                unread[source] = false;
+            }
+            Changed?.Invoke(source);
+            foreach (int slot in changedSlots) destination.Changed?.Invoke(slot);
+            return result;
+        }
+
+        private AddResult Receive(InventoryItem item, int quantity, bool markNewSlotsUnread, List<int> changedSlots)
+        {
             int remaining = quantity;
-            bool firstType = !discovered.Contains(item);
             for (int i = 0; i < Capacity && remaining > 0; i++)
             {
                 if (Items[i] != item || quantities[i] >= item.MaxStack) continue;
                 int add = Math.Min(remaining, item.MaxStack - quantities[i]);
                 quantities[i] += add;
                 remaining -= add;
-                Changed?.Invoke(i);
+                changedSlots.Add(i);
             }
             for (int i = 0; i < Capacity && remaining > 0; i++)
             {
                 if (Items[i] != null) continue;
                 Items[i] = item;
                 quantities[i] = Math.Min(remaining, item.MaxStack);
-                unread[i] = firstType;
+                unread[i] = markNewSlotsUnread;
                 remaining -= quantities[i];
-                Changed?.Invoke(i);
+                changedSlots.Add(i);
             }
             if (remaining < quantity) discovered.Add(item);
             return new AddResult(quantity - remaining, remaining);

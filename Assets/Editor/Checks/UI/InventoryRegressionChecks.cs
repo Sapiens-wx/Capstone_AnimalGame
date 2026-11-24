@@ -60,6 +60,7 @@ namespace AnimalGame.Editor
             Check(!store.Move(0, 1), "Occupied destination cannot merge or swap");
             Check(store.Move(0, 7) && store.Quantity(7) == 1 && store.Items[0] == null && store.IsUnread(7), "Move preserves quantity and unread state");
             CheckConsumption(metal, synthetic);
+            CheckTransfers(metal, synthetic);
             CheckUI(metal, synthetic);
             Debug.Log("INVENTORY CHECKS PASSED: " + checks);
         }
@@ -83,6 +84,43 @@ namespace AnimalGame.Editor
                 "Payment spans stacks and clears the exhausted slot");
             Check(store.Items[1] == metal && store.Quantity(1) == 2 && store.IsUnread(1) && store.Items[2] == synthetic,
                 "Payment preserves unread partial stacks and other materials");
+        }
+
+        private static void CheckTransfers(InventoryItem metal, InventoryItem synthetic)
+        {
+            var cargo = new InventoryStore(2);
+            var warehouse = new InventoryStore(2);
+            cargo.Set(0, metal, 8);
+            cargo.Set(1, metal, 4);
+            warehouse.Set(1, metal, 9);
+            int changes = 0;
+            void Observe(int slot)
+            {
+                changes++;
+                Check(cargo.Items[0] == null && cargo.Quantity(1) == 4 &&
+                      warehouse.Quantity(1) == 10 && warehouse.Quantity(0) == 7,
+                    "Every transfer observer sees both stores settled, with the other cargo stack intact");
+            }
+
+            cargo.Changed += Observe;
+            warehouse.Changed += Observe;
+            var result = cargo.TransferTo(0, warehouse);
+            Check(result.Added == 8 && result.Remaining == 0 && changes == 3 && !warehouse.HasUnread,
+                "Deposit fills an existing stack first, then uses an empty slot without rediscovering the item");
+            cargo.Changed -= Observe;
+            warehouse.Changed -= Observe;
+
+            cargo.Set(0, synthetic, 1);
+            result = warehouse.TransferTo(0, cargo);
+            Check(result.Added == 6 && result.Remaining == 1 && warehouse.Quantity(0) == 1 &&
+                  cargo.Quantity(1) == 10 && cargo.Items[0] == synthetic,
+                "Withdrawing into limited space leaves overflow in its original warehouse slot");
+            changes = 0;
+            cargo.Changed += _ => changes++;
+            warehouse.Changed += _ => changes++;
+            result = warehouse.TransferTo(0, cargo);
+            Check(result.Added == 0 && result.Remaining == 1 && warehouse.Quantity(0) == 1 && changes == 0,
+                "A full destination leaves both stores and their listeners untouched");
         }
 
         private static void CheckUI(InventoryItem metal, InventoryItem synthetic)
@@ -109,6 +147,8 @@ namespace AnimalGame.Editor
                 var hud = obj.AddComponent<Hud>();
                 ConfigureRewards(hud);
                 hud.Init();
+                Check(hud.Warehouse.Capacity == 16 && hud.Inventory.Capacity == 8, "Sixteen storage slots and eight cargo slots");
+                hud.Warehouse.Set(15, metal, 5);
                 var root = document.rootVisualElement;
                 Layout(root); Call(hud, "ApplyLayout"); Layout(root);
                 hud.AddItem(metal, 2); hud.AddItem(synthetic, 1);
@@ -117,6 +157,7 @@ namespace AnimalGame.Editor
                 Check(hud.Inventory.IsUnread(0) && hud.Inventory.IsUnread(1), "Default selection does not consume unread marks");
                 hud.Init(); Layout(root);
                 Check(hud.Inventory.IsUnread(0) && hud.Inventory.IsUnread(1), "UI rebuild preserves data and unread marks");
+                Check(hud.Warehouse.Quantity(15) == 5, "UI rebuild retains the warehouse's last slot");
                 Check(root.Q<Label>("Label-AStar").style.display.value == DisplayStyle.Flex, "Cargo star visible with unread items");
                 Check(root.Q("InventorySlot1").Q<Label>("ItemName").text.Contains("#D4B854>2"), "Quantity uses yellow rich text");
                 Check(root.Q("InventorySlot3").Q<Label>("ItemAStar").style.display.value == DisplayStyle.None, "Empty star stays hidden");

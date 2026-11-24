@@ -338,6 +338,12 @@ namespace AnimalGame.Animals.UI
 
         private void Update()
         {
+            if (AnimalGame.World.StationLogUI.BlocksGameplay || AnimalGame.World.WarehouseUI.BlocksGameplay)
+            {
+                holdLatched = true;
+                holdTime = OpenHoldProgress = 0f;
+                return;
+            }
             if (root == null || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
                 || (BlocksGameplay && Time.frameCount == openedFrame)) return;
             if (BlocksGameplay && page == Page.Species)

@@ -22,12 +22,9 @@ namespace AnimalGame.World.Map
         }
         public Vector2 Center { get; private set; }
         public Vector2 Cursor { get; private set; }
-        public Vector2 DisplayCursor => SelectedPin >= 0 ? pins[SelectedPin]
-            : SelectedCheckpoint >= 0 ? checkpointCursor : Cursor;
+        public Vector2 DisplayCursor => SelectedPin >= 0 ? pins[SelectedPin] : Cursor;
         public Vector2 ViewSize { get; private set; }
         public int SelectedPin { get; private set; } = -1;
-        public int SelectedCheckpoint { get; private set; } = -1;
-        private Vector2 checkpointCursor;
 
         public void Open(Vector2 player, Vector2 viewSize, Vector2 mapSize)
         {
@@ -35,7 +32,6 @@ namespace AnimalGame.World.Map
             Center = Cursor;
             ViewSize = viewSize;
             SelectedPin = -1;
-            SelectedCheckpoint = -1;
             SelectedPinShape = 0;
         }
 
@@ -44,7 +40,6 @@ namespace AnimalGame.World.Map
             Center = center;
             Cursor = ClampToMap(cursor, mapSize);
             SelectedPin = -1;
-            SelectedCheckpoint = -1;
         }
 
         public void Resize(Vector2 size)
@@ -62,7 +57,6 @@ namespace AnimalGame.World.Map
             Cursor = ClampToMap(new Vector2(Mathf.Clamp(Cursor.x, Center.x - extent.x, Center.x + extent.x),
                 Mathf.Clamp(Cursor.y, Center.y - extent.y, Center.y + extent.y)), mapSize);
             SelectedPin = -1;
-            SelectedCheckpoint = -1;
         }
 
         public void Move(Vector2 screenDelta, Vector2 screenSize, Vector2 mapSize)
@@ -71,11 +65,9 @@ namespace AnimalGame.World.Map
             KeepInCursorRect(Cursor);
         }
 
-        public void Snap(Vector2 screenSize, float radiusPixels, IReadOnlyList<Vector2> checkpoints = null,
-            float checkpointRadiusPixels = 0f)
+        public void Snap(Vector2 screenSize, float radiusPixels)
         {
             SelectedPin = -1;
-            SelectedCheckpoint = -1;
             float nearest = radiusPixels * radiusPixels;
             for (int i = 0; i < pins.Count; i++)
             {
@@ -84,18 +76,6 @@ namespace AnimalGame.World.Map
                 nearest = distance;
                 SelectedPin = i;
             }
-            if (checkpoints != null)
-                for (int i = 0; i < checkpoints.Count; i++)
-                {
-                    float distance = Vector2.Scale(Divide(checkpoints[i] - Cursor, ViewSize), screenSize).sqrMagnitude;
-                    // A pin at exactly the same point wins so A still removes that pin.
-                    float radius = checkpointRadiusPixels > 0 ? checkpointRadiusPixels : radiusPixels;
-                    if (distance > radius * radius || ((SelectedPin >= 0 || SelectedCheckpoint >= 0) && distance >= nearest)) continue;
-                    nearest = distance;
-                    SelectedPin = -1;
-                    SelectedCheckpoint = i;
-                    checkpointCursor = checkpoints[i];
-                }
             KeepInCursorRect(DisplayCursor);
         }
 
@@ -109,7 +89,6 @@ namespace AnimalGame.World.Map
                 SelectedPin = -1;
                 return;
             }
-            Cursor = DisplayCursor;
             int existing = pinShapes.IndexOf(SelectedPinShape);
             if (existing >= 0)
             {
@@ -122,7 +101,6 @@ namespace AnimalGame.World.Map
                 pins.Add(Cursor);
                 SelectedPin = pins.Count - 1;
             }
-            SelectedCheckpoint = -1;
             CyclePinShape(1);
         }
 

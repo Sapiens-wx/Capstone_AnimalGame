@@ -56,7 +56,8 @@ fixed4 SampleWaterPattern(
     float normalizedDepth,
     float2 localFlow,
     float animationTime,
-    float2 bakedUv)
+    float2 bakedUv,
+    float patternScale)
 {
     if (any(bakedUv != 0.0))
     {
@@ -65,8 +66,8 @@ fixed4 SampleWaterPattern(
         localFlow = float2(length(localFlow), 0.0);
     }
     float depth = saturate(normalizedDepth);
-    float tileSize = max(0.01, _WaterTileSizeMeters);
-    float waveLength = max(0.1, _WaterWaveLengthMeters);
+    float tileSize = max(0.01, _WaterTileSizeMeters) * patternScale;
+    float waveLength = max(0.1, _WaterWaveLengthMeters) * patternScale;
     float2 waveCoordinate = mapMeters / waveLength;
     float2 distortion = float2(
         sin(waveCoordinate.y * 6.283185
@@ -153,15 +154,15 @@ float3 ApplyMapWater(float3 background, float2 tileUv, float2 tileSize, float re
     fixed4 water;
     [branch] if (revealMask <= 0)
     {
-        water = SampleWaterPattern(mapMeters, waterData.g, 0, 0, bakedUv);
+        water = SampleWaterPattern(mapMeters, waterData.g, 0, 0, bakedUv, 1);
     }
     else
     {
         float2 flow = SampleWaterFlow(waterUv);
-        water = SampleWaterPattern(mapMeters, waterData.g, flow, _Time.y, bakedUv);
+        water = SampleWaterPattern(mapMeters, waterData.g, flow, _Time.y, bakedUv, 1);
         [branch] if (revealMask < 1)
         {
-            fixed4 still = SampleWaterPattern(mapMeters, waterData.g, 0, 0, bakedUv);
+            fixed4 still = SampleWaterPattern(mapMeters, waterData.g, 0, 0, bakedUv, 1);
             water = lerp(still, water, revealMask);
         }
     }

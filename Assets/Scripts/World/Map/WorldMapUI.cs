@@ -1,8 +1,8 @@
 using AnimalGame.MainUI;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using AnimalGame.World.Checkpoints;
-using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -21,6 +21,7 @@ namespace AnimalGame.World.Map
         private const float MapDataFaultDuration = .65f;
         private const float MapDataNoticeHold = 3f;
         private const float MapDataNoticeFade = .25f;
+        private const float SurveySweepDuration = 1.2f;
         [SerializeField] private Shader contourShader;
         [Header("Zoom (visible range / player view at opening)")]
         [SerializeField, Min(.01f)] private float minimumZoom = 1;
@@ -33,7 +34,6 @@ namespace AnimalGame.World.Map
         [SerializeField, Min(1)] private float cursorSpeed = 500;
         [SerializeField, Min(1)] private float circleRadius = 7;
         [SerializeField, Range(0, .9f)] private float stickDeadZone = .16f;
-        [SerializeField, Min(1f)] private float checkpointIconSizePixels = 26f;
 
         public static WorldMapUI Instance { get; private set; }
         private static WorldMapUI active;
@@ -83,8 +83,10 @@ namespace AnimalGame.World.Map
         private bool savedCursorVisible, dirty;
         private Vector2 lastRenderedCenter, lastRenderedSize;
         private CheckpointManager checkpointManager;
-        private VisualElement checkpointLayer;
-        private readonly List<Image> checkpointIcons = new();
+        private StationLogUI surveyTerminal;
+        private RenderTexture previousSurveyFog;
+        private Vector2 surveyOrigin;
+        private float surveyStartedAt;
         private int lastFogRevision = -1;
         private bool MissingMapData => checkpointManager != null && !checkpointManager.HasSurveyData;
 
@@ -113,12 +115,6 @@ namespace AnimalGame.World.Map
             mapRulers.generateVisualContent += DrawMapRulers;
             root.Add(mapRulers);
             mapImage.scaleMode = ScaleMode.StretchToFill;
-            checkpointLayer = new VisualElement { name = "map-checkpoints", pickingMode = PickingMode.Ignore };
-            checkpointLayer.style.position = Position.Absolute;
-            checkpointLayer.style.left = checkpointLayer.style.top = 0;
-            checkpointLayer.style.right = checkpointLayer.style.bottom = 0;
-            checkpointLayer.style.overflow = Overflow.Hidden;
-            root.Insert(root.IndexOf(mapGrid) + 1, checkpointLayer);
             playerIcon = new VisualElement { name = "map-player", pickingMode = PickingMode.Ignore };
             playerIcon.style.position = Position.Absolute;
             playerIcon.style.scale = new Scale(new Vector3(1.5f, 1.5f, 1f));
@@ -342,10 +338,6 @@ namespace AnimalGame.World.Map
                 return;
             }
             Vector2 size = MapScreenSize();
-            if ((pad != null && pad.leftShoulder.wasPressedThisFrame)
-                || (keyboard != null && keyboard.qKey.wasPressedThisFrame)) CyclePinSelection(-1);
-            if ((pad != null && pad.rightShoulder.wasPressedThisFrame)
-                || (keyboard != null && keyboard.eKey.wasPressedThisFrame)) CyclePinSelection(1);
             if (size != lastSize)
             {
                 baseViewSize.x = baseViewSize.y * size.x / size.y;
@@ -355,6 +347,15 @@ namespace AnimalGame.World.Map
                 dirty = true;
                 lastSize = size;
             }
+            if (previousSurveyFog != null)
+            {
+                RefreshVisuals(size);
+                return;
+            }
+            if ((pad != null && pad.leftShoulder.wasPressedThisFrame)
+                || (keyboard != null && keyboard.qKey.wasPressedThisFrame)) CyclePinSelection(-1);
+            if ((pad != null && pad.rightShoulder.wasPressedThisFrame)
+                || (keyboard != null && keyboard.eKey.wasPressedThisFrame)) CyclePinSelection(1);
             Vector2 movement = pad != null ? pad.leftStick.ReadValue() : Vector2.zero;
             if (movement.magnitude < stickDeadZone) movement = Vector2.zero;
             if (pad != null) movement += pad.dpad.ReadValue();
@@ -411,8 +412,7 @@ namespace AnimalGame.World.Map
             else
             {
                 cursorOnSignal = unknownSignalWorldPosition is Vector2 source && View.Cursor == WorldToMap(source);
-                View.Snap(size, cursorOnSignal ? 0f : circleRadius * 1.4f,
-                    cursorOnSignal ? null : checkpointManager?.Positions, checkpointIconSizePixels * .6f);
+                View.Snap(size, cursorOnSignal ? 0f : circleRadius * 1.4f);
                 if ((keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
                     || (pad != null && pad.buttonSouth.wasPressedThisFrame)) View.Submit();
             }
@@ -561,30 +561,23 @@ namespace AnimalGame.World.Map
 
         public void Open()
         {
-            if (IsOpen || BlocksGameplay || AnimalGame.MainUI.MainUI.BlocksGameplay
-                || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels || Time.timeScale <= 0) return;
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay || Time.timeScale <= 0) return;
+            OpenMap(null);
+        }
+
+        // The terminal owns the gameplay pause for the entire round trip.
+        internal bool OpenMap(StationLogUI terminal)
+        {
+            if (BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return false;
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap == null || bootstrap.gameObject.scene != gameObject.scene || bootstrap.map == null
-                || !bootstrap.map.HasGeneratedMap || bootstrap.mapCamera == null || bootstrap.robotObject == null) return;
+                || !bootstrap.map.HasGeneratedMap || bootstrap.mapCamera == null || bootstrap.robotObject == null) return false;
             if ((bootstrap.photoMode != null && bootstrap.photoMode.IsActive)
                 || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing)
-                || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return;
+                || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject)) return false;
             map = bootstrap.map;
             checkpointManager = CheckpointManager.inst;
             if (checkpointManager != null && checkpointManager.gameObject.scene != gameObject.scene) checkpointManager = null;
-            checkpointLayer.Clear();
-            checkpointIcons.Clear();
-            if (checkpointManager != null)
-            {
-                checkpointManager.GetFog(map);
-                foreach (Checkpoint checkpoint in checkpointManager.Checkpoints)
-                {
-                    var icon = new Image { sprite = checkpoint.Icon, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
-                    icon.style.position = Position.Absolute;
-                    checkpointLayer.Add(icon);
-                    checkpointIcons.Add(icon);
-                }
-            }
             lastFogRevision = -1;
             Camera camera = bootstrap.mapCamera;
             // Measure the camera footprint on the map plane without inflating it for camera roll.
@@ -593,7 +586,7 @@ namespace AnimalGame.World.Map
             for (int i = 0; i < corners.Length; i++)
             {
                 Ray ray = camera.ViewportPointToRay(new Vector3(i % 2, i / 2));
-                if (!plane.Raycast(ray, out float distance)) return;
+                if (!plane.Raycast(ray, out float distance)) return false;
                 corners[i] = ray.GetPoint(distance);
             }
             Vector3 boundsSize = map.WorldBounds.size;
@@ -607,7 +600,27 @@ namespace AnimalGame.World.Map
             RecalculateZoomLimits();
             CurrentZoom = Mathf.Clamp(defaultZoom, MinimumZoom, MaximumZoom);
             Vector2 player = WorldToMap(bootstrap.robotObject.transform.position);
-            Vector2? openingSignal = frameUnknownSignalOnOpen ? WorldToMap(unknownSignalWorldPosition.Value) : null;
+            Vector2? openingSignal = terminal == null && frameUnknownSignalOnOpen ? WorldToMap(unknownSignalWorldPosition.Value) : null;
+            Rect stationRegion = default;
+            if (terminal != null)
+            {
+                if (terminal.gameObject.scene != gameObject.scene || checkpointManager == null
+                    || !checkpointManager.TryGetStationRegion(map, terminal.Station.StationId, out surveyOrigin, out stationRegion))
+                    return false;
+                var before = checkpointManager.CaptureFog(map);
+                try
+                {
+                    if (!SaveSystem.SyncStation(terminal.Station.StationId)) return false;
+                    previousSurveyFog = before;
+                }
+                finally
+                {
+                    if (previousSurveyFog == null) RenderTexture.ReleaseTemporary(before);
+                }
+                surveyTerminal = terminal;
+                float fit = Mathf.Max(stationRegion.width / baseViewSize.x, stationRegion.height / baseViewSize.y);
+                CurrentZoom = Mathf.Clamp(fit * 1.08f, MinimumZoom, MaximumZoom);
+            }
             if (openingSignal is Vector2 signal)
             {
                 Vector2 separation = signal - player;
@@ -621,6 +634,7 @@ namespace AnimalGame.World.Map
             Vector2 forward = bootstrap.robot.Forward;
             openingPlayerBearing = Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg;
             View.Open(player, baseViewSize * CurrentZoom, map.MapSizeMeters);
+            if (terminal != null) View.SetFocus(stationRegion.center, stationRegion.center, map.MapSizeMeters);
             FitWholeMap();
             if (openingSignal is Vector2 source) View.SetFocus((player + source) * .5f, source, map.MapSizeMeters);
             hoverMapPosition = View.DisplayCursor;
@@ -639,12 +653,26 @@ namespace AnimalGame.World.Map
             UnityEngine.Cursor.visible = false;
             active = this;
             IsOpen = true;
-            if (MissingMapData)
+            mapDataNotice.EnableInClassList("survey-notice", terminal != null);
+            controls.Q<Label>("map-close-caption").text = terminal != null ? "Back to Logs" : "Close";
+            if (terminal != null)
+            {
+                surveyStartedAt = Time.unscaledTime;
+                mapDataNotice.text = terminal.Station.StationId + "  /  RECEIVING MAP DATA";
+                mapDataNotice.style.opacity = 1f;
+                mapDataNotice.style.display = DisplayStyle.Flex;
+            }
+            else if (MissingMapData)
+            {
+                mapDataNotice.text = "MISSING MAP DATA";
                 mapDataNoticeStartsAt = Time.unscaledTime + (openingSignal.HasValue ? MapDataFaultDuration : 0f);
+            }
             lastSize = viewportSize;
             panel.style.display = DisplayStyle.Flex;
             dirty = true;
+            UpdateControlHints();
             RefreshVisuals(lastSize);
+            return true;
         }
 
         private Vector2 MapScreenSize()
@@ -688,6 +716,7 @@ namespace AnimalGame.World.Map
                 dirty = false;
                 lastFogRevision = fogRevision;
             }
+            else mapRenderer.AnimateWater(Time.unscaledTime);
             RefreshMapDataPresentation();
             Vector2 uiSize = root.contentRect.size;
             if (uiSize.x <= 0 || uiSize.y <= 0) return;
@@ -704,9 +733,6 @@ namespace AnimalGame.World.Map
                 }
             }
             float radius = circleRadius * uiSize.y / screenSize.y;
-            float iconRadius = checkpointIconSizePixels * .5f * uiSize.y / screenSize.y;
-            for (int i = 0; i < checkpointIcons.Count; i++)
-                PositionCircle(checkpointIcons[i], View.ToScreen(checkpointManager.Positions[i], uiSize), iconRadius);
             for (int i = 0; i < pinElements.Length; i++)
             {
                 bool visible = i < View.Pins.Count;
@@ -741,6 +767,18 @@ namespace AnimalGame.World.Map
 
         private void RefreshMapDataPresentation()
         {
+            if (previousSurveyFog != null)
+            {
+                float progress = (Time.unscaledTime - surveyStartedAt) / SurveySweepDuration;
+                if (progress < 1f)
+                {
+                    mapImage.image = mapRenderer.RenderReveal(previousSurveyFog, surveyOrigin, progress);
+                    return;
+                }
+                EndSurveySweep();
+                mapDataNotice.text = surveyTerminal.Station.StationId + "  /  MAP DATA SYNCED";
+                mapDataNoticeStartsAt = Time.unscaledTime;
+            }
             float age = Time.unscaledTime - mapDataNoticeStartsAt;
             if (age < 0f)
             {
@@ -790,6 +828,20 @@ namespace AnimalGame.World.Map
             element.style.width = element.style.height = radius * 2;
         }
 
+        private void EndSurveySweep()
+        {
+            if (previousSurveyFog == null) return;
+            mapImage.image = mapRenderer.Texture;
+            mapRenderer.EndReveal();
+            RenderTexture.ReleaseTemporary(previousSurveyFog);
+            previousSurveyFog = null;
+        }
+
+        internal void CloseFor(StationLogUI terminal)
+        {
+            if (surveyTerminal == terminal) Close();
+        }
+
         public void Close()
         {
             if (!IsOpen) return;
@@ -801,14 +853,15 @@ namespace AnimalGame.World.Map
             panel.style.display = DisplayStyle.None;
             mapDataNotice.style.display = DisplayStyle.None;
             mapDataNoticeStartsAt = -1f;
+            EndSurveySweep();
             mapImage.image = null;
-            checkpointLayer.Clear();
-            checkpointIcons.Clear();
             checkpointManager = null;
             mapRenderer.Dispose(); mapRenderer = null;
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             UnityEngine.Cursor.lockState = savedCursorLock;
             UnityEngine.Cursor.visible = savedCursorVisible;
+            if (surveyTerminal != null && surveyTerminal.isActiveAndEnabled) surveyTerminal.ReturnFromMap();
+            surveyTerminal = null;
         }
 
         private void OnDisable()
@@ -823,7 +876,6 @@ namespace AnimalGame.World.Map
                 edgePinElements[i]?.RemoveFromHierarchy();
                 if (pinChoices[i] != null) pinChoices[i].generateVisualContent -= pinChoiceDrawHandlers[i];
             }
-            checkpointLayer?.RemoveFromHierarchy();
             mapRulers?.RemoveFromHierarchy();
             playerIcon?.RemoveFromHierarchy();
             if (Instance == this) Instance = null;

@@ -66,6 +66,7 @@ namespace AnimalGame.World
         public float HeightAboveGroundMeters => Mathf.SmoothStep(0f, towerHeightMeters, liftProgress);
         private bool IsRiding => Phase == WeatherTowerPhase.Ascending || Phase == WeatherTowerPhase.Descending;
         private bool OnUpperView => liftProgress >= .5f;
+        private float UpperFloorOpacity => Mathf.SmoothStep(0f, 1f, liftProgress);
 
         public void Configure(GameObject exterior, GameObject ground, GameObject upper, Transform liftAnchor,
             Vector2 platformSize, Transform southDoor, float southOpeningWidth,
@@ -102,7 +103,7 @@ namespace AnimalGame.World
 
         private void InitializeViews()
         {
-            exteriorArt = exteriorView.GetComponentInChildren<SpriteRenderer>(true);
+            exteriorArt = HasOpenGround ? groundRoofArt : exteriorView.GetComponentInChildren<SpriteRenderer>(true);
             groundArt = groundView.GetComponentInChildren<SpriteRenderer>(true);
             roofArt = roofView.GetComponentInChildren<SpriteRenderer>(true);
             groundGateArt = groundGate != null ? groundGate.GetComponent<LineRenderer>() : null;
@@ -118,7 +119,9 @@ namespace AnimalGame.World
             bool interactPressed = interactHeld && !interactWasHeld;
             interactWasHeld = interactHeld;
             float deltaTime = Time.deltaTime;
-            if (deltaTime <= 0f) return;
+            // The refit UI can pause and disable the mover earlier in this same frame,
+            // while deltaTime still reflects the frame before the pause.
+            if (Time.timeScale <= 0f || deltaTime <= 0f) return;
             if (HasOpenGround) TickLiftCalls(deltaTime);
 
             if (!IsScenePlayer(player))
@@ -338,11 +341,12 @@ namespace AnimalGame.World
         private void RefreshViews()
         {
             bool outside = Phase == WeatherTowerPhase.Exterior;
-            float roofOpacity = Mathf.SmoothStep(0f, 1f, liftProgress);
+            float roofOpacity = UpperFloorOpacity;
             bool blendExterior = outside || (IsRiding && ridingExitLift);
             float exteriorOpacity = blendExterior ? 1f - roofOpacity : 0f;
             float groundOpacity = blendExterior ? 0f : 1f - roofOpacity;
-            if (exitLift != null) SetArtOpacity(exteriorArt, exteriorOpacity);
+            // The first-floor roof covers its interior whenever that room is not on display.
+            if (exitLift != null) SetArtOpacity(exteriorArt, HasOpenGround ? 1f - groundOpacity : exteriorOpacity);
             SetFloorOpacity(groundArt, groundGateArt, groundOpacity);
             SetFloorOpacity(roofArt, roofGateArt, roofOpacity);
 
@@ -353,11 +357,7 @@ namespace AnimalGame.World
             SetActive(roofView, roofOpacity > 0f);
             SetActive(groundGate, Phase != WeatherTowerPhase.Ground);
             SetActive(roofGate, IsRiding);
-            if (doorLines != null)
-            {
-                SetArtOpacity(upperCover, (1f - roofOpacity) * (1f - Mathf.SmoothStep(0f, 1f, underpass)));
-                RefreshLandings();
-            }
+            if (doorLines != null) RefreshLandings();
         }
 
         private static void SetFloorOpacity(SpriteRenderer art, LineRenderer gate, float opacity)

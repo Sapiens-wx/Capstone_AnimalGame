@@ -1,8 +1,9 @@
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using AnimalGame.World;
 using AnimalGame.World.Checkpoints;
 using AnimalGame.World.Map;
@@ -27,34 +28,28 @@ namespace AnimalGame.Editor
             CheckPins();
             CheckDiscovery();
             WorldMapRegressionChecks.Run();
-            Debug.Log("CHECKPOINT_CHECKS_PASS: nonblocking robot shape overlap, scene ownership, inactive seeds, runtime-only visits, cached Voronoi fog, hidden icons, pin snap/removal/FIFO and GPU map rendering.");
+            Debug.Log("CHECKPOINT_CHECKS_PASS: independent station and overlap discovery, saved station coverage, cached Voronoi fog, hidden seeds, player pins and GPU map rendering.");
         }
 
         private static void CheckPins()
         {
             var state = new MapViewState();
             Vector2 screen = Vector2.one * 1000;
-            var targets = new[] { new Vector2(501, 500) };
             state.Open(Vector2.one * 500, Vector2.one * 100, Vector2.one * 1000);
-            state.Snap(screen, 14, targets, 18);
-            Require(state.SelectedCheckpoint == 0 && state.DisplayCursor == targets[0], "Unvisited checkpoint did not snap.");
+            state.Snap(screen, 14);
+            Require(state.DisplayCursor == state.Cursor, "An empty map must leave the cursor free.");
             state.Submit();
-            Require(state.Pins.Count == 1 && state.Pins[0] == targets[0], "A did not place a pin at the checkpoint.");
-            state.Snap(screen, 14, targets, 18);
-            Require(state.SelectedPin == 0, "Checkpoint stole snap from a pin at the same point.");
+            Require(state.Pins.Count == 1 && state.Pins[0] == state.Cursor, "A did not place a pin at the cursor.");
+            state.Snap(screen, 14);
+            Require(state.SelectedPin == 0, "A player pin did not snap.");
             state.Submit();
             Require(state.Pins.Count == 0, "Second A did not remove the pin.");
-            state.Snap(screen, 14, targets, 18);
-            state.Move(new Vector2(200, 0), screen, Vector2.one * 1000);
-            state.Snap(screen, 14, targets, 18);
-            Require(state.SelectedCheckpoint == -1, "Cursor cannot leave checkpoint snap.");
         }
 
         private static void CheckDiscovery()
         {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Environment/Checkpoint.prefab");
-            var icon = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Arts/save_icon.png");
-            Require(prefab != null && prefab.GetComponent<Checkpoint>().Icon == icon && icon != null, "Checkpoint prefab/icon is missing.");
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Environment/Checkpoint/Checkpoint.prefab");
+            Require(prefab != null && prefab.GetComponent<Checkpoint>() != null, "Checkpoint prefab is missing.");
             Require(prefab.GetComponent<Collider2D>() == null, "Checkpoint must not have a physics collider.");
             Require(prefab.GetComponent<WorldInteraction>().Kind == WorldInteractionKind.Checkpoint, "Checkpoint kind is not exclusive.");
             Require((InteractionPushPlan.Solids & WorldInteractionKind.Checkpoint) == 0, "Checkpoint blocks movement.");
@@ -62,6 +57,9 @@ namespace AnimalGame.Editor
             Require(fogShader != null && !ShaderUtil.ShaderHasError(fogShader), "Fog shader failed compilation.");
             var previousPlayer = HeightMapPlayerSceneBootstrap.inst;
             var previousManager = CheckpointManager.inst;
+            var previousSave = SaveSystem.Current;
+            var currentSave = typeof(SaveSystem).GetProperty(nameof(SaveSystem.Current));
+            string testSave = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".bin");
             float previousTime = Time.timeScale;
             var scene = EditorSceneManager.NewPreviewScene();
             GameObject New(string name)
@@ -72,17 +70,23 @@ namespace AnimalGame.Editor
             }
             var source = new Texture2D(128, 128, TextureFormat.RGBA32, false, true);
             CheckpointManager testManager = null;
+            RenderTexture beforeSync = null;
             var pixels = new Color[128 * 128];
             for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++)
                 pixels[y * 128 + x] = new Color(x / 127f, 0, 0, 1);
             source.SetPixels(pixels); source.Apply();
             try
             {
+                currentSave.SetValue(null, new GameSave());
                 var map = New("Map").AddComponent<MapTestSceneController>();
                 using (var fixture = new TiledMapTestFixture(map, source, 100, 1, 140))
                 {
                     var root = New("Checkpoint manager");
                     var a = Object.Instantiate(prefab, root.transform).GetComponent<Checkpoint>();
+                    var bound = new SerializedObject(a);
+                    const string stationId = "regression-station";
+                    bound.FindProperty("stationId").stringValue = stationId;
+                    bound.ApplyModifiedPropertiesWithoutUndo();
                     var group = new GameObject("Nested checkpoints"); group.transform.SetParent(root.transform, false);
                     var b = Object.Instantiate(prefab, group.transform).GetComponent<Checkpoint>();
                     a.transform.position = map.MapPositionToWorld(new Vector2(25, 50));
@@ -100,8 +104,11 @@ namespace AnimalGame.Editor
                     HeightMapPlayerSceneBootstrap.inst = bootstrap;
                     Time.timeScale = 1;
                     RenderTexture fog = manager.GetFog(map);
+                    Require(manager.Checkpoints.Count == 2 && manager.TryGetStationRegion(map, stationId,
+                        out var center, out var bounds) && Vector2.Distance(center, new Vector2(25, 50)) < .01f
+                        && Mathf.Abs(bounds.xMax - 50f) < .01f && Mathf.Abs(bounds.width - 50f) < .01f,
+                        "The station region did not stop halfway to the inactive neighboring seed.");
                     Require(RenderTexture.active != fog, "Fog bake leaked the active render target.");
-                    Require(manager.Checkpoints.Count == 2 && manager.Positions.Count == 2, "Nested/inactive checkpoints were not collected.");
                     Require(Sample(fog, .1f) > .99f && Sample(fog, .9f) > .99f, "Initial map is not fully fogged.");
                     int initialRevision = manager.Revision;
                     Require(manager.GetFog(map) == fog && manager.Revision == initialRevision, "Fog regenerated without a checkpoint change.");
@@ -115,20 +122,33 @@ namespace AnimalGame.Editor
                     Call(ui, "OnEnable");
                     ui.Open();
                     Require(ui.IsOpen, "Map did not open.");
-                    var icons = (List<Image>)typeof(WorldMapUI).GetField("checkpointIcons", Private).GetValue(ui);
-                    Require(icons.Count == 2 && icons[0].sprite == icon && icons[1].sprite == icon, "Unvisited checkpoint icons are missing.");
-                    var layer = (VisualElement)typeof(WorldMapUI).GetField("checkpointLayer", Private).GetValue(ui);
-                    Require(layer.parent.IndexOf(layer) > layer.parent.IndexOf(layer.parent.Q("map-image")), "Icons are below the map fog.");
+                    var tree = uiGo.GetComponent<UIDocument>().rootVisualElement;
+                    Require(tree.Q("map-checkpoints") == null && tree.Q("pin-0") != null,
+                        "Survey seeds must stay hidden while player pins remain available.");
+                    var stylesheet = AssetDatabase.LoadAssetAtPath<StyleSheet>("Assets/Prefabs/Resources/UI/Map/Map.uss");
+                    var elements = tree.Query<VisualElement>().ToList();
+                    Require(stylesheet != null && elements.Exists(element => element.styleSheets.Contains(stylesheet)),
+                        "The world map must load its runtime stylesheet.");
                     ui.Close();
                     robot.transform.position = a.transform.position;
                     var shape = robot.GetCollisionShape(map);
                     Require(WorldInteractionQuery.Query(shape, WorldInteractionKind.Checkpoint, map, scene), "Robot shape did not overlap checkpoint.");
                     Require(!WorldInteractionQuery.Query(shape, InteractionPushPlan.Solids, map, scene), "Checkpoint was included in solid collision queries.");
                     Call(manager, "LateUpdate");
-                    Require(a.Visited && !b.Visited && manager.Revision == initialRevision + 1, "Checkpoint visit did not update once.");
-                    Require(Sample(fog, .1f) < .01f && Sample(fog, .9f) > .99f, "Visited Voronoi cell did not reveal independently.");
+                    Require(!a.Visited && !b.Visited && manager.Revision == initialRevision,
+                        "Walking over a station-bound seed revealed map data.");
+                    beforeSync = manager.CaptureFog(map);
+                    var sync = typeof(SaveSystem).GetMethod(nameof(SaveSystem.SyncStation),
+                        BindingFlags.Static | BindingFlags.NonPublic, null, new[] { typeof(string), typeof(string) }, null);
+                    Require((bool)sync.Invoke(null, new object[] { stationId, testSave }), "Station sync was not committed.");
+                    Require(SaveSystem.LoadOrCreate(testSave).syncedStationIds.Contains(stationId), "Station survey was not saved.");
+                    fog = manager.GetFog(map);
+                    Require(a.Visited && !b.Visited && Sample(fog, .1f) < .01f && Sample(fog, .9f) > .99f,
+                        "Sync did not reveal exactly its bound Voronoi cell.");
+                    Require(Sample(beforeSync, .1f) > .99f, "The reveal lost its independent pre-sync fog snapshot.");
+                    int syncedRevision = manager.Revision;
                     Call(manager, "LateUpdate");
-                    Require(manager.Revision == initialRevision + 1, "Repeated overlap rerendered fog.");
+                    Require(manager.GetFog(map) == fog && manager.Revision == syncedRevision, "Repeated access rerendered fog.");
                     b.gameObject.SetActive(true);
                     robot.transform.position = b.transform.position;
                     Call(manager, "LateUpdate");
@@ -138,6 +158,7 @@ namespace AnimalGame.Editor
             }
             finally
             {
+                if (beforeSync != null) RenderTexture.ReleaseTemporary(beforeSync);
                 // Awake was invoked manually in this edit-mode fixture; release its GPU ownership explicitly.
                 if (testManager != null) Call(testManager, "OnDestroy");
                 EditorSceneManager.ClosePreviewScene(scene);
@@ -145,6 +166,8 @@ namespace AnimalGame.Editor
                 Time.timeScale = previousTime;
                 HeightMapPlayerSceneBootstrap.inst = previousPlayer;
                 CheckpointManager.inst = previousManager;
+                currentSave.SetValue(null, previousSave);
+                if (File.Exists(testSave)) File.Delete(testSave);
             }
         }
 

@@ -1,0 +1,55 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Prefabs/Resources/UI/Warehouse/Warehouse.uss?fileID=7433441132597879392&amp;guid=081de8295cde46d08b4668d40dcce9c7&amp;type=3#Warehouse" />
+    <ui:VisualElement name="Warehouse" class="warehouse">
+        <ui:VisualElement class="warehouse-console">
+            <ui:VisualElement class="warehouse-header">
+                <ui:VisualElement name="hold-icon" class="warehouse-icon" picking-mode="Ignore" />
+                <ui:Label text="WAREHOUSE" class="warehouse-title" picking-mode="Ignore" />
+                <ui:VisualElement class="warehouse-header-rule" picking-mode="Ignore" />
+                <ui:VisualElement class="warehouse-inspector" picking-mode="Ignore">
+                    <ui:Label name="slot-address" class="warehouse-address" />
+                    <ui:Label name="slot-detail" class="warehouse-detail" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="warehouse-banks">
+                <ui:VisualElement name="cargo-bank" class="warehouse-bank cargo-bank">
+                    <ui:VisualElement class="bank-outline" picking-mode="Ignore" />
+                    <ui:VisualElement class="bank-header" picking-mode="Ignore">
+                        <ui:VisualElement class="bank-indicator" />
+                        <ui:Label text="CARGO" class="bank-name" />
+                        <ui:VisualElement class="bank-capacity">
+                            <ui:Label name="cargo-count" class="bank-count" />
+                            <ui:VisualElement class="capacity-track"><ui:VisualElement name="cargo-fill" class="capacity-fill" /></ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="cargo-grid" class="warehouse-grid" />
+                </ui:VisualElement>
+                <ui:VisualElement name="storage-bank" class="warehouse-bank storage-bank">
+                    <ui:VisualElement class="bank-outline" picking-mode="Ignore" />
+                    <ui:VisualElement class="bank-header" picking-mode="Ignore">
+                        <ui:VisualElement class="bank-indicator" />
+                        <ui:Label text="STORAGE" class="bank-name" />
+                        <ui:VisualElement class="bank-capacity">
+                            <ui:Label name="storage-count" class="bank-count" />
+                            <ui:VisualElement class="capacity-track"><ui:VisualElement name="storage-fill" class="capacity-fill" /></ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="storage-grid" class="warehouse-grid" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="warehouse-footer">
+                <ui:Label name="status" class="warehouse-status" picking-mode="Ignore" />
+                <ui:Button name="confirm" class="warehouse-command" tooltip="Confirm (Enter or A)">
+                    <ui:Label text="Enter" class="warehouse-key" picking-mode="Ignore" />
+                    <ui:Label text="A" class="warehouse-pad" picking-mode="Ignore" />
+                    <ui:Label name="confirm-copy" class="command-text" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Button name="back" class="warehouse-command" tooltip="Back (Esc or B)">
+                    <ui:Label text="Esc" class="warehouse-key" picking-mode="Ignore" />
+                    <ui:Label text="B" class="warehouse-pad" picking-mode="Ignore" />
+                    <ui:Label name="back-copy" class="command-text" picking-mode="Ignore" />
+                </ui:Button>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -17,8 +17,7 @@ namespace AnimalGame.MainUI
         private void RefreshDpadHoldHint()
         {
             if (!started || dpadHoldHint == null) return;
-            bool blocked = AnimalGame.MapTest.OfficialMapOpening.IsPlaying || AnimalGame.World.Map.WorldMapUI.BlocksGameplay
-                || AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
+            bool blocked = AnimalGame.MapTest.OfficialMapOpening.IsPlaying || WorldPanelOpen
                 || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels;
             Vector2 direction = Vector2.zero;
 #if ENABLE_INPUT_SYSTEM

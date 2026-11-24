@@ -54,7 +54,7 @@
             <ui:VisualElement class="map-action">
                 <ui:VisualElement class="map-action-underline" />
                 <ui:Label name="map-close-key" text="B" class="map-action-key" />
-                <ui:Label text="Close" class="map-action-caption" />
+                <ui:Label name="map-close-caption" text="Close" class="map-action-caption" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

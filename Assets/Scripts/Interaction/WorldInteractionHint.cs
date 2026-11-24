@@ -9,6 +9,8 @@ namespace AnimalGame.Interaction
     [DisallowMultipleComponent]
     public sealed class WorldInteractionHint : MonoBehaviour
     {
+        [SerializeField] private string keyLabel = "A";
+        [SerializeField] private string actionLabel = "INTERACT";
         private VisualElement prompt;
 
         public static void ReplaceLegacyPrompt(GameObject anchor)
@@ -33,17 +35,18 @@ namespace AnimalGame.Interaction
             if (prompt != null) prompt.style.display = DisplayStyle.None;
         }
 
-        private static VisualElement CreatePrompt()
+        private VisualElement CreatePrompt()
         {
             var row = new VisualElement { name = "WorldInteractionHint", pickingMode = PickingMode.Ignore };
             row.AddToClassList("driving-control");
             row.style.position = Position.Absolute;
             row.style.transformOrigin = new TransformOrigin(Length.Percent(50f), Length.Percent(100f));
             row.style.translate = new Translate(Length.Percent(-50f), Length.Percent(-100f));
-            var input = new Label("A") { pickingMode = PickingMode.Ignore };
+            var input = new Label(keyLabel) { pickingMode = PickingMode.Ignore };
             input.AddToClassList("driving-control-key");
+            input.AddToClassList("driving-control-key-wide");
             row.Add(input);
-            var action = new Label("INTERACT") { pickingMode = PickingMode.Ignore };
+            var action = new Label(actionLabel) { pickingMode = PickingMode.Ignore };
             action.AddToClassList("driving-control-action");
             row.Add(action);
             return row;

@@ -6,6 +6,7 @@ Shader "AnimalGame/Dynamic Height Contours"
         [HideInInspector] _PhotoContoursOnly ("Photo Contours Only", Float) = 0
         [HideInInspector] _DashSubmergedContours ("Dash Submerged Contours", Float) = 0
         [HideInInspector] _SmoothContourEdges ("Smooth Contour Edges", Float) = 0
+        [HideInInspector] _OpeningMapScan ("Opening Map Scan", Vector) = (2, 2, 0, 0)
         _HeightTex ("Height Map", 2D) = "black" {}
         _SurfaceEnabled ("Surface Enabled", Float) = 0
         _GrassMaskTex ("Grassland Coverage", 2D) = "black" {}
@@ -95,6 +96,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float _PhotoContoursOnly;
             float _DashSubmergedContours;
             float _SmoothContourEdges;
+            float4 _OpeningMapScan;
             sampler2D _HeightTex;
             float _SurfaceEnabled;
             float _SurfaceRevealEnabled;
@@ -120,6 +122,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             #include "TerrainOriginalPatterns.cginc"
             #include "HeightContourLines.cginc"
             #include "MapWater.cginc"
+            #include "OpeningMapScan.cginc"
 
             v2f vert(appdata input)
             {
@@ -129,24 +132,6 @@ Shader "AnimalGame/Dynamic Height Contours"
                 output.color = input.color;
                 output.screenPosition = ComputeScreenPos(output.vertex);
                 return output;
-            }
-
-            float SubmergedContourDash(float2 mapMeters, float heightMeters)
-            {
-                float2 mapDx = ddx(mapMeters);
-                float2 mapDy = ddy(mapMeters);
-                float2 tangent = mapDx * ddy(heightMeters) - mapDy * ddx(heightMeters);
-                float2 weights = abs(tangent);
-                float2 axis = weights.x >= weights.y ? float2(1, 0) : float2(0, 1);
-                // Pick a fixed world axis near the tangent, so bending the line does not rotate its phase scale.
-                const float diagonalUnit = 0.70710678;
-                if ((weights.x + weights.y) * diagonalUnit > max(weights.x, weights.y))
-                    axis = float2(1, tangent.x * tangent.y >= 0 ? 1 : -1) * diagonalUnit;
-
-                float projectedMeters = dot(mapMeters, axis);
-                float distanceToDashCenter = abs(frac(projectedMeters / 8.0 + 0.5) - 0.5) * 8.0;
-                float pixelMeters = clamp(abs(dot(mapDx, axis)) + abs(dot(mapDy, axis)), 0.001, 2.5);
-                return saturate(0.5 + (2.5 - distanceToDashCenter) / pixelMeters);
             }
 
             float SampleContourHeight(float2 uv, float center, float radiusMeters)
@@ -168,17 +153,42 @@ Shader "AnimalGame/Dynamic Height Contours"
                 // The sprite only supplies geometry; its carrier texture must not control map opacity.
                 fixed4 baseColor = fixed4(0, 0, 0, input.color.a);
                 if (_PhotoContoursOnly > 0.5) baseColor = fixed4(0, 0, 0, 1);
+
+                // The shared material advances contours and surface from hidden to scanning to ready.
+                bool openingScan = _PhotoContoursOnly < .5 && any(_OpeningMapScan.xy < 1.5);
+                if (openingScan && _OpeningMapScan.x < .5) return baseColor;
+
+                float2 screenUv = input.screenPosition.xy / max(input.screenPosition.w, 0.00001);
+                float2 contourUv = input.uv;
+                float2 surfaceUv = input.uv;
+                float contourVisibility = 1;
+                float surfaceVisibility = openingScan ? step(.5, _OpeningMapScan.y) : 1;
+                bool surfaceScanning = openingScan && _OpeningMapScan.y > .5 && _OpeningMapScan.y < 1.5;
+                if (openingScan)
+                {
+                    float2 scanPoint = float2(screenUv.x, 1 - screenUv.y);
+                    float2 readOffset;
+                    if (_OpeningMapScan.x < 1.5)
+                    {
+                        contourVisibility = OpeningContourScan(scanPoint, _OpeningMapScan.z, readOffset);
+                        contourUv = OpeningScanUv(input.uv, scanPoint, readOffset, contourVisibility);
+                    }
+                    else if (surfaceScanning)
+                    {
+                        surfaceVisibility = OpeningSurfaceScan(scanPoint, _OpeningMapScan.z, _OpeningMapScan.w, readOffset);
+                        surfaceUv = OpeningScanUv(input.uv, scanPoint, readOffset, surfaceVisibility);
+                    }
+                }
+
                 float revealMask = 1.0;
                 float landVisibility = 1.0;
                 float rippleTransmission = 1.0;
-                float2 mapMeters = input.uv * _MapSizeMeters.xy + _WaterOriginMeters.xy;
-                // Differentiate continuous map coordinates before branching on terrain coverage.
+                float2 mapMeters = contourUv * _MapSizeMeters.xy + _WaterOriginMeters.xy;
+                // Use the continuous tile UV for the pattern footprint across scan band edges.
                 float2 terrainDx = ddx(input.uv) * _MapSizeMeters.xy;
                 float2 terrainDy = ddy(input.uv) * _MapSizeMeters.xy;
                 if (_SurfaceRevealEnabled > 0.5)
                 {
-                    float2 screenUv = input.screenPosition.xy
-                                      / max(input.screenPosition.w, 0.00001);
                     float2 pixelPosition = screenUv * _ScreenParams.xy;
                     float distanceFromUiCentre = distance(
                         pixelPosition,
@@ -195,53 +205,60 @@ Shader "AnimalGame/Dynamic Height Contours"
                         : step(distanceFromUiCentre, revealRadius);
                 }
 
-                // Original terrain patterns are revealed only
-                // inside the player UI. Water is a persistent natural feature:
-                // it stays visible everywhere, while this same reveal mask only
-                // selects whether its pattern is static or animated.
                 if (_SurfaceEnabled > 0.5 || _WaterEnabled > 0.5)
                 {
                     float2 waterUv;
                     float insideWaterBounds;
-                    fixed4 waterData = ReadMapWater(input.uv, waterUv, insideWaterBounds);
-                    float waterRange = smoothstep(.02, .98, waterData.r);
+                    fixed4 waterData = ReadMapWater(contourUv, waterUv, insideWaterBounds);
                     // Fade only on the dry side of the mask's midpoint.
                     landVisibility -= _DashSubmergedContours * smoothstep(0.02, 0.5, waterData.r);
 
-                    float landVisibilityFactor = min(1.0 - waterRange, landVisibility);
-                    // Pattern blending is zero outside the reveal or under fully opaque water.
-                    [branch] if (revealMask > 0 && landVisibilityFactor > 0)
+                    [branch] if (surfaceVisibility > .5)
                     {
-                        fixed4 terrainSurface = _SurfaceEnabled > 0.5
-                            ? SampleOriginalTerrain(input.uv, terrainDx, terrainDy)
-                            : fixed4(0.0, 0.0, 0.0, 0.0);
-                        if (_GrassEnabled > .5 && revealMask > .0001)
-                            terrainSurface = CombineGrassland(terrainSurface,
-                                SampleGrassland(input.uv, terrainDx, terrainDy, _GrassActive * step(.001, revealMask)));
-                        if (terrainSurface.a * revealMask > .0001)
-                            terrainSurface.a *= MapShoreTerrainOpacity(input.uv, _MapSizeMeters.xy);
-                        float terrainBlend = saturate(terrainSurface.a * revealMask * landVisibilityFactor);
-                        baseColor.rgb = lerp(baseColor.rgb, terrainSurface.rgb, terrainBlend);
-                    }
+                        float surfaceLandVisibility = landVisibility;
+                        if (surfaceScanning)
+                        {
+                            // Read the shifted surface without shifting the already restored contours.
+                            waterData = ReadMapWater(surfaceUv, waterUv, insideWaterBounds);
+                            surfaceLandVisibility = 1 - _DashSubmergedContours * smoothstep(.02, .5, waterData.r);
+                        }
+                        float waterRange = smoothstep(.02, .98, waterData.r);
+                        float landVisibilityFactor = min(1.0 - waterRange, surfaceLandVisibility);
+                        // Land patterns appear inside the player UI where water leaves them visible.
+                        [branch] if (revealMask > 0 && landVisibilityFactor > 0)
+                        {
+                            fixed4 terrainSurface = _SurfaceEnabled > 0.5
+                                ? SampleOriginalTerrain(surfaceUv, terrainDx, terrainDy)
+                                : fixed4(0.0, 0.0, 0.0, 0.0);
+                            if (_GrassEnabled > .5 && revealMask > .0001)
+                                terrainSurface = CombineGrassland(terrainSurface,
+                                    SampleGrassland(surfaceUv, terrainDx, terrainDy, _GrassActive * step(.001, revealMask)));
+                            if (terrainSurface.a * revealMask > .0001)
+                                terrainSurface.a *= MapShoreTerrainOpacity(surfaceUv, _MapSizeMeters.xy);
+                            float terrainBlend = saturate(terrainSurface.a * revealMask * landVisibilityFactor);
+                            baseColor.rgb = lerp(baseColor.rgb, terrainSurface.rgb, terrainBlend);
+                        }
 
-                    if (_WaterEnabled > 0.5)
-                    {
-                        float waterBlend;
-                        baseColor.rgb = ApplyMapWater(baseColor.rgb, input.uv, _MapSizeMeters.xy,
-                            revealMask, waterUv, insideWaterBounds, waterData, waterBlend);
-                        rippleTransmission = 1.0 - waterBlend;
+                        if (_WaterEnabled > 0.5)
+                        {
+                            float waterBlend;
+                            baseColor.rgb = ApplyMapWater(baseColor.rgb, surfaceUv, _MapSizeMeters.xy,
+                                revealMask, waterUv, insideWaterBounds, waterData, waterBlend);
+                            rippleTransmission = 1.0 - waterBlend;
+                        }
                     }
                 }
 
                 // This texture is the same normalized physical surface sampled by
                 // movement and traversal UI.
-                float normalizedHeight = saturate(tex2D(_HeightTex, input.uv).r);
+                float normalizedHeight = saturate(tex2D(_HeightTex, contourUv).r);
                 float heightMeters = lerp(_MinimumHeight, _MaximumHeight, normalizedHeight);
 
                 float contourHeight = heightMeters;
                 if (_SmoothContourEdges > 0.5)
-                    contourHeight = SampleContourHeight(input.uv, normalizedHeight, 0.65);
-                float blendAmount = saturate(HeightContourBlend(contourHeight, _SmoothContourEdges > 0.5) * _ContourColor.a);
+                    contourHeight = SampleContourHeight(contourUv, normalizedHeight, 0.65);
+                float blendAmount = saturate(HeightContourBlend(contourHeight, _SmoothContourEdges > 0.5) * _ContourColor.a)
+                    * contourVisibility;
                 if (_DashSubmergedContours > 0.5 && _WaterEnabled > 0.5)
                 {
                     float submergedBlend = blendAmount * (1.0 - landVisibility)

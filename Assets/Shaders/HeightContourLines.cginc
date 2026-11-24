@@ -46,4 +46,24 @@ float HeightContourBlend(float heightMeters)
 {
     return HeightContourBlend(heightMeters, false);
 }
+
+// Submerged contours share the scene's world-anchored dash length and orientation.
+float SubmergedContourDash(float2 mapMeters, float heightMeters)
+{
+    float2 mapDx = ddx(mapMeters);
+    float2 mapDy = ddy(mapMeters);
+    float2 tangent = mapDx * ddy(heightMeters) - mapDy * ddx(heightMeters);
+    float2 weights = abs(tangent);
+    float2 axis = weights.x >= weights.y ? float2(1, 0) : float2(0, 1);
+    // Pick a fixed world axis near the tangent, so bending the line does not rotate its phase scale.
+    const float diagonalUnit = 0.70710678;
+    if ((weights.x + weights.y) * diagonalUnit > max(weights.x, weights.y))
+        axis = float2(1, tangent.x * tangent.y >= 0 ? 1 : -1) * diagonalUnit;
+
+    float projectedMeters = dot(mapMeters, axis);
+    float distanceToDashCenter = abs(frac(projectedMeters / 8.0 + 0.5) - 0.5) * 8.0;
+    float pixelMeters = clamp(abs(dot(mapDx, axis)) + abs(dot(mapDy, axis)), 0.001, 2.5);
+    return saturate(0.5 + (2.5 - distanceToDashCenter) / pixelMeters);
+}
+
 #endif

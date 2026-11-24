@@ -34,6 +34,7 @@ namespace AnimalGame.MainUI.Inventory
         public float CloseHoldElapsed => closeHoldElapsed;
         private readonly IInventoryHost host;
         private InventoryControllerSettings settings;
+        internal InventoryControllerSettings Settings => settings;
         private VisualElement root, inventory, grid;
         private InventorySelectionElement selection;
         private readonly Button[] slots = new Button[SlotCount];
@@ -499,9 +500,7 @@ namespace AnimalGame.MainUI.Inventory
 
         private void HandleInput()
         {
-            if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
-            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
-            if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
+            if (MainUI.WorldPanelOpen || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
             {
                 openHoldElapsed = closeHoldElapsed = 0f;
                 openHoldLatched = closeHoldLatched = true;

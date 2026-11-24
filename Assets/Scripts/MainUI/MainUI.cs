@@ -71,6 +71,7 @@ namespace AnimalGame.MainUI
         }
 
         public InventoryStore Inventory => InventoryController.Inventory;
+        public InventoryStore Warehouse { get; } = new(16);
         public InventoryInteractionState InteractionState => InventoryController.InteractionState;
         public event Action<InventoryItem> UseRequested
         {
@@ -97,9 +98,12 @@ namespace AnimalGame.MainUI
         private const float DriveDamageWarningFadeDuration = .2f;
 
         public static MainUI Active { get; private set; }
-        public static bool BlocksGameplay => OfficialMapOpening.IsPlaying || AnimalGame.World.Map.WorldMapUI.BlocksGameplay
+        internal static bool WorldPanelOpen => AnimalGame.World.Map.WorldMapUI.BlocksGameplay
             || AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay
             || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
+            || AnimalGame.World.StationLogUI.BlocksGameplay
+            || AnimalGame.World.WarehouseUI.BlocksGameplay;
+        public static bool BlocksGameplay => OfficialMapOpening.IsPlaying || WorldPanelOpen
             || (Active != null && Active.isActiveAndEnabled && Active.pauseOwned);
         public bool IsInventoryOpen => inventoryOpen;
         public bool IsCargoLocked { get; private set; }
@@ -283,9 +287,8 @@ namespace AnimalGame.MainUI
         public void OpenInventory()
         {
             if (IsCargoLocked || OfficialMapOpening.IsPlaying) return;
-            if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
+            if (WorldPanelOpen) return;
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
-            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
             HeightMapPlayerSceneBootstrap bootstrap = HeightMapPlayerSceneBootstrap.inst;

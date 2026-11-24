@@ -105,6 +105,7 @@ namespace AnimalGame.AnimalDebug
 
         private bool OtherPanelOpen()
         {
+            if (AnimalGame.MainUI.MainUI.WorldPanelOpen) return true;
             var hud = AnimalGame.MainUI.MainUI.Active;
             if (hud != null && (hud.IsInventoryOpen || hud.InventoryProgress > .001f)) return true;
             foreach (GameObject sceneRoot in gameObject.scene.GetRootGameObjects())
@@ -143,8 +144,7 @@ namespace AnimalGame.AnimalDebug
         private void Update()
         {
             if (AnimalGame.MapTest.OfficialMapOpening.IsPlaying) return;
-            if (AnimalGame.World.Map.WorldMapUI.BlocksGameplay) return;
-            if (AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay) return;
+            if (AnimalGame.MainUI.MainUI.WorldPanelOpen) return;
             Bind();
             bool toggle = false, back = false, submit = false, click = false;
             int move = 0; Vector2 mouse = Vector2.zero;

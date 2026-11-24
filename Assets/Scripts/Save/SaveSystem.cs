@@ -13,7 +13,8 @@ namespace AnimalGame.Save
         private const int FileSignature = 0x41475356; // AGSV
         private const int CaptureRecognitionVersion = 3;
         private const int NodeMessageVersion = 5;
-        private const int FileVersion = NodeMessageVersion;
+        private const int StationSyncVersion = 6;
+        private const int FileVersion = StationSyncVersion;
         public static GameSave Current { get; private set; }
         public static DateTime CurrentGameTime => Current?.gameTime ?? GameSave.InitialGameTime;
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
@@ -123,6 +124,11 @@ namespace AnimalGame.Save
                 }
             }
             if (version >= 4) save.gameTime = new DateTime(reader.ReadInt64());
+            if (version >= StationSyncVersion)
+            {
+                int stationCount = ReadCount(reader);
+                for (int i = 0; i < stationCount; i++) save.syncedStationIds.Add(reader.ReadString());
+            }
             if (stream.Position != stream.Length) throw new InvalidDataException("Unexpected trailing game save data.");
             return save;
         }
@@ -177,6 +183,8 @@ namespace AnimalGame.Save
                         }
                     }
                     writer.Write(data.gameTime.Ticks);
+                    writer.Write(data.syncedStationIds.Count);
+                    foreach (string stationId in data.syncedStationIds) writer.Write(stationId);
                     writer.Flush();
                     stream.Flush(true);
                 }
@@ -191,6 +199,30 @@ namespace AnimalGame.Save
             Initialize();
             WriteTo(SavePath, Current);
             Changed?.Invoke();
+        }
+
+        public static bool IsStationSynced(string stationId)
+        {
+            Initialize();
+            return Current.syncedStationIds.Contains(stationId);
+        }
+
+        public static bool SyncStation(string stationId) => SyncStation(stationId, SavePath);
+
+        internal static bool SyncStation(string stationId, string path)
+        {
+            if (string.IsNullOrWhiteSpace(stationId))
+                throw new ArgumentException("A station must have an ID to sync.", nameof(stationId));
+            if (IsStationSynced(stationId)) return false;
+            Current.syncedStationIds.Add(stationId);
+            try { WriteTo(path, Current); }
+            catch
+            {
+                Current.syncedStationIds.Remove(stationId);
+                throw;
+            }
+            Changed?.Invoke();
+            return true;
         }
 
         public static bool StorePhoto(AnimalPhotoRecord photo) => StorePhoto(photo, SavePath);

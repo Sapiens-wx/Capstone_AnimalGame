@@ -101,6 +101,7 @@ namespace AnimalGame.MapTest
         public float MinimumHeightMeters => minimumHeightMeters;
         public Vector2 SampleSpacing(Vector2 position) => runtimeMap?.SampleSpacing(position) ?? Vector2.zero;
         public float ContourIntervalMeters => contourIntervalMeters;
+        internal bool DashSubmergedContours => dashSubmergedContours;
         public Color BackgroundColor => backgroundColor;
         public bool HasGeneratedMap => runtimeMap != null && tileViews.Count == runtimeMap.TileCount && tileViews.Count > 0;
         public bool HasPendingHeightLoads => runtimeMap != null && runtimeMap.HasPendingLoads;

@@ -1,14 +1,8 @@
-using AnimalGame.Animals;
 using AnimalGame.Animals.Communication;
 using AnimalGame.Interaction;
 using AnimalGame.MapTest;
-using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
 using UnityEngine;
-using GameMainUI = AnimalGame.MainUI.MainUI;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace AnimalGame.World
 {
@@ -62,38 +56,12 @@ namespace AnimalGame.World
                 if (tower != null && (floor == null || (tower.Phase != WeatherTowerPhase.Ground
                     && tower.Phase != WeatherTowerPhase.Outdoor))) return false;
 
-                // RobotMover moves through the custom world query, without a Rigidbody2D.
-                // Read the authored trigger directly so rotated/scaled stations work without physics callbacks.
-                Vector2 local = (Vector2)interactionTrigger.transform.InverseTransformPoint(player.transform.position)
-                    - interactionTrigger.offset;
-                Vector2 halfSize = interactionTrigger.size * .5f;
-                return Mathf.Abs(local.x) <= halfSize.x && Mathf.Abs(local.y) <= halfSize.y;
+                return WorldStationInteraction.IsInRange(interactionTrigger, player);
             }
         }
 
-        public bool CanInteract
-        {
-            get
-            {
-                if (!IsNearby || earthline == null || !earthline.isActiveAndEnabled || Time.timeScale <= 0f
-                    || GameMainUI.Active == null || GameMainUI.BlocksGameplay
-                    || GameMainUI.Active.InventoryProgress > .001f || GameMainUI.Active.IsInventoryOpen
-                    || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
-                    || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(player.gameObject)
-                    || player.IgnoreCollisionAndTerrain || player.IsMovementLocked
-                    || player.IsPhotoModeInputLocked || player.IsArmInputCaptured)
-                    return false;
-
-                RobotArmController arm = player.GetComponent<RobotArmController>();
-                PhotoModeController photo = player.GetComponent<PhotoModeController>();
-                RobotHeightMotionDetector height = player.GetComponent<RobotHeightMotionDetector>();
-                PlayerCombatReceiver combat = player.GetComponent<PlayerCombatReceiver>();
-                return (arm == null || arm.State == RobotArmState.Retracted)
-                    && (photo == null || (!photo.IsActive && !photo.IsInputLocked))
-                    && (height == null || !height.IsAirborne)
-                    && (combat == null || !combat.IsDisplaced);
-            }
-        }
+        public bool CanInteract => IsNearby && earthline != null && earthline.isActiveAndEnabled
+            && WorldStationInteraction.CanUseControls(player);
 
         private void Awake()
         {
@@ -110,7 +78,7 @@ namespace AnimalGame.World
 
         private void OnEnable()
         {
-            interactWasHeld = IsInteractHeld();
+            interactWasHeld = WorldStationInteraction.IsInteractHeld();
             SetPrompt(false);
         }
 
@@ -136,7 +104,7 @@ namespace AnimalGame.World
         private void Update()
         {
             if (!towerDrivesSignal) signal.Tick(Time.deltaTime, player);
-            bool held = IsInteractHeld();
+            bool held = WorldStationInteraction.IsInteractHeld();
             bool pressed = held && !interactWasHeld;
             interactWasHeld = held;
             bool available = CanInteract;
@@ -164,17 +132,6 @@ namespace AnimalGame.World
         {
             if (interactionPrompt != null && interactionPrompt.activeSelf != visible)
                 interactionPrompt.SetActive(visible);
-        }
-
-        private static bool IsInteractHeld()
-        {
-#if ENABLE_INPUT_SYSTEM
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && (keyboard.enterKey.isPressed || keyboard.numpadEnterKey.isPressed)) return true;
-#else
-            if (Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter)) return true;
-#endif
-            return AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld();
         }
     }
 }

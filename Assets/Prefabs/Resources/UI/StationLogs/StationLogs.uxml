@@ -1,0 +1,61 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:logs="AnimalGame.World" editor-extension-mode="False">
+    <Style src="project://database/Assets/Prefabs/Resources/UI/StationLogs/StationLogs.uss?fileID=7433441132597879392&amp;guid=40b26ceaf6d24fcfbb24079d67a7a3bb&amp;type=3#StationLogs" />
+    <ui:VisualElement name="station-logs" class="station-logs">
+        <ui:VisualElement class="station-frame">
+            <ui:VisualElement class="station-header station-panel">
+                <ui:VisualElement class="station-art-viewport" picking-mode="Ignore">
+                    <ui:VisualElement class="station-art" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="station-header-rule" picking-mode="Ignore" />
+                <ui:VisualElement class="station-heading-copy" picking-mode="Ignore">
+                    <ui:Label name="station-type" text="Weather Tower" />
+                    <ui:Label name="sync-status" />
+                </ui:VisualElement>
+                <ui:Label name="station-code" class="station-display" text="WX-04" />
+            </ui:VisualElement>
+            <ui:VisualElement class="station-workspace station-panel">
+                <ui:VisualElement class="station-sidebar">
+                    <ui:Label text="Stored Logs" class="station-sidebar-title" />
+                    <ui:Label name="record-count" />
+                    <ui:ScrollView name="record-list" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" />
+                </ui:VisualElement>
+                <ui:VisualElement class="station-detail">
+                    <ui:VisualElement class="station-detail-heading">
+                        <ui:VisualElement class="station-detail-meta">
+                            <ui:Label name="record-id" class="station-display" />
+                            <ui:Label name="detail-date" class="station-display" />
+                        </ui:VisualElement>
+                        <ui:Label name="detail-title" />
+                    </ui:VisualElement>
+                    <ui:Label text="LOG ENTRY" class="station-section-title station-display" />
+                    <ui:ScrollView name="log-body" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="station-sync station-panel">
+                <ui:Label name="sync-station-name" class="station-display" />
+                <ui:Button name="sync" class="sync" tooltip="Sync station data (S or Y)">
+                    <logs:StationSyncOutline class="sync-outline" picking-mode="Ignore" />
+                    <ui:VisualElement class="sync-progress-track" picking-mode="Ignore">
+                        <ui:VisualElement name="sync-progress" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="sync-key station-key-ring" picking-mode="Ignore">
+                        <ui:Label text="Y" class="sync-key-label" picking-mode="Ignore" />
+                        <ui:VisualElement class="sync-check" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label name="sync-label" text="Sync Station Data" picking-mode="Ignore" />
+                    <ui:Label class="sync-shortcut" text="S" picking-mode="Ignore" />
+                </ui:Button>
+            </ui:VisualElement>
+            <ui:VisualElement class="station-footer">
+                <ui:VisualElement class="station-browse-hint" picking-mode="Ignore">
+                    <ui:Label class="station-browse-keys" text="↑ ↓" picking-mode="Ignore" />
+                    <ui:Label text="Browse logs" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Button name="close" class="station-close" tooltip="Close (Esc or B)">
+                    <ui:Label text="Close" picking-mode="Ignore" />
+                    <ui:Label text="B" class="station-key-ring station-close-key" picking-mode="Ignore" />
+                </ui:Button>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

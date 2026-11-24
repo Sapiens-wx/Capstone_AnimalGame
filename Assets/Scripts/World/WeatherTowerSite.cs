@@ -6,7 +6,7 @@ namespace AnimalGame.World
     public sealed partial class WeatherTower
     {
         [Header("Open Ground Under Elevated Deck")]
-        [SerializeField] private SpriteRenderer upperCover;
+        [SerializeField] private SpriteRenderer groundRoofArt;
         [SerializeField] private Material siteLineMaterial;
         [SerializeField] private Vector2[] upperOutline;
         [SerializeField] private Vector2[] upperInset;
@@ -22,7 +22,6 @@ namespace AnimalGame.World
         private readonly GameObject[] landingBarriers = new GameObject[4];
         private WeatherTowerSiteLines doorLines;
         private WeatherTowerSiteLines deckLines;
-        private float underpass;
         private bool HasOpenGround => siteLineMaterial != null;
 
         private sealed class LiftParking
@@ -50,7 +49,7 @@ namespace AnimalGame.World
             var properties = new MaterialPropertyBlock();
             foreach (SpriteRenderer part in GetComponentsInChildren<SpriteRenderer>(true))
             {
-                if (part.sharedMaterial != upperCover.sharedMaterial) continue;
+                if (part.sharedMaterial != groundRoofArt.sharedMaterial) continue;
                 part.GetPropertyBlock(properties);
                 properties.SetFloat(RequirePlayerDisk, 1f);
                 part.SetPropertyBlock(properties);
@@ -163,27 +162,9 @@ namespace AnimalGame.World
         private void LateUpdate()
         {
             if (doorLines == null) return;
-            float below = 1f - Mathf.SmoothStep(0f, 1f, liftProgress);
-            bool beneath = player != null && InsideUpperOutline(transform.InverseTransformPoint(player.transform.position));
-            underpass = Mathf.MoveTowards(underpass, beneath ? 1f : 0f, 6f * Time.deltaTime);
-            float reveal = Mathf.SmoothStep(0f, 1f, underpass);
-            SetArtOpacity(upperCover, below * (1f - reveal));
-            DrawDeckOutline(below * reveal);
+            float below = 1f - UpperFloorOpacity;
+            DrawDeckOutline(below);
             DrawEntrances(below);
-        }
-
-        private bool InsideUpperOutline(Vector2 point)
-        {
-            bool inside = false;
-            Vector2 previous = upperOutline[^1];
-            foreach (Vector2 current in upperOutline)
-            {
-                if ((previous.y > point.y) != (current.y > point.y) &&
-                    point.x < (current.x - previous.x) * (point.y - previous.y) / (current.y - previous.y) + previous.x)
-                    inside = !inside;
-                previous = current;
-            }
-            return inside;
         }
 
         private void DrawDeckOutline(float opacity)

@@ -57,19 +57,21 @@ namespace AnimalGame.MainUI.Inventory
     {
         public event Action<int> Pressed;
         public event Action<int> Hovered;
-        private readonly InventoryInteractionButtonElement[] buttons = new InventoryInteractionButtonElement[4];
+        private readonly InventoryInteractionButtonElement[] buttons;
         private readonly VisualElement highlight = new VisualElement { pickingMode = PickingMode.Ignore };
         public int SelectedIndex { get; private set; }
 
-        public InventoryInteractionMenuElement()
+        public InventoryInteractionMenuElement() : this("USE", "INFO", "MOVE", "DISCARD") { }
+
+        internal InventoryInteractionMenuElement(params string[] titles)
         {
+            buttons = new InventoryInteractionButtonElement[titles.Length];
             style.position = Position.Absolute;
             style.backgroundColor = Color.black;
             style.paddingLeft = style.paddingRight = style.paddingTop = style.paddingBottom = 5;
             style.borderLeftWidth = style.borderRightWidth = style.borderTopWidth = style.borderBottomWidth = 2;
             style.borderLeftColor = style.borderRightColor = style.borderTopColor = style.borderBottomColor = Color.white;
-            string[] titles = { "USE", "INFO", "MOVE", "DISCARD" };
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < buttons.Length; i++)
             {
                 int index = i;
                 var button = new InventoryInteractionButtonElement { name = titles[i], text = titles[i] };
@@ -90,8 +92,8 @@ namespace AnimalGame.MainUI.Inventory
 
         public void Select(int index)
         {
-            SelectedIndex = Mathf.Clamp(index, 0, 3);
-            for (int i = 0; i < 4; i++) buttons[i].Selected = i == SelectedIndex;
+            SelectedIndex = Mathf.Clamp(index, 0, buttons.Length - 1);
+            for (int i = 0; i < buttons.Length; i++) buttons[i].Selected = i == SelectedIndex;
             highlight.MarkDirtyRepaint();
         }
 

@@ -13,6 +13,7 @@ namespace AnimalGame.Save
         public List<AnimalPhotoRecord> photos = new();
         public List<SpeciesProgress> speciesProgress = new();
         public List<ContactConversation> conversations = new();
+        public List<string> syncedStationIds = new();
         public SpeciesProgress Progress(AnimalSpecies species) => speciesProgress.Find(p => p.species == species);
     }
 

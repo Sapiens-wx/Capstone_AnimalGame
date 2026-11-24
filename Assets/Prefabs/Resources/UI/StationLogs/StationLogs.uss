@@ -1,0 +1,346 @@
+.station-logs {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #060706;
+    color: #E7E7DF;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+    -unity-font-style: normal;
+}
+
+.station-logs Label {
+    margin: 0;
+    padding: 0;
+    -unity-text-align: middle-left;
+}
+
+.station-logs Button {
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: transparent;
+    background-image: none;
+    color: #E7E7DF;
+}
+
+.station-frame {
+    position: absolute;
+    left: 2.333%;
+    top: 32px;
+    right: 2.333%;
+    bottom: 19px;
+}
+
+.station-panel {
+    border-width: 1px;
+    border-color: #696A64;
+    background-color: black;
+}
+
+.station-display,
+.station-logs .record-number {
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+}
+
+.station-header {
+    height: 139px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 42px;
+    margin-bottom: 14px;
+    overflow: hidden;
+}
+
+.station-art-viewport {
+    position: absolute;
+    left: 40%;
+    right: 22%;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.station-art {
+    position: absolute;
+    left: -32%;
+    top: -24%;
+    width: 120%;
+    height: 155%;
+    background-image: url('StationHeader.png');
+    background-size: contain;
+    rotate: -16deg;
+    opacity: 0.28;
+}
+
+.station-header-rule {
+    position: absolute;
+    right: 26%;
+    top: -4px;
+    bottom: -4px;
+    width: 1px;
+    background-color: #373834;
+    rotate: 12deg;
+}
+
+.station-heading-copy { justify-content: center; min-width: 0; }
+.station-logs #station-type { font-size: 51px; }
+.station-logs #sync-status { margin-top: 6px; color: #B3B3A8; font-size: 20px; }
+.station-logs #station-code {
+    flex-shrink: 0;
+    margin-left: 20px;
+    font-size: 54px;
+    letter-spacing: 1.3px;
+}
+
+.station-workspace {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: row;
+}
+
+.station-sidebar {
+    width: 21.45%;
+    min-width: 250px;
+    max-width: 392px;
+    min-height: 0;
+    flex-shrink: 0;
+    padding: 36px 0 16px;
+    border-right-width: 1px;
+    border-color: #373834;
+}
+
+.station-logs .station-sidebar-title { font-size: 33px; margin: 0 32px 7px; }
+.station-logs #record-count { color: #B3B3A8; font-size: 18px; margin: 0 32px; }
+
+.station-logs #record-list,
+.station-logs #log-body {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.station-logs #record-list {
+    margin-top: 27px;
+    padding-top: 4px;
+}
+
+.station-logs #record-list .unity-scroll-view__content-container {
+    border-bottom-width: 1px;
+    border-color: #373834;
+}
+
+.station-logs .record {
+    position: relative;
+    min-height: 96px;
+    padding: 14px 22px 14px 97px;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: stretch;
+    border-top-width: 1px;
+    border-color: #373834;
+    white-space: normal;
+}
+
+.station-logs .record:hover { background-color: #0D0E0D; }
+.station-logs .record:focus { background-color: #0D0E0D; }
+.station-logs .record-number {
+    position: absolute;
+    left: 0;
+    top: 14px;
+    bottom: 14px;
+    width: 85px;
+    padding-left: 23px;
+    border-left-width: 2px;
+    border-left-color: transparent;
+    color: #B3B3A8;
+    font-size: 16px;
+}
+
+.station-logs .record-copy { justify-content: center; min-width: 0; }
+.station-logs .record-title { font-size: 24px; white-space: normal; }
+.station-logs .record-date { margin-top: 3px; color: #B3B3A8; font-size: 18px; }
+.station-logs .record-selected .record-number { border-left-color: #D4B854; }
+.station-logs .record-selected .record-title { color: #D4B854; }
+
+.station-detail {
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: 37px 57px 15px;
+}
+
+.station-detail-heading {
+    flex-shrink: 0;
+    padding-bottom: 19px;
+    border-bottom-width: 1px;
+    border-color: #373834;
+}
+
+.station-detail-meta { flex-direction: row; justify-content: space-between; align-items: center; }
+.station-logs #record-id, .station-logs #detail-date { color: #B3B3A8; font-size: 16px; }
+.station-logs #record-id { letter-spacing: 0.24px; }
+.station-logs #detail-title { margin-top: 16px; font-size: 52px; white-space: normal; }
+.station-logs .station-section-title {
+    margin-top: 24px;
+    margin-bottom: 13px;
+    flex-shrink: 0;
+    color: #B3B3A8;
+    font-size: 15px;
+    letter-spacing: 1.4px;
+}
+
+.station-logs .log-paragraph {
+    max-width: 940px;
+    margin-bottom: 21px;
+    flex-shrink: 0;
+    font-size: 27px;
+    white-space: normal;
+    -unity-text-align: upper-left;
+}
+
+.station-logs .unity-scroller--vertical {
+    width: 7px;
+    min-width: 7px;
+    margin: 0 5px;
+    background-color: transparent;
+}
+
+.station-logs .unity-scroller__low-button,
+.station-logs .unity-scroller__high-button { display: none; }
+.station-logs .unity-base-slider__tracker { background-color: transparent; border-width: 0; }
+.station-logs .unity-base-slider__dragger {
+    width: 6px;
+    min-width: 6px;
+    background-color: #696A64;
+    border-width: 0;
+    border-radius: 3px;
+}
+
+.station-sync {
+    position: relative;
+    height: 103px;
+    margin-top: 14px;
+    padding: 11px 29px;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: center;
+}
+
+.station-logs #sync-station-name {
+    position: absolute;
+    left: 29px;
+    top: 0;
+    bottom: 0;
+    width: 21%;
+    font-size: 22px;
+    white-space: normal;
+}
+
+.station-logs .sync {
+    width: 54%;
+    height: 100%;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    color: #D4B854;
+    overflow: visible;
+}
+
+.sync-outline {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    top: 0;
+    bottom: 0;
+    --station-outline: #D4B854;
+    --station-fill: rgba(212, 184, 84, 0);
+}
+
+.sync:hover > .sync-outline,
+.sync:focus > .sync-outline { --station-fill: rgba(212, 184, 84, 0.06); }
+.sync-progress-track {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 1px;
+    height: 2px;
+    overflow: hidden;
+}
+
+.station-logs #sync-progress { width: 0; height: 100%; background-color: #D4B854; }
+.station-logs #sync-label { margin-left: 14px; color: #D4B854; font-size: 33px; }
+.station-logs .station-key-ring {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-width: 1px;
+    border-radius: 50%;
+    border-color: #D4B854;
+    color: #E7E7DF;
+    justify-content: center;
+    align-items: center;
+    -unity-text-align: middle-center;
+}
+
+.station-logs .sync-key-label { font-size: 26px; }
+.station-logs .sync-shortcut {
+    position: absolute;
+    right: 34px;
+    align-self: center;
+    padding: 0 7px;
+    border-width: 1px;
+    border-color: #696A64;
+    height: 31px;
+    color: #E7E7DF;
+    font-size: 22px;
+    -unity-text-align: middle-center;
+}
+
+.station-logs .sync:disabled { opacity: 1; }
+.sync-busy .sync-shortcut, .sync-complete .sync-shortcut { display: none; }
+.sync-check {
+    display: none;
+    height: 16px;
+    width: 9px;
+    margin-top: -3px;
+    rotate: 45deg;
+    border-bottom-width: 2px;
+    border-right-width: 2px;
+    border-color: #B3B3A8;
+}
+
+.sync-complete > .sync-outline {
+    --station-outline: #B3B3A8;
+    --station-fill: rgba(212, 184, 84, 0);
+}
+
+.sync-complete .sync-progress-track, .sync-complete .sync-key-label { display: none; }
+.sync-complete .sync-check { display: flex; }
+.station-logs .sync-complete #sync-label { color: #B3B3A8; }
+.station-logs .sync-complete .sync-key { border-color: #B3B3A8; }
+
+.station-footer {
+    height: 48px;
+    flex-shrink: 0;
+    padding: 9px 16px 0;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.station-browse-hint { flex-direction: row; align-items: center; color: #B3B3A8; font-size: 19px; }
+.station-logs .station-browse-keys { color: #E7E7DF; margin-right: 5px; }
+.station-logs .station-close { flex-direction: row; align-items: center; font-size: 25px; }
+.station-logs .station-close:hover { color: #D4B854; }
+.station-logs .station-close-key {
+    width: 35px;
+    height: 35px;
+    margin-left: 11px;
+    border-width: 2px;
+    border-color: #B3B3A8;
+    font-size: 23px;
+}
