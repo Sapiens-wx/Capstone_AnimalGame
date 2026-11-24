@@ -2,7 +2,6 @@ Shader "AnimalGame/World Map Contours"
 {
     Properties
     {
-        _WaterFlowSpeed ("Local Water Flow Speed (m/s)", Float) = 10
         _HeightTex ("Height", 2D) = "black" {}
         _CheckpointFogTex ("Checkpoint Fog", 2D) = "black" {}
         [HideInInspector] _PreviousCheckpointFogTex ("Previous Checkpoint Fog", 2D) = "black" {}
@@ -65,133 +64,103 @@ Shader "AnimalGame/World Map Contours"
             static const float _ContourInterval = 14;
             #include "HeightContourLines.cginc"
             #include "MapWater.cginc"
-            float _MapWaterTime;
-            float _DashSubmergedContours;
+            float _DashSubmergedContours, _MapWaterTime;
+            float2 _MapMetresPerPixel, _MapViewZoom;
 
-            float WaterAtScale(float2 mapMeters, float2 bakedUv, float depth, float2 flow,
-                float scale, float backing, float opacityGain)
+            float MapWaterRange(float2 tileUv)
             {
-                fixed4 ripple = SampleWaterPattern(mapMeters, depth, flow, _MapWaterTime, bakedUv, scale);
-                return lerp(backing, LinearRgbToLuminance(ripple.rgb), saturate(ripple.a * opacityGain));
+                // Don't treat the edge of a tile as a bank when water extends across it.
+                float2 uv = (saturate(tileUv) - _WaterMaskBounds.xy) / _WaterMaskBounds.zw;
+                float2 inside = step(0, uv) * step(uv, 1);
+                return tex2Dlod(_WaterMaskTex, float4(saturate(uv), 0, 0)).r * inside.x * inside.y;
             }
 
-            float BankSamples(float2 uv, float2 offset)
+            float WaterStroke(float position, float repeatPixels, float halfWidth)
             {
-                return tex2Dlod(_WaterMaskTex, float4(uv + offset, 0, 0)).r
-                     + tex2Dlod(_WaterMaskTex, float4(uv - offset, 0, 0)).r;
+                float distanceToCenter = abs(frac(position / repeatPixels + .5) - .5) * repeatPixels;
+                return 1 - smoothstep(halfWidth - .45, halfWidth + .45, distanceToCenter);
             }
 
-            // Four fixed orientations let long ripples turn with the river without
-            // rotating distant map coordinates by a different angle at every pixel.
-            float RiverOrientation(float2 uv, float2 flow, float metresPerPixel)
+            float2 MapWaterFlow(float2 tileUv)
             {
-                float2 axis;
-                if (dot(flow, flow) > .0025)
-                    axis = float2(flow.x * flow.x - flow.y * flow.y, 2 * flow.x * flow.y);
-                else
+                float2 uv = (tileUv - _WaterMaskBounds.xy) / _WaterMaskBounds.zw;
+                float2 texel = _WaterMaskTex_TexelSize.xy;
+                float2 pixel = uv * _WaterMaskTex_TexelSize.zw - .5;
+                float2 origin = (floor(pixel) + .5) * texel;
+                float2 weight = frac(pixel);
+                // Blend decoded vectors so directions across the angle wrap remain continuous.
+                float2 a = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin, 0, 0)));
+                float2 b = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin + float2(texel.x, 0), 0, 0)));
+                float2 c = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin + float2(0, texel.y), 0, 0)));
+                float2 d = DecodeWaterFlow(tex2Dlod(_WaterMaskTex, float4(origin + texel, 0, 0)));
+                return lerp(lerp(a, b, weight.x), lerp(c, d, weight.x), weight.y);
+            }
+
+            float DrawMapWater(float brightness, float submerged,
+                float2 tileUv, float2 mapPosition)
+            {
+                float2 bankSample = 2 * _MapMetresPerPixel / _TileRect.zw;
+                float2 boundsMin = _WaterMaskBounds.xy;
+                float2 boundsMax = boundsMin + _WaterMaskBounds.zw;
+                if (any(tileUv < boundsMin - bankSample) || any(tileUv > boundsMax + bankSample))
+                    return brightness;
+
+                float range = MapWaterRange(tileUv);
+                float2 dx = float2(bankSample.x, 0);
+                float2 dy = float2(0, bankSample.y);
+                float2 lower = float2(MapWaterRange(tileUv - dx), MapWaterRange(tileUv - dy));
+                float2 upper = float2(MapWaterRange(tileUv + dx), MapWaterRange(tileUv + dy));
+                float2 gradient = upper - lower;
+                float2 slope = .5 * max(abs(range - lower), abs(range - upper));
+                float distanceToBank = abs(range - .5) / max(length(slope), 1e-5);
+                float bank = 1 - smoothstep(.6, 2.2, distanceToBank);
+
+                if (range > .42)
                 {
-                    // In unpainted current fields the longer wet axis follows the banks.
-                    float2 radius = 12 * metresPerPixel / (_TileRect.zw * _WaterMaskBounds.zw);
-                    float2 diagonal = radius * .707107;
-                    axis.x = BankSamples(uv, float2(radius.x, 0)) - BankSamples(uv, float2(0, radius.y)) + .2;
-                    axis.y = BankSamples(uv, diagonal) - BankSamples(uv, float2(diagonal.x, -diagonal.y));
+                    float2 hatchPosition = mapPosition / _MapMetresPerPixel;
+                    if (_MapWaterTime > 0)
+                    {
+                        float2 flow = MapWaterFlow(tileUv);
+                        hatchPosition -= flow * (12 * _MapWaterTime);
+                        float stillness = 1 - smoothstep(.000001, .001, dot(flow, flow));
+                        if (stillness > 0)
+                        {
+                            // A small elliptical motion gives still water sway in every direction.
+                            float phase = dot(mapPosition, float2(.063, -.041)) + .85 * _MapWaterTime;
+                            float sine, cosine;
+                            sincos(phase, sine, cosine);
+                            float fade = smoothstep(0, 1, _MapWaterTime);
+                            hatchPosition -= float2(sine * 1.5, cosine * 1.2) * (stillness * fade);
+                        }
+                    }
+                    float acrossHatch = (hatchPosition.x - hatchPosition.y) * .70710678;
+                    float alongHatch = (hatchPosition.x + hatchPosition.y) * .70710678;
+                    float zoom = sqrt(_MapViewZoom.x * _MapViewZoom.y);
+                    float hatch = WaterStroke(acrossHatch, 8 * zoom, 1.3 * zoom);
+                    float hatchIndex = floor(acrossHatch / (8 * zoom) + .5);
+                    float seed = frac(hatchIndex * .1031);
+                    seed *= seed + 33.33;
+                    float stagger = 32 * (frac(seed * seed * 2) - .5);
+                    float hatchGap = WaterStroke(alongHatch + stagger * zoom, 32 * zoom, 6 * zoom);
+                    float fill = lerp(submerged, 1, .12 * hatch * (1 - hatchGap));
+                    brightness = lerp(brightness, fill, smoothstep(.42, .58, range));
                 }
-                return dot(axis, axis) < .0001 ? 0 : frac(atan2(axis.y, axis.x) / 6.283185 + 1) * 4;
-            }
 
-            float OverviewInk(float2 uv, float pixelsPerRepeat)
-            {
-                // The source has four staggered rows of thin dashes. Keep the rows
-                // close enough for tributaries, and filter across each stroke to give it body.
-                uv.y *= 2.5;
-                float2 dx = float2(1, 0) / pixelsPerRepeat;
-                float2 dy = float2(0, 8) / pixelsPerRepeat;
-                float4 main = tex2Dgrad(_WaterPatternTex, uv, dx, dy);
-                float4 offset = tex2Dgrad(_WaterPatternTex, uv + float2(.50, .045), dx, dy);
-                return max(LinearRgbToLuminance(main.rgb) * main.a,
-                    .8 * LinearRgbToLuminance(offset.rgb) * offset.a);
-            }
-
-            float OrientedInk(float2 position, float direction, float spacing, float metresPerPixel)
-            {
-                float angle = direction * .78539816;
-                float2 along = float2(cos(angle), sin(angle));
-                float2 uv = float2(dot(position, along), dot(position, float2(-along.y, along.x))) / spacing;
-                uv.y += _WaterWaveDistortion * sin(uv.x * 4.19 + _MapWaterTime * _WaterWaveSpeed);
-                return OverviewInk(uv, spacing / metresPerPixel);
-            }
-
-            float OverviewAtScale(float2 position, float orientation, float spacing, float metresPerPixel)
-            {
-                float first = floor(orientation);
-                float ink = OrientedInk(position, first, spacing, metresPerPixel);
-                float blend = smoothstep(0, 1, frac(orientation));
-                [branch] if (blend > 0)
-                    ink = lerp(ink, OrientedInk(position, fmod(first + 1, 4), spacing, metresPerPixel), blend);
-                return ink;
-            }
-
-            float OverviewRipples(float2 mapMeters, float2 bakedUv, float2 flow, float2 waterUv,
-                float metresPerPixel, float spacing, float blend)
-            {
-                float orientation = 0;
-                if (any(bakedUv != 0))
-                {
-                    mapMeters = bakedUv;
-                    flow = float2(length(flow), 0);
-                }
-                else orientation = RiverOrientation(waterUv, flow, metresPerPixel);
-
-                float2 position = mapMeters + _WaterLayerOneSpeed.xy * _MapWaterTime;
-                // Crossfade two short periods of advection. Variable local speeds can
-                // otherwise shear large marks apart after the map has been open a while.
-                float phase = frac(_MapWaterTime * .25);
-                float2 travel = flow * _WaterFlowSpeed * 4;
-                float2 p0 = position - (phase - .5) * travel;
-                float ink = lerp(OverviewAtScale(p0, orientation, spacing, metresPerPixel),
-                    OverviewAtScale(p0, orientation, spacing * 2, metresPerPixel), blend);
-                [branch] if (any(flow != 0))
-                {
-                    float2 p1 = position - (frac(phase + .5) - .5) * travel;
-                    float second = lerp(OverviewAtScale(p1, orientation, spacing, metresPerPixel),
-                        OverviewAtScale(p1, orientation, spacing * 2, metresPerPixel), blend);
-                    ink = lerp(ink, second, abs(2 * phase - 1));
-                }
-                return smoothstep(.048, .125, ink);
-            }
-
-            float MapRipples(float2 mapMeters, float metresPerPixel, float2 waterUv, float depth, float backing)
-            {
-                float2 bakedUv = SampleBakedWaterUv(waterUv);
-                float2 flow = SampleWaterFlow(waterUv);
-                // Keep the scene's metre scale up close. When its fine strokes become
-                // subpixel, blend world-anchored repeats around 36 pixels per tile.
-                float level = max(0, log2(36 * metresPerPixel / _WaterTileSizeMeters));
-                float scale = exp2(floor(level));
-                float blend = smoothstep(0, 1, frac(level));
-                float gain = 1 + .55 * smoothstep(0, 2, level);
-                float water = WaterAtScale(mapMeters, bakedUv, depth, flow, scale, backing, gain);
-                [branch] if (level > 0)
-                    water = lerp(water, WaterAtScale(mapMeters, bakedUv, depth, flow, scale * 2, backing, gain),
-                        blend);
-                float overview = smoothstep(.55, 2, level);
-                [branch] if (overview > 0)
-                {
-                    float ink = OverviewRipples(mapMeters, bakedUv, flow, waterUv, metresPerPixel,
-                        4 * _WaterTileSizeMeters * scale, blend);
-                    // Keep just the brighter tips of the fine ripples between the white strokes.
-                    float tips = .35 * max(0, water - .065);
-                    water = lerp(water, max(tips, lerp(backing, 1, ink)), overview);
-                }
-                return water;
+                // Overlap the two dash phases near diagonal banks so a turn cannot cut a dash.
+                float2 position = mapPosition / _MapMetresPerPixel;
+                float2 tangent = abs(gradient.yx);
+                float2 weight = smoothstep(.72, .98, tangent / max(max(tangent.x, tangent.y), 1e-5));
+                float dashX = WaterStroke(position.x, 40 * _MapViewZoom.x, 5.5 * _MapViewZoom.x);
+                float dashY = WaterStroke(position.y, 40 * _MapViewZoom.y, 5.5 * _MapViewZoom.y);
+                float dashedBank = bank * max(weight.x * dashX, weight.y * dashY);
+                return lerp(brightness, 1, .50 * dashedBank);
             }
 
             struct v2f { float4 vertex : SV_POSITION; float2 uv : TEXCOORD0; };
             v2f vert(appdata_img input)
             {
                 v2f output;
-                // The animated redraw uses the same tile coordinates on the cropped water quad.
-                output.uv = mul(unity_ObjectToWorld, input.vertex).xy;
+                output.uv = input.vertex.xy;
                 float2 mapPosition = _TileRect.xy + output.uv * _TileRect.zw;
                 float2 clip = (mapPosition - _ViewRect.xy) / _ViewRect.zw * 2 - 1;
                 #if UNITY_UV_STARTS_AT_TOP
@@ -213,13 +182,7 @@ Shader "AnimalGame/World Map Contours"
                     float submerged = 0;
                     if (_DashSubmergedContours > .5)
                         submerged = .25 * contourBlend * SubmergedContourDash(mapPosition, heightMeters);
-                    float2 waterUv;
-                    float insideBounds;
-                    fixed4 waterData = ReadMapWater(input.uv, waterUv, insideBounds);
-                    float range = smoothstep(.02, .98, waterData.r);
-                    [branch] if (range > 0)
-                        brightness = lerp(brightness, MapRipples(mapPosition, max(metresPerPixel.x, metresPerPixel.y),
-                            waterUv, waterData.g, submerged), range);
+                    brightness = DrawMapWater(brightness, submerged, input.uv, mapPosition);
                 }
                 float unknown = tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
                 if (unknown > 0)

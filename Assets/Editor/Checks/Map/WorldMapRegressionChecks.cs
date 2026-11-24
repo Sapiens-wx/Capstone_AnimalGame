@@ -19,7 +19,7 @@ namespace AnimalGame.Editor
             CheckPinShapes();
             CheckAssets();
             CheckGpuContours();
-            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water zoom/flow/shore/fog, bright shallow and deep overview ripples, unknown survey pattern, 14m interval, screen line widths and height emphasis.");
+            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water hatch angle, spacing, opacity, dashed shore and fog, unknown survey pattern, 14m interval, screen line widths and height emphasis.");
         }
 
         private static void CheckCursorAndPins()
@@ -168,7 +168,6 @@ namespace AnimalGame.Editor
                     CheckPinBearings(controller);
                     CheckWater(type, renderer, controller, state);
                 }
-                CheckOverviewWater(type, renderer, controller, source);
             }
             finally
             {
@@ -216,217 +215,143 @@ namespace AnimalGame.Editor
 
         private static void CheckWater(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state)
         {
-            var pattern = new Texture2D(16, 1, TextureFormat.RGBA32, false, true) { wrapMode = TextureWrapMode.Repeat };
-            pattern.SetPixels(new Color[16]); pattern.Apply();
             var mask = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
-            SetWaterFlow(mask, 0, 1);
-            var bakedUv = new Texture2D(2, 2, TextureFormat.RGFloat, false, true)
-                { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
             var fog = new Texture2D(2, 1, TextureFormat.RGBA32, false, true) { filterMode = FilterMode.Point };
             fog.SetPixels(new[] { Color.black, Color.white }); fog.Apply();
             try
             {
                 state.Resize(Vector2.one * 140);
-                Color[] terrainWithFog = Render(type, renderer, map, state, fog);
+                Color[] dry = Render(type, renderer, map, state);
+                Color[] dryWithFog = Render(type, renderer, map, state, fog);
+                Color shallow = new Color(1, .1f, 0, 0);
+                mask.SetPixels(new[] { shallow, shallow, shallow, shallow }); mask.Apply();
                 foreach (var tile in map.RuntimeMap.Tiles)
-                {
-                    var settings = new SerializedObject(tile.Level);
-                    settings.FindProperty("staticWaterEditorTexture").objectReferenceValue = pattern;
-                    settings.FindProperty("staticWaterEditorTileSizeMeters").floatValue = 1;
-                    settings.FindProperty("staticWaterLayerOneSpeedMetersPerSecond").vector2Value = Vector2.zero;
-                    settings.FindProperty("staticWaterLayerTwoSpeedMetersPerSecond").vector2Value = Vector2.zero;
-                    settings.FindProperty("staticWaterWaveSpeed").floatValue = 0;
-                    settings.FindProperty("staticWaterWaveDistortion").floatValue = 0;
-                    settings.FindProperty("bakedStaticWaterMask").objectReferenceValue = mask;
-                    settings.FindProperty("bakedStaticWaterBounds").rectValue = new Rect(.25f, .25f, .5f, .5f);
-                    settings.ApplyModifiedPropertiesWithoutUndo();
-                }
-                Color[] baseWater = Render(type, renderer, map, state);
-                Color[] flowingWithoutPattern = ReadWaterFrame(type, renderer, .25f);
-                for (int x = 0; x < 128; x++)
-                    Require(baseWater[256 * 512 + x] == terrainWithFog[256 * 512 + x], "Cropped water leaked outside its bounds.");
-                for (int y = 140; y < 372; y++)
-                for (int x = 140; x < 372; x++)
-                    Require(baseWater[y * 512 + x].r == 0 && flowingWithoutPattern[y * 512 + x].r == 0,
-                        "Transparent water gained a fill, contours or current marks without source ripples.");
-                Require(Sum(baseWater, 1, 120) > .1f, "Water hid contours outside its bounds.");
+                    tile.Level.SetBakedStaticWaterMask(mask, new Rect(.25f, .25f, .5f, .5f));
 
-                SetWaterFlow(mask, 0, 0);
-                // Four stripes per repeat make the authored texture identifiable at every zoom.
-                for (int x = 0; x < 16; x++) pattern.SetPixel(x, 0, x % 4 < 2 ? Color.green : Color.clear);
-                pattern.Apply();
                 Color[] water = Render(type, renderer, map, state);
-                float bands = CountWaterBands(water);
+                int bankDashes = 0;
+                float bankPeak = 0;
+                for (int y = 145; y < 365; y++)
+                {
+                    int row = y * 512;
+                    Require(water[row + 125] == dry[row + 125], "Water escaped the shoreline.");
+                    bankPeak = Mathf.Max(bankPeak, water[row + 127].r);
+                    if (water[row + 127].r >= .30f && water[row - 512 + 127].r < .30f) bankDashes++;
+                }
+                Require(bankDashes >= 5 && bankDashes <= 6, "The water edge is missing 40-pixel dash spacing.");
+                const float expectedBankPeak = .5f * .84375f; // 50% opacity at the fixture's antialiased shore pixel.
+                Require(Mathf.Abs(bankPeak - expectedBankPeak) < .02f
+                    || Mathf.Abs(bankPeak - Mathf.LinearToGammaSpace(expectedBankPeak)) < .02f,
+                    "The water edge did not render at 50% opacity before antialiasing: " + bankPeak);
+                CheckWaterHatch(water);
                 state.Resize(Vector2.one * 70);
-                float zoomBands = CountWaterBands(Render(type, renderer, map, state));
-                Require(bands >= 2 && zoomBands >= 2 && Mathf.Abs(bands - zoomBands) <= bands * .3f,
-                    "Water ripple spacing changed with map zoom: " + bands + " vs " + zoomBands);
+                CheckHatchZoom(water, Render(type, renderer, map, state));
+
                 state.Resize(Vector2.one * 140);
-                Color[] partiallyKnown = Render(type, renderer, map, state, fog);
-                Color[] still = ReadWaterFrame(type, renderer, 1);
-                float darkest = 1f, brightest = 0f;
-                for (int y = 0; y < 512; y++)
-                for (int x = 0; x < 256; x++)
+                Color deepFlowing = new Color(1, .9f, 128f / 255f, 1);
+                mask.SetPixels(new[] { deepFlowing, deepFlowing, deepFlowing, deepFlowing }); mask.Apply();
+                Color[] deepWater = Render(type, renderer, map, state);
+                Color[] withFog = Render(type, renderer, map, state, fog);
+                for (int i = 0; i < water.Length; i++)
                 {
-                    int index = y * 512 + x;
-                    Require(still[index] == partiallyKnown[index], "Still water moved without an authored current.");
-                    Require(partiallyKnown[index] == water[index], "Known terrain or water changed under a clear mask.");
-                    Color hidden = partiallyKnown[index + 256];
-                    Require(hidden == terrainWithFog[index + 256], "Water leaked into the unknown survey pattern.");
-                    darkest = Mathf.Min(darkest, hidden.r);
-                    brightest = Mathf.Max(brightest, hidden.r);
+                    Require(deepWater[i] == water[i], "Depth or initial current changed the map's water symbol.");
+                    Require(withFog[i] == (i % 512 < 256 ? water[i] : dryWithFog[i]),
+                        "Water changed the unknown survey pattern or was obscured in the known region.");
                 }
-                Require(darkest > .001f && brightest < .4f && brightest - darkest > .03f,
-                    "Unknown terrain should be covered by a dark, visible survey pattern.");
+                type.GetProperty("WaterTime", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(renderer, 1f);
+                type.GetMethod("RenderWaterFrame", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(renderer, new object[] { map });
+                // The preceding render used partial fog. Compare its known left half after animation.
+                Color[] movingWater = ReadFrame(type, renderer);
+                CheckWaterTranslation(water, movingWater, -12);
+                Color eastward = new Color(1, .9f, 0, 1);
+                mask.SetPixels(new[] { eastward, eastward, eastward, eastward }); mask.Apply();
+                CheckWaterTranslation(water, Render(type, renderer, map, state), 12);
 
-                SetWaterFlow(mask, 0, 1);
-                Render(type, renderer, map, state, fog);
-                Color[] flowing = ReadWaterFrame(type, renderer, .25f);
-                for (int y = 0; y < 512; y++)
-                for (int x = 0; x < 512; x++)
-                    if (x < 128 || x >= 256 || y < 128 || y >= 384)
-                        Require(flowing[y * 512 + x] == terrainWithFog[y * 512 + x], "Current escaped its shore or fog mask.");
-
-                // At 2 metres across, one authored metre is 256 px and each stripe repeats every 64 px.
-                state.Resize(Vector2.one * 2);
-                foreach (int direction in new[] { 1, -1 })
-                {
-                    SetWaterFlow(mask, direction > 0 ? 0 : 128, 16f / 255f);
-                    Color[] before = Render(type, renderer, map, state);
-                    float closeBands = CountWaterBands(before);
-                    Require(closeBands >= 2.5f && closeBands <= 5, "Close zoom lost the authored metre scale: " + closeBands);
-                    Color[] after = ReadWaterFrame(type, renderer, 1f / 12);
-                    int shift = CurrentDisplacement(before, after, 1);
-                    Require(Mathf.Abs(shift - 13 * direction) <= 2, "Source ripples moved at the wrong speed or direction: " + shift);
-                }
-
-                SetWaterFlow(mask, 64, 16f / 255f);
-                Color[] north = Render(type, renderer, map, state);
-                int northShift = CurrentDisplacement(north, ReadWaterFrame(type, renderer, 1f / 12), 512);
-                // The cropped 70m-wide mask covers map coordinates [35,105]. Here +U follows +mapY.
-                bakedUv.SetPixelData(new[] { new Vector2(52.5f, 52.5f), new Vector2(52.5f, 87.5f),
-                    new Vector2(87.5f, 52.5f), new Vector2(87.5f, 87.5f) }, 0);
-                bakedUv.Apply();
-                foreach (var tile in map.RuntimeMap.Tiles) tile.Level.SetBakedStaticWaterUv(bakedUv);
-                SetWaterFlow(mask, 128, 16f / 255f);
-                Color[] alongRiver = Render(type, renderer, map, state);
-                Color[] downstream = ReadWaterFrame(type, renderer, 1f / 12);
-                int verticalShift = CurrentDisplacement(alongRiver, downstream, 512);
-                Require(Mathf.Abs(Mathf.Abs(northShift) - 13) <= 2 && Mathf.Abs(verticalShift - northShift) <= 2,
-                    "Baked +U did not move ripples north: " + verticalShift + " vs " + northShift);
+                mask.SetPixels(new[] { shallow, shallow, shallow, shallow }); mask.Apply();
+                type.GetProperty("WaterTime", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(renderer, 3f);
+                Color[] driftingWater = Render(type, renderer, map, state);
+                int driftingPixels = 0;
+                for (int y = 165; y < 345; y++)
+                for (int x = 165; x < 244; x++)
+                    if (Mathf.Abs(water[y * 512 + x].r - driftingWater[y * 512 + x].r) > .012f)
+                        driftingPixels++;
+                Require(driftingPixels > 100, "Still water hatches did not drift.");
             }
-            finally { Object.DestroyImmediate(pattern); Object.DestroyImmediate(mask); Object.DestroyImmediate(fog); Object.DestroyImmediate(bakedUv); }
+            finally { Object.DestroyImmediate(mask); Object.DestroyImmediate(fog); }
         }
 
-        private static void SetWaterFlow(Texture2D mask, int angleByte, float speed)
+        private static void CheckWaterTranslation(Color[] source, Color[] shifted, int xOffset)
         {
-            Color data = new Color(1, 1, angleByte / 255f, speed);
-            mask.SetPixels(new[] { data, data, data, data }); mask.Apply();
-        }
-
-        private static void CheckOverviewWater(Type type, IDisposable renderer, MapTestSceneController map, Texture2D heights)
-        {
-            var parameters = AssetDatabase.LoadAssetAtPath<MapParams>("Assets/Maps/MapParams/Gameplay Map Params.asset");
-            var pattern = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Arts/Textures/Texture_Water.png");
-            Require(parameters != null && pattern != null && parameters.StaticWaterTexture == pattern,
-                "Overview check needs the gameplay map's water texture.");
-            var mask = new Texture2D(2, 1, TextureFormat.RGBA32, false, true) { filterMode = FilterMode.Point };
-            mask.SetPixels(new[] { new Color(1, .1f, 0, 0), new Color(1, .85f, 0, 1) }); mask.Apply();
-            try
+            for (int y = 165; y < 345; y++)
+            for (int x = 165; x < 244; x++)
             {
-                using (new TiledMapTestFixture(map, heights, 1536, 1))
-                {
-                    foreach (var tile in map.RuntimeMap.Tiles)
-                    {
-                        var settings = new SerializedObject(tile.Level);
-                        settings.FindProperty("mapParams").objectReferenceValue = parameters;
-                        settings.ApplyModifiedPropertiesWithoutUndo();
-                        tile.Level.SetBakedStaticWaterMask(mask, new Rect(0, 0, 1, 1));
-                    }
-                    var state = new MapViewState();
-                    foreach (float metresPerPixel in new[] { 1.5f, 2.5f })
-                    {
-                        state.Open(map.MapSizeMeters * .5f, Vector2.one * (512 * metresPerPixel), map.MapSizeMeters);
-                        Color[] frame = Render(type, renderer, map, state);
-                        CheckBrightStrokes(frame, 16, 240, "shallow", metresPerPixel);
-                        CheckBrightStrokes(frame, 272, 496, "deep", metresPerPixel);
-                    }
-                }
+                Require(Mathf.Abs(source[y * 512 + x - xOffset].r - shifted[y * 512 + x].r) < .012f,
+                    "Water hatch phase shifted during zoom or did not move with the authored current.");
             }
-            finally { Object.DestroyImmediate(mask); }
         }
 
-        private static void CheckBrightStrokes(Color[] frame, int left, int right, string depth, float metresPerPixel)
+        private static void CheckHatchZoom(Color[] normal, Color[] zoomed)
         {
-            int nearWhite = 0, black = 0, thickRuns = 0;
-            for (int y = 16; y < 496; y++)
+            int LongestStroke(Color[] frame, bool flipped)
             {
-                int run = 0;
-                for (int x = left; x < right; x++)
+                int longest = 0;
+                int length = 0;
+                for (int x = 168; x < 344; x++)
                 {
-                    int index = y * 512 + x;
-                    float value = frame[index].r;
-                    if (value >= .9f) nearWhite++;
-                    if (value < .01f) black++;
-                    run = value >= .8f && frame[index + 512].r >= .8f ? run + 1 : 0;
-                    if (run == 8) thickRuns++;
+                    int y = flipped ? 511 - x : x;
+                    bool visible = frame[y * 512 + x].r > .06f;
+                    length = visible ? length + 1 : 0;
+                    longest = Mathf.Max(longest, length);
                 }
+                return longest;
             }
-            int area = (right - left) * 480;
-            Require(nearWhite >= area * .003f && thickRuns >= 4 && black > area * .5f,
-                $"{depth} water at {metresPerPixel}m/px: {nearWhite}/{area} near-white pixels, " +
-                $"{thickRuns} bright runs at least 8x2px, {black} dark gap pixels.");
+
+            bool flipped = SystemInfo.graphicsUVStartsAtTop;
+            int before = LongestStroke(normal, flipped);
+            int after = LongestStroke(zoomed, flipped);
+            Require(before >= 10 && Mathf.Abs(after - before * 2) <= 2,
+                "Water hatch lengths did not double at 2× zoom.");
         }
 
-        private static float CountWaterBands(Color[] frame)
+        private static void CheckWaterHatch(Color[] frame)
         {
-            int count = 0;
-            for (int y = 160; y < 352; y += 8)
+            float peak = 0, axisError = 0, ascendingError = 0, descendingError = 0;
+            for (int y = 150; y < 360; y++)
+            for (int x = 150; x < 360; x++)
             {
-                int row = y * 512;
-                float low = 1, high = 0;
-                for (int x = 144; x < 368; x++)
-                {
-                    low = Mathf.Min(low, frame[row + x].g);
-                    high = Mathf.Max(high, frame[row + x].g);
-                }
-                Require(high - low > .03f, "Authored water pattern disappeared at map scale.");
-                float middle = (high + low) * .5f;
-                for (int x = 145; x < 368; x++)
-                    if (frame[row + x - 1].g < middle && frame[row + x].g >= middle) count++;
+                int i = y * 512 + x;
+                float shade = frame[i].r;
+                peak = Mathf.Max(peak, shade);
+                axisError += Mathf.Abs(shade - frame[i + 1].r);
+                ascendingError += Mathf.Abs(shade - frame[i + 513].r);
+                descendingError += Mathf.Abs(shade - frame[i - 511].r);
             }
-            return count / 24f;
-        }
+            float gammaPeak = Mathf.LinearToGammaSpace(.12f);
+            Require(Mathf.Abs(peak - .12f) < .01f || Mathf.Abs(peak - gammaPeak) < .01f,
+                "The center of a water hatch did not render at 12% opacity: " + peak);
+            float alongError = Mathf.Min(ascendingError, descendingError);
+            Require(axisError > 1 && alongError > axisError * .16f && alongError < axisError * .35f,
+                "The water hatches didn't follow broken 45-degree diagonals.");
 
-        // A stride of one measures horizontal motion. The scanline stride measures vertical motion.
-        private static int CurrentDisplacement(Color[] before, Color[] after, int stride)
-        {
-            float bestError = float.PositiveInfinity;
-            int bestShift = 0;
-            for (int shift = -16; shift <= 16; shift++)
+            int bands = 0;
+            for (int y = 224; y < 288; y++)
+            for (int x = 151; x < 360; x++)
             {
-                float error = 0;
-                for (int y = 144; y < 368; y += 2)
-                for (int x = 148; x < 236; x++)
-                    error += Mathf.Abs(before[y * 512 + x].g - after[y * 512 + x + shift * stride].g);
-                if (error < bestError || (error == bestError && Mathf.Abs(shift) < Mathf.Abs(bestShift)))
-                {
-                    bestError = error;
-                    bestShift = shift;
-                }
+                int i = y * 512 + x;
+                if (frame[i - 1].r < peak * .5f && frame[i].r >= peak * .5f) bands++;
             }
-            return bestShift;
+            Require(bands >= 10 * 64 && bands <= 15 * 64, "The water hatches aren't evenly spaced.");
         }
 
         private static Color[] Render(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state, Texture fog = null)
         {
             type.GetMethod("Render").Invoke(renderer, new object[] { map, state, 512, 512, fog });
-            return ReadWaterFrame(type, renderer, 0);
+            return ReadFrame(type, renderer);
         }
 
-        private static Color[] ReadWaterFrame(Type type, IDisposable renderer, float time)
+        private static Color[] ReadFrame(Type type, IDisposable renderer)
         {
-            type.GetMethod("AnimateWater", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(renderer, new object[] { time });
             var texture = (RenderTexture)type.GetProperty("Texture").GetValue(renderer);
             RenderTexture previous = RenderTexture.active;
             var readback = new Texture2D(512, 512, TextureFormat.RGBA32, false, true);
@@ -436,7 +361,7 @@ namespace AnimalGame.Editor
                 readback.ReadPixels(new Rect(0, 0, 512, 512), 0, 0);
                 Color[] pixels = readback.GetPixels();
                 foreach (Color pixel in pixels)
-                    Require(pixel.r == pixel.g && pixel.g == pixel.b, "Map terrain, ripples or currents rendered outside grayscale.");
+                    Require(pixel.r == pixel.g && pixel.g == pixel.b, "Map terrain or water rendered outside grayscale.");
                 return pixels;
             }
             finally { RenderTexture.active = previous; Object.DestroyImmediate(readback); }

@@ -87,6 +87,7 @@ namespace AnimalGame.World.Map
         private RenderTexture previousSurveyFog;
         private Vector2 surveyOrigin;
         private float surveyStartedAt;
+        private float mapOpenedAt;
         private int lastFogRevision = -1;
         private bool MissingMapData => checkpointManager != null && !checkpointManager.HasSurveyData;
 
@@ -645,6 +646,7 @@ namespace AnimalGame.World.Map
             cursorSelectionSpread = openingSignal.HasValue ? 1f : 0f;
             cursor.MarkDirtyRepaint();
             mapRenderer = new WorldMapRenderer(contourShader);
+            mapOpenedAt = Time.unscaledTime;
             savedTimeScale = Time.timeScale;
             savedCursorLock = UnityEngine.Cursor.lockState;
             savedCursorVisible = UnityEngine.Cursor.visible;
@@ -708,6 +710,7 @@ namespace AnimalGame.World.Map
             foreach (var choice in pinChoices) choice.MarkDirtyRepaint();
             Texture fog = checkpointManager != null ? checkpointManager.GetFog(map) : null;
             int fogRevision = checkpointManager != null ? checkpointManager.Revision : 0;
+            mapRenderer.WaterTime = Time.unscaledTime - mapOpenedAt;
             if (dirty || View.Center != lastRenderedCenter || View.ViewSize != lastRenderedSize || lastFogRevision != fogRevision)
             {
                 mapRenderer.Render(map, View, (int)screenSize.x, (int)screenSize.y, fog);
@@ -716,7 +719,7 @@ namespace AnimalGame.World.Map
                 dirty = false;
                 lastFogRevision = fogRevision;
             }
-            else mapRenderer.AnimateWater(Time.unscaledTime);
+            else mapRenderer.RenderWaterFrame(map);
             RefreshMapDataPresentation();
             Vector2 uiSize = root.contentRect.size;
             if (uiSize.x <= 0 || uiSize.y <= 0) return;

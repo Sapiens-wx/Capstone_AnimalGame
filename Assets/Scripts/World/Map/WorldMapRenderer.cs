@@ -10,13 +10,14 @@ namespace AnimalGame.World.Map
         private readonly Material material;
         private readonly Mesh quad;
         private readonly CommandBuffer commands = new CommandBuffer { name = "World map contours" };
-        private readonly CommandBuffer waterCommands = new CommandBuffer { name = "World map currents" };
         private readonly MaterialPropertyBlock properties = new MaterialPropertyBlock();
-        private const int WaterFramesPerSecond = 24;
-        private int waterFrame;
         private RenderTexture faultTexture;
         private RenderTexture revealTexture;
+        private Rect view;
         private Rect visibleMap;
+        private bool hasVisibleWater;
+        private Vector2 openingMetresPerPixel;
+        internal float WaterTime { get; set; }
         public RenderTexture Texture { get; private set; }
 
         public WorldMapRenderer(Shader shader)
@@ -37,7 +38,7 @@ namespace AnimalGame.World.Map
                 { name = "World map contours", hideFlags = HideFlags.HideAndDontSave };
                 Texture.Create();
             }
-            Rect view = new Rect(state.Center - state.ViewSize * .5f, state.ViewSize);
+            view = new Rect(state.Center - state.ViewSize * .5f, state.ViewSize);
             Vector2 mapSize = map.MapSizeMeters;
             Vector2 visibleMin = Vector2.Min(Vector2.Max(view.min, Vector2.zero), mapSize);
             Vector2 visibleMax = Vector2.Min(Vector2.Max(view.max, Vector2.zero), mapSize);
@@ -56,9 +57,24 @@ namespace AnimalGame.World.Map
             material.SetTexture("_CheckpointFogTex", fog != null ? fog : Texture2D.blackTexture);
             material.SetFloat("_VisibleMinimumHeight", minimum);
             material.SetFloat("_VisibleMaximumHeight", maximum);
-            SetWaterTime(Time.unscaledTime);
+            var metresPerPixel = new Vector2(view.width / width, view.height / height);
+            if (openingMetresPerPixel == Vector2.zero)
+                openingMetresPerPixel = metresPerPixel;
+            material.SetVector("_MapMetresPerPixel", metresPerPixel);
+            material.SetVector("_MapViewZoom", openingMetresPerPixel / metresPerPixel);
+            DrawTiles(map);
+        }
+
+        internal void RenderWaterFrame(MapTestSceneController map)
+        {
+            if (hasVisibleWater) DrawTiles(map);
+        }
+
+        private void DrawTiles(MapTestSceneController map)
+        {
+            material.SetFloat("_MapWaterTime", WaterTime);
+            hasVisibleWater = false;
             commands.Clear();
-            waterCommands.Clear();
             commands.SetRenderTarget(Texture);
             // The black map background shows through absent tiles. The alpha channel lets
             // the reveal pass distinguish those pixels from legitimate black terrain.
@@ -70,35 +86,33 @@ namespace AnimalGame.World.Map
                 Vector2 origin = Vector2.Scale(tile.Coordinate, tileSize);
                 if (!view.Overlaps(new Rect(origin, tileSize))) continue;
                 properties.Clear();
-                TiledMapTileView.ConfigureWater(properties, tile);
+                var level = tile.Level;
+                var waterMask = level.BakedStaticWaterMask;
+                bool visibleWater = false;
+                if (waterMask != null)
+                {
+                    Rect bounds = level.BakedStaticWaterBounds;
+                    Vector2 padding = new Vector2(view.width / Texture.width, view.height / Texture.height) * 2f;
+                    var waterBounds = new Rect(origin + Vector2.Scale(bounds.position, tileSize) - padding,
+                        Vector2.Scale(bounds.size, tileSize) + padding * 2f);
+                    if (view.Overlaps(waterBounds))
+                    {
+                        visibleWater = true;
+                        hasVisibleWater = true;
+                        properties.SetTexture("_WaterMaskTex", waterMask);
+                        properties.SetVector("_WaterMaskTex_TexelSize", new Vector4(
+                            1f / waterMask.width, 1f / waterMask.height, waterMask.width, waterMask.height));
+                        properties.SetVector("_WaterMaskBounds", new Vector4(bounds.x, bounds.y, bounds.width, bounds.height));
+                    }
+                }
+                properties.SetFloat("_WaterEnabled", visibleWater ? 1 : 0);
                 properties.SetVector("_TileRect", new Vector4(origin.x, origin.y, tileSize.x, tileSize.y));
                 properties.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
-                properties.SetFloat("_MinimumHeight", tile.Level.MinimumHeightMeters);
-                properties.SetFloat("_MaximumHeight", tile.Level.MaximumHeightMeters);
+                properties.SetFloat("_MinimumHeight", level.MinimumHeightMeters);
+                properties.SetFloat("_MaximumHeight", level.MaximumHeightMeters);
                 commands.DrawMesh(quad, Matrix4x4.identity, material, 0, 0, properties);
-
-                if (properties.GetFloat("_WaterEnabled") == 0) continue;
-                Rect water = tile.Level.BakedStaticWaterBounds;
-                Rect waterMapRect = new Rect(origin + Vector2.Scale(water.min, tileSize), Vector2.Scale(water.size, tileSize));
-                if (!view.Overlaps(waterMapRect)) continue;
-                if (waterCommands.sizeInBytes == 0) waterCommands.SetRenderTarget(Texture);
-                var crop = Matrix4x4.TRS(water.min, Quaternion.identity, new Vector3(water.width, water.height, 1));
-                waterCommands.DrawMesh(quad, crop, material, 0, 0, properties);
             }
             Graphics.ExecuteCommandBuffer(commands);
-        }
-
-        private void SetWaterTime(float time)
-        {
-            waterFrame = Mathf.FloorToInt(time * WaterFramesPerSecond);
-            material.SetFloat("_MapWaterTime", waterFrame / (float)WaterFramesPerSecond);
-        }
-
-        internal void AnimateWater(float time)
-        {
-            if (waterCommands.sizeInBytes == 0 || Mathf.FloorToInt(time * WaterFramesPerSecond) == waterFrame) return;
-            SetWaterTime(time);
-            Graphics.ExecuteCommandBuffer(waterCommands);
         }
 
         internal RenderTexture RenderFault(float progress)
@@ -188,7 +202,6 @@ namespace AnimalGame.World.Map
             ReleaseTexture(Texture);
             Texture = null;
             commands.Dispose();
-            waterCommands.Dispose();
             CoreUtils.Destroy(material);
             CoreUtils.Destroy(quad);
         }
