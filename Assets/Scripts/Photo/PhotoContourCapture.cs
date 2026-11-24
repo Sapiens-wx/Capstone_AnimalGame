@@ -70,9 +70,11 @@ namespace AnimalGame.RobotMap
                 var waterMetresPerPixel = new Vector2(
                     new Vector2(across.x, vertical.x).magnitude / (worldUnits.x * displayDiameter),
                     new Vector2(across.y, vertical.y).magnitude / (worldUnits.y * displayDiameter));
+                var shoreline = map.Shoreline;
                 var snapshotProperties = new MaterialPropertyBlock();
-                foreach (var terrain in terrains)
+                foreach (var tile in map.PhotoContourTileViews)
                 {
+                    var terrain = tile.Renderer;
                     var original = new MaterialPropertyBlock();
                     terrain.GetPropertyBlock(original);
                     originals.Add(terrain, original);
@@ -82,6 +84,7 @@ namespace AnimalGame.RobotMap
                     snapshotProperties.SetFloat("_SurfaceEnabled", 0);
                     snapshotProperties.SetFloat("_PhotoContoursOnly", 1);
                     snapshotProperties.SetVector("_PhotoWaterMetresPerPixel", waterMetresPerPixel);
+                    snapshotProperties.SetFloat("_PhotoBankOpacity", shoreline.Contains(tile.Level) ? 0 : .2f);
                     snapshotProperties.SetFloat("_SurfaceRevealEnabled", 0);
                     snapshotProperties.SetColor("_ContourColor", Color.white);
                     terrain.SetPropertyBlock(snapshotProperties);
@@ -101,6 +104,18 @@ namespace AnimalGame.RobotMap
                 if (!RenderPipeline.SupportsRenderRequest(camera, request))
                     throw new InvalidOperationException("The active renderer does not support URP SingleCameraRequest.");
                 RenderPipeline.SubmitRenderRequest(camera, request);
+                if (shoreline.Mesh != null)
+                {
+                    Matrix4x4 mapToWorld = Matrix4x4.TRS(map.WorldBounds.min, Quaternion.identity,
+                        new Vector3(worldUnits.x, worldUnits.y, 1));
+                    Matrix4x4 clipFromMap = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true)
+                        * camera.worldToCameraMatrix * mapToWorld;
+                    using var commands = new CommandBuffer { name = "Photo water shoreline" };
+                    commands.SetRenderTarget(Texture, RenderBufferLoadAction.Load, RenderBufferStoreAction.Store);
+                    shoreline.Draw(commands, clipFromMap, waterMetresPerPixel, Vector2.one,
+                        map.MapSizeMeters, .2f, null);
+                    Graphics.ExecuteCommandBuffer(commands);
+                }
                 return true;
             }
             catch (Exception exception)

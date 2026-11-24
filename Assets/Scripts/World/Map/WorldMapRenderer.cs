@@ -17,6 +17,8 @@ namespace AnimalGame.World.Map
         private Rect visibleMap;
         private bool hasVisibleWater;
         private Vector2 openingMetresPerPixel;
+        private Texture currentFog;
+        private static readonly int BankOpacity = Shader.PropertyToID("_MapBankOpacity");
         internal float WaterTime { get; set; }
         public RenderTexture Texture { get; private set; }
 
@@ -54,6 +56,7 @@ namespace AnimalGame.World.Map
             material.SetFloat("_DashSubmergedContours", map.DashSubmergedContours ? 1f : 0f);
             material.SetVector("_ViewRect", new Vector4(view.x, view.y, view.width, view.height));
             material.SetVector("_MapSizeMeters", mapSize);
+            currentFog = fog;
             material.SetTexture("_CheckpointFogTex", fog != null ? fog : Texture2D.blackTexture);
             material.SetFloat("_VisibleMinimumHeight", minimum);
             material.SetFloat("_VisibleMaximumHeight", maximum);
@@ -72,6 +75,8 @@ namespace AnimalGame.World.Map
 
         private void DrawTiles(MapTestSceneController map)
         {
+            var shoreline = map.Shoreline;
+            var metresPerPixel = new Vector2(view.width / Texture.width, view.height / Texture.height);
             material.SetFloat("_MapWaterTime", WaterTime);
             hasVisibleWater = false;
             commands.Clear();
@@ -92,7 +97,7 @@ namespace AnimalGame.World.Map
                 if (waterMask != null)
                 {
                     Rect bounds = level.BakedStaticWaterBounds;
-                    Vector2 padding = new Vector2(view.width / Texture.width, view.height / Texture.height) * 2f;
+                    Vector2 padding = Vector2.Max(metresPerPixel, openingMetresPerPixel) * 2f;
                     var waterBounds = new Rect(origin + Vector2.Scale(bounds.position, tileSize) - padding,
                         Vector2.Scale(bounds.size, tileSize) + padding * 2f);
                     if (view.Overlaps(waterBounds))
@@ -106,11 +111,18 @@ namespace AnimalGame.World.Map
                     }
                 }
                 properties.SetFloat("_WaterEnabled", visibleWater ? 1 : 0);
+                properties.SetFloat(BankOpacity, shoreline.Contains(level) ? 0 : .5f);
                 properties.SetVector("_TileRect", new Vector4(origin.x, origin.y, tileSize.x, tileSize.y));
                 properties.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
                 properties.SetFloat("_MinimumHeight", level.MinimumHeightMeters);
                 properties.SetFloat("_MaximumHeight", level.MaximumHeightMeters);
                 commands.DrawMesh(quad, Matrix4x4.identity, material, 0, 0, properties);
+            }
+            if (hasVisibleWater && shoreline.Mesh != null)
+            {
+                var projection = Matrix4x4.Ortho(view.xMin, view.xMax, view.yMin, view.yMax, -1, 1);
+                shoreline.Draw(commands, GL.GetGPUProjectionMatrix(projection, true), metresPerPixel,
+                    openingMetresPerPixel / metresPerPixel, map.MapSizeMeters, .5f, currentFog);
             }
             Graphics.ExecuteCommandBuffer(commands);
         }

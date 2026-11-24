@@ -531,6 +531,8 @@ namespace AnimalGame.MapTest
         public Texture2D StaticWaterTexture =>
             mapParams != null ? mapParams.StaticWaterTexture : staticWaterEditorTexture;
         public Texture2D BakedStaticWaterMask => bakedStaticWaterMask;
+        internal ReadOnlySpan<byte> StaticWaterDepthBytes => staticWaterDepthMap;
+        internal int StaticWaterRasterResolution => StaticWaterDataResolution;
         public Texture2D BakedStaticWaterUv => bakedStaticWaterUv;
         public Rect BakedStaticWaterBounds => bakedStaticWaterBounds;
         public float StaticWaterTileSizeMeters =>

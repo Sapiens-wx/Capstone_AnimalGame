@@ -4,6 +4,7 @@ Shader "AnimalGame/Dynamic Height Contours"
     {
         [PerRendererData] _MainTex ("Base Map", 2D) = "white" {}
         [HideInInspector] _PhotoContoursOnly ("Photo Contours Only", Float) = 0
+        [HideInInspector] _PhotoBankOpacity ("Photo Bank Opacity", Float) = .2
         [HideInInspector] _DashSubmergedContours ("Dash Submerged Contours", Float) = 0
         [HideInInspector] _SmoothContourEdges ("Smooth Contour Edges", Float) = 0
         [HideInInspector] _OpeningMapScan ("Opening Map Scan", Vector) = (2, 2, 0, 0)
@@ -93,7 +94,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             };
 
             sampler2D _MainTex;
-            float _PhotoContoursOnly;
+            float _PhotoContoursOnly, _PhotoBankOpacity;
             float2 _PhotoWaterMetresPerPixel;
             float _DashSubmergedContours;
             float _SmoothContourEdges;
@@ -268,7 +269,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                         float submerged = _DashSubmergedContours > .5
                             ? .25 * blendAmount * SubmergedContourDash(mapMeters, heightMeters) : 0;
                         brightness = DrawMapWater(brightness, submerged, contourUv, mapMeters,
-                            _MapSizeMeters.xy, _PhotoWaterMetresPerPixel, float2(1, 1), 0, 16, .03, .20);
+                            _MapSizeMeters.xy, _PhotoWaterMetresPerPixel, float2(1, 1), 0, 16, .03, _PhotoBankOpacity);
                     }
                     return fixed4(brightness, brightness, brightness, 1);
                 }

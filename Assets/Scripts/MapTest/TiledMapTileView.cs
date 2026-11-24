@@ -7,6 +7,7 @@ namespace AnimalGame.MapTest
     internal sealed class TiledMapTileView : IDisposable
     {
         public SpriteRenderer Renderer { get; private set; }
+        public HeightMapLevelAsset Level => tile.Level;
         private readonly TiledMapRuntime.Tile tile;
         private Sprite sprite;
         private GameObject root;

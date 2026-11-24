@@ -35,24 +35,14 @@ float DrawMapWater(float brightness, float submerged,
     float2 tileUv, float2 mapPosition, float2 tileSize, float2 metresPerPixel, float2 viewZoom, float waterTime,
     float hatchSpacing, float hatchOpacity, float bankOpacity)
 {
-    float2 bankSample = 2 * metresPerPixel / tileSize;
+    // At higher zoom keep the shoreline footprint at its opening map-space size.
+    float2 bankSample = 2 * metresPerPixel * max(viewZoom, 1) / tileSize;
     float2 boundsMin = _WaterMaskBounds.xy;
     float2 boundsMax = boundsMin + _WaterMaskBounds.zw;
     if (any(tileUv < boundsMin - bankSample) || any(tileUv > boundsMax + bankSample))
         return brightness;
 
     float range = MapWaterRange(tileUv);
-    float2 dx = float2(bankSample.x, 0);
-    float2 dy = float2(0, bankSample.y);
-    float2 lower = float2(MapWaterRange(tileUv - dx), MapWaterRange(tileUv - dy));
-    float2 upper = float2(MapWaterRange(tileUv + dx), MapWaterRange(tileUv + dy));
-    float2 gradient = upper - lower;
-    float2 slope = .5 * max(abs(range - lower), abs(range - upper));
-    float distanceToBank = abs(range - .5) / max(length(slope), 1e-5);
-    float lowest = min(range, min(min(lower.x, lower.y), min(upper.x, upper.y)));
-    float highest = max(range, max(max(lower.x, lower.y), max(upper.x, upper.y)));
-    float bank = lowest < .5 && highest >= .5 ? 1 - smoothstep(.6, 2.2, distanceToBank) : 0;
-
     if (range > .42)
     {
         float2 hatchPosition = mapPosition / metresPerPixel;
@@ -85,12 +75,26 @@ float DrawMapWater(float brightness, float submerged,
         brightness = lerp(brightness, fill, smoothstep(.42, .58, range));
     }
 
-    // Overlap the two dash phases near diagonal banks so a turn cannot cut a dash.
+    if (bankOpacity <= 0) return brightness;
+    float2 dx = float2(bankSample.x, 0);
+    float2 dy = float2(0, bankSample.y);
+    float2 lower = float2(MapWaterRange(tileUv - dx), MapWaterRange(tileUv - dy));
+    float2 upper = float2(MapWaterRange(tileUv + dx), MapWaterRange(tileUv + dy));
+    float2 gradient = upper - lower;
+    float2 slope = .5 * max(abs(range - lower), abs(range - upper));
+    float distanceToBank = abs(range - .5) / max(length(slope), 1e-5);
+    float lowest = min(range, min(min(lower.x, lower.y), min(upper.x, upper.y)));
+    float highest = max(range, max(max(lower.x, lower.y), max(upper.x, upper.y)));
+    float bank = lowest < .5 && highest >= .5 ? 1 - smoothstep(.6, 2.2, distanceToBank) : 0;
+
+    // Mask-only captures blend the two axis projections at diagonal banks.
     float2 position = mapPosition / metresPerPixel;
     float2 tangent = abs(gradient.yx);
     float2 weight = smoothstep(.72, .98, tangent / max(max(tangent.x, tangent.y), 1e-5));
-    float dashX = WaterStroke(position.x, 40 * viewZoom.x, 5.5 * viewZoom.x);
-    float dashY = WaterStroke(position.y, 40 * viewZoom.y, 5.5 * viewZoom.y);
+    // Keep distant dashes long enough to read as strokes on a diagonal bank.
+    float2 dashZoom = max(viewZoom, .4);
+    float dashX = WaterStroke(position.x, 40 * dashZoom.x, 11 * dashZoom.x);
+    float dashY = WaterStroke(position.y, 40 * dashZoom.y, 11 * dashZoom.y);
     float dashedBank = bank * max(weight.x * dashX, weight.y * dashY);
     return lerp(brightness, 1, bankOpacity * dashedBank);
 }

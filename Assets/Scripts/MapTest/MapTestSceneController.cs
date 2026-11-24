@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
+using AnimalGame.World.Map;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -111,6 +112,9 @@ namespace AnimalGame.MapTest
 #endif
 
         internal IReadOnlyList<SpriteRenderer> PhotoContourRenderers => tileRenderers;
+        internal IReadOnlyList<TiledMapTileView> PhotoContourTileViews => tileViews;
+        private WorldMapShoreline shoreline;
+        internal WorldMapShoreline Shoreline => shoreline ??= new WorldMapShoreline(levelAsset);
 
         internal void GetPhotoSnapshotCircle(out Vector2 centerPixels, out float radiusPixels)
         {
@@ -764,6 +768,8 @@ namespace AnimalGame.MapTest
             foreach (var view in tileViews) view.Dispose();
             tileViews.Clear();
             tileRenderers.Clear();
+            shoreline?.Dispose();
+            shoreline = null;
             runtimeMap?.Dispose();
             runtimeMap = null;
             if (contourMaterial != null) DestroyGeneratedObject(contourMaterial);
