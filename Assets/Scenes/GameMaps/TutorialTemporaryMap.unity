@@ -254,7 +254,7 @@ MonoBehaviour:
   showRobotTerrainData: 0
   animalInfoLibrary: {fileID: 11400000, guid: 62482c67885b0b940acca9f5e07160f0, type: 2}
   initialPhotoCamera: {fileID: 11400000, guid: 59638854e8cb4d759d806e6d41931a9c, type: 2}
-  showFrameRate: 1
+  showFrameRate: 0
   frameRateRefreshInterval: 0.25
   map: {fileID: 0}
   robot: {fileID: 0}

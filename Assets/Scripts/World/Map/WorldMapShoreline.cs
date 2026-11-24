@@ -9,6 +9,7 @@ namespace AnimalGame.World.Map
 {
     internal sealed class WorldMapShoreline : IDisposable
     {
+        public const float ReferenceWidthPixels = 2.8f;
         private const double UnitsPerMeter = 1000000;
         private const int CornerSegments = 8;
         private readonly HashSet<HeightMapLevelAsset> tracedTiles = new();
@@ -64,9 +65,8 @@ namespace AnimalGame.World.Map
             var triangles = new List<int>();
             foreach (var outline in outlines)
             {
-                // Remove raster stair steps before rounding the remaining bends.
-                var simplified = Clipper.SimplifyPath(outline, 1.25 * smallestCell * UnitsPerMeter);
-                var rounded = RoundCorners(simplified.Count >= 3 ? simplified : outline, (float)(2 * smallestCell));
+                var simplified = SimplifyShoreline(outline, 2 * smallestCell * UnitsPerMeter);
+                var rounded = RoundCorners(simplified, (float)(3 * smallestCell));
                 AppendLoop(rounded, vertices, joins, distances, triangles);
             }
             if (vertices.Count == 0) return;
@@ -83,13 +83,14 @@ namespace AnimalGame.World.Map
         public bool Contains(HeightMapLevelAsset tile) => Mesh != null && tracedTiles.Contains(tile);
 
         public void Draw(CommandBuffer commands, Matrix4x4 clipFromMap, Vector2 metresPerPixel,
-            Vector2 zoom, Vector2 mapSize, float opacity, Texture fog)
+            Vector2 patternMetresPerPixel, Vector2 mapSize, float widthPixels, float opacity, Texture fog)
         {
             if (Mesh == null) return;
             properties.SetMatrix("_ShorelineClipFromMap", clipFromMap);
             properties.SetVector("_MapMetresPerPixel", metresPerPixel);
-            properties.SetVector("_MapViewZoom", zoom);
+            properties.SetFloat("_ShorelinePatternMetresPerPixel", Mathf.Sqrt(patternMetresPerPixel.x * patternMetresPerPixel.y));
             properties.SetVector("_MapSizeMeters", mapSize);
+            properties.SetFloat("_ShorelineHalfWidth", widthPixels * .5f);
             properties.SetFloat("_ShorelineOpacity", opacity);
             properties.SetTexture("_CheckpointFogTex", fog != null ? fog : Texture2D.blackTexture);
             commands.DrawMesh(Mesh, Matrix4x4.identity, material, 0, 0, properties);
@@ -105,6 +106,31 @@ namespace AnimalGame.World.Map
             new Vector2((float)(point.X / UnitsPerMeter), (float)(point.Y / UnitsPerMeter));
 
         private static Vector2 Normal(Vector2 direction) => new Vector2(-direction.y, direction.x).normalized;
+
+        private static Path64 SimplifyShoreline(Path64 outline, double tolerance)
+        {
+            // Split the ring at distant points so whole runs of raster steps are simplified together.
+            int split = 1;
+            double farthest = 0;
+            Point64 first = outline[0];
+            for (int i = 1; i < outline.Count; i++)
+            {
+                double dx = outline[i].X - first.X;
+                double dy = outline[i].Y - first.Y;
+                double distance = dx * dx + dy * dy;
+                if (distance <= farthest) continue;
+                split = i;
+                farthest = distance;
+            }
+
+            var firstSection = new Path64(outline.GetRange(0, split + 1));
+            var secondSection = new Path64(outline.GetRange(split, outline.Count - split)) { first };
+            var simplified = Clipper.RamerDouglasPeucker(firstSection, tolerance);
+            secondSection = Clipper.RamerDouglasPeucker(secondSection, tolerance);
+            for (int i = 1; i < secondSection.Count - 1; i++)
+                simplified.Add(secondSection[i]);
+            return simplified.Count >= 3 ? simplified : outline;
+        }
 
         private static List<Vector2> RoundCorners(Path64 outline, float maxTrim)
         {

@@ -145,7 +145,10 @@ namespace AnimalGame.Editor
             source.SetPixels(pixels); source.Apply();
             var controller = go.AddComponent<MapTestSceneController>();
             var type = typeof(WorldMapUI).Assembly.GetType("AnimalGame.World.Map.WorldMapRenderer", true);
-            var renderer = (IDisposable)Activator.CreateInstance(type, new object[] { Shader.Find("AnimalGame/World Map Contours") });
+            var renderer = (IDisposable)Activator.CreateInstance(type, new object[]
+            {
+                Shader.Find("AnimalGame/World Map Contours"), Vector2.one * (140f / 512)
+            });
             try
             {
                 using (var fixture = new TiledMapTestFixture(controller, source, 140, 1, 140))

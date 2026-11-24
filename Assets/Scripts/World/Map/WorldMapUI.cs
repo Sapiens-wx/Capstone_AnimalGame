@@ -600,6 +600,10 @@ namespace AnimalGame.World.Map
             baseViewSize.x = baseViewSize.y * aspect;
             RecalculateZoomLimits();
             CurrentZoom = Mathf.Clamp(defaultZoom, MinimumZoom, MaximumZoom);
+            // Water uses the normal map scale even when a station or signal opens a wider view.
+            Vector2 defaultViewSize = baseViewSize * CurrentZoom;
+            var waterPatternMetresPerPixel = new Vector2(
+                defaultViewSize.x / (int)viewportSize.x, defaultViewSize.y / (int)viewportSize.y);
             Vector2 player = WorldToMap(bootstrap.robotObject.transform.position);
             Vector2? openingSignal = terminal == null && frameUnknownSignalOnOpen ? WorldToMap(unknownSignalWorldPosition.Value) : null;
             Rect stationRegion = default;
@@ -645,7 +649,7 @@ namespace AnimalGame.World.Map
             mapRulers.MarkDirtyRepaint();
             cursorSelectionSpread = openingSignal.HasValue ? 1f : 0f;
             cursor.MarkDirtyRepaint();
-            mapRenderer = new WorldMapRenderer(contourShader);
+            mapRenderer = new WorldMapRenderer(contourShader, waterPatternMetresPerPixel);
             mapOpenedAt = Time.unscaledTime;
             savedTimeScale = Time.timeScale;
             savedCursorLock = UnityEngine.Cursor.lockState;
