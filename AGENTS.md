@@ -72,3 +72,7 @@
 - Test_Tree 仅 Leaves 层启用 VegetationSpriteDeformation 的碰撞模式：沿真实树干/玩家碰撞边缘与驾驶输入触发，0.28 秒内做半径 3.5% 的衰减位置抖动和 7% 的局部网格变形，快速恢复；持续顶住不循环，离开或松开后再次撞击可重新触发。树干、中心、遮挡和碰撞位置不动，透明度/排序/视野裁切沿用原设置。
 
 - 所有普通地形由 TerrainOriginalPatterns.cginc 在运行时直接采样原始纹理；HeightMapSurfaceBaker 生成 512 分辨率的 TerrainCoverage R8 数组，仅记录各地形的混合覆盖与最终透明度，并序列化原纹理、尺寸、颜色与种子以供 Player 使用。Grassland 与水体保留各自动态采样，Sand 保留固定随机旋转覆盖，Gravel 为单层。地图原点使用全地图米制坐标，跨分块连续；SurfaceVisual 仅供编辑器预览，不进入 Player 数据。地表烘焙版本为 11，现有 99 张地图/分块已转换。
+
+- Rock 在运行时与地表烘焙预览中使用固定空间种子的随机旋转和偏移，运行时同步旋转采样导数，跨分块连续。先以源 Alpha 混合随机排布，再统一应用 Palette 不透明度和等高线淡化；沿用现有覆盖数据，无需重烘焙运行时地图。
+- Rock 每片随机旋转贴图在源 UV 四周 12% 宽度内使用 SmoothStep 从边缘的 70% 源 Alpha 平滑恢复至内部的 100%，先淡化源 Alpha 再参与排布合成，最后应用整体透明度。运行时与烘焙预览共享 RockPatternEdgeFade.cginc，PNG 原图不变。
+- Rock 当前平铺边长放大为之前的 4 倍：18.1019344 米；两份 MapParams 的 Rock 配置和全部 99 份地图运行时 terrainPatternSettings[6].x 已同步，其他地形尺寸不变。
