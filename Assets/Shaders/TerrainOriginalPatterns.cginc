@@ -53,9 +53,10 @@ float2 RotateSandUv(float2 value, float sine, float cosine)
 float4 TerrainRandomPattern(int id, float2 p, float2 dx, float2 dy)
 {
     float2 cell = floor(p), blend = frac(p);
-    // Gravel blends random transforms only in a narrow strip at cell edges.
-    bool narrowBlend = id == 5;
-    blend = narrowBlend ? smoothstep(.475, .525, blend) : blend * blend * (3 - 2 * blend);
+    bool isGravel = id == 5;
+    bool isRock = id == 6;
+    blend = isRock ? RockPatternBlend(blend)
+        : isGravel ? smoothstep(.475, .525, blend) : blend * blend * (3 - 2 * blend);
     float4 result = 0;
     [unroll] for (int y = 0; y <= 1; y++)
     [unroll] for (int x = 0; x <= 1; x++)
@@ -64,16 +65,17 @@ float4 TerrainRandomPattern(int id, float2 p, float2 dx, float2 dy)
         [branch] if (weight <= 0) continue;
         float2 corner = float2(x, y), seed = cell + corner + _TerrainSeed;
         float s, c; sincos(TerrainHash(seed) * 6.2831853, s, c);
-        float inverseScale = narrowBlend ? rcp(lerp(.9, 1.1, TerrainHash(seed + 139.3))) : 1;
+        float inverseScale = isGravel ? rcp(lerp(.9, 1.1, TerrainHash(seed + 139.3))) : 1;
         float2 uv = RotateSandUv(p - cell - corner, s, c) * inverseScale
             + float2(TerrainHash(seed + 17.1), TerrainHash(seed + 73.7));
         // The random cell and offset select the pattern. Only the rotation transforms its footprint.
         float4 sampleColor = TerrainOriginal(id, uv,
             RotateSandUv(dx, s, c) * inverseScale, RotateSandUv(dy, s, c) * inverseScale);
-        if (id == 6) sampleColor.a *= RockPatternEdgeFade(uv);
+        if (isRock) sampleColor.a *= RockPatternEdgeFade(uv);
         result += float4(sampleColor.rgb * sampleColor.a, sampleColor.a) * weight;
     }
     result.rgb = result.a > .00001 ? result.rgb / result.a : 0;
+    if (isRock) result.a = RockPatternSparseAlpha(result.a);
     return result;
 }
 

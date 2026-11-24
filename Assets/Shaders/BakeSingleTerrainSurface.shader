@@ -123,11 +123,11 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 return 3.0;
             }
 
-            float4 RandomPatternOverlay(sampler2D patternTexture, float2 tilePosition, bool fadeRockEdges)
+            float4 RandomPatternOverlay(sampler2D patternTexture, float2 tilePosition, bool isRock)
             {
                 float2 cell = floor(tilePosition);
                 float2 blend = frac(tilePosition);
-                blend = blend * blend * (3.0 - 2.0 * blend);
+                blend = isRock ? RockPatternBlend(blend) : blend * blend * (3.0 - 2.0 * blend);
                 float4 result = 0;
                 // Fixed spatial seeds and smooth blending avoid visible tile boundaries.
                 [unroll] for (int y = 0; y <= 1; y++)
@@ -142,11 +142,12 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                     float2 uv = float2(cosine * p.x - sine * p.y, sine * p.x + cosine * p.y);
                     uv += float2(Hash21(seed + 17.1), Hash21(seed + 73.7));
                     float4 sampleColor = tex2Dlod(patternTexture, float4(frac(uv), 0, 0));
-                    if (fadeRockEdges) sampleColor.a *= RockPatternEdgeFade(uv);
+                    if (isRock) sampleColor.a *= RockPatternEdgeFade(uv);
                     float weight = (x == 0 ? 1 - blend.x : blend.x) * (y == 0 ? 1 - blend.y : blend.y);
                     result += float4(sampleColor.rgb * sampleColor.a, sampleColor.a) * weight;
                 }
                 result.rgb = result.a > .00001 ? result.rgb / result.a : 0;
+                if (isRock) result.a = RockPatternSparseAlpha(result.a);
                 return result;
             }
 
