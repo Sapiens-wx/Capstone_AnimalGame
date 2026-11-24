@@ -287,7 +287,7 @@ namespace AnimalGame.MainUI
         public void OpenInventory()
         {
             if (IsCargoLocked || OfficialMapOpening.IsPlaying) return;
-            if (WorldPanelOpen) return;
+            if (WorldPanelOpen || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput) return;
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;

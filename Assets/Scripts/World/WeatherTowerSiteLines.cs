@@ -62,10 +62,11 @@ namespace AnimalGame.World
             Strip(center - half + pair, center + half + pair, .037f, white);
         }
 
-        public void LiftControl(Vector2 center)
+        public void LiftControl(Vector2 center, float dim)
         {
             Vector2 half = Vector2.right * .22f;
-            Strip(center - half, center + half, .098f, accent);
+            Color color = Color.Lerp(accent, Color.black, dim);
+            Strip(center - half, center + half, .098f, color);
         }
 
         private void Dashes(Vector2 start, Vector2 end, float width, float dash, float gap,

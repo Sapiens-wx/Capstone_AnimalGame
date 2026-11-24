@@ -1080,6 +1080,9 @@ MonoBehaviour:
   leftStickDeadZone: 0.08
   robotHandOpenSprite: {fileID: 21300000, guid: 2be79543e21a3a64ca8d16059771bfb1, type: 3}
   robotHandClosedSprite: {fileID: -4477956967296899041, guid: 0b143bf6a33d02e42be1da68b02de2c2, type: 3}
+  stationPlugSprite: {fileID: -6769375426637009125, guid: de1e450c6f2c6e74e90e09fd33eaf271, type: 3}
+  stationPlugScale: 3
+  stationPlugLipMaterial: {fileID: 2100000, guid: 92a0d6cebfbd4564b691e5ce1f8aff59, type: 2}
   armColor: {r: 1, g: 1, b: 1, a: 1}
   armScale: 2
   handScale: 2

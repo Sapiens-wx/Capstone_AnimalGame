@@ -56,8 +56,10 @@ namespace AnimalGame.World
 
         internal static void CloseFor(StationLogConsole source)
         {
-            if (active != null && active.station == source) active.Close();
+            if (IsOpenFor(source)) active.Close();
         }
+
+        internal static bool IsOpenFor(StationLogConsole source) => active != null && active.station == source;
 
         private void Show()
         {

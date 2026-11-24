@@ -5,6 +5,8 @@ Shader "AnimalGame/Player UI Clipped Sprite"
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1, 1, 1, 1)
         _RequirePlayerUiClip ("Require Active Player Disk", Float) = 0
+        [Toggle(TOWER_INTERACTION_LIGHTS)] _TowerInteractionLights ("Blink Gold Interaction Strips", Float) = 0
+        [PerRendererData] _ConnectedSocketUV ("Seated Plug UV Centre and Half Size", Vector) = (0,0,0,0)
         [MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
         [PerRendererData] _AlphaTex ("External Alpha", 2D) = "white" {}
         [PerRendererData] _EnableExternalAlpha ("Enable External Alpha", Float) = 0
@@ -36,6 +38,7 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             #pragma multi_compile _ PIXELSNAP_ON
             #pragma multi_compile _ ETC1_EXTERNAL_ALPHA
             #pragma multi_compile_local _ VEGETATION_DEFORMATION
+            #pragma shader_feature_local_fragment _ TOWER_INTERACTION_LIGHTS
 
             #include "UnityCG.cginc"
 
@@ -62,6 +65,8 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             fixed4 _Color;
             float _EnableExternalAlpha;
             float _RequirePlayerUiClip;
+            float _WeatherTowerInteractionDim;
+            float4 _ConnectedSocketUV;
             float _PlayerUiClipEnabled;
             float4 _PlayerUiClipCenterPixels;
             float _PlayerUiClipRadiusPixels;
@@ -120,8 +125,14 @@ Shader "AnimalGame/Player UI Clipped Sprite"
 
             fixed4 Frag(Varyings input) : SV_Target
             {
-                fixed4 color = SampleSpriteTexture(input.texcoord)
-                               * input.color;
+                fixed4 color = SampleSpriteTexture(input.texcoord);
+                #ifdef TOWER_INTERACTION_LIGHTS
+                // Only the interaction strips have chroma in the station artwork.
+                half gold = smoothstep(0.01h, 0.18h, color.r - color.b);
+                bool seated = all(abs(input.texcoord - _ConnectedSocketUV.xy) < _ConnectedSocketUV.zw);
+                color.rgb *= 1.0h - gold * (seated ? 0.0h : _WeatherTowerInteractionDim);
+                #endif
+                color *= input.color;
                 float2 screenUv = input.screenPosition.xy
                                   / max(0.0001, input.screenPosition.w);
                 float2 screenPixels = screenUv * _ScreenParams.xy;

@@ -51,7 +51,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             }
         }
 
-        private RefitGameplayLease(PlayerContext context)
+        private RefitGameplayLease(PlayerContext context, bool keepStationPlug)
         {
             previousTimeScale = Time.timeScale;
             previousCursorLock = Cursor.lockState;
@@ -63,7 +63,8 @@ namespace AnimalGame.Demos.CheckpointRefit
             CapturePlayer<RobotTumbleController>(context);
             CapturePlayer<RobotHeightMotionDetector>(context);
             CapturePlayer<RobotSelfRightingController>(context);
-            CapturePlayer<RobotArmController>(context);
+            // The docked arm owns the plug pose until the terminal releases this lease.
+            if (!keepStationPlug) CapturePlayer<RobotArmController>(context);
             CapturePlayer<PhotoModeController>(context);
             CaptureHud<PhotoResultView>(context);
             CaptureHud<PhotoResultUI>(context);
@@ -96,7 +97,8 @@ namespace AnimalGame.Demos.CheckpointRefit
         public static bool TryAcquire(
             RobotMover player,
             out RefitGameplayLease lease,
-            out string reason)
+            out string reason,
+            bool keepStationPlug = false)
         {
             lease = null;
             if (player == null || !player.isActiveAndEnabled)
@@ -112,7 +114,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             RefitGameplayLease candidate = null;
             try
             {
-                candidate = new RefitGameplayLease(context);
+                candidate = new RefitGameplayLease(context, keepStationPlug);
                 candidate.Acquire();
                 lease = candidate;
                 reason = string.Empty;

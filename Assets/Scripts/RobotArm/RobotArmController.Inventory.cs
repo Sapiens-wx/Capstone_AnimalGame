@@ -40,6 +40,7 @@ namespace AnimalGame.RobotArm
         private void HandleInventoryOpenChanged(bool open)
         {
             if (!open) { inventoryPresentationOpen = false; return; }
+            if (StationPlugActive) return;
             EnsureVisuals();
             if (!initialized || !isActiveAndEnabled || !CanOperate) return;
             inventoryPresentationActive = inventoryPresentationOpen = true;

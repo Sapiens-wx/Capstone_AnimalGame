@@ -561,7 +561,7 @@ namespace AnimalGame.World.Map
 
         public void Open()
         {
-            if (AnimalGame.MainUI.MainUI.BlocksGameplay || Time.timeScale <= 0) return;
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput || Time.timeScale <= 0) return;
             OpenMap(null);
         }
 

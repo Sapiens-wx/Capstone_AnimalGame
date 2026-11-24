@@ -441,7 +441,9 @@ namespace AnimalGame.RobotMap
                 entryInProgress = true;
                 try
                 {
-                    GetComponent<RobotArmController>()?.CancelArmControl();
+                    var arm = GetComponent<RobotArmController>();
+                    if (arm != null && arm.StationPlugActive) return;
+                    arm?.CancelArmControl();
                     // Releasing held waste can invoke gameplay callbacks. Respect any
                     // cancellation, disable or control-mode change before entering.
                     if (!this || !isActiveAndEnabled || cancellationVersion != entryCancellationVersion

@@ -11,7 +11,8 @@ Material:
   m_Shader: {fileID: 4800000, guid: 4f7e6ab0c9ef4f5da8e215fdadfb0c3b, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - TOWER_INTERACTION_LIGHTS
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -42,6 +43,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _RequirePlayerUiClip: 0
+    - _TowerInteractionLights: 1
     - PixelSnap: 0
     - _EnableExternalAlpha: 0
     - _ZWrite: 0

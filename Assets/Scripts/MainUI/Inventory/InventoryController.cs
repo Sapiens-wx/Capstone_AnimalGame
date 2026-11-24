@@ -500,7 +500,8 @@ namespace AnimalGame.MainUI.Inventory
 
         private void HandleInput()
         {
-            if (MainUI.WorldPanelOpen || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
+            if (MainUI.WorldPanelOpen || AnimalGame.MapTest.HeightMapPlayerSceneBootstrap.StationPlugOwnsInput
+                || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
             {
                 openHoldElapsed = closeHoldElapsed = 0f;
                 openHoldLatched = closeHoldLatched = true;

@@ -28,12 +28,25 @@ namespace AnimalGame.World
             bool pressed = held && !interactWasHeld;
             interactWasHeld = held;
 
-            var hud = GameMainUI.Active;
-            bool available = hud != null && hud.isActiveAndEnabled && hud.gameObject.scene == gameObject.scene
-                && !hud.IsCargoLocked && WorldStationInteraction.CanUseGroundConsole(tower, interactionTrigger);
-            if (available && pressed && WarehouseUI.Open(this, hud)) available = false;
+            bool available = CanInteract && (!tower.UsesStationPlugs || tower.CanPlug(WeatherTowerSocket.Cargo, tower.Player));
+            if (available && pressed)
+                available = !(tower.UsesStationPlugs
+                    ? tower.TryPlug(WeatherTowerSocket.Cargo, tower.Player, this, TryOpen, () => WarehouseUI.IsOpenFor(this))
+                    : TryOpen());
             if (interactionPrompt.activeSelf != available) interactionPrompt.SetActive(available);
         }
+
+        private bool CanInteract
+        {
+            get
+            {
+                var hud = GameMainUI.Active;
+                return isActiveAndEnabled && hud != null && hud.isActiveAndEnabled && hud.gameObject.scene == gameObject.scene
+                    && WorldStationInteraction.CanUseGroundConsole(tower, interactionTrigger);
+            }
+        }
+
+        private bool TryOpen() => CanInteract && WarehouseUI.Open(this, GameMainUI.Active);
 
         private void OnDisable()
         {

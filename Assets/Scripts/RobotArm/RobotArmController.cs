@@ -25,6 +25,9 @@ namespace AnimalGame.RobotArm
         [FormerlySerializedAs("robotHandSprite")]
         [SerializeField] private Sprite robotHandOpenSprite;
         [SerializeField] private Sprite robotHandClosedSprite;
+        [SerializeField] private Sprite stationPlugSprite;
+        [SerializeField, Min(.01f), Tooltip("Plug size relative to the claw's authored pixel scale.")]
+        private float stationPlugScale = 3f;
         [SerializeField] private Color armColor = Color.white;
         [Tooltip("Uniform multiplier of the authored Upper Arm and Lower Arm scales. Also determines their IK lengths.")]
         [SerializeField, Min(.01f)] private float armScale = 1f;
@@ -175,6 +178,7 @@ namespace AnimalGame.RobotArm
             && State != RobotArmState.Recycling && mover.GrabMovementMultiplier > 0f
             && !heldObject.TryGetComponent<HeavyGarbagePull>(out _);
         private float TotalDeploymentTime => connectorExtendDuration + extendDuration + handExtendDuration;
+        private Vector2 StandbyHandCentre => Vector2.up * armLength * .8f;
         private bool Upright => tumble == null || tumble.State == RobotTumbleState.Upright;
         private bool CanOperate => (photoMode == null || !photoMode.IsActive)
             && (mover.MovementMode == RobotMovementMode.Driven || !Upright);
@@ -238,7 +242,7 @@ namespace AnimalGame.RobotArm
             upperLength = Mathf.Max(left.UpperLength, right.UpperLength);
             lowerLength = Mathf.Max(left.LowerLength, right.LowerLength);
             armLength = Mathf.Max(left.UpperLength + left.LowerLength, right.UpperLength + right.LowerLength);
-            targetLocal = Vector2.up * armLength * .8f;
+            targetLocal = StandbyHandCentre;
             initialized = true;
             framePosition = transform.position; frameRotation = transform.rotation;
         }
@@ -247,6 +251,12 @@ namespace AnimalGame.RobotArm
         {
             ManualRetractRequestedThisFrame = false;
             bool armButtonHeld = Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
+            if (StationPlugActive)
+            {
+                previousArmButtonHeld = armButtonHeld;
+                armRequiresFreshPress = armButtonHeld;
+                return;
+            }
             if (openingArmPresentation)
             {
                 previousArmButtonHeld = armButtonHeld;
@@ -408,6 +418,12 @@ namespace AnimalGame.RobotArm
         private void LateUpdate()
         {
             if (!initialized || openingArmPresentation) return;
+            if (StationPlugActive)
+            {
+                // RobotMover and marker bobbing have now applied the frame's world pose.
+                StepStationPlug(Time.deltaTime);
+                return;
+            }
             // RobotMover runs after this controller. Check its translation AND rotation before rendering.
             if (Upright && deploymentTime > 0f && !IsProcessingRecycle &&
                 (transform.position != framePosition || Quaternion.Angle(transform.rotation, frameRotation) > .00001f))
@@ -517,21 +533,29 @@ namespace AnimalGame.RobotArm
 
         private Pose DesiredPose(Arm arm, float progress, Vector2 handCentre)
         {
-            Vector2 desired = handCentre + Vector2.right * arm.Side * handSpacing * .5f;
-            float lowerGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / connectorExtendDuration));
-            float upperGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - connectorExtendDuration) / extendDuration));
-            // Lower Arm is the body-side segment; Upper Arm carries the hand.
-            // Aim the full-size chain, then grow each segment from its attachment point.
-            SolveIK(desired - arm.Socket, arm.LowerLength, arm.UpperLength, arm.Side, out float lower, out float upper);
+            Pose pose = DeploymentPose(arm, progress, handCentre);
             // Recycling supplies an animation target, while normal rate input has already
             // limited the hand-centre velocity. Neither should acquire a second joint-rate lag.
             bool heavyGrip = heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _);
             float delta = State == RobotArmState.Recycling || normalManualActive ? 360f
                 : heavyGrip ? maximumAimSpeedDegreesPerSecond * stepDelta
                 : maximumAimSpeedDegreesPerSecond * stepDelta * mover.GrabMovementMultiplier;
+            pose.UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, pose.UpperAngle, delta);
+            pose.LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle, pose.LowerAngle, delta);
+            return pose;
+        }
+
+        private Pose DeploymentPose(Arm arm, float progress, Vector2 handCentre)
+        {
+            Vector2 desired = handCentre + Vector2.right * arm.Side * handSpacing * .5f;
+            float lowerGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / connectorExtendDuration));
+            float upperGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - connectorExtendDuration) / extendDuration));
+            // Lower Arm is the body-side segment; Upper Arm carries the hand.
+            // Aim the full-size chain, then grow each segment from its attachment point.
+            SolveIK(desired - arm.Socket, arm.LowerLength, arm.UpperLength, arm.Side, out float lower, out float upper);
             return new Pose {
-                UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, upper, delta),
-                LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle, lower, delta),
+                UpperAngle = upper,
+                LowerAngle = lower,
                 UpperLength = arm.UpperLength * upperGrowth,
                 LowerLength = arm.LowerLength * lowerGrowth,
                 Hand = Mathf.Clamp01((progress - connectorExtendDuration - extendDuration) / handExtendDuration) };
@@ -1300,6 +1324,7 @@ namespace AnimalGame.RobotArm
         }
         public void CancelArmControl()
         {
+            CancelStationPlug();
             EndOpeningPresentation();
             inventoryPresentationActive = inventoryPresentationOpen = false;
             ManualRetractRequestedThisFrame = false;

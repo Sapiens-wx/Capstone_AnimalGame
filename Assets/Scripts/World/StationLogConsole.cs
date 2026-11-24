@@ -52,8 +52,12 @@ namespace AnimalGame.World
             bool held = WorldStationInteraction.IsInteractHeld();
             bool pressed = held && !interactWasHeld;
             interactWasHeld = held;
-            if (pressed && TryOpen()) return;
-            SetPrompt(CanInteract);
+            bool available = CanInteract && (!tower.UsesStationPlugs || tower.CanPlug(WeatherTowerSocket.Log, tower.Player));
+            if (available && pressed)
+                available = !(tower.UsesStationPlugs
+                    ? tower.TryPlug(WeatherTowerSocket.Log, tower.Player, this, TryOpen, () => StationLogUI.IsOpenFor(this))
+                    : TryOpen());
+            SetPrompt(available);
         }
 
         public bool TryOpen()

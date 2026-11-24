@@ -529,7 +529,8 @@ namespace AnimalGame.RobotMap
             if (Time.deltaTime <= 0f) return;
             if (!IgnoreCollisionAndTerrain && animalCombat != null && animalCombat.IsDisplaced)
             { ClearMotionForExternalControl(); return; }
-            if (!IgnoreCollisionAndTerrain && MovementMode != RobotMovementMode.Driven)
+            if (!IgnoreCollisionAndTerrain && (MovementMode != RobotMovementMode.Driven
+                || (armController != null && armController.StationPlugActive)))
             {
                 ClearMotionForExternalControl();
                 return;

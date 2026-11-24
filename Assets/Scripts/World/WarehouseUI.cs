@@ -55,9 +55,11 @@ namespace AnimalGame.World
 
         internal static void CloseFor(Component source)
         {
-            if (active != null && active.transform.parent == source.transform)
+            if (IsOpenFor(source))
                 active.gameObject.SetActive(false);
         }
+
+        internal static bool IsOpenFor(Component source) => active != null && active.transform.parent == source.transform;
 
         private void Show(GameMainUI owner)
         {

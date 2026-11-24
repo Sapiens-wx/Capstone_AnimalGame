@@ -372,7 +372,8 @@ namespace AnimalGame.RobotMap
 
             UpdateReleaseRing(deltaTime);
 
-            bool inputAvailable = !AnimalGame.MainUI.MainUI.BlocksGameplay
+            bool usingStationPlug = AnimalGame.MapTest.HeightMapPlayerSceneBootstrap.StationPlugOwnsInput;
+            bool inputAvailable = !usingStationPlug && !AnimalGame.MainUI.MainUI.BlocksGameplay
                 && (mainUI == null || mainUI.TryGetRingScreenGeometry(out _, out _))
                 && (photoMode == null || !photoMode.IsInputLocked);
             bool rawScanHeld = inputAvailable && IsScanInputHeld();
@@ -416,7 +417,9 @@ namespace AnimalGame.RobotMap
 
                 case ScanVisualState.Charged:
                     // Keep the completed charge until the scan button is released.
-                    if (!scanHeld)
+                    if (usingStationPlug)
+                        CancelCharge();
+                    else if (!scanHeld)
                         BeginRelease();
                     break;
 

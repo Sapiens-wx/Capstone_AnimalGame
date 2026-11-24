@@ -23,6 +23,7 @@ namespace AnimalGame.World
         [SerializeField, Range(0f, 1f)] private float signalOpacity = .64f;
 
         private BoxCollider2D interactionTrigger;
+        private WeatherTower tower;
         private RobotMover player;
         private EarthlineUI earthline;
         private bool interactWasHeld;
@@ -51,7 +52,6 @@ namespace AnimalGame.World
                     return false;
 
                 Transform floor = player.TowerCollisionRoot;
-                WeatherTower tower = GetComponentInParent<WeatherTower>();
                 if (floor != null && !transform.IsChildOf(floor)) return false;
                 if (tower != null && (floor == null || (tower.Phase != WeatherTowerPhase.Ground
                     && tower.Phase != WeatherTowerPhase.Outdoor))) return false;
@@ -66,8 +66,9 @@ namespace AnimalGame.World
         private void Awake()
         {
             interactionTrigger = GetComponent<BoxCollider2D>();
+            tower = GetComponentInParent<WeatherTower>();
             if (useTutorialInteractionHint) WorldInteractionHint.ReplaceLegacyPrompt(interactionPrompt);
-            InitializeSignal(GetComponentInParent<WeatherTower>() != null);
+            InitializeSignal(tower != null);
         }
 
         internal CommunicationsSignalWave InitializeSignal(bool drivenByTower)
@@ -107,9 +108,13 @@ namespace AnimalGame.World
             bool held = WorldStationInteraction.IsInteractHeld();
             bool pressed = held && !interactWasHeld;
             interactWasHeld = held;
-            bool available = CanInteract;
+            bool usesPlug = tower != null && tower.UsesStationPlugs;
+            bool available = CanInteract && (!usesPlug || tower.CanPlug(WeatherTowerSocket.Communications, player));
+            if (available && pressed)
+                available = !(usesPlug
+                    ? tower.TryPlug(WeatherTowerSocket.Communications, player, this, TryOpen, () => earthline != null && earthline.IsOpen)
+                    : TryOpen());
             SetPrompt(available);
-            if (available && pressed) TryOpen();
         }
 
         public bool TryOpen()
@@ -117,7 +122,7 @@ namespace AnimalGame.World
             if (!CanInteract) return false;
             earthline.Open();
             SetPrompt(false);
-            return EarthlineUI.BlocksGameplay;
+            return earthline.IsOpen;
         }
 
         private void OnDisable()

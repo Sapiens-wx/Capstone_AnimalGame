@@ -22,6 +22,7 @@ namespace AnimalGame.Animals.Communication
     {
         public Contacts contacts;
         public static bool BlocksGameplay { get; private set; }
+        internal bool IsOpen => isOpen;
         public EarthlineFocus Focus { get; private set; }
         public int ContactIndex { get; private set; }
         public int ReplyIndex { get; private set; }
@@ -35,6 +36,7 @@ namespace AnimalGame.Animals.Communication
         private CursorLockMode savedCursorLock;
         private Vector2 previousDirection;
         private bool isOpen;
+        private int openedFrame;
         private ContactDefinition SelectedContact => contacts.contacts[ContactIndex];
         private DateTime GameTime => GameMainUI.Active.CurrentGameTime;
 
@@ -94,6 +96,7 @@ namespace AnimalGame.Animals.Communication
             InitializeView();
             savedTimeScale = Time.timeScale; savedCursorLock = Cursor.lockState;
             isOpen = BlocksGameplay = true; Time.timeScale = 0; Cursor.lockState = CursorLockMode.None;
+            openedFrame = Time.frameCount;
             root.style.display = DisplayStyle.Flex;
             ContactIndex = Mathf.Clamp(ContactIndex, 0, contacts.contacts.Count - 1);
             ReplyIndex = 0; previousDirection = Vector2.zero; nextMove = Time.unscaledTime + .2f;
@@ -229,8 +232,13 @@ namespace AnimalGame.Animals.Communication
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.L)) { if (isOpen) Close(); else Open(); return; }
-            if (!isOpen) return;
+            if (Input.GetKeyDown(KeyCode.L))
+            {
+                if (isOpen) Close();
+                else if (!HeightMapPlayerSceneBootstrap.StationPlugOwnsInput) Open();
+                return;
+            }
+            if (!isOpen || openedFrame == Time.frameCount) return;
             bool confirm = Input.GetKeyDown(KeyCode.Return), back = Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.B);
             bool y = Input.GetKeyDown(KeyCode.Y), x = Input.GetKeyDown(KeyCode.X);
             Vector2 direction = AdaptiveLegacyGamepadInput.ReadLeftStick();

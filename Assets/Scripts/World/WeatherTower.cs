@@ -118,6 +118,7 @@ namespace AnimalGame.World
             bool interactHeld = IsInteractHeld();
             bool interactPressed = interactHeld && !interactWasHeld;
             interactWasHeld = interactHeld;
+            TickStationPlug();
             float deltaTime = Time.deltaTime;
             // The refit UI can pause and disable the mover earlier in this same frame,
             // while deltaTime still reflects the frame before the pause.
@@ -146,17 +147,34 @@ namespace AnimalGame.World
             else if (!OnUpperView)
                 CheckGroundDoor(previous, position);
 
-            Transform availableLift = AvailableLift();
-            Landing? call = availableLift == null ? AvailableLiftCall() : null;
-            SetLiftPrompt(availableLift, call);
-            if (interactPressed)
-            {
-                if (availableLift != null) TryStartLift(availableLift);
-                else if (call.HasValue) StartLiftCall(call.Value);
-            }
+            UpdateLiftInteraction(interactPressed);
 
             if (IsRiding || OnUpperView)
                 towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, outdoorZoomMultiplier);
+        }
+
+        private void UpdateLiftInteraction(bool pressed)
+        {
+            if (plugPhase != PlugPhase.Idle) { SetLiftPrompt(null); return; }
+            Transform platform = AvailableLift();
+            Landing? call = platform == null ? AvailableLiftCall() : null;
+            if (HasOpenGround && (platform != null || call.HasValue))
+            {
+                Landing landing = call ?? (platform == lift ? MainLanding : EastLanding);
+                if (!TryFindLiftSocket(landing, out WeatherTowerSocket socket))
+                {
+                    SetLiftPrompt(null);
+                    return;
+                }
+                if (pressed)
+                {
+                    BeginLiftPlug(socket, landing, call.HasValue);
+                    SetLiftPrompt(null);
+                    return;
+                }
+            }
+            SetLiftPrompt(platform, call);
+            if (!HasOpenGround && pressed && platform != null) TryStartLift(platform);
         }
 
         public bool TryStartLift()
@@ -388,6 +406,7 @@ namespace AnimalGame.World
 
         private void ResetTower()
         {
+            CancelPlugInteraction();
             if (player != null) player.ClearTowerSupport(this);
             towerCamera.Release();
             Phase = WeatherTowerPhase.Exterior;

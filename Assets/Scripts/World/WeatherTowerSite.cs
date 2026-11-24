@@ -15,6 +15,9 @@ namespace AnimalGame.World
 
         private enum Landing { MainLower, MainUpper, EastUpper, EastLower }
         private static readonly int RequirePlayerDisk = Shader.PropertyToID("_RequirePlayerUiClip");
+        private static readonly int InteractionLightDim = Shader.PropertyToID("_WeatherTowerInteractionDim");
+        private const float BlinkPeriod = 1.8f;
+        private const float BlinkOnSeconds = 1.1f;
         private const float DoorThickness = .16f;
         private const float CallReach = 1.2f;
         private readonly LiftParking mainParking = new();
@@ -183,6 +186,9 @@ namespace AnimalGame.World
 
         private void DrawEntrances(float below)
         {
+            // Both the painted strips and the lift panels switch together on the gameplay clock.
+            float dim = Mathf.Repeat(Time.time, BlinkPeriod) < BlinkOnSeconds ? 0f : .8f;
+            Shader.SetGlobalFloat(InteractionLightDim, dim);
             float offset = Time.time * -.76f;
             WeatherTowerPhase view = IsRiding
                 ? (OnUpperView ? WeatherTowerPhase.Outdoor : ridingExitLift ? WeatherTowerPhase.Exterior : WeatherTowerPhase.Ground)
@@ -194,20 +200,18 @@ namespace AnimalGame.World
             DrawLanding(Landing.MainUpper, view == WeatherTowerPhase.Outdoor, offset);
             DrawLanding(Landing.EastUpper, view == WeatherTowerPhase.Outdoor, offset);
             DrawLanding(Landing.EastLower, view == WeatherTowerPhase.Exterior, offset);
-            DrawLiftControls(lift);
-            DrawLiftControls(exitLift);
+            DrawLiftControls(WeatherTowerSocket.MainNorth, WeatherTowerSocket.MainSouth, dim);
+            DrawLiftControls(WeatherTowerSocket.EastNorth, WeatherTowerSocket.EastSouth, dim);
             doorLines.Draw();
         }
 
         private void DrawLanding(Landing landing, bool accessible, float offset) =>
             doorLines.Door(liftDoorCenters[(int)landing], liftSize.y, accessible && IsLandingOpen(landing), offset);
 
-        private void DrawLiftControls(Transform anchor)
+        private void DrawLiftControls(WeatherTowerSocket north, WeatherTowerSocket south, float dim)
         {
-            Vector2 center = anchor.localPosition;
-            Vector2 panels = Vector2.up * 1.10f;
-            doorLines.LiftControl(center + panels);
-            doorLines.LiftControl(center - panels);
+            doorLines.LiftControl(LiftSocketPosition(north), SocketIsLit(north) ? 0f : dim);
+            doorLines.LiftControl(LiftSocketPosition(south), SocketIsLit(south) ? 0f : dim);
         }
     }
 }
