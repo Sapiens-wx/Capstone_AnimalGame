@@ -1,4 +1,6 @@
 // Only coverage is baked. Pattern pixels are sampled from the original assets.
+#include "RockPatternEdgeFade.cginc"
+
 UNITY_DECLARE_TEX2DARRAY(_TerrainCoverage);
 UNITY_DECLARE_TEX2D(_TerrainPattern1);
 UNITY_DECLARE_TEX2D_NOSAMPLER(_TerrainPattern2);
@@ -68,6 +70,7 @@ float4 TerrainRandomPattern(int id, float2 p, float2 dx, float2 dy)
         // The random cell and offset select the pattern. Only the rotation transforms its footprint.
         float4 sampleColor = TerrainOriginal(id, uv,
             RotateSandUv(dx, s, c) * inverseScale, RotateSandUv(dy, s, c) * inverseScale);
+        if (id == 6) sampleColor.a *= RockPatternEdgeFade(uv);
         result += float4(sampleColor.rgb * sampleColor.a, sampleColor.a) * weight;
     }
     result.rgb = result.a > .00001 ? result.rgb / result.a : 0;
@@ -86,7 +89,7 @@ float4 SampleOriginalTerrain(float2 tileUv, float2 mapDx, float2 mapDy)
         float inverseTileSize = rcp(max(.01, _TerrainSettings[id].x));
         float2 uv = meters * inverseTileSize;
         float2 dx = mapDx * inverseTileSize, dy = mapDy * inverseTileSize;
-        float4 pattern = id == 5 ? TerrainRandomPattern(id, uv, dx, dy)
+        float4 pattern = (id == 5 || id == 6) ? TerrainRandomPattern(id, uv, dx, dy)
             : TerrainOriginal(id, uv, dx, dy);
         if (id == 11)
         {
@@ -108,6 +111,7 @@ float4 SampleOriginalTerrain(float2 tileUv, float2 mapDx, float2 mapDy)
                 ? (overlay.rgb * overlay.a + pattern.rgb * pattern.a * (1 - overlay.a)) / alpha : 0;
             pattern.a = saturate(alpha);
         }
+        // Finish random pattern placement before applying the shared palette/contour opacity.
         float alpha = pattern.a * coverage;
         result += float4(pattern.rgb * _TerrainTints[id].rgb * alpha, alpha);
     }
