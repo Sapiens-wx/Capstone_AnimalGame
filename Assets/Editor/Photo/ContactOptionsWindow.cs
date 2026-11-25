@@ -31,7 +31,7 @@ namespace AnimalGame.Editor
             rootVisualElement.Clear();
             rootVisualElement.style.flexDirection = FlexDirection.Row;
             var sidebar = new VisualElement();
-            sidebar.style.width = 160;
+            sidebar.style.width = 192;
             sidebar.style.flexShrink = 0;
             rootVisualElement.Add(sidebar);
 

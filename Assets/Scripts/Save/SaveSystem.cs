@@ -16,7 +16,8 @@ namespace AnimalGame.Save
         private const int StationSyncVersion = 6;
         private const int RuinStateVersion = 7;
         private const int RepairTutorialVersion = 8;
-        private const int FileVersion = RepairTutorialVersion;
+        private const int PhotoMessageSecondsVersion = 9;
+        private const int FileVersion = PhotoMessageSecondsVersion;
         public static GameSave Current { get; private set; }
         public static DateTime CurrentGameTime => Current?.gameTime ?? GameSave.InitialGameTime;
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
@@ -102,6 +103,7 @@ namespace AnimalGame.Save
                         message.fromPlayer = reader.ReadBoolean();
                         message.hour = reader.ReadInt32();
                         message.minute = reader.ReadInt32();
+                        if (version >= PhotoMessageSecondsVersion) message.second = reader.ReadInt32();
                         if (version < NodeMessageVersion)
                         {
                             message.kind = (MessageKind)reader.ReadInt32();
@@ -192,6 +194,7 @@ namespace AnimalGame.Save
                             else if (message.kind == MessageKind.Photos)
                             {
                                 writer.Write(message.fromPlayer); writer.Write(message.hour); writer.Write(message.minute);
+                                writer.Write(message.second);
                                 writer.Write(message.photoIndices.Length);
                                 foreach (int index in message.photoIndices) writer.Write(index);
                             }
@@ -368,7 +371,7 @@ namespace AnimalGame.Save
             int currentId = options.GetCurrentNodeId(conversation);
             var pending = new List<ChatMessage>();
             var visited = new HashSet<int>();
-            var sentAt = new DateTime(time.Ticks - time.Ticks % TimeSpan.TicksPerMinute);
+            var sentAt = new DateTime(time.Ticks - time.Ticks % TimeSpan.TicksPerSecond);
 
             if (replyId != 0)
             {
@@ -431,7 +434,7 @@ namespace AnimalGame.Save
             }
             try
             {
-                AppendMessages(contact, new[] { new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute,
+                AppendMessages(contact, new[] { new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute, second = time.Second,
                     kind = MessageKind.Photos, photoIndices = (int[])indices.Clone() } });
             }
             catch

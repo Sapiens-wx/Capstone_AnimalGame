@@ -35,7 +35,7 @@ namespace AnimalGame.Animals.Communication
     public sealed class ChatMessage
     {
         public bool fromPlayer;
-        public int hour, minute;
+        public int hour, minute, second;
         public MessageKind kind;
         public int nodeId;
         public DateTime sentAt;

@@ -9,7 +9,8 @@ namespace AnimalGame.Editor
 {
     internal sealed class ContactOptionsHistoryView : VisualElement
     {
-        private const string DateFormat = "yyyy-MM-dd HH:mm";
+        private const string DateFormat = "yyyy-MM-dd HH:mm:ss";
+        private static readonly string[] InputFormats = { DateFormat, "yyyy-MM-dd HH:mm" };
 
         private readonly Label contactName = new();
         private readonly Button update;
@@ -83,7 +84,7 @@ namespace AnimalGame.Editor
             row.Add(error);
             field.RegisterValueChangedCallback(evt =>
             {
-                if (!DateTime.TryParseExact(evt.newValue, DateFormat, CultureInfo.InvariantCulture,
+                if (!DateTime.TryParseExact(evt.newValue, InputFormats, CultureInfo.InvariantCulture,
                         DateTimeStyles.None, out var time))
                 {
                     field.SetValueWithoutNotify(Format(date.GameTime));
@@ -91,6 +92,7 @@ namespace AnimalGame.Editor
                     return;
                 }
                 error.style.display = DisplayStyle.None;
+                field.SetValueWithoutNotify(Format(time));
                 if (time == date.GameTime) return;
                 Undo.RecordObject(asset, "Edit Contact History Date");
                 asset.SetHistoryDate(index, time);
