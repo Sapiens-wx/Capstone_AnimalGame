@@ -541,7 +541,7 @@ namespace AnimalGame.RobotMap
             pendingResult = null;
             pendingSubject = null;
             visible = true;
-            try { resultView.Show(displayedResult, contourCapture); }
+            try { resultView.Show(displayedResult, contourCapture, map); }
             catch (Exception exception)
             {
                 Debug.LogException(exception, this);

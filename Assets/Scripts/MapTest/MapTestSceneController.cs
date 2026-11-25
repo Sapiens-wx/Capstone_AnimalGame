@@ -13,7 +13,11 @@ namespace AnimalGame.MapTest
     {
         private const float DefaultSurfaceRevealRadiusPixels = 430f;
         private const float VisibleRangeSamplesPerSecond = 2f;
+        private const float OverlaySurfaceFadeOutSpeed = 1.5f;
+        private const float OverlaySurfaceFadeInSpeed = .5f;
+        private const float OverlaySurfaceFadeInLeadTime = .7f;
         private static readonly int OpeningMapScanId = Shader.PropertyToID("_OpeningMapScan");
+        private static readonly int OverlaySurfaceVisibilityId = Shader.PropertyToID("_OverlaySurfaceVisibility");
 
         public const float OpeningContourStart = 3.79f;
         public const float OpeningContourReady = 4.58f;
@@ -82,6 +86,7 @@ namespace AnimalGame.MapTest
         private readonly List<TiledMapTileView> tileViews = new List<TiledMapTileView>();
         private readonly List<SpriteRenderer> tileRenderers = new List<SpriteRenderer>();
         private Material contourMaterial;
+        private float overlaySurfaceFade, overlaySurfaceFadeTarget, overlaySurfaceFadeSpeed;
         private float surfaceRevealEdgePixels = 4f;
         private ScanChargeUI surfaceRevealUi;
         private int lastViewportUpdateFrame = -1;
@@ -174,6 +179,7 @@ namespace AnimalGame.MapTest
         {
             if (Application.isPlaying)
             {
+                AdvanceOverlaySurfaceFade(Time.unscaledDeltaTime);
                 if (runtimeMap != null && runtimeMap.CompletePendingLoads())
                 {
                     var properties = new MaterialPropertyBlock();
@@ -507,6 +513,7 @@ namespace AnimalGame.MapTest
             Shader shader = dynamicContourShader != null ? dynamicContourShader : Shader.Find("AnimalGame/Dynamic Height Contours");
             if (shader == null) throw new System.InvalidOperationException("Missing dynamic contour shader.");
             contourMaterial = new Material(shader) { name = "Shared Map Presentation", hideFlags = HideFlags.DontSave };
+            if (Application.isPlaying) ApplyOverlaySurfaceVisibility();
             RefreshContourMaterialSettings();
         }
         private void RefreshTileProperties()
@@ -744,6 +751,35 @@ namespace AnimalGame.MapTest
             contourMaterial.SetFloat("_MaximumOpacity", maximumContourOpacity);
             contourMaterial.SetFloat("_SurfaceRevealEnabled", Application.isPlaying ? 1 : 0);
             contourMaterial.SetFloat("_SurfaceRevealEdgePixels", surfaceRevealEdgePixels);
+        }
+
+        internal void FadeOutSurfaceForOverlay(float openingDuration)
+        {
+            overlaySurfaceFadeTarget = 1f;
+            overlaySurfaceFadeSpeed = OverlaySurfaceFadeOutSpeed / Mathf.Max(.05f, openingDuration);
+        }
+
+        internal void HoldOverlaySurfaceFade() => overlaySurfaceFadeTarget = overlaySurfaceFade;
+
+        internal void FadeInSurfaceOnOverlayClose(float closingDuration, float secondsUntilClosed = 0f)
+        {
+            if (secondsUntilClosed > OverlaySurfaceFadeInLeadTime) return;
+            overlaySurfaceFadeTarget = 0f;
+            overlaySurfaceFadeSpeed = OverlaySurfaceFadeInSpeed / Mathf.Max(.05f, closingDuration);
+        }
+
+        private void AdvanceOverlaySurfaceFade(float deltaTime)
+        {
+            if (overlaySurfaceFade == overlaySurfaceFadeTarget) return;
+            overlaySurfaceFade = Mathf.MoveTowards(overlaySurfaceFade, overlaySurfaceFadeTarget,
+                deltaTime * overlaySurfaceFadeSpeed);
+            ApplyOverlaySurfaceVisibility();
+        }
+
+        private void ApplyOverlaySurfaceVisibility()
+        {
+            if (contourMaterial != null)
+                contourMaterial.SetFloat(OverlaySurfaceVisibilityId, 1f - Mathf.SmoothStep(0f, 1f, overlaySurfaceFade));
         }
 
         private void RefreshSurfaceMaterialSettings()

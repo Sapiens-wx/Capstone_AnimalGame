@@ -97,6 +97,7 @@ namespace AnimalGame.RobotMap
         private Vector2 lastPanelSize = new Vector2(-1, -1);
         private Vector2 transitionCenterViewport;
         private float transitionRadiusViewportHeight;
+        private MapTestSceneController terrainMap;
         private bool showing;
         private PhotoResultSnapshot currentResult;
         private RobotBalanceView hiddenBalanceView;
@@ -235,7 +236,7 @@ namespace AnimalGame.RobotMap
             if (lineElements != null) lines.AddRange(lineElements.Query<PhotoResultLineElement>().ToList());
         }
 
-        internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture)
+        internal void Show(PhotoResultSnapshot result, PhotoContourCapture capture, MapTestSceneController map)
         {
             if (IsWarmingUp) return;
             HasPendingReview = false;
@@ -245,6 +246,8 @@ namespace AnimalGame.RobotMap
             transitionCenterViewport = capture.TransitionCenterViewport;
             transitionRadiusViewportHeight = capture.TransitionRadiusViewportHeight;
             ShowCore(result, capture.Texture);
+            terrainMap = map;
+            if (terrainMap != null) terrainMap.FadeOutSurfaceForOverlay(animationSettings.openDuration);
         }
 
         public bool TryBeginWarmup()
@@ -465,7 +468,12 @@ namespace AnimalGame.RobotMap
             else identifiedLabel.text = text;
         }
 
-        public void Close() { if (showing && !IsWarmingUp) animationSettings.Close(); }
+        public void Close()
+        {
+            if (!showing || IsWarmingUp || animationSettings.IsClosing) return;
+            if (terrainMap != null) terrainMap.HoldOverlaySurfaceFade();
+            animationSettings.Close();
+        }
 
         public void HideImmediately()
         {
@@ -480,6 +488,8 @@ namespace AnimalGame.RobotMap
             HasPendingReview = false;
             if (!IsWarmingUp && mainUIAnimation != null) mainUIAnimation.Restore();
             if (root != null) root.style.display = DisplayStyle.None;
+            if (terrainMap != null) terrainMap.FadeInSurfaceOnOverlayClose(animationSettings.closeDuration);
+            terrainMap = null;
             ReleaseTextures();
             IsWarmingUp = false;
             animationSettings.Open();
@@ -501,6 +511,9 @@ namespace AnimalGame.RobotMap
             RefreshDocumentTree();
             if (!showing || IsWarmingUp) return;
             animationSettings.Tick(Time.unscaledDeltaTime);
+            if (terrainMap != null && animationSettings.IsClosing)
+                terrainMap.FadeInSurfaceOnOverlayClose(animationSettings.closeDuration,
+                    animationSettings.Progress * Mathf.Max(.05f, animationSettings.closeDuration));
             ApplyAnimation();
             recognition.Tick(Time.unscaledDeltaTime, animationSettings.Progress >= 1f,
                 AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay, animationSettings.IsClosing);

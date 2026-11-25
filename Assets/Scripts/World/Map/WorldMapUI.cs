@@ -22,8 +22,15 @@ namespace AnimalGame.World.Map
         private const float MapDataNoticeHold = 3f;
         private const float MapDataNoticeFade = .25f;
         private const float SurveySweepDuration = 1.2f;
-        private const float OpenTransitionDuration = 1.5f;
-        private const float CloseTransitionDuration = .96f;
+        private const float NorthOpenTurnDelay = .6f;
+        private const float SouthOpenTurnDelay = .14625f;
+        private const float NorthTurnSpeedMultiplier = .21f;
+        private const float SouthTurnSpeedMultiplier = 1.2f;
+        private const float QuarterTurnDuration = 1.275f;
+        private const float MinimumTurnDuration = .35f;
+        private const float OpenApertureDuration = 2.6625f / 1.6f;
+        private const float CloseApertureDuration = .96f;
+        private const float CloseTurnDelayReference = .1125f;
         [SerializeField] private Shader contourShader;
         [Header("Zoom (visible range / player view at opening)")]
         [SerializeField, Min(.01f)] private float minimumZoom = 1;
@@ -43,6 +50,7 @@ namespace AnimalGame.World.Map
         public static bool BlocksGameplay => active != null || closedFrame == Time.frameCount;
         internal static string OpenControlLabel => Gamepad.current?.selectButton.displayName.ToUpperInvariant() ?? "C";
         public bool IsOpen { get; private set; }
+        internal bool IsClosing => closing;
         public float MinimumZoom { get; private set; }
         public float MaximumZoom { get; private set; }
         public float CurrentZoom { get; private set; }
@@ -86,7 +94,8 @@ namespace AnimalGame.World.Map
         private float openingPlayerBearing;
         private Vector2 openingPlayerMapPosition, openingPlayerScreenFraction;
         private Vector2 gameplayFootprintPerScreenHeight;
-        private float transitionProgress;
+        private float openingElapsed;
+        private float closingRemaining;
         private bool closing;
         private CursorLockMode savedCursorLock;
         private bool savedCursorVisible, dirty;
@@ -366,7 +375,7 @@ namespace AnimalGame.World.Map
                 dirty = true;
                 lastSize = size;
             }
-            if (closing || transitionProgress < 1f)
+            if (!IsFullyOpen)
             {
                 AdvanceTransition(Time.unscaledDeltaTime, size);
                 if (IsOpen) RefreshVisuals(viewport);
@@ -426,14 +435,7 @@ namespace AnimalGame.World.Map
             }
             bool cursorOnSignal = false;
             if (centeringMapView)
-            {
-                centeringElapsed += Time.unscaledDeltaTime;
-                float progress = Mathf.Clamp01(centeringElapsed / .45f);
-                float eased = Mathf.SmoothStep(0f, 1f, progress);
-                View.SetFocus(Vector2.Lerp(centeringStart, centeringTarget, eased),
-                    Vector2.Lerp(centeringCursorStart, centeringTarget, eased), map.MapSizeMeters);
-                if (progress >= 1f) centeringMapView = false;
-            }
+                AdvanceCentering(Time.unscaledDeltaTime);
             else
             {
                 cursorOnSignal = unknownSignalWorldPosition is Vector2 source && View.Cursor == WorldToMap(source);
@@ -456,6 +458,16 @@ namespace AnimalGame.World.Map
             centeringTarget = position;
             centeringElapsed = 0f;
             centeringMapView = true;
+        }
+
+        private void AdvanceCentering(float deltaTime)
+        {
+            centeringElapsed += deltaTime;
+            float progress = Mathf.Clamp01(centeringElapsed / .45f);
+            float eased = Mathf.SmoothStep(0f, 1f, progress);
+            View.SetFocus(Vector2.Lerp(centeringStart, centeringTarget, eased),
+                Vector2.Lerp(centeringCursorStart, centeringTarget, eased), map.MapSizeMeters);
+            if (progress >= 1f) centeringMapView = false;
         }
 
         private void CyclePinSelection(int direction)
@@ -712,7 +724,9 @@ namespace AnimalGame.World.Map
             active = this;
             IsOpen = true;
             closing = false;
-            transitionProgress = 0f;
+            openingElapsed = 0f;
+            closingRemaining = 1f;
+            map.FadeOutSurfaceForOverlay(OpenApertureDuration);
             ApplyTransitionPose(viewportSize);
             mapDataNotice.EnableInClassList("survey-notice", terminal != null);
             controls.Q<Label>("map-close-caption").text = terminal != null ? "Back to Logs" : "Close";
@@ -775,27 +789,57 @@ namespace AnimalGame.World.Map
         private bool ShowsWholeMap => View.ViewSize.x >= map.MapSizeMeters.x - .001f
             && View.ViewSize.y >= map.MapSizeMeters.y - .001f;
 
+        private float TurnAngleFraction => Mathf.Abs(openingPlayerBearing) / 180f;
+        private float TurnSpeedMultiplier => Mathf.Lerp(NorthTurnSpeedMultiplier, SouthTurnSpeedMultiplier, TurnAngleFraction);
+        private float OpenTurnDelay => Mathf.Lerp(NorthOpenTurnDelay, SouthOpenTurnDelay, TurnAngleFraction);
+        private float BaseTurnDuration => Mathf.Max(MinimumTurnDuration, 2f * QuarterTurnDuration * TurnAngleFraction);
+        private float OpenTurnEnd => OpenTurnDelay + BaseTurnDuration / TurnSpeedMultiplier;
+        private float OpenTransitionDuration => Mathf.Max(OpenApertureDuration, OpenTurnEnd);
+        private float OpeningTurnProgress => Mathf.InverseLerp(OpenTurnDelay, OpenTurnEnd, openingElapsed);
+        private float OpeningApertureProgress => Mathf.Clamp01(openingElapsed / OpenApertureDuration);
+        private float CloseTurnEnd => CloseTurnDelayReference / (CloseTurnDelayReference + BaseTurnDuration);
+        private float CloseTurnOrigin => Mathf.Lerp(CloseTurnEnd, 1f, OpeningTurnProgress);
+        private bool IsFullyOpen => !closing && openingElapsed == OpenTransitionDuration;
+
         private float TransitionTurn
         {
             get
             {
-                float t = Mathf.InverseLerp(.15f, 1f, transitionProgress);
+                float t = OpeningTurnProgress;
+                if (closing)
+                {
+                    float turnRemaining = Mathf.Clamp01(1f - (1f - closingRemaining) * TurnSpeedMultiplier);
+                    t = Mathf.InverseLerp(CloseTurnEnd, 1f, CloseTurnOrigin * turnRemaining);
+                }
                 return t * t * t * (4f - 3f * t);
             }
         }
 
         private void AdvanceTransition(float deltaTime, Vector2 viewportSize)
         {
-            float duration = closing ? CloseTransitionDuration : OpenTransitionDuration;
-            transitionProgress = Mathf.MoveTowards(transitionProgress, closing ? 0f : 1f, deltaTime / duration);
+            if (closing)
+            {
+                if (centeringMapView)
+                {
+                    AdvanceCentering(deltaTime);
+                    return;
+                }
+
+                float duration = CloseApertureDuration * OpeningApertureProgress;
+                closingRemaining = Mathf.MoveTowards(closingRemaining, 0f, deltaTime / duration);
+                map.FadeInSurfaceOnOverlayClose(CloseApertureDuration, duration * closingRemaining);
+            }
+            else
+                openingElapsed = Mathf.MoveTowards(openingElapsed, OpenTransitionDuration, deltaTime);
+
             ApplyTransitionPose(viewportSize);
-            if (closing && transitionProgress == 0f) FinishClose();
-            else if (transitionProgress == 1f) hoverIdleSince = Time.unscaledTime;
+            if (closing && closingRemaining == 0f) FinishClose();
+            else if (IsFullyOpen) hoverIdleSince = Time.unscaledTime;
         }
 
         private void ApplyTransitionPose(Vector2 viewportSize)
         {
-            cursor.style.visibility = !closing && transitionProgress == 1f ? Visibility.Visible : Visibility.Hidden;
+            cursor.style.visibility = IsFullyOpen ? Visibility.Visible : Visibility.Hidden;
             float turn = TransitionTurn;
             View.Bearing = Mathf.Lerp(openingPlayerBearing, 0f, turn);
             // Crop the gameplay footprint to the map frame at the same metres per screen pixel.
@@ -855,8 +899,10 @@ namespace AnimalGame.World.Map
             }
             else mapRenderer.RenderWaterFrame(map);
             RefreshMapDataPresentation();
-            WorldMapAperture? aperture = transitionProgress < 1f
-                ? new WorldMapAperture(displaySize, playerScreen, Mathf.SmoothStep(0f, 1f, transitionProgress))
+            float openingProgress = OpeningApertureProgress;
+            float apertureProgress = openingProgress * openingProgress * Mathf.SmoothStep(0f, 1f, closingRemaining);
+            WorldMapAperture? aperture = apertureProgress < 1f
+                ? new WorldMapAperture(displaySize, playerScreen, apertureProgress)
                 : null;
             UpdateOpeningImage(viewport, displaySize, aperture);
             Vector2 uiSize = root.contentRect.size;
@@ -921,7 +967,7 @@ namespace AnimalGame.World.Map
             PositionCircle(playerIcon, playerPosition, radius * 1.5f);
             playerIcon.style.opacity = MarkerOpacity(playerPosition, radius * 2f);
             playerIcon.style.rotate = new Rotate(openingPlayerBearing - View.Bearing);
-            if (!closing && transitionProgress == 1f)
+            if (IsFullyOpen)
                 PositionCircle(cursor, View.ToScreen(View.DisplayCursor, uiSize), radius);
         }
 
@@ -1007,10 +1053,14 @@ namespace AnimalGame.World.Map
         public void Close()
         {
             if (!IsOpen || closing) return;
-            if (transitionProgress == 0f) { FinishClose(); return; }
+            if (openingElapsed == 0f) { FinishClose(); return; }
             HideHoverCoordinates(true);
-            centeringMapView = false;
+            if (TransitionTurn == 0f || View.Center == openingPlayerMapPosition)
+                centeringMapView = false;
+            else if (!centeringMapView || centeringTarget != openingPlayerMapPosition)
+                BeginCentering(openingPlayerMapPosition);
             closing = true;
+            map.HoldOverlaySurfaceFade();
             cursor.style.visibility = Visibility.Hidden;
         }
 
@@ -1024,6 +1074,7 @@ namespace AnimalGame.World.Map
             if (active == this) active = null;
             closedFrame = Time.frameCount;
             panel.style.display = DisplayStyle.None;
+            map.FadeInSurfaceOnOverlayClose(CloseApertureDuration);
             mapDataNotice.style.display = DisplayStyle.None;
             mapDataNoticeStartsAt = -1f;
             EndSurveySweep();

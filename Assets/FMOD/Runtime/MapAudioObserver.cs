@@ -49,7 +49,8 @@ namespace Capstone.Audio
                     pins[shape] = current;
                 }
             }
-            if (!first)
+            bool cursorMoved = false, zoomMoved = false;
+            if (!first && !map.IsClosing)
             {
                 bool zoomChanged = !Mathf.Approximately(map.CurrentZoom, lastZoom);
                 bool resized = !Mathf.Approximately(view.ViewSize.x / view.ViewSize.y, lastSize.x / lastSize.y);
@@ -67,12 +68,13 @@ namespace Capstone.Audio
                 if (shapeChanged || (centerMoved && !recentering)) PlayPin(Milestone1Cue.MapSelect);
                 recentering = centerMoved || (shapeChanged && view.HasPinShape(view.SelectedPinShape));
 
-                bool cursorMoved = !centerMoved && !resized && !placed && !removed
+                cursorMoved = !centerMoved && !resized && !placed && !removed
                     && view.Cursor != lastCursor && view.DisplayCursor != lastDisplayCursor
                     && !(zoomChanged && Mathf.Approximately(map.CurrentZoom, map.MaximumZoom));
-                FollowMotion(Milestone1Cue.CameraMove, cursorMoved, deltaTime, ref moving, ref movementIdle, ref movement);
-                FollowMotion(Milestone1Cue.CameraFocus, zoomChanged && !resized, deltaTime, ref zooming, ref zoomIdle, ref focus);
+                zoomMoved = zoomChanged && !resized;
             }
+            FollowMotion(Milestone1Cue.CameraMove, cursorMoved, deltaTime, ref moving, ref movementIdle, ref movement);
+            FollowMotion(Milestone1Cue.CameraFocus, zoomMoved, deltaTime, ref zooming, ref zoomIdle, ref focus);
             lastCursor = view.Cursor;
             lastDisplayCursor = view.DisplayCursor;
             lastCenter = view.Center;

@@ -10,6 +10,7 @@ Shader "AnimalGame/Dynamic Height Contours"
         [HideInInspector] _OpeningMapScan ("Opening Map Scan", Vector) = (2, 2, 0, 0)
         _HeightTex ("Height Map", 2D) = "black" {}
         _SurfaceEnabled ("Surface Enabled", Float) = 0
+        [HideInInspector] _OverlaySurfaceVisibility ("Overlay Surface Visibility", Range(0, 1)) = 1
         _GrassMaskTex ("Grassland Coverage", 2D) = "black" {}
         _GrassPatternTex ("Grassland Blades", 2D) = "black" {}
         _GrassEnabled ("Grassland Enabled", Float) = 0
@@ -101,6 +102,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float4 _OpeningMapScan;
             sampler2D _HeightTex;
             float _SurfaceEnabled;
+            float _OverlaySurfaceVisibility;
             float _EnclosedRoomSurfaceFade;
             float _SurfaceRevealEnabled;
             float4 _SurfaceRevealCenterPixels;
@@ -219,7 +221,8 @@ Shader "AnimalGame/Dynamic Height Contours"
                     // Only the live player view fades its terrain texture. Contours are drawn separately below.
                     float roomSurfaceVisibility = _SurfaceRevealEnabled > .5
                         ? 1.0 - saturate(_EnclosedRoomSurfaceFade) : 1.0;
-                    [branch] if (surfaceVisibility > .5 && roomSurfaceVisibility > 0.0)
+                    float liveSurfaceVisibility = roomSurfaceVisibility * _OverlaySurfaceVisibility;
+                    [branch] if (surfaceVisibility > .5 && liveSurfaceVisibility > 0.0)
                     {
                         float surfaceLandVisibility = landVisibility;
                         if (surfaceScanning)
@@ -252,8 +255,8 @@ Shader "AnimalGame/Dynamic Height Contours"
                                 revealMask, waterUv, insideWaterBounds, waterData, waterBlend);
                             rippleTransmission = 1.0 - waterBlend;
                         }
-                        baseColor.rgb *= roomSurfaceVisibility;
-                        rippleTransmission = lerp(1.0, rippleTransmission, roomSurfaceVisibility);
+                        baseColor.rgb *= liveSurfaceVisibility;
+                        rippleTransmission = lerp(1.0, rippleTransmission, liveSurfaceVisibility);
                     }
                 }
 
