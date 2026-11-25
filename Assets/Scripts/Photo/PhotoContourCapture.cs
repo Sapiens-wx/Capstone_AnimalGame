@@ -12,21 +12,26 @@ namespace AnimalGame.RobotMap
     internal sealed class PhotoContourCapture : IDisposable
     {
         public RenderTexture Texture { get; private set; }
-        public Vector2 CenterViewport { get; private set; }
-        public float RadiusViewportHeight { get; private set; }
+        public Vector2 TransitionCenterViewport { get; private set; }
+        public float TransitionRadiusViewportHeight { get; private set; }
 
         public bool Capture(Camera source, MapTestSceneController map, int resolution, float displayDiameter)
         {
             Dispose();
-            CenterViewport = Vector2.one * 0.5f;
-            RadiusViewportHeight = 0.4f;
+            TransitionCenterViewport = Vector2.one * .5f;
+            TransitionRadiusViewportHeight = 0f;
+            var hud = AnimalGame.MainUI.MainUI.Active;
+            if (hud != null && map != null && hud.gameObject.scene == map.gameObject.scene
+                && hud.TryGetOuterRingScreenGeometry(out Vector2 outerCenter, out float outerRadius))
+            {
+                TransitionCenterViewport = new Vector2(outerCenter.x / Screen.width, outerCenter.y / Screen.height);
+                TransitionRadiusViewportHeight = outerRadius / Screen.height;
+            }
             if (source == null || map == null || map.PhotoContourRenderers.Count == 0) return false;
             var terrains = new HashSet<SpriteRenderer>(map.PhotoContourRenderers);
             var originals = new Dictionary<SpriteRenderer, MaterialPropertyBlock>();
             map.GetPhotoSnapshotCircle(out Vector2 center, out float radius);
             radius = Mathf.Max(1, radius);
-            CenterViewport = new Vector2(center.x / Screen.width, center.y / Screen.height);
-            RadiusViewportHeight = radius / Screen.height;
 
             var cameraObject = new GameObject("Photo Contour Snapshot Camera") { hideFlags = HideFlags.HideAndDontSave };
             Camera camera = cameraObject.AddComponent<Camera>();

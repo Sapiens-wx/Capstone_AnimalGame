@@ -67,7 +67,8 @@ namespace AnimalGame.RobotMap
         public event Action Closed;
 
         private VisualElement root, stage, zoomContent, backdrop, vectors, photo, textContent;
-        private VisualElement snapshotCircle, snapshotCloseBadge, snapshotImg;
+        private PhotoResultArcElement snapshotCircle;
+        private VisualElement snapshotCloseBadge, snapshotImg;
         private Label photosLabel, identifiedLabel;
         private int lastIdentifiedValue = -1;
         private Image photoImage, snapshotImage;
@@ -94,6 +95,8 @@ namespace AnimalGame.RobotMap
         private bool hasMousePosition;
         private float lastAnimationProgress = -1;
         private Vector2 lastPanelSize = new Vector2(-1, -1);
+        private Vector2 transitionCenterViewport;
+        private float transitionRadiusViewportHeight;
         private bool showing;
         private PhotoResultSnapshot currentResult;
         private RobotBalanceView hiddenBalanceView;
@@ -150,7 +153,7 @@ namespace AnimalGame.RobotMap
             zoomContent = root.Q("zoom-content");
             backdrop = root.Q("backdrop");
             vectors = root.Q("vectors");
-            snapshotCircle = root.Q("snapshot-outline");
+            snapshotCircle = root.Q<PhotoResultArcElement>("snapshot-outline");
             snapshotCloseBadge = root.Q("close-badge");
             snapshotImg = root.Q("snapshot-image");
             photo = root.Q("photo");
@@ -239,6 +242,8 @@ namespace AnimalGame.RobotMap
             if (mainUIAnimation == null)
                 mainUIAnimation = FindFirstObjectByType<PhotoResultMainUIAnimation>();
             RefreshDocumentTree();
+            transitionCenterViewport = capture.TransitionCenterViewport;
+            transitionRadiusViewportHeight = capture.TransitionRadiusViewportHeight;
             ShowCore(result, capture.Texture);
         }
 
@@ -480,6 +485,7 @@ namespace AnimalGame.RobotMap
             animationSettings.Open();
             lastAnimationProgress = -1;
             lastPanelSize = new Vector2(-1, -1);
+            transitionRadiusViewportHeight = 0f;
         }
 
         private void RestoreBalanceDisplay()
@@ -522,13 +528,12 @@ namespace AnimalGame.RobotMap
             float designWidth = Mathf.Max(1f, designSize.x);
             float designHeight = Mathf.Max(1f, designSize.y);
             Vector2 panelSize = new Vector2(width, height);
+            Vector2 design = new Vector2(designWidth, designHeight);
+            float scale = Mathf.Max(0.01f, Mathf.Min(width / designWidth, height / designHeight));
+            Vector2 offset = (panelSize - design * scale) * .5f;
             bool resized = panelSize != lastPanelSize;
             if (resized)
             {
-                float scale = Mathf.Max(0.01f, Mathf.Min(width / designWidth, height / designHeight));
-                Vector2 offset = new Vector2(
-                    (width - designWidth * scale) * 0.5f,
-                    (height - designHeight * scale) * 0.5f);
                 stage.style.left = offset.x;
                 stage.style.top = offset.y;
                 stage.style.scale = new Scale(new Vector3(scale, scale, 1));
@@ -538,18 +543,29 @@ namespace AnimalGame.RobotMap
                 backdrop.style.height = height / scale;
                 lastPanelSize = panelSize;
             }
+            Vector2 screenCenter = design * .5f;
+            Vector2 entryCenter = screenCenter;
+            float entryZoom = animationSettings.zoomedScale;
+            if (transitionRadiusViewportHeight > 0f)
+            {
+                float outlineRadius = snapshotCircle.radius + snapshotCircle.width * .5f;
+                entryZoom = transitionRadiusViewportHeight * height / (outlineRadius * scale);
+                Vector2 entryPanelPoint = new Vector2(transitionCenterViewport.x * width,
+                    (1f - transitionCenterViewport.y) * height);
+                entryCenter = (entryPanelPoint - offset) / scale;
+            }
             float zoomProgress = animationSettings.Evaluate(animationSettings.zoomWindow);
-            float zoom = Mathf.Lerp(animationSettings.zoomedScale,
+            float zoom = Mathf.Lerp(entryZoom,
                 animationSettings.restingScale, zoomProgress);
             float positionProgress = animationSettings.Evaluate(animationSettings.contentPositionWindow);
-            Vector2 screenCenter = new Vector2(designWidth, designHeight) * 0.5f;
-            Vector2 contentOffset = Vector2.Lerp(screenCenter - snapshotCircleCenter,
+            Vector2 contentOffset = Vector2.Lerp(entryCenter - snapshotCircleCenter,
                 Vector2.zero, positionProgress);
             if (!IsWarmingUp && mainUIAnimation != null && mainUIAnimation.isActiveAndEnabled)
             {
-                mainUIAnimation.SetZoomPose(zoom / Mathf.Max(0.01f, animationSettings.zoomedScale),
-                    new Vector2(designWidth, designHeight),
-                    snapshotCircleCenter + contentOffset - screenCenter);
+                float relativeScale = zoom / Mathf.Max(0.01f, entryZoom);
+                Vector2 scaledHudCenter = screenCenter + (entryCenter - screenCenter) * relativeScale;
+                mainUIAnimation.SetZoomPose(relativeScale, design,
+                    snapshotCircleCenter + contentOffset - scaledHudCenter);
                 mainUIAnimation.RevealAnimation(animationSettings.Evaluate(animationSettings.mainUIWindow));
             }
             if (!resized && lastAnimationProgress == animationSettings.Progress) return;
