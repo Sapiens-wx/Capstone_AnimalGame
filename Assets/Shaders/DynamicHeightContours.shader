@@ -270,7 +270,7 @@ Shader "AnimalGame/Dynamic Height Contours"
                             ? .25 * blendAmount * SubmergedContourDash(mapMeters, heightMeters) : 0;
                         brightness = DrawMapWater(brightness, submerged, contourUv, mapMeters,
                             _MapSizeMeters.xy, _PhotoWaterMetresPerPixel, _PhotoWaterMetresPerPixel,
-                            0, false, 16, .03, 1, _PhotoBankOpacity);
+                            0, 16, .03, 1, _PhotoBankOpacity);
                     }
                     return fixed4(brightness, brightness, brightness, 1);
                 }

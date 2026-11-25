@@ -18,7 +18,7 @@ float WaterStroke(float position, float repeatPixels, float halfWidth)
 
 float DrawMapWater(float brightness, float submerged,
     float2 tileUv, float2 mapPosition, float2 tileSize, float2 metresPerPixel, float2 patternMetresPerPixel, float waterTime,
-    bool useBakedUv, float hatchSpacing, float hatchOpacity, float bankWidthScale, float bankOpacity)
+    float hatchSpacing, float hatchOpacity, float bankWidthScale, float bankOpacity)
 {
     // Keep bank sampling and dash centres tied to the map, including when zoomed out.
     float2 bankSample = 2 * patternMetresPerPixel / tileSize;
@@ -31,28 +31,15 @@ float DrawMapWater(float brightness, float submerged,
     float range = MapWaterRange(tileUv);
     if (range > .42)
     {
-        float2 patternMeters = mapPosition;
-        float2 flow = 0;
-        if (useBakedUv)
-        {
-            float2 waterUv = (tileUv - _WaterMaskBounds.xy) / _WaterMaskBounds.zw;
-            if (waterTime > 0)
-                flow = SampleWaterFlow(waterUv);
-            ApplyBakedWaterCoordinates(SampleBakedWaterUv(waterUv), patternMeters, flow);
-        }
-        float2 hatchPosition = (patternMeters - WaterFlowDisplacement(flow, waterTime)) / metresPerPixel;
+        float2 hatchPosition = mapPosition / metresPerPixel;
         if (waterTime > 0)
         {
-            float stillness = 1 - smoothstep(.000001, .001, dot(flow, flow));
-            if (stillness > 0)
-            {
-                // A small elliptical motion gives still water sway in every direction.
-                float phase = dot(mapPosition, float2(.063, -.041)) + .85 * waterTime;
-                float sine, cosine;
-                sincos(phase, sine, cosine);
-                float fade = smoothstep(0, 1, waterTime);
-                hatchPosition -= float2(sine * 1.5, cosine * 1.2) * (stillness * fade);
-            }
+            // Map hatching sways around its original position, with phase varying across the map.
+            float phase = dot(mapPosition, float2(.063, -.041)) + 1.7 * waterTime;
+            float sine, cosine;
+            sincos(phase, sine, cosine);
+            float fade = smoothstep(0, 1, waterTime);
+            hatchPosition -= float2(sine * 1.5, cosine * 1.2) * fade;
         }
         float acrossHatch = (hatchPosition.x - hatchPosition.y) * .70710678;
         float alongHatch = (hatchPosition.x + hatchPosition.y) * .70710678;

@@ -148,10 +148,6 @@ namespace AnimalGame.World.Map
                         visibleWater = true;
                         hasVisibleWater = true;
                         properties.SetTexture("_WaterMaskTex", waterMask);
-                        properties.SetTexture("_WaterUvTex", level.BakedStaticWaterUv != null
-                            ? level.BakedStaticWaterUv : Texture2D.blackTexture);
-                        properties.SetVector("_WaterMaskTex_TexelSize", new Vector4(
-                            1f / waterMask.width, 1f / waterMask.height, waterMask.width, waterMask.height));
                         properties.SetVector("_WaterMaskBounds", new Vector4(bounds.x, bounds.y, bounds.width, bounds.height));
                     }
                 }

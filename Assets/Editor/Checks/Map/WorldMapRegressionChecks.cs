@@ -19,7 +19,7 @@ namespace AnimalGame.Editor
             CheckPinShapes();
             CheckAssets();
             CheckGpuContours();
-            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water hatch angle, spacing, opacity, baked-UV flow, dashed shore and fog, unknown survey pattern, 14m interval, screen line widths and height emphasis.");
+            Debug.Log("PASS: world map cursor bounds, zoom anchoring, pin selection/relocation/deletion/snap escape, prefab references, stable triangle/square/diamond pins, GPU water hatch angle, spacing, opacity, current-independent sway, dashed shore and fog, unknown survey pattern, 14m interval, screen line widths and height emphasis.");
         }
 
         private static void CheckCursorAndPins()
@@ -269,31 +269,28 @@ namespace AnimalGame.Editor
                         "Water changed the unknown survey pattern or was obscured in the known region.");
                 }
                 var waterTime = type.GetProperty("WaterTime", BindingFlags.Instance | BindingFlags.NonPublic);
-                const float flowTime = 12f * 140f / (512f * 10f);
-                waterTime.SetValue(renderer, flowTime);
+                waterTime.SetValue(renderer, 3f);
                 type.GetMethod("RenderWaterFrame", BindingFlags.Instance | BindingFlags.NonPublic)
                     .Invoke(renderer, new object[] { map });
                 // The preceding render used partial fog. Compare its known left half after animation.
                 Color[] movingWater = ReadFrame(type, renderer);
-                CheckWaterTranslation(water, movingWater, -12);
+                Require(CountWaterDifferences(water, movingWater) > 100,
+                    "Map water hatches did not sway.");
                 Color eastward = new Color(1, .9f, 0, 1);
                 mask.SetPixels(new[] { eastward, eastward, eastward, eastward }); mask.Apply();
-                CheckWaterTranslation(water, Render(type, renderer, map, state), 12);
+                Require(CountWaterDifferences(movingWater, Render(type, renderer, map, state)) == 0,
+                    "Authored current changed the map water sway.");
 
                 uv.SetPixels(new[] { new Color(1, 1, 0), new Color(1, 36, 0),
                     new Color(36, 1, 0), new Color(36, 36, 0) });
                 uv.Apply();
                 foreach (var tile in map.RuntimeMap.Tiles) tile.Level.SetBakedStaticWaterUv(uv);
-                waterTime.SetValue(renderer, 0f);
                 Color[] baked = Render(type, renderer, map, state);
-                Require(CountWaterDifferences(water, baked) > 100,
-                    "Baked UV did not reshape the map water hatches.");
-                waterTime.SetValue(renderer, flowTime);
-                Color[] bakedEast = Render(type, renderer, map, state);
-                Require(CountWaterDifferences(baked, bakedEast) > 100, "Baked water hatches did not animate.");
+                Require(CountWaterDifferences(movingWater, baked) == 0,
+                    "Baked UV reshaped the map water hatches.");
                 mask.SetPixels(new[] { deepFlowing, deepFlowing, deepFlowing, deepFlowing }); mask.Apply();
-                Require(CountWaterDifferences(bakedEast, Render(type, renderer, map, state)) == 0,
-                    "Baked water hatches should move along the UV U axis for either authored angle.");
+                Require(CountWaterDifferences(baked, Render(type, renderer, map, state)) == 0,
+                    "Authored current changed map water hatches with baked UV present.");
                 foreach (var tile in map.RuntimeMap.Tiles) tile.Level.SetBakedStaticWaterUv(null);
 
                 mask.SetPixels(new[] { shallow, shallow, shallow, shallow }); mask.Apply();
@@ -325,16 +322,6 @@ namespace AnimalGame.Editor
                     differences++;
             }
             return differences;
-        }
-
-        private static void CheckWaterTranslation(Color[] source, Color[] shifted, int xOffset)
-        {
-            for (int y = 165; y < 345; y++)
-            for (int x = 165; x < 244; x++)
-            {
-                Require(Mathf.Abs(source[y * 512 + x - xOffset].r - shifted[y * 512 + x].r) < .012f,
-                    "Water hatch phase shifted during zoom or did not move with the authored current.");
-            }
         }
 
         private static void CheckHatchZoom(Color[] normal, Color[] zoomed)
