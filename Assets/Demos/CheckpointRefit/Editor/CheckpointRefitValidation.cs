@@ -95,7 +95,17 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
             using (var fixture = new OrderingFixture(zoom, damaged))
             {
                 CheckpointRefitView view = fixture.View;
+                view.Show("REPAIR CHECK", "WX-04", refitLocked: true); fixture.Layout();
+                Check(view.IsRepairPage && fixture.Root.Q("repair-content").resolvedStyle.display == DisplayStyle.Flex
+                    && fixture.Root.Q<Button>("refit-tab").resolvedStyle.display == DisplayStyle.None,
+                    "Locked refit must open Repair with the Refit tab hidden.");
+                Check(!view.RequestPage(false) && view.IsRepairPage && !view.IsPageSwitchPending,
+                    "A page request must not queue a switch to locked refit.");
+
+                view.Hide();
                 view.Show("ORDER CHECK", "ORDER-01"); fixture.Layout();
+                Check(!view.IsRepairPage && fixture.Root.Q<Button>("refit-tab").resolvedStyle.display == DisplayStyle.Flex,
+                    "Reopening the unrestricted demo must restore the Refit tab and default page.");
                 Check(view.SelectedSlotIndex == 0 && view.IsSelectedModuleInstalled,
                     "The installed tracked undercarriage must remain the first LEGS module.");
                 view.NavigateSlot(1); fixture.Layout();
@@ -156,7 +166,7 @@ namespace AnimalGame.Demos.CheckpointRefit.Editor
                     "Sorting must not unlock an undiscovered camera or change the installed camera.");
             }
             Debug.Log("Checkpoint Refit equipment ordering checks PASS: " + checks
-                + " checks; equipped-first cards, selection and focus, camera identities, reopening, document rebuild, external changes and unavailable modules.");
+                + " checks; repair-only access, equipped-first cards, selection and focus, camera identities, reopening, document rebuild, external changes and unavailable modules.");
         }
 
         private sealed class OrderingFixture : IDisposable

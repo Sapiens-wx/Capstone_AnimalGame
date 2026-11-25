@@ -260,19 +260,8 @@ namespace AnimalGame.RobotArm
             float accepted = 0f;
             for (int i = 1; i <= steps; i++)
             {
-                float t = accepted + 1f / steps;
+                float t = (float)i / steps;
                 Pose nextL = Pose.Lerp(oldL, lp, t), nextR = Pose.Lerp(oldR, rp, t);
-                BuildArmPlan(nextL, nextR, heldOffset);
-                bool legal = contactPlan.Evaluate();
-                float multiplier = contactPlan.SpeedMultiplier;
-                if (multiplier < 1f)
-                {
-                    t = accepted + multiplier / steps;
-                    nextL = Pose.Lerp(oldL, lp, t); nextR = Pose.Lerp(oldR, rp, t);
-                    BuildArmPlan(nextL, nextR, heldOffset);
-                    legal = contactPlan.Evaluate();
-                }
-                if (!legal || multiplier <= 0f) { IsBlocked = true; break; }
                 if (!TumbleArmMotionClear(nextL, nextR))
                 {
                     // Legacy upright poses can cross the body. Free their joints while the
@@ -281,7 +270,6 @@ namespace AnimalGame.RobotArm
                     IsBlocked = true;
                     break;
                 }
-                if (!contactPlan.Commit()) { IsBlocked = true; break; }
                 left.Pose = nextL; right.Pose = nextR; accepted = t;
             }
             deploymentTime = Mathf.Lerp(deploymentTime, nextDeployment, accepted);
@@ -334,17 +322,6 @@ namespace AnimalGame.RobotArm
                 + Mathf.Abs(Mathf.DeltaAngle(right.Pose.LowerAngle, rp.LowerAngle))
                 + Mathf.Abs(Mathf.DeltaAngle(right.Pose.UpperAngle, rp.UpperAngle)) < .000001f) return false;
             if (!TumbleArmMotionClear(lp, rp)) return false;
-            BuildArmPlan(lp, rp, heldOffset);
-            if (!contactPlan.Evaluate() || contactPlan.SpeedMultiplier <= 0f) return false;
-            if (contactPlan.SpeedMultiplier < 1f)
-            {
-                lp = Pose.Lerp(left.Pose, lp, contactPlan.SpeedMultiplier);
-                rp = Pose.Lerp(right.Pose, rp, contactPlan.SpeedMultiplier);
-                if (!TumbleArmMotionClear(lp, rp)) return false;
-                BuildArmPlan(lp, rp, heldOffset);
-                if (!contactPlan.Evaluate()) return false;
-            }
-            if (!contactPlan.Commit()) return false;
             left.Pose = lp; right.Pose = rp;
             return true;
         }

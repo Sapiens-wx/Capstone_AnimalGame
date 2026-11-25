@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using AnimalGame.Animals.UI;
+using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
+using AnimalGame.World;
 using AnimalGame.World.Map;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -13,8 +14,9 @@ namespace AnimalGame.MainUI
     public sealed partial class MainUI
     {
         private const float OpeningControlHintFadeOut = .6f;
-        private const float OpeningTraversalHintFadeIn = .24f;
+        private const float OpeningControlHintFadeIn = .24f;
         private const float OpeningTraversalHintDuration = 8f;
+        private const float OpeningCargoSlideDuration = .55f;
         private OpeningPresentation openingPresentation;
         private bool navigationTelemetryUnavailable;
         private Vector2 openingScreenShift;
@@ -27,10 +29,23 @@ namespace AnimalGame.MainUI
         private Vector2? openingTraversalHintLinePoint;
         private Vector2 openingTraversalHintEastNormal;
         private float openingTraversalHintRemaining;
+        private VisualElement openingArmHint, openingArmMotionHint, openingGrabHint;
+        private Label openingArmMotionAction, openingGrabAction;
+        private RobotArmController openingArms;
+        private RobotMarkerView openingArmMarker;
+        private Vector2 openingArmHintLineSouth, openingArmHintNorthDirection;
+        private float openingArmHintLineLength, openingArmHintDepth, openingArmHintOpacity;
+        private WorldInteraction openingRecycleItem;
+        private bool openingArmHintCompleted;
         private VisualElement openingSignalPrompt;
         private Label openingSignalMapKey;
         private WorldMapUI openingSignalMap;
         private float openingSignalPromptOpacity;
+        private VisualElement openingCargoHint;
+        private float openingCargoSlide = 1f;
+        private float openingCargoHintOpacity;
+        private bool openingCargoHintPending;
+        private bool OpeningCargoSliding => openingCargoSlide < 1f;
 
         internal void BeginOpeningPresentation(Action onTextTyped)
         {
@@ -45,15 +60,12 @@ namespace AnimalGame.MainUI
             UpdateStatus();
             openingPresentation.Apply(-1f, -1f);
             openingPresentation.UpdateStandby(0f, 0);
-            openingPresentation.UpdateSkipHold(-1f);
         }
 
         internal void UpdateOpeningStandby(float elapsed, int pecks) =>
             openingPresentation.UpdateStandby(elapsed, pecks);
 
         internal void EndOpeningStandby() => openingPresentation.EndStandby();
-
-        internal void UpdateOpeningSkipHold(float progress) => openingPresentation.UpdateSkipHold(progress);
 
         internal void ShowOpeningControlHints(RobotMover robot, Vector2 drivingSouth, Vector2 drivingNorth,
             Vector2 traversalSouth, Vector2 traversalNorth)
@@ -114,12 +126,105 @@ namespace AnimalGame.MainUI
             bool visible = !blocked && openingTraversalHintRemaining > 0f;
             openingTraversalHint.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
             if (!visible) return;
-            float fadeIn = (OpeningTraversalHintDuration - openingTraversalHintRemaining) / OpeningTraversalHintFadeIn;
+            float fadeIn = (OpeningTraversalHintDuration - openingTraversalHintRemaining) / OpeningControlHintFadeIn;
             float fadeOut = openingTraversalHintRemaining / OpeningControlHintFadeOut;
             openingTraversalHint.style.opacity = Mathf.Clamp01(Mathf.Min(fadeIn, fadeOut));
             openingTraversalHint.style.marginLeft = 125f * fit;
             openingTraversalHint.style.marginTop = 54f * fit;
             openingTraversalHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
+        }
+
+        internal void ShowOpeningArmHints(RobotArmController arms, RobotMarkerView marker,
+            Vector2 lineSouth, Vector2 lineNorth, float approachDepth)
+        {
+            openingArms = arms;
+            openingArmMarker = marker;
+            openingArmHintLineSouth = lineSouth;
+            Vector2 line = lineNorth - lineSouth;
+            openingArmHintLineLength = line.magnitude;
+            openingArmHintNorthDirection = line / openingArmHintLineLength;
+            openingArmHintDepth = approachDepth;
+        }
+
+        private void AdvanceOpeningArmHint(float deltaTime)
+        {
+            if (openingArms == null) return;
+
+            Vector2 relative = openingHintRobot.MapPosition - openingArmHintLineSouth;
+            Vector2 north = openingArmHintNorthDirection;
+            float along = Vector2.Dot(north, relative);
+            float east = Vector2.Dot(new Vector2(north.y, -north.x), relative);
+            bool atEntrance = east >= 0f && east <= openingArmHintDepth
+                && along >= 0f && along <= openingArmHintLineLength;
+            bool recycling = openingArms.State == RobotArmState.Recycling;
+            if (!recycling) TrackOpeningRecycle(null);
+            else if (atEntrance && !openingArmHintCompleted) TrackOpeningRecycle(openingArms.HeldObject);
+
+            bool blocked = BlocksGameplay || IsInventoryOpen || Time.timeScale <= 0f || openingArms.StationPlugActive;
+            bool show = !blocked && atEntrance && !recycling && !openingArmHintCompleted;
+            float fadeDuration = show ? OpeningControlHintFadeIn : OpeningControlHintFadeOut;
+            openingArmHintOpacity = Mathf.MoveTowards(openingArmHintOpacity, show ? 1f : 0f, deltaTime / fadeDuration);
+            bool visible = !blocked && !recycling && openingArmHintOpacity > 0f;
+            openingArmHint.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!visible) return;
+
+            bool armsDeployed = openingArms.IsArmModeActive && openingArms.VisibleDeployment01 >= .999f;
+            DisplayStyle controlVisibility = armsDeployed ? DisplayStyle.Flex : DisplayStyle.None;
+            openingArmMotionHint.style.display = openingGrabHint.style.display = controlVisibility;
+            if (armsDeployed)
+            {
+                bool holdingWaste = openingArms.HasRecyclableHeldObject;
+                bool ready = holdingWaste && openingArms.IsRecycleReady && !openingArmMarker.AreBodyHatchesClosed;
+                openingArmMotionAction.text = holdingWaste && !ready ? "PULL WASTE TO FRONT INLET" : "MOVE ARMS";
+                openingGrabAction.text = ready ? "RELEASE TO RECYCLE"
+                    : holdingWaste ? "KEEP HOLDING" : "HOLD TO GRAB / RELEASE TO DROP";
+            }
+
+            openingArmHint.style.opacity = openingArmHintOpacity;
+            openingArmHint.style.marginLeft = 125f * fit;
+            openingArmHint.style.marginTop = 156f * fit;
+            openingArmHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
+        }
+
+        private void TrackOpeningRecycle(WorldInteraction item)
+        {
+            if (ReferenceEquals(openingRecycleItem, item)) return;
+            if (!ReferenceEquals(openingRecycleItem, null)) openingRecycleItem.Recycled -= CompleteOpeningArmHint;
+            openingRecycleItem = item;
+            if (item != null) item.Recycled += CompleteOpeningArmHint;
+        }
+
+        private void CompleteOpeningArmHint()
+        {
+            openingArmHintCompleted = true;
+            TrackOpeningRecycle(null);
+        }
+
+        private bool OpeningCargoPresentationBlocked => BlocksGameplay || Time.timeScale <= 0f
+            || AnimalGame.MapTest.HeightMapPlayerSceneBootstrap.StationPlugOwnsInput
+            || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels;
+
+        private void AdvanceOpeningCargoSlide(float deltaTime)
+        {
+            if (!OpeningCargoSliding || OpeningCargoPresentationBlocked) return;
+            openingCargoSlide = Mathf.MoveTowards(openingCargoSlide, 1f, deltaTime / OpeningCargoSlideDuration);
+            if (OpeningCargoSliding) return;
+            UnlockCargo();
+            openingCargoHintPending = true;
+        }
+
+        private void AdvanceOpeningCargoHint(float deltaTime)
+        {
+            if (!openingCargoHintPending && openingCargoHintOpacity <= 0f) return;
+            bool visible = openingCargoHintPending && !OpeningCargoPresentationBlocked;
+            openingCargoHintOpacity = Mathf.MoveTowards(openingCargoHintOpacity, visible ? 1f : 0f,
+                deltaTime / OpeningControlHintFadeIn);
+            openingCargoHint.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!visible) return;
+            openingCargoHint.style.opacity = openingCargoHintOpacity;
+            openingCargoHint.style.left = 84f * fit;
+            openingCargoHint.style.top = viewportOffset.y + 355f * fit;
+            openingCargoHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
         }
 
         internal void ShowOpeningSignalPrompt(WorldMapUI worldMap)
@@ -209,9 +314,8 @@ namespace AnimalGame.MainUI
             private readonly Action onTextTyped;
             private readonly VisualElement position, altitude;
             private readonly VisualElement altitudeDivider, altitudeTick;
-            private readonly VisualElement terminal, standby, nextTestPrompt, standbyPrompt, skipPrompt;
+            private readonly VisualElement terminal, standby, nextTestPrompt, standbyPrompt;
             private readonly Label titleLabel, percentage, nextTestLabel, nextTestEllipsis, standbyLabel, standbyEllipsis;
-            private readonly ArchiveHoldCircleElement skipCircle;
             private readonly RestartMeter meter;
             private readonly Label[] logLabels;
             private readonly StringBuilder typed = new StringBuilder(128);
@@ -344,22 +448,6 @@ namespace AnimalGame.MainUI
                 standbyPrompt.style.transformOrigin = new TransformOrigin(0f, 0f);
                 standby.Add(standbyPrompt);
                 ui.root.Add(standby);
-
-                skipPrompt = new VisualElement { name = "OpeningSkipPrompt", pickingMode = PickingMode.Ignore };
-                skipPrompt.style.position = Position.Absolute;
-                skipPrompt.style.flexDirection = FlexDirection.Row;
-                skipPrompt.style.alignItems = Align.Center;
-                skipPrompt.style.transformOrigin = new TransformOrigin(0f, new Length(100f, LengthUnit.Percent));
-                skipPrompt.style.paddingLeft = skipPrompt.style.paddingRight = 8f;
-                skipPrompt.style.paddingTop = skipPrompt.style.paddingBottom = 4f;
-                skipPrompt.style.backgroundColor = new Color(0f, 0f, 0f, .84f);
-                skipCircle = MakeHoldCircle("OpeningSkipProgress", 24f);
-                skipCircle.style.marginRight = 8f;
-                skipPrompt.Add(skipCircle);
-                Label skipLabel = MakeLabel("HOLD " + Amber + "ESC</color> TO SKIP", 16f, Color.white);
-                skipLabel.enableRichText = true;
-                skipPrompt.Add(skipLabel);
-                ui.root.Add(skipPrompt);
             }
 
             public void UpdateStandby(float elapsed, int pecks)
@@ -370,42 +458,11 @@ namespace AnimalGame.MainUI
                 standbyPrompt.style.top = StandbyPromptTop * ui.fit;
                 standbyPrompt.style.scale = new Scale(new Vector3(ui.fit, ui.fit, 1f));
                 float promptAge = elapsed - WakePromptDelay;
-                standbyPrompt.style.opacity = skipPrompt.style.opacity = promptAge >= 0f ? 1f : 0f;
+                standbyPrompt.style.opacity = promptAge >= 0f ? 1f : 0f;
                 standbyEllipsis.style.opacity = BlinkEllipsis(promptAge);
             }
 
             public void EndStandby() => standby.RemoveFromHierarchy();
-
-            public void UpdateSkipHold(float progress)
-            {
-                skipPrompt.style.left = ui.viewportOffset.x + 44f * ui.fit;
-                skipPrompt.style.bottom = ui.viewportOffset.y + 44f * ui.fit;
-                skipPrompt.style.scale = new Scale(new Vector3(ui.fit, ui.fit, 1f));
-                UpdateHoldCircle(skipCircle, progress);
-            }
-
-            private static ArchiveHoldCircleElement MakeHoldCircle(string name, float size)
-            {
-                var circle = new ArchiveHoldCircleElement { name = name, pickingMode = PickingMode.Ignore };
-                circle.style.width = circle.style.height = size;
-                var radius = new Length(50f, LengthUnit.Percent);
-                circle.style.borderTopLeftRadius = circle.style.borderTopRightRadius = radius;
-                circle.style.borderBottomLeftRadius = circle.style.borderBottomRightRadius = radius;
-                circle.style.borderLeftWidth = circle.style.borderRightWidth = 1f;
-                circle.style.borderTopWidth = circle.style.borderBottomWidth = 1f;
-                Color trackColor = HudDrawing.Yellow;
-                trackColor.a = .30f;
-                circle.style.borderLeftColor = circle.style.borderRightColor = trackColor;
-                circle.style.borderTopColor = circle.style.borderBottomColor = trackColor;
-                return circle;
-            }
-
-            private static void UpdateHoldCircle(ArchiveHoldCircleElement circle, float holdProgress)
-            {
-                circle.style.visibility = holdProgress >= 0f ? Visibility.Visible : Visibility.Hidden;
-                float progress = Mathf.Clamp01(holdProgress);
-                if (circle.Progress != progress) circle.Progress = progress;
-            }
 
             private static Label MakeLabel(string value, float size, Color color)
             {
@@ -574,7 +631,6 @@ namespace AnimalGame.MainUI
                     mask.RemoveFromHierarchy();
                 ui.frame.SetOpeningScan(null, 0);
                 terminal.RemoveFromHierarchy();
-                skipPrompt.RemoveFromHierarchy();
                 EndStandby();
             }
 

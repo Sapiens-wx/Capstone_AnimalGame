@@ -49,7 +49,8 @@ namespace AnimalGame.MainUI
             float up = showUp ? AnimalArchiveUI.OpenHoldProgress : 0;
             float right = showRight ? InventoryController.OpenHoldProgress : 0;
             float left = showLeft ? InventoryController.CloseHoldProgress : 0;
-            string caption = showUp ? "Photo/Catalog" : showRight ? "Open Cargo" : showLeft ? "Close Cargo" : null;
+            string caption = showUp ? "Photo/Catalog" : showRight ? "Open Cargo"
+                : !showLeft ? null : InteractionState == InventoryInteractionState.Info ? "Back" : "Close Cargo";
             dpadHoldHint.SetState(dpadHintDirection, Mathf.Max(up, Mathf.Max(right, left)), caption);
         }
     }

@@ -89,12 +89,17 @@ namespace AnimalGame.MainUI
             set => InventoryController.DiscardRequested = value;
         }
         public InventoryStore.AddResult AddItem(InventoryItem item, int quantity = 1) => InventoryController.AddItem(item, quantity);
-        public InventoryStore.AddResult GrantRecycleRewards(RecyclableSize size) => InventoryController.GrantRecycleRewards(size);
+        public InventoryStore.AddResult GrantRecycleRewards(RecyclableSize size)
+        {
+            var result = InventoryController.GrantRecycleRewards(size);
+            if (IsCargoLocked && !OpeningCargoSliding) openingCargoSlide = 0f;
+            return result;
+        }
         public void SetItem(int index, InventoryItem item) => InventoryController.SetItem(index, item);
         public void SelectItem(int index) => InventoryController.SelectItem(index);
 
         private const float DesignWidth = 1920, DesignHeight = 1080;
-        private const float DriveDamageWarningDuration = 1.2f;
+        private const float DriveDamageWarningDuration = 3f;
         private const float DriveDamageWarningFadeDuration = .2f;
 
         public static MainUI Active { get; private set; }
@@ -204,6 +209,12 @@ namespace AnimalGame.MainUI
             openingSignalPrompt = root.Q("OpeningSignalPrompt");
             openingSignalMapKey = root.Q<Label>("OpeningSignalMapKey");
             openingTraversalHint = root.Q("OpeningTraversalHint");
+            openingArmHint = root.Q("OpeningArmHint");
+            openingArmMotionHint = root.Q("OpeningArmMotionHint");
+            openingArmMotionAction = root.Q<Label>("OpeningArmMotionAction");
+            openingGrabHint = root.Q("OpeningGrabHint");
+            openingGrabAction = root.Q<Label>("OpeningGrabAction");
+            openingCargoHint = root.Q("OpeningCargoHint");
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
             powerRing = root.Q<CircularProgressElement>("PowerRing");
@@ -277,7 +288,7 @@ namespace AnimalGame.MainUI
             driveDamageWarning.style.opacity = Mathf.Clamp01(remaining / DriveDamageWarningFadeDuration);
         }
 
-        private void HideDriveDamageWarning()
+        internal void HideDriveDamageWarning()
         {
             driveDamageWarningUntil = 0f;
             if (driveDamageWarning != null) driveDamageWarning.style.display = DisplayStyle.None;
@@ -287,7 +298,7 @@ namespace AnimalGame.MainUI
         public void OpenInventory()
         {
             if (IsCargoLocked || OfficialMapOpening.IsPlaying) return;
-            if (WorldPanelOpen) return;
+            if (WorldPanelOpen || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput) return;
             if (AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(gameObject)) return;
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             if (!isActiveAndEnabled || stage == null || !TryGetRingScreenGeometry(out _, out _)) return;
@@ -296,6 +307,7 @@ namespace AnimalGame.MainUI
             if (bootstrap != null && bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing) return;
             if (inventoryOpen) return;
             inventoryOpen = true;
+            openingCargoHintPending = false;
             dpadHintVisibleUntil = 0f;
             AcquirePause();
             InventoryOpenChanged?.Invoke(true);
@@ -347,6 +359,7 @@ namespace AnimalGame.MainUI
             }
             AdvanceGameClock(Time.deltaTime);
             RefreshTelemetry(DateTime.Now, telemetryNeedsRefresh);
+            AdvanceOpeningCargoSlide(Time.unscaledDeltaTime);
             if (UpdateRobotNotebookInput()) InventoryController.ConsumeOpenHold();
             if (!IsCargoLocked && !OfficialMapOpening.IsPlaying) InventoryController.Tick();
             AdvanceInventoryAnimation(Time.unscaledDeltaTime);
@@ -378,6 +391,8 @@ namespace AnimalGame.MainUI
             AdvanceOpeningDrivingHint(Time.unscaledDeltaTime);
             AdvanceOpeningSignalPrompt(Time.unscaledDeltaTime);
             AdvanceOpeningTraversalHint(Time.unscaledDeltaTime);
+            AdvanceOpeningArmHint(Time.unscaledDeltaTime);
+            AdvanceOpeningCargoHint(Time.unscaledDeltaTime);
             UpdateDriveDamageWarning();
             RefreshRobotNotebook(Time.unscaledDeltaTime);
         }
@@ -457,8 +472,14 @@ namespace AnimalGame.MainUI
             const float inventoryOpenLeftNudgePixels = 36f;
             float inventoryEndX = (size.x * .25f - inventoryOpenLeftNudgePixels - viewportOffset.x) / fit
                 - view.layout.x - inventory.layout.center.x;
-            inventory.style.translate = new Translate(
-                Mathf.Lerp(inventoryStartX, inventoryEndX, motion), 0);
+            float inventoryX = Mathf.Lerp(inventoryStartX, inventoryEndX, motion);
+            if (OpeningCargoSliding)
+            {
+                float offscreenDistance = Mathf.Max(0f, view.layout.x + inventory.layout.xMax) + 2f;
+                inventoryX -= offscreenDistance * (1f - Mathf.SmoothStep(0f, 1f, openingCargoSlide));
+            }
+            inventory.style.translate = new Translate(inventoryX, 0f);
+            if (OpeningCargoSliding) inventory.style.opacity = StyleKeyword.Null;
             coordinates.style.opacity = 1;
             frame.MarkDirtyRepaint();
             // Position and centering belong to UXML/USS; only size follows the screen fit.
@@ -717,6 +738,7 @@ namespace AnimalGame.MainUI
         {
             EndOpeningPresentation();
             HideDriveDamageWarning();
+            TrackOpeningRecycle(null);
             robotNotebookOpen = false;
             robotNotebookView?.Tick(false, false, 0f);
             if (animalDebugInstance != null) animalDebugInstance.SetActive(false);

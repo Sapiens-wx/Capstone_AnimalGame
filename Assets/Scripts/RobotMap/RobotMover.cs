@@ -315,9 +315,12 @@ namespace AnimalGame.RobotMap
             TowerCollisionRoot = collisionRoot;
             TowerSupportHeightMeters = heightMeters;
             if (riding != wasRiding)
+            {
                 MovementMode = riding ? RobotMovementMode.TowerLift : RobotMovementMode.Driven;
-            if (entering || riding != wasRiding)
                 ClearMotionForExternalControl();
+            }
+            else if (entering)
+                ClearSurfaceMotion();
             if (entering)
                 MarkBodyDirty();
             return true;
@@ -331,8 +334,12 @@ namespace AnimalGame.RobotMap
             TowerCollisionRoot = null;
             TowerSupportHeightMeters = null;
             if (MovementMode == RobotMovementMode.TowerLift)
+            {
                 MovementMode = RobotMovementMode.Driven;
-            ClearMotionForExternalControl();
+                ClearMotionForExternalControl();
+            }
+            else
+                ClearSurfaceMotion();
             MarkBodyDirty();
         }
         public float? DebugMoveSpeed { get; set; }
@@ -529,7 +536,8 @@ namespace AnimalGame.RobotMap
             if (Time.deltaTime <= 0f) return;
             if (!IgnoreCollisionAndTerrain && animalCombat != null && animalCombat.IsDisplaced)
             { ClearMotionForExternalControl(); return; }
-            if (!IgnoreCollisionAndTerrain && MovementMode != RobotMovementMode.Driven)
+            if (!IgnoreCollisionAndTerrain && (MovementMode != RobotMovementMode.Driven
+                || (armController != null && armController.StationPlugActive)))
             {
                 ClearMotionForExternalControl();
                 return;
@@ -1243,9 +1251,7 @@ namespace AnimalGame.RobotMap
 
         private void ClearMotionForExternalControl()
         {
-            CurrentWaterFlow = Vector2.zero;
-            CurrentWaterFlowVelocity = Vector2.zero;
-            ResetClimbableContact();
+            ClearSurfaceMotion();
             ClearHeavyPullMotion();
             HeavyPullMovementBlocked = false;
             wasSteering = false;
@@ -1254,6 +1260,14 @@ namespace AnimalGame.RobotMap
             UnresistedMovementIntentWorld = Vector2.zero;
             CurrentSpeed = 0f;
             CurrentTurnSpeed = 0f;
+        }
+
+        // Driving through a doorway changes the supporting surface while the player keeps control.
+        private void ClearSurfaceMotion()
+        {
+            CurrentWaterFlow = Vector2.zero;
+            CurrentWaterFlowVelocity = Vector2.zero;
+            ResetClimbableContact();
             CurrentTerrainTurnSpeed = 0f;
             CurrentTerrainVelocity = Vector2.zero;
             IsSlopeBlocked = false;

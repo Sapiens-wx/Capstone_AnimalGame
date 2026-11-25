@@ -51,7 +51,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             }
         }
 
-        private RefitGameplayLease(PlayerContext context)
+        private RefitGameplayLease(PlayerContext context, bool keepStationPlug)
         {
             previousTimeScale = Time.timeScale;
             previousCursorLock = Cursor.lockState;
@@ -63,17 +63,24 @@ namespace AnimalGame.Demos.CheckpointRefit
             CapturePlayer<RobotTumbleController>(context);
             CapturePlayer<RobotHeightMotionDetector>(context);
             CapturePlayer<RobotSelfRightingController>(context);
-            CapturePlayer<RobotArmController>(context);
+            // The docked arm owns the plug pose until the terminal releases this lease.
+            if (!keepStationPlug) CapturePlayer<RobotArmController>(context);
             CapturePlayer<PhotoModeController>(context);
             CaptureHud<PhotoResultView>(context);
             CaptureHud<PhotoResultUI>(context);
-            CaptureHud<ScanChargeUI>(context);
-            CaptureHud<AnimalGame.MainUI.MainUI>(context);
+            // The station plug blocks both input handlers. Keep the HUD and the
+            // ScanChargeUI shader clip alive so the tower remains visible behind the window.
+            if (!keepStationPlug)
+            {
+                CaptureHud<ScanChargeUI>(context);
+                CaptureHud<AnimalGame.MainUI.MainUI>(context);
+            }
 
             if (context.Bootstrap != null)
             {
                 CaptureSceneBound(context, context.Bootstrap.cameraFollow);
-                CaptureSceneBound(context, context.Bootstrap.cameraShake);
+                // CameraShake resets the orthographic size on disable and holds it naturally while paused.
+                if (!keepStationPlug) CaptureSceneBound(context, context.Bootstrap.cameraShake);
                 CaptureSceneBound(context, context.Bootstrap.traversalOverlay);
             }
 
@@ -82,7 +89,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             // scaled time. Disabling it would destroy a paused wave.
         }
 
-        public static bool CanAcquire(RobotMover player, out string reason)
+        public static bool CanAcquire(RobotMover player, out string reason, bool allowStationPlug = false)
         {
             if (player == null || !player.isActiveAndEnabled)
             {
@@ -90,13 +97,14 @@ namespace AnimalGame.Demos.CheckpointRefit
                 return false;
             }
 
-            return CanAcquire(new PlayerContext(player), out reason);
+            return CanAcquire(new PlayerContext(player), out reason, allowStationPlug);
         }
 
         public static bool TryAcquire(
             RobotMover player,
             out RefitGameplayLease lease,
-            out string reason)
+            out string reason,
+            bool keepStationPlug = false)
         {
             lease = null;
             if (player == null || !player.isActiveAndEnabled)
@@ -106,13 +114,13 @@ namespace AnimalGame.Demos.CheckpointRefit
             }
 
             var context = new PlayerContext(player);
-            if (!CanAcquire(context, out reason))
+            if (!CanAcquire(context, out reason, allowStationPlug: keepStationPlug))
                 return false;
 
             RefitGameplayLease candidate = null;
             try
             {
-                candidate = new RefitGameplayLease(context);
+                candidate = new RefitGameplayLease(context, keepStationPlug);
                 candidate.Acquire();
                 lease = candidate;
                 reason = string.Empty;
@@ -127,7 +135,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             }
         }
 
-        private static bool CanAcquire(PlayerContext context, out string reason)
+        private static bool CanAcquire(PlayerContext context, out string reason, bool allowStationPlug = false)
         {
             if (AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels)
             { reason = "Close the debug UI before maintenance."; return false; }
@@ -154,12 +162,14 @@ namespace AnimalGame.Demos.CheckpointRefit
                 return false;
             }
 
-            if (player.IsArmInputCaptured
+            bool usePlug = allowStationPlug && player.TryGetComponent(out RobotArmController arm)
+                && (arm.CanStartStationPlug || arm.StationPlugSeated);
+            if (!usePlug && (player.IsArmInputCaptured
                 || AnyPlayer<RobotArmController>(context, value =>
                     value.HeldObject != null
                     || value.IsArmModeActive
                     || value.State != RobotArmState.Retracted
-                    || value.VisibleDeployment01 > 0.001f))
+                    || value.VisibleDeployment01 > 0.001f)))
             {
                 reason = "Stow the arms and release held objects first.";
                 return false;

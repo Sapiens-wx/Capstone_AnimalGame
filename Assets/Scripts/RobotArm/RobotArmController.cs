@@ -25,6 +25,9 @@ namespace AnimalGame.RobotArm
         [FormerlySerializedAs("robotHandSprite")]
         [SerializeField] private Sprite robotHandOpenSprite;
         [SerializeField] private Sprite robotHandClosedSprite;
+        [SerializeField] private Sprite stationPlugSprite;
+        [SerializeField, Min(.01f), Tooltip("Plug size relative to the claw's authored pixel scale.")]
+        private float stationPlugScale = 3f;
         [SerializeField] private Color armColor = Color.white;
         [Tooltip("Uniform multiplier of the authored Upper Arm and Lower Arm scales. Also determines their IK lengths.")]
         [SerializeField, Min(.01f)] private float armScale = 1f;
@@ -124,7 +127,7 @@ namespace AnimalGame.RobotArm
         {
             center = initialized ? DockLocal : Vector2.zero;
             halfExtents = initialized ? RecycleZoneHalfExtents : Vector2.zero;
-            return initialized && marker != null && RecyclableHeld;
+            return initialized && marker != null && HasRecyclableHeldObject;
         }
         public Vector2 LeftHandWorld => HandWorld(left);
         public Vector2 RightHandWorld => HandWorld(right);
@@ -145,6 +148,7 @@ namespace AnimalGame.RobotArm
         private float recycleTime, stepDelta;
         private bool previousGrab, initialized;
         private bool grabArmSession, armRequiresFreshPress, armToggleActive, previousArmButtonHeld;
+        private bool stationGrabRequiresRelease;
         private Vector2 inputLocal, targetLocal;
         private Vector3 framePosition;
         private Quaternion frameRotation;
@@ -175,6 +179,7 @@ namespace AnimalGame.RobotArm
             && State != RobotArmState.Recycling && mover.GrabMovementMultiplier > 0f
             && !heldObject.TryGetComponent<HeavyGarbagePull>(out _);
         private float TotalDeploymentTime => connectorExtendDuration + extendDuration + handExtendDuration;
+        private Vector2 StandbyHandCentre => Vector2.up * armLength * .8f;
         private bool Upright => tumble == null || tumble.State == RobotTumbleState.Upright;
         private bool CanOperate => (photoMode == null || !photoMode.IsActive)
             && (mover.MovementMode == RobotMovementMode.Driven || !Upright);
@@ -238,7 +243,7 @@ namespace AnimalGame.RobotArm
             upperLength = Mathf.Max(left.UpperLength, right.UpperLength);
             lowerLength = Mathf.Max(left.LowerLength, right.LowerLength);
             armLength = Mathf.Max(left.UpperLength + left.LowerLength, right.UpperLength + right.LowerLength);
-            targetLocal = Vector2.up * armLength * .8f;
+            targetLocal = StandbyHandCentre;
             initialized = true;
             framePosition = transform.position; frameRotation = transform.rotation;
         }
@@ -246,7 +251,17 @@ namespace AnimalGame.RobotArm
         private void Update()
         {
             ManualRetractRequestedThisFrame = false;
+            deferredStationGrab = false;
             bool armButtonHeld = Input.GetKey(keyboardArmKey) || AdaptiveLegacyGamepadInput.IsLeftStickButtonHeld();
+            bool gamepadGrabHeld = AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld();
+            // A held through the plug interaction belongs to the station until it is released.
+            stationGrabRequiresRelease = gamepadGrabHeld && (StationPlugActive || stationGrabRequiresRelease);
+            if (StationPlugActive)
+            {
+                previousArmButtonHeld = armButtonHeld;
+                armRequiresFreshPress = armButtonHeld;
+                return;
+            }
             if (openingArmPresentation)
             {
                 previousArmButtonHeld = armButtonHeld;
@@ -270,8 +285,12 @@ namespace AnimalGame.RobotArm
             }
             EnsureVisuals();
             if (!initialized) return;
-            bool grab = (Input.GetKey(keyboardGrabKey) || AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld())
+            bool grab = (Input.GetKey(keyboardGrabKey) || (gamepadGrabHeld && !stationGrabRequiresRelease))
                 && !AnimalGame.Tutorial.TutorialContinueInput.BlocksWorldSouth(gameObject.scene);
+            // Tower devices claim a fresh A press before it can pick up nearby garbage.
+            deferredStationGrab = grab && HandsReady && heldObject == null
+                && AdaptiveLegacyGamepadInput.WasSouthFaceButtonPressedThisFrame()
+                && (mover.HasTowerSupport || WeatherTower.CanClaimExteriorPlugPress(mover));
             bool retractPressed = Input.GetKeyDown(keyboardRetractKey)
                 || AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame();
             StepInput(Time.deltaTime, ReadLocalInput(), armButtonHeld, grab, retractPressed);
@@ -374,12 +393,13 @@ namespace AnimalGame.RobotArm
                 {
                     if (IsRecycleReady) BeginRecycle(); else Drop(armHeld);
                 }
-                else if (grab && heldObject == null) TryGrab();
+                else if (grab && heldObject == null && !deferredStationGrab) TryGrab();
             }
             // A recycle callback may disable this component; do not restore its controls or visuals afterwards.
             if (!this || !isActiveAndEnabled) return;
             // Do not overwrite PlayRecycle with a release clip on the same A-release frame.
-            if (State != RobotArmState.Recycling) SetHandGrip(HandsReady && Upright && !IsTumbleArmLayoutActive && grab);
+            if (State != RobotArmState.Recycling)
+                SetHandGrip(HandsReady && Upright && !IsTumbleArmLayoutActive && grab && !deferredStationGrab);
             ApplyVisuals(left); ApplyVisuals(right);
             framePosition = transform.position; frameRotation = transform.rotation;
             // A release ends the old hold, but a button already released is ready for a
@@ -407,7 +427,15 @@ namespace AnimalGame.RobotArm
 
         private void LateUpdate()
         {
+            bool tryDeferredGrab = deferredStationGrab;
+            deferredStationGrab = false;
             if (!initialized || openingArmPresentation) return;
+            if (StationPlugActive)
+            {
+                // RobotMover and marker bobbing have now applied the frame's world pose.
+                StepStationPlug(Time.deltaTime);
+                return;
+            }
             // RobotMover runs after this controller. Check its translation AND rotation before rendering.
             if (Upright && deploymentTime > 0f && !IsProcessingRecycle &&
                 (transform.position != framePosition || Quaternion.Angle(transform.rotation, frameRotation) > .00001f))
@@ -425,6 +453,14 @@ namespace AnimalGame.RobotArm
                 }
             }
             FollowHeldObject();
+            if (tryDeferredGrab && Time.timeScale > 0f && !AnimalGame.MainUI.MainUI.BlocksGameplay
+                && CanOperate && Upright && HandsReady
+                && State != RobotArmState.Recycling && !IsTumbleArmLayoutActive && heldObject == null)
+            {
+                SetHandGrip(true);
+                TryGrab();
+                if (!this || !isActiveAndEnabled) return;
+            }
             UpdateReady();
         }
 
@@ -484,6 +520,19 @@ namespace AnimalGame.RobotArm
             float next = extending ? Mathf.Min(TotalDeploymentTime, deploymentTime + stepDelta)
                 : Mathf.Max(0f, deploymentTime - stepDelta * TotalDeploymentTime / retractDuration);
             Pose lp = DesiredPose(left, next), rp = DesiredPose(right, next);
+            if (FollowsHands) deploymentTime = Mathf.Lerp(deploymentTime, next, ConstrainHeldArmMotion(lp, rp));
+            else
+            {
+                left.Pose = lp;
+                right.Pose = rp;
+                deploymentTime = next;
+            }
+            if (extending && HandsReady && State == RobotArmState.Extending) UpdateDockState();
+            if (!extending && deploymentTime <= .00001f) State = RobotArmState.Retracted;
+        }
+
+        private float ConstrainHeldArmMotion(Pose lp, Pose rp)
+        {
             Pose oldL = left.Pose, oldR = right.Pose;
             int steps = Mathf.Max(MotionSteps(oldL, lp, oldR, rp),
                 Mathf.CeilToInt((PoseTravel(oldL, lp) + PoseTravel(oldR, rp)) / .005f));
@@ -493,29 +542,40 @@ namespace AnimalGame.RobotArm
             {
                 float t = accepted + 1f / steps;
                 Pose nextL = Pose.Lerp(oldL, lp, t), nextR = Pose.Lerp(oldR, rp, t);
-                Vector2 offset = heldOffset;
-                BuildArmPlan(nextL, nextR, offset);
+                BuildHeldArmPlan(nextL, nextR);
                 bool legal = contactPlan.Evaluate();
                 float multiplier = contactPlan.SpeedMultiplier;
                 if (multiplier < 1f)
                 {
                     t = accepted + multiplier / steps;
                     nextL = Pose.Lerp(oldL, lp, t); nextR = Pose.Lerp(oldR, rp, t);
-                    BuildArmPlan(nextL, nextR, offset);
+                    BuildHeldArmPlan(nextL, nextR);
                     legal = contactPlan.Evaluate();
                 }
                 if (!legal || multiplier <= 0f || !contactPlan.Commit()) { IsBlocked = true; break; }
                 left.Pose = nextL; right.Pose = nextR; accepted = t;
                 FollowHeldObject();
             }
-            deploymentTime = Mathf.Lerp(deploymentTime, next, accepted);
-            if (extending && HandsReady && State == RobotArmState.Extending) UpdateDockState();
-            if (!extending && deploymentTime <= .00001f) State = RobotArmState.Retracted;
+            return accepted;
         }
         private Pose DesiredPose(Arm arm, float progress)
             => DesiredPose(arm, progress, targetLocal);
 
         private Pose DesiredPose(Arm arm, float progress, Vector2 handCentre)
+        {
+            Pose pose = DeploymentPose(arm, progress, handCentre);
+            // Recycling supplies an animation target, while normal rate input has already
+            // limited the hand-centre velocity. Neither should acquire a second joint-rate lag.
+            bool heavyGrip = heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _);
+            float delta = State == RobotArmState.Recycling || normalManualActive ? 360f
+                : heavyGrip ? maximumAimSpeedDegreesPerSecond * stepDelta
+                : maximumAimSpeedDegreesPerSecond * stepDelta * mover.GrabMovementMultiplier;
+            pose.UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, pose.UpperAngle, delta);
+            pose.LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle, pose.LowerAngle, delta);
+            return pose;
+        }
+
+        private Pose DeploymentPose(Arm arm, float progress, Vector2 handCentre)
         {
             Vector2 desired = handCentre + Vector2.right * arm.Side * handSpacing * .5f;
             float lowerGrowth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / connectorExtendDuration));
@@ -523,15 +583,9 @@ namespace AnimalGame.RobotArm
             // Lower Arm is the body-side segment; Upper Arm carries the hand.
             // Aim the full-size chain, then grow each segment from its attachment point.
             SolveIK(desired - arm.Socket, arm.LowerLength, arm.UpperLength, arm.Side, out float lower, out float upper);
-            // Recycling supplies an animation target, while normal rate input has already
-            // limited the hand-centre velocity. Neither should acquire a second joint-rate lag.
-            bool heavyGrip = heldObject != null && heldObject.TryGetComponent<HeavyGarbagePull>(out _);
-            float delta = State == RobotArmState.Recycling || normalManualActive ? 360f
-                : heavyGrip ? maximumAimSpeedDegreesPerSecond * stepDelta
-                : maximumAimSpeedDegreesPerSecond * stepDelta * mover.GrabMovementMultiplier;
             return new Pose {
-                UpperAngle = Mathf.MoveTowardsAngle(arm.Pose.UpperAngle, upper, delta),
-                LowerAngle = Mathf.MoveTowardsAngle(arm.Pose.LowerAngle, lower, delta),
+                UpperAngle = upper,
+                LowerAngle = lower,
                 UpperLength = arm.UpperLength * upperGrowth,
                 LowerLength = arm.LowerLength * lowerGrowth,
                 Hand = Mathf.Clamp01((progress - connectorExtendDuration - extendDuration) / handExtendDuration) };
@@ -557,21 +611,8 @@ namespace AnimalGame.RobotArm
             + Mathf.Abs(a.UpperLength - b.UpperLength) + Mathf.Abs(a.LowerLength - b.LowerLength)
             + (a.HasSocket || b.HasSocket ? Mathf.Abs(b.SocketAngle - a.SocketAngle) * Mathf.Deg2Rad
                 * Mathf.Max(left.Socket.magnitude, right.Socket.magnitude) : 0f);
-        private bool PoseBlocked(Arm arm, Pose before, Pose after)
-        {
-            for (int segment = 0; segment < 2; segment++)
-            {
-                float length = segment == 0 ? after.LowerLength : after.UpperLength;
-                if (length < .00001f) continue;
-                InteractionShape next = SegmentShape(arm, after, segment);
-                InteractionShape? previous = (segment == 0 ? before.LowerLength : before.UpperLength) > .00001f
-                    ? SegmentShape(arm, before, segment) : (InteractionShape?)null;
-                if (WorldInteractionQuery.Query(next, WorldInteractionKind.Collision, map, gameObject.scene,
-                    ignore: transform, previous: previous, ignoreHeld: heldObject != null ? heldObject.transform : null,
-                    restrictTo: mover.TowerCollisionRoot)) return true;
-            }
-            return false;
-        }
+#if UNITY_EDITOR
+        // Geometry for editor checks. World motion uses the body and the held item.
         private InteractionShape SegmentShape(Arm arm, Pose pose, int segment)
         {
             Vector2 socket = SocketAt(arm, pose);
@@ -587,6 +628,7 @@ namespace AnimalGame.RobotArm
                 C = InteractionShape.ToQuery(frame.TransformPoint(b + normal), map),
                 D = InteractionShape.ToQuery(frame.TransformPoint(a + normal), map) };
         }
+#endif
         private void ConstrainBodyPose(Vector3 start, Quaternion rotation, Vector3 end, Quaternion endRotation)
         {
             if (!initialized || deploymentTime <= 0f) { mover.ConstrainCollisionPose(end, endRotation); return; }
@@ -649,31 +691,6 @@ namespace AnimalGame.RobotArm
             * Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one).inverse
             * marker.MarkerVisualRoot.localToWorldMatrix;
 
-        private InteractionShape SegmentAt(Arm arm, Pose pose, int segment, Matrix4x4 frame)
-        {
-            Vector2 socket = SocketAt(arm, pose);
-            Vector2 elbow = socket + Direction(pose.LowerAngle) * pose.LowerLength;
-            Vector2 a = segment == 0 ? socket : elbow;
-            Vector2 b = segment == 0 ? elbow : elbow + Direction(pose.UpperAngle) * pose.UpperLength;
-            float growth = segment == 0 ? pose.LowerLength / arm.LowerLength : pose.UpperLength / arm.UpperLength;
-            Vector2 normal = new Vector2(-(b - a).y, (b - a).x).normalized * armWidth * growth * .5f;
-            return new InteractionShape { IsBox = true,
-                A = InteractionShape.ToQuery(frame.MultiplyPoint3x4(a - normal), map),
-                B = InteractionShape.ToQuery(frame.MultiplyPoint3x4(b - normal), map),
-                C = InteractionShape.ToQuery(frame.MultiplyPoint3x4(b + normal), map),
-                D = InteractionShape.ToQuery(frame.MultiplyPoint3x4(a + normal), map) };
-        }
-
-        private void AddArmMotion(InteractionPushPlan plan, Arm arm, Pose after, Matrix4x4 frame)
-        {
-            for (int segment = 0; segment < 2; segment++)
-            {
-                if ((segment == 0 ? after.LowerLength : after.UpperLength) < .00001f) continue;
-                plan.Add(SegmentShape(arm, arm.Pose, segment), SegmentAt(arm, after, segment, frame),
-                    false, WorldInteractionKind.Collision);
-            }
-        }
-
         private Vector3 HeldPosition(Pose lp, Pose rp, Matrix4x4 frame, Vector2 offset)
         {
             Vector2 l = HandPoint(left, lp), r = HandPoint(right, rp);
@@ -698,13 +715,11 @@ namespace AnimalGame.RobotArm
                     plan.Add(part.GetShape(map), part.GetShapeAfterMotion(delta, map), true);
         }
 
-        private void BuildArmPlan(Pose lp, Pose rp, Vector2 offset)
+        private void BuildHeldArmPlan(Pose lp, Pose rp)
         {
             contactPlan.Begin(map, gameObject.scene, transform, HeldMotionRoot, mover.TowerCollisionRoot);
             mover.AppendBodyShape(contactPlan, transform.position, transform.position, map);
-            Matrix4x4 frame = marker.MarkerVisualRoot.localToWorldMatrix;
-            AddArmMotion(contactPlan, left, lp, frame); AddArmMotion(contactPlan, right, rp, frame);
-            AddHeldMotion(contactPlan, lp, rp, frame, transform.rotation, offset);
+            AddHeldMotion(contactPlan, lp, rp, marker.MarkerVisualRoot.localToWorldMatrix, transform.rotation, heldOffset);
         }
 
         private void BuildBodyPlan(Vector3 position, Quaternion rotation)
@@ -718,17 +733,8 @@ namespace AnimalGame.RobotArm
         public void AppendBodyMotion(InteractionPushPlan plan, Vector3 position, Quaternion rotation)
         {
             // Fully ingested waste leaves only the physical body constraining driving.
-            if (!initialized || deploymentTime <= 0f || !Upright || IsProcessingRecycle) return;
-            Matrix4x4 frame = FrameAt(position, rotation);
-            AddArmMotion(plan, left, left.Pose, frame); AddArmMotion(plan, right, right.Pose, frame);
-            AddHeldMotion(plan, left.Pose, right.Pose, frame, rotation, heldOffset);
-        }
-        private bool BodySegmentBlocked(Arm arm, int segment, InteractionShape previous)
-        {
-            if ((segment == 0 ? arm.Pose.LowerLength : arm.Pose.UpperLength) < .00001f) return false;
-            return WorldInteractionQuery.Query(SegmentShape(arm, arm.Pose, segment), WorldInteractionKind.Collision,
-                map, gameObject.scene, ignore: transform, previous: previous,
-                ignoreHeld: heldObject != null ? heldObject.transform : null, restrictTo: mover.TowerCollisionRoot);
+            if (!initialized || !Upright || !FollowsHands) return;
+            AddHeldMotion(plan, left.Pose, right.Pose, FrameAt(position, rotation), rotation, heldOffset);
         }
 
         private void TryGrab()
@@ -840,7 +846,7 @@ namespace AnimalGame.RobotArm
             Drop();
             return true;
         }
-        private bool RecyclableHeld => heldObject != null && heldObject.Available && heldObject.Owner == this
+        internal bool HasRecyclableHeldObject => heldObject != null && heldObject.Available && heldObject.Owner == this
             && heldObject.Recyclable && heldObject.Size != RecyclableSize.Big
             && !heldObject.TryGetComponent<HeavyGarbagePull>(out _);
         private Vector2 RecycleZoneHalfExtents
@@ -861,7 +867,7 @@ namespace AnimalGame.RobotArm
         }
         private bool IsHeldInRecycleZone()
         {
-            if (!RecyclableHeld) return false;
+            if (!HasRecyclableHeldObject) return false;
             Vector2 position = marker.MarkerVisualRoot.InverseTransformPoint(heldObject.transform.position);
             Vector2 offset = position - DockLocal;
             if (heldObject.Size == RecyclableSize.Medium)
@@ -1300,6 +1306,7 @@ namespace AnimalGame.RobotArm
         }
         public void CancelArmControl()
         {
+            CancelStationPlug();
             EndOpeningPresentation();
             inventoryPresentationActive = inventoryPresentationOpen = false;
             ManualRetractRequestedThisFrame = false;

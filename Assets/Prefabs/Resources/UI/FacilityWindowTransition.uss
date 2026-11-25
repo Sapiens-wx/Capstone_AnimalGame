@@ -1,0 +1,60 @@
+#facility-transition-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    -unity-font-definition: resource('UI/Font/Orbitron-SemiBold');
+}
+
+#facility-loading-row {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    width: 264px;
+    flex-direction: column;
+}
+
+#facility-loading-label {
+    flex-shrink: 0;
+    align-self: flex-start;
+    height: 18px;
+    margin: 0 0 4px 0;
+    padding: 0 2px;
+    color: #D4B854;
+    background-color: black;
+    font-size: 18px;
+    white-space: nowrap;
+}
+
+#facility-loading-meter {
+    flex-shrink: 0;
+    height: 18px;
+    border-width: 1px;
+    border-color: white;
+    background-color: black;
+    overflow: hidden;
+}
+
+#facility-loading-meter > #recognition-percent {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0 2px;
+    font-size: 15px;
+    color: white;
+    background-color: black;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+}
+
+#facility-loading-meter > #recognition-caption { visibility: hidden; }
+
+#facility-window-frame {
+    position: absolute;
+    display: none;
+    border-width: 2px;
+    border-color: white;
+}

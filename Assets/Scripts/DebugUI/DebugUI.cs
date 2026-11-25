@@ -105,7 +105,7 @@ namespace AnimalGame.AnimalDebug
 
         private bool OtherPanelOpen()
         {
-            if (AnimalGame.MainUI.MainUI.WorldPanelOpen) return true;
+            if (AnimalGame.MainUI.MainUI.WorldPanelOpen || AnimalGame.MapTest.HeightMapPlayerSceneBootstrap.StationPlugOwnsInput) return true;
             var hud = AnimalGame.MainUI.MainUI.Active;
             if (hud != null && (hud.IsInventoryOpen || hud.InventoryProgress > .001f)) return true;
             foreach (GameObject sceneRoot in gameObject.scene.GetRootGameObjects())

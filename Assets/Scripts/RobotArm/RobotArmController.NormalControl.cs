@@ -58,7 +58,7 @@ namespace AnimalGame.RobotArm
                 // A fresh deployment always starts at its authored forward standby position.
                 // Input during deployment never accumulates an invisible manual displacement.
                 if (IsArmModeActive && deploymentTime <= .00001f)
-                    targetLocal = Vector2.up * armLength * .8f;
+                    targetLocal = StandbyHandCentre;
                 return;
             }
 

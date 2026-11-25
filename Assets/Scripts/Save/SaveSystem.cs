@@ -14,7 +14,9 @@ namespace AnimalGame.Save
         private const int CaptureRecognitionVersion = 3;
         private const int NodeMessageVersion = 5;
         private const int StationSyncVersion = 6;
-        private const int FileVersion = StationSyncVersion;
+        private const int RuinStateVersion = 7;
+        private const int RepairTutorialVersion = 8;
+        private const int FileVersion = RepairTutorialVersion;
         public static GameSave Current { get; private set; }
         public static DateTime CurrentGameTime => Current?.gameTime ?? GameSave.InitialGameTime;
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
@@ -124,11 +126,13 @@ namespace AnimalGame.Save
                 }
             }
             if (version >= 4) save.gameTime = new DateTime(reader.ReadInt64());
-            if (version >= StationSyncVersion)
+            if (version >= StationSyncVersion) ReadIds(reader, save.syncedStationIds);
+            if (version >= RuinStateVersion)
             {
-                int stationCount = ReadCount(reader);
-                for (int i = 0; i < stationCount; i++) save.syncedStationIds.Add(reader.ReadString());
+                ReadIds(reader, save.poweredStationIds);
+                ReadIds(reader, save.discoveredRuinIds);
             }
+            if (version >= RepairTutorialVersion) ReadIds(reader, save.completedRepairTutorialIds);
             if (stream.Position != stream.Length) throw new InvalidDataException("Unexpected trailing game save data.");
             return save;
         }
@@ -138,6 +142,18 @@ namespace AnimalGame.Save
             int count = reader.ReadInt32();
             if (count < 0) throw new InvalidDataException("Negative game save record count.");
             return count;
+        }
+
+        private static void ReadIds(BinaryReader reader, List<string> ids)
+        {
+            int count = ReadCount(reader);
+            for (int i = 0; i < count; i++) ids.Add(reader.ReadString());
+        }
+
+        private static void WriteIds(BinaryWriter writer, List<string> ids)
+        {
+            writer.Write(ids.Count);
+            foreach (string id in ids) writer.Write(id);
         }
 
         public static void WriteTo(string path, GameSave data)
@@ -183,8 +199,10 @@ namespace AnimalGame.Save
                         }
                     }
                     writer.Write(data.gameTime.Ticks);
-                    writer.Write(data.syncedStationIds.Count);
-                    foreach (string stationId in data.syncedStationIds) writer.Write(stationId);
+                    WriteIds(writer, data.syncedStationIds);
+                    WriteIds(writer, data.poweredStationIds);
+                    WriteIds(writer, data.discoveredRuinIds);
+                    WriteIds(writer, data.completedRepairTutorialIds);
                     writer.Flush();
                     stream.Flush(true);
                 }
@@ -213,12 +231,64 @@ namespace AnimalGame.Save
         {
             if (string.IsNullOrWhiteSpace(stationId))
                 throw new ArgumentException("A station must have an ID to sync.", nameof(stationId));
-            if (IsStationSynced(stationId)) return false;
-            Current.syncedStationIds.Add(stationId);
+            Initialize();
+            return RecordId(Current.syncedStationIds, stationId, path);
+        }
+
+        public static bool IsStationPowered(string stationId)
+        {
+            Initialize();
+            return Current.poweredStationIds.Contains(stationId);
+        }
+
+        public static bool PowerStation(string stationId) => PowerStation(stationId, SavePath);
+
+        internal static bool PowerStation(string stationId, string path)
+        {
+            if (string.IsNullOrWhiteSpace(stationId))
+                throw new ArgumentException("A station must have an ID to restore power.", nameof(stationId));
+            Initialize();
+            return RecordId(Current.poweredStationIds, stationId, path);
+        }
+
+        public static bool IsRuinDiscovered(string ruinId)
+        {
+            Initialize();
+            return Current.discoveredRuinIds.Contains(ruinId);
+        }
+
+        public static bool DiscoverRuin(string ruinId) => DiscoverRuin(ruinId, SavePath);
+
+        internal static bool DiscoverRuin(string ruinId, string path)
+        {
+            if (string.IsNullOrWhiteSpace(ruinId))
+                throw new ArgumentException("A ruin must have an ID to be discovered.", nameof(ruinId));
+            Initialize();
+            return RecordId(Current.discoveredRuinIds, ruinId, path);
+        }
+
+        internal static bool IsRepairTutorialComplete(string stationId)
+        {
+            Initialize();
+            return Current.completedRepairTutorialIds.Contains(stationId);
+        }
+
+        internal static bool CompleteRepairTutorial(string stationId)
+        {
+            if (string.IsNullOrWhiteSpace(stationId))
+                throw new ArgumentException("A repair tutorial station must have an ID.", nameof(stationId));
+            Initialize();
+            return RecordId(Current.completedRepairTutorialIds, stationId, SavePath);
+        }
+
+        private static bool RecordId(List<string> ids, string id, string path)
+        {
+            if (ids.Contains(id)) return false;
+            ids.Add(id);
             try { WriteTo(path, Current); }
             catch
             {
-                Current.syncedStationIds.Remove(stationId);
+                ids.Remove(id);
                 throw;
             }
             Changed?.Invoke();
@@ -278,6 +348,17 @@ namespace AnimalGame.Save
             Changed?.Invoke();
         }
 
+        internal static bool HasPendingIncomingMessage(ContactDefinition contact)
+        {
+            var options = contact.options;
+            if (options == null || options.NodeCount == 0) return false;
+            Initialize();
+            var conversation = Current.conversations.Find(c => c.contact == contact.contact);
+            int current = options.GetCurrentNodeId(conversation);
+            int first = FirstIncomingNode(options, current);
+            return first != 0 && first != current && !CurrentIncomingTurn(options, conversation).Contains(first);
+        }
+
         public static bool AdvanceConversation(ContactDefinition contact, DateTime time, int replyId = 0)
         {
             Initialize();
@@ -295,34 +376,12 @@ namespace AnimalGame.Save
                 currentId = replyId;
                 AddText(currentId);
             }
-            else if (conversation != null)
-            {
-                // Reopening a thread must not replay an NPC-only cycle from the last turn.
-                bool reachedPlayer = false;
-                for (int i = conversation.messages.Count - 1; i >= 0; i--)
-                {
-                    var message = conversation.messages[i];
-                    if (message.kind != MessageKind.Text || !options.ContainsNode(message.nodeId)) continue;
-                    if (options.GetNode(message.nodeId).Sender == Sender.Player)
-                    {
-                        reachedPlayer = true;
-                        break;
-                    }
-                    visited.Add(message.nodeId);
-                }
-                if (!reachedPlayer) visited.Add(options.GetCurrentNodeId(null));
-            }
+            else visited.UnionWith(CurrentIncomingTurn(options, conversation));
 
             visited.Add(currentId);
-            while (currentId != 0)
-            {
-                var children = options.GetNode(currentId).Children;
-                if (children.Count == 0) break;
-                int nextId = children[0];
-                if (options.GetNode(nextId).Sender != Sender.Npc || !visited.Add(nextId)) break;
+            for (int nextId = FirstIncomingNode(options, currentId); nextId != 0 && visited.Add(nextId);
+                nextId = FirstIncomingNode(options, nextId))
                 AddText(nextId);
-                currentId = nextId;
-            }
 
             if (pending.Count == 0) return false;
             AppendMessages(contact.contact, pending);
@@ -330,6 +389,27 @@ namespace AnimalGame.Save
             return true;
 
             void AddText(int id) => pending.Add(new ChatMessage { kind = MessageKind.Text, nodeId = id, sentAt = sentAt });
+        }
+
+        private static int FirstIncomingNode(ContactOptions options, int currentId)
+        {
+            if (currentId == 0) return 0;
+            var children = options.GetNode(currentId).Children;
+            return children.Count > 0 && options.GetNode(children[0]).Sender == Sender.Npc ? children[0] : 0;
+        }
+
+        private static IEnumerable<int> CurrentIncomingTurn(ContactOptions options, ContactConversation conversation)
+        {
+            if (conversation == null) yield break;
+            // Read awareness and delivery both stop an NPC-only cycle from replaying on reopen.
+            for (int i = conversation.messages.Count - 1; i >= 0; i--)
+            {
+                var message = conversation.messages[i];
+                if (message.kind != MessageKind.Text || !options.ContainsNode(message.nodeId)) continue;
+                if (options.GetNode(message.nodeId).Sender == Sender.Player) yield break;
+                yield return message.nodeId;
+            }
+            yield return options.GetCurrentNodeId(null);
         }
 
         public static void SharePhotos(ContactId contact, int[] indices, DateTime time)

@@ -13,7 +13,7 @@ namespace AnimalGame.World.Map
     // UIDocument (-100) must create its visual tree before OnEnable binds it.
     [DefaultExecutionOrder(-90)]
     [DisallowMultipleComponent, RequireComponent(typeof(UIDocument))]
-    public sealed class WorldMapUI : MonoBehaviour
+    public sealed partial class WorldMapUI : MonoBehaviour
     {
         private const float PinLineWidth = 1.5f;
         private const float UnknownSignalRadius = 94f;
@@ -51,6 +51,7 @@ namespace AnimalGame.World.Map
         private VisualElement panel, root, cursor, playerIcon, mapRulers, northIndicator;
         private VisualElement mapDataNoticeLayer;
         private VisualElement unknownSignal;
+        private string unknownSignalStationId;
         private Vector2? unknownSignalWorldPosition;
         private bool frameUnknownSignalOnOpen;
         private Label mapDataNotice;
@@ -122,6 +123,8 @@ namespace AnimalGame.World.Map
             coordinateMask = root.Q("map-coordinate-mask");
             coordinateText = root.Q<Label>("map-coordinate-text");
             coordinateText.enableRichText = true;
+            locationName = root.Q<Label>("map-location-name");
+            locationName.enableRichText = false;
             mapRulers = new VisualElement { name = "map-rulers", pickingMode = PickingMode.Ignore };
             mapRulers.style.position = Position.Absolute;
             mapRulers.style.left = mapRulers.style.top = 0;
@@ -209,6 +212,7 @@ namespace AnimalGame.World.Map
                 choice.generateVisualContent += pinChoiceDrawHandlers[i];
             }
             coordinateText.BringToFront();
+            locationName.BringToFront();
             panel.style.display = DisplayStyle.None;
         }
 
@@ -490,6 +494,13 @@ namespace AnimalGame.World.Map
 
         private void UpdateHoverCoordinates(bool moving)
         {
+            if (locationName.style.display.value == DisplayStyle.Flex)
+            {
+                if (coordinatesVisible || coordinateRotationProgress > 0f) HideHoverCoordinates(true);
+                hoverMapPosition = View.DisplayCursor;
+                hoverIdleSince = Time.unscaledTime;
+                return;
+            }
             if (MissingMapData) return;
 
             Vector2 position = View.DisplayCursor;
@@ -574,15 +585,27 @@ namespace AnimalGame.World.Map
             nextPinKey.text = gamepad ? "RB" : "E";
         }
 
-        internal void RevealUnknownSignal(Vector2 worldPosition)
+        internal bool RevealUnknownSignal(string stationId, Vector2 worldPosition)
         {
+            if (SaveSystem.IsStationSynced(stationId)) return false;
+            unknownSignalStationId = stationId;
             unknownSignalWorldPosition = worldPosition;
             frameUnknownSignalOnOpen = true;
+            return true;
+        }
+
+        private void ClearSyncedUnknownSignal()
+        {
+            if (!unknownSignalWorldPosition.HasValue || !SaveSystem.IsStationSynced(unknownSignalStationId)) return;
+            unknownSignalWorldPosition = null;
+            unknownSignalStationId = null;
+            frameUnknownSignalOnOpen = false;
+            unknownSignal.style.display = DisplayStyle.None;
         }
 
         public void Open()
         {
-            if (AnimalGame.MainUI.MainUI.BlocksGameplay || Time.timeScale <= 0) return;
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput || Time.timeScale <= 0) return;
             OpenMap(null);
         }
 
@@ -630,6 +653,7 @@ namespace AnimalGame.World.Map
                 defaultViewSize.x / (int)viewportSize.x, defaultViewSize.y / (int)viewportSize.y);
             Vector3 playerWorld = bootstrap.robotObject.transform.position;
             Vector2 player = WorldToMap(playerWorld);
+            ClearSyncedUnknownSignal();
             Vector2? openingSignal = terminal == null && frameUnknownSignalOnOpen ? WorldToMap(unknownSignalWorldPosition.Value) : null;
             Rect stationRegion = default;
             if (terminal != null)
@@ -692,6 +716,7 @@ namespace AnimalGame.World.Map
             ApplyTransitionPose(viewportSize);
             mapDataNotice.EnableInClassList("survey-notice", terminal != null);
             controls.Q<Label>("map-close-caption").text = terminal != null ? "Back to Logs" : "Close";
+            RebuildSyncedLocations(terminal == null ? null : terminal.Station.StationId);
             if (terminal != null)
             {
                 surveyStartedAt = Time.unscaledTime;
@@ -861,6 +886,7 @@ namespace AnimalGame.World.Map
                     unknownSignal.MarkDirtyRepaint();
                 }
             }
+            RefreshSyncedLocations(uiSize);
             float radius = circleRadius * uiSize.y / screenSize.y;
             for (int i = 0; i < pinElements.Length; i++)
             {
@@ -910,6 +936,7 @@ namespace AnimalGame.World.Map
                     return;
                 }
                 EndSurveySweep();
+                RebuildSyncedLocations(null);
                 mapDataNotice.text = surveyTerminal.Station.StationId + "  /  MAP DATA SYNCED";
                 mapDataNoticeStartsAt = Time.unscaledTime;
             }
@@ -969,6 +996,7 @@ namespace AnimalGame.World.Map
             mapRenderer.EndReveal();
             RenderTexture.ReleaseTemporary(previousSurveyFog);
             previousSurveyFog = null;
+            ClearSyncedUnknownSignal();
         }
 
         internal void CloseFor(StationLogUI terminal)
@@ -999,6 +1027,7 @@ namespace AnimalGame.World.Map
             mapDataNotice.style.display = DisplayStyle.None;
             mapDataNoticeStartsAt = -1f;
             EndSurveySweep();
+            ClearSyncedLocations();
             mapImage.image = null;
             mapOpeningImage.image = null;
             checkpointManager = null;

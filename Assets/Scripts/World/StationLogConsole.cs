@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using UnityEngine;
 using GameMainUI = AnimalGame.MainUI.MainUI;
 #if ENABLE_INPUT_SYSTEM
@@ -36,6 +37,7 @@ namespace AnimalGame.World
         public string StationId => stationId;
         public string StationName => stationName;
         public IReadOnlyList<StationLogEntry> Entries => entries;
+        internal bool HasPendingInteraction => !SaveSystem.IsStationSynced(stationId);
 
         public bool CanInteract => isActiveAndEnabled && WorldStationInteraction.CanUseGroundConsole(tower, interactionTrigger);
 
@@ -52,13 +54,19 @@ namespace AnimalGame.World
             bool held = WorldStationInteraction.IsInteractHeld();
             bool pressed = held && !interactWasHeld;
             interactWasHeld = held;
-            if (pressed && TryOpen()) return;
-            SetPrompt(CanInteract);
+            bool available = CanInteract && (!tower.UsesStationPlugs || tower.CanPlug(WeatherTowerSocket.Log, tower.Player));
+            if (available && pressed)
+                available = !(tower.UsesStationPlugs
+                    ? tower.TryPlug(WeatherTowerSocket.Log, tower.Player, this, Open, () => StationLogUI.IsOpenFor(this))
+                    : TryOpen());
+            SetPrompt(available);
         }
 
-        public bool TryOpen()
+        public bool TryOpen() => Open(null);
+
+        private bool Open(Vector3? socketWorld)
         {
-            if (!CanInteract || !StationLogUI.Open(this)) return false;
+            if (!CanInteract || !StationLogUI.Open(this, socketWorld)) return false;
             SetPrompt(false);
             return true;
         }
@@ -80,10 +88,10 @@ namespace AnimalGame.World
         internal static bool CanUseGroundConsole(WeatherTower tower, BoxCollider2D trigger)
         {
             RobotMover player = tower.Player;
-            return tower.Phase == WeatherTowerPhase.Ground && trigger.enabled
+            return tower.EquipmentInteractionReady && tower.Phase == WeatherTowerPhase.Ground && trigger.enabled
                 && player != null && player.isActiveAndEnabled && player.TowerCollisionRoot != null
                 && trigger.transform.IsChildOf(player.TowerCollisionRoot)
-                && IsInRange(trigger, player) && CanUseControls(player);
+                && IsInRange(trigger, player) && CanUseControls(player, tower.UsesStationPlugs);
         }
 
         internal static bool IsInRange(BoxCollider2D trigger, RobotMover player)
@@ -94,21 +102,23 @@ namespace AnimalGame.World
             return Mathf.Abs(local.x) <= halfSize.x && Mathf.Abs(local.y) <= halfSize.y;
         }
 
-        internal static bool CanUseControls(RobotMover player)
+        internal static bool CanUseControls(RobotMover player, bool allowStationPlug = false)
         {
             if (Time.timeScale <= 0f || GameMainUI.Active == null || GameMainUI.BlocksGameplay
                 || GameMainUI.Active.InventoryProgress > .001f || GameMainUI.Active.IsInventoryOpen
                 || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels
                 || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(player.gameObject)
                 || player.IgnoreCollisionAndTerrain || player.IsMovementLocked
-                || player.IsPhotoModeInputLocked || player.IsArmInputCaptured)
+                || player.IsPhotoModeInputLocked)
                 return false;
 
             RobotArmController arm = player.GetComponent<RobotArmController>();
+            bool usePlug = allowStationPlug && arm != null && (arm.CanStartStationPlug || arm.StationPlugSeated);
             PhotoModeController photo = player.GetComponent<PhotoModeController>();
             RobotHeightMotionDetector height = player.GetComponent<RobotHeightMotionDetector>();
             PlayerCombatReceiver combat = player.GetComponent<PlayerCombatReceiver>();
-            return (arm == null || arm.State == RobotArmState.Retracted)
+            return (!player.IsArmInputCaptured || usePlug)
+                && (arm == null || arm.State == RobotArmState.Retracted || usePlug)
                 && (photo == null || (!photo.IsActive && !photo.IsInputLocked))
                 && (height == null || !height.IsAirborne)
                 && (combat == null || !combat.IsDisplaced);

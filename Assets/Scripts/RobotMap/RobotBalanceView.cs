@@ -1,6 +1,9 @@
 using System.Collections.Generic;
+using AnimalGame.MainUI;
+using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.UI;
+using GameHud = AnimalGame.MainUI.MainUI;
 
 namespace AnimalGame.RobotMap
 {
@@ -157,7 +160,11 @@ namespace AnimalGame.RobotMap
         {
             hasDisplayedScreenPositions = false;
             float openingStatusOpacity = markerView != null ? markerView.OpeningStatusOpacity : 1f;
+            GameHud hud = GameHud.Active;
+            bool readingItemInfo = WarehouseUI.IsItemInfoOpen
+                || (hud != null && hud.IsInventoryOpen && hud.InteractionState == InventoryInteractionState.Info);
             if (!showBalanceDisplay
+                || readingItemInfo
                 || balance == null
                 || graphic == null
                 || openingStatusOpacity <= 0f)

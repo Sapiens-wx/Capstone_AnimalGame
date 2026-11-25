@@ -37,7 +37,7 @@ namespace AnimalGame.MainUI
 
         private bool CanShowRobotNotebook()
         {
-            if (BlocksGameplay || Time.timeScale <= 0f || DebugUI.BlocksOtherPanels) return false;
+            if (BlocksGameplay || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput || Time.timeScale <= 0f || DebugUI.BlocksOtherPanels) return false;
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             return bootstrap == null || !(bootstrap.photoMode.IsActive || bootstrap.photoMode.IsInputLocked
                 || (bootstrap.photoResultView != null && bootstrap.photoResultView.IsShowing));

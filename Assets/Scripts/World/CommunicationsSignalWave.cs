@@ -13,22 +13,19 @@ namespace AnimalGame.World
         private static readonly int CurveProfileProperty = Shader.PropertyToID("_CurveProfile");
         private static readonly int CurveTexelSizeProperty = Shader.PropertyToID("_CurveProfile_TexelSize");
         private const int ProfileResolution = 512;
-        private static readonly Vector2[] Spectrum =
-        {
-            new(2f, .018f), new(3f, .012f), new(5f, .022f),
-            new(8f, .052f), new(11f, .032f), new(17f, .006f)
-        };
+        private const int MinLobes = 4;
+        private const int MaxLobes = 9;
 
         private readonly CommunicationsStation station;
         private readonly GameObject view;
         private readonly Mesh mesh;
         private readonly MeshRenderer renderer;
         private readonly MaterialPropertyBlock properties = new();
-        private readonly Vector4[] curveTerms = new Vector4[Spectrum.Length];
         private readonly float[] curveSamples = new float[ProfileResolution];
         private readonly Texture2D curveProfile;
         private float elapsed;
         private float? previousReceiverGap;
+        private bool receivedThisPulse;
         private uint randomState;
         private bool disposed;
 
@@ -98,18 +95,21 @@ namespace AnimalGame.World
                 GenerateCurveProfile();
                 previousElapsed = 0f;
                 previousReceiverGap = null;
+                receivedThisPulse = false;
             }
 
             float progress = Mathf.Clamp01(elapsed / station.SignalDuration);
-            renderer.enabled = progress < 1f;
-            if (!renderer.enabled && previousElapsed >= station.SignalDuration) return;
+            bool transmitting = progress < 1f;
+            renderer.enabled = transmitting;
+            // Test reception on the final frame that completes each pulse.
+            if (!transmitting && previousElapsed >= station.SignalDuration) return;
 
             float travel = .12f * progress + .88f * progress * progress;
             float front = Mathf.Lerp(14f / 210f, .995f, travel);
             Transform origin = station.SignalOrigin;
             Quaternion rotation = Quaternion.Euler(0f, 0f, origin.eulerAngles.z);
             if (deltaTime > 0f) CheckReception(player, origin.position, rotation, front);
-            if (!renderer.enabled) return;
+            if (!transmitting) return;
 
             float fade = Mathf.SmoothStep(0f, 1f, progress / .08f)
                 * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.84f, 1f, travel)));
@@ -122,7 +122,8 @@ namespace AnimalGame.World
 
         private void CheckReception(RobotMover player, Vector3 origin, Quaternion rotation, float front)
         {
-            if (!CommunicationsStation.HasSignalReceiver || player == null || !player.isActiveAndEnabled)
+            if (receivedThisPulse) return;
+            if (player == null || !player.isActiveAndEnabled)
             {
                 previousReceiverGap = null;
                 return;
@@ -140,29 +141,45 @@ namespace AnimalGame.World
             float previousGap = previousReceiverGap.GetValueOrDefault(float.PositiveInfinity);
             bool crossedFront = (previousGap > 0f && gap <= 0f) || (previousGap < 0f && gap >= 0f);
             previousReceiverGap = gap;
-            if (crossedFront) station.ReportSignalReceived(player);
+            if (!crossedFront) return;
+
+            receivedThisPulse = true;
+            if (player.TryGetComponent(out BioScanAnimalMarkerUI feedback))
+                feedback.PlayHitBurst(player.GetInstanceID(), player.transform.position);
+            station.ReportSignalReceived(player);
         }
 
         private void GenerateCurveProfile()
         {
-            for (int index = 0; index < Spectrum.Length; index++)
-                curveTerms[index] = new Vector4(Spectrum[index].x,
-                    Spectrum[index].y * Mathf.Lerp(.6f, 1.25f, NextRandom()),
-                    NextRandom() * (2f * Mathf.PI), 0f);
+            int lobeCount = MinLobes + (int)(NextRandom() * (MaxLobes - MinLobes + 1));
+            int arcCount = lobeCount * 2;
+            float nominalWidth = (float)ProfileResolution / arcCount;
+            int rotation = (int)(NextRandom() * ProfileResolution);
+            int start = 0;
+            float startRadius = 1f;
 
-            // Bake once per emission instead of evaluating six sine waves per screen pixel.
-            float maximum = 0f;
-            for (int index = 0; index < curveSamples.Length; index++)
+            // Alternate crests and troughs at uneven angles. The last arc returns to the
+            // first crest with the same zero slope, including where the texture wraps.
+            for (int arc = 1; arc <= arcCount; arc++)
             {
-                float angle = index * (2f * Mathf.PI / ProfileResolution);
-                float radius = 1f;
-                foreach (Vector4 term in curveTerms)
-                    radius += term.y * Mathf.Sin(term.x * angle + term.z);
-                curveSamples[index] = radius;
-                maximum = Mathf.Max(maximum, radius);
+                int end = ProfileResolution;
+                float endRadius = 1f;
+                if (arc < arcCount)
+                {
+                    float angleJitter = Mathf.Lerp(-.35f, .35f, NextRandom());
+                    end = Mathf.RoundToInt((arc + angleJitter) * nominalWidth);
+                    endRadius = (arc & 1) == 0
+                        ? Mathf.Lerp(.93f, 1f, NextRandom())
+                        : Mathf.Lerp(.76f, .89f, NextRandom());
+                }
+                for (int sample = start; sample < end; sample++)
+                {
+                    float t = (float)(sample - start) / (end - start);
+                    curveSamples[(sample + rotation) % ProfileResolution] = Mathf.SmoothStep(startRadius, endRadius, t);
+                }
+                start = end;
+                startRadius = endRadius;
             }
-            for (int index = 0; index < curveSamples.Length; index++)
-                curveSamples[index] /= maximum + .0005f;
             curveProfile.SetPixelData(curveSamples, 0);
             curveProfile.Apply(false, false);
         }
@@ -175,7 +192,8 @@ namespace AnimalGame.World
                 randomState += 0x6D2B79F5u;
                 uint value = (randomState ^ (randomState >> 15)) * (1u | randomState);
                 value ^= value + (value ^ (value >> 7)) * (61u | value);
-                return (value ^ (value >> 14)) / 4294967296f;
+                // Use the 24 representable fraction bits so the float is always below one.
+                return ((value ^ (value >> 14)) >> 8) * (1f / 16777216f);
             }
         }
 

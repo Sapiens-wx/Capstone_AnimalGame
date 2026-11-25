@@ -23,6 +23,7 @@ namespace AnimalGame.World
         [SerializeField, Range(0f, 1f)] private float signalOpacity = .64f;
 
         private BoxCollider2D interactionTrigger;
+        private WeatherTower tower;
         private RobotMover player;
         private EarthlineUI earthline;
         private bool interactWasHeld;
@@ -38,7 +39,7 @@ namespace AnimalGame.World
         internal float SignalDuration => signalDuration;
         internal float SignalRadius => signalRadius;
         internal float SignalOpacity => signalOpacity;
-        internal static bool HasSignalReceiver => SignalReceived != null;
+        internal bool HasPendingInteraction => earthline != null && earthline.HasPendingIncomingMessages;
 
         internal void ReportSignalReceived(RobotMover receiver) => SignalReceived?.Invoke(this, receiver);
 
@@ -51,7 +52,6 @@ namespace AnimalGame.World
                     return false;
 
                 Transform floor = player.TowerCollisionRoot;
-                WeatherTower tower = GetComponentInParent<WeatherTower>();
                 if (floor != null && !transform.IsChildOf(floor)) return false;
                 if (tower != null && (floor == null || (tower.Phase != WeatherTowerPhase.Ground
                     && tower.Phase != WeatherTowerPhase.Outdoor))) return false;
@@ -60,14 +60,16 @@ namespace AnimalGame.World
             }
         }
 
-        public bool CanInteract => IsNearby && earthline != null && earthline.isActiveAndEnabled
-            && WorldStationInteraction.CanUseControls(player);
+        public bool CanInteract => (tower == null || tower.EquipmentInteractionReady) && IsNearby
+            && earthline != null && earthline.isActiveAndEnabled
+            && WorldStationInteraction.CanUseControls(player, tower != null && tower.UsesStationPlugs);
 
         private void Awake()
         {
             interactionTrigger = GetComponent<BoxCollider2D>();
+            tower = GetComponentInParent<WeatherTower>();
             if (useTutorialInteractionHint) WorldInteractionHint.ReplaceLegacyPrompt(interactionPrompt);
-            InitializeSignal(GetComponentInParent<WeatherTower>() != null);
+            InitializeSignal(tower != null);
         }
 
         internal CommunicationsSignalWave InitializeSignal(bool drivenByTower)
@@ -107,21 +109,28 @@ namespace AnimalGame.World
             bool held = WorldStationInteraction.IsInteractHeld();
             bool pressed = held && !interactWasHeld;
             interactWasHeld = held;
-            bool available = CanInteract;
+            bool usesPlug = tower != null && tower.UsesStationPlugs;
+            bool available = CanInteract && (!usesPlug || tower.CanPlug(WeatherTowerSocket.Communications, player));
+            if (available && pressed)
+                available = !(usesPlug
+                    ? tower.TryPlug(WeatherTowerSocket.Communications, player, this, TryOpen, () => earthline != null && earthline.IsOpen)
+                    : TryOpen());
             SetPrompt(available);
-            if (available && pressed) TryOpen();
         }
 
-        public bool TryOpen()
+        public bool TryOpen() => TryOpen(null);
+
+        private bool TryOpen(Vector3? socketWorld)
         {
             if (!CanInteract) return false;
-            earthline.Open();
+            earthline.OpenFromStation(socketWorld.HasValue ? this : null, socketWorld);
             SetPrompt(false);
-            return EarthlineUI.BlocksGameplay;
+            return earthline.IsOpen;
         }
 
         private void OnDisable()
         {
+            if (earthline != null) earthline.CloseFor(this);
             SetPrompt(false);
             if (!towerDrivesSignal) signal?.Hide();
         }

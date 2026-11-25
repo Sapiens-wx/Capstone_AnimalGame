@@ -10,6 +10,8 @@ namespace AnimalGame.MapTest
 {
     public sealed class HeightMapPlayerSceneBootstrap : Singleton<HeightMapPlayerSceneBootstrap>
     {
+        internal static bool StationPlugOwnsInput => inst != null && inst.armController != null && inst.armController.StationPlugActive;
+
         private const string MapResourcePath = "MapTest/MapTestController";
         private const string RobotResourcePath = "Robot/RobotMarker";
         private const string CameraResourcePath = "Camera/RobotCamera";
@@ -274,7 +276,7 @@ namespace AnimalGame.MapTest
                 || photoMode.IsActive || photoMode.IsInputLocked || (photoResultView != null && photoResultView.IsShowing)
                 || !robot.isActiveAndEnabled || robot.IsMovementLocked || tumble.HasTumbleBalanceState
                 || heightMotion.IsAirborne || robot.GetComponent<PlayerCombatReceiver>().IsDisplaced
-                || armController.State == RobotArmState.Recycling)
+                || armController.State == RobotArmState.Recycling || armController.StationPlugActive)
                 return;
 
             RobotUnstuckResult result = RobotUnstuckSearch.Find(robot, traversalEvaluator, map, out Vector2 destination);

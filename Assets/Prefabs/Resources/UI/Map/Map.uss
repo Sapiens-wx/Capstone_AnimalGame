@@ -162,6 +162,22 @@
     display: none;
 }
 #map-coordinate-mask { background-color: black; }
+#map-location-name {
+    display: none;
+    position: absolute;
+    margin: 0;
+    padding: 4px 10px;
+    background-color: rgba(0, 0, 0, 0.94);
+    border-left-width: 2px;
+    border-left-color: #D4B854;
+    color: #D4B854;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+    -unity-text-align: middle-left;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 #map-coordinate-text {
     margin: 0;
     padding: 4px 8px;

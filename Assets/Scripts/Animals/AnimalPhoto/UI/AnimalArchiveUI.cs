@@ -94,7 +94,8 @@ namespace AnimalGame.Animals.UI
         private void Open(Page initialPage, bool fromPhotoResult, AnimalSpecies initialSpecies = AnimalSpecies.Unknown)
         {
             if (BlocksGameplay) return;
-            if (AnimalGame.MainUI.MainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
+            if (AnimalGame.MainUI.MainUI.BlocksGameplay || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput
+                || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap == null || (bootstrap.photoMode.IsActive
                     && !(fromPhotoResult && bootstrap.photoResultUi.IsResultVisible))
@@ -338,7 +339,8 @@ namespace AnimalGame.Animals.UI
 
         private void Update()
         {
-            if (AnimalGame.World.StationLogUI.BlocksGameplay || AnimalGame.World.WarehouseUI.BlocksGameplay)
+            if (AnimalGame.World.StationLogUI.BlocksGameplay || AnimalGame.World.WarehouseUI.BlocksGameplay
+                || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput)
             {
                 holdLatched = true;
                 holdTime = OpenHoldProgress = 0f;

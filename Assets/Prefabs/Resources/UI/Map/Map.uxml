@@ -13,6 +13,7 @@
                 <ui:Label name="map-unknown-signal-label" text="UNKNOWN SIGNAL SOURCE" picking-mode="Ignore" />
               </ui:VisualElement>
               <ui:Label name="map-coordinate-text" picking-mode="Ignore" />
+              <ui:Label name="map-location-name" picking-mode="Ignore" />
               <ui:VisualElement name="pin-0" class="map-circle" picking-mode="Ignore" />
               <ui:VisualElement name="pin-1" class="map-circle" picking-mode="Ignore" />
               <ui:VisualElement name="pin-2" class="map-circle" picking-mode="Ignore" />

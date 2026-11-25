@@ -27,7 +27,7 @@ namespace AnimalGame.Editor
             CheckBodyRotation();
             CheckMapScaleAndBoundary();
             CheckGripLifecycle();
-            CheckArmBlocksBeforeCommit();
+            CheckArmObstacleDoesNotRejectHeldPush();
             Debug.Log("Held collision checks PASS: masks, transactions, thin walls, overlap escape, compound ownership, body/arm pushing, resistance and rotation");
         }
         public static void RunBatch()
@@ -293,22 +293,27 @@ namespace AnimalGame.Editor
             }
         }
 
-        private static void CheckArmBlocksBeforeCommit()
+        private static void CheckArmObstacleDoesNotRejectHeldPush()
         {
             using (var f = new Fixture())
             {
+                f.Mover.ColliderRadius = .12f;
                 WorldInteraction held = f.Grab();
+                float handSpacing = Vector2.Distance(f.Arms.LeftHandWorld, f.Arms.RightHandWorld);
+                held.LocalSize = new Vector2(handSpacing * .25f, .4f);
                 WorldInteraction target = f.Item((Vector2)held.WorldPosition + Vector2.up * .41f,
-                    Vector2.one * .4f, WorldInteractionKind.BodyCollision | WorldInteractionKind.Pushable);
-                // A separate arm collision must reject the entire body/push transaction.
-                f.Item((Vector2)f.Arms.RightHandWorld + Vector2.up * .1f, Vector2.one * .04f,
-                    WorldInteractionKind.Collision);
+                    held.LocalSize, WorldInteractionKind.BodyCollision | WorldInteractionKind.Pushable);
+                // The right arm crosses the obstacle while the narrow left-hand cargo pushes the target.
+                f.Item((Vector2)f.Arms.RightHandWorld + Vector2.up * .1f,
+                    Vector2.one * Mathf.Min(.04f, handSpacing * .2f), WorldInteractionKind.Collision);
                 Vector3 targetStart = target.WorldPosition;
-                Require(!(bool)Call(f.Mover, "TryMoveSafely", Vector2.up * .3f, held.transform, false),
-                    "Arm wall did not reject body transaction");
+                Require((bool)Call(f.Mover, "TryMoveSafely", Vector2.up * .3f, held.transform, false),
+                    "An arm-only obstacle rejected the held-object push");
                 Call(f.Arms, "LateUpdate");
-                Require(target.WorldPosition == targetStart && f.Root.transform.position == Vector3.zero,
-                    "Arm rejection left ghost target motion");
+                Require(target.WorldPosition.y > targetStart.y + .28f
+                    && Mathf.Abs(f.Root.transform.position.y - .3f) < .001f
+                    && WorldInteractionQuery.Penetration(held.GetShape(null), target.GetShape(null)) < .0001f,
+                    "The allowed move did not commit the held-object push without penetration");
             }
         }
 

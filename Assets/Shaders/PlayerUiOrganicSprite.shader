@@ -5,6 +5,12 @@ Shader "AnimalGame/Player UI Clipped Sprite"
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1, 1, 1, 1)
         _RequirePlayerUiClip ("Require Active Player Disk", Float) = 0
+        [Toggle(TOWER_INTERACTION_LIGHTS)] _TowerInteractionLights ("Blink Gold Interaction Strips", Float) = 0
+        [PerRendererData] _TowerUnpoweredTex ("Station structure", 2D) = "black" {}
+        [PerRendererData] _TowerPowerReveal ("Station equipment visibility", Range(0,1)) = 1
+        [PerRendererData] _TowerRoomLight ("Station room lighting", Range(0,1)) = 1
+        [PerRendererData] _TowerInteractionReveal ("Station interaction lighting", Range(0,1)) = 1
+        [PerRendererData] _ConnectedSocketUV ("Seated Plug UV Centre and Half Size", Vector) = (0,0,0,0)
         [MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
         [PerRendererData] _AlphaTex ("External Alpha", 2D) = "white" {}
         [PerRendererData] _EnableExternalAlpha ("Enable External Alpha", Float) = 0
@@ -36,6 +42,7 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             #pragma multi_compile _ PIXELSNAP_ON
             #pragma multi_compile _ ETC1_EXTERNAL_ALPHA
             #pragma multi_compile_local _ VEGETATION_DEFORMATION
+            #pragma shader_feature_local_fragment _ TOWER_INTERACTION_LIGHTS
 
             #include "UnityCG.cginc"
 
@@ -62,6 +69,12 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             fixed4 _Color;
             float _EnableExternalAlpha;
             float _RequirePlayerUiClip;
+            float _WeatherTowerInteractionDim;
+            sampler2D _TowerUnpoweredTex;
+            float _TowerPowerReveal;
+            float _TowerRoomLight;
+            float _TowerInteractionReveal;
+            float4 _ConnectedSocketUV;
             float _PlayerUiClipEnabled;
             float4 _PlayerUiClipCenterPixels;
             float _PlayerUiClipRadiusPixels;
@@ -120,8 +133,23 @@ Shader "AnimalGame/Player UI Clipped Sprite"
 
             fixed4 Frag(Varyings input) : SV_Target
             {
-                fixed4 color = SampleSpriteTexture(input.texcoord)
-                               * input.color;
+                fixed4 color = SampleSpriteTexture(input.texcoord);
+                #ifdef TOWER_INTERACTION_LIGHTS
+                // Only the interaction strips have chroma in the station artwork.
+                half gold = smoothstep(0.01h, 0.18h, color.r - color.b);
+                bool seated = all(abs(input.texcoord - _ConnectedSocketUV.xy) < _ConnectedSocketUV.zw);
+                half gray = dot(color.rgb, half3(0.2126h, 0.7152h, 0.0722h));
+                color.rgb = lerp(half3(gray, gray, gray), color.rgb, _TowerInteractionReveal);
+                if (_TowerInteractionReveal >= 1.0h && !seated)
+                    color.rgb *= 1.0h - gold * _WeatherTowerInteractionDim;
+                if (_TowerPowerReveal < 1.0h)
+                {
+                    fixed4 structure = tex2D(_TowerUnpoweredTex, input.texcoord);
+                    color = lerp(structure, color, _TowerPowerReveal);
+                }
+                color.rgb *= _TowerRoomLight;
+                #endif
+                color *= input.color;
                 float2 screenUv = input.screenPosition.xy
                                   / max(0.0001, input.screenPosition.w);
                 float2 screenPixels = screenUv * _ScreenParams.xy;

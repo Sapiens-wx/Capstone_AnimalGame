@@ -95,15 +95,13 @@ namespace AnimalGame.Editor
                 item.WorldPosition = Vector3.zero;
                 // Cover the deployed hand workspace without assuming a fixed authored reach.
                 item.LocalSize = Vector2.one * (float)Get(f.Arms, "armLength") * 3f;
-                WorldInteraction obstacle = f.Solid(new Vector2(-.3f, .1f), new Vector2(.5f, .12f));
+                f.Solid(new Vector2(-.3f, .1f), new Vector2(.5f, .12f));
+                f.Tick(1, Vector2.up, true);
+                Require(f.Arms.State == RobotArmState.Extending && item.Owner == null && PulseCount(f.Shake) == 0,
+                    "An undeployed grab triggered feedback");
                 f.Tick(120, Vector2.up, true);
-                Require(f.Arms.State == RobotArmState.Extending && f.Arms.IsBlocked && f.Arms.HeldObject == null,
-                    "Fixture did not exercise blocked deployment");
-                Require(item.Owner == null && PulseCount(f.Shake) == 0, "Blocked or undeployed grab triggered feedback");
-                obstacle.enabled = false;
-                f.Tick(120, Vector2.up, true);
-                Require(f.Arms.HeldObject == item && PulseCount(f.Shake) == 1,
-                    "Removing the deployment obstruction did not trigger the first successful grab");
+                Require(f.Arms.VisibleDeployment01 > .999f && f.Arms.HeldObject == item && PulseCount(f.Shake) == 1,
+                    "Deployment through the obstacle did not produce one successful grab pulse");
             }
         }
 

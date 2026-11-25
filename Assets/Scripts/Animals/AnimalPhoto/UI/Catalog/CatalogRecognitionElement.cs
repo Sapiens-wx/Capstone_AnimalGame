@@ -98,7 +98,7 @@ namespace AnimalGame.Animals.UI
             if (rect.width <= 0f || rect.height <= 0f) return;
             var painter = context.painter2D;
             painter.fillColor = new Color32(212, 184, 84, 255);
-            const float halfWidth = 3f;
+            float halfWidth = Mathf.Min(3f, rect.width / 400f);
             for (int tick = 0; tick <= displayed; tick++)
             {
                 float x = rect.xMin + rect.width * tick / 100f;

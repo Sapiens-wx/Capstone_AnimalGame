@@ -8,6 +8,8 @@ namespace AnimalGame.RobotMap
     [DisallowMultipleComponent]
     public sealed class PlayerCombatReceiver : MonoBehaviour
     {
+        private const float OpeningDriveFaultRepairThreshold = .60f;
+
         [SerializeField, Min(1f)] private float maximumHealth = 100f;
         public float CurrentHealth { get; private set; }
         internal float Integrity => ui != null ? ui.Integrity : CurrentHealth / maximumHealth;
@@ -47,6 +49,11 @@ namespace AnimalGame.RobotMap
 
             ui.Integrity = repaired;
             CurrentHealth = repaired * maximumHealth;
+            if (repaired >= OpeningDriveFaultRepairThreshold)
+            {
+                if (mover != null) mover.SetOpeningDriveFault(false);
+                ui.HideDriveDamageWarning();
+            }
             return true;
         }
 

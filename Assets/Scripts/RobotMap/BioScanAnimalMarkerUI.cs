@@ -141,9 +141,14 @@ namespace AnimalGame.RobotMap
                 Vector3 center = marker.Subject != null
                                  && marker.Subject.TryGetWorldBounds(out Bounds bounds)
                     ? bounds.center : entity.transform.position;
-                burstGraphic.Play(entity.GetInstanceID(), center, scanHitBurstDuration,
-                    scanHitBurstRadiusPixels, scanHitBurstRayCount);
+                PlayHitBurst(entity.GetInstanceID(), center);
             }
+        }
+
+        internal void PlayHitBurst(int targetId, Vector3 position)
+        {
+            if (!enableScanHitBurst || !isActiveAndEnabled || !EnsureCanvas()) return;
+            burstGraphic.Play(targetId, position, scanHitBurstDuration, scanHitBurstRadiusPixels, scanHitBurstRayCount);
         }
 
         private void LateUpdate()

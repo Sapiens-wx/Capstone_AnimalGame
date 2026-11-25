@@ -8,6 +8,8 @@ namespace AnimalGame.MainUI.Inventory
     {
         public const int CargoColumns = 2;
         public const int WarehouseColumns = 4;
+        public const int MoveAction = 1;
+        public const int InfoAction = 2;
 
         public event Action<bool, int> SlotPressed;
         public event Action<bool, int> SlotHovered;
@@ -50,6 +52,7 @@ namespace AnimalGame.MainUI.Inventory
         private readonly VisualElement root;
         private readonly Bank cargoBank, storageBank;
         private readonly InventorySelectionElement selection;
+        private readonly InventoryItemInfoView info;
         private readonly Label address, detail, status, confirmCopy, backCopy;
         private readonly Button confirm;
         private Bank selectedBank, moveBank;
@@ -83,6 +86,7 @@ namespace AnimalGame.MainUI.Inventory
             root.RegisterCallback<NavigationMoveEvent>(evt => evt.StopImmediatePropagation(), TrickleDown.TrickleDown);
             root.RegisterCallback<NavigationSubmitEvent>(evt => evt.StopImmediatePropagation(), TrickleDown.TrickleDown);
             root.RegisterCallback<NavigationCancelEvent>(evt => evt.StopImmediatePropagation(), TrickleDown.TrickleDown);
+            info = new InventoryItemInfoView(root.Q("Warehouse"), () => BackPressed?.Invoke());
             Select(false, 0);
         }
 
@@ -123,14 +127,17 @@ namespace AnimalGame.MainUI.Inventory
         private void RenderSlot(Bank bank, int index)
         {
             InventoryItem item = bank.Store.Items[index];
-            bool preview = moveBank == bank && selectedBank == bank && selectedSlot == index && item == null;
+            bool source = bank == moveBank && index == moveSlot;
+            bool selected = bank == selectedBank && index == selectedSlot;
+            bool preview = moveBank != null && selected && item == null;
+            InventoryStore itemStore = preview ? moveBank.Store : bank.Store;
             int itemIndex = preview ? moveSlot : index;
-            item = bank.Store.Items[itemIndex];
+            if (preview) item = itemStore.Items[itemIndex];
             var button = bank.Slots[index];
-            button.EnableInClassList("slot-source", bank == moveBank && index == moveSlot);
-            button.EnableInClassList("slot-selected", bank == selectedBank && index == selectedSlot);
+            button.EnableInClassList("slot-source", source);
+            button.EnableInClassList("slot-selected", selected);
             VisualElement content = button.Q(className: "warehouse-slot-content");
-            content.style.opacity = preview || (bank == moveBank && index == moveSlot) ? .5f : 1f;
+            content.style.opacity = preview || source ? .5f : 1f;
             content.Q("EmptyItem").style.display = item == null ? DisplayStyle.Flex : DisplayStyle.None;
             var image = content.Q<Image>("ItemImage");
             image.sprite = item != null ? item.Image : null;
@@ -139,8 +146,8 @@ namespace AnimalGame.MainUI.Inventory
             var nameLabel = content.Q<Label>("ItemName");
             nameLabel.enableRichText = true;
             nameLabel.style.display = item != null ? DisplayStyle.Flex : DisplayStyle.None;
-            nameLabel.text = item != null ? $"{item.ItemName} / <color=#D4B854>{bank.Store.Quantity(itemIndex)}</color>" : "";
-            content.Q("ItemAStar").style.display = bank.Store.IsUnread(itemIndex) ? DisplayStyle.Flex : DisplayStyle.None;
+            nameLabel.text = item != null ? $"{item.ItemName} / <color=#D4B854>{itemStore.Quantity(itemIndex)}</color>" : "";
+            content.Q("ItemAStar").style.display = itemStore.IsUnread(itemIndex) ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         public void Refresh(bool warehouse, int slot)
@@ -148,8 +155,8 @@ namespace AnimalGame.MainUI.Inventory
             Bank bank = warehouse ? storageBank : cargoBank;
             RenderSlot(bank, slot);
             bank.UpdateCapacity();
-            if (bank == moveBank && slot == moveSlot && selectedBank == bank && slot != selectedSlot)
-                RenderSlot(bank, selectedSlot);
+            if (bank == moveBank && slot == moveSlot && (bank != selectedBank || slot != selectedSlot))
+                RenderSlot(selectedBank, selectedSlot);
             UpdateDetails();
         }
 
@@ -175,14 +182,14 @@ namespace AnimalGame.MainUI.Inventory
         {
             HideMenu();
             Bank bank = warehouse ? storageBank : cargoBank;
-            menu = new InventoryInteractionMenuElement(warehouse ? "WITHDRAW" : "DEPOSIT", "MOVE");
+            menu = new InventoryInteractionMenuElement(warehouse ? "WITHDRAW" : "DEPOSIT", "MOVE", "INFO");
             menu.Pressed += index => ActionPressed?.Invoke(index);
             menu.Hovered += index => ActionHovered?.Invoke(index);
             int col = slot % bank.Columns, row = slot / bank.Columns;
             float across = col + (col + 1 == bank.Columns ? 0f : .53f);
             menu.style.left = Length.Percent(100f * across / bank.Columns);
             menu.style.width = Length.Percent(100f / bank.Columns);
-            menu.style.height = 114;
+            menu.style.height = 171;
             if (row == bank.Rows - 1)
                 menu.style.bottom = Length.Percent(50f / bank.Rows);
             else
@@ -191,7 +198,11 @@ namespace AnimalGame.MainUI.Inventory
             UpdateDetails();
         }
 
-        public void SelectAction(int index) => menu.Select(index);
+        public int SelectAction(int index)
+        {
+            menu.Select(index);
+            return menu.SelectedIndex;
+        }
 
         public void HideMenu()
         {
@@ -199,6 +210,13 @@ namespace AnimalGame.MainUI.Inventory
             menu = null;
             UpdateDetails();
         }
+
+        public void ShowInfo() => info.Show(selectedBank.Store.Items[selectedSlot],
+            selectedBank.Store.Quantity(selectedSlot), selectedBank == cargoBank ? "CARGO" : "STORAGE", selectedSlot);
+
+        public void HideInfo() => info.Hide();
+
+        public void ScrollInfo(int direction) => info.Scroll(direction);
 
         public void SetMoveSource(bool warehouse, int slot)
         {
@@ -227,14 +245,18 @@ namespace AnimalGame.MainUI.Inventory
             bool atSource = moving && moveBank == selectedBank && moveSlot == selectedSlot;
             confirmCopy.text = atSource ? "Keep here" : moving ? "Place" : menu != null ? "Confirm" : "Actions";
             backCopy.text = moving || menu != null ? "Back" : "Close";
-            confirm.SetEnabled(moving ? selectedBank == moveBank && (item == null || atSource) : item != null);
+            confirm.SetEnabled(moving ? item == null || atSource : item != null);
             status.text = !string.IsNullOrEmpty(statusMessage) ? statusMessage
-                : moving ? $"Select an empty slot in {(moveBank == cargoBank ? "CARGO" : "STORAGE")}."
+                : moving ? "Select an empty slot in CARGO or STORAGE."
                 : menu != null ? "Choose an action."
                 : "Arrow keys or D-pad to browse";
         }
 
-        public void Dispose() => root.RemoveFromHierarchy();
+        public void Dispose()
+        {
+            info.Dispose();
+            root.RemoveFromHierarchy();
+        }
 
         private static void DrawBankOutline(MeshGenerationContext context)
         {

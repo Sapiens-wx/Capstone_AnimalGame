@@ -1,0 +1,127 @@
+.item-info-overlay {
+    flex-grow: 1;
+    padding: 18px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.76);
+}
+
+.item-info-card {
+    width: 620px;
+    max-width: 100%;
+    max-height: 100%;
+    padding: 25px 30px 21px;
+}
+
+.item-info-frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.item-info-heading, .item-info-item, .item-info-overlay .item-info-back {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.item-info-overlay Label {
+    margin: 0;
+    padding: 0;
+    color: #F4F4F4;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+}
+
+.item-info-heading {
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.item-info-overlay .item-info-kicker {
+    color: #D4B854;
+    font-size: 16px;
+    letter-spacing: 1px;
+    margin-right: 14px;
+}
+
+.item-info-overlay .item-info-address {
+    font-size: 13px;
+    color: #ADADAD;
+}
+
+.item-info-item {
+    margin-top: 16px;
+    padding-bottom: 16px;
+    border-bottom-width: 1px;
+    border-bottom-color: #505050;
+}
+
+.item-info-image {
+    width: 76px;
+    height: 76px;
+    flex-shrink: 0;
+    margin-right: 18px;
+    padding: 9px;
+    border-width: 1px;
+    border-color: #565656;
+    background-color: #151515;
+}
+
+.item-info-overlay .item-info-name {
+    flex-grow: 1;
+    min-width: 0;
+    font-size: 26px;
+    white-space: normal;
+}
+
+.item-info-overlay .item-info-quantity {
+    flex-shrink: 0;
+    margin-left: 12px;
+    color: #D4B854;
+    font-size: 20px;
+}
+
+.item-info-body {
+    margin: 15px 0 14px;
+    height: 230px;
+    min-height: 0;
+    flex-shrink: 1;
+}
+
+.item-info-overlay .item-info-description {
+    white-space: normal;
+    flex-shrink: 0;
+    padding-right: 10px;
+    font-size: 21px;
+    -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
+}
+
+.item-info-overlay .item-info-back {
+    align-self: flex-end;
+    margin: 0;
+    padding: 5px 0 5px 8px;
+    border-width: 0;
+    background-color: transparent;
+    background-image: none;
+}
+
+.item-info-back:hover .item-info-back-label {
+    color: #D4B854;
+}
+
+.item-info-overlay .item-info-key, .item-info-overlay .item-info-pad {
+    height: 27px;
+    min-width: 27px;
+    margin-right: 7px;
+    border-width: 1px;
+    border-color: #828282;
+    color: #D4B854;
+    font-size: 12px;
+    -unity-text-align: middle-center;
+}
+
+.item-info-overlay .item-info-pad { border-radius: 50%; }
+.item-info-overlay .item-info-key { padding: 0 5px; }
+.item-info-overlay .item-info-back-label { font-size: 15px; }
