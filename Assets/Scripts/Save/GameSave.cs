@@ -14,6 +14,9 @@ namespace AnimalGame.Save
         public List<SpeciesProgress> speciesProgress = new();
         public List<ContactConversation> conversations = new();
         public List<string> syncedStationIds = new();
+        public List<string> poweredStationIds = new();
+        public List<string> discoveredRuinIds = new();
+        public List<string> completedRepairTutorialIds = new();
         public SpeciesProgress Progress(AnimalSpecies species) => speciesProgress.Find(p => p.species == species);
     }
 

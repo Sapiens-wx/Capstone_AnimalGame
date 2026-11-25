@@ -137,13 +137,26 @@ namespace AnimalGame.MainUI.Inventory
             Changed?.Invoke(index);
         }
 
-        public bool Move(int source, int target)
+        public bool Move(int source, int target) => MoveTo(source, this, target);
+
+        /// <summary>Moves the entire stack to a specified empty slot without merging.</summary>
+        public bool MoveTo(int sourceIndex, InventoryStore destination, int destinationIndex)
         {
-            if (source < 0 || target < 0 || source >= Capacity || target >= Capacity ||
-                Items[source] == null || Items[target] != null) return false;
-            Items[target] = Items[source]; quantities[target] = quantities[source]; unread[target] = unread[source];
-            Items[source] = null; quantities[source] = 0; unread[source] = false;
-            Changed?.Invoke(source); Changed?.Invoke(target);
+            if (sourceIndex < 0 || sourceIndex >= Capacity || destinationIndex < 0 || destinationIndex >= destination.Capacity)
+                return false;
+            InventoryItem item = Items[sourceIndex];
+            if (item == null || destination.Items[destinationIndex] != null) return false;
+
+            destination.Items[destinationIndex] = item;
+            destination.quantities[destinationIndex] = quantities[sourceIndex];
+            destination.unread[destinationIndex] = unread[sourceIndex];
+            destination.discovered.Add(item);
+            Items[sourceIndex] = null;
+            quantities[sourceIndex] = 0;
+            unread[sourceIndex] = false;
+
+            Changed?.Invoke(sourceIndex);
+            destination.Changed?.Invoke(destinationIndex);
             return true;
         }
     }

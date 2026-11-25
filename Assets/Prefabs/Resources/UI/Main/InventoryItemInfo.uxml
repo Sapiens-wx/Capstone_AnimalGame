@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Prefabs/Resources/UI/Main/InventoryItemInfo.uss?fileID=7433441132597879392&amp;guid=ab55992015954fe39f13960fb140937e&amp;type=3#InventoryItemInfo" />
+    <ui:VisualElement name="ItemInfoOverlay" class="item-info-overlay">
+        <ui:VisualElement name="ItemInfoCard" class="item-info-card">
+            <ui:VisualElement name="item-info-frame" class="item-info-frame" picking-mode="Ignore" />
+            <ui:VisualElement class="item-info-heading">
+                <ui:Label text="ITEM INFO" class="item-info-kicker" />
+                <ui:Label name="item-info-address" class="item-info-address" />
+            </ui:VisualElement>
+            <ui:VisualElement class="item-info-item">
+                <ui:Image name="item-info-image" class="item-info-image" scale-mode="ScaleToFit" picking-mode="Ignore" />
+                <ui:Label name="item-info-name" class="item-info-name" />
+                <ui:Label name="item-info-quantity" class="item-info-quantity" />
+            </ui:VisualElement>
+            <ui:ScrollView name="item-info-body" class="item-info-body" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
+                <ui:Label name="item-info-description" class="item-info-description" />
+            </ui:ScrollView>
+            <ui:Button name="item-info-back" class="item-info-back" focusable="false" tooltip="Back (B or Esc)">
+                <ui:Label text="B" class="item-info-pad" picking-mode="Ignore" />
+                <ui:Label text="ESC" class="item-info-key" picking-mode="Ignore" />
+                <ui:Label text="BACK" class="item-info-back-label" picking-mode="Ignore" />
+            </ui:Button>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

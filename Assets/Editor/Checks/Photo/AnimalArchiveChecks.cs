@@ -56,12 +56,20 @@ namespace AnimalGame.Editor
                 data.speciesProgress.Add(new SpeciesProgress { species = AnimalSpecies.AmericanBison, sentPhotos = 1, recognition = 30 });
                 data.gameTime = new DateTime(2026, 11, 1, 9, 30, 42).AddTicks(123);
                 data.syncedStationIds.Add("WX-04");
+                data.poweredStationIds.Add("WX-04");
+                data.discoveredRuinIds.AddRange(new[] { "WX-04", "WX-05" });
+                data.completedRepairTutorialIds.Add("WX-04");
                 SaveSystem.WriteTo(path, data);
                 SaveSystem.WriteTo(path, data);
                 var loaded = SaveSystem.LoadOrCreate(path);
                 Require(loaded.photos.Count == 3 && loaded.Progress(AnimalSpecies.AmericanBison).Tier == 2, "Disk load restores photos and progress.");
                 Require(loaded.gameTime == data.gameTime, "Disk load restores the exact game time.");
                 Require(loaded.syncedStationIds.SequenceEqual(new[] { "WX-04" }), "Disk load restores the synced station ID.");
+                Require(loaded.poweredStationIds.SequenceEqual(data.poweredStationIds)
+                    && loaded.discoveredRuinIds.SequenceEqual(data.discoveredRuinIds),
+                    "Power and first discovery survive disk reload independently.");
+                Require(loaded.completedRepairTutorialIds.SequenceEqual(new[] { "WX-04" }),
+                    "Repair teaching completion survives disk reload.");
                 for (int i = 0; i < snapshots.Length; i++)
                 {
                     var record = loaded.photos[i]; var original = data.photos[i];
@@ -96,6 +104,24 @@ namespace AnimalGame.Editor
                 using (var writer = new BinaryWriter(File.Create(path)))
                 {
                     writer.Write(0x41475356);
+                    writer.Write(7);
+                    writer.Write(0); // photos
+                    writer.Write(0); // species progress
+                    writer.Write(0); // conversations
+                    writer.Write(data.gameTime.Ticks);
+                    for (int i = 0; i < 3; i++)
+                    {
+                        writer.Write(1);
+                        writer.Write("WX-04");
+                    }
+                }
+                var stationSave = SaveSystem.LoadOrCreate(path);
+                Require(stationSave.syncedStationIds.Contains("WX-04") && stationSave.poweredStationIds.Contains("WX-04")
+                    && stationSave.discoveredRuinIds.Contains("WX-04") && stationSave.completedRepairTutorialIds.Count == 0,
+                    "Pre-tutorial saves retain station state and leave the unrecorded repair tutorial pending.");
+                using (var writer = new BinaryWriter(File.Create(path)))
+                {
+                    writer.Write(0x41475356);
                     writer.Write(3);
                     writer.Write(0); // photos
                     writer.Write(1); // species progress
@@ -106,7 +132,8 @@ namespace AnimalGame.Editor
                 }
                 var recovered = SaveSystem.LoadOrCreate(path);
                 Require(recovered.gameTime == GameSave.InitialGameTime
-                    && recovered.Progress(AnimalSpecies.AmericanBison).recognition == 30 && recovered.syncedStationIds.Count == 0,
+                    && recovered.Progress(AnimalSpecies.AmericanBison).recognition == 30 && recovered.syncedStationIds.Count == 0
+                    && recovered.poweredStationIds.Count == 0 && recovered.discoveredRuinIds.Count == 0,
                     "A save without a game clock starts at the default without awarding recognition again.");
                 var progress = loaded.speciesProgress[0];
                 foreach (var pair in new[] { (0, 0), (1, 1), (29, 1), (30, 2), (99, 2), (100, 3) })

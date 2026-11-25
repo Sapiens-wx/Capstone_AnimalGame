@@ -120,6 +120,10 @@ namespace AnimalGame.Editor
                     var uiGo = Object.Instantiate(uiPrefab); SceneManager.MoveGameObjectToScene(uiGo, scene);
                     var ui = uiGo.GetComponent<WorldMapUI>();
                     Call(ui, "OnEnable");
+                    var revealSignal = typeof(WorldMapUI).GetMethod("RevealUnknownSignal", Private);
+                    var signalPosition = typeof(WorldMapUI).GetField("unknownSignalWorldPosition", Private);
+                    Require((bool)revealSignal.Invoke(ui, new object[] { stationId, (Vector2)a.transform.position }),
+                        "An unsynced station did not accept a signal marker.");
                     ui.Open();
                     Require(ui.IsOpen, "Map did not open.");
                     var tree = uiGo.GetComponent<UIDocument>().rootVisualElement;
@@ -142,6 +146,15 @@ namespace AnimalGame.Editor
                         BindingFlags.Static | BindingFlags.NonPublic, null, new[] { typeof(string), typeof(string) }, null);
                     Require((bool)sync.Invoke(null, new object[] { stationId, testSave }), "Station sync was not committed.");
                     Require(SaveSystem.LoadOrCreate(testSave).syncedStationIds.Contains(stationId), "Station survey was not saved.");
+                    Call(ui, "ClearSyncedUnknownSignal");
+                    Require(signalPosition.GetValue(ui) == null
+                        && !(bool)revealSignal.Invoke(ui, new object[] { stationId, (Vector2)a.transform.position }),
+                        "A synced location retained or recreated an unknown signal marker.");
+                    Require((bool)revealSignal.Invoke(ui, new object[] { "other-station", (Vector2)b.transform.position }),
+                        "Another location could not register its unknown signal after a sync.");
+                    Call(ui, "ClearSyncedUnknownSignal");
+                    Require(signalPosition.GetValue(ui) is Vector2 pending && pending == (Vector2)b.transform.position,
+                        "Syncing a different location removed the pending signal.");
                     fog = manager.GetFog(map);
                     Require(a.Visited && !b.Visited && Sample(fog, .1f) < .01f && Sample(fog, .9f) > .99f,
                         "Sync did not reveal exactly its bound Voronoi cell.");

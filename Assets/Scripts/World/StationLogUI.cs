@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using AnimalGame.Interaction;
 using AnimalGame.RobotMap;
 using AnimalGame.Save;
 using AnimalGame.World.Map;
@@ -22,6 +23,7 @@ namespace AnimalGame.World
         private StationLogConsole station;
         internal StationLogConsole Station => station;
         private VisualElement root, syncProgress;
+        private FacilityWindowTransition transition;
         private ScrollView list, body;
         private Button sync;
         private Label syncStatus, syncLabel;
@@ -34,7 +36,7 @@ namespace AnimalGame.World
         private static void ResetStatics() { active = null; closedFrame = -1; }
 
         // Each physical console retains its reading position between visits.
-        internal static bool Open(StationLogConsole source)
+        internal static bool Open(StationLogConsole source, Vector3? socketWorld)
         {
             if (BlocksGameplay) return false;
             var view = source.GetComponentInChildren<StationLogUI>(true);
@@ -50,23 +52,25 @@ namespace AnimalGame.World
                 view.station = source;
             }
             view.gameObject.SetActive(true);
-            view.Show();
+            view.Show(socketWorld);
             return true;
         }
 
         internal static void CloseFor(StationLogConsole source)
         {
-            if (IsOpenFor(source)) active.Close();
+            if (IsOpenFor(source)) active.CloseImmediately();
         }
 
         internal static bool IsOpenFor(StationLogConsole source) => active != null && active.station == source;
 
-        private void Show()
+        private void Show(Vector3? socketWorld)
         {
             var documentRoot = GetComponent<UIDocument>().rootVisualElement;
             documentRoot.Clear();
             Resources.Load<VisualTreeAsset>("UI/StationLogs/StationLogs").CloneTree(documentRoot);
             root = documentRoot.Q("station-logs");
+            if (socketWorld.HasValue)
+                transition = new FacilityWindowTransition(documentRoot, root, socketWorld.Value);
             root.Q<Label>("station-type").text = station.StationName;
             root.Q<Label>("station-code").text = station.StationId;
             root.Q<Label>("sync-station-name").text = $"{station.StationName} {station.StationId}";
@@ -204,6 +208,11 @@ namespace AnimalGame.World
         private void Update()
         {
             if (active != this || WorldMapUI.BlocksGameplay) return;
+            if (transition != null && transition.BlocksInput)
+            {
+                transition.Tick(Time.unscaledDeltaTime);
+                return;
+            }
             if (syncing)
             {
                 syncElapsed += Time.unscaledDeltaTime;
@@ -241,7 +250,13 @@ namespace AnimalGame.World
                 body.verticalScroller.value += scroll * body.contentViewport.layout.height * Time.unscaledDeltaTime;
         }
 
-        private void Close() => gameObject.SetActive(false);
+        private void Close()
+        {
+            if (transition != null) transition.Close(CloseImmediately);
+            else CloseImmediately();
+        }
+
+        private void CloseImmediately() => gameObject.SetActive(false);
 
         private void OnDisable()
         {
@@ -249,6 +264,8 @@ namespace AnimalGame.World
             if (WorldMapUI.Instance != null) WorldMapUI.Instance.CloseFor(this);
             active = null;
             closedFrame = Time.frameCount;
+            transition?.Dispose();
+            transition = null;
             if (Time.timeScale == 0f) Time.timeScale = previousTimeScale;
             Cursor.lockState = previousCursorLock;
             Cursor.visible = previousCursorVisible;

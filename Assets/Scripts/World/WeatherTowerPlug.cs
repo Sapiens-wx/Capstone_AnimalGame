@@ -1,11 +1,13 @@
 using System;
+using AnimalGame.Interaction;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using UnityEngine;
 using GameHud = AnimalGame.MainUI.MainUI;
 
 namespace AnimalGame.World
 {
-    public enum WeatherTowerSocket { Log, Cargo, Refit, Communications, MainNorth, MainSouth, EastNorth, EastSouth }
+    public enum WeatherTowerSocket { Log, Cargo, Refit, Communications, MainNorth, MainSouth, EastNorth, EastSouth, Power }
 
     public sealed partial class WeatherTower
     {
@@ -14,6 +16,8 @@ namespace AnimalGame.World
         [SerializeField] private Vector2 cargoContact;
         [SerializeField] private Vector2 refitContact;
         [SerializeField] private Vector2 communicationContact;
+        [SerializeField] private RuinDiscovery ruin;
+        [SerializeField] private WorldInteractionHint powerSocket;
 
         private enum PlugPhase { Idle, Approaching, Seated, Withdrawing }
         private PlugPhase plugPhase;
@@ -26,6 +30,8 @@ namespace AnimalGame.World
         private MaterialPropertyBlock socketProperties;
 
         public bool UsesStationPlugs => HasOpenGround;
+        public bool IsPowered => powerSocket == null || SaveSystem.IsStationPowered(ruin.Id);
+        private Vector2 PowerContact => powerSocket.transform.localPosition;
 
         // Insertion axes point into the equipment. Coordinates are in the registered WX04 floor artwork.
         private Vector2 SocketPosition(WeatherTowerSocket socket) => socket switch
@@ -34,13 +40,15 @@ namespace AnimalGame.World
             WeatherTowerSocket.Cargo => cargoContact,
             WeatherTowerSocket.Refit => refitContact,
             WeatherTowerSocket.Communications => communicationContact,
+            WeatherTowerSocket.Power => PowerContact,
             _ => LiftSocketPosition(socket)
         };
 
-        private static Vector2 InsertionAxis(WeatherTowerSocket socket) => socket switch
+        private Vector2 InsertionAxis(WeatherTowerSocket socket) => socket switch
         {
             WeatherTowerSocket.Cargo or WeatherTowerSocket.MainSouth or WeatherTowerSocket.EastSouth => Vector2.down,
             WeatherTowerSocket.Refit => Vector2.left,
+            WeatherTowerSocket.Power => Phase == WeatherTowerPhase.Exterior ? Vector2.right : Vector2.left,
             _ => Vector2.up
         };
 
@@ -66,22 +74,61 @@ namespace AnimalGame.World
 
         public bool CanPlug(WeatherTowerSocket socket, RobotMover requestor) =>
             HasOpenGround && isActiveAndEnabled && plugPhase == PlugPhase.Idle
+            && (socket == WeatherTowerSocket.Power ? !IsPowered : EquipmentInteractionReady)
             && requestor == player && IsScenePlayer(player) && arm != null && !arm.StationPlugActive && CanReach(socket);
 
-        public bool TryPlug(WeatherTowerSocket socket, RobotMover requestor, MonoBehaviour device,
-            Func<bool> activate, Func<bool> isInUse)
+        internal static bool CanClaimExteriorPlugPress(RobotMover requestor)
         {
-            if (!CanPlug(socket, requestor) || !BeginPlug(socket)) return false;
+            foreach (WeatherTower tower in FindObjectsByType<WeatherTower>(FindObjectsSortMode.None))
+            {
+                if (tower.player != requestor || tower.Phase != WeatherTowerPhase.Exterior || !tower.UsesStationPlugs)
+                    continue;
+                if (tower.CanUsePowerSocket()
+                    || ((tower.AvailableLift() != null || tower.AvailableLiftCall().HasValue)
+                        && tower.TryFindLiftSocket(tower.EastLanding, out _))) return true;
+            }
+            return false;
+        }
+
+        private bool CanUsePowerSocket() => (Phase == WeatherTowerPhase.Exterior || Phase == WeatherTowerPhase.Ground)
+            && CanPlug(WeatherTowerSocket.Power, player) && WorldStationInteraction.CanUseControls(player, allowStationPlug: true);
+
+        private void UpdatePowerInteraction(bool pressed)
+        {
+            bool available = CanUsePowerSocket();
+            if (available && pressed)
+                available = !TryPlug(WeatherTowerSocket.Power, player, this, RestoreStationPower, () => false);
+            powerSocket.enabled = available;
+        }
+
+        private bool RestoreStationPower(Vector3? socketWorld)
+        {
+            try
+            {
+                if (!SaveSystem.PowerStation(ruin.Id)) return false;
+            }
+            catch (Exception error) when (error is System.IO.IOException || error is UnauthorizedAccessException)
+            {
+                Debug.LogException(error, this);
+                return false;
+            }
+            return true;
+        }
+
+        public bool TryPlug(WeatherTowerSocket socket, RobotMover requestor, MonoBehaviour device,
+            Func<Vector3?, bool> activate, Func<bool> isInUse)
+        {
+            if (!CanPlug(socket, requestor) || !BeginPlug(socket, out Vector3 socketWorld)) return false;
             plugTarget = device;
-            activatePlug = activate;
+            activatePlug = () => activate(socketWorld);
             plugInUse = isInUse;
             return true;
         }
 
-        private bool BeginPlug(WeatherTowerSocket socket)
+        private bool BeginPlug(WeatherTowerSocket socket, out Vector3 socketWorld)
         {
-            if (!arm.TryBeginStationPlug(transform.TransformPoint(SocketPosition(socket)),
-                    transform.TransformVector(InsertionAxis(socket)))) return false;
+            socketWorld = transform.TransformPoint(SocketPosition(socket));
+            if (!arm.TryBeginStationPlug(socketWorld, transform.TransformVector(InsertionAxis(socket)))) return false;
             plugSocket = socket;
             plugPhase = PlugPhase.Approaching;
             return true;
@@ -109,7 +156,7 @@ namespace AnimalGame.World
 
         private void BeginLiftPlug(WeatherTowerSocket socket, Landing landing, bool call)
         {
-            if (!BeginPlug(socket)) return;
+            if (!BeginPlug(socket, out _)) return;
             plugLanding = landing;
             callingWithPlug = call;
         }

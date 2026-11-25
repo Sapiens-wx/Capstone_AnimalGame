@@ -101,6 +101,7 @@ Shader "AnimalGame/Dynamic Height Contours"
             float4 _OpeningMapScan;
             sampler2D _HeightTex;
             float _SurfaceEnabled;
+            float _EnclosedRoomSurfaceFade;
             float _SurfaceRevealEnabled;
             float4 _SurfaceRevealCenterPixels;
             float _SurfaceRevealRadiusPixels;
@@ -215,7 +216,10 @@ Shader "AnimalGame/Dynamic Height Contours"
                     // Fade only on the dry side of the mask's midpoint.
                     landVisibility -= _DashSubmergedContours * smoothstep(0.02, 0.5, waterData.r);
 
-                    [branch] if (surfaceVisibility > .5)
+                    // Only the live player view fades its terrain texture. Contours are drawn separately below.
+                    float roomSurfaceVisibility = _SurfaceRevealEnabled > .5
+                        ? 1.0 - saturate(_EnclosedRoomSurfaceFade) : 1.0;
+                    [branch] if (surfaceVisibility > .5 && roomSurfaceVisibility > 0.0)
                     {
                         float surfaceLandVisibility = landVisibility;
                         if (surfaceScanning)
@@ -248,6 +252,8 @@ Shader "AnimalGame/Dynamic Height Contours"
                                 revealMask, waterUv, insideWaterBounds, waterData, waterBlend);
                             rippleTransmission = 1.0 - waterBlend;
                         }
+                        baseColor.rgb *= roomSurfaceVisibility;
+                        rippleTransmission = lerp(1.0, rippleTransmission, roomSurfaceVisibility);
                     }
                 }
 

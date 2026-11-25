@@ -165,7 +165,7 @@ namespace AnimalGame.World
             }
             if (blocked) return false;
 
-            // Revalidate all sources against the same target plan, including bare arms.
+            // Revalidate all sources against the same target plan.
             foreach (Motion motion in motions)
             {
                 QuerySweep(motion.Before, motion.After, motion.Mask);

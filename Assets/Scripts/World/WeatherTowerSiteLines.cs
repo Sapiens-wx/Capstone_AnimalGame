@@ -45,28 +45,69 @@ namespace AnimalGame.World
             }
         }
 
-        public void Door(Vector2 center, float width, bool open, float offset, float alpha = 1f)
+        public void Door(Vector2 center, float width, float openness, float offset, float alpha = 1f, float light = 1f)
         {
             Vector2 half = Vector2.up * (.5f * width);
-            if (open)
+            Vector2 opening = half * openness;
+            float panelLength = .5f * width * (1f - openness);
+            if (openness < 1f)
+            {
+                Vector2 rail = Vector2.right * .07f;
+                var white = new Color(1f, 1f, 1f, alpha);
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector2 jamb = center + half * side;
+                    Vector2 edge = center + opening * side;
+                    Strip(jamb - rail, edge - rail, .037f, white);
+                    Strip(jamb + rail, edge + rail, .037f, white);
+                    float lipWidth = Mathf.Min(.037f, panelLength);
+                    Vector2 lip = edge + Vector2.up * (side * lipWidth * .5f);
+                    Strip(lip - rail, lip + rail, lipWidth, white);
+                }
+            }
+            if (openness > 0f && light > 0f)
             {
                 Color yellow = accent;
-                yellow.a *= alpha;
-                Dashes(center - half, center + half, .064f, .23f, .12f, offset, yellow);
-                return;
+                yellow.a *= alpha * light;
+                Dashes(center - opening, center + opening, .064f, .23f, .12f, offset + panelLength, yellow);
             }
-
-            Vector2 pair = Vector2.right * .07f;
-            var white = new Color(1f, 1f, 1f, alpha);
-            Strip(center - half - pair, center + half - pair, .037f, white);
-            Strip(center - half + pair, center + half + pair, .037f, white);
         }
 
-        public void LiftControl(Vector2 center, float dim)
+        public void SocketIndicator(Vector2 center, Vector2 along, float dim, float opacity = 1f,
+            float lengthScale = 1f, float accentBlend = 1f)
         {
-            Vector2 half = Vector2.right * .22f;
-            Color color = Color.Lerp(accent, Color.black, dim);
+            Vector2 half = along * (.22f * lengthScale);
+            float gray = accent.grayscale;
+            Color color = Color.Lerp(new Color(gray, gray, gray), accent, accentBlend);
+            color = Color.Lerp(color, Color.black, dim);
+            color.a *= opacity;
             Strip(center - half, center + half, .098f, color);
+        }
+
+        public void ReminderRing(Vector2 center, float radius, float width, float opacity)
+        {
+            const int segments = 40;
+            Color color = accent;
+            color.a *= opacity;
+            int first = vertices.Count;
+            for (int segment = 0; segment < segments; segment++)
+            {
+                float angle = segment * (2f * Mathf.PI / segments);
+                var direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                vertices.Add(center + direction * (radius - width * .5f));
+                vertices.Add(center + direction * (radius + width * .5f));
+                colors.Add(color);
+                colors.Add(color);
+
+                int current = first + 2 * segment;
+                int next = first + 2 * ((segment + 1) % segments);
+                triangles.Add(current);
+                triangles.Add(current + 1);
+                triangles.Add(next + 1);
+                triangles.Add(current);
+                triangles.Add(next + 1);
+                triangles.Add(next);
+            }
         }
 
         private void Dashes(Vector2 start, Vector2 end, float width, float dash, float gap,

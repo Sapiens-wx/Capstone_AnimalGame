@@ -39,7 +39,7 @@ namespace AnimalGame.World
         internal float SignalDuration => signalDuration;
         internal float SignalRadius => signalRadius;
         internal float SignalOpacity => signalOpacity;
-        internal static bool HasSignalReceiver => SignalReceived != null;
+        internal bool HasPendingInteraction => earthline != null && earthline.HasPendingIncomingMessages;
 
         internal void ReportSignalReceived(RobotMover receiver) => SignalReceived?.Invoke(this, receiver);
 
@@ -60,8 +60,9 @@ namespace AnimalGame.World
             }
         }
 
-        public bool CanInteract => IsNearby && earthline != null && earthline.isActiveAndEnabled
-            && WorldStationInteraction.CanUseControls(player);
+        public bool CanInteract => (tower == null || tower.EquipmentInteractionReady) && IsNearby
+            && earthline != null && earthline.isActiveAndEnabled
+            && WorldStationInteraction.CanUseControls(player, tower != null && tower.UsesStationPlugs);
 
         private void Awake()
         {
@@ -117,16 +118,19 @@ namespace AnimalGame.World
             SetPrompt(available);
         }
 
-        public bool TryOpen()
+        public bool TryOpen() => TryOpen(null);
+
+        private bool TryOpen(Vector3? socketWorld)
         {
             if (!CanInteract) return false;
-            earthline.Open();
+            earthline.OpenFromStation(socketWorld.HasValue ? this : null, socketWorld);
             SetPrompt(false);
             return earthline.IsOpen;
         }
 
         private void OnDisable()
         {
+            if (earthline != null) earthline.CloseFor(this);
             SetPrompt(false);
             if (!towerDrivesSignal) signal?.Hide();
         }

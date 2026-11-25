@@ -1,3 +1,4 @@
+using AnimalGame.Demos.CheckpointRefit;
 using AnimalGame.Interaction;
 using UnityEngine;
 
@@ -19,12 +20,19 @@ namespace AnimalGame.World
         private const float BlinkPeriod = 1.8f;
         private const float BlinkOnSeconds = 1.1f;
         private const float DoorThickness = .16f;
+        private const float DoorSlideSeconds = .36f;
         private const float CallReach = 1.2f;
+        private const float ReminderInterval = 2.2f;
+        private const float ReminderDuration = .9f;
         private readonly LiftParking mainParking = new();
         private readonly LiftParking eastParking = new();
         private readonly GameObject[] landingBarriers = new GameObject[4];
+        private readonly float[] landingDoorProgress = new float[4];
         private WeatherTowerSiteLines doorLines;
         private WeatherTowerSiteLines deckLines;
+        private StationLogConsole logConsole;
+        private CheckpointRefitTerminal repairTerminal;
+        private CommunicationsStation communicationsConsole;
         private bool HasOpenGround => siteLineMaterial != null;
 
         private sealed class LiftParking
@@ -36,30 +44,21 @@ namespace AnimalGame.World
             public void Call(float duration) => callTime = duration;
             public void Dock(bool upstairs) => AtUpper = upstairs;
 
-            public bool Tick(float deltaTime)
+            public void Tick(float deltaTime)
             {
-                if (!IsCalling) return false;
+                if (!IsCalling) return;
                 callTime = Mathf.MoveTowards(callTime, 0f, deltaTime);
-                if (IsCalling) return false;
-                Dock(!AtUpper);
-                return true;
+                if (!IsCalling) Dock(!AtUpper);
             }
         }
 
         private void InitializeSite()
         {
-            // Preserve the prefab preview in Edit Mode, and require a live gameplay disk at runtime.
-            var properties = new MaterialPropertyBlock();
-            foreach (SpriteRenderer part in GetComponentsInChildren<SpriteRenderer>(true))
-            {
-                if (part.sharedMaterial != groundRoofArt.sharedMaterial) continue;
-                part.GetPropertyBlock(properties);
-                properties.SetFloat(RequirePlayerDisk, 1f);
-                part.SetPropertyBlock(properties);
-            }
-
             doorLines = new WeatherTowerSiteLines(transform, siteLineMaterial, "Animated entrances", -16);
             deckLines = new WeatherTowerSiteLines(transform, siteLineMaterial, "Overhead deck outline", -18);
+            logConsole = groundView.GetComponentInChildren<StationLogConsole>(true);
+            repairTerminal = groundView.GetComponentInChildren<CheckpointRefitTerminal>(true);
+            communicationsConsole = GetComponentInChildren<CommunicationsStation>(true);
             AddDoorBarrier(Landing.MainLower, groundView.transform);
             AddDoorBarrier(Landing.MainUpper, roofView.transform);
             AddDoorBarrier(Landing.EastUpper, roofView.transform);
@@ -87,24 +86,48 @@ namespace AnimalGame.World
         private static bool IsEast(Landing landing) => landing == Landing.EastLower || landing == Landing.EastUpper;
         private static bool IsUpper(Landing landing) => landing == Landing.MainUpper || landing == Landing.EastUpper;
 
-        private bool IsLandingOpen(Landing landing)
+        private bool IsLiftDockedAt(Landing landing)
         {
             LiftParking parking = Parking(landing);
-            return parking.AtUpper == IsUpper(landing) && !parking.IsCalling
+            return EquipmentInteractionReady && parking.AtUpper == IsUpper(landing) && !parking.IsCalling
                 && !(IsRiding && ridingExitLift == IsEast(landing));
         }
 
-        private void RefreshLandings()
+        private void OnEnable()
         {
-            for (int index = 0; index < landingBarriers.Length; index++)
-                SetActive(landingBarriers[index], !IsLandingOpen((Landing)index));
+            if (doorLines != null) UpdateLandingDoors(1f);
         }
 
-        private void TickLiftCalls(float deltaTime)
+        private void UpdateLandingDoors(float normalizedStep)
         {
-            bool mainDocked = mainParking.Tick(deltaTime);
-            bool eastDocked = eastParking.Tick(deltaTime);
-            if (mainDocked || eastDocked) RefreshLandings();
+            WeatherTowerPhase view = IsRiding
+                ? (OnUpperView ? WeatherTowerPhase.Outdoor : ridingExitLift ? WeatherTowerPhase.Exterior : WeatherTowerPhase.Ground)
+                : Phase;
+            for (int index = 0; index < landingBarriers.Length; index++)
+            {
+                var landing = (Landing)index;
+                bool docked = IsLiftDockedAt(landing);
+                bool onFloor = view == (IsUpper(landing) ? WeatherTowerPhase.Outdoor
+                    : IsEast(landing) ? WeatherTowerPhase.Exterior : WeatherTowerPhase.Ground);
+                float open = Mathf.MoveTowards(landingDoorProgress[index], onFloor && docked ? 1f : 0f, normalizedStep);
+                landingDoorProgress[index] = open;
+                // Only the active floor waits for the visible panels to clear the doorway.
+                SetActive(landingBarriers[index], !docked || (onFloor && open < 1f));
+            }
+        }
+
+        private bool LiftDoorsClosed(bool east)
+        {
+            Landing lower = east ? Landing.EastLower : Landing.MainLower;
+            Landing upper = east ? Landing.EastUpper : Landing.MainUpper;
+            return landingDoorProgress[(int)lower] == 0f && landingDoorProgress[(int)upper] == 0f;
+        }
+
+        private void TickLiftSite(float deltaTime)
+        {
+            if (LiftDoorsClosed(false)) mainParking.Tick(deltaTime);
+            if (LiftDoorsClosed(true)) eastParking.Tick(deltaTime);
+            UpdateLandingDoors(deltaTime / DoorSlideSeconds);
         }
 
         private void DockRiddenLift(bool upstairs) => (ridingExitLift ? eastParking : mainParking).Dock(upstairs);
@@ -137,7 +160,7 @@ namespace AnimalGame.World
         private void StartLiftCall(Landing landing)
         {
             Parking(landing).Call(travelSeconds);
-            RefreshLandings();
+            UpdateLandingDoors(0f);
             SetLiftPrompt(null);
         }
 
@@ -165,9 +188,13 @@ namespace AnimalGame.World
         private void LateUpdate()
         {
             if (doorLines == null) return;
+            float dim = Mathf.Repeat(Time.time, BlinkPeriod) < BlinkOnSeconds ? 0f : .8f;
+            bool powered = IsPowered;
             float below = 1f - UpperFloorOpacity;
+            if (powerLines != null)
+                DrawPowerSocket(powered || SocketIsLit(WeatherTowerSocket.Power) ? 0f : dim, below);
             DrawDeckOutline(below);
-            DrawEntrances(below);
+            DrawEntrances(below, dim);
         }
 
         private void DrawDeckOutline(float opacity)
@@ -184,34 +211,60 @@ namespace AnimalGame.World
             deckLines.Draw();
         }
 
-        private void DrawEntrances(float below)
+        private void DrawEntrances(float below, float dim)
         {
             // Both the painted strips and the lift panels switch together on the gameplay clock.
-            float dim = Mathf.Repeat(Time.time, BlinkPeriod) < BlinkOnSeconds ? 0f : .8f;
             Shader.SetGlobalFloat(InteractionLightDim, dim);
+            float accent = EquipmentAccentVisibility;
+            float visibility = EquipmentVisibility;
             float offset = Time.time * -.76f;
-            WeatherTowerPhase view = IsRiding
-                ? (OnUpperView ? WeatherTowerPhase.Outdoor : ridingExitLift ? WeatherTowerPhase.Exterior : WeatherTowerPhase.Ground)
-                : Phase;
             doorLines.Begin();
             if (below > 0f)
-                doorLines.Door(groundDoor.localPosition, groundDoorWidth, true, offset, below);
-            DrawLanding(Landing.MainLower, view == WeatherTowerPhase.Ground, offset);
-            DrawLanding(Landing.MainUpper, view == WeatherTowerPhase.Outdoor, offset);
-            DrawLanding(Landing.EastUpper, view == WeatherTowerPhase.Outdoor, offset);
-            DrawLanding(Landing.EastLower, view == WeatherTowerPhase.Exterior, offset);
-            DrawLiftControls(WeatherTowerSocket.MainNorth, WeatherTowerSocket.MainSouth, dim);
-            DrawLiftControls(WeatherTowerSocket.EastNorth, WeatherTowerSocket.EastSouth, dim);
+                doorLines.Door(groundDoor.localPosition, groundDoorWidth, 1f, offset, below, accent);
+            for (int index = 0; index < landingDoorProgress.Length; index++)
+                doorLines.Door(liftDoorCenters[index], liftSize.y,
+                    Mathf.SmoothStep(0f, 1f, landingDoorProgress[index]), offset, light: accent);
+            if (visibility > 0f)
+            {
+                float blink = accent >= 1f ? dim : 0f;
+                DrawLiftControls(WeatherTowerSocket.MainNorth, WeatherTowerSocket.MainSouth, blink, visibility, accent);
+                DrawLiftControls(WeatherTowerSocket.EastNorth, WeatherTowerSocket.EastSouth, blink, visibility, accent);
+            }
+            if (accent > 0f) DrawEquipmentReminders(accent);
             doorLines.Draw();
         }
 
-        private void DrawLanding(Landing landing, bool accessible, float offset) =>
-            doorLines.Door(liftDoorCenters[(int)landing], liftSize.y, accessible && IsLandingOpen(landing), offset);
-
-        private void DrawLiftControls(WeatherTowerSocket north, WeatherTowerSocket south, float dim)
+        private void DrawEquipmentReminders(float opacity)
         {
-            doorLines.LiftControl(LiftSocketPosition(north), SocketIsLit(north) ? 0f : dim);
-            doorLines.LiftControl(LiftSocketPosition(south), SocketIsLit(south) ? 0f : dim);
+            if (Phase == WeatherTowerPhase.Ground)
+            {
+                if (logConsole != null && logConsole.isActiveAndEnabled && logConsole.HasPendingInteraction)
+                    DrawEquipmentReminder(WeatherTowerSocket.Log, opacity, 0f);
+                if (repairTerminal != null && repairTerminal.isActiveAndEnabled && repairTerminal.HasPendingInteraction)
+                    DrawEquipmentReminder(WeatherTowerSocket.Refit, opacity, .33f);
+            }
+            else if (Phase == WeatherTowerPhase.Outdoor && communicationsConsole != null
+                && communicationsConsole.isActiveAndEnabled && communicationsConsole.HasPendingInteraction)
+                DrawEquipmentReminder(WeatherTowerSocket.Communications, opacity, 0f);
+        }
+
+        private void DrawEquipmentReminder(WeatherTowerSocket socket, float opacity, float offset)
+        {
+            float elapsed = Mathf.Repeat(Time.time - offset, ReminderInterval);
+            if (elapsed >= ReminderDuration) return;
+
+            float progress = elapsed / ReminderDuration;
+            float radius = Mathf.Lerp(.28f, 1.22f, 1f - (1f - progress) * (1f - progress));
+            float fade = Mathf.SmoothStep(0f, 1f, progress / .12f) * (1f - progress);
+            doorLines.ReminderRing(SocketPosition(socket), radius, .035f, opacity * fade * .82f);
+        }
+
+        private void DrawLiftControls(WeatherTowerSocket north, WeatherTowerSocket south, float dim, float opacity, float accent)
+        {
+            doorLines.SocketIndicator(LiftSocketPosition(north), Vector2.right, SocketIsLit(north) ? 0f : dim,
+                opacity, accentBlend: accent);
+            doorLines.SocketIndicator(LiftSocketPosition(south), Vector2.right, SocketIsLit(south) ? 0f : dim,
+                opacity, accentBlend: accent);
         }
     }
 }

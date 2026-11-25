@@ -24,12 +24,12 @@ namespace AnimalGame.Editor
             CheckChassisAndArmClearance();
             CheckDirectionReachability();
             CheckPartialDeploymentAndRetraction();
-            CheckMigrationCollision();
+            CheckMigrationThroughWorldObstacle();
             CheckSupportDirection();
             CheckUprightReturnAndGrab();
             CheckDisableAndReenable();
             Debug.Log("Tumble arm checks PASS: normal isolation, four exits, local direction, cardinal boundaries, "
-                + "circular migration, chassis/arm clearance, deployment/retraction, collision retry, support, upright return and disable cleanup.");
+                + "circular migration, chassis/arm clearance, deployment/retraction, world-obstacle pass-through, support, upright return and disable cleanup.");
         }
 
         public static void RunBatch()
@@ -334,7 +334,7 @@ namespace AnimalGame.Editor
             }
         }
 
-        private static void CheckMigrationCollision()
+        private static void CheckMigrationThroughWorldObstacle()
         {
             using (var f = new Fixture())
             {
@@ -346,26 +346,16 @@ namespace AnimalGame.Editor
                 InteractionShape obstacle = blocker.GetShape(null);
                 Require(!f.IntersectsArms(obstacle), "Migration blocker starts inside an upright arm");
                 f.Fall(new Vector2(1f, -1f).normalized);
-                bool blocked = false;
-                for (int frame = 0; frame < 120; frame++)
+                bool passedThrough = false;
+                for (int frame = 0; frame < 180; frame++)
                 {
                     f.Tick(1, new Vector2(1f, -1f).normalized);
-                    blocked |= f.Arms.IsBlocked;
-                    Require(!f.IntersectsArms(obstacle),
-                        "A migrating arm or its collision geometry passed through the blocker");
+                    passedThrough |= f.IntersectsArms(obstacle);
                 }
-                Require(blocked && !f.Arms.IsTumbleArmSupportReady,
-                    "An obstructed socket migration did not block support");
-                Vector2 left = f.Socket("left"), right = f.Socket("right");
-                f.Tick(30, new Vector2(1f, -1f).normalized);
-                Require(Vector2.Distance(left, f.Socket("left")) < .0001f
-                    && Vector2.Distance(right, f.Socket("right")) < .0001f,
-                    "The paired sockets kept moving after one arm was obstructed");
-                Object.DestroyImmediate(blocker.gameObject);
-                f.Tick(180, new Vector2(1f, -1f).normalized);
+                Require(passedThrough, "The migration did not cross the world obstacle fixture");
                 f.RequireSockets(Vector2.right, Vector2.down);
                 Require(f.Arms.IsTumbleArmSupportReady,
-                    "Socket migration did not resume after the obstacle was removed");
+                    "A world obstacle prevented the migrated arms supporting the chassis");
             }
         }
 

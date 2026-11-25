@@ -204,8 +204,9 @@ namespace AnimalGame.Editor
             Check("Recycle cancels cleanly on falling, photo mode, external control or disable", CheckRecycleCancellation);
             Check("Recycle completion may disable the controller without restoring its input capture", CheckRecycleCompletionDisable);
             Check("Release A drops before retracting, idle arms stay still, and deployment resumes", RunRetractionChecks);
-            Check("Deployment obstacle prevents grabbing; deployed obstacle does not", CheckDeploymentCollision);
-            Check("Body translation and rotation are constrained by arm boxes", CheckBodyCollision);
+            Check("Station plug swaps one deployed wrist without retracting the arms", CheckStationPlugAfterClaws);
+            Check("Arms deploy, grab and retract through world obstacles", CheckDeploymentCollision);
+            Check("Only the body constrains unladen translation and rotation", CheckBodyCollision);
             Check("Player-local rate input, boundary body following and fallen restrictions", CheckTurning);
             Check("Stopped steering retains reverse only while steering continuously", CheckStoppedSteering);
             Check("Grab resistance scales movement and freezes held movement at one", CheckGrabResistance);
@@ -1384,49 +1385,140 @@ namespace AnimalGame.Editor
                 Require(probe.ShapeReads > 0, "Reopening did not resume spatial queries");
             }
         }
+        private static void CheckStationPlugAfterClaws()
+        {
+            using (var f = new Fixture(useProductionSettings: true))
+            {
+                f.Tick(120, Vector2.up, false);
+                WorldInteraction item = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f, 1);
+                f.Tick(1, Vector2.zero, true);
+                Require(f.Arms.HeldObject == item, "The plug fixture did not start with deployed claws holding an item");
+
+                object rightArm = Get(f.Arms, "right");
+                Vector2 shoulder = (Vector2)rightArm.GetType().GetField("Socket").GetValue(rightArm);
+                float plugLength = (float)typeof(RobotArmController).GetMethod("StationPlugLength",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(f.Arms, new[] { rightArm });
+                float armLength = (float)Get(f.Arms, "armLength");
+                Transform frame = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot;
+                Vector2 socket = frame.TransformPoint(shoulder + Vector2.up * (plugLength + armLength * .5f));
+                Vector2 axis = frame.TransformVector(Vector2.up);
+                bool reachesInsideShoulder = (bool)typeof(RobotArmController).GetMethod("StationWristReachable",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(f.Arms,
+                    new[] { rightArm, (object)(shoulder + Vector2.up * plugLength), Vector2.up });
+                Require(!reachesInsideShoulder,
+                    "A deployed wrist accepted a socket inside its rigid links' minimum reach");
+                var wrist = (SpriteRenderer)rightArm.GetType().GetField("HandSprite").GetValue(rightArm);
+                var otherWrist = frame.Find("Left Mechanical Arm/Mechanical Hand");
+                var lowerLink = frame.Find("Right Mechanical Arm/Lower Arm");
+                var upperLink = frame.Find("Right Mechanical Arm/Upper Arm");
+                Sprite openClaw = (Sprite)rightArm.GetType().GetField("OpenHandSprite").GetValue(rightArm);
+                Sprite plug = (Sprite)Get(f.Arms, "stationPlugSprite");
+                Vector3 deployedLowerScale = lowerLink.localScale;
+                Vector3 deployedUpperScale = upperLink.localScale;
+                Vector3 deployedWristPosition = wrist.transform.localPosition;
+                Quaternion deployedWristRotation = wrist.transform.localRotation;
+                Vector3 standbyPosition = otherWrist.localPosition;
+                Quaternion standbyRotation = otherWrist.localRotation;
+                float deployedClawSize = wrist.transform.localScale.magnitude;
+
+                void CheckFixedLinks()
+                {
+                    Require(f.Arms.VisibleDeployment01 >= .999f && f.Arms.IsArmModeActive,
+                        "The wrist swap changed the deployed arm mode");
+                    Require(Vector3.Distance(lowerLink.localScale, deployedLowerScale) < .00001f
+                        && Vector3.Distance(upperLink.localScale, deployedUpperScale) < .00001f,
+                        "The wrist swap changed a link's length");
+                    Require(Vector3.Distance(otherWrist.localPosition, standbyPosition) < .00001f
+                        && Quaternion.Angle(otherWrist.localRotation, standbyRotation) < .01f,
+                        "The wrist swap moved the other arm");
+                }
+
+                Require(f.Arms.TryBeginStationPlug(socket, axis), "An in-range socket refused the deployed claws");
+                Require(f.Arms.StationPlugActive && !f.Arms.StationPlugSeated && item.Owner == null,
+                    "Claiming the plug seated immediately or kept the old grip");
+                Call(f.Arms, "StepStationPlug", .09f);
+                Require(wrist.sprite == openClaw && wrist.transform.localScale.magnitude < deployedClawSize
+                    && Vector3.Distance(wrist.transform.localPosition, deployedWristPosition) < .00001f,
+                    "The selected claw did not retract into its own wrist");
+                CheckFixedLinks();
+                Call(f.Arms, "StepStationPlug", .25f);
+                Require(wrist.sprite == plug && wrist.transform.localScale.magnitude > 0f
+                    && !f.Arms.StationPlugSeated, "The plug did not extend from the selected wrist before seating");
+                CheckFixedLinks();
+                Call(f.Arms, "StepStationPlug", 2f);
+                Require(f.Arms.StationPlugSeated, "The plug never seated after the wrist swap");
+                Vector2 tip = wrist.transform.TransformPoint((new Vector2(24f, 75.5f) - plug.pivot) / plug.pixelsPerUnit);
+                Require(Vector2.Dot(tip - socket, axis) > 0f && Mathf.Abs(Vector2.Dot(tip - socket, Vector2.Perpendicular(axis))) < .002f,
+                    "The deployed wrist did not align its plug with the socket");
+                CheckFixedLinks();
+
+                f.Arms.RetractStationPlug();
+                bool regrewClaw = false;
+                for (int i = 0; i < 120 && f.Arms.StationPlugActive; i++)
+                {
+                    Call(f.Arms, "StepStationPlug", .01f);
+                    CheckFixedLinks();
+                    regrewClaw |= f.Arms.StationPlugActive && wrist.sprite == openClaw
+                        && wrist.transform.localScale.magnitude < deployedClawSize;
+                }
+                Require(!f.Arms.StationPlugActive && regrewClaw && wrist.sprite == openClaw
+                    && Vector3.Distance(wrist.transform.localPosition, deployedWristPosition) < .00001f
+                    && Quaternion.Angle(wrist.transform.localRotation, deployedWristRotation) < .01f,
+                    "The plug withdrawal did not restore the original deployed claw pose");
+
+                f.Arms.CancelArmControl();
+                Require(f.Arms.TryBeginStationPlug(socket, axis), "The stowed-arm plug path rejected a valid socket");
+                Call(f.Arms, "StepStationPlug", 2f);
+                Require(f.Arms.VisibleDeployment01 == 0f && f.Arms.StationPlugSeated,
+                    "A stowed-arm interaction changed the normal deployed state");
+            }
+        }
+
         private static void CheckDeploymentCollision()
         {
             using (var f = new Fixture())
             {
-                WorldInteraction obstacle = f.Solid(new Vector2(-.3f, .1f), new Vector2(.5f, .12f));
-                WorldInteraction item = f.Item(Vector2.zero, Vector2.one * 3f, 1);
-                f.Tick(120, Vector2.up, true);
-                Require(f.Arms.State == RobotArmState.Extending && f.Arms.HeldObject == null && f.Arms.IsBlocked,
-                    "Blocked deployment allowed grabbing or finished");
-                // Fixture arm geometry determines the full reach. Keep the pickup at that
-                // deployed hand target instead of assuming the origin's fixed 3-unit box covers it.
-                Vector2 deployedLeft = (Vector2)Get(f.Arms, "targetLocal")
-                    - Vector2.right * (float)Get(f.Arms, "handSpacing") * .5f;
-                item.WorldPosition = f.Root.GetComponent<RobotMarkerView>().MarkerVisualRoot.TransformPoint(deployedLeft);
-                item.LocalSize = Vector2.one * .05f;
-                obstacle.enabled = false;
-                f.Tick(120, Vector2.up, true);
-                Require(f.Arms.HeldObject == item, "Removing obstacle did not resume deployment/grab: deployment="
-                    + f.Arms.VisibleDeployment01 + ", left=" + f.Arms.LeftHandWorld + ", item=" + item.WorldPosition);
-                Call(f.Arms, "Step", 0f, Vector2.zero, true, false);
-                Call(f.Arms, "Step", 0f, Vector2.zero, false, false);
-                Call(f.Arms, "Step", 0f, Vector2.zero, true, false);
-                obstacle.enabled = true;
-                f.Tick(1, Vector2.up, true);
-                Require(f.Arms.HeldObject == item, "Post-deployment collision incorrectly disabled grab");
+                f.Solid(new Vector2(-.3f, .1f), new Vector2(.5f, .12f));
+                f.Tick(120, Vector2.up, false);
+                Require(f.Arms.VisibleDeployment01 > .999f && !f.Arms.IsBlocked,
+                    "A stationary world obstacle blocked bare arm deployment");
+
+                WorldInteraction item = f.Item(f.Arms.LeftHandWorld, Vector2.one * .05f, 1);
+                f.Tick(1, Vector2.zero, true);
+                Require(f.Arms.HeldObject == item, "The arm could not grab beyond the obstacle");
+
+                f.Tick(60, Vector2.zero, false, false);
+                Require(f.Arms.State == RobotArmState.Retracted && f.Arms.HeldObject == null,
+                    "A stationary world obstacle prevented unclasping and retracting");
             }
         }
         private static void CheckBodyCollision()
         {
             using (var f = new Fixture())
             {
+                RobotMover mover = f.Root.GetComponent<RobotMover>();
+                mover.ColliderRadius = .12f;
                 f.Tick(90, Vector2.up, false);
-                f.Solid(new Vector2(0f, .85f), new Vector2(2f, .04f));
-                Call(f.Arms, "ConstrainBodyPose", Vector3.zero, Quaternion.identity, Vector3.up, Quaternion.identity);
-                Require(f.Arms.transform.position.y < .5f && f.Arms.IsBlocked, "Body carried arms through wall");
+                WorldInteraction wall = f.Solid(new Vector2(0f, .85f), new Vector2(2f, .04f));
+                Vector3 armOnlyContact = Vector3.up * .5f;
+                Call(f.Arms, "ConstrainBodyPose", Vector3.zero, Quaternion.identity, armOnlyContact, Quaternion.identity);
+                Require(Vector3.Distance(f.Root.transform.position, armOnlyContact) < .001f,
+                    "An arm-only wall stopped translation before the body touched it");
+
+                Call(f.Arms, "ConstrainBodyPose", armOnlyContact, Quaternion.identity, Vector3.up, Quaternion.identity);
+                Require(f.Root.transform.position.y < .85f
+                    && WorldInteractionQuery.Penetration(mover.GetCollisionShape(null), wall.GetShape(null)) < .0001f,
+                    "The body crossed the wall while the arms were deployed");
             }
             using (var f = new Fixture())
             {
+                f.Root.GetComponent<RobotMover>().ColliderRadius = .12f;
                 f.Tick(90, Vector2.up, false);
                 f.Solid(new Vector2(.5f, 0f), new Vector2(.05f, .8f));
-                Call(f.Arms, "ConstrainBodyPose", Vector3.zero, Quaternion.identity, Vector3.zero, Quaternion.Euler(0f, 0f, -90f));
-                Require(Quaternion.Angle(f.Arms.transform.rotation, Quaternion.Euler(0f, 0f, -90f)) > 1f && f.Arms.IsBlocked,
-                    "Body rotation swept arms through obstacle");
+                Quaternion heading = Quaternion.Euler(0f, 0f, -90f);
+                f.Arms.ConstrainBodyRotation(heading);
+                Require(Quaternion.Angle(f.Root.transform.rotation, heading) < .01f,
+                    "An arm-only obstacle prevented the chassis rotating in place");
             }
         }
         private static void CheckTurning()

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using AnimalGame.MapTest;
+using AnimalGame.Rendering;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
 using UnityEngine;
@@ -35,6 +36,8 @@ namespace AnimalGame.Demos.WasteRobot
         public GameObject ExteriorRoot => exteriorRoot;
         public GameObject InteriorRoot => interiorRoot;
         public Transform Target => target;
+        private bool HasActiveTarget => target != null && target.gameObject.scene == gameObject.scene
+            && target.gameObject.activeInHierarchy;
         public bool AutoBindPlayer
         {
             get => autoBindPlayer;
@@ -69,7 +72,7 @@ namespace AnimalGame.Demos.WasteRobot
             IsInside = inside;
             TransitionCount = 0;
             pendingCrossing = false;
-            hasSample = target != null;
+            hasSample = HasActiveTarget;
             if (hasSample) previousLocal = WorldToPortal(target.position);
             ApplyPresentation();
             Notify(PresentationReset);
@@ -81,6 +84,8 @@ namespace AnimalGame.Demos.WasteRobot
             if (target != null) Bind(target);
         }
 
+        private void OnEnable() => UpdateIndoorTerrain();
+
         private void LateUpdate()
         {
             if (targetWasAutoBound && !CanRetainScenePlayer(trackedRobot)) Bind(null);
@@ -89,8 +94,9 @@ namespace AnimalGame.Demos.WasteRobot
                 nextPlayerSearch = Time.unscaledTime + .25f;
                 TryBindScenePlayer();
             }
-            if (target == null || target.gameObject.scene != gameObject.scene
-                || !target.gameObject.activeInHierarchy)
+            bool hasTarget = HasActiveTarget;
+            if (hasSample != hasTarget) UpdateIndoorTerrain();
+            if (!hasTarget)
             {
                 hasSample = false;
                 pendingCrossing = false;
@@ -115,6 +121,7 @@ namespace AnimalGame.Demos.WasteRobot
         {
             hasSample = false;
             pendingCrossing = false;
+            EnclosedRoomTerrain.SetOccupied(this, false);
             Notify(PresentationUnavailable);
         }
 
@@ -278,8 +285,15 @@ namespace AnimalGame.Demos.WasteRobot
                 exteriorRoot.SetActive(!IsInside);
             if (interiorRoot != null && interiorRoot != gameObject)
                 interiorRoot.SetActive(IsInside);
+            UpdateIndoorTerrain();
             // OnEnable/OnDisable register/unregister each active WorldInteraction.
             WorldInteraction.MarkHierarchySpatialDirty(transform);
+        }
+
+        private void UpdateIndoorTerrain()
+        {
+            if (Application.IsPlaying(gameObject))
+                EnclosedRoomTerrain.SetOccupied(this, isActiveAndEnabled && IsInside && HasActiveTarget);
         }
 
         public Vector2 WorldToPortal(Vector2 world) => transform.InverseTransformPoint(world);

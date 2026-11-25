@@ -1,4 +1,5 @@
 using System;
+using AnimalGame.Interaction;
 using AnimalGame.MainUI;
 using AnimalGame.MainUI.Inventory;
 using AnimalGame.RobotMap;
@@ -17,12 +18,15 @@ namespace AnimalGame.World
         private static WarehouseUI active;
         private static int closedFrame = -1;
         public static bool BlocksGameplay => active != null || closedFrame == Time.frameCount;
+        internal static bool IsItemInfoOpen => active != null && active.state == InventoryInteractionState.Info;
 
         private GameMainUI hud;
         private InventoryStore cargo, warehouse;
         private WarehouseView view;
+        private FacilityWindowTransition transition;
         private InventoryInteractionState state;
-        private bool warehouseSelected;
+        private bool warehouseSelected, moveSourceInWarehouse;
+        private bool waitForNavigationRelease;
         private int slot, action, moveSource, lastActionFrame;
         private Vector2Int heldDirection;
         private float repeatAt, previousTimeScale;
@@ -34,7 +38,7 @@ namespace AnimalGame.World
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() { active = null; closedFrame = -1; }
 
-        internal static bool Open(Component source, GameMainUI hud)
+        internal static bool Open(Component source, GameMainUI hud, Vector3? socketWorld)
         {
             if (BlocksGameplay) return false;
             var ui = source.GetComponentInChildren<WarehouseUI>(true);
@@ -49,7 +53,7 @@ namespace AnimalGame.World
                 ui = host.AddComponent<WarehouseUI>();
             }
             ui.gameObject.SetActive(true);
-            ui.Show(hud);
+            ui.Show(hud, socketWorld);
             return true;
         }
 
@@ -61,12 +65,15 @@ namespace AnimalGame.World
 
         internal static bool IsOpenFor(Component source) => active != null && active.transform.parent == source.transform;
 
-        private void Show(GameMainUI owner)
+        private void Show(GameMainUI owner, Vector3? socketWorld)
         {
             hud = owner;
             cargo = hud.Inventory;
             warehouse = hud.Warehouse;
-            view = new WarehouseView(GetComponent<UIDocument>().rootVisualElement, cargo, warehouse);
+            var documentRoot = GetComponent<UIDocument>().rootVisualElement;
+            view = new WarehouseView(documentRoot, cargo, warehouse);
+            if (socketWorld.HasValue)
+                transition = new FacilityWindowTransition(documentRoot, documentRoot.Q("Warehouse"), socketWorld.Value);
             view.SlotHovered += HoverSlot;
             view.SlotPressed += PressSlot;
             view.ActionHovered += SelectAction;
@@ -87,6 +94,7 @@ namespace AnimalGame.World
             view.Select(warehouseSelected, slot);
             lastActionFrame = Time.frameCount;
             heldDirection = Vector2Int.zero;
+            waitForNavigationRelease = false;
             previousTimeScale = Time.timeScale;
             previousCursorVisible = Cursor.visible;
             previousCursorLock = Cursor.lockState;
@@ -101,15 +109,16 @@ namespace AnimalGame.World
 
         private void SlotChanged(bool inWarehouse, int index)
         {
-            if (inWarehouse == warehouseSelected &&
-                ((state == InventoryInteractionState.Menu && index == slot) ||
-                 (state == InventoryInteractionState.Move && index == moveSource)))
-                Browse();
+            bool selectedChanged = inWarehouse == warehouseSelected && index == slot;
+            bool moveSourceChanged = inWarehouse == moveSourceInWarehouse && index == moveSource;
+            if ((selectedChanged && (state is InventoryInteractionState.Menu or InventoryInteractionState.Info))
+                || (moveSourceChanged && state == InventoryInteractionState.Move)) Browse();
             view.Refresh(inWarehouse, index);
         }
 
         private void HoverSlot(bool inWarehouse, int index)
         {
+            if (state == InventoryInteractionState.Info) return;
             if (state == InventoryInteractionState.Menu)
             {
                 if ((warehouseSelected == inWarehouse && slot == index) ||
@@ -121,7 +130,6 @@ namespace AnimalGame.World
 
         private void SelectSlot(bool inWarehouse, int index)
         {
-            if (state == InventoryInteractionState.Move && warehouseSelected != inWarehouse) return;
             warehouseSelected = inWarehouse;
             slot = index;
             if (state == InventoryInteractionState.Browse) SelectedStore.MarkViewed(index);
@@ -130,15 +138,15 @@ namespace AnimalGame.World
 
         private void PressSlot(bool inWarehouse, int index)
         {
-            if (lastActionFrame == Time.frameCount || BackPressedThisFrame() || state == InventoryInteractionState.Menu ||
-                (state == InventoryInteractionState.Move && inWarehouse != warehouseSelected)) return;
+            if (lastActionFrame == Time.frameCount || BackPressedThisFrame()
+                || state is InventoryInteractionState.Menu or InventoryInteractionState.Info) return;
             SelectSlot(inWarehouse, index);
             Confirm();
         }
 
         private void Confirm()
         {
-            if (lastActionFrame == Time.frameCount || BackPressedThisFrame()) return;
+            if (lastActionFrame == Time.frameCount || BackPressedThisFrame() || state == InventoryInteractionState.Info) return;
             if (state == InventoryInteractionState.Menu)
             {
                 ExecuteAction(action);
@@ -147,14 +155,18 @@ namespace AnimalGame.World
             lastActionFrame = Time.frameCount;
             if (state == InventoryInteractionState.Move)
             {
-                if (slot != moveSource && SelectedStore.Items[slot] != null)
+                bool atSource = warehouseSelected == moveSourceInWarehouse && slot == moveSource;
+                if (!atSource && SelectedStore.Items[slot] != null)
                 {
                     view.SetStatus("Choose an empty slot.");
                     return;
                 }
-                int source = moveSource;
                 Browse();
-                if (slot != source) SelectedStore.Move(source, slot);
+                if (!atSource)
+                {
+                    InventoryStore source = moveSourceInWarehouse ? warehouse : cargo;
+                    source.MoveTo(moveSource, SelectedStore, slot);
+                }
                 return;
             }
             if (SelectedStore.Items[slot] == null) return;
@@ -168,8 +180,7 @@ namespace AnimalGame.World
         private void SelectAction(int index)
         {
             if (state != InventoryInteractionState.Menu) return;
-            action = Mathf.Clamp(index, 0, 1);
-            view.SelectAction(action);
+            action = view.SelectAction(index);
         }
 
         private void ExecuteAction(int index)
@@ -177,9 +188,16 @@ namespace AnimalGame.World
             if (lastActionFrame == Time.frameCount || BackPressedThisFrame() || state != InventoryInteractionState.Menu) return;
             lastActionFrame = Time.frameCount;
             Browse();
-            if (index == 1)
+            if (index == WarehouseView.InfoAction)
+            {
+                state = InventoryInteractionState.Info;
+                view.ShowInfo();
+                return;
+            }
+            if (index == WarehouseView.MoveAction)
             {
                 moveSource = slot;
+                moveSourceInWarehouse = warehouseSelected;
                 state = InventoryInteractionState.Move;
                 view.SetMoveSource(warehouseSelected, moveSource);
                 return;
@@ -199,7 +217,12 @@ namespace AnimalGame.World
         private void Browse()
         {
             if (state == InventoryInteractionState.Menu) view.HideMenu();
-            if (state == InventoryInteractionState.Move) view.SetMoveSource(warehouseSelected, -1);
+            if (state == InventoryInteractionState.Move) view.SetMoveSource(moveSourceInWarehouse, -1);
+            if (state == InventoryInteractionState.Info)
+            {
+                view.HideInfo();
+                waitForNavigationRelease = heldDirection != Vector2Int.zero;
+            }
             state = InventoryInteractionState.Browse;
             view.SetStatus(string.Empty);
         }
@@ -208,25 +231,30 @@ namespace AnimalGame.World
         {
             if (lastActionFrame == Time.frameCount) return;
             lastActionFrame = Time.frameCount;
-            if (state == InventoryInteractionState.Browse) { gameObject.SetActive(false); return; }
-            if (state == InventoryInteractionState.Move)
+            if (state == InventoryInteractionState.Browse)
             {
-                slot = moveSource;
-                view.Select(warehouseSelected, slot);
+                if (transition != null) transition.Close(Close);
+                else Close();
+                return;
             }
+            if (state == InventoryInteractionState.Move) SelectSlot(moveSourceInWarehouse, moveSource);
             Browse();
         }
+
+        private void Close() => gameObject.SetActive(false);
 
         private bool BackPressedThisFrame()
         {
             var keyboard = Keyboard.current;
             return (keyboard != null && (keyboard.escapeKey.wasPressedThisFrame || keyboard.nKey.wasPressedThisFrame))
                 || AdaptiveLegacyGamepadInput.WasEastFaceButtonPressedThisFrame()
-                || (state == InventoryInteractionState.Move && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame);
+                || ((state is InventoryInteractionState.Move or InventoryInteractionState.Info)
+                    && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame);
         }
 
         private void Navigate(Vector2Int direction)
         {
+            if (state == InventoryInteractionState.Info) { view.ScrollInfo(direction.y); return; }
             if (state == InventoryInteractionState.Menu) { SelectAction(action + direction.y); return; }
             // Treat both banks as adjacent columns, so crossing the aisle preserves the row.
             const int left = WarehouseView.CargoColumns, right = WarehouseView.WarehouseColumns;
@@ -243,6 +271,11 @@ namespace AnimalGame.World
         {
             if (active != this || lastActionFrame == Time.frameCount) return;
             if (hud == null || !hud.isActiveAndEnabled) { gameObject.SetActive(false); return; }
+            if (transition != null && transition.BlocksInput)
+            {
+                transition.Tick(Time.unscaledDeltaTime);
+                return;
+            }
             if (BackPressedThisFrame())
             {
                 Back();
@@ -265,7 +298,9 @@ namespace AnimalGame.World
             if (Mathf.Max(Mathf.Abs(axis.x), Mathf.Abs(axis.y)) >= settings.StickDeadzone)
                 direction = Mathf.Abs(axis.x) > Mathf.Abs(axis.y)
                     ? new Vector2Int(axis.x > 0 ? 1 : -1, 0) : new Vector2Int(0, axis.y > 0 ? -1 : 1);
-            if (direction != Vector2Int.zero && (direction != heldDirection || Time.unscaledTime >= repeatAt))
+            if (direction == Vector2Int.zero) waitForNavigationRelease = false;
+            if (!waitForNavigationRelease && direction != Vector2Int.zero
+                && (direction != heldDirection || Time.unscaledTime >= repeatAt))
             {
                 Navigate(direction);
                 repeatAt = Time.unscaledTime + (direction == heldDirection ? settings.RepeatInterval : settings.RepeatDelay);
@@ -280,6 +315,8 @@ namespace AnimalGame.World
             if (active != this) return;
             active = null;
             closedFrame = Time.frameCount;
+            transition?.Dispose();
+            transition = null;
             cargo.Changed -= CargoChanged;
             warehouse.Changed -= WarehouseChanged;
             view.Dispose();

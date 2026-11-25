@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1000001}
   - component: {fileID: 1000525}
+  - component: {fileID: 1000597}
   m_Layer: 0
   m_Name: WeatherTowerWX04
   m_TagString: Untagged
@@ -35,6 +36,7 @@ Transform:
   - {fileID: 1000086}
   - {fileID: 1000304}
   - {fileID: 1000512}
+  - {fileID: 1000611}
   - {fileID: 1000514}
   - {fileID: 1000516}
   - {fileID: 1000590}
@@ -69,11 +71,15 @@ MonoBehaviour:
   exitLift: {fileID: 1000516}
   exitLiftPrompt: {fileID: 1000521}
   groundRoofArt: {fileID: 1000007}
+  unpoweredFloor: {fileID: 21300000, guid: 2a76f6e23bc7415cb5ad2f7c659b8f1d, type: 3}
+  unpoweredUpper: {fileID: 21300000, guid: d38871f36d53477c90870dc407dd3eae, type: 3}
   siteLineMaterial: {fileID: 2100000, guid: 77c3501791a241c785d03029ca4f318b, type: 2}
   logContact: {x: -4.38, y: 1.68}
   cargoContact: {x: -6.46, y: -3.40}
   refitContact: {x: -12.64, y: -3.95}
   communicationContact: {x: 7.90, y: -1.42}
+  ruin: {fileID: 1000597}
+  powerSocket: {fileID: 1000612}
   upperOutline:
   - {x: 0.42, y: 1.42}
   - {x: 13.8, y: 6.02}
@@ -99,6 +105,41 @@ MonoBehaviour:
   - {x: 2.28, y: -1.5}
   - {x: 12.82, y: -1.5}
   - {x: 14.82, y: -1.5}
+--- !u!114 &1000597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f75a7273af4498a8499712448fdc28e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  id: WX-04
+  displayName: WEATHER TOWER WX-04
+  visibleOutline:
+  - {x: -14.72, y: 2.78}
+  - {x: -12.98, y: 2.78}
+  - {x: -11.78, y: 3.98}
+  - {x: -1.86, y: 3.98}
+  - {x: -1.46, y: 3.58}
+  - {x: 0.42, y: 3.58}
+  - {x: 0.42, y: 1.42}
+  - {x: 13.8, y: 6.02}
+  - {x: 13.8, y: 3.18}
+  - {x: 12.96, y: 2.38}
+  - {x: 12.96, y: 0.26}
+  - {x: 14.96, y: 0.26}
+  - {x: 14.96, y: -3.26}
+  - {x: 12.96, y: -3.26}
+  - {x: 12.96, y: -4.46}
+  - {x: 10.82, y: -4.46}
+  - {x: 10.82, y: -5.6}
+  - {x: -2.04, y: -5.6}
+  - {x: -2.9, y: -6.38}
+  - {x: -14.72, y: -6.38}
 --- !u!1 &1000002
 GameObject:
   m_ObjectHideFlags: 0
@@ -11031,6 +11072,52 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1000001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1000610
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1000611}
+  - component: {fileID: 1000612}
+  m_Layer: 0
+  m_Name: West Entrance Power Socket
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1000611
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000610}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -14.58, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1000001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1000612
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000610}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 184004a2063b41a9a2e376ff1fc76250, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  keyLabel: A
+  actionLabel: INTERACT
 --- !u!1 &1000513
 GameObject:
   m_ObjectHideFlags: 0
@@ -11341,6 +11428,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
       propertyPath: useTutorialInteractionHint
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
+      propertyPath: refitLocked
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811128519476595728, guid: 6a5fec9dc42e230419d6d6b3c6b702eb, type: 3}
+      propertyPath: repairTutorial
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []

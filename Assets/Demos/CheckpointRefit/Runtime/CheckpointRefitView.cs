@@ -76,6 +76,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private PhotoCameraDefinition zoomLens300;
         private PhotoCameraDefinition damagedPrime50;
         private PhotoCameraDefinition displayedInstalledCamera;
+        private bool refitLocked;
 
         public event Action CloseRequested;
         public event Action EquipRequested;
@@ -92,6 +93,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         public bool IsSelectedModuleInstalled => IsModuleInstalled(SelectedSlotIndex, SelectedModuleIndex);
         public PhotoCameraDefinition SelectedCamera => SelectedSlotIndex == 1 ? GetCameraModule(SelectedModuleIndex) : null;
         public UIDocument Document => document != null ? document : (document = GetComponent<UIDocument>());
+        internal VisualElement ScreenElement => screen;
 
         public void BindCameraEquipment(RefitCameraEquipment equipment, PhotoCameraDefinition zoomCamera, PhotoCameraDefinition damagedCamera)
         {
@@ -153,14 +155,15 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (installed != displayedInstalledCamera) RefreshEquipment();
         }
 
-        public void Show(string checkpointName, string checkpointId)
+        public void Show(string checkpointName, string checkpointId, bool refitLocked = false)
         {
             if (!EnsureBound()) return;
             checkpoint.text = (string.IsNullOrWhiteSpace(checkpointName) ? "MAINTENANCE CHECKPOINT" : checkpointName.ToUpperInvariant())
                 + " / " + (string.IsNullOrWhiteSpace(checkpointId) ? "DEMO-01" : checkpointId.ToUpperInvariant());
             IsVisible = true;
             IsInspectionOpen = false;
-            IsRepairPage = false;
+            this.refitLocked = refitLocked;
+            IsRepairPage = refitLocked;
             screen.style.display = DisplayStyle.Flex;
             inspectionModal.style.display = DisplayStyle.None;
             SetInspectionControlsEnabled(true);
@@ -168,7 +171,8 @@ namespace AnimalGame.Demos.CheckpointRefit
             RefreshPage();
             RefreshSelection();
             FitStage();
-            moduleButtons[SelectedModuleIndex]?.Focus();
+            if (IsRepairPage) repairTab.Focus();
+            else moduleButtons[SelectedModuleIndex]?.Focus();
         }
 
         public void Hide()
@@ -187,7 +191,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         public bool RequestPage(bool repair)
         {
-            if (!IsVisible || IsInspectionOpen || IsPageSwitchPending || repair == IsRepairPage) return false;
+            if (!IsVisible || IsInspectionOpen || IsPageSwitchPending || repair == IsRepairPage || (!repair && refitLocked)) return false;
             ReleaseRepairPointer();
             SetRepairHoldProgress(0);
             tabFeedback.Run((repair ? repairTab : refitTab).name, () =>
@@ -300,6 +304,8 @@ namespace AnimalGame.Demos.CheckpointRefit
             content.style.display = IsRepairPage ? DisplayStyle.None : DisplayStyle.Flex;
             repairContent.style.display = IsRepairPage ? DisplayStyle.Flex : DisplayStyle.None;
             refitFooterActions.style.display = IsRepairPage ? DisplayStyle.None : DisplayStyle.Flex;
+            refitTab.style.display = refitLocked ? DisplayStyle.None : DisplayStyle.Flex;
+            repairTab.Q("repair-tab-key").style.display = refitLocked ? DisplayStyle.None : DisplayStyle.Flex;
             repairTab.EnableInClassList("active-tab", IsRepairPage);
             refitTab.EnableInClassList("active-tab", !IsRepairPage);
             UpdateTabSelection();

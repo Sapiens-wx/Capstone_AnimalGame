@@ -61,6 +61,7 @@ namespace AnimalGame.Editor
             Check(store.Move(0, 7) && store.Quantity(7) == 1 && store.Items[0] == null && store.IsUnread(7), "Move preserves quantity and unread state");
             CheckConsumption(metal, synthetic);
             CheckTransfers(metal, synthetic);
+            CheckMovesBetweenStores(metal, synthetic);
             CheckUI(metal, synthetic);
             Debug.Log("INVENTORY CHECKS PASSED: " + checks);
         }
@@ -123,11 +124,67 @@ namespace AnimalGame.Editor
                 "A full destination leaves both stores and their listeners untouched");
         }
 
+        private static void CheckMovesBetweenStores(InventoryItem metal, InventoryItem synthetic)
+        {
+            var cargo = new InventoryStore(2);
+            var warehouse = new InventoryStore(4);
+            cargo.Add(metal, 8);
+            warehouse.Set(1, metal, 9);
+            warehouse.Set(2, synthetic);
+            int sourceChanges = 0, destinationChanges = 0;
+
+            void CheckSettled()
+            {
+                Check(cargo.Items[0] == null && cargo.Quantity(0) == 0 && !cargo.IsUnread(0) &&
+                      warehouse.Items[0] == null && warehouse.Quantity(1) == 9 && warehouse.Items[2] == synthetic &&
+                      warehouse.Items[3] == metal && warehouse.Quantity(3) == 8 && warehouse.IsUnread(3),
+                    "Each observer sees the entire unread stack moved into the requested slot without merging");
+            }
+
+            void ObserveSource(int slot)
+            {
+                Check(slot == 0, "Move notifies the vacated source slot");
+                CheckSettled();
+                sourceChanges++;
+            }
+
+            void ObserveDestination(int slot)
+            {
+                Check(slot == 3, "Move notifies the requested destination slot");
+                CheckSettled();
+                destinationChanges++;
+            }
+
+            cargo.Changed += ObserveSource;
+            warehouse.Changed += ObserveDestination;
+            Check(!cargo.MoveTo(0, warehouse, 1) && !cargo.MoveTo(0, warehouse, 2) &&
+                  !cargo.MoveTo(0, warehouse, -1) && !cargo.MoveTo(0, warehouse, warehouse.Capacity) &&
+                  !cargo.MoveTo(-1, warehouse, 3) && !cargo.MoveTo(1, warehouse, 3) &&
+                  cargo.Quantity(0) == 8 && cargo.IsUnread(0) && sourceChanges == 0 && destinationChanges == 0,
+                "Occupied or invalid slots and an empty source reject a move without notifying either store");
+            Check(cargo.MoveTo(0, warehouse, 3) && sourceChanges == 1 && destinationChanges == 1,
+                "Cross-store move notifies exactly once for each changed slot");
+            cargo.Changed -= ObserveSource;
+            warehouse.Changed -= ObserveDestination;
+
+            warehouse.MarkViewed(3);
+            Check(warehouse.MoveTo(3, cargo, 1) && cargo.Items[0] == null && cargo.Quantity(1) == 8 && !cargo.IsUnread(1),
+                "Moving a viewed stack back preserves its read state and chosen slot");
+
+            var newDestination = new InventoryStore(2);
+            Check(cargo.MoveTo(1, newDestination, 1) && !newDestination.IsUnread(1),
+                "Moving a viewed stack into an unfamiliar store keeps it viewed");
+            newDestination.Set(1, null);
+            Check(newDestination.Add(metal, 1).Added == 1 && !newDestination.HasUnread,
+                "The destination remembers an item first received through a targeted move");
+        }
+
         private static void CheckUI(InventoryItem metal, InventoryItem synthetic)
         {
             GameObject obj = null;
             PanelSettings settings = null;
             RenderTexture texture = null;
+            InventoryItem authoredItem = null;
             float previousTimeScale = Time.timeScale;
 #if ENABLE_INPUT_SYSTEM
             Gamepad pad = null;
@@ -138,6 +195,14 @@ namespace AnimalGame.Editor
 #endif
             try
             {
+                authoredItem = Object.Instantiate(metal);
+                var authoredData = new SerializedObject(authoredItem);
+                var lines = new string[24];
+                Array.Fill(lines, "Recovered metal components.");
+                string writtenInfo = string.Join("\n", lines);
+                authoredData.FindProperty("info").stringValue = writtenInfo;
+                authoredData.ApplyModifiedPropertiesWithoutUndo();
+                metal = authoredItem;
                 settings = Object.Instantiate(AssetDatabase.LoadAssetAtPath<PanelSettings>("Assets/Prefabs/Resources/UI/Main/MainUISetting.asset"));
                 texture = new RenderTexture(1920, 1080, 24); texture.Create(); settings.targetTexture = texture;
                 obj = new GameObject("Inventory validation");
@@ -172,6 +237,22 @@ namespace AnimalGame.Editor
                 Check(menu.SelectedIndex == 0, "Stationary pointer does not steal menu selection");
                 PointerMove(menu.Q<InventoryInteractionButtonElement>("INFO"), Vector2.one);
                 Check(menu.SelectedIndex == 1 && hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Menu, "Mouse movement navigates menu without executing or closing");
+                Fresh(hud); Call(hud, "ExecuteInventoryAction", 1); Layout(root);
+                Check(hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Info
+                    && root.Q<Label>("item-info-address").text == "CARGO / SLOT 01"
+                    && root.Q<Label>("item-info-description").text == writtenInfo
+                    && root.Q<Label>("item-info-quantity").text == "×2"
+                    && root.Q<ScrollView>("item-info-body").verticalScroller.highValue > 0f,
+                    "INFO shows the authored description and stack with a scrollable body");
+                PointerMove(root.Q("InventorySlot2"), Vector2.one);
+                Fresh(hud); Call(hud, "ClickInventorySlot", 1);
+                Check(hud.SelectedIndex == 0 && hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Info,
+                    "The details card owns input without changing the selected stack");
+                Call(hud, "BackInventory");
+                Check(hud.SelectedIndex == 0 && hud.IsInventoryOpen
+                    && hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Browse,
+                    "Back closes only the details card and preserves the slot");
+                Fresh(hud); Call(hud, "ClickInventorySlot", 0);
                 Fresh(hud); Call(hud, "ExecuteInventoryAction", 2);
                 Check(hud.InteractionState == AnimalGame.MainUI.InventoryInteractionState.Move, "MOVE closes menu and enters move mode");
                 Call(hud, "SetMoveTarget", 2);
@@ -319,6 +400,7 @@ namespace AnimalGame.Editor
                 InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInput;
 #endif
                 if (obj != null) Object.DestroyImmediate(obj);
+                if (authoredItem != null) Object.DestroyImmediate(authoredItem);
                 if (settings != null) Object.DestroyImmediate(settings);
                 if (texture != null) { texture.Release(); Object.DestroyImmediate(texture); }
                 Time.timeScale = previousTimeScale;

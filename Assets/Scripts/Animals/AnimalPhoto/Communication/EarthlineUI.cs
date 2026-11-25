@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using AnimalGame.Animals.UI;
+using AnimalGame.Interaction;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using AnimalGame.Save;
+using AnimalGame.World;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
@@ -23,6 +25,7 @@ namespace AnimalGame.Animals.Communication
         public Contacts contacts;
         public static bool BlocksGameplay { get; private set; }
         internal bool IsOpen => isOpen;
+        internal bool HasPendingIncomingMessages => contacts.contacts.Exists(SaveSystem.HasPendingIncomingMessage);
         public EarthlineFocus Focus { get; private set; }
         public int ContactIndex { get; private set; }
         public int ReplyIndex { get; private set; }
@@ -36,6 +39,8 @@ namespace AnimalGame.Animals.Communication
         private CursorLockMode savedCursorLock;
         private Vector2 previousDirection;
         private bool isOpen;
+        private CommunicationsStation connectedStation;
+        private FacilityWindowTransition transition;
         private int openedFrame;
         private ContactDefinition SelectedContact => contacts.contacts[ContactIndex];
         private DateTime GameTime => GameMainUI.Active.CurrentGameTime;
@@ -87,7 +92,9 @@ namespace AnimalGame.Animals.Communication
             SaveSystem.Changed += Refresh;
         }
 
-        public void Open()
+        public void Open() => OpenFromStation(null, null);
+
+        internal void OpenFromStation(CommunicationsStation station, Vector3? socketWorld)
         {
             if (isOpen || GameMainUI.Active == null || GameMainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
@@ -104,11 +111,28 @@ namespace AnimalGame.Animals.Communication
             root.Q("photo-picker").style.display = DisplayStyle.None;
             SetFocus(EarthlineFocus.Contacts);
             OpenConversation();
+            connectedStation = station;
+            if (socketWorld.HasValue)
+                transition = new FacilityWindowTransition(root, root.Q("earthline-viewport"), socketWorld.Value);
         }
 
         public void Close()
         {
+            if (transition != null) transition.Close(FinishClose);
+            else FinishClose();
+        }
+
+        internal void CloseFor(CommunicationsStation station)
+        {
+            if (connectedStation == station) FinishClose();
+        }
+
+        private void FinishClose()
+        {
             if (!isOpen) return;
+            transition?.Dispose();
+            transition = null;
+            connectedStation = null;
             isOpen = BlocksGameplay = false;
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             Cursor.lockState = savedCursorLock;
@@ -232,6 +256,11 @@ namespace AnimalGame.Animals.Communication
 
         private void Update()
         {
+            if (transition != null && transition.BlocksInput)
+            {
+                transition.Tick(Time.unscaledDeltaTime);
+                return;
+            }
             if (Input.GetKeyDown(KeyCode.L))
             {
                 if (isOpen) Close();
@@ -284,10 +313,10 @@ namespace AnimalGame.Animals.Communication
             Navigate((int)direction.x, (int)direction.y);
         }
 
-        private void OnDisable() => Close();
+        private void OnDisable() => FinishClose();
         private void OnDestroy()
         {
-            Close(); SaveSystem.Changed -= Refresh; picker?.Dispose(); conversation?.Dispose();
+            FinishClose(); SaveSystem.Changed -= Refresh; picker?.Dispose(); conversation?.Dispose();
         }
     }
 }

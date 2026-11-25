@@ -9,13 +9,15 @@ namespace AnimalGame.RobotArm
         private Material originalPlugHandMaterial;
         private MaterialPropertyBlock plugProperties;
 
-        private void BeginStationPlugVisual(Arm arm, Vector2 worldSocket, Vector2 worldAxis)
+        private void ShowStationPlugArt(Arm arm)
         {
+            if (arm.HandSprite.sprite == stationPlugSprite) return;
+            arm.HandSprite.sprite = stationPlugSprite;
             originalPlugHandMaterial = arm.HandSprite.sharedMaterial;
             plugProperties ??= new MaterialPropertyBlock();
             arm.HandSprite.GetPropertyBlock(plugProperties);
             plugProperties.SetVector(SocketPlaneId, new Vector4(
-                worldSocket.x, worldSocket.y, worldAxis.x, worldAxis.y));
+                stationSocketWorld.x, stationSocketWorld.y, stationInsertionWorld.x, stationInsertionWorld.y));
             arm.HandSprite.SetPropertyBlock(plugProperties);
         }
 
@@ -26,8 +28,10 @@ namespace AnimalGame.RobotArm
                 stationPlugArm.HandSprite.sharedMaterial = material;
         }
 
-        private void EndStationPlugVisual(Arm arm)
+        private void RestoreStationClawArt(Arm arm)
         {
+            if (arm.HandSprite.sprite != stationPlugSprite) return;
+            arm.HandSprite.sprite = arm.OpenHandSprite;
             arm.HandSprite.sharedMaterial = originalPlugHandMaterial;
             arm.HandSprite.SetPropertyBlock(null);
             originalPlugHandMaterial = null;

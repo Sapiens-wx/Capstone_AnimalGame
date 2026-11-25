@@ -60,6 +60,8 @@ namespace AnimalGame.MainUI.Inventory
             InventorySelectionElement nextSelection)
         {
             ResetInventoryInteraction();
+            infoView?.Dispose();
+            infoView = null;
             root = nextRoot; inventory = panel; grid = nextGrid; selection = nextSelection;
             BuildSlots();
         }
@@ -92,6 +94,7 @@ namespace AnimalGame.MainUI.Inventory
         public void Dispose()
         {
             Suspend();
+            infoView?.Dispose();
             SetTutorialHighlightedItems(null);
             if (inventoryEventRoot != null) inventoryEventRoot.UnregisterCallback<PointerMoveEvent>(InventoryPointerMoved);
             inventoryStore.Changed -= InventoryChanged;
@@ -107,6 +110,7 @@ namespace AnimalGame.MainUI.Inventory
 
         private InventoryInteractionState interactionState = InventoryInteractionState.Browse;
         private InventoryInteractionMenuElement interactionMenu;
+        private InventoryItemInfoView infoView;
         private readonly Label[] itemStars = new Label[SlotCount];
         private Label cargoStar;
         private VisualElement inventoryEventRoot;
@@ -165,7 +169,7 @@ namespace AnimalGame.MainUI.Inventory
         {
             if (interactionState == InventoryInteractionState.Move &&
                 (index == moveSource || index == moveTarget)) ResetInventoryInteraction();
-            if (interactionState == InventoryInteractionState.Menu && index == menuSource)
+            if (index == menuSource && (interactionState is InventoryInteractionState.Menu or InventoryInteractionState.Info))
                 ResetInventoryInteraction();
             RefreshItem(index);
             UpdateInventoryStars();
@@ -317,6 +321,7 @@ namespace AnimalGame.MainUI.Inventory
 
         private void InventoryPointerMoved(PointerMoveEvent evt)
         {
+            if (interactionState == InventoryInteractionState.Info) return;
             if (!CanInteractInventory || evt.deltaPosition.sqrMagnitude == 0) return;
             VisualElement target = evt.target as VisualElement;
             if (target != null && interactionMenu.Contains(target)) return;
@@ -345,7 +350,7 @@ namespace AnimalGame.MainUI.Inventory
             {
                 SetMoveTarget(index); ConfirmInventoryMove(); return;
             }
-            if (interactionState == InventoryInteractionState.Menu) return;
+            if (interactionState is InventoryInteractionState.Menu or InventoryInteractionState.Info) return;
             SelectItem(index); inventoryStore.MarkViewed(index);
             OpenInteractionMenu();
         }
@@ -384,7 +389,13 @@ namespace AnimalGame.MainUI.Inventory
             switch (action)
             {
                 case 0: UseRequested?.Invoke(item); break;
-                case 1: InfoRequested?.Invoke(item); break;
+                case 1:
+                    infoView ??= new InventoryItemInfoView(root, BackInventory);
+                    interactionState = InventoryInteractionState.Info;
+                    menuSource = source;
+                    infoView.Show(item, inventoryStore.Quantity(source), "CARGO", source);
+                    InfoRequested?.Invoke(item);
+                    break;
                 case 2:
                     interactionState = InventoryInteractionState.Move;
                     moveSource = source; movingItem = item; movingQuantity = inventoryStore.Quantity(source);
@@ -430,6 +441,11 @@ namespace AnimalGame.MainUI.Inventory
         public void ResetInventoryInteraction()
         {
             int preview = moveTarget, source = moveSource;
+            if (interactionState == InventoryInteractionState.Info)
+            {
+                infoView.Hide();
+                stickRepeatAt = float.PositiveInfinity;
+            }
             interactionState = InventoryInteractionState.Browse;
             moveTarget = moveSource = menuSource = -1; movingItem = null; movingQuantity = 0;
             if (interactionMenu != null) interactionMenu.style.display = DisplayStyle.None;
@@ -508,12 +524,16 @@ namespace AnimalGame.MainUI.Inventory
                 return;
             }
             bool toggle = false, close = false, heldOpen = false, heldClose = false, confirm = false, rightClick = false;
+            bool readingInfo = interactionState == InventoryInteractionState.Info;
             Vector2Int navigation = Vector2Int.zero;
             Vector2 stick = Vector2.zero;
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null)
             {
                 toggle = Keyboard.current.nKey.wasPressedThisFrame;
+                close = readingInfo && Keyboard.current.escapeKey.wasPressedThisFrame;
+                if (readingInfo) stick.y = (Keyboard.current.upArrowKey.isPressed ? 1f : 0f)
+                    - (Keyboard.current.downArrowKey.isPressed ? 1f : 0f);
                 if (Keyboard.current.leftArrowKey.wasPressedThisFrame) navigation.x = -1;
                 if (Keyboard.current.rightArrowKey.wasPressedThisFrame) navigation.x = 1;
                 if (Keyboard.current.upArrowKey.wasPressedThisFrame) navigation.y = -1;
@@ -532,6 +552,11 @@ namespace AnimalGame.MainUI.Inventory
                 if (pad.dpad.up.wasPressedThisFrame) navigation.y = -1;
                 if (pad.dpad.down.wasPressedThisFrame) navigation.y = 1;
                 Vector2 value = pad.leftStick.ReadValue();
+                if (readingInfo)
+                {
+                    float dpadScroll = pad.dpad.ReadValue().y;
+                    value = new Vector2(0f, dpadScroll != 0f ? dpadScroll : value.y);
+                }
                 if (value.sqrMagnitude > stick.sqrMagnitude) stick = value;
             }
 #endif
@@ -541,6 +566,9 @@ namespace AnimalGame.MainUI.Inventory
 #endif
             {
                 toggle = Input.GetKeyDown(KeyCode.N);
+                close |= readingInfo && Input.GetKeyDown(KeyCode.Escape);
+                if (readingInfo) stick.y = (Input.GetKey(KeyCode.UpArrow) ? 1f : 0f)
+                    - (Input.GetKey(KeyCode.DownArrow) ? 1f : 0f);
                 if (Input.GetKeyDown(KeyCode.LeftArrow)) navigation.x = -1;
                 if (Input.GetKeyDown(KeyCode.RightArrow)) navigation.x = 1;
                 if (Input.GetKeyDown(KeyCode.UpArrow)) navigation.y = -1;
@@ -551,9 +579,12 @@ namespace AnimalGame.MainUI.Inventory
 #endif
                 rightClick = Input.GetMouseButtonDown(1);
 #endif
-            if (toggle || close)
+            if (toggle || close || (readingInfo && rightClick))
             {
-                if (host.IsInventoryOpen) BackInventory();
+                if (host.IsInventoryOpen)
+                {
+                    if (lastInventoryActionFrame != Time.frameCount) BackInventory();
+                }
                 else if (toggle) { host.OpenInventory(); lastInventoryActionFrame = Time.frameCount; }
                 // A right hold used for opening must be released after cancelling/closing.
                 openHoldLatched = heldOpen;
@@ -579,7 +610,8 @@ namespace AnimalGame.MainUI.Inventory
                     closeHoldLatched = true;
                     openHoldElapsed = 0f;
                     openHoldLatched = heldOpen;
-                    host.CloseInventory();
+                    if (readingInfo) BackInventory();
+                    else host.CloseInventory();
                     lastInventoryActionFrame = Time.frameCount;
                     return;
                 }
@@ -612,6 +644,11 @@ namespace AnimalGame.MainUI.Inventory
                 if (navigation == Vector2Int.zero) navigation = direction;
             }
             if (!CanInteractInventory || lastInventoryActionFrame == Time.frameCount) return;
+            if (readingInfo)
+            {
+                if (navigation.y != 0) infoView.Scroll(navigation.y);
+                return;
+            }
             if (navigation != Vector2Int.zero) NavigateInventory(navigation);
             if (!confirm) return;
             if (interactionState == InventoryInteractionState.Move) ConfirmInventoryMove();

@@ -33,7 +33,7 @@ namespace AnimalGame.Editor
             CheckDiagonalAndAxisIsolation();
             CheckReachLimits();
             CheckBoundaryBodyFollow();
-            CheckBlockedMotionHasNoBacklog();
+            CheckUnladenArmsPassObstacles();
             CheckDeploymentAndSessionReset();
             CheckGrabMaintainsControlWithoutL3();
             CheckGrabReleaseKeepsDeployment();
@@ -44,7 +44,7 @@ namespace AnimalGame.Editor
             CheckTumbleIsolation();
             Debug.Log("Normal arm input checks PASS: 19 groups; production settings, actual-pose hold, radial rates, "
                 + "progressive speed, shared radial/tangential travel rates, duration scaling, turn-speed isolation/resistance, axis isolation, reach limits, "
-                + "boundary follow, collision backlog, deployment/session reset, A-held control after L3 release, "
+                + "boundary follow, unladen obstacle pass-through, deployment/session reset, A-held control after L3 release, "
                 + "grab release deployment/actual-pose retention, cancellation, empty-arm input, manual recycling, heavy anchors and "
                 + "tumble isolation; key cases at 30/60/120 FPS.");
         }
@@ -322,27 +322,28 @@ namespace AnimalGame.Editor
                     "Fast lateral arms made boundary body-follow exceed the player maximum turn speed");
             }
         }
-        private static void CheckBlockedMotionHasNoBacklog()
+        private static void CheckUnladenArmsPassObstacles()
         {
             foreach (int fps in FrameRates)
             using (var f = new Fixture(fps))
             {
                 f.Place(f.At(0f, .58f));
-                Vector2 wallPosition = f.Frame.TransformPoint(f.Centre + Vector2.up * f.Length * .08f);
+                float wallY = f.Centre.y + f.Length * .08f;
+                Vector2 wallPosition = f.Frame.TransformPoint(new Vector2(f.Centre.x, wallY));
                 WorldInteraction wall = f.Item(wallPosition, new Vector2(f.Length * 4f, f.Length * .02f));
                 wall.SetKind(WorldInteractionKind.Collision);
                 f.TickSeconds(2f, Vector2.up);
-                Require(f.Arms.IsBlocked, "Collision fixture failed to block extension at " + fps + " FPS");
+                Require(!f.Arms.IsBlocked && f.Centre.y > wallY + f.Length * .01f,
+                    "Bare hands did not move through an obstacle at " + fps + " FPS");
                 Vector2 stopped = f.Centre;
                 Require(Vector2.Distance(f.Target, stopped) < f.Length * .0001f,
-                    "Blocked extension retained an unreachable target beyond the hands");
-                wall.enabled = false;
+                    "Passing through the obstacle left an unreachable target beyond the hands");
                 f.TickSeconds(.25f, Vector2.zero);
                 Require(Vector2.Distance(f.Centre, stopped) < f.Length * .0001f,
-                    "Removing an obstacle released accumulated blocked movement");
+                    "The arms drifted after releasing input");
                 f.Tick(1, Vector2.down);
                 Require(f.Centre.magnitude < stopped.magnitude - f.Length * .0005f,
-                    "Reverse input after a collision did not move immediately");
+                    "Reverse input after passing through an obstacle did not move immediately");
             }
         }
         private static void CheckDeploymentAndSessionReset()

@@ -90,14 +90,8 @@ namespace Capstone.Audio
     {
         private static readonly AnimalSoundWaveSettings peckWave = new(2.5f, .42f, 3, 1f, 1f);
         private static readonly AnimalSoundWaveSettings takeoffWave = new(3.8f, .55f, 4, 1f, 1f);
-        private static readonly (string File, float Gap)[] woodpeckerCalls =
-        {
-            ("Woodepecker_01.wav", .70f),
-            ("Woodepecker_02.wav", 1.10f),
-            ("Woodepecker_03.wav", .85f),
-            ("Woodepecker_04.wav", 1.15f)
-        };
-        private const string WingRecording = "365485__shanaygroen__bird-in-cage-flapping-wings.wav";
+        private const string LandingRecording = "365485__shanaygroen__bird-in-cage-flapping-wings.wav";
+        private const string TakeoffRecording = "Starting Raven.wav";
 
         private struct Voice
         {
@@ -110,13 +104,10 @@ namespace Capstone.Audio
         private readonly Voice[] voices = new Voice[(int)OpeningAudioCue.Count];
         private readonly bool[] failed = new bool[(int)OpeningAudioCue.Count];
         private Bus recordingBus;
-        private ChannelGroup recordingGroup;
         private Sound woodpeckerRecording;
         private Channel woodpeckerChannel;
         private SoundHandle woodpeckerSound;
         private bool recordingBusLocked;
-        private int nextWoodpeckerCall;
-        private double nextWoodpeckerCallAt = double.PositiveInfinity;
         private double woodpeckerRecordingStopAt = double.PositiveInfinity;
 
         internal OpeningAudioPlayer(OpeningAudioSettings settings)
@@ -130,61 +121,44 @@ namespace Capstone.Audio
             EmitWoodpeckerWave(position, bodyRadius, peckWave);
         }
 
-        internal void StartWoodpeckerCalls() => PlayNextWoodpeckerCall(Time.unscaledTimeAsDouble);
+        internal void PlayWoodpeckerLanding() => PlayWoodpeckerRecording(LandingRecording, -11f, .22f,
+            startMs: 560, maximumDuration: .95f);
 
         internal void PlayWoodpeckerTakeoff(Vector3 position, float bodyRadius)
         {
-            nextWoodpeckerCallAt = double.PositiveInfinity;
-            StopWoodpeckerRecording();
-            if (PlayWoodpeckerRecording(WingRecording, -5f, .35f, 560, out _))
-                woodpeckerRecordingStopAt = Time.unscaledTimeAsDouble + .95;
+            PlayWoodpeckerRecording(TakeoffRecording, 4f, .35f);
             EmitWoodpeckerWave(position, bodyRadius, takeoffWave);
         }
 
-        private void PlayNextWoodpeckerCall(double now)
+        private void PlayWoodpeckerRecording(string file, float gainDb, float strength, uint startMs = 0,
+            float maximumDuration = 0f)
         {
-            var call = woodpeckerCalls[nextWoodpeckerCall];
-            nextWoodpeckerCallAt = double.PositiveInfinity;
-            if (!PlayWoodpeckerRecording(call.File, 4f, .4f, 0, out uint duration)) return;
-
-            nextWoodpeckerCall = (nextWoodpeckerCall + 1) % woodpeckerCalls.Length;
-            nextWoodpeckerCallAt = now + duration * .001 + call.Gap;
-        }
-
-        private bool PlayWoodpeckerRecording(string file, float gainDb, float strength, uint startMs, out uint duration)
-        {
-            duration = 0;
+            StopWoodpeckerRecording();
             string path = Path.Combine(Application.streamingAssetsPath, "Opening", "Woodpecker", file);
             try
             {
-                if (!recordingGroup.hasHandle())
-                {
-                    // Route raw recordings through the existing FMOD mixer and its mute controls.
-                    recordingBus = RuntimeManager.GetBus("bus:/");
-                    RESULT lockResult = recordingBus.lockChannelGroup();
-                    // The nature ambience can already own this shared lock.
-                    if (lockResult != RESULT.ERR_ALREADY_LOCKED) Check(lockResult);
-                    recordingBusLocked = lockResult == RESULT.OK;
-                    Check(RuntimeManager.StudioSystem.flushCommands());
-                    Check(recordingBus.getChannelGroup(out recordingGroup));
-                }
+                // Route raw recordings through the existing FMOD mixer and its mute controls.
+                recordingBus = RuntimeManager.GetBus("bus:/");
+                RESULT lockResult = recordingBus.lockChannelGroup();
+                // The nature ambience can already own this shared lock.
+                if (lockResult != RESULT.ERR_ALREADY_LOCKED) Check(lockResult);
+                recordingBusLocked = lockResult == RESULT.OK;
+                Check(RuntimeManager.StudioSystem.flushCommands());
+                Check(recordingBus.getChannelGroup(out ChannelGroup group));
 
                 var core = RuntimeManager.CoreSystem;
                 Check(core.createSound(path, MODE._2D | MODE.LOOP_OFF, out woodpeckerRecording));
-                Check(woodpeckerRecording.getLength(out duration, TIMEUNIT.MS));
-                Check(core.playSound(woodpeckerRecording, recordingGroup, true, out woodpeckerChannel));
+                Check(core.playSound(woodpeckerRecording, group, true, out woodpeckerChannel));
                 Check(woodpeckerChannel.setVolume(Mathf.Pow(10f, gainDb / 20f)));
                 if (startMs != 0) Check(woodpeckerChannel.setPosition(startMs, TIMEUNIT.MS));
                 Check(woodpeckerChannel.setPaused(false));
+                if (maximumDuration > 0f) woodpeckerRecordingStopAt = Time.unscaledTimeAsDouble + maximumDuration;
                 woodpeckerSound = SoundUIPlayback.BeginSound(strength);
-                return true;
             }
             catch (Exception exception)
             {
                 StopWoodpeckerRecording();
-                ReleaseRecordingBus();
                 UnityEngine.Debug.LogWarning($"[Opening Audio] {file}: {exception.Message}", settings);
-                return false;
             }
         }
 
@@ -196,18 +170,12 @@ namespace Capstone.Audio
             {
                 if (woodpeckerChannel.hasHandle()) woodpeckerChannel.stop();
                 if (woodpeckerRecording.hasHandle()) woodpeckerRecording.release();
+                if (recordingBusLocked && recordingBus.isValid()) recordingBus.unlockChannelGroup();
             }
             woodpeckerChannel.clearHandle();
             woodpeckerRecording.clearHandle();
             woodpeckerRecordingStopAt = double.PositiveInfinity;
-        }
-
-        private void ReleaseRecordingBus()
-        {
-            if (recordingBusLocked && RuntimeManager.IsInitialized && recordingBus.isValid())
-                recordingBus.unlockChannelGroup();
             recordingBusLocked = false;
-            recordingGroup.clearHandle();
         }
 
         private void EmitWoodpeckerWave(Vector3 position, float bodyRadius, AnimalSoundWaveSettings wave)
@@ -251,8 +219,6 @@ namespace Capstone.Audio
             if (woodpeckerChannel.hasHandle() && (now >= woodpeckerRecordingStopAt
                 || woodpeckerChannel.isPlaying(out bool playing) != RESULT.OK || !playing))
                 StopWoodpeckerRecording();
-            if (!woodpeckerChannel.hasHandle() && now >= nextWoodpeckerCallAt)
-                PlayNextWoodpeckerCall(now);
 
             for (int i = 0; i < voices.Length; i++)
             {
@@ -279,9 +245,7 @@ namespace Capstone.Audio
         {
             for (int i = 0; i < voices.Length; i++)
                 Release(ref voices[i], STOP_MODE.IMMEDIATE);
-            nextWoodpeckerCallAt = double.PositiveInfinity;
             StopWoodpeckerRecording();
-            ReleaseRecordingBus();
             AnimalSoundWaveManager.ClearOpeningWaves();
         }
 

@@ -310,7 +310,11 @@ namespace AnimalGame.Editor
                 view.Render(SaveSystem.Current, contact, time);
                 Require(!root.Q("chat-messages").Query<Label>(className: "message-body").ToList().Any(),
                     "An ordinary entry alone is not displayed as authored history.");
+                var hasPendingMessage = typeof(SaveSystem).GetMethod("HasPendingIncomingMessage", Flags);
+                bool HasPendingMessage() => (bool)hasPendingMessage.Invoke(null, new object[] { contact });
+                Require(HasPendingMessage(), "A new incoming NPC turn is pending before the contact is opened.");
                 Require(SaveSystem.AdvanceConversation(contact, time), "Opening starts consecutive NPC messages.");
+                Require(!HasPendingMessage(), "Delivered messages and a player-reply branch do not retain the new message reminder.");
                 var thread = SaveSystem.Current.conversations.Single();
                 Require(thread.messages.Select(message => message.nodeId).SequenceEqual(new[] { 2, 3 })
                     && thread.messages.All(message => message.sentAt.Second == 0),
@@ -325,8 +329,11 @@ namespace AnimalGame.Editor
                 Require(options.GetReplyNodeIds(3).SequenceEqual(new[] { 4, 1 }),
                     "When the first child belongs to the player, the first three positions are offered as authored.");
                 options.Disconnect(3, 4);
-                Require(!SaveSystem.AdvanceConversation(contact, time) && thread.messages.Count == 2,
+                Require(!HasPendingMessage() && !SaveSystem.AdvanceConversation(contact, time) && thread.messages.Count == 2,
                     "Reopening an NPC-only cycle does not replay the hidden anchor or earlier NPC messages.");
+                options.Disconnect(3, 1);
+                options.TryConnect(3, AddMessage(options, Sender.Npc, "A newly available transmission"));
+                Require(HasPendingMessage(), "A new incoming message reactivates the reminder after the previous turn was delivered.");
             }
             finally { Object.DestroyImmediate(options); }
         }

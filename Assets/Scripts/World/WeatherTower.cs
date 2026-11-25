@@ -1,4 +1,5 @@
 using AnimalGame.MapTest;
+using AnimalGame.Rendering;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
 using UnityEngine;
@@ -99,6 +100,7 @@ namespace AnimalGame.World
             ScopeCollisions(roofView);
             if (exitLift != null) ScopeCollisions(groundView);
             InitializeViews();
+            if (HasOpenGround) InitializePowerVisuals();
         }
 
         private void InitializeViews()
@@ -113,6 +115,7 @@ namespace AnimalGame.World
 
         private void Update()
         {
+            if (Time.timeScale > 0f) TickPowerVisuals(Time.deltaTime);
             foreach (CommunicationsSignalWave signal in communicationsSignals)
                 signal.Tick(Time.deltaTime, player);
             bool interactHeld = IsInteractHeld();
@@ -123,13 +126,18 @@ namespace AnimalGame.World
             // The refit UI can pause and disable the mover earlier in this same frame,
             // while deltaTime still reflects the frame before the pause.
             if (Time.timeScale <= 0f || deltaTime <= 0f) return;
-            if (HasOpenGround) TickLiftCalls(deltaTime);
+            EnclosedRoomTerrain.Advance(this, deltaTime);
+            if (HasOpenGround) TickLiftSite(deltaTime);
 
             if (!IsScenePlayer(player))
             {
                 if (Phase != WeatherTowerPhase.Exterior) ResetTower();
                 ResolvePlayer();
-                if (player == null) return;
+                if (player == null)
+                {
+                    HideInteractionPrompts();
+                    return;
+                }
             }
 
             Vector2 previous = previousPlayerPosition;
@@ -138,7 +146,7 @@ namespace AnimalGame.World
             if (player.IgnoreCollisionAndTerrain)
             {
                 if (Phase != WeatherTowerPhase.Exterior) ResetTower();
-                SetLiftPrompt(null);
+                HideInteractionPrompts();
                 return;
             }
 
@@ -147,7 +155,12 @@ namespace AnimalGame.World
             else if (!OnUpperView)
                 CheckGroundDoor(previous, position);
 
-            UpdateLiftInteraction(interactPressed);
+            if (EquipmentInteractionReady)
+                UpdateLiftInteraction(interactPressed);
+            else if (!IsPowered)
+                UpdatePowerInteraction(interactPressed);
+            else
+                HideInteractionPrompts();
 
             if (IsRiding || OnUpperView)
                 towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, outdoorZoomMultiplier);
@@ -206,7 +219,7 @@ namespace AnimalGame.World
             groundHeight = datum;
             liftBaseHeight = baseHeight;
             Phase = goingUp ? WeatherTowerPhase.Ascending : WeatherTowerPhase.Descending;
-            towerCamera.ApplyLiftFeedback(0f, travelSeconds, goingUp);
+            if (!HasOpenGround) towerCamera.ApplyLiftFeedback(0f, travelSeconds, goingUp);
             SetLiftPrompt(null);
             RefreshViews();
             return true;
@@ -214,6 +227,7 @@ namespace AnimalGame.World
 
         private void AdvanceLift(float deltaTime)
         {
+            if (HasOpenGround && !LiftDoorsClosed(ridingExitLift)) return;
             bool goingUp = Phase == WeatherTowerPhase.Ascending;
             liftProgress = Mathf.MoveTowards(liftProgress, goingUp ? 1f : 0f, deltaTime / travelSeconds);
             towerCamera.ApplyLiftFeedback(goingUp ? liftProgress : 1f - liftProgress, travelSeconds, goingUp);
@@ -286,16 +300,17 @@ namespace AnimalGame.World
         }
 
         private bool CanUseLiftControls() =>
-            !IsRiding && IsScenePlayer(player) && !player.IgnoreCollisionAndTerrain
+            EquipmentInteractionReady && !IsRiding && IsScenePlayer(player) && !player.IgnoreCollisionAndTerrain
             && !player.IsMovementLocked && !player.IsPhotoModeInputLocked
             && Mathf.Abs(player.CurrentSpeed) <= MaxBoardingSpeed
-            && (arm == null || arm.State == RobotArmState.Retracted)
+            && (arm == null || arm.State == RobotArmState.Retracted
+                || (UsesStationPlugs && (arm.CanStartStationPlug || arm.StationPlugSeated)))
             && (photo == null || !photo.IsActive)
             && (heightMotion == null || !heightMotion.IsAirborne)
             && (combat == null || !combat.IsDisplaced);
 
         private bool CanBoard(Transform anchor, Landing landing) =>
-            (!HasOpenGround || (IsLandingOpen(landing) && ClearOfLiftDoors(anchor))) && OnLift(anchor);
+            (!HasOpenGround || (!landingBarriers[(int)landing].activeSelf && ClearOfLiftDoors(anchor))) && OnLift(anchor);
 
         private bool OnLift(Transform anchor)
         {
@@ -359,6 +374,8 @@ namespace AnimalGame.World
         private void RefreshViews()
         {
             bool outside = Phase == WeatherTowerPhase.Exterior;
+            bool inGroundRoom = Phase == WeatherTowerPhase.Ground || (IsRiding && !ridingExitLift && !OnUpperView);
+            EnclosedRoomTerrain.SetOccupied(this, inGroundRoom);
             float roofOpacity = UpperFloorOpacity;
             bool blendExterior = outside || (IsRiding && ridingExitLift);
             float exteriorOpacity = blendExterior ? 1f - roofOpacity : 0f;
@@ -375,7 +392,7 @@ namespace AnimalGame.World
             SetActive(roofView, roofOpacity > 0f);
             SetActive(groundGate, Phase != WeatherTowerPhase.Ground);
             SetActive(roofGate, IsRiding);
-            if (doorLines != null) RefreshLandings();
+            if (doorLines != null) UpdateLandingDoors(0f);
         }
 
         private static void SetFloorOpacity(SpriteRenderer art, LineRenderer gate, float opacity)
@@ -412,15 +429,17 @@ namespace AnimalGame.World
             Phase = WeatherTowerPhase.Exterior;
             liftProgress = 0f;
             ridingExitLift = false;
-            SetLiftPrompt(null);
+            HideInteractionPrompts();
             RefreshViews();
         }
 
         private void OnDisable()
         {
             ResetTower();
+            EnclosedRoomTerrain.Release(this);
             doorLines?.Hide();
             deckLines?.Hide();
+            powerLines?.Hide();
             if (communicationsSignals == null) return;
             foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Hide();
         }
@@ -429,6 +448,7 @@ namespace AnimalGame.World
         {
             doorLines?.Dispose();
             deckLines?.Dispose();
+            powerLines?.Dispose();
             if (communicationsSignals == null) return;
             foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Dispose();
         }
@@ -436,6 +456,12 @@ namespace AnimalGame.World
         private static void SetActive(GameObject target, bool active)
         {
             if (target != null && target.activeSelf != active) target.SetActive(active);
+        }
+
+        private void HideInteractionPrompts()
+        {
+            if (powerSocket != null) powerSocket.enabled = false;
+            SetLiftPrompt(null);
         }
 
         private void SetLiftPrompt(Transform availableLift, Landing? call = null)

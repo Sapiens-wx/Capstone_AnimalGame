@@ -5,6 +5,7 @@ using AnimalGame.Interaction;
 using AnimalGame.MainUI.Inventory;
 using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using AnimalGame.World;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
@@ -30,6 +31,8 @@ namespace AnimalGame.Demos.CheckpointRefit
         [SerializeField] private RobotMover playerOverride;
         [SerializeField] private InteractionMarker interactionMarker;
         [SerializeField] private bool useTutorialInteractionHint;
+        [SerializeField] private bool refitLocked;
+        [SerializeField] private bool repairTutorial;
         [SerializeField] private PhotoCameraDefinition zoomLens300;
         [SerializeField] private PhotoCameraDefinition damagedPrime50;
         [SerializeField] private InventoryItem metalScrap;
@@ -42,6 +45,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private WorldInteractionHint tutorialHint;
         private GameObject uiInstance;
         private RefitGameplayLease lease;
+        private FacilityWindowTransition transition;
         private RefitCameraEquipment cameraEquipment;
         private readonly RefitPlayerPreview playerPreview = new RefitPlayerPreview();
         private bool inputArmed;
@@ -60,6 +64,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         public RobotMover Player => player;
         public CheckpointRefitView View => view;
         public bool IsOpen { get; private set; }
+        internal bool HasPendingInteraction => repairTutorial && !SaveSystem.IsRepairTutorialComplete(checkpointId);
         public bool IsNearby => PlayerPresent && DistanceToPlayer() <= interactionRadiusMeters;
         public float InteractionRadiusMeters => interactionRadiusMeters;
         public InteractionMarker Marker => interactionMarker;
@@ -130,7 +135,9 @@ namespace AnimalGame.Demos.CheckpointRefit
             // Closing input retains the gameplay lease after IsOpen becomes false.
             // Discovery rings yield to the nearby prompt. Query the live range rather than the cached prompt,
             // so closing-input release and crossing the boundary cannot produce a one-frame flash.
-            interactionMarker?.SetSuppressed(!isActiveAndEnabled || IsOpen || lease != null || releasing || IsNearby);
+            interactionMarker?.SetOpacity(tower != null ? tower.EquipmentAccentVisibility : 1f);
+            interactionMarker?.SetSuppressed(!isActiveAndEnabled || (tower != null && !tower.EquipmentInteractionReady)
+                || IsOpen || lease != null || releasing || IsNearby);
         }
 
         private void Awake()
@@ -189,6 +196,13 @@ namespace AnimalGame.Demos.CheckpointRefit
                 previousShoulderRight = right;
             }
 
+            if (IsOpen && (view == null || !view.isActiveAndEnabled)) { ForceClose(); return; }
+            if (transition != null && transition.BlocksInput)
+            {
+                transition.Tick(Time.unscaledDeltaTime);
+                return;
+            }
+
             if (releasing)
             {
                 if (!interact && !cancel && !inspection && !pageInputHeld)
@@ -208,7 +222,6 @@ namespace AnimalGame.Demos.CheckpointRefit
 
             if (IsOpen)
             {
-                if (view == null || !view.isActiveAndEnabled) { ForceClose(); return; }
                 if (cancelPressed)
                 {
                     if (!view.CloseInspection()) Close();
@@ -239,26 +252,32 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (!interactPressed) return;
             if (tower != null && tower.UsesStationPlugs)
             {
-                if (CanOpen() && tower.TryPlug(WeatherTowerSocket.Refit, player, this, () => OpenRefit(true), () => lease != null))
+                if (CanOpen(allowStationPlug: true) && tower.TryPlug(WeatherTowerSocket.Refit, player, this, OpenRefit, () => lease != null))
                     SetPrompt(false);
             }
             else TryOpen();
         }
 
-        private bool CanOpen() => Application.isPlaying && isActiveAndEnabled && !IsOpen && lease == null && IsNearby
-            && !(TutorialOpenBlocked?.Invoke() ?? false) && EnsureUi() && RefitGameplayLease.CanAcquire(player, out _);
+        private bool CanOpen(bool allowStationPlug = false) =>
+            Application.isPlaying && isActiveAndEnabled && !IsOpen && lease == null && IsNearby
+            && (tower == null || tower.EquipmentInteractionReady)
+            && !(TutorialOpenBlocked?.Invoke() ?? false) && EnsureUi()
+            && RefitGameplayLease.CanAcquire(player, out _, allowStationPlug);
 
-        public bool TryOpen() => OpenRefit(false);
+        public bool TryOpen() => OpenRefit(null);
 
-        private bool OpenRefit(bool keepStationPlug)
+        private bool OpenRefit(Vector3? socketWorld)
         {
-            if (!CanOpen()) return false;
+            if (!CanOpen(allowStationPlug: socketWorld.HasValue)) return false;
             try
             {
-                BindCameraEquipment();
-                // The lease disables arm behaviours, so snapshot initialized artwork first.
-                playerPreview.Capture(player);
-                if (!RefitGameplayLease.TryAcquire(player, out lease, out _, keepStationPlug))
+                if (!refitLocked)
+                {
+                    BindCameraEquipment();
+                    // The lease disables arm behaviours, so snapshot initialized artwork first.
+                    playerPreview.Capture(player);
+                }
+                if (!RefitGameplayLease.TryAcquire(player, out lease, out _, socketWorld.HasValue))
                 {
                     ClearPlayerPreview();
                     return false;
@@ -267,7 +286,9 @@ namespace AnimalGame.Demos.CheckpointRefit
                 inputArmed = false;
                 SetPrompt(false);
                 view.SetPlayerPreview(playerPreview.Texture);
-                view.Show(checkpointName, checkpointId);
+                view.Show(checkpointName, checkpointId, refitLocked);
+                if (socketWorld.HasValue)
+                    transition = new FacilityWindowTransition(view.Document.rootVisualElement, view.ScreenElement, socketWorld.Value);
                 RefreshRepairStatus();
                 previousNavigationX = previousNavigationY = 0;
                 ReadPageInput(out previousShoulderLeft, out previousShoulderRight);
@@ -327,7 +348,14 @@ namespace AnimalGame.Demos.CheckpointRefit
             if (repairHoldElapsed < RepairHoldSeconds) return;
 
             repairRequiresRelease = true;
-            repairReceiver.TryRepairIntegrity(metalScrap, RepairCost, RepairAmount);
+            if (repairReceiver.TryRepairIntegrity(metalScrap, RepairCost, RepairAmount) && HasPendingInteraction)
+            {
+                try { SaveSystem.CompleteRepairTutorial(checkpointId); }
+                catch (Exception error) when (error is System.IO.IOException || error is UnauthorizedAccessException)
+                {
+                    Debug.LogException(error, this);
+                }
+            }
             RefreshRepairStatus();
         }
 
@@ -341,6 +369,14 @@ namespace AnimalGame.Demos.CheckpointRefit
         public void Close()
         {
             if (!IsOpen) return;
+            if (transition != null) transition.Close(FinishClose);
+            else FinishClose();
+        }
+
+        private void FinishClose()
+        {
+            transition?.Dispose();
+            transition = null;
             IsOpen = false;
             view?.Hide();
             SetPrompt(false);
@@ -353,6 +389,8 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void ForceClose()
         {
+            transition?.Dispose();
+            transition = null;
             IsOpen = false;
             view?.Hide();
             SetPrompt(false);
@@ -413,11 +451,13 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void UpdatePrompt(bool allow)
         {
             if (!EnsureUi()) return;
-            bool nearby = allow && IsNearby && (tower == null || !tower.UsesStationPlugs || tower.CanPlug(WeatherTowerSocket.Refit, player));
+            bool usesPlug = tower != null && tower.UsesStationPlugs;
+            bool nearby = allow && IsNearby && (tower == null || tower.EquipmentInteractionReady)
+                && (!usesPlug || tower.CanPlug(WeatherTowerSocket.Refit, player));
             if (nearby && Time.unscaledTime >= nextPromptCheck)
             {
                 nextPromptCheck = Time.unscaledTime + .15f;
-                promptAllowed = RefitGameplayLease.CanAcquire(player, out _);
+                promptAllowed = RefitGameplayLease.CanAcquire(player, out _, usesPlug);
             }
             if (!nearby) { nextPromptCheck = 0f; promptAllowed = false; }
             SetPrompt(nearby && promptAllowed);

@@ -32,7 +32,7 @@ namespace AnimalGame.World
             if (available && pressed)
                 available = !(tower.UsesStationPlugs
                     ? tower.TryPlug(WeatherTowerSocket.Cargo, tower.Player, this, TryOpen, () => WarehouseUI.IsOpenFor(this))
-                    : TryOpen());
+                    : TryOpen(null));
             if (interactionPrompt.activeSelf != available) interactionPrompt.SetActive(available);
         }
 
@@ -46,7 +46,7 @@ namespace AnimalGame.World
             }
         }
 
-        private bool TryOpen() => CanInteract && WarehouseUI.Open(this, GameMainUI.Active);
+        private bool TryOpen(Vector3? socketWorld) => CanInteract && WarehouseUI.Open(this, GameMainUI.Active, socketWorld);
 
         private void OnDisable()
         {

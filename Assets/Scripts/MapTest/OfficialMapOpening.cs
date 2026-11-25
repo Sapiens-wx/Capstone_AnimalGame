@@ -26,6 +26,10 @@ namespace AnimalGame.MapTest
         [SerializeField] private Vector2 traversalHintLineSouth;
         [SerializeField] private Vector2 traversalHintLineNorth;
 
+        [Header("Arm tutorial line (map meters)")]
+        [SerializeField] private Vector2 armHintLineSouth;
+        [SerializeField] private Vector2 armHintLineNorth;
+
         [Header("Drive fault activation line (map meters)")]
         [SerializeField] private Vector2 damageLineSouth;
         [SerializeField] private Vector2 damageLineNorth;
@@ -43,6 +47,7 @@ namespace AnimalGame.MapTest
         private const float RetractionJam = OpeningHudTimeline.ArmRetractionStart + .28f;
         private const float HandoffRightingDuration = .46f;
         private const float MapScanShakeSettleDuration = .28f;
+        private const float ArmTutorialApproachDepthMeters = 30f;
         private static readonly Vector2 mediumRumble = new(.42f, .48f);
         private static readonly Impact peckImpact = new(0f, .22f, 12f, -16f, .48f, 18f);
 
@@ -226,7 +231,7 @@ namespace AnimalGame.MapTest
                 }
             }
 
-            openingAudio.StartWoodpeckerCalls();
+            openingAudio.PlayWoodpeckerLanding();
             previousFrameTime = Time.unscaledTimeAsDouble;
         }
 
@@ -242,7 +247,6 @@ namespace AnimalGame.MapTest
                 CompleteOpening();
                 return;
             }
-            hud.UpdateOpeningSkipHold(skipHoldTime / SkipHoldDuration);
             openingWoodpecker.Tick(deltaTime);
             if (!restartStartedAt.HasValue)
             {
@@ -316,6 +320,9 @@ namespace AnimalGame.MapTest
             hud.ShowOpeningControlHints(robot, map.MapPositionToWorld(drivingHintLineSouth),
                 map.MapPositionToWorld(drivingHintLineNorth), map.MapPositionToWorld(traversalHintLineSouth),
                 map.MapPositionToWorld(traversalHintLineNorth));
+            hud.ShowOpeningArmHints(arms, marker, map.MapPositionToWorld(armHintLineSouth),
+                map.MapPositionToWorld(armHintLineNorth),
+                map.MapMetersToWorldDistance(Vector2.right, ArmTutorialApproachDepthMeters));
             CommunicationsStation.SignalReceived += OnCommunicationsSignalReceived;
         }
 
@@ -335,8 +342,9 @@ namespace AnimalGame.MapTest
             if (player != robot || !station.transform.IsChildOf(signalTower)) return;
             CommunicationsStation.SignalReceived -= OnCommunicationsSignalReceived;
             WorldMapUI worldMap = WorldMapUI.Instance;
-            worldMap.RevealUnknownSignal(station.SignalOrigin.position);
-            hud.ShowOpeningSignalPrompt(worldMap);
+            string stationId = signalTower.GetComponentInChildren<StationLogConsole>(true).StationId;
+            if (worldMap.RevealUnknownSignal(stationId, station.SignalOrigin.position))
+                hud.ShowOpeningSignalPrompt(worldMap);
         }
 
         private void OnDestroy() => CommunicationsStation.SignalReceived -= OnCommunicationsSignalReceived;
