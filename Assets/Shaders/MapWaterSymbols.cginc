@@ -17,12 +17,12 @@ float WaterStroke(float position, float repeatPixels, float halfWidth)
 }
 
 float DrawMapWater(float brightness, float submerged,
-    float2 tileUv, float2 mapPosition, float2 tileSize, float2 metresPerPixel, float2 viewZoom, float waterTime,
-    bool useBakedUv,
-    float hatchSpacing, float hatchOpacity, float bankOpacity)
+    float2 tileUv, float2 mapPosition, float2 tileSize, float2 metresPerPixel, float2 patternMetresPerPixel, float waterTime,
+    bool useBakedUv, float hatchSpacing, float hatchOpacity, float bankWidthScale, float bankOpacity)
 {
-    // At higher zoom keep the shoreline footprint at its opening map-space size.
-    float2 bankSample = 2 * metresPerPixel * max(viewZoom, 1) / tileSize;
+    // Keep bank sampling and dash centres tied to the map, including when zoomed out.
+    float2 bankSample = 2 * patternMetresPerPixel / tileSize;
+    float2 viewZoom = patternMetresPerPixel / metresPerPixel;
     float2 boundsMin = _WaterMaskBounds.xy;
     float2 boundsMax = boundsMin + _WaterMaskBounds.zw;
     if (any(tileUv < boundsMin - bankSample) || any(tileUv > boundsMax + bankSample))
@@ -78,16 +78,15 @@ float DrawMapWater(float brightness, float submerged,
     float distanceToBank = abs(range - .5) / max(length(slope), 1e-5);
     float lowest = min(range, min(min(lower.x, lower.y), min(upper.x, upper.y)));
     float highest = max(range, max(max(lower.x, lower.y), max(upper.x, upper.y)));
-    float bank = lowest < .5 && highest >= .5 ? 1 - smoothstep(.6, 2.2, distanceToBank) : 0;
+    float bank = lowest < .5 && highest >= .5
+        ? 1 - smoothstep(.6 * bankWidthScale, 2.2 * bankWidthScale, distanceToBank) : 0;
 
     // Mask-only captures blend the two axis projections at diagonal banks.
     float2 position = mapPosition / metresPerPixel;
     float2 tangent = abs(gradient.yx);
     float2 weight = smoothstep(.72, .98, tangent / max(max(tangent.x, tangent.y), 1e-5));
-    // Keep distant dashes long enough to read as strokes on a diagonal bank.
-    float2 dashZoom = max(viewZoom, .4);
-    float dashX = WaterStroke(position.x, 40 * dashZoom.x, 11 * dashZoom.x);
-    float dashY = WaterStroke(position.y, 40 * dashZoom.y, 11 * dashZoom.y);
+    float dashX = WaterStroke(position.x, 40 * viewZoom.x, 11 * viewZoom.x);
+    float dashY = WaterStroke(position.y, 40 * viewZoom.y, 11 * viewZoom.y);
     float dashedBank = bank * max(weight.x * dashX, weight.y * dashY);
     return lerp(brightness, 1, bankOpacity * dashedBank);
 }

@@ -4,7 +4,7 @@ using AnimalGame.MapTest;
 using UnityEditor;
 using UnityEngine;
 
-public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
+public sealed partial class HeightMapStaticWaterPainterWindow : EditorWindow
 {
     private const float MinimumBrushRadiusMeters = 0.25f;
     private const float DefaultBrushRadiusMeters = 8f;
@@ -403,15 +403,21 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private string uvStatus;
     private readonly List<Vector2[]> uvVLines = new List<Vector2[]>();
     private readonly List<Vector2[]> uvULines = new List<Vector2[]>();
-    private readonly List<UvGridVertex[]> uvGridRows = new List<UvGridVertex[]>();
-    private readonly List<float> uvRowDistances = new List<float>();
     private Vector2[] workingWaterUv;
     private int workingWaterUvResolution;
 
     private struct UvGridVertex
     {
         public Vector2 position, uv;
-        public UvGridVertex(Vector2 position, Vector2 uv) { this.position = position; this.uv = uv; }
+        public int line;
+        public float arc;
+        public UvGridVertex(Vector2 position, Vector2 uv, int line = 0, float arc = 0f)
+        {
+            this.position = position;
+            this.uv = uv;
+            this.line = line;
+            this.arc = arc;
+        }
     }
 
     private void DrawUvSettings()
@@ -419,7 +425,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         EditorGUILayout.HelpBox(
             "Select connected water, then drag A to B " +
             "to draw a cross-section. The green arrow points 90 degrees counterclockwise from A to B. " +
-            "Update advances along one river, re-centers at each cross-section, then connects matching samples " +
+            "Update traces the river and its downstream branches. It matches samples along the flow " +
             "to form V lines and bake pixel UVs. Save writes the RGHalf UV texture. " +
             "All distances below are in water-data pixels.",
             MessageType.Info);
@@ -478,12 +484,12 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         }
         EditorGUILayout.HelpBox(
             "V: cyan; U: orange. U Spacing advances along the river; V Spacing samples " +
-            "each cross-section outward from its arc-length midpoint. V lines connect matching sample indices " +
-            "without sampling flow. V lines use centripetal Catmull-Rom interpolation through their original intersections. " +
+            "each cross-section from the left bank. Step Length controls flow sampling between sections. " +
+            "Matched V lines use centripetal Catmull-Rom interpolation. " +
             "Curve spacing controls pixel arc-length subdivision for preview and baking. Flood fill uses four neighbors. " +
             "Outside water, seeds travel straight until entry or the length limit. " +
             "After entry, leaving the selected water or its bounds stops the line. " +
-            "Zero speed stops tracing. Only step endpoints are checked. Escape cancels Scene input. " +
+            "Zero speed stops tracing. Escape cancels Scene input. " +
             "Changes to brushes or spacing require another Update.", MessageType.None);
         if (!string.IsNullOrEmpty(uvStatus))
             EditorGUILayout.HelpBox(uvStatus, MessageType.Info);
@@ -505,8 +511,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         uvHasSection = false;
         uvVLines.Clear();
         uvULines.Clear();
-        uvGridRows.Clear();
-        uvRowDistances.Clear();
         uvStatus = null;
     }
 
@@ -632,7 +636,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         return uvBounds.Contains(pixel) && uvIsland[pixel.y * uvResolution + pixel.x];
     }
 
-    private Vector2 SampleUvDirection(Vector2 p, bool transverse, float sign)
+    private Vector2 SampleUvFlow(Vector2 p)
     {
         // Decode before interpolation so the angle wrap at 0/360 degrees stays continuous.
         Vector2 sample = p - Vector2.one * 0.5f;
@@ -652,7 +656,13 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             flow += new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * (uvSpeeds[index] / 255f * weight);
             totalWeight += weight;
         }
-        if (totalWeight == 0f || flow.sqrMagnitude < 1e-12f) return Vector2.zero;
+        return totalWeight > 0f ? flow / totalWeight : Vector2.zero;
+    }
+
+    private Vector2 SampleUvDirection(Vector2 p, bool transverse, float sign)
+    {
+        Vector2 flow = SampleUvFlow(p);
+        if (flow.sqrMagnitude < 1e-12f) return Vector2.zero;
         if (transverse) flow = new Vector2(-flow.y, flow.x);
         // Angles are authored in map meters; integration distances are water-data pixels.
         Vector2 size = levelAsset.MapSizeMeters;
@@ -661,7 +671,7 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     }
 
     private List<Vector2> TraceUvLine(Vector2 seed, Vector2 initialDirection, bool transverse,
-        float sign, float maxLength, bool startAlongNormal = false)
+        float sign, float maxLength, bool startAlongNormal = false, bool[] covered = null)
     {
         var points = new List<Vector2> { seed };
         Vector2 p = seed;
@@ -678,7 +688,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
             bool inBounds = uvBounds.Contains(Vector2Int.FloorToInt(next));
             bool inWater = UvContainsWater(next);
             // Before entering bounds, a seed is allowed to approach from outside.
-            if ((enteredBounds && !inBounds) || (enteredWater && !inWater)) break;
+            if ((enteredBounds && !inBounds) || (enteredWater && !UvSegmentIsWet(p, next))
+                || (covered != null && inWater && covered[UvPixelIndex(next)])) break;
             points.Add(next);
             enteredBounds |= inBounds;
             enteredWater |= inWater;
@@ -726,92 +737,6 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         return line[line.Count - 1];
     }
 
-    private void UpdateUvLines()
-    {
-        uvVLines.Clear();
-        uvULines.Clear();
-        uvGridRows.Clear();
-        uvRowDistances.Clear();
-        if (!SelectUvIsland()) return;
-        float lengthLimit = uvBounds.width + uvBounds.height;
-        Vector2 normal = UvSectionNormal();
-        Vector2 centre = (uvSectionA + uvSectionB) * 0.5f;
-        var sections = new List<Vector2[]>();
-        float travelled = 0f;
-        bool wetStarted = false;
-        bool oppositeEntry = false;
-        while (travelled < 3f * lengthLimit)
-        {
-            float advance = Mathf.Min(uvUSpacing, 3f * lengthLimit - travelled);
-            // Start each segment along the preceding section's normal, then sample flow at every step.
-            List<Vector2> segment = TraceUvLine(centre, normal, false, 1f, advance, true);
-            for (int i = 0; i < segment.Count; i++)
-            {
-                if (wetStarted || !UvContainsWater(segment[i])) continue;
-                wetStarted = true;
-                oppositeEntry = Vector2.Dot(SampleUvDirection(segment[i], false, 1f), normal) < 0f;
-            }
-            float segmentLength = UvLineLength(segment);
-            travelled += segmentLength;
-            if (segmentLength + 0.001f < advance || segment.Count < 2) break;
-            centre = segment[segment.Count - 1];
-            // Do not emit a shorter final interval just because the overall budget is exhausted.
-            if (advance + 0.001f < uvUSpacing) break;
-            if (!UvContainsWater(centre)) continue;
-            List<Vector2> cross = TraceUvCrossLine(centre, lengthLimit);
-            if (cross.Count < 2) break;
-            sections.Add(cross.ToArray());
-            uvRowDistances.Add(travelled);
-            Vector2 forward = segment[segment.Count - 1] - segment[segment.Count - 2];
-            centre = UvPointAtDistance(cross, UvLineLength(cross) * 0.5f, out Vector2 tangent);
-            if (!UvContainsWater(centre)) break;
-            normal = UvNormal(tangent);
-            if (Vector2.Dot(normal, forward) < 0f) normal = -normal;
-        }
-        BuildUvGrid(sections);
-        int uvPixelCount = BakeSelectedWaterUv();
-        waterUvChanged = true;
-        uvStatus = $"Generated {uvVLines.Count} V lines and {uvULines.Count} U cross-sections."
-            + $" Baked {uvPixelCount} UV pixels; click Save to apply."
-            + (!wetStarted ? " The center trace did not reach the selected water." : "")
-            + (oppositeEntry ? " The entry flow opposes the green arrow. Draw A to B in reverse to point downstream." : "");
-        SceneView.RepaintAll();
-        Repaint();
-    }
-
-    private void BuildUvGrid(IReadOnlyList<Vector2[]> sections)
-    {
-        // A signed index denotes distance from the section midpoint: negative on one side, positive on the other.
-        // End a V line when its index disappears, instead of bridging across missing rows in a narrowing river.
-        var vCoordinates = new HashSet<float>();
-        int rowIndex = 0;
-        float metersPerPixel = (levelAsset.MapSizeMeters.x + levelAsset.MapSizeMeters.y) * 0.5f / uvResolution;
-        foreach (Vector2[] section in sections)
-        {
-            float length = UvLineLength(section);
-            float midpoint = length * 0.5f;
-            int sideCount = Mathf.FloorToInt(midpoint / uvVSpacing);
-            var gridRow = new List<UvGridVertex>();
-            // Positive U reserves exactly (0,0) for uncomputed pixels, including on the middle V line.
-            float u = (uvRowDistances[rowIndex++] + 1f) * metersPerPixel;
-            gridRow.Add(new UvGridVertex(section[0], new Vector2(u, -midpoint * metersPerPixel)));
-            for (int index = -sideCount; index <= sideCount; index++)
-            {
-                Vector2 point = UvPointAtDistance(section, midpoint + index * uvVSpacing, out _);
-                if (gridRow[gridRow.Count - 1].position != point)
-                    gridRow.Add(new UvGridVertex(point, new Vector2(u, index * uvVSpacing * metersPerPixel)));
-                vCoordinates.Add(index * uvVSpacing * metersPerPixel);
-            }
-            if (gridRow[gridRow.Count - 1].position != section[section.Length - 1])
-                gridRow.Add(new UvGridVertex(section[section.Length - 1], new Vector2(u, midpoint * metersPerPixel)));
-            uvGridRows.Add(gridRow.ToArray());
-            var positions = new Vector2[gridRow.Count];
-            for (int i = 0; i < positions.Length; i++) positions[i] = gridRow[i].position;
-            uvULines.Add(positions);
-        }
-        SmoothUvColumns(vCoordinates);
-    }
-
     private sealed class UvSplineSegment
     {
         public UvGridVertex start, end;
@@ -833,9 +758,9 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
     private static Vector2 CatmullRomPoint(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
     {
         // Centripetal knots: alpha=0.5. Controls follow the longitudinal V line.
-        float k1 = Mathf.Sqrt(Vector2.Distance(p0, p1));
-        float k2 = k1 + Mathf.Sqrt(Vector2.Distance(p1, p2));
-        float k3 = k2 + Mathf.Sqrt(Vector2.Distance(p2, p3));
+        float k1 = Mathf.Max(.001f, Mathf.Sqrt(Vector2.Distance(p0, p1)));
+        float k2 = k1 + Mathf.Max(.001f, Mathf.Sqrt(Vector2.Distance(p1, p2)));
+        float k3 = k2 + Mathf.Max(.001f, Mathf.Sqrt(Vector2.Distance(p2, p3)));
         float k = Mathf.Lerp(k1, k2, t);
         Vector2 a = Vector2.LerpUnclamped(p0, p1, k / k1);
         Vector2 b = Vector2.LerpUnclamped(p1, p2, (k - k1) / (k2 - k1));
@@ -864,90 +789,13 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         return segment;
     }
 
-    private void SmoothUvColumns(HashSet<float> vCoordinates)
-    {
-        if (uvGridRows.Count < 2) return;
-        var lookup = new List<Dictionary<float, UvGridVertex>>();
-        foreach (UvGridVertex[] row in uvGridRows)
-        {
-            var vertices = new Dictionary<float, UvGridVertex>();
-            foreach (UvGridVertex vertex in row) vertices.Add(vertex.uv.y, vertex);
-            lookup.Add(vertices);
-        }
-        var expanded = new List<UvGridVertex[]> { uvGridRows[0] };
-        for (int row = 0; row + 1 < uvGridRows.Count; row++)
-        {
-            UvGridVertex[] a = uvGridRows[row], b = uvGridRows[row + 1];
-            var curves = new Dictionary<float, UvSplineSegment>();
-            int count = 1;
-            foreach (UvGridVertex start in a)
-            {
-                float v = start.uv.y;
-                if (!lookup[row + 1].TryGetValue(v, out UvGridVertex end)) continue;
-                Vector2 before = row > 0 && lookup[row - 1].TryGetValue(v, out UvGridVertex previous)
-                    ? previous.position : 2f * start.position - end.position;
-                Vector2 after = row + 2 < lookup.Count && lookup[row + 2].TryGetValue(v, out UvGridVertex next)
-                    ? next.position : 2f * end.position - start.position;
-                UvSplineSegment segment = MakeUvSplineSegment(start, end, before, after);
-                curves.Add(v, segment);
-                count = Mathf.Max(count, Mathf.CeilToInt(segment.Length / uvCurveSpacing));
-            }
-            count = Mathf.Max(count, Mathf.CeilToInt(Mathf.Max(Vector2.Distance(a[0].position, b[0].position),
-                Vector2.Distance(a[a.Length - 1].position, b[b.Length - 1].position)) / uvCurveSpacing));
-            for (int i = 1; i < count; i++)
-            {
-                float t = i / (float)count;
-                UvGridVertex Interpolate(UvGridVertex left, UvGridVertex right)
-                {
-                    Vector2 uv = Vector2.Lerp(left.uv, right.uv, t);
-                    Vector2 position = left.uv.y == right.uv.y && curves.TryGetValue(left.uv.y, out UvSplineSegment curve)
-                        ? curve.PointAtDistance(curve.Length * t) : Vector2.Lerp(left.position, right.position, t);
-                    return new UvGridVertex(position, uv);
-                }
-                UvGridVertex leftEdge = Interpolate(a[0], b[0]);
-                UvGridVertex rightEdge = Interpolate(a[a.Length - 1], b[b.Length - 1]);
-                var vertices = new List<UvGridVertex> { leftEdge };
-                // One shared subdivision count per U interval keeps adjacent V curves connected.
-                foreach (UvGridVertex start in a)
-                    if (start.uv.y > leftEdge.uv.y && start.uv.y < rightEdge.uv.y
-                        && curves.TryGetValue(start.uv.y, out UvSplineSegment curve))
-                        vertices.Add(new UvGridVertex(curve.PointAtDistance(curve.Length * t),
-                            Vector2.Lerp(curve.start.uv, curve.end.uv, t)));
-                vertices.Add(rightEdge);
-                expanded.Add(vertices.ToArray());
-            }
-            expanded.Add(b); // Keep every original U cross-section and its intersections unchanged.
-        }
-        uvGridRows.Clear();
-        uvGridRows.AddRange(expanded);
-        uvVLines.Clear();
-        var active = new Dictionary<float, List<Vector2>>();
-        foreach (UvGridVertex[] row in uvGridRows)
-        {
-            var next = new Dictionary<float, List<Vector2>>();
-            foreach (UvGridVertex vertex in row)
-            {
-                float v = vertex.uv.y;
-                if (!vCoordinates.Contains(v)) continue;
-                if (!active.TryGetValue(v, out List<Vector2> line)) line = new List<Vector2>();
-                line.Add(vertex.position);
-                next.Add(v, line);
-            }
-            foreach (var pair in active)
-                if (!next.ContainsKey(pair.Key) && pair.Value.Count > 1) uvVLines.Add(pair.Value.ToArray());
-            active = next;
-        }
-        foreach (List<Vector2> line in active.Values)
-            if (line.Count > 1) uvVLines.Add(line.ToArray());
-    }
-
-    private List<Vector2> TraceUvCrossLine(Vector2 seed, float maxLength)
+    private List<Vector2> TraceUvCrossLine(Vector2 seed, float maxLength, bool[] covered)
     {
         Vector2 direction = SampleUvDirection(seed, true, 1f);
         if (direction == Vector2.zero) return new List<Vector2> { seed };
         // Split the total budget equally between the two perpendicular directions.
-        List<Vector2> left = TraceUvLine(seed, direction, true, 1f, maxLength * 0.5f);
-        List<Vector2> right = TraceUvLine(seed, -direction, true, -1f, maxLength * 0.5f);
+        List<Vector2> left = TraceUvLine(seed, direction, true, 1f, maxLength * 0.5f, covered: covered);
+        List<Vector2> right = TraceUvLine(seed, -direction, true, -1f, maxLength * 0.5f, covered: covered);
         left.Reverse();
         for (int i = 1; i < right.Count; i++) left.Add(right[i]);
         return left;
@@ -972,33 +820,8 @@ public sealed class HeightMapStaticWaterPainterWindow : EditorWindow
         workingWaterUvResolution = resolution;
     }
 
-    private int BakeSelectedWaterUv()
+    private int ExtendBakedWaterUv(bool[] covered, Vector4[] gradients)
     {
-        EnsureWorkingWaterUv();
-        for (int i = 0; i < uvIsland.Length; i++)
-            if (uvIsland[i]) workingWaterUv[i] = Vector2.zero;
-        if (uvGridRows.Count < 2) return 0;
-        var covered = new bool[uvIsland.Length];
-        var gradients = new Vector4[uvIsland.Length];
-        for (int row = 1; row < uvGridRows.Count; row++)
-        {
-            UvGridVertex[] a = uvGridRows[row - 1], b = uvGridRows[row];
-            int i = 0, j = 0;
-            // Zipper the two ordered rows, including fractional-V shore endpoints.
-            while (i + 1 < a.Length || j + 1 < b.Length)
-            {
-                if (j + 1 == b.Length || (i + 1 < a.Length && a[i + 1].uv.y <= b[j + 1].uv.y))
-                {
-                    RasterizeUvTriangle(a[i], b[j], a[i + 1], covered, gradients);
-                    i++;
-                }
-                else
-                {
-                    RasterizeUvTriangle(a[i], b[j], b[j + 1], covered, gradients);
-                    j++;
-                }
-            }
-        }
         // Extend boundary cells' affine UV fields to all remaining shore/end pixels of this island.
         // Restrict propagation to selected water, so unrelated water and dry pixels stay untouched.
         var queue = new Queue<int>();

@@ -574,13 +574,32 @@ namespace AnimalGame.MainUI
 
         public bool TryGetRingScreenGeometry(out Vector2 center, out float radius)
         {
+            if (TryMeasureRingScreenGeometry(innerRing, false, out Vector2 currentCenter, out float currentRadius))
+            {
+                cachedCenter = currentCenter;
+                cachedRadius = currentRadius;
+                hasGeometry = true;
+            }
+            center = cachedCenter; radius = cachedRadius;
+            return hasGeometry;
+        }
+
+        internal bool TryGetOuterRingScreenGeometry(out Vector2 center, out float radius) =>
+            TryMeasureRingScreenGeometry(outerRing, true, out center, out radius);
+
+        private bool TryMeasureRingScreenGeometry(ViewRingElement element, bool outerEdge,
+            out Vector2 center, out float radius)
+        {
             if (root != null && root.panel != null && document != null && document.isActiveAndEnabled
-                && innerRing != null && root.resolvedStyle.display != DisplayStyle.None
+                && innerRing != null && element != null && root.resolvedStyle.display != DisplayStyle.None
                 && stage != null && stage.resolvedStyle.visibility == Visibility.Visible && photoAlpha > 0
-                && Positive(innerRing.Radius) && Positive(root.layout.width) && Positive(root.layout.height))
+                && Positive(element.Radius) && Positive(root.layout.width) && Positive(root.layout.height))
             {
                 // Use the current animation pose rather than last frame's deferred transform-style resolution.
-                Vector2 authoredCenter = view.layout.position + ring.layout.position + innerRing.layout.position + innerRing.contentRect.center;
+                Vector2 ringPivot = innerRing.layout.position + innerRing.contentRect.center;
+                Vector2 elementCenter = element.layout.position + element.contentRect.center;
+                Vector2 authoredCenter = view.layout.position + ring.layout.position + ringPivot
+                    + (elementCenter - ringPivot) * discoveryScanDiscScale;
                 Vector2 panelPoint = viewportOffset + (authoredCenter + ringDisplacement) * fit;
                 Vector2 panelCenter = stage.layout.size * .5f;
                 panelPoint = panelCenter + (panelPoint - panelCenter) * photoScale + photoOffset * fit;
@@ -591,14 +610,16 @@ namespace AnimalGame.MainUI
                 Vector2 scale = PanelUnitsPerScreenPixel();
                 Vector2 origin = RuntimePanelUtils.ScreenToPanel(root.panel, Vector2.zero);
                 Vector2 panelRoot = root.LocalToWorld(panelPoint);
-                cachedCenter = new Vector2((panelRoot.x - origin.x) / scale.x,
+                center = new Vector2((panelRoot.x - origin.x) / scale.x,
                     Screen.height - (panelRoot.y - origin.y) / scale.y);
-                cachedRadius = innerRing.Radius * fit * photoScale * discoveryScanDiscScale
+                float authoredRadius = element.Radius + (outerEdge ? element.lineWidth * .5f : 0f);
+                radius = authoredRadius * fit * photoScale * discoveryScanDiscScale
                     / Mathf.Max(scale.x, scale.y);
-                hasGeometry = Positive(cachedRadius);
+                return Positive(radius);
             }
-            center = cachedCenter; radius = cachedRadius;
-            return hasGeometry;
+            center = default;
+            radius = 0f;
+            return false;
         }
 
         private Vector2 PanelUnitsPerScreenPixel()

@@ -7,8 +7,11 @@ namespace AnimalGame.World.Map
 {
     internal sealed class WorldMapRenderer : IDisposable
     {
+        private const float ShorelineZoomOutBoostPixels = .3f;
+        private const float ShorelineOpacity = .44f;
         private readonly Material material;
         private readonly Mesh quad;
+        private readonly Vector2 patternMetresPerPixel;
         private readonly CommandBuffer commands = new CommandBuffer { name = "World map contours" };
         private readonly MaterialPropertyBlock properties = new MaterialPropertyBlock();
         private RenderTexture faultTexture;
@@ -16,15 +19,16 @@ namespace AnimalGame.World.Map
         private Rect view;
         private Rect visibleMap;
         private bool hasVisibleWater;
-        private Vector2 openingMetresPerPixel;
         private Texture currentFog;
         private static readonly int BankOpacity = Shader.PropertyToID("_MapBankOpacity");
         internal float WaterTime { get; set; }
         public RenderTexture Texture { get; private set; }
 
-        public WorldMapRenderer(Shader shader)
+        public WorldMapRenderer(Shader shader, Vector2 patternMetresPerPixel)
         {
+            this.patternMetresPerPixel = patternMetresPerPixel;
             material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            material.SetVector("_MapPatternMetresPerPixel", patternMetresPerPixel);
             quad = new Mesh { name = "World map tile", hideFlags = HideFlags.HideAndDontSave };
             quad.vertices = new[] { Vector3.zero, Vector3.right, new Vector3(1, 1), Vector3.up };
             quad.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
@@ -61,10 +65,7 @@ namespace AnimalGame.World.Map
             material.SetFloat("_VisibleMinimumHeight", minimum);
             material.SetFloat("_VisibleMaximumHeight", maximum);
             var metresPerPixel = new Vector2(view.width / width, view.height / height);
-            if (openingMetresPerPixel == Vector2.zero)
-                openingMetresPerPixel = metresPerPixel;
             material.SetVector("_MapMetresPerPixel", metresPerPixel);
-            material.SetVector("_MapViewZoom", openingMetresPerPixel / metresPerPixel);
             DrawTiles(map);
         }
 
@@ -77,6 +78,13 @@ namespace AnimalGame.World.Map
         {
             var shoreline = map.Shoreline;
             var metresPerPixel = new Vector2(view.width / Texture.width, view.height / Texture.height);
+            float zoom = Mathf.Sqrt((patternMetresPerPixel.x * patternMetresPerPixel.y) /
+                (metresPerPixel.x * metresPerPixel.y));
+            // Widen the stroke in screen space as the camera pulls back.
+            float shorelineWidth = map.Presentation.MinimumContourWidth + ShorelineZoomOutBoostPixels / (1f + zoom);
+            Vector2 padding = Vector2.Max(metresPerPixel * Mathf.Max(2f, shorelineWidth * .5f + .5f),
+                patternMetresPerPixel * 2f);
+            material.SetFloat("_MapBankWidthScale", shorelineWidth / (WorldMapShoreline.ReferenceWidthPixels * zoom));
             material.SetFloat("_MapWaterTime", WaterTime);
             hasVisibleWater = false;
             commands.Clear();
@@ -97,7 +105,6 @@ namespace AnimalGame.World.Map
                 if (waterMask != null)
                 {
                     Rect bounds = level.BakedStaticWaterBounds;
-                    Vector2 padding = Vector2.Max(metresPerPixel, openingMetresPerPixel) * 2f;
                     var waterBounds = new Rect(origin + Vector2.Scale(bounds.position, tileSize) - padding,
                         Vector2.Scale(bounds.size, tileSize) + padding * 2f);
                     if (view.Overlaps(waterBounds))
@@ -113,7 +120,7 @@ namespace AnimalGame.World.Map
                     }
                 }
                 properties.SetFloat("_WaterEnabled", visibleWater ? 1 : 0);
-                properties.SetFloat(BankOpacity, shoreline.Contains(level) ? 0 : .5f);
+                properties.SetFloat(BankOpacity, shoreline.Contains(level) ? 0 : ShorelineOpacity);
                 properties.SetVector("_TileRect", new Vector4(origin.x, origin.y, tileSize.x, tileSize.y));
                 properties.SetTexture("_HeightTex", tile.Field.SurfaceTexture);
                 properties.SetFloat("_MinimumHeight", level.MinimumHeightMeters);
@@ -124,7 +131,7 @@ namespace AnimalGame.World.Map
             {
                 var projection = Matrix4x4.Ortho(view.xMin, view.xMax, view.yMin, view.yMax, -1, 1);
                 shoreline.Draw(commands, GL.GetGPUProjectionMatrix(projection, true), metresPerPixel,
-                    openingMetresPerPixel / metresPerPixel, map.MapSizeMeters, .5f, currentFog);
+                    patternMetresPerPixel, map.MapSizeMeters, shorelineWidth, ShorelineOpacity, currentFog);
             }
             Graphics.ExecuteCommandBuffer(commands);
         }

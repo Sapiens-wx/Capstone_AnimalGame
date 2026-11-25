@@ -137,7 +137,7 @@ namespace AnimalGame.MapTest
 #endif
     {
 #if UNITY_EDITOR
-        public const int CurrentSurfaceBakeGeneratorVersion = 11;
+        public const int CurrentSurfaceBakeGeneratorVersion = 12;
         public const int CurrentStaticWaterMaskBakeGeneratorVersion = 3;
 #endif
 
