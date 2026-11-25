@@ -1,5 +1,6 @@
 // Only coverage is baked. Pattern pixels are sampled from the original assets.
 #include "RockPatternEdgeFade.cginc"
+#include "SandPatternAlpha.cginc"
 
 UNITY_DECLARE_TEX2DARRAY(_TerrainCoverage);
 UNITY_DECLARE_TEX2D(_TerrainPattern1);
@@ -107,11 +108,7 @@ float4 SampleOriginalTerrain(float2 tileUv, float2 mapDx, float2 mapDy)
         }
         if (id == 9)
         {
-            float4 overlay = TerrainRandomPattern(9, uv, dx, dy);
-            float alpha = overlay.a + pattern.a * (1 - overlay.a);
-            pattern.rgb = alpha > .00001
-                ? (overlay.rgb * overlay.a + pattern.rgb * pattern.a * (1 - overlay.a)) / alpha : 0;
-            pattern.a = saturate(alpha);
+            pattern = CompositeSandPattern(pattern, TerrainRandomPattern(9, uv, dx, dy));
         }
         // Finish random pattern placement before applying the shared palette/contour opacity.
         float alpha = pattern.a * coverage;

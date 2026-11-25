@@ -38,6 +38,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
             #pragma target 3.0
             #include "UnityCG.cginc"
             #include "RockPatternEdgeFade.cginc"
+            #include "SandPatternAlpha.cginc"
 
             sampler2D _PatternAtlas;
             sampler2D _RockPattern;
@@ -182,12 +183,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 float4 tint = ReadPaletteTint(terrainId);
                 if (abs(terrainId - 9.0) < .5)
                 {
-                    float4 overlay = RandomPatternOverlay(_SandPattern, mapMeters / tileSizeMeters, false);
-                    float alpha = overlay.a + pattern.a * (1 - overlay.a);
-                    pattern.rgb = alpha > .00001
-                        ? (overlay.rgb * overlay.a + pattern.rgb * pattern.a * (1 - overlay.a)) / alpha : 0;
-                    // Merge raw layers before applying palette opacity and contour fading once.
-                    pattern.a = saturate(alpha);
+                    pattern = CompositeSandPattern(pattern, RandomPatternOverlay(_SandPattern, mapMeters / tileSizeMeters, false));
                 }
                 pattern.rgb *= tint.rgb;
                 pattern.a *= tint.a;
