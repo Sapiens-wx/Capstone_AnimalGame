@@ -27,7 +27,7 @@ public static class GrasslandDynamicsChecks
             var roll = Capture(material, 128, 1, true);
             snapshots.Add(roll);
             foreach (var pixel in roll.GetPixels())
-                Require(Mathf.Abs(pixel.r - .3f) < .001f && Mathf.Abs(pixel.g - .06f) < .001f
+                Require(Mathf.Abs(pixel.r - .375f) < .001f && Mathf.Abs(pixel.g - .075f) < .001f
                     && Mathf.Abs(pixel.b - .1f) < .001f,
                     "Camera roll changed grass coverage or its mip footprint");
             var settings = new SerializedObject(AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -81,7 +81,10 @@ public static class GrasslandDynamicsChecks
                 footprints[0] = new Vector4(.5f,.5f,10,10);
                 Shader.SetGlobalVectorArray("_GrassFootprints", footprints);
                 var pressed = Capture(material, 512, 512); snapshots.Add(pressed);
-                Require(AlphaSum(pressed) < AlphaSum(idle) * .8, "Rotated grass failed to shorten under pressure");
+                Require(Difference(idle, pressed) > 100, "Grass did not change shape under pressure");
+                float pressedCoverage = (float)AlphaSum(pressed) / AlphaSum(idle);
+                Require(Mathf.Abs(pressedCoverage - 1f) < .18f,
+                    $"Trampling changed the overall grass coverage to {pressedCoverage:P0} of its idle value");
                 Shader.SetGlobalFloat("_GrassNow", 10 + dynamics.w + .01f);
                 var recovered = Capture(material, 512, 512); snapshots.Add(recovered);
                 Require(Difference(idle, recovered) == 0, "Grass failed to recover");
