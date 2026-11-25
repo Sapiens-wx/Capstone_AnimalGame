@@ -168,7 +168,6 @@ namespace AnimalGame.World
                 if (map != null && map.OpenMap(this))
                 {
                     ShowSyncState(true);
-                    root.style.display = DisplayStyle.None;
                     return;
                 }
                 ShowSyncState(SaveSystem.IsStationSynced(station.StationId));

@@ -13,6 +13,18 @@ namespace AnimalGame.RobotMap
         private float lineWidth = 1f;
         private Color lineColor = new Color(1f, 1f, 1f, 0.03f);
         private Vector2[] points = Array.Empty<Vector2>();
+        private bool coverViewportWhileRotated;
+
+        internal void SetRotation(float degrees)
+        {
+            bool rotated = degrees != 0f;
+            if (coverViewportWhileRotated != rotated)
+            {
+                coverViewportWhileRotated = rotated;
+                RebuildGeometry();
+            }
+            style.rotate = new Rotate(degrees);
+        }
 
         [UxmlAttribute]
         public Vector2 offset
@@ -105,8 +117,14 @@ namespace AnimalGame.RobotMap
                 return;
             }
 
-            float firstX = bounds.xMin + Mathf.Repeat(gridOffset.x, cellLength);
-            float firstY = bounds.yMin + Mathf.Repeat(gridOffset.y, cellLength);
+            Vector2 gridOrigin = bounds.position + gridOffset;
+            if (coverViewportWhileRotated)
+            {
+                float side = bounds.size.magnitude;
+                bounds = new Rect(bounds.center - Vector2.one * (side * .5f), Vector2.one * side);
+            }
+            float firstX = bounds.xMin + Mathf.Repeat(gridOrigin.x - bounds.xMin, cellLength);
+            float firstY = bounds.yMin + Mathf.Repeat(gridOrigin.y - bounds.yMin, cellLength);
             int verticalLineCount = firstX <= bounds.xMax
                 ? Mathf.FloorToInt((bounds.xMax - firstX) / cellLength) + 1
                 : 0;

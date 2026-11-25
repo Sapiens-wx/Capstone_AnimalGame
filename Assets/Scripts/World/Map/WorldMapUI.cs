@@ -22,6 +22,8 @@ namespace AnimalGame.World.Map
         private const float MapDataNoticeHold = 3f;
         private const float MapDataNoticeFade = .25f;
         private const float SurveySweepDuration = 1.2f;
+        private const float OpenTransitionDuration = 1.5f;
+        private const float CloseTransitionDuration = .96f;
         [SerializeField] private Shader contourShader;
         [Header("Zoom (visible range / player view at opening)")]
         [SerializeField, Min(.01f)] private float minimumZoom = 1;
@@ -47,10 +49,12 @@ namespace AnimalGame.World.Map
         public MapViewState View { get; } = new MapViewState();
 
         private VisualElement panel, root, cursor, playerIcon, mapRulers, northIndicator;
+        private VisualElement mapDataNoticeLayer;
         private VisualElement unknownSignal;
         private Vector2? unknownSignalWorldPosition;
         private bool frameUnknownSignalOnOpen;
         private Label mapDataNotice;
+        private Label northLabel;
         private float mapDataNoticeStartsAt = -1f;
         private readonly VisualElement[] pinElements = new VisualElement[MapViewState.PinLimit];
         private readonly VisualElement[] edgePinElements = new VisualElement[MapViewState.PinLimit];
@@ -59,7 +63,7 @@ namespace AnimalGame.World.Map
         private readonly System.Action<MeshGenerationContext>[] pinChoiceDrawHandlers = new System.Action<MeshGenerationContext>[MapViewState.PinLimit];
         private Label previousPinKey, nextPinKey;
         private VisualElement pinSelector;
-        private Image mapImage;
+        private Image mapImage, mapOpeningImage;
         private PhotoResultGridElement mapGrid;
         private float cursorSelectionSpread;
         private bool centeringMapView;
@@ -79,9 +83,14 @@ namespace AnimalGame.World.Map
         private Vector2 baseViewSize, lastSize;
         private float savedTimeScale;
         private float openingPlayerBearing;
+        private Vector2 openingPlayerMapPosition, openingPlayerScreenFraction;
+        private Vector2 gameplayFootprintPerScreenHeight;
+        private float transitionProgress;
+        private bool closing;
         private CursorLockMode savedCursorLock;
         private bool savedCursorVisible, dirty;
         private Vector2 lastRenderedCenter, lastRenderedSize;
+        private float lastRenderedBearing;
         private CheckpointManager checkpointManager;
         private StationLogUI surveyTerminal;
         private RenderTexture previousSurveyFog;
@@ -100,11 +109,15 @@ namespace AnimalGame.World.Map
             panel = GetComponent<UIDocument>().rootVisualElement.Q("world-map");
             root = panel.Q("map-viewport");
             mapImage = root.Q<Image>("map-image");
+            mapOpeningImage = panel.Q<Image>("map-opening-image");
+            mapOpeningImage.scaleMode = ScaleMode.StretchToFill;
             mapGrid = root.Q<PhotoResultGridElement>("map-grid");
             unknownSignal = root.Q("map-unknown-signal");
             unknownSignal.generateVisualContent += DrawUnknownSignal;
             mapDataNotice = panel.Q<Label>("map-data-notice");
+            mapDataNoticeLayer = panel.Q("map-data-notice-layer");
             northIndicator = root.Q("map-north");
+            northLabel = northIndicator.Q<Label>("map-north-label");
             northIndicator.generateVisualContent += DrawNorthIndicator;
             coordinateMask = root.Q("map-coordinate-mask");
             coordinateText = root.Q<Label>("map-coordinate-text");
@@ -127,7 +140,7 @@ namespace AnimalGame.World.Map
                 float width = playerIcon.contentRect.width;
                 float height = playerIcon.contentRect.height;
                 float radius = Mathf.Max(0, Mathf.Min((width - 4f) * .5f, (height - 4f) / 3f));
-                Vector2 center = new Vector2(width * .5f, height - 2f - radius);
+                Vector2 center = playerIcon.contentRect.center;
                 Vector2 tip = center - Vector2.up * (radius * 2f);
                 painter.BeginPath();
                 painter.MoveTo(tip);
@@ -332,13 +345,14 @@ namespace AnimalGame.World.Map
                     || (pad != null && pad.selectButton.wasPressedThisFrame)) Open();
                 return;
             }
-            if ((keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-                || (pad != null && pad.buttonEast.wasPressedThisFrame))
+            if (!closing && ((keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                || (pad != null && pad.buttonEast.wasPressedThisFrame)))
             {
                 Close();
                 return;
             }
-            Vector2 size = MapScreenSize();
+            Rect viewport = MapScreenRect();
+            Vector2 size = viewport.size;
             if (size != lastSize)
             {
                 baseViewSize.x = baseViewSize.y * size.x / size.y;
@@ -348,9 +362,15 @@ namespace AnimalGame.World.Map
                 dirty = true;
                 lastSize = size;
             }
+            if (closing || transitionProgress < 1f)
+            {
+                AdvanceTransition(Time.unscaledDeltaTime, size);
+                if (IsOpen) RefreshVisuals(viewport);
+                return;
+            }
             if (previousSurveyFog != null)
             {
-                RefreshVisuals(size);
+                RefreshVisuals(viewport);
                 return;
             }
             if ((pad != null && pad.leftShoulder.wasPressedThisFrame)
@@ -421,7 +441,7 @@ namespace AnimalGame.World.Map
                 Time.unscaledDeltaTime / .12f);
             cursor.MarkDirtyRepaint();
             UpdateControlHints();
-            RefreshVisuals(size);
+            RefreshVisuals(viewport);
             UpdateHoverCoordinates(movement.sqrMagnitude > .0001f || centeringMapView);
         }
 
@@ -594,7 +614,11 @@ namespace AnimalGame.World.Map
             Vector2 metresPerUnit = new Vector2(map.MapSizeMeters.x / boundsSize.x, map.MapSizeMeters.y / boundsSize.y);
             Vector2 footprint = new Vector2(Vector2.Scale(corners[1] - corners[0], metresPerUnit).magnitude,
                 Vector2.Scale(corners[2] - corners[0], metresPerUnit).magnitude);
-            Vector2 viewportSize = MapScreenSize();
+            Rect cameraPixels = camera.pixelRect;
+            gameplayFootprintPerScreenHeight = new Vector2(footprint.x / cameraPixels.width,
+                footprint.y / cameraPixels.height) * Screen.height;
+            Rect viewport = MapScreenRect();
+            Vector2 viewportSize = viewport.size;
             float aspect = viewportSize.x / viewportSize.y;
             baseViewSize.y = Mathf.Max(footprint.y, footprint.x / aspect);
             baseViewSize.x = baseViewSize.y * aspect;
@@ -604,7 +628,8 @@ namespace AnimalGame.World.Map
             Vector2 defaultViewSize = baseViewSize * CurrentZoom;
             var waterPatternMetresPerPixel = new Vector2(
                 defaultViewSize.x / (int)viewportSize.x, defaultViewSize.y / (int)viewportSize.y);
-            Vector2 player = WorldToMap(bootstrap.robotObject.transform.position);
+            Vector3 playerWorld = bootstrap.robotObject.transform.position;
+            Vector2 player = WorldToMap(playerWorld);
             Vector2? openingSignal = terminal == null && frameUnknownSignalOnOpen ? WorldToMap(unknownSignalWorldPosition.Value) : null;
             Rect stationRegion = default;
             if (terminal != null)
@@ -638,6 +663,9 @@ namespace AnimalGame.World.Map
             }
             Vector2 forward = bootstrap.robot.Forward;
             openingPlayerBearing = Mathf.Atan2(forward.x, forward.y) * Mathf.Rad2Deg;
+            openingPlayerMapPosition = player;
+            Vector3 playerScreen = camera.WorldToScreenPoint(playerWorld);
+            openingPlayerScreenFraction = new Vector2(playerScreen.x / Screen.width, playerScreen.y / Screen.height);
             View.Open(player, baseViewSize * CurrentZoom, map.MapSizeMeters);
             if (terminal != null) View.SetFocus(stationRegion.center, stationRegion.center, map.MapSizeMeters);
             FitWholeMap();
@@ -659,6 +687,9 @@ namespace AnimalGame.World.Map
             UnityEngine.Cursor.visible = false;
             active = this;
             IsOpen = true;
+            closing = false;
+            transitionProgress = 0f;
+            ApplyTransitionPose(viewportSize);
             mapDataNotice.EnableInClassList("survey-notice", terminal != null);
             controls.Q<Label>("map-close-caption").text = terminal != null ? "Back to Logs" : "Close";
             if (terminal != null)
@@ -677,17 +708,25 @@ namespace AnimalGame.World.Map
             panel.style.display = DisplayStyle.Flex;
             dirty = true;
             UpdateControlHints();
-            RefreshVisuals(lastSize);
+            RefreshVisuals(viewport);
             return true;
         }
 
-        private Vector2 MapScreenSize()
+        private Rect MapScreenRect()
         {
-            Vector2 size = root.contentRect.size;
+            Rect content = root.contentRect;
             float panelHeight = panel.contentRect.height;
-            return size.x > 0 && size.y > 0 && panelHeight > 0
-                ? size * (Screen.height / panelHeight)
-                : new Vector2(Screen.width * .96f, Screen.height * .9f);
+            if (content.width <= 0 || content.height <= 0 || panelHeight <= 0)
+            {
+                // The hidden panel has no layout yet. Use the map frame's USS margins.
+                return new Rect(Screen.width * .02f, Screen.height * .07f, Screen.width * .96f, Screen.height * .9f);
+            }
+
+            float pixelsPerUnit = Screen.height / panelHeight;
+            Vector2 center = panel.WorldToLocal(root.LocalToWorld(content.center)) * pixelsPerUnit;
+            center.y = Screen.height - center.y;
+            Vector2 size = content.size * pixelsPerUnit;
+            return new Rect(center - size * .5f, size);
         }
 
         private void RecalculateZoomLimits()
@@ -705,28 +744,110 @@ namespace AnimalGame.World.Map
 
         private void FitWholeMap()
         {
-            if (View.ViewSize.x >= map.MapSizeMeters.x - .001f
-                && View.ViewSize.y >= map.MapSizeMeters.y - .001f) View.FitMap(map.MapSizeMeters);
+            if (ShowsWholeMap) View.FitMap(map.MapSizeMeters);
         }
 
-        private void RefreshVisuals(Vector2 screenSize)
+        private bool ShowsWholeMap => View.ViewSize.x >= map.MapSizeMeters.x - .001f
+            && View.ViewSize.y >= map.MapSizeMeters.y - .001f;
+
+        private float TransitionTurn
+        {
+            get
+            {
+                float t = Mathf.InverseLerp(.15f, 1f, transitionProgress);
+                return t * t * t * (4f - 3f * t);
+            }
+        }
+
+        private void AdvanceTransition(float deltaTime, Vector2 viewportSize)
+        {
+            float duration = closing ? CloseTransitionDuration : OpenTransitionDuration;
+            transitionProgress = Mathf.MoveTowards(transitionProgress, closing ? 0f : 1f, deltaTime / duration);
+            ApplyTransitionPose(viewportSize);
+            if (closing && transitionProgress == 0f) FinishClose();
+            else if (transitionProgress == 1f) hoverIdleSince = Time.unscaledTime;
+        }
+
+        private void ApplyTransitionPose(Vector2 viewportSize)
+        {
+            cursor.style.visibility = !closing && transitionProgress == 1f ? Visibility.Visible : Visibility.Hidden;
+            float turn = TransitionTurn;
+            View.Bearing = Mathf.Lerp(openingPlayerBearing, 0f, turn);
+            // Crop the gameplay footprint to the map frame at the same metres per screen pixel.
+            Vector2 gameplayViewSize = Vector2.Scale(gameplayFootprintPerScreenHeight, viewportSize / Screen.height);
+            View.TransitionViewSize = turn < 1f ? Vector2.Lerp(gameplayViewSize, View.ViewSize, turn) : null;
+            mapGrid.SetRotation(-View.Bearing);
+            northIndicator.style.rotate = new Rotate(-View.Bearing);
+            northLabel.style.rotate = new Rotate(View.Bearing);
+            mapRulers.style.opacity = 1f - Mathf.InverseLerp(0f, 8f, Mathf.Abs(View.Bearing));
+        }
+
+        private void UpdateOpeningImage(Rect viewport, Vector2 displaySize, WorldMapAperture? aperture)
+        {
+            panel.EnableInClassList("revealing", aperture.HasValue);
+            if (aperture is WorldMapAperture opening)
+            {
+                float appliedHeight = root.contentRect.height;
+                float pixelsPerUnit = appliedHeight > 0 ? viewport.height / appliedHeight : 1f;
+                Vector2 gridOffset = mapGrid.offset * pixelsPerUnit;
+                var grid = new Vector4(gridOffset.x, gridOffset.y,
+                    mapGrid.gridLength * pixelsPerUnit, mapGrid.width * pixelsPerUnit);
+                mapOpeningImage.image = mapRenderer.RenderOpening(mapImage.image, displaySize, viewport, opening,
+                    View.Bearing, grid, mapGrid.color);
+            }
+            else if (mapOpeningImage.image != null)
+            {
+                mapOpeningImage.image = null;
+                mapRenderer.EndOpening();
+            }
+        }
+
+        private void RefreshVisuals(Rect viewport)
         {
             foreach (var choice in pinChoices) choice.MarkDirtyRepaint();
             Texture fog = checkpointManager != null ? checkpointManager.GetFog(map) : null;
             int fogRevision = checkpointManager != null ? checkpointManager.Revision : 0;
             mapRenderer.WaterTime = Time.unscaledTime - mapOpenedAt;
-            if (dirty || View.Center != lastRenderedCenter || View.ViewSize != lastRenderedSize || lastFogRevision != fogRevision)
+            Vector2 screenSize = viewport.size;
+            Vector2 projectedSize = View.ProjectedViewSize;
+            float turn = TransitionTurn;
+            Vector2 displaySize = new Vector2(Screen.width, Screen.height);
+            Vector2 mapAnchor = ShowsWholeMap ? viewport.center : displaySize * .5f;
+            Vector2 playerScreen = Vector2.Scale(openingPlayerScreenFraction, displaySize);
+            Vector2 screenAnchor = Vector2.Lerp(playerScreen, mapAnchor, turn);
+            Vector2 focus = Vector2.Lerp(openingPlayerMapPosition, View.Center, turn);
+            View.AnchorProjection(focus, (screenAnchor - viewport.center) / screenSize);
+            Vector2 projectedCenter = View.ProjectedCenter;
+            if (dirty || projectedCenter != lastRenderedCenter || projectedSize != lastRenderedSize
+                || View.Bearing != lastRenderedBearing || lastFogRevision != fogRevision)
             {
                 mapRenderer.Render(map, View, (int)screenSize.x, (int)screenSize.y, fog);
-                lastRenderedCenter = View.Center;
-                lastRenderedSize = View.ViewSize;
+                lastRenderedCenter = projectedCenter;
+                lastRenderedSize = projectedSize;
+                lastRenderedBearing = View.Bearing;
                 dirty = false;
                 lastFogRevision = fogRevision;
             }
             else mapRenderer.RenderWaterFrame(map);
             RefreshMapDataPresentation();
+            WorldMapAperture? aperture = transitionProgress < 1f
+                ? new WorldMapAperture(displaySize, playerScreen, Mathf.SmoothStep(0f, 1f, transitionProgress))
+                : null;
+            UpdateOpeningImage(viewport, displaySize, aperture);
             Vector2 uiSize = root.contentRect.size;
             if (uiSize.x <= 0 || uiSize.y <= 0) return;
+            float MarkerOpacity(Vector2 position, float extent)
+            {
+                if (aperture is not WorldMapAperture opening) return 1f;
+                Vector2 local = new Vector2(position.x, uiSize.y - position.y) / uiSize;
+                Vector2 pixel = viewport.min + Vector2.Scale(local, viewport.size);
+                return opening.OpacityAt(pixel, extent * viewport.height / uiSize.y);
+            }
+
+            Rect compassBounds = northIndicator.worldBound;
+            northIndicator.style.opacity = MarkerOpacity(root.WorldToLocal(compassBounds.center), compassBounds.size.magnitude * .5f);
+            Rect noticeBounds = mapDataNotice.worldBound;
+            mapDataNoticeLayer.style.opacity = MarkerOpacity(root.WorldToLocal(noticeBounds.center), noticeBounds.size.magnitude * .5f);
             if (unknownSignalWorldPosition is Vector2 signalWorldPosition)
             {
                 Vector2 signalPosition = View.ToScreen(WorldToMap(signalWorldPosition), uiSize);
@@ -736,6 +857,7 @@ namespace AnimalGame.World.Map
                 if (visible)
                 {
                     PositionCircle(unknownSignal, signalPosition, UnknownSignalRadius);
+                    unknownSignal.style.opacity = MarkerOpacity(signalPosition, UnknownSignalRadius);
                     unknownSignal.MarkDirtyRepaint();
                 }
             }
@@ -750,6 +872,7 @@ namespace AnimalGame.World.Map
                     pinElements[i].MarkDirtyRepaint();
                     Vector2 pinPosition = View.ToScreen(View.Pins[i], uiSize);
                     PositionCircle(pinElements[i], pinPosition, radius);
+                    pinElements[i].style.opacity = MarkerOpacity(pinPosition, radius * 2f);
                     if (pinPosition.x < 0 || pinPosition.x > uiSize.x
                         || pinPosition.y < 0 || pinPosition.y > uiSize.y)
                     {
@@ -762,14 +885,18 @@ namespace AnimalGame.World.Map
                         var edge = edgePinElements[i];
                         edge.style.display = DisplayStyle.Flex;
                         PositionCircle(edge, edgePosition, radius);
+                        edge.style.opacity = .25f * MarkerOpacity(edgePosition, radius * 2f);
                         edge.MarkDirtyRepaint();
                     }
                 }
             }
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
-            PositionCircle(playerIcon, View.ToScreen(WorldToMap(bootstrap.robotObject.transform.position), uiSize), radius * 1.5f);
-            playerIcon.style.rotate = new Rotate(openingPlayerBearing);
-            PositionCircle(cursor, View.ToScreen(View.DisplayCursor, uiSize), radius);
+            Vector2 playerPosition = View.ToScreen(WorldToMap(bootstrap.robotObject.transform.position), uiSize);
+            PositionCircle(playerIcon, playerPosition, radius * 1.5f);
+            playerIcon.style.opacity = MarkerOpacity(playerPosition, radius * 2f);
+            playerIcon.style.rotate = new Rotate(openingPlayerBearing - View.Bearing);
+            if (!closing && transitionProgress == 1f)
+                PositionCircle(cursor, View.ToScreen(View.DisplayCursor, uiSize), radius);
         }
 
         private void RefreshMapDataPresentation()
@@ -846,13 +973,24 @@ namespace AnimalGame.World.Map
 
         internal void CloseFor(StationLogUI terminal)
         {
-            if (surveyTerminal == terminal) Close();
+            if (surveyTerminal == terminal) FinishClose();
         }
 
         public void Close()
         {
+            if (!IsOpen || closing) return;
+            if (transitionProgress == 0f) { FinishClose(); return; }
+            HideHoverCoordinates(true);
+            centeringMapView = false;
+            closing = true;
+            cursor.style.visibility = Visibility.Hidden;
+        }
+
+        private void FinishClose()
+        {
             if (!IsOpen) return;
             IsOpen = false;
+            closing = false;
             HideHoverCoordinates(true);
             centeringMapView = false;
             if (active == this) active = null;
@@ -862,6 +1000,7 @@ namespace AnimalGame.World.Map
             mapDataNoticeStartsAt = -1f;
             EndSurveySweep();
             mapImage.image = null;
+            mapOpeningImage.image = null;
             checkpointManager = null;
             mapRenderer.Dispose(); mapRenderer = null;
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
@@ -873,7 +1012,7 @@ namespace AnimalGame.World.Map
 
         private void OnDisable()
         {
-            Close();
+            FinishClose();
             if (cursor != null) cursor.generateVisualContent -= DrawMapCursor;
             if (northIndicator != null) northIndicator.generateVisualContent -= DrawNorthIndicator;
             if (unknownSignal != null) unknownSignal.generateVisualContent -= DrawUnknownSignal;

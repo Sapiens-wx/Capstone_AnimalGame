@@ -2,20 +2,41 @@
     position: absolute;
     left: 0; top: 0; right: 0; bottom: 0;
     display: none;
-    background-color: black;
     overflow: hidden;
+}
+#map-opening-image, #map-content, #map-data-notice-layer {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+}
+#map-opening-image {
+    display: none;
+}
+#map-content {
+    background-color: black;
+}
+#world-map.revealing #map-opening-image {
+    display: flex;
+}
+#world-map.revealing #map-content {
+    background-color: transparent;
+}
+#world-map.revealing #map-image, #world-map.revealing #map-grid {
+    visibility: hidden;
 }
 #map-image {
     position: absolute;
     left: 0; top: 0; right: 0; bottom: 0;
     -unity-background-scale-mode: stretch-to-fill;
 }
-#map-frame {
+.map-frame-region {
     position: absolute;
     left: 2%; right: 2%; top: 3%; bottom: 7%;
     border-width: 1px;
-    border-color: white;
+    border-color: transparent;
     overflow: hidden;
+}
+#map-frame {
+    border-color: white;
 }
 #map-viewport {
     position: absolute;
@@ -86,7 +107,6 @@
 #map-grid {
     position: absolute;
     left: 0; top: 0; right: 0; bottom: 0;
-    overflow: hidden;
 }
 #map-unknown-signal {
     position: absolute;
@@ -124,6 +144,7 @@
     position: absolute;
     left: 8px; top: -14px;
     width: 120px; height: 180px;
+    transform-origin: 60px 108px;
 }
 #map-north-label {
     position: absolute;

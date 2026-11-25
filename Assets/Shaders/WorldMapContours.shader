@@ -59,7 +59,8 @@ Shader "AnimalGame/World Map Contours"
             sampler2D _HeightTex;
             sampler2D _CheckpointFogTex;
             float2 _MapSizeMeters;
-            float4 _TileRect, _ViewRect;
+            float4 _TileRect;
+            float4x4 _MapToClip;
             float _MinimumHeight, _MaximumHeight;
             float _VisibleMinimumHeight, _VisibleMaximumHeight;
             float _MinimumLineWidth, _MaximumLineWidth;
@@ -76,11 +77,7 @@ Shader "AnimalGame/World Map Contours"
                 v2f output;
                 output.uv = input.vertex.xy;
                 float2 mapPosition = _TileRect.xy + output.uv * _TileRect.zw;
-                float2 clip = (mapPosition - _ViewRect.xy) / _ViewRect.zw * 2 - 1;
-                #if UNITY_UV_STARTS_AT_TOP
-                clip.y = -clip.y;
-                #endif
-                output.vertex = float4(clip, 0, 1);
+                output.vertex = mul(_MapToClip, float4(mapPosition, 0, 1));
                 return output;
             }
 
@@ -89,7 +86,6 @@ Shader "AnimalGame/World Map Contours"
                 float heightMeters = lerp(_MinimumHeight, _MaximumHeight, saturate(tex2D(_HeightTex, input.uv).r));
                 float contourBlend = HeightContourBlend(heightMeters);
                 float2 mapPosition = _TileRect.xy + input.uv * _TileRect.zw;
-                float2 metresPerPixel = fwidth(mapPosition);
                 float brightness = contourBlend;
                 if (_WaterEnabled > .5)
                 {
@@ -102,7 +98,7 @@ Shader "AnimalGame/World Map Contours"
                 }
                 float unknown = tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
                 if (unknown > 0)
-                    brightness = lerp(brightness, UnknownRegionColor(mapPosition, metresPerPixel), unknown);
+                    brightness = lerp(brightness, UnknownRegionColor(mapPosition, _MapMetresPerPixel), unknown);
                 return fixed4(brightness.xxx, 1);
             }
             ENDCG
@@ -162,21 +158,22 @@ Shader "AnimalGame/World Map Contours"
             #pragma target 3.0
 
             sampler2D _MainTex, _CheckpointFogTex, _PreviousCheckpointFogTex;
-            float4 _MainTex_TexelSize, _ViewRect, _RevealWave, _FaultTint;
-            float2 _MapSizeMeters;
+            float4 _RevealWave, _FaultTint;
+            float4x4 _MapFromViewport;
+            float2 _MapSizeMeters, _MapMetresPerPixel;
 
             fixed4 fragReveal(v2f_img input) : SV_Target
             {
                 fixed4 mapColor = tex2D(_MainTex, input.uv);
                 if (mapColor.a == 0) return mapColor;
 
-                float2 mapPosition = _ViewRect.xy + input.uv * _ViewRect.zw;
+                float2 mapPosition = mul(_MapFromViewport, float4(input.uv, 0, 1)).xy;
                 float2 fogUv = mapPosition / _MapSizeMeters;
                 float currentFog = tex2D(_CheckpointFogTex, fogUv).r;
                 float change = tex2D(_PreviousCheckpointFogTex, fogUv).r - currentFog;
                 if (change <= 0) return mapColor;
 
-                float2 metresPerPixel = abs(_MainTex_TexelSize.xy) * _ViewRect.zw;
+                float2 metresPerPixel = _MapMetresPerPixel;
                 float2 offset = mapPosition - _RevealWave.xy;
                 float distance = length(offset);
                 float radialPixel = max(1e-5, length(metresPerPixel * offset / max(1e-5, distance)));
@@ -194,6 +191,43 @@ Shader "AnimalGame/World Map Contours"
                 float envelope = smoothstep(0, .06, progress) * (1 - smoothstep(.84, 1, progress));
                 color = lerp(color, _FaultTint.rgb, .8 * change * stroke * envelope);
                 return fixed4(color, mapColor.a);
+            }
+            ENDCG
+        }
+        Pass
+        {
+            Name "OPENING_APERTURE"
+            Cull Off ZWrite Off ZTest Always
+            CGPROGRAM
+            #pragma vertex vert_img
+            #pragma fragment fragOpening
+            #pragma target 3.0
+
+            sampler2D _MainTex;
+            float2 _OpeningDisplaySize, _OpeningCenter;
+            float4 _OpeningViewport, _OpeningEdge;
+            float4 _OpeningGrid, _OpeningGridColor;
+
+            fixed4 fragOpening(v2f_img input) : SV_Target
+            {
+                float2 pixel = input.uv * _OpeningDisplaySize;
+                float distance = length(pixel - _OpeningCenter) - _OpeningEdge.x;
+                float alpha = 1 - smoothstep(-_OpeningEdge.y, 0, distance);
+                if (alpha <= 0) return 0;
+                float2 mapUv = (pixel - _OpeningViewport.xy) / _OpeningViewport.zw;
+                if (any(mapUv < 0) || any(mapUv > 1)) return fixed4(0, 0, 0, alpha);
+
+                float3 color = tex2D(_MainTex, mapUv).rgb;
+                float2 gridPoint = (mapUv - .5) * _OpeningViewport.zw * float2(1, -1);
+                float2 axis = _OpeningEdge.zw;
+                float2 grid = float2(dot(gridPoint, float2(axis.x, -axis.y)), dot(gridPoint, axis.yx));
+                grid += .5 * _OpeningViewport.zw - _OpeningGrid.xy;
+                float period = max(1, _OpeningGrid.z);
+                float2 lineDistance = abs(frac(grid / period + .5) - .5) * period;
+                float2 coverage = saturate(.5 + _OpeningGrid.w * .5 - lineDistance)
+                    - saturate(.5 - _OpeningGrid.w * .5 - lineDistance);
+                color = lerp(color, _OpeningGridColor.rgb, max(coverage.x, coverage.y) * _OpeningGridColor.a);
+                return fixed4(color, alpha);
             }
             ENDCG
         }

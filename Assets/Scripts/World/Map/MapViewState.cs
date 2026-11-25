@@ -8,6 +8,7 @@ namespace AnimalGame.World.Map
     {
         public const int PinLimit = 3;
         private readonly List<Vector2> pins = new List<Vector2>(PinLimit);
+        private Vector2 projectionOffset;
         public IReadOnlyList<Vector2> Pins => pins;
         private readonly List<int> pinShapes = new List<int>(PinLimit);
         public int GetPinShape(int index) => pinShapes[index];
@@ -25,6 +26,12 @@ namespace AnimalGame.World.Map
         public Vector2 DisplayCursor => SelectedPin >= 0 ? pins[SelectedPin] : Cursor;
         public Vector2 ViewSize { get; private set; }
         public int SelectedPin { get; private set; } = -1;
+        internal float Bearing { get; set; }
+        internal Vector2? TransitionViewSize { get; set; }
+        internal Vector2 ProjectedCenter => Center + projectionOffset;
+        internal Vector2 ProjectedViewSize => TransitionViewSize ?? ViewSize;
+        internal Matrix4x4 MapFromView => Matrix4x4.TRS(ProjectedCenter,
+            Quaternion.AngleAxis(-Bearing, Vector3.forward), Vector3.one);
 
         public void Open(Vector2 player, Vector2 viewSize, Vector2 mapSize)
         {
@@ -33,6 +40,15 @@ namespace AnimalGame.World.Map
             ViewSize = viewSize;
             SelectedPin = -1;
             SelectedPinShape = 0;
+            Bearing = 0f;
+            TransitionViewSize = null;
+            projectionOffset = Vector2.zero;
+        }
+
+        internal void AnchorProjection(Vector2 focus, Vector2 viewportOffset)
+        {
+            Vector2 viewShift = Vector2.Scale(viewportOffset, ProjectedViewSize);
+            projectionOffset = focus - Center - (Vector2)(Quaternion.AngleAxis(-Bearing, Vector3.forward) * viewShift);
         }
 
         public void SetFocus(Vector2 center, Vector2 cursor, Vector2 mapSize)
@@ -106,7 +122,9 @@ namespace AnimalGame.World.Map
 
         public Vector2 ToScreen(Vector2 position, Vector2 screenSize)
         {
-            Vector2 uv = Divide(position - Center, ViewSize) + Vector2.one * .5f;
+            Vector2 offset = position - ProjectedCenter;
+            if (Bearing != 0f) offset = Quaternion.AngleAxis(Bearing, Vector3.forward) * offset;
+            Vector2 uv = Divide(offset, ProjectedViewSize) + Vector2.one * .5f;
             return new Vector2(uv.x * screenSize.x, (1 - uv.y) * screenSize.y);
         }
 
