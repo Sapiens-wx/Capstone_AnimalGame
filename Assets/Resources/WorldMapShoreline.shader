@@ -15,9 +15,9 @@ Shader "Hidden/AnimalGame/World Map Shoreline"
             #include "UnityCG.cginc"
 
             sampler2D _CheckpointFogTex;
-            float2 _MapSizeMeters, _MapMetresPerPixel, _MapViewZoom;
+            float2 _MapSizeMeters, _MapMetresPerPixel;
             float4x4 _ShorelineClipFromMap;
-            float _ShorelineOpacity;
+            float _ShorelinePatternMetresPerPixel, _ShorelineHalfWidth, _ShorelineOpacity;
 
             struct ShoreInput
             {
@@ -30,37 +30,46 @@ Shader "Hidden/AnimalGame/World Map Shoreline"
             {
                 float4 vertex : SV_POSITION;
                 float2 mapPosition : TEXCOORD0;
-                float3 stroke : TEXCOORD1;
+                float3 stroke : TEXCOORD1; // dash phase, cycles per pixel, side
             };
 
-            float ShoreZoom()
+            float ShoreMetresPerPixel()
             {
-                return sqrt(_MapViewZoom.x * _MapViewZoom.y);
+                return sqrt(_MapMetresPerPixel.x * _MapMetresPerPixel.y);
+            }
+
+            float ShoreDashCoverage(float phase, float cyclesPerPixel)
+            {
+                // Integrate one pixel of the periodic dash, even when it spans more than one repeat.
+                const float dashFill = .55;
+                float start = frac(phase) + .5 * (dashFill - cyclesPerPixel);
+                float end = start + cyclesPerPixel;
+                float wholeCycles = floor(end) - floor(start);
+                float covered = wholeCycles * dashFill + min(frac(end), dashFill) - min(frac(start), dashFill);
+                return saturate(covered / cyclesPerPixel);
             }
 
             ShoreOutput ShoreVertex(ShoreInput input)
             {
                 ShoreOutput output;
-                float halfWidth = 1.4 * max(1, ShoreZoom());
-                output.mapPosition = input.vertex.xy + input.join * (halfWidth + .5) * _MapMetresPerPixel;
+                float metresPerPixel = ShoreMetresPerPixel();
+                output.mapPosition = input.vertex.xy + input.join * (_ShorelineHalfWidth + .5) * _MapMetresPerPixel;
                 output.vertex = mul(_ShorelineClipFromMap, float4(output.mapPosition, 0, 1));
-                output.stroke = input.stroke;
+                // Fit the closed loop at its reference scale, independent of camera zoom.
+                float dashCount = max(1, round(input.stroke.y / (40 * _ShorelinePatternMetresPerPixel)));
+                output.stroke = float3(input.stroke.x * dashCount, metresPerPixel * dashCount / input.stroke.y, input.stroke.z);
                 return output;
             }
 
             fixed4 ShoreFragment(ShoreOutput input) : SV_Target
             {
-                float zoom = ShoreZoom();
-                float perimeterPixels = input.stroke.y / sqrt(_MapMetresPerPixel.x * _MapMetresPerPixel.y);
-                // Fit a whole number of dashes so the closed loop has a continuous phase.
-                float dashCount = max(1, round(perimeterPixels / max(16, 40 * zoom)));
-                float period = perimeterPixels / dashCount;
-                float distanceToDash = abs(frac(input.stroke.x * dashCount + .5) - .5) * period;
-                float halfLength = period * .275;
-                float dash = 1 - smoothstep(halfLength - .45, halfLength + .45, distanceToDash);
-                float halfWidth = 1.4 * max(1, zoom);
+                float dash = ShoreDashCoverage(input.stroke.x, input.stroke.y);
+                float halfWidth = _ShorelineHalfWidth;
                 float edge = abs(input.stroke.z) * (halfWidth + .5);
-                float coverage = 1 - smoothstep(halfWidth - .5, halfWidth + .5, edge);
+                // Integrate subpixel widths so the minimum-width stroke keeps its brightness as it moves between pixels.
+                float boxCoverage = saturate(halfWidth + .5 - edge) - saturate(.5 - halfWidth - edge);
+                float softCoverage = smoothstep(-.5, .5, halfWidth - edge) - smoothstep(-.5, .5, -halfWidth - edge);
+                float coverage = lerp(boxCoverage, softCoverage, saturate(2 * halfWidth - 1));
                 float known = 1 - tex2D(_CheckpointFogTex, input.mapPosition / _MapSizeMeters).r;
                 return fixed4(1, 1, 1, _ShorelineOpacity * known * coverage * dash);
             }

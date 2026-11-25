@@ -145,7 +145,10 @@ namespace AnimalGame.Editor
             source.SetPixels(pixels); source.Apply();
             var controller = go.AddComponent<MapTestSceneController>();
             var type = typeof(WorldMapUI).Assembly.GetType("AnimalGame.World.Map.WorldMapRenderer", true);
-            var renderer = (IDisposable)Activator.CreateInstance(type, new object[] { Shader.Find("AnimalGame/World Map Contours") });
+            var renderer = (IDisposable)Activator.CreateInstance(type, new object[]
+            {
+                Shader.Find("AnimalGame/World Map Contours"), Vector2.one * (140f / 512)
+            });
             try
             {
                 using (var fixture = new TiledMapTestFixture(controller, source, 140, 1, 140))
@@ -222,6 +225,11 @@ namespace AnimalGame.Editor
             fog.SetPixels(new[] { Color.black, Color.white }); fog.Apply();
             try
             {
+                // This fixture uses a hard-edged mask without baked shoreline geometry.
+                // Set the normal-zoom stroke to the reference width so it covers the sampled pixel.
+                var settings = new SerializedObject(map.Presentation);
+                settings.FindProperty("minimumContourWidth").floatValue = 2.65f;
+                settings.ApplyModifiedPropertiesWithoutUndo();
                 state.Resize(Vector2.one * 140);
                 Color[] dry = Render(type, renderer, map, state);
                 Color[] dryWithFog = Render(type, renderer, map, state, fog);
@@ -241,10 +249,10 @@ namespace AnimalGame.Editor
                     if (water[row + 127].r >= .30f && water[row - 512 + 127].r < .30f) bankDashes++;
                 }
                 Require(bankDashes >= 5 && bankDashes <= 6, "The water edge is missing 40-pixel dash spacing.");
-                const float expectedBankPeak = .5f * .84375f; // 50% opacity at the fixture's antialiased shore pixel.
+                const float expectedBankPeak = .44f * .84375f; // 44% opacity at the fixture's antialiased shore pixel.
                 Require(Mathf.Abs(bankPeak - expectedBankPeak) < .02f
                     || Mathf.Abs(bankPeak - Mathf.LinearToGammaSpace(expectedBankPeak)) < .02f,
-                    "The water edge did not render at 50% opacity before antialiasing: " + bankPeak);
+                    "The water edge did not render at 44% opacity before antialiasing: " + bankPeak);
                 CheckWaterHatch(water);
                 state.Resize(Vector2.one * 70);
                 CheckHatchZoom(water, Render(type, renderer, map, state));
@@ -383,7 +391,7 @@ namespace AnimalGame.Editor
                 int i = y * 512 + x;
                 if (frame[i - 1].r < peak * .5f && frame[i].r >= peak * .5f) bands++;
             }
-            Require(bands >= 10 * 64 && bands <= 15 * 64, "The water hatches aren't evenly spaced.");
+            Require(bands >= 3 * 64 && bands <= 5 * 64, "The water hatches don't match the 24-pixel spacing.");
         }
 
         private static Color[] Render(Type type, IDisposable renderer, MapTestSceneController map, MapViewState state, Texture fog = null)

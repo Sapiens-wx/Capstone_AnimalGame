@@ -743,7 +743,7 @@ public sealed class HeightMapSurfacePainterWindow : EditorWindow
             destination.ApplyModifiedPropertiesWithoutUndo();
             if (changed || source.SurfaceBakeNeedsUpgrade || source == sourceLevelAsset)
             {
-                if (!HeightMapSurfaceBaker.Bake(source, false))
+                if (!HeightMapSurfaceBaker.Bake(source, false, mapController?.LevelAsset))
                     return false;
             }
         }
@@ -1321,7 +1321,7 @@ internal static class HeightMapSurfaceBaker
     private static readonly int[] NeighbourY =
         { -1, -1, -1, 0, 0, 1, 1, 1 };
 
-    public static bool Bake(HeightMapLevelAsset level, bool registerUndo)
+    public static bool Bake(HeightMapLevelAsset level, bool registerUndo, TiledLevelAsset tiledMap = null)
     {
         if (level == null)
         {
@@ -1382,7 +1382,7 @@ internal static class HeightMapSurfaceBaker
             if (level.SurfaceClosedContourAlphaEnabled)
             {
                 staticContourAlphaTexture =
-                    StaticClosedContourAlphaBuilder.Build(level);
+                    StaticClosedContourAlphaBuilder.Build(level, tiledMap);
             }
             BuildPaletteTextures(
                 level,
@@ -2176,7 +2176,7 @@ internal static class StaticClosedContourAlphaBuilder
     private static readonly int[] NeighbourY =
         { -1, -1, -1, 0, 0, 1, 1, 1 };
 
-    public static Texture2D Build(HeightMapLevelAsset level)
+    public static Texture2D Build(HeightMapLevelAsset level, TiledLevelAsset tiledMap)
     {
         if (level == null || !level.IsValid)
         {
@@ -2188,28 +2188,37 @@ internal static class StaticClosedContourAlphaBuilder
             level.SurfaceClosedContourAlphaResolution,
             128,
             1024);
-        int pixelCount = resolution * resolution;
-        var heights = new float[pixelCount];
-
-        using (BakedHeightField heightField = BakedHeightField.Bake(
-                   level.HeightMap,
-                   resolution,
-                   level.MapSizeMeters,
-                   level.MinimumHeightMeters,
-                   level.MaximumHeightMeters,
-                   level.NormalizeSourceRange,
-                   level.SurfaceSmoothingSigmaMeters))
+        TiledLevelAsset.Tile centre = null;
+        if (tiledMap != null)
         {
-            for (int y = 0; y < resolution; y++)
+            foreach (var tile in tiledMap.Tiles)
             {
-                int row = y * resolution;
-                for (int x = 0; x < resolution; x++)
-                {
-                    heights[row + x] =
-                        heightField.GetSurfaceHeightSample(x, y);
-                }
+                if (tile.level != level) continue;
+                centre = tile;
+                break;
             }
         }
+        float configuredFadeDistance = Mathf.Max(.1f, level.SurfaceClosedContourFadeDistanceMeters);
+        float smallestPixel = Mathf.Min(level.MapSizeMeters.x, level.MapSizeMeters.y) / resolution;
+        // Include the full fade on both sides of any contour that crosses the tile boundary.
+        int padding = centre != null && tiledMap.Tiles.Count > 1
+            ? Mathf.CeilToInt(2 * configuredFadeDistance / smallestPixel) + 1 : 0;
+        int sampleSize = resolution + 2 * padding;
+        var heights = new float[sampleSize * sampleSize];
+        if (padding > 0)
+        {
+            Array.Fill(heights, float.NaN);
+            foreach (var tile in tiledMap.Tiles)
+            {
+                Vector2Int offset = (tile.coordinate - centre.coordinate) * resolution;
+                SampleHeights(tile.level, resolution, heights, sampleSize, offset.x + padding, offset.y + padding);
+            }
+        }
+        else
+        {
+            SampleHeights(level, resolution, heights, sampleSize, 0, 0);
+        }
+        int pixelCount = heights.Length;
 
         var smallestContainingArea = new float[pixelCount];
         var distanceWithinSmallestRegionMeters = new float[pixelCount];
@@ -2226,11 +2235,20 @@ internal static class StaticClosedContourAlphaBuilder
         float interval = Mathf.Max(0.0001f, level.ContourIntervalMeters);
         float minimumHeight = level.MinimumHeightMeters;
         float maximumHeight = level.MaximumHeightMeters;
-        int contourCount = Mathf.FloorToInt(
-            (maximumHeight - minimumHeight) / interval);
+        float sampledMinimum = float.PositiveInfinity;
+        float sampledMaximum = float.NegativeInfinity;
+        foreach (float height in heights)
+        {
+            if (float.IsNaN(height)) continue;
+            sampledMinimum = Mathf.Min(sampledMinimum, height);
+            sampledMaximum = Mathf.Max(sampledMaximum, height);
+        }
+        int firstContour = Mathf.Max(1, Mathf.CeilToInt((sampledMinimum - minimumHeight) / interval));
+        int lastContour = Mathf.FloorToInt((sampledMaximum - minimumHeight) / interval);
+        Vector2 sampleExtent = level.MapSizeMeters * (sampleSize / (float)resolution);
         float maximumThreshold = maximumHeight - 0.0001f;
-        for (int contourIndex = 1;
-             contourIndex <= contourCount;
+        for (int contourIndex = firstContour;
+             contourIndex <= lastContour;
              contourIndex++)
         {
             float threshold = minimumHeight + contourIndex * interval;
@@ -2239,11 +2257,10 @@ internal static class StaticClosedContourAlphaBuilder
 
             // A contour region can surround either a hill (highland component)
             // or a depression (lowland component), so both sides are indexed.
-            // Lines reaching the rectangular map border are closed by that border.
             AccumulateClosedComponents(
                 heights,
-                resolution,
-                level.MapSizeMeters,
+                sampleSize,
+                sampleExtent,
                 threshold,
                 true,
                 level.SurfaceClosedContourMinimumAreaSquareMeters,
@@ -2256,8 +2273,8 @@ internal static class StaticClosedContourAlphaBuilder
                 maximumDistanceWithinSmallestRegionMeters);
             AccumulateClosedComponents(
                 heights,
-                resolution,
-                level.MapSizeMeters,
+                sampleSize,
+                sampleExtent,
                 threshold,
                 false,
                 level.SurfaceClosedContourMinimumAreaSquareMeters,
@@ -2279,18 +2296,18 @@ internal static class StaticClosedContourAlphaBuilder
         float edgeHoldDistance = Mathf.Max(
             0f,
             level.SurfaceClosedContourEdgeHoldDistanceMeters);
-        float configuredFadeDistance = Mathf.Max(
-            0.1f,
-            level.SurfaceClosedContourFadeDistanceMeters);
         float fadeStrength = Mathf.Max(
             0.1f,
             level.SurfaceClosedContourFadeStrength);
-        var multipliers = new float[pixelCount];
-        for (int index = 0; index < pixelCount; index++)
+        var multipliers = new float[resolution * resolution];
+        for (int y = 0; y < resolution; y++)
+        for (int x = 0; x < resolution; x++)
         {
+            int index = (y + padding) * sampleSize + x + padding;
+            int output = y * resolution + x;
             if (float.IsPositiveInfinity(smallestContainingArea[index]))
             {
-                multipliers[index] = outsideMultiplier;
+                multipliers[output] = outsideMultiplier;
                 continue;
             }
 
@@ -2298,7 +2315,7 @@ internal static class StaticClosedContourAlphaBuilder
                 maximumDistanceWithinSmallestRegionMeters[index];
             if (regionMaximumDistance <= 0.0001f)
             {
-                multipliers[index] = edgeMultiplier;
+                multipliers[output] = edgeMultiplier;
                 continue;
             }
 
@@ -2326,7 +2343,7 @@ internal static class StaticClosedContourAlphaBuilder
             float fadeAmount = 1f - Mathf.Pow(
                 1f - smoothDistance,
                 fadeStrength);
-            multipliers[index] = Mathf.Lerp(
+            multipliers[output] = Mathf.Lerp(
                 edgeMultiplier,
                 centreMultiplier,
                 fadeAmount);
@@ -2347,6 +2364,27 @@ internal static class StaticClosedContourAlphaBuilder
         texture.SetPixelData(multipliers, 0);
         texture.Apply(false, true);
         return texture;
+    }
+
+    private static void SampleHeights(HeightMapLevelAsset level, int resolution, float[] heights,
+        int sampleSize, int offsetX, int offsetY)
+    {
+        int xMin = Mathf.Max(0, offsetX);
+        int yMin = Mathf.Max(0, offsetY);
+        int xMax = Mathf.Min(sampleSize, offsetX + resolution);
+        int yMax = Mathf.Min(sampleSize, offsetY + resolution);
+        if (xMin >= xMax || yMin >= yMax) return;
+
+        using var field = BakedHeightField.Bake(level.HeightMap, resolution, level.MapSizeMeters,
+            level.MinimumHeightMeters, level.MaximumHeightMeters, level.NormalizeSourceRange,
+            level.SurfaceSmoothingSigmaMeters);
+        for (int y = yMin; y < yMax; y++)
+        for (int x = xMin; x < xMax; x++)
+        {
+            // Sample texel centres on both sides of a seam without duplicating the shared edge.
+            var uv = new Vector2((x - offsetX + .5f) / resolution, (y - offsetY + .5f) / resolution);
+            heights[y * sampleSize + x] = field.SampleSurfaceHeight(uv);
+        }
     }
 
     private static void AccumulateClosedComponents(
@@ -2408,6 +2446,8 @@ internal static class StaticClosedContourAlphaBuilder
 
                     int neighbourIndex =
                         neighbourY * resolution + neighbourX;
+                    if (float.IsNaN(heights[neighbourIndex]))
+                        continue;
                     if (!IsInsideThreshold(
                             heights[neighbourIndex],
                             threshold,
@@ -2443,9 +2483,7 @@ internal static class StaticClosedContourAlphaBuilder
         for (int component = 0; component < componentCount; component++)
         {
             float area = componentPixelCounts[component] * pixelArea;
-            // The rectangular map boundary closes edge-reaching contours. A
-            // real threshold transition is still required so a uniform map is
-            // not mistaken for one giant contour region.
+            // An open component still needs a real contour to contribute.
             bool valid = componentHasContourBoundary[component]
                          && area >= minimumAreaSquareMeters;
             validComponents[component] = valid;
@@ -2479,9 +2517,10 @@ internal static class StaticClosedContourAlphaBuilder
                 if (neighbourX < 0
                     || neighbourX >= resolution
                     || neighbourY < 0
-                    || neighbourY >= resolution
-                    || labels[neighbourY * resolution + neighbourX]
-                    != component)
+                    || neighbourY >= resolution)
+                    continue;
+                int adjacent = neighbourY * resolution + neighbourX;
+                if (!float.IsNaN(heights[adjacent]) && labels[adjacent] != component)
                 {
                     isBoundary = true;
                     break;

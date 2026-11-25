@@ -12,7 +12,8 @@ Shader "AnimalGame/World Map Contours"
         _MaximumCoverage ("Maximum Coverage", Float) = 0.45
         _EdgeSoftness ("Edge Softness", Float) = 0.4
         _WaterFlowSpeed ("Local Water Flow Speed (m/s)", Float) = 10
-        [HideInInspector] _MapBankOpacity ("Map Bank Opacity", Float) = .5
+        [HideInInspector] _MapBankOpacity ("Map Bank Opacity", Float) = .44
+        [HideInInspector] _MapBankWidthScale ("Map Bank Width Scale", Float) = .75
         [HideInInspector] _MainTex ("Map Image", 2D) = "black" {}
         [HideInInspector] _FaultProgress ("Data Fault Progress", Range(0, 1)) = 1
         [HideInInspector] _FaultTint ("Data Fault Tint", Color) = (0.83137255, 0.72156863, 0.32941176, 1)
@@ -66,8 +67,8 @@ Shader "AnimalGame/World Map Contours"
             static const float _ContourInterval = 14;
             #include "HeightContourLines.cginc"
             #include "MapWaterSymbols.cginc"
-            float _DashSubmergedContours, _MapWaterTime, _MapBankOpacity;
-            float2 _MapMetresPerPixel, _MapViewZoom;
+            float _DashSubmergedContours, _MapWaterTime, _MapBankWidthScale, _MapBankOpacity;
+            float2 _MapMetresPerPixel, _MapPatternMetresPerPixel;
 
             struct v2f { float4 vertex : SV_POSITION; float2 uv : TEXCOORD0; };
             v2f vert(appdata_img input)
@@ -96,7 +97,8 @@ Shader "AnimalGame/World Map Contours"
                     if (_DashSubmergedContours > .5)
                         submerged = .25 * contourBlend * SubmergedContourDash(mapPosition, heightMeters);
                     brightness = DrawMapWater(brightness, submerged, input.uv, mapPosition,
-                        _TileRect.zw, _MapMetresPerPixel, _MapViewZoom, _MapWaterTime, true, 8, .12, _MapBankOpacity);
+                        _TileRect.zw, _MapMetresPerPixel, _MapPatternMetresPerPixel, _MapWaterTime, true, 24, .12,
+                        _MapBankWidthScale, _MapBankOpacity);
                 }
                 float unknown = tex2D(_CheckpointFogTex, mapPosition / _MapSizeMeters).r;
                 if (unknown > 0)

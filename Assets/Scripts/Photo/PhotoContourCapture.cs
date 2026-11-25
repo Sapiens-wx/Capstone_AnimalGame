@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using AnimalGame.MapTest;
+using AnimalGame.World.Map;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -112,8 +113,8 @@ namespace AnimalGame.RobotMap
                         * camera.worldToCameraMatrix * mapToWorld;
                     using var commands = new CommandBuffer { name = "Photo water shoreline" };
                     commands.SetRenderTarget(Texture, RenderBufferLoadAction.Load, RenderBufferStoreAction.Store);
-                    shoreline.Draw(commands, clipFromMap, waterMetresPerPixel, Vector2.one,
-                        map.MapSizeMeters, .2f, null);
+                    shoreline.Draw(commands, clipFromMap, waterMetresPerPixel, waterMetresPerPixel,
+                        map.MapSizeMeters, WorldMapShoreline.ReferenceWidthPixels, .2f, null);
                     Graphics.ExecuteCommandBuffer(commands);
                 }
                 return true;
