@@ -1,6 +1,7 @@
 // Only coverage is baked. Pattern pixels are sampled from the original assets.
 #include "RockPatternEdgeFade.cginc"
 #include "SandPatternAlpha.cginc"
+#include "DirtPatternOverlay.cginc"
 
 UNITY_DECLARE_TEX2DARRAY(_TerrainCoverage);
 UNITY_DECLARE_TEX2D(_TerrainPattern1);
@@ -94,21 +95,14 @@ float4 SampleOriginalTerrain(float2 tileUv, float2 mapDx, float2 mapDy)
         float2 dx = mapDx * inverseTileSize, dy = mapDy * inverseTileSize;
         float4 pattern = (id == 5 || id == 6) ? TerrainRandomPattern(id, uv, dx, dy)
             : TerrainOriginal(id, uv, dx, dy);
-        if (id == 11)
-        {
-            float sandScale = rcp(max(.01, _TerrainSettings[9].x));
-            float4 sand = TerrainRandomPattern(9, meters * sandScale,
-                mapDx * sandScale, mapDy * sandScale);
-            sand.a = saturate(sand.a * 2);
-            // Composite source patterns first; the shared coverage fades the combined layer once.
-            float combinedAlpha = pattern.a + sand.a * (1 - pattern.a);
-            pattern.rgb = combinedAlpha > .00001
-                ? (pattern.rgb * pattern.a + sand.rgb * sand.a * (1 - pattern.a)) / combinedAlpha : 0;
-            pattern.a = combinedAlpha;
-        }
         if (id == 9)
         {
             pattern = CompositeSandPattern(pattern, TerrainRandomPattern(9, uv, dx, dy));
+        }
+        else if (id == 11)
+        {
+            pattern = CompositeDirtPattern(pattern,
+                TerrainOriginal(id, DirtOverlayUv(uv), DirtOverlayUv(dx), DirtOverlayUv(dy)));
         }
         // Finish random pattern placement before applying the shared palette/contour opacity.
         float alpha = pattern.a * coverage;

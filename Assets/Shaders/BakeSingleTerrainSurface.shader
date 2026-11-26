@@ -39,6 +39,7 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
             #include "UnityCG.cginc"
             #include "RockPatternEdgeFade.cginc"
             #include "SandPatternAlpha.cginc"
+            #include "DirtPatternOverlay.cginc"
 
             sampler2D _PatternAtlas;
             sampler2D _RockPattern;
@@ -172,9 +173,8 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 // Every 128px atlas cell has two repeated edge pixels on each
                 // side. Sampling its 124px interior prevents bilinear bleeding
                 // between adjacent terrain entries.
-                float2 atlasPixel = float2(cellX, cellY) * 128.0
-                    + 2.5
-                    + repeatedUv * 123.0;
+                float2 atlasOrigin = float2(cellX, cellY) * 128.0 + 2.5;
+                float2 atlasPixel = atlasOrigin + repeatedUv * 123.0;
                 float4 pattern = abs(terrainId - 6.0) < .5
                     ? RandomPatternOverlay(_RockPattern, mapMeters / tileSizeMeters, true)
                     : abs(terrainId - 9.0) < .5 ? tex2D(_SandPattern, repeatedUv)
@@ -184,6 +184,11 @@ Shader "Hidden/AnimalGame/Bake Terrain Surface Palette"
                 if (abs(terrainId - 9.0) < .5)
                 {
                     pattern = CompositeSandPattern(pattern, RandomPatternOverlay(_SandPattern, mapMeters / tileSizeMeters, false));
+                }
+                else if (abs(terrainId - 11.0) < .5)
+                {
+                    float2 overlayPixel = atlasOrigin + frac(DirtOverlayUv(repeatedUv)) * 123.0;
+                    pattern = CompositeDirtPattern(pattern, tex2D(_PatternAtlas, overlayPixel / 2048.0));
                 }
                 pattern.rgb *= tint.rgb;
                 pattern.a *= tint.a;
