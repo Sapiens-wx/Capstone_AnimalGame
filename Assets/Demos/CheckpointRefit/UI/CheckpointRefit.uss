@@ -334,6 +334,7 @@
     color: #D4B854;
     flex-direction: row;
     align-items: center;
+    overflow: visible;
 }
 
 .refit-screen .repair-materials .repair-confirm:hover,
@@ -355,3 +356,10 @@
 .refit-screen .repair-confirm:disabled .repair-hold { border-color: #54544F; color: #82827C; }
 .refit-screen .repair-confirm-caption { font-size: 23px; letter-spacing: 1.9px; -unity-font-style: bold; }
 .refit-screen .repair-message { margin-top: 12px; color: #C7C7BF; font-size: 20px; }
+.refit-screen .repair-tutorial-hint {
+    color: white;
+    font-size: 20px;
+    letter-spacing: 0;
+    -unity-font-definition: resource('UI/Font/Orbitron-Medium');
+    -unity-font-style: normal;
+}

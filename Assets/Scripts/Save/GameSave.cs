@@ -8,15 +8,16 @@ namespace AnimalGame.Save
     [Serializable]
     public sealed class GameSave
     {
-        public static readonly DateTime InitialGameTime = new DateTime(2026, 1, 1);
+        public static readonly DateTime InitialGameTime = new DateTime(3164, 8, 4);
         public DateTime gameTime = InitialGameTime;
         public List<AnimalPhotoRecord> photos = new();
         public List<SpeciesProgress> speciesProgress = new();
         public List<ContactConversation> conversations = new();
         public List<string> syncedStationIds = new();
-        public List<string> poweredStationIds = new();
         public List<string> discoveredRuinIds = new();
         public List<string> completedRepairTutorialIds = new();
+        public bool playedFirstTowerRavenFlyover;
+        public List<string> viewedStationCommunicationsIds = new();
         public SpeciesProgress Progress(AnimalSpecies species) => speciesProgress.Find(p => p.species == species);
     }
 

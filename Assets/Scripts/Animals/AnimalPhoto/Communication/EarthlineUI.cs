@@ -94,12 +94,12 @@ namespace AnimalGame.Animals.Communication
 
         public void Open() => OpenFromStation(null, null);
 
-        internal void OpenFromStation(CommunicationsStation station, Vector3? socketWorld)
+        internal bool OpenFromStation(CommunicationsStation station, Vector3? socketWorld)
         {
-            if (isOpen || GameMainUI.Active == null || GameMainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return;
+            if (isOpen || GameMainUI.Active == null || GameMainUI.BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return false;
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap != null && (bootstrap.photoMode.IsActive || bootstrap.photoResultView.IsShowing
-                || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject))) return;
+                || AnimalGame.Tutorial.TutorialTipOverLesson.BlocksGameplayForReading(bootstrap.robotObject))) return false;
             InitializeView();
             savedTimeScale = Time.timeScale; savedCursorLock = Cursor.lockState;
             isOpen = BlocksGameplay = true; Time.timeScale = 0; Cursor.lockState = CursorLockMode.None;
@@ -114,17 +114,26 @@ namespace AnimalGame.Animals.Communication
             connectedStation = station;
             if (socketWorld.HasValue)
                 transition = new FacilityWindowTransition(root, root.Q("earthline-viewport"), socketWorld.Value);
+            return true;
         }
 
         public void Close()
         {
-            if (transition != null) transition.Close(FinishClose);
-            else FinishClose();
+            if (transition != null) transition.Close(FinishInteraction);
+            else FinishInteraction();
         }
 
         internal void CloseFor(CommunicationsStation station)
         {
             if (connectedStation == station) FinishClose();
+        }
+
+        private void FinishInteraction()
+        {
+            if (!isOpen) return;
+            CommunicationsStation station = connectedStation;
+            FinishClose();
+            if (station != null) station.ReportInteractionCompleted();
         }
 
         private void FinishClose()

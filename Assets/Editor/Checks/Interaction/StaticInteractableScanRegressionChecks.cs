@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using AnimalGame.Animals;
+using AnimalGame.Discovery;
 using AnimalGame.Garbage;
 using AnimalGame.RobotMap;
 using AnimalGame.World;
@@ -255,13 +256,21 @@ namespace AnimalGame.Editor
             using (var other = new Fixture())
             {
                 BioScanController controller = f.Create("Static scan controller").AddComponent<BioScanController>();
-                controller.Initialize(f.View, f.Camera);
+                controller.Initialize(f.View, f.Camera, detectsAnimals: false);
+                var animal = f.Create("Interest scan animal").AddComponent<DiscoverableEntity>();
+                animal.transform.position = new Vector2(2f, 0f);
+                Call(animal, "OnEnable");
+                bool animalDetected = false;
+                controller.AnimalDetected += (_, _) => animalDetected = true;
                 ScannableInteractable near = f.Target(new Vector2(4f, 0f));
                 ScannableInteractable far = f.Target(new Vector2(8f, 0f));
                 ScannableInteractable foreign = other.Target(new Vector2(4f, 0f));
                 Set(controller, "scanWaveOrigin", Vector2.zero);
                 Call(controller, "RevealTargetsCrossedByWave", 0f, 3f);
                 RequireNear(near.RevealRemaining, 7f, "Controller must reveal a static target by its edge.");
+                BioScanAnimalMarkerUI animals = controller.GetComponent<BioScanAnimalMarkerUI>();
+                Require(!animal.IsDiscovered && !animalDetected && ((IDictionary)Get(animals, "markers")).Count == 0,
+                    "An interest-only scan must leave a crossed animal unrecognized and undetected.");
                 Require(far.RevealRemaining == 0f && foreign.RevealRemaining == 0f,
                     "A wave must ignore untouched targets and targets in a different scene.");
                 Tick(near, 3f);
@@ -272,7 +281,6 @@ namespace AnimalGame.Editor
                 Call(controller, "RevealTargetsCrossedByWave", 0f, 3f);
                 RequireNear(near.RevealRemaining, 7f, "A subsequent wave must refresh an existing reveal.");
 
-                BioScanAnimalMarkerUI animals = controller.GetComponent<BioScanAnimalMarkerUI>();
                 Call(animals, "OnDisable");
                 Canvas animalCanvas = (Canvas)Get(animals, "markerCanvas");
                 if (animalCanvas != null) Object.DestroyImmediate(animalCanvas.gameObject);
@@ -2982,6 +2990,8 @@ namespace AnimalGame.Editor
                 foreach (GameObject root in Scene.GetRootGameObjects())
                 {
                     foreach (ScannableInteractable target in root.GetComponentsInChildren<ScannableInteractable>(true))
+                        Call(target, "OnDisable");
+                    foreach (DiscoverableEntity target in root.GetComponentsInChildren<DiscoverableEntity>(true))
                         Call(target, "OnDisable");
                 }
                 ReleaseCameraRenderTarget();

@@ -5,9 +5,13 @@ namespace AnimalGame.World
 {
     internal sealed class WeatherTowerCamera
     {
+        private const float RoofOffsetResponse = 7.5f;
         private RobotCameraShake composer;
         private Object owner;
         private float groundSize;
+        private Vector2 roofViewBias;
+
+        public float ViewRadius => composer != null ? composer.WeatherTowerViewRadius : 0f;
 
         public bool Acquire(Object tower, RobotMover player)
         {
@@ -32,6 +36,15 @@ namespace AnimalGame.World
 
             // The composer stays responsible for the live ground, scan and focus sizes.
             composer.SetWeatherTowerZoom(owner, groundSize * topMultiplier, travel01);
+        }
+
+        public void TrackRoofView(Vector2 target, float deltaTime) =>
+            roofViewBias = Vector2.Lerp(roofViewBias, target, 1f - Mathf.Exp(-RoofOffsetResponse * deltaTime));
+
+        public void ApplyRoofView(float radiusFraction)
+        {
+            if (composer != null)
+                composer.SetWeatherTowerRoofView(owner, roofViewBias * radiusFraction);
         }
 
         public void ApplyLiftFeedback(float progress, float duration, bool ascending)
@@ -60,6 +73,7 @@ namespace AnimalGame.World
                 composer.ReleaseWeatherTowerZoom(owner);
             composer = null;
             owner = null;
+            roofViewBias = Vector2.zero;
         }
 
         private static RobotCameraShake FindComposer(RobotMover player)

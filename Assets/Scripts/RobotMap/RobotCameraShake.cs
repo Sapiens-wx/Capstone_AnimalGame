@@ -481,6 +481,7 @@ namespace AnimalGame.RobotMap
         private UnityEngine.Object weatherTowerZoomOwner;
         private float weatherTowerZoomSize;
         private float weatherTowerZoomBlend;
+        private Vector2 weatherTowerRoofView;
         private Vector3 weatherTowerLiftCameraOffset;
         private Vector2 weatherTowerLiftMotorSpeeds;
         private float scanZoomMultiplier = 1f;
@@ -533,7 +534,7 @@ namespace AnimalGame.RobotMap
         private bool lastSentOpeningDriveRumble;
         private float nextRumbleRefreshTime;
         private bool rumbleWasSent;
-        private bool openingRumbleWasSent;
+        private bool unscaledRumbleWasSent;
         private float lastLandingRumbleTime = float.NegativeInfinity;
         private float lastLandingRumbleStrength;
         private float tumbleHighIntensityUntil = float.NegativeInfinity;
@@ -996,6 +997,24 @@ namespace AnimalGame.RobotMap
             weatherTowerLiftMotorSpeeds = motorSpeeds;
         }
 
+        internal float WeatherTowerViewRadius
+        {
+            get
+            {
+                var hud = GameHud.Active;
+                int height = attachedCamera.pixelHeight;
+                return height > 0 && hud != null && hud.gameObject.scene == gameObject.scene
+                    && hud.TryGetOuterRingScreenGeometry(out _, out float radiusPixels)
+                    ? radiusPixels * (2f * attachedCamera.orthographicSize / height) : 0f;
+            }
+        }
+
+        internal void SetWeatherTowerRoofView(UnityEngine.Object owner, Vector2 radiusFraction)
+        {
+            if (owner != null && weatherTowerZoomOwner == owner)
+                weatherTowerRoofView = radiusFraction;
+        }
+
         internal void ReleaseWeatherTowerZoom(UnityEngine.Object owner)
         {
             if (owner == null || weatherTowerZoomOwner != owner)
@@ -1003,6 +1022,7 @@ namespace AnimalGame.RobotMap
 
             weatherTowerZoomOwner = null;
             weatherTowerZoomBlend = 0f;
+            weatherTowerRoofView = Vector2.zero;
             weatherTowerLiftCameraOffset = Vector3.zero;
             weatherTowerLiftMotorSpeeds = Vector2.zero;
         }
@@ -1320,15 +1340,14 @@ namespace AnimalGame.RobotMap
             {
                 // Keep submitted zoom channels and interior normalization in sync
                 // while paused, without advancing the impact spring.
-                attachedCamera.orthographicSize = Mathf.Max(0.01f,
-                    GetComposedBaseOrthographicSize() * (1f + CurrentZoomOffsetFraction));
+                ApplyComposedCameraView(CurrentZoomOffsetFraction);
                 return;
             }
 
             if (!enableCameraShake)
             {
                 ResetShakeState();
-                attachedCamera.orthographicSize = GetComposedBaseOrthographicSize();
+                ApplyComposedCameraView(0f);
                 UpdateOpeningDriveImpactFeedback(out _, out Vector2 motors);
                 UpdateGamepadRumble(deltaTime, motors);
                 StorePreviousMotionState();
@@ -2018,10 +2037,18 @@ namespace AnimalGame.RobotMap
                                   * new Vector3(localOffset.x, localOffset.y, 0f);
             transform.rotation = baseRotation
                                  * Quaternion.Euler(0f, 0f, rotationOffset);
+            ApplyComposedCameraView(zoomOffset);
+            return openingDriveMotors;
+        }
+
+        private void ApplyComposedCameraView(float zoomOffset)
+        {
             attachedCamera.orthographicSize = Mathf.Max(
                 0.01f,
                 GetComposedBaseOrthographicSize() * (1f + zoomOffset));
-            return openingDriveMotors;
+            // Roof framing is in world axes and stays independent of shake and camera heading.
+            if (weatherTowerRoofView != Vector2.zero)
+                transform.position += (Vector3)(weatherTowerRoofView * WeatherTowerViewRadius);
         }
 
         private float GetComposedBaseOrthographicSize()
@@ -2225,26 +2252,27 @@ namespace AnimalGame.RobotMap
                 Mathf.Max(0f, speed) * deltaTime);
         }
 
-        // The opening uses unscaled time while the gameplay rumble channel is paused.
-        internal void SetOpeningRumble(Vector2 motors)
+        internal bool CameraShakeEnabled => enableCameraShake;
+
+        // Modal feedback uses unscaled time while gameplay rumble is paused.
+        internal void SetUnscaledRumble(Vector2 motors, float outputGain = 1f)
         {
-            if (motors == Vector2.zero || !enableGamepadRumble || !isActiveAndEnabled
-                || !Application.isFocused || applicationPaused)
+            if (motors == Vector2.zero || !enableGamepadRumble || !Application.isFocused || applicationPaused)
             {
-                StopOpeningRumble();
+                StopUnscaledRumble();
                 return;
             }
 
             AdaptiveLegacyGamepadInput.RefreshDeviceIfNeeded();
-            openingRumbleWasSent |= AdaptiveGamepadRumble.SetMotorSpeeds(
-                gamepadIndex, motors.x, motors.y, CreateSonyRumbleCalibration(false), outputGain: 2f);
+            unscaledRumbleWasSent |= AdaptiveGamepadRumble.SetMotorSpeeds(
+                gamepadIndex, motors.x, motors.y, CreateSonyRumbleCalibration(false), outputGain: outputGain);
         }
 
-        internal void StopOpeningRumble()
+        internal void StopUnscaledRumble()
         {
-            if (!openingRumbleWasSent) return;
+            if (!unscaledRumbleWasSent) return;
             AdaptiveGamepadRumble.SetMotorSpeeds(gamepadIndex, 0f, 0f, default);
-            openingRumbleWasSent = false;
+            unscaledRumbleWasSent = false;
         }
 
         private void StopGamepadRumble()
@@ -2586,7 +2614,7 @@ namespace AnimalGame.RobotMap
             UnsubscribeFromSelfRightingEvents();
             ResetShakeState();
             StopGamepadRumble();
-            StopOpeningRumble();
+            StopUnscaledRumble();
             elevationZoomMultiplier = 1f;
             scanZoomMultiplier = 1f;
             photoFocusMagnification = 1f;
@@ -2639,7 +2667,7 @@ namespace AnimalGame.RobotMap
             {
                 InvalidateMediumRecycleSession();
                 StopGamepadRumble();
-                StopOpeningRumble();
+                StopUnscaledRumble();
                 ClearHeavyGarbageBreakCamera();
             }
         }
@@ -2651,7 +2679,7 @@ namespace AnimalGame.RobotMap
             {
                 InvalidateMediumRecycleSession();
                 StopGamepadRumble();
-                StopOpeningRumble();
+                StopUnscaledRumble();
                 ClearHeavyGarbageBreakCamera();
             }
         }
@@ -2663,6 +2691,7 @@ namespace AnimalGame.RobotMap
             UnsubscribeFromTumbleEvents();
             UnsubscribeFromSelfRightingEvents();
             StopGamepadRumble();
+            StopUnscaledRumble();
         }
 
         private void OnValidate()

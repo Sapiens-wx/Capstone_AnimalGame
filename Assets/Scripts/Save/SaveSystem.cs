@@ -12,11 +12,17 @@ namespace AnimalGame.Save
     {
         private const int FileSignature = 0x41475356; // AGSV
         private const int CaptureRecognitionVersion = 3;
+        private const int GameClockVersion = 4;
         private const int NodeMessageVersion = 5;
         private const int StationSyncVersion = 6;
         private const int RuinStateVersion = 7;
         private const int RepairTutorialVersion = 8;
-        private const int FileVersion = RepairTutorialVersion;
+        private const int StoryClockVersion = 9;
+        private const int FirstTowerRavenFlyoverVersion = 10;
+        private const int StationCommunicationsVersion = 11;
+        private const int StoryCalendarRevision = 12;
+        private const int FileVersion = StoryCalendarRevision;
+        private static readonly DateTime PreviousStoryStart = new DateTime(2660, 8, 4);
         public static GameSave Current { get; private set; }
         public static DateTime CurrentGameTime => Current?.gameTime ?? GameSave.InitialGameTime;
         public static string SavePath => Path.Combine(Application.persistentDataPath, "animal-save.bin");
@@ -58,9 +64,28 @@ namespace AnimalGame.Save
             {
                 foreach (var photo in save.photos.Where(p => !p.sent)) CreditCapture(save, photo);
             }
-            if (version < FileVersion) WriteTo(path, save);
+            if (version < StoryCalendarRevision)
+            {
+                if (version is >= GameClockVersion and < StoryClockVersion && save.gameTime < PreviousStoryStart)
+                    save.gameTime = GameSave.InitialGameTime + save.gameTime.TimeOfDay;
+                else if (version >= GameClockVersion)
+                    save.gameTime = MovePreviousStoryDate(save.gameTime);
+
+                foreach (var photo in save.photos)
+                    photo.capturedTicks = MovePreviousStoryDate(photo.CapturedAt).Ticks;
+                foreach (var conversation in save.conversations)
+                    foreach (var message in conversation.messages)
+                        if (message.kind == MessageKind.Text)
+                            message.sentAt = MovePreviousStoryDate(message.sentAt);
+
+                WriteTo(path, save);
+            }
             return save;
         }
+
+        private static DateTime MovePreviousStoryDate(DateTime date) => date >= PreviousStoryStart
+            ? date.AddYears(GameSave.InitialGameTime.Year - PreviousStoryStart.Year)
+            : date;
 
         private static GameSave ReadFrom(string path, out int version)
         {
@@ -125,14 +150,19 @@ namespace AnimalGame.Save
                     save.conversations.Add(conversation);
                 }
             }
-            if (version >= 4) save.gameTime = new DateTime(reader.ReadInt64());
+            if (version >= GameClockVersion) save.gameTime = new DateTime(reader.ReadInt64());
             if (version >= StationSyncVersion) ReadIds(reader, save.syncedStationIds);
             if (version >= RuinStateVersion)
             {
-                ReadIds(reader, save.poweredStationIds);
+                // This retired list still precedes the ruin discovery records.
+                for (int count = ReadCount(reader); count > 0; count--) reader.ReadString();
                 ReadIds(reader, save.discoveredRuinIds);
             }
             if (version >= RepairTutorialVersion) ReadIds(reader, save.completedRepairTutorialIds);
+            if (version >= FirstTowerRavenFlyoverVersion) save.playedFirstTowerRavenFlyover = reader.ReadBoolean();
+            if (version >= StationCommunicationsVersion) ReadIds(reader, save.viewedStationCommunicationsIds);
+            // The v10 flyover could only start after viewing the WX-04 terminal.
+            else if (save.playedFirstTowerRavenFlyover) save.viewedStationCommunicationsIds.Add("WX-04");
             if (stream.Position != stream.Length) throw new InvalidDataException("Unexpected trailing game save data.");
             return save;
         }
@@ -200,9 +230,11 @@ namespace AnimalGame.Save
                     }
                     writer.Write(data.gameTime.Ticks);
                     WriteIds(writer, data.syncedStationIds);
-                    WriteIds(writer, data.poweredStationIds);
+                    writer.Write(0); // Retired station power ID list.
                     WriteIds(writer, data.discoveredRuinIds);
                     WriteIds(writer, data.completedRepairTutorialIds);
+                    writer.Write(data.playedFirstTowerRavenFlyover);
+                    WriteIds(writer, data.viewedStationCommunicationsIds);
                     writer.Flush();
                     stream.Flush(true);
                 }
@@ -235,22 +267,6 @@ namespace AnimalGame.Save
             return RecordId(Current.syncedStationIds, stationId, path);
         }
 
-        public static bool IsStationPowered(string stationId)
-        {
-            Initialize();
-            return Current.poweredStationIds.Contains(stationId);
-        }
-
-        public static bool PowerStation(string stationId) => PowerStation(stationId, SavePath);
-
-        internal static bool PowerStation(string stationId, string path)
-        {
-            if (string.IsNullOrWhiteSpace(stationId))
-                throw new ArgumentException("A station must have an ID to restore power.", nameof(stationId));
-            Initialize();
-            return RecordId(Current.poweredStationIds, stationId, path);
-        }
-
         public static bool IsRuinDiscovered(string ruinId)
         {
             Initialize();
@@ -279,6 +295,47 @@ namespace AnimalGame.Save
                 throw new ArgumentException("A repair tutorial station must have an ID.", nameof(stationId));
             Initialize();
             return RecordId(Current.completedRepairTutorialIds, stationId, SavePath);
+        }
+
+        internal static bool HasViewedStationCommunications(string stationId)
+        {
+            Initialize();
+            return Current.viewedStationCommunicationsIds.Contains(stationId);
+        }
+
+        internal static bool MarkStationCommunicationsViewed(string stationId) => MarkStationCommunicationsViewed(stationId, SavePath);
+
+        internal static bool MarkStationCommunicationsViewed(string stationId, string path)
+        {
+            if (string.IsNullOrWhiteSpace(stationId))
+                throw new ArgumentException("A communications station must have an ID to record a visit.", nameof(stationId));
+            Initialize();
+            return RecordId(Current.viewedStationCommunicationsIds, stationId, path);
+        }
+
+        internal static bool HasPlayedFirstTowerRavenFlyover
+        {
+            get
+            {
+                Initialize();
+                return Current.playedFirstTowerRavenFlyover;
+            }
+        }
+
+        internal static bool TryMarkFirstTowerRavenFlyoverPlayed() => TryMarkFirstTowerRavenFlyoverPlayed(SavePath);
+
+        internal static bool TryMarkFirstTowerRavenFlyoverPlayed(string path)
+        {
+            if (HasPlayedFirstTowerRavenFlyover) return false;
+            Current.playedFirstTowerRavenFlyover = true;
+            try { WriteTo(path, Current); }
+            catch
+            {
+                Current.playedFirstTowerRavenFlyover = false;
+                throw;
+            }
+            Changed?.Invoke();
+            return true;
         }
 
         private static bool RecordId(List<string> ids, string id, string path)

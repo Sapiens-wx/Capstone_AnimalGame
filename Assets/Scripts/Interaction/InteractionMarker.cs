@@ -17,7 +17,6 @@ namespace AnimalGame.Interaction
         private static readonly int ColorProperty = Shader.PropertyToID("_Color");
         private MaterialPropertyBlock properties;
         private bool suppressed;
-        private float opacity = 1f;
 
         public bool IsSuppressed => suppressed;
         // This describes the owner's permission, not whether any pixels are inside the current view circle.
@@ -37,13 +36,6 @@ namespace AnimalGame.Interaction
         {
             suppressed = value;
             SetVisible(PresentationEnabled);
-        }
-
-        public void SetOpacity(float value)
-        {
-            if (value == opacity) return;
-            opacity = value;
-            ApplyAppearance();
         }
 
         private void OnEnable()
@@ -76,9 +68,7 @@ namespace AnimalGame.Interaction
             ring.transform.localScale = Vector3.one * diameter;
             ring.sortingOrder = sortingOrder;
             ring.GetPropertyBlock(properties);
-            Color color = tint;
-            color.a *= opacity;
-            properties.SetColor(ColorProperty, color);
+            properties.SetColor(ColorProperty, tint);
             ring.SetPropertyBlock(properties);
         }
 

@@ -1,4 +1,4 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:logs="AnimalGame.World" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:logs="AnimalGame.World" xmlns:archive="AnimalGame.Animals.UI" editor-extension-mode="False">
     <Style src="project://database/Assets/Prefabs/Resources/UI/StationLogs/StationLogs.uss?fileID=7433441132597879392&amp;guid=40b26ceaf6d24fcfbb24079d67a7a3bb&amp;type=3#StationLogs" />
     <ui:VisualElement name="station-logs" class="station-logs">
         <ui:VisualElement class="station-frame">
@@ -26,6 +26,10 @@
                             <ui:Label name="detail-date" class="station-display" />
                         </ui:VisualElement>
                         <ui:Label name="detail-title" />
+                        <ui:VisualElement class="station-maintainer" picking-mode="Ignore">
+                            <ui:Label text="LOG MAINTAINER:" class="station-display station-maintainer-label" />
+                            <ui:Label name="log-maintainer-name" class="station-display" enable-rich-text="false" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:Label text="LOG ENTRY" class="station-section-title station-display" />
                     <ui:ScrollView name="log-body" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" />
@@ -33,16 +37,16 @@
             </ui:VisualElement>
             <ui:VisualElement class="station-sync station-panel">
                 <ui:Label name="sync-station-name" class="station-display" />
-                <ui:Button name="sync" class="sync" tooltip="Sync station data (S or Y)">
+                <ui:Button name="sync" class="sync" tooltip="Hold A, S, or the mouse button to sync station data">
                     <logs:StationSyncOutline class="sync-outline" picking-mode="Ignore" />
                     <ui:VisualElement class="sync-progress-track" picking-mode="Ignore">
                         <ui:VisualElement name="sync-progress" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement class="sync-key station-key-ring" picking-mode="Ignore">
-                        <ui:Label text="Y" class="sync-key-label" picking-mode="Ignore" />
+                        <archive:ArchiveHoldCircleElement name="sync-hold" text="A" class="sync-key-label" picking-mode="Ignore" />
                         <ui:VisualElement class="sync-check" picking-mode="Ignore" />
                     </ui:VisualElement>
-                    <ui:Label name="sync-label" text="Sync Station Data" picking-mode="Ignore" />
+                    <ui:Label name="sync-label" text="Hold to Sync" picking-mode="Ignore" />
                     <ui:Label class="sync-shortcut" text="S" picking-mode="Ignore" />
                 </ui:Button>
             </ui:VisualElement>

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using AnimalGame.Demos.CheckpointRefit;
 using AnimalGame.MainUI;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using AnimalGame.World;
 using AnimalGame.World.Map;
 using Capstone.Audio;
@@ -29,6 +31,10 @@ namespace AnimalGame.MapTest
         [Header("Arm tutorial line (map meters)")]
         [SerializeField] private Vector2 armHintLineSouth;
         [SerializeField] private Vector2 armHintLineNorth;
+
+        [Header("Interest scan tutorial line (map meters)")]
+        [SerializeField] private Vector2 interestScanHintLineSouth;
+        [SerializeField] private Vector2 interestScanHintLineNorth;
 
         [Header("Drive fault activation line (map meters)")]
         [SerializeField] private Vector2 damageLineSouth;
@@ -323,7 +329,15 @@ namespace AnimalGame.MapTest
             hud.ShowOpeningArmHints(arms, marker, map.MapPositionToWorld(armHintLineSouth),
                 map.MapPositionToWorld(armHintLineNorth),
                 map.MapMetersToWorldDistance(Vector2.right, ArmTutorialApproachDepthMeters));
+            hud.ShowOpeningRepairHint(signalTower.GetComponentInChildren<CheckpointRefitTerminal>(true));
             CommunicationsStation.SignalReceived += OnCommunicationsSignalReceived;
+            var firstTower = signalTower.GetComponent<WeatherTower>();
+            var scanInput = GetComponent<HeightMapPlayerSceneBootstrap>().scanChargeUi;
+            gameObject.AddComponent<OpeningInterestScanLesson>().Bind(firstTower, robot, hud, scanInput,
+                map.MapPositionToWorld(interestScanHintLineSouth), map.MapPositionToWorld(interestScanHintLineNorth));
+            if (!SaveSystem.HasPlayedFirstTowerRavenFlyover)
+                gameObject.AddComponent<CommunicationsRavenFlyover>().Bind(
+                    firstTower, robot, mapCamera, hud, woodpeckerAppearance);
         }
 
         private bool AdvanceSkipHold(float deltaTime, bool held)
@@ -491,7 +505,7 @@ namespace AnimalGame.MapTest
         private void ApplyShake(double now, Vector2 offset, float roll, Vector2 motors)
         {
             AddImpact(peckImpact, (float)(now - lastPeckTime), ref offset, ref roll, ref motors);
-            cameraShake.SetOpeningRumble(motors);
+            cameraShake.SetUnscaledRumble(cameraShake.isActiveAndEnabled ? motors : Vector2.zero, outputGain: 2f);
             Vector2 screenShift = new Vector2(offset.x / 1578f, offset.y / 886f);
             hud.SetOpeningScreenShake(screenShift, roll);
             if (screenShift == Vector2.zero && roll == 0f) return;
@@ -516,7 +530,7 @@ namespace AnimalGame.MapTest
             openingAudio.StopAll();
             openingWoodpecker.Dispose();
             Milestone3AudioRuntime.EndOpeningRighting(elapsed >= OpeningHudTimeline.Duration ? robot : null);
-            if (cameraShake != null) cameraShake.StopOpeningRumble();
+            if (cameraShake != null) cameraShake.StopUnscaledRumble();
             if (hud != null) hud.EndOpeningPresentation();
             if (arms != null) arms.EndOpeningPresentation();
             if (marker != null) marker.EndOpeningPresentation();

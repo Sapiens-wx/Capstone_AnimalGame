@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using AnimalGame.Animals;
+using AnimalGame.Animals.Communication;
 using AnimalGame.Animals.UI;
 using AnimalGame.RobotMap;
 using AnimalGame.Save;
@@ -37,7 +38,7 @@ namespace AnimalGame.Editor
             {
                 Require(File.Exists(path) && data.photos.Count == 0 && data.speciesProgress.Count == 0,
                     "Missing save creates an empty binary save.");
-                Require(data.gameTime == new DateTime(2026, 1, 1), "A new game starts at midnight on January 1, 2026.");
+                Require(data.gameTime == new DateTime(3164, 8, 4), "A new game starts at midnight on August 4, 3164.");
                 Require(!ReferenceEquals(data, SaveSystem.LoadOrCreate(path)), "Binary load creates independent save data.");
                 var source = assets.Photos[AnimalSpecies.AmericanBison].States[0].Photos[0].Image;
                 var snapshots = new PhotoRenderSnapshot[] {
@@ -48,28 +49,35 @@ namespace AnimalGame.Editor
                 {
                     var photo = new AnimalPhoto(source, new Rect(.2f, .1f, .5f, .5f), .8f,
                         new PhotoCaptureSettings("camera", "Test camera", snapshots[i]));
-                    var record = AnimalPhotoRecord.Capture(Snapshot(photo, new DateTime(2026, 11, 1, 9, i, 0)));
+                    var record = AnimalPhotoRecord.Capture(Snapshot(photo, new DateTime(2660, 11, 1, 9, i, 0)));
                     data.photos.Add(record);
                     Require(record.recognitionValue == (i == 2 ? 1 : 5), "Camera recognition classification.");
                     Require(!record.sent, "Saving alone does not send a photo.");
                 }
                 data.speciesProgress.Add(new SpeciesProgress { species = AnimalSpecies.AmericanBison, sentPhotos = 1, recognition = 30 });
-                data.gameTime = new DateTime(2026, 11, 1, 9, 30, 42).AddTicks(123);
+                data.gameTime = new DateTime(2660, 11, 1, 9, 30, 42).AddTicks(123);
+                var conversation = new ContactConversation { contact = ContactId.CrewLounge };
+                conversation.messages.Add(new ChatMessage { kind = MessageKind.Text, nodeId = 3, sentAt = new DateTime(2660, 11, 1, 9, 25, 0) });
+                data.conversations.Add(conversation);
                 data.syncedStationIds.Add("WX-04");
-                data.poweredStationIds.Add("WX-04");
                 data.discoveredRuinIds.AddRange(new[] { "WX-04", "WX-05" });
                 data.completedRepairTutorialIds.Add("WX-04");
+                data.playedFirstTowerRavenFlyover = true;
                 SaveSystem.WriteTo(path, data);
+                byte[] withoutCommunications = File.ReadAllBytes(path);
+                data.viewedStationCommunicationsIds.Add("WX-04");
                 SaveSystem.WriteTo(path, data);
                 var loaded = SaveSystem.LoadOrCreate(path);
                 Require(loaded.photos.Count == 3 && loaded.Progress(AnimalSpecies.AmericanBison).Tier == 2, "Disk load restores photos and progress.");
                 Require(loaded.gameTime == data.gameTime, "Disk load restores the exact game time.");
                 Require(loaded.syncedStationIds.SequenceEqual(new[] { "WX-04" }), "Disk load restores the synced station ID.");
-                Require(loaded.poweredStationIds.SequenceEqual(data.poweredStationIds)
-                    && loaded.discoveredRuinIds.SequenceEqual(data.discoveredRuinIds),
-                    "Power and first discovery survive disk reload independently.");
+                Require(loaded.discoveredRuinIds.SequenceEqual(data.discoveredRuinIds),
+                    "First discoveries survive disk reload.");
                 Require(loaded.completedRepairTutorialIds.SequenceEqual(new[] { "WX-04" }),
                     "Repair teaching completion survives disk reload.");
+                Require(loaded.playedFirstTowerRavenFlyover, "The first tower raven flyover stays played on reload.");
+                Require(loaded.viewedStationCommunicationsIds.SequenceEqual(new[] { "WX-04" }),
+                    "Only the visited station stops broadcasting after reload.");
                 for (int i = 0; i < snapshots.Length; i++)
                 {
                     var record = loaded.photos[i]; var original = data.photos[i];
@@ -94,6 +102,39 @@ namespace AnimalGame.Editor
                 }
                 byte[] binary = File.ReadAllBytes(path);
                 Require(binary[0] != (byte)'{', "Save file contains binary data.");
+                var previousCalendar = (byte[])binary.Clone();
+                previousCalendar[4] = 11;
+                File.WriteAllBytes(path, previousCalendar);
+                var calendarUpdate = SaveSystem.LoadOrCreate(path);
+                var updatedTime = new DateTime(3164, 11, 1, 9, 30, 42).AddTicks(123);
+                Require(calendarUpdate.gameTime == updatedTime
+                    && calendarUpdate.photos[0].CapturedAt == new DateTime(3164, 11, 1, 9, 0, 0)
+                    && calendarUpdate.conversations[0].messages[0].sentAt == new DateTime(3164, 11, 1, 9, 25, 0)
+                    && calendarUpdate.viewedStationCommunicationsIds.SequenceEqual(data.viewedStationCommunicationsIds)
+                    && SaveSystem.LoadOrCreate(path).gameTime == updatedTime,
+                    "Version 11 advances the story calendar once while preserving save progress and timestamp precision.");
+                var legacyBroadcast = withoutCommunications.Take(withoutCommunications.Length - sizeof(int)).ToArray();
+                legacyBroadcast[4] = 10;
+                File.WriteAllBytes(path, legacyBroadcast);
+                var beforeCommunications = SaveSystem.LoadOrCreate(path);
+                Require(beforeCommunications.playedFirstTowerRavenFlyover
+                    && beforeCommunications.viewedStationCommunicationsIds.SequenceEqual(new[] { "WX-04" }),
+                    "Version 10 treats the completed flyover as a visit to WX-04 only.");
+                var legacyClock = legacyBroadcast.Take(legacyBroadcast.Length - sizeof(byte)).ToArray();
+                legacyClock[4] = 9;
+                File.WriteAllBytes(path, legacyClock);
+                var beforeFlyover = SaveSystem.LoadOrCreate(path);
+                Require(!beforeFlyover.playedFirstTowerRavenFlyover && beforeFlyover.gameTime == updatedTime
+                    && beforeFlyover.syncedStationIds.SequenceEqual(data.syncedStationIds)
+                    && beforeFlyover.viewedStationCommunicationsIds.Count == 0,
+                    "Version 9 keeps existing progress and leaves the first tower flyover unplayed.");
+                legacyClock[4] = 8;
+                File.WriteAllBytes(path, legacyClock);
+                var migrated = SaveSystem.LoadOrCreate(path);
+                Require(migrated.gameTime == updatedTime
+                    && migrated.syncedStationIds.SequenceEqual(data.syncedStationIds)
+                    && SaveSystem.LoadOrCreate(path).gameTime == migrated.gameTime,
+                    "A saved story clock retains its day and time of day when the year changes.");
                 File.WriteAllBytes(path, new byte[] { 0, 0, 0, 0 });
                 RequireInvalidSave(path, "Invalid binary signature is rejected.");
                 var unsupported = (byte[])binary.Clone(); unsupported[4] = 99;
@@ -108,17 +149,17 @@ namespace AnimalGame.Editor
                     writer.Write(0); // photos
                     writer.Write(0); // species progress
                     writer.Write(0); // conversations
-                    writer.Write(data.gameTime.Ticks);
-                    for (int i = 0; i < 3; i++)
-                    {
-                        writer.Write(1);
-                        writer.Write("WX-04");
-                    }
+                    writer.Write(new DateTime(2026, 11, 1).Add(data.gameTime.TimeOfDay).Ticks);
+                    writer.Write(1); writer.Write("WX-04"); // synced stations
+                    writer.Write(1); writer.Write("old-powered-station");
+                    writer.Write(1); writer.Write("discovered-ruin");
                 }
                 var stationSave = SaveSystem.LoadOrCreate(path);
-                Require(stationSave.syncedStationIds.Contains("WX-04") && stationSave.poweredStationIds.Contains("WX-04")
-                    && stationSave.discoveredRuinIds.Contains("WX-04") && stationSave.completedRepairTutorialIds.Count == 0,
-                    "Pre-tutorial saves retain station state and leave the unrecorded repair tutorial pending.");
+                Require(stationSave.gameTime == GameSave.InitialGameTime + data.gameTime.TimeOfDay
+                    && stationSave.syncedStationIds.SequenceEqual(new[] { "WX-04" })
+                    && stationSave.discoveredRuinIds.SequenceEqual(new[] { "discovered-ruin" })
+                    && stationSave.completedRepairTutorialIds.Count == 0,
+                    "Legacy power IDs are skipped, and clock time and station progress are preserved.");
                 using (var writer = new BinaryWriter(File.Create(path)))
                 {
                     writer.Write(0x41475356);
@@ -133,7 +174,7 @@ namespace AnimalGame.Editor
                 var recovered = SaveSystem.LoadOrCreate(path);
                 Require(recovered.gameTime == GameSave.InitialGameTime
                     && recovered.Progress(AnimalSpecies.AmericanBison).recognition == 30 && recovered.syncedStationIds.Count == 0
-                    && recovered.poweredStationIds.Count == 0 && recovered.discoveredRuinIds.Count == 0,
+                    && recovered.discoveredRuinIds.Count == 0,
                     "A save without a game clock starts at the default without awarding recognition again.");
                 var progress = loaded.speciesProgress[0];
                 foreach (var pair in new[] { (0, 0), (1, 1), (29, 1), (30, 2), (99, 2), (100, 3) })

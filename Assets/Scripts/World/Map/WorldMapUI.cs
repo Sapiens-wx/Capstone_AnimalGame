@@ -715,7 +715,6 @@ namespace AnimalGame.World.Map
             transitionProgress = 0f;
             ApplyTransitionPose(viewportSize);
             mapDataNotice.EnableInClassList("survey-notice", terminal != null);
-            controls.Q<Label>("map-close-caption").text = terminal != null ? "Back to Logs" : "Close";
             RebuildSyncedLocations(terminal == null ? null : terminal.Station.StationId);
             if (terminal != null)
             {
@@ -789,7 +788,7 @@ namespace AnimalGame.World.Map
             float duration = closing ? CloseTransitionDuration : OpenTransitionDuration;
             transitionProgress = Mathf.MoveTowards(transitionProgress, closing ? 0f : 1f, deltaTime / duration);
             ApplyTransitionPose(viewportSize);
-            if (closing && transitionProgress == 0f) FinishClose();
+            if (closing && transitionProgress == 0f) FinishClose(returnToGameplay: true);
             else if (transitionProgress == 1f) hoverIdleSince = Time.unscaledTime;
         }
 
@@ -1007,14 +1006,14 @@ namespace AnimalGame.World.Map
         public void Close()
         {
             if (!IsOpen || closing) return;
-            if (transitionProgress == 0f) { FinishClose(); return; }
+            if (transitionProgress == 0f) { FinishClose(returnToGameplay: true); return; }
             HideHoverCoordinates(true);
             centeringMapView = false;
             closing = true;
             cursor.style.visibility = Visibility.Hidden;
         }
 
-        private void FinishClose()
+        private void FinishClose(bool returnToGameplay = false)
         {
             if (!IsOpen) return;
             IsOpen = false;
@@ -1035,8 +1034,13 @@ namespace AnimalGame.World.Map
             if (Time.timeScale == 0) Time.timeScale = savedTimeScale;
             UnityEngine.Cursor.lockState = savedCursorLock;
             UnityEngine.Cursor.visible = savedCursorVisible;
-            if (surveyTerminal != null && surveyTerminal.isActiveAndEnabled) surveyTerminal.ReturnFromMap();
+            StationLogUI terminal = surveyTerminal;
             surveyTerminal = null;
+            if (terminal != null && terminal.isActiveAndEnabled)
+            {
+                if (returnToGameplay) terminal.FinishSurvey();
+                else terminal.ReturnFromMap();
+            }
         }
 
         private void OnDisable()

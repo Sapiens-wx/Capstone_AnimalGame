@@ -27,7 +27,8 @@ namespace AnimalGame.RobotMap
 
     public sealed class RobotMover : MonoBehaviour
     {
-        private const float OpeningDriveFaultCycleSeconds = 2.65f;
+        private const float OpeningDriveImpactInterval = 2.05f;
+        private const float OpeningTurnImpactInterval = 3.6f;
         private const float OpeningDriveImpactDuration = .24f;
 
         private PlayerCombatReceiver animalCombat;
@@ -411,8 +412,8 @@ namespace AnimalGame.RobotMap
 
         private float currentSpeed;
         private float lastMovingSpeedSign = 1f;
-        private float openingDriveFaultTime = -1f;
-        private float previousOpeningDriveFaultTime;
+        private float openingDriveFaultProgress = -1f;
+        private float openingDriveImpactElapsed = OpeningDriveImpactDuration;
         private Vector2 openingDriveFaultInput;
         private Vector2? openingDriveFaultTriggerPoint;
         private Vector2 openingDriveFaultTriggerEastNormal;
@@ -479,7 +480,8 @@ namespace AnimalGame.RobotMap
         internal void SetOpeningDriveFault(bool active)
         {
             openingDriveFaultTriggerPoint = null;
-            openingDriveFaultTime = active ? 0f : -1f;
+            openingDriveFaultProgress = active ? 0f : -1f;
+            openingDriveImpactElapsed = OpeningDriveImpactDuration;
             openingDriveFaultInput = Vector2.zero;
         }
 
@@ -497,11 +499,21 @@ namespace AnimalGame.RobotMap
                 if (Vector2.Dot(openingDriveFaultTriggerEastNormal, MapPosition - point) <= 0f) return;
                 SetOpeningDriveFault(true);
             }
-            if (openingDriveFaultTime < 0f) return;
+            if (openingDriveFaultProgress < 0f) return;
             openingDriveFaultInput = new Vector2(steering, throttle);
-            previousOpeningDriveFaultTime = openingDriveFaultTime;
-            openingDriveFaultTime = openingDriveFaultInput == Vector2.zero
-                ? 0f : Mathf.Repeat(openingDriveFaultTime + deltaTime, OpeningDriveFaultCycleSeconds);
+            if (openingDriveFaultInput == Vector2.zero)
+            {
+                openingDriveFaultProgress = 0f;
+                openingDriveImpactElapsed = OpeningDriveImpactDuration;
+                return;
+            }
+
+            openingDriveImpactElapsed = Mathf.Min(openingDriveImpactElapsed + deltaTime, OpeningDriveImpactDuration);
+            float interval = Mathf.Lerp(OpeningDriveImpactInterval, OpeningTurnImpactInterval, Mathf.Abs(steering) * 2f);
+            openingDriveFaultProgress += deltaTime / interval;
+            if (openingDriveFaultProgress < 1f) return;
+            openingDriveFaultProgress = Mathf.Repeat(openingDriveFaultProgress, 1f);
+            openingDriveImpactElapsed = 0f;
         }
 
         internal bool TryGetOpeningDriveImpact(out Vector2 worldDirection, out float progress, out float strength,
@@ -510,19 +522,11 @@ namespace AnimalGame.RobotMap
             worldDirection = Vector2.zero;
             progress = strength = 0f;
             started = false;
-            if (openingDriveFaultInput == Vector2.zero || openingDriveFaultTime < .4f) return false;
-
-            (float start, float scale) = openingDriveFaultTime switch
-            {
-                >= 2f => (2f, 1f),
-                >= 1.13f => (1.13f, .70f),
-                _ => (.4f, .92f)
-            };
-            progress = (openingDriveFaultTime - start) / OpeningDriveImpactDuration;
-            if (progress >= 1f) return false;
+            if (openingDriveFaultInput == Vector2.zero || openingDriveImpactElapsed >= OpeningDriveImpactDuration) return false;
+            progress = openingDriveImpactElapsed / OpeningDriveImpactDuration;
             worldDirection = transform.TransformDirection(openingDriveFaultInput);
-            strength = scale * Mathf.Lerp(.6f, 1f, openingDriveFaultInput.magnitude);
-            started = previousOpeningDriveFaultTime < start || previousOpeningDriveFaultTime > openingDriveFaultTime;
+            strength = .92f * Mathf.Lerp(.6f, 1f, openingDriveFaultInput.magnitude);
+            started = openingDriveImpactElapsed == 0f;
             return true;
         }
 

@@ -72,6 +72,7 @@ namespace AnimalGame.Garbage
         public Transform PullPreviewRoot => pullPreviewRoot;
         public int PullPreviewCount => pullFragments.Count;
         public bool HasPullFragmentPrefabs => HasValidPrefab(heldFragments) && HasValidPrefab(scatteredFragments);
+        internal event System.Action PullBroken;
 
         private static bool HasValidPrefab(GameObject[] candidates)
         {
@@ -248,6 +249,7 @@ namespace AnimalGame.Garbage
             foreach (GarbageMotion motion in scatteredMotion)
                 motion.BeginFragmentSeparation(scatteredMotion, pullSeparationDuration);
             CancelPullPreview();
+            PullBroken?.Invoke();
             gameObject.SetActive(false);
             DestroyRuntimeObject(gameObject);
             return true;

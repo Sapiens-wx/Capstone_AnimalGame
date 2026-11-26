@@ -4567,6 +4567,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: CommunicationsStation
       objectReference: {fileID: 0}
+    - target: {fileID: 4461120967397482058, guid: c3df5af1fdfaeaa4fbf2b03401609dcc, type: 3}
+      propertyPath: stationId
+      value: WX-03
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using AnimalGame.Demos.CheckpointRefit;
+using AnimalGame.Garbage;
+using AnimalGame.MapTest;
 using AnimalGame.RobotArm;
 using AnimalGame.RobotMap;
+using AnimalGame.Save;
 using AnimalGame.World;
 using AnimalGame.World.Map;
 using UnityEngine;
@@ -29,6 +33,9 @@ namespace AnimalGame.MainUI
         private Vector2? openingTraversalHintLinePoint;
         private Vector2 openingTraversalHintEastNormal;
         private float openingTraversalHintRemaining;
+        private VisualElement openingInterestScanHint;
+        private bool openingInterestScanHintPending;
+        private float openingInterestScanHintOpacity;
         private VisualElement openingArmHint, openingArmMotionHint, openingGrabHint;
         private Label openingArmMotionAction, openingGrabAction;
         private RobotArmController openingArms;
@@ -37,6 +44,13 @@ namespace AnimalGame.MainUI
         private float openingArmHintLineLength, openingArmHintDepth, openingArmHintOpacity;
         private WorldInteraction openingRecycleItem;
         private bool openingArmHintCompleted;
+        private VisualElement openingHeavyGarbageHint;
+        private GarbageFragmentSpawner openingHeavyGarbageTarget;
+        private bool openingHeavyGarbageHintCompleted;
+        private float openingHeavyGarbageHintOpacity;
+        private CheckpointRefitTerminal openingRepairStation;
+        private VisualElement openingRepairHint;
+        private float openingRepairHintOpacity;
         private VisualElement openingSignalPrompt;
         private Label openingSignalMapKey;
         private WorldMapUI openingSignalMap;
@@ -51,6 +65,7 @@ namespace AnimalGame.MainUI
         {
             if (stage == null) Init();
             navigationTelemetryUnavailable = true;
+            if (SaveSystem.Current.syncedStationIds.Count == 0) SaveSystem.Current.gameTime = GameSave.InitialGameTime;
             IsCargoLocked = true;
             UpdateCargoVisibility();
             ApplyUnknownCoordinateLayout();
@@ -134,6 +149,29 @@ namespace AnimalGame.MainUI
             openingTraversalHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
         }
 
+        internal void ShowOpeningInterestScanHint() => openingInterestScanHintPending = true;
+
+        internal void DismissOpeningInterestScanHint() => openingInterestScanHintPending = false;
+
+        private void AdvanceOpeningInterestScanHint(float deltaTime)
+        {
+            if (!openingInterestScanHintPending && openingInterestScanHintOpacity <= 0f) return;
+
+            bool blocked = OpeningHudPresentationBlocked || InventoryProgress > .001f
+                || HeightMapPlayerSceneBootstrap.inst?.photoMode?.IsInputLocked == true;
+            float duration = openingInterestScanHintPending ? OpeningControlHintFadeIn : OpeningControlHintFadeOut;
+            openingInterestScanHintOpacity = blocked ? 0f : Mathf.MoveTowards(openingInterestScanHintOpacity,
+                openingInterestScanHintPending ? 1f : 0f, deltaTime / duration);
+
+            bool visible = openingInterestScanHintOpacity > 0f;
+            openingInterestScanHint.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!visible) return;
+            openingInterestScanHint.style.opacity = openingInterestScanHintOpacity;
+            openingInterestScanHint.style.marginLeft = 125f * fit;
+            openingInterestScanHint.style.marginTop = 54f * fit;
+            openingInterestScanHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
+        }
+
         internal void ShowOpeningArmHints(RobotArmController arms, RobotMarkerView marker,
             Vector2 lineSouth, Vector2 lineNorth, float approachDepth)
         {
@@ -160,7 +198,8 @@ namespace AnimalGame.MainUI
             if (!recycling) TrackOpeningRecycle(null);
             else if (atEntrance && !openingArmHintCompleted) TrackOpeningRecycle(openingArms.HeldObject);
 
-            bool blocked = BlocksGameplay || IsInventoryOpen || Time.timeScale <= 0f || openingArms.StationPlugActive;
+            bool blocked = BlocksGameplay || IsInventoryOpen || Time.timeScale <= 0f || openingArms.StationPlugActive
+                || openingHeavyGarbageHintOpacity > 0f;
             bool show = !blocked && atEntrance && !recycling && !openingArmHintCompleted;
             float fadeDuration = show ? OpeningControlHintFadeIn : OpeningControlHintFadeOut;
             openingArmHintOpacity = Mathf.MoveTowards(openingArmHintOpacity, show ? 1f : 0f, deltaTime / fadeDuration);
@@ -186,6 +225,47 @@ namespace AnimalGame.MainUI
             openingArmHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
         }
 
+        private void AdvanceOpeningHeavyGarbageHint(float deltaTime)
+        {
+            if (openingArms == null || (openingHeavyGarbageHintCompleted && openingHeavyGarbageHintOpacity <= 0f)) return;
+
+            if (!openingHeavyGarbageHintCompleted)
+            {
+                WorldInteraction held = openingArms.HeldObject;
+                bool holdingHeavyGarbage = held != null && held.Available && held.Owner == openingArms
+                    && held.TryGetComponent(out HeavyGarbagePull pull) && pull.isActiveAndEnabled;
+                TrackOpeningHeavyGarbage(holdingHeavyGarbage ? held.GetComponent<GarbageFragmentSpawner>() : null);
+            }
+
+            bool blocked = OpeningHudPresentationBlocked || InventoryProgress > .001f;
+            bool show = !blocked && openingHeavyGarbageTarget != null;
+            float duration = show ? OpeningControlHintFadeIn : OpeningControlHintFadeOut;
+            openingHeavyGarbageHintOpacity = blocked ? 0f : Mathf.MoveTowards(
+                openingHeavyGarbageHintOpacity, show ? 1f : 0f, deltaTime / duration);
+            bool visible = openingHeavyGarbageHintOpacity > 0f;
+            openingHeavyGarbageHint.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!visible) return;
+            openingHeavyGarbageHint.style.opacity = openingHeavyGarbageHintOpacity;
+            openingHeavyGarbageHint.style.marginLeft = 125f * fit;
+            openingHeavyGarbageHint.style.marginTop = 156f * fit;
+            openingHeavyGarbageHint.style.scale = new Scale(new Vector3(fit, fit, 1f));
+        }
+
+        private void TrackOpeningHeavyGarbage(GarbageFragmentSpawner target)
+        {
+            if (ReferenceEquals(openingHeavyGarbageTarget, target)) return;
+            if (!ReferenceEquals(openingHeavyGarbageTarget, null))
+                openingHeavyGarbageTarget.PullBroken -= CompleteOpeningHeavyGarbageHint;
+            openingHeavyGarbageTarget = target;
+            if (target != null) target.PullBroken += CompleteOpeningHeavyGarbageHint;
+        }
+
+        private void CompleteOpeningHeavyGarbageHint()
+        {
+            openingHeavyGarbageHintCompleted = true;
+            TrackOpeningHeavyGarbage(null);
+        }
+
         private void TrackOpeningRecycle(WorldInteraction item)
         {
             if (ReferenceEquals(openingRecycleItem, item)) return;
@@ -200,13 +280,32 @@ namespace AnimalGame.MainUI
             TrackOpeningRecycle(null);
         }
 
-        private bool OpeningCargoPresentationBlocked => BlocksGameplay || Time.timeScale <= 0f
-            || AnimalGame.MapTest.HeightMapPlayerSceneBootstrap.StationPlugOwnsInput
+        internal void ShowOpeningRepairHint(CheckpointRefitTerminal station) => openingRepairStation = station;
+
+        internal void AdvanceOpeningRepairHint(Camera camera, float deltaTime)
+        {
+            if (openingRepairStation == null) return;
+            bool blocked = OpeningHudPresentationBlocked || InventoryProgress > .001f;
+            if (blocked || !openingRepairStation.CanGuideRepair(openingHintRobot)
+                || !TryPlaceInteractionHint(openingRepairHint,
+                    camera.WorldToScreenPoint(openingRepairStation.RepairHintAnchor), new Vector2(26f, -17f)))
+            {
+                openingRepairHintOpacity = 0f;
+                openingRepairHint.style.display = DisplayStyle.None;
+                return;
+            }
+
+            openingRepairHintOpacity = Mathf.MoveTowards(openingRepairHintOpacity, 1f, deltaTime / OpeningControlHintFadeIn);
+            openingRepairHint.style.opacity = openingRepairHintOpacity;
+        }
+
+        private bool OpeningHudPresentationBlocked => BlocksGameplay || Time.timeScale <= 0f
+            || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput
             || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels;
 
         private void AdvanceOpeningCargoSlide(float deltaTime)
         {
-            if (!OpeningCargoSliding || OpeningCargoPresentationBlocked) return;
+            if (!OpeningCargoSliding || OpeningHudPresentationBlocked) return;
             openingCargoSlide = Mathf.MoveTowards(openingCargoSlide, 1f, deltaTime / OpeningCargoSlideDuration);
             if (OpeningCargoSliding) return;
             UnlockCargo();
@@ -216,7 +315,7 @@ namespace AnimalGame.MainUI
         private void AdvanceOpeningCargoHint(float deltaTime)
         {
             if (!openingCargoHintPending && openingCargoHintOpacity <= 0f) return;
-            bool visible = openingCargoHintPending && !OpeningCargoPresentationBlocked;
+            bool visible = openingCargoHintPending && !OpeningHudPresentationBlocked;
             openingCargoHintOpacity = Mathf.MoveTowards(openingCargoHintOpacity, visible ? 1f : 0f,
                 deltaTime / OpeningControlHintFadeIn);
             openingCargoHint.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
@@ -264,6 +363,7 @@ namespace AnimalGame.MainUI
             openingPresentation.Release();
             openingPresentation = null;
             SetOpeningScreenShake(Vector2.zero, 0f);
+            if (SaveSystem.Current.syncedStationIds.Count > 0) UnlockNavigationTelemetry();
             SetDate(CurrentGameTime);
             RefreshTelemetry(System.DateTime.Now, true);
             UpdateStatus();
@@ -353,7 +453,7 @@ namespace AnimalGame.MainUI
                 new[] { new LogPart(PowerMessage, PowerStart, PowerTypingInterval, true) },
                 new[] { new LogPart("QUERYING SYSTEM LOG...", SystemLogStart, .031f),
                     new LogPart(" LAST RUN: ", SystemLogStart + .80f, .031f),
-                    new LogPart("5_04_2650", LastRunFound, accent: true), new LogPart("...", LastRunFound) },
+                    new LogPart(LastRunDate, LastRunFound, accent: true), new LogPart("...", LastRunFound) },
                 new[] { new LogPart("QUERYING CURRENT TIME...", ClockQuery, .028f),
                     new LogPart(" " + UnknownReading, ClockResult, accent: true) },
                 new[] { new LogPart("TESTING GLOBAL POSITIONING SYSTEM......", Positioning.Start, .028f),
@@ -490,7 +590,7 @@ namespace AnimalGame.MainUI
             public void Apply(float elapsed, float testPromptTime)
             {
                 float now = Time.unscaledTime;
-                ui.SetOpeningGoalModule(GoalModuleOpenness(elapsed), showTab: elapsed >= GoalModuleReady);
+                ui.SetOpeningGoalModule(GoalModuleSlideProgress(elapsed), showTab: elapsed >= GoalModuleReady);
                 ui.status.style.opacity = elapsed >= 0f ? 1f : 0f;
                 statusMask.Apply(elapsed);
                 ui.ring.style.opacity = Ease(elapsed, ContourStart, ContourLock);

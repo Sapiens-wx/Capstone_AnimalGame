@@ -35,6 +35,7 @@ namespace AnimalGame.World
         [SerializeField, Min(.1f)] private float towerHeightMeters = 12f;
         [SerializeField, Min(.1f)] private float travelSeconds = 2.4f;
         [SerializeField, Min(1f)] private float outdoorZoomMultiplier = 2.25f;
+        [SerializeField, Range(0f, .3f)] private float roofViewOffsetFraction;
 
         private const float DoorHysteresis = .08f;
         private const float MaxBoardingSpeed = .2f;
@@ -60,6 +61,7 @@ namespace AnimalGame.World
 
         public WeatherTowerPhase Phase { get; private set; }
         internal event System.Action PlayerEntered;
+        internal event System.Action PlayerArrivedAtExitLift;
         public RobotMover Player => player;
         public Transform Lift => lift;
         public Transform ExitLift => exitLift;
@@ -95,12 +97,11 @@ namespace AnimalGame.World
             CommunicationsStation[] stations = GetComponentsInChildren<CommunicationsStation>(true);
             communicationsSignals = new CommunicationsSignalWave[stations.Length];
             for (int index = 0; index < stations.Length; index++)
-                communicationsSignals[index] = stations[index].InitializeSignal(true);
+                communicationsSignals[index] = stations[index].InitializeSignal(this);
             if (HasOpenGround) InitializeSite();
             ScopeCollisions(roofView);
             if (exitLift != null) ScopeCollisions(groundView);
             InitializeViews();
-            if (HasOpenGround) InitializePowerVisuals();
         }
 
         private void InitializeViews()
@@ -115,7 +116,6 @@ namespace AnimalGame.World
 
         private void Update()
         {
-            if (Time.timeScale > 0f) TickPowerVisuals(Time.deltaTime);
             foreach (CommunicationsSignalWave signal in communicationsSignals)
                 signal.Tick(Time.deltaTime, player);
             bool interactHeld = IsInteractHeld();
@@ -135,7 +135,7 @@ namespace AnimalGame.World
                 ResolvePlayer();
                 if (player == null)
                 {
-                    HideInteractionPrompts();
+                    SetLiftPrompt(null);
                     return;
                 }
             }
@@ -146,7 +146,7 @@ namespace AnimalGame.World
             if (player.IgnoreCollisionAndTerrain)
             {
                 if (Phase != WeatherTowerPhase.Exterior) ResetTower();
-                HideInteractionPrompts();
+                SetLiftPrompt(null);
                 return;
             }
 
@@ -155,15 +155,21 @@ namespace AnimalGame.World
             else if (!OnUpperView)
                 CheckGroundDoor(previous, position);
 
-            if (EquipmentInteractionReady)
-                UpdateLiftInteraction(interactPressed);
-            else if (!IsPowered)
-                UpdatePowerInteraction(interactPressed);
-            else
-                HideInteractionPrompts();
+            UpdateLiftInteraction(interactPressed);
 
-            if (IsRiding || OnUpperView)
-                towerCamera.Apply(HeightAboveGroundMeters / towerHeightMeters, outdoorZoomMultiplier);
+            if (!IsRiding && !OnUpperView) return;
+
+            float travel01 = UpperFloorOpacity;
+            towerCamera.Apply(travel01, outdoorZoomMultiplier);
+            if (roofViewOffsetFraction <= 0f) return;
+
+            if (Phase == WeatherTowerPhase.Outdoor)
+            {
+                Vector2 bias = photo != null && photo.IsActive
+                    ? Vector2.zero : RoofViewBias(position, towerCamera.ViewRadius);
+                towerCamera.TrackRoofView(bias, deltaTime);
+            }
+            towerCamera.ApplyRoofView(roofViewOffsetFraction * travel01);
         }
 
         private void UpdateLiftInteraction(bool pressed)
@@ -237,6 +243,7 @@ namespace AnimalGame.World
                 if (ridingExitLift)
                 {
                     ResetTower();
+                    PlayerArrivedAtExitLift?.Invoke();
                     return;
                 }
                 Phase = WeatherTowerPhase.Ground;
@@ -300,7 +307,7 @@ namespace AnimalGame.World
         }
 
         private bool CanUseLiftControls() =>
-            EquipmentInteractionReady && !IsRiding && IsScenePlayer(player) && !player.IgnoreCollisionAndTerrain
+            !IsRiding && IsScenePlayer(player) && !player.IgnoreCollisionAndTerrain
             && !player.IsMovementLocked && !player.IsPhotoModeInputLocked
             && Mathf.Abs(player.CurrentSpeed) <= MaxBoardingSpeed
             && (arm == null || arm.State == RobotArmState.Retracted
@@ -429,7 +436,7 @@ namespace AnimalGame.World
             Phase = WeatherTowerPhase.Exterior;
             liftProgress = 0f;
             ridingExitLift = false;
-            HideInteractionPrompts();
+            SetLiftPrompt(null);
             RefreshViews();
         }
 
@@ -439,7 +446,6 @@ namespace AnimalGame.World
             EnclosedRoomTerrain.Release(this);
             doorLines?.Hide();
             deckLines?.Hide();
-            powerLines?.Hide();
             if (communicationsSignals == null) return;
             foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Hide();
         }
@@ -448,7 +454,6 @@ namespace AnimalGame.World
         {
             doorLines?.Dispose();
             deckLines?.Dispose();
-            powerLines?.Dispose();
             if (communicationsSignals == null) return;
             foreach (CommunicationsSignalWave signal in communicationsSignals) signal.Dispose();
         }
@@ -456,12 +461,6 @@ namespace AnimalGame.World
         private static void SetActive(GameObject target, bool active)
         {
             if (target != null && target.activeSelf != active) target.SetActive(active);
-        }
-
-        private void HideInteractionPrompts()
-        {
-            if (powerSocket != null) powerSocket.enabled = false;
-            SetLiftPrompt(null);
         }
 
         private void SetLiftPrompt(Transform availableLift, Landing? call = null)

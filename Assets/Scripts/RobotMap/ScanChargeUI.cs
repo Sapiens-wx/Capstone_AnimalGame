@@ -417,7 +417,7 @@ namespace AnimalGame.RobotMap
 
                 case ScanVisualState.Charged:
                     // Keep the completed charge until the scan button is released.
-                    if (usingStationPlug)
+                    if (!inputAvailable)
                         CancelCharge();
                     else if (!scanHeld)
                         BeginRelease();

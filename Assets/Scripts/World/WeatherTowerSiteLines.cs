@@ -45,7 +45,7 @@ namespace AnimalGame.World
             }
         }
 
-        public void Door(Vector2 center, float width, float openness, float offset, float alpha = 1f, float light = 1f)
+        public void Door(Vector2 center, float width, float openness, float offset, float alpha = 1f)
         {
             Vector2 half = Vector2.up * (.5f * width);
             Vector2 opening = half * openness;
@@ -65,23 +65,18 @@ namespace AnimalGame.World
                     Strip(lip - rail, lip + rail, lipWidth, white);
                 }
             }
-            if (openness > 0f && light > 0f)
+            if (openness > 0f)
             {
                 Color yellow = accent;
-                yellow.a *= alpha * light;
+                yellow.a *= alpha;
                 Dashes(center - opening, center + opening, .064f, .23f, .12f, offset + panelLength, yellow);
             }
         }
 
-        public void SocketIndicator(Vector2 center, Vector2 along, float dim, float opacity = 1f,
-            float lengthScale = 1f, float accentBlend = 1f)
+        public void SocketIndicator(Vector2 center, float dim)
         {
-            Vector2 half = along * (.22f * lengthScale);
-            float gray = accent.grayscale;
-            Color color = Color.Lerp(new Color(gray, gray, gray), accent, accentBlend);
-            color = Color.Lerp(color, Color.black, dim);
-            color.a *= opacity;
-            Strip(center - half, center + half, .098f, color);
+            Vector2 half = Vector2.right * .22f;
+            Strip(center - half, center + half, .098f, Color.Lerp(accent, Color.black, dim));
         }
 
         public void ReminderRing(Vector2 center, float radius, float width, float opacity)

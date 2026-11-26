@@ -1,3 +1,7 @@
+using System;
+using System.Globalization;
+using AnimalGame.Save;
+
 namespace AnimalGame.MainUI
 {
     /// <summary>The clock shared by the opening's native HUD, arm test and map reveal.</summary>
@@ -16,6 +20,8 @@ namespace AnimalGame.MainUI
         internal const float PowerTypingInterval = .043f;
         internal static readonly float PowerReady = TypingEnd(PowerMessage, PowerStart, PowerTypingInterval);
         internal static readonly float SystemLogStart = PowerReady + .12f;
+        internal static readonly string LastRunDate = new DateTime(GameSave.InitialGameTime.Year - 10, 5, 4)
+            .ToString("M_dd_yyyy", CultureInfo.InvariantCulture);
         internal static readonly float LastRunFound = SystemLogStart + 1.24f;
         internal const float ClockScanDuration = .49f;
         internal static readonly float ClockDisplayReady = LastRunFound + ClockScanDuration;
@@ -100,8 +106,9 @@ namespace AnimalGame.MainUI
 
         internal static float TypingEnd(string message, float start, float interval) => start + (message.Length - 1) * interval;
 
-        internal static float GoalModuleOpenness(float elapsed) => Ease(elapsed, GoalModuleLogStart, GoalModulePanelOpen)
-            * (1f - Ease(elapsed, GoalModuleReady, GoalModulePanelClosed));
+        internal static float GoalModuleSlideProgress(float elapsed) =>
+            UnityEngine.Mathf.InverseLerp(GoalModuleLogStart, GoalModulePanelOpen, elapsed)
+            * (1f - UnityEngine.Mathf.InverseLerp(GoalModuleReady, GoalModulePanelClosed, elapsed));
 
         internal static float Ease(float t, float start, float end)
         {

@@ -21,7 +21,7 @@ namespace AnimalGame.Demos.CheckpointRefit
     {
         private const int RepairCost = 3;
         private const float RepairAmount = .30f;
-        private const float RepairHoldSeconds = .5f;
+        private const float RepairHoldSeconds = 1f;
 
         [SerializeField] private GameObject uiPrefab;
         [SerializeField] private string checkpointName = "Weather Tower";
@@ -54,6 +54,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private bool previousShoulderLeft, previousShoulderRight;
         private bool repairRequiresRelease;
         private float repairHoldElapsed;
+        private RobotCameraShake repairCameraShake;
         private int previousNavigationX, previousNavigationY;
         private float repeatAt, nextSearch, nextPromptCheck;
         private bool promptAllowed;
@@ -65,6 +66,10 @@ namespace AnimalGame.Demos.CheckpointRefit
         public CheckpointRefitView View => view;
         public bool IsOpen { get; private set; }
         internal bool HasPendingInteraction => repairTutorial && !SaveSystem.IsRepairTutorialComplete(checkpointId);
+        internal bool CanGuideRepair(RobotMover target) => isActiveAndEnabled && player == target
+            && tower.Player == target && tower.Phase == WeatherTowerPhase.Ground
+            && !IsOpen && repairReceiver != null && repairReceiver.Integrity < 1f && HasPendingInteraction;
+        internal Vector3 RepairHintAnchor => tower.SocketWorldPosition(WeatherTowerSocket.Refit);
         public bool IsNearby => PlayerPresent && DistanceToPlayer() <= interactionRadiusMeters;
         public float InteractionRadiusMeters => interactionRadiusMeters;
         public InteractionMarker Marker => interactionMarker;
@@ -135,9 +140,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             // Closing input retains the gameplay lease after IsOpen becomes false.
             // Discovery rings yield to the nearby prompt. Query the live range rather than the cached prompt,
             // so closing-input release and crossing the boundary cannot produce a one-frame flash.
-            interactionMarker?.SetOpacity(tower != null ? tower.EquipmentAccentVisibility : 1f);
-            interactionMarker?.SetSuppressed(!isActiveAndEnabled || (tower != null && !tower.EquipmentInteractionReady)
-                || IsOpen || lease != null || releasing || IsNearby);
+            interactionMarker?.SetSuppressed(!isActiveAndEnabled || IsOpen || lease != null || releasing || IsNearby);
         }
 
         private void Awake()
@@ -145,6 +148,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             tower = GetComponentInParent<WeatherTower>();
             if (!useTutorialInteractionHint) return;
             tutorialHint = gameObject.AddComponent<WorldInteractionHint>();
+            if (repairTutorial) tutorialHint.SetActionLabel("OPEN REPAIR STATION");
             tutorialHint.enabled = false;
         }
 
@@ -260,7 +264,6 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private bool CanOpen(bool allowStationPlug = false) =>
             Application.isPlaying && isActiveAndEnabled && !IsOpen && lease == null && IsNearby
-            && (tower == null || tower.EquipmentInteractionReady)
             && !(TutorialOpenBlocked?.Invoke() ?? false) && EnsureUi()
             && RefitGameplayLease.CanAcquire(player, out _, allowStationPlug);
 
@@ -282,6 +285,7 @@ namespace AnimalGame.Demos.CheckpointRefit
                     ClearPlayerPreview();
                     return false;
                 }
+                repairCameraShake = Camera.main?.GetComponent<RobotCameraShake>();
                 IsOpen = true;
                 inputArmed = false;
                 SetPrompt(false);
@@ -322,11 +326,13 @@ namespace AnimalGame.Demos.CheckpointRefit
             var (integrity, power, cargo, message) = ReadRepairStatus();
             float after = float.IsNaN(integrity) ? float.NaN : Mathf.Min(1f, integrity + RepairAmount);
             view.SetRepairStatus(integrity, power, after, cargo, null, RepairCost,
-                metalScrap != null ? metalScrap.Image : null, message == null, message);
+                metalScrap != null ? metalScrap.Image : null, message == null, message,
+                metalScrap != null && repairReceiver != null && HasPendingInteraction);
         }
 
         private void UpdateRepair(bool interact)
         {
+            if (!Application.isFocused) return;
             if (!interact && !view.IsRepairPointerHeld)
             {
                 repairRequiresRelease = false;
@@ -345,8 +351,14 @@ namespace AnimalGame.Demos.CheckpointRefit
 
             repairHoldElapsed = Mathf.Min(RepairHoldSeconds, repairHoldElapsed + Time.unscaledDeltaTime);
             view.SetRepairHoldProgress(repairHoldElapsed / RepairHoldSeconds);
-            if (repairHoldElapsed < RepairHoldSeconds) return;
+            if (repairHoldElapsed < RepairHoldSeconds)
+            {
+                if (interact) ApplyRepairFeedback();
+                else StopRepairFeedback();
+                return;
+            }
 
+            StopRepairFeedback();
             repairRequiresRelease = true;
             if (repairReceiver.TryRepairIntegrity(metalScrap, RepairCost, RepairAmount) && HasPendingInteraction)
             {
@@ -359,16 +371,49 @@ namespace AnimalGame.Demos.CheckpointRefit
             RefreshRepairStatus();
         }
 
+        private void ApplyRepairFeedback()
+        {
+            float phase = repairHoldElapsed * (2f * Mathf.PI);
+            Vector2 shake = new(2.4f * Mathf.Sin(21f * phase), 1.8f * Mathf.Sin(17f * phase));
+            view.SetRepairShake(repairCameraShake == null || repairCameraShake.CameraShakeEnabled ? shake : Vector2.zero);
+            float effort = .85f + .15f * Mathf.Cos(9f * phase);
+            repairCameraShake?.SetUnscaledRumble(new Vector2(.38f, .27f) * effort);
+        }
+
+        private void StopRepairFeedback()
+        {
+            view?.SetRepairShake(Vector2.zero);
+            repairCameraShake?.StopUnscaledRumble();
+        }
+
         private void ResetRepairHold()
         {
             if (repairHoldElapsed == 0f) return;
             repairHoldElapsed = 0f;
-            view.SetRepairHoldProgress(0f);
+            StopRepairFeedback();
+            view?.SetRepairHoldProgress(0f);
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!focused) CancelRepairHold();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) CancelRepairHold();
+        }
+
+        private void CancelRepairHold()
+        {
+            repairRequiresRelease = true;
+            ResetRepairHold();
         }
 
         public void Close()
         {
             if (!IsOpen) return;
+            ResetRepairHold();
             if (transition != null) transition.Close(FinishClose);
             else FinishClose();
         }
@@ -389,6 +434,7 @@ namespace AnimalGame.Demos.CheckpointRefit
 
         private void ForceClose()
         {
+            ResetRepairHold();
             transition?.Dispose();
             transition = null;
             IsOpen = false;
@@ -403,6 +449,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         {
             lease?.Dispose();
             lease = null;
+            repairCameraShake = null;
             releasing = false;
         }
 
@@ -452,7 +499,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         {
             if (!EnsureUi()) return;
             bool usesPlug = tower != null && tower.UsesStationPlugs;
-            bool nearby = allow && IsNearby && (tower == null || tower.EquipmentInteractionReady)
+            bool nearby = allow && IsNearby
                 && (!usesPlug || tower.CanPlug(WeatherTowerSocket.Refit, player));
             if (nearby && Time.unscaledTime >= nextPromptCheck)
             {

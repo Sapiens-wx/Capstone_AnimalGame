@@ -24,6 +24,8 @@ namespace AnimalGame.World
         private const float CallReach = 1.2f;
         private const float ReminderInterval = 2.2f;
         private const float ReminderDuration = .9f;
+        private const float RoofViewReach = .30f;
+        private const float RoofViewCornerBlend = .12f;
         private readonly LiftParking mainParking = new();
         private readonly LiftParking eastParking = new();
         private readonly GameObject[] landingBarriers = new GameObject[4];
@@ -54,6 +56,14 @@ namespace AnimalGame.World
 
         private void InitializeSite()
         {
+            var properties = new MaterialPropertyBlock();
+            foreach (SpriteRenderer part in GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (part.sharedMaterial != groundRoofArt.sharedMaterial) continue;
+                part.GetPropertyBlock(properties);
+                properties.SetFloat(RequirePlayerDisk, 1f);
+                part.SetPropertyBlock(properties);
+            }
             doorLines = new WeatherTowerSiteLines(transform, siteLineMaterial, "Animated entrances", -16);
             deckLines = new WeatherTowerSiteLines(transform, siteLineMaterial, "Overhead deck outline", -18);
             logConsole = groundView.GetComponentInChildren<StationLogConsole>(true);
@@ -89,7 +99,7 @@ namespace AnimalGame.World
         private bool IsLiftDockedAt(Landing landing)
         {
             LiftParking parking = Parking(landing);
-            return EquipmentInteractionReady && parking.AtUpper == IsUpper(landing) && !parking.IsCalling
+            return parking.AtUpper == IsUpper(landing) && !parking.IsCalling
                 && !(IsRiding && ridingExitLift == IsEast(landing));
         }
 
@@ -189,10 +199,7 @@ namespace AnimalGame.World
         {
             if (doorLines == null) return;
             float dim = Mathf.Repeat(Time.time, BlinkPeriod) < BlinkOnSeconds ? 0f : .8f;
-            bool powered = IsPowered;
             float below = 1f - UpperFloorOpacity;
-            if (powerLines != null)
-                DrawPowerSocket(powered || SocketIsLit(WeatherTowerSocket.Power) ? 0f : dim, below);
             DrawDeckOutline(below);
             DrawEntrances(below, dim);
         }
@@ -211,44 +218,85 @@ namespace AnimalGame.World
             deckLines.Draw();
         }
 
+        private Vector2 RoofViewBias(Vector2 playerWorldPosition, float viewRadius)
+        {
+            Matrix4x4 roofToWorld = transform.localToWorldMatrix;
+            Vector2 last = (Vector2)roofToWorld.MultiplyPoint3x4(upperOutline[^1]) - playerWorldPosition;
+            float nearestDistance = float.PositiveInfinity;
+            float winding = 0f;
+            Vector2 start = last;
+            foreach (Vector2 vertex in upperOutline)
+            {
+                Vector2 end = (Vector2)roofToWorld.MultiplyPoint3x4(vertex) - playerWorldPosition;
+                winding += start.x * end.y - start.y * end.x;
+                nearestDistance = Mathf.Min(nearestDistance, DistanceToRoofEdge(start, end - start));
+                start = end;
+            }
+
+            float reach = viewRadius * RoofViewReach;
+            if (nearestDistance >= reach) return Vector2.zero;
+
+            // Blend outward normals where two sides are similarly close, so corners turn continuously
+            // and opposing edges cancel near the middle of the roof.
+            float blendRange = viewRadius * RoofViewCornerBlend;
+            float outward = Mathf.Sign(winding);
+            float totalWeight = 0f;
+            Vector2 bias = Vector2.zero;
+            start = last;
+            foreach (Vector2 vertex in upperOutline)
+            {
+                Vector2 end = (Vector2)roofToWorld.MultiplyPoint3x4(vertex) - playerWorldPosition;
+                Vector2 edge = end - start;
+                float distance = DistanceToRoofEdge(start, edge);
+                float weight = 1f - Mathf.SmoothStep(0f, 1f, (distance - nearestDistance) / blendRange);
+                bias += new Vector2(edge.y, -edge.x).normalized * (outward * weight);
+                totalWeight += weight;
+                start = end;
+            }
+
+            float strength = 1f - Mathf.SmoothStep(0f, 1f, nearestDistance / reach);
+            return bias * (strength / totalWeight);
+        }
+
+        // The edge endpoints are already relative to the player.
+        private static float DistanceToRoofEdge(Vector2 start, Vector2 edge)
+        {
+            float along = Mathf.Clamp01(-Vector2.Dot(start, edge) / edge.sqrMagnitude);
+            return (start + along * edge).magnitude;
+        }
+
         private void DrawEntrances(float below, float dim)
         {
             // Both the painted strips and the lift panels switch together on the gameplay clock.
             Shader.SetGlobalFloat(InteractionLightDim, dim);
-            float accent = EquipmentAccentVisibility;
-            float visibility = EquipmentVisibility;
             float offset = Time.time * -.76f;
             doorLines.Begin();
             if (below > 0f)
-                doorLines.Door(groundDoor.localPosition, groundDoorWidth, 1f, offset, below, accent);
+                doorLines.Door(groundDoor.localPosition, groundDoorWidth, 1f, offset, below);
             for (int index = 0; index < landingDoorProgress.Length; index++)
                 doorLines.Door(liftDoorCenters[index], liftSize.y,
-                    Mathf.SmoothStep(0f, 1f, landingDoorProgress[index]), offset, light: accent);
-            if (visibility > 0f)
-            {
-                float blink = accent >= 1f ? dim : 0f;
-                DrawLiftControls(WeatherTowerSocket.MainNorth, WeatherTowerSocket.MainSouth, blink, visibility, accent);
-                DrawLiftControls(WeatherTowerSocket.EastNorth, WeatherTowerSocket.EastSouth, blink, visibility, accent);
-            }
-            if (accent > 0f) DrawEquipmentReminders(accent);
+                    Mathf.SmoothStep(0f, 1f, landingDoorProgress[index]), offset);
+            DrawLiftControls(WeatherTowerSocket.MainNorth, WeatherTowerSocket.MainSouth, dim);
+            DrawLiftControls(WeatherTowerSocket.EastNorth, WeatherTowerSocket.EastSouth, dim);
+            DrawEquipmentReminders();
             doorLines.Draw();
         }
 
-        private void DrawEquipmentReminders(float opacity)
+        private void DrawEquipmentReminders()
         {
             if (Phase == WeatherTowerPhase.Ground)
             {
                 if (logConsole != null && logConsole.isActiveAndEnabled && logConsole.HasPendingInteraction)
-                    DrawEquipmentReminder(WeatherTowerSocket.Log, opacity, 0f);
+                    DrawEquipmentReminder(WeatherTowerSocket.Log, 0f);
                 if (repairTerminal != null && repairTerminal.isActiveAndEnabled && repairTerminal.HasPendingInteraction)
-                    DrawEquipmentReminder(WeatherTowerSocket.Refit, opacity, .33f);
+                    DrawEquipmentReminder(WeatherTowerSocket.Refit, .33f);
             }
             else if (Phase == WeatherTowerPhase.Outdoor && communicationsConsole != null
                 && communicationsConsole.isActiveAndEnabled && communicationsConsole.HasPendingInteraction)
-                DrawEquipmentReminder(WeatherTowerSocket.Communications, opacity, 0f);
+                DrawEquipmentReminder(WeatherTowerSocket.Communications, 0f);
         }
 
-        private void DrawEquipmentReminder(WeatherTowerSocket socket, float opacity, float offset)
+        private void DrawEquipmentReminder(WeatherTowerSocket socket, float offset)
         {
             float elapsed = Mathf.Repeat(Time.time - offset, ReminderInterval);
             if (elapsed >= ReminderDuration) return;
@@ -256,15 +304,13 @@ namespace AnimalGame.World
             float progress = elapsed / ReminderDuration;
             float radius = Mathf.Lerp(.28f, 1.22f, 1f - (1f - progress) * (1f - progress));
             float fade = Mathf.SmoothStep(0f, 1f, progress / .12f) * (1f - progress);
-            doorLines.ReminderRing(SocketPosition(socket), radius, .035f, opacity * fade * .82f);
+            doorLines.ReminderRing(SocketPosition(socket), radius, .035f, fade * .82f);
         }
 
-        private void DrawLiftControls(WeatherTowerSocket north, WeatherTowerSocket south, float dim, float opacity, float accent)
+        private void DrawLiftControls(WeatherTowerSocket north, WeatherTowerSocket south, float dim)
         {
-            doorLines.SocketIndicator(LiftSocketPosition(north), Vector2.right, SocketIsLit(north) ? 0f : dim,
-                opacity, accentBlend: accent);
-            doorLines.SocketIndicator(LiftSocketPosition(south), Vector2.right, SocketIsLit(south) ? 0f : dim,
-                opacity, accentBlend: accent);
+            doorLines.SocketIndicator(LiftSocketPosition(north), SocketIsLit(north) ? 0f : dim);
+            doorLines.SocketIndicator(LiftSocketPosition(south), SocketIsLit(south) ? 0f : dim);
         }
     }
 }

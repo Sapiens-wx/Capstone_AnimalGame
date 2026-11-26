@@ -105,6 +105,7 @@ namespace AnimalGame.RobotMap
         private BioScanAnimalMarkerUI animalMarkers;
         private BioScanStaticAreaUI staticAreaMarkers;
         private ScanChargeUI scanInput;
+        private bool detectsAnimals = true;
         private Transform scannerRoot;
         private Transform armRevealRoot;
         private Transform radarTransform;
@@ -179,8 +180,9 @@ namespace AnimalGame.RobotMap
             SubscribeToInput();
         }
 
-        public void Initialize(ScanChargeUI input, Camera worldCamera = null)
+        public void Initialize(ScanChargeUI input, Camera worldCamera = null, bool detectsAnimals = true)
         {
+            this.detectsAnimals = detectsAnimals;
             if (animalMarkers == null)
                 animalMarkers = GetComponent<BioScanAnimalMarkerUI>();
             animalMarkers.Initialize(input, worldCamera);
@@ -625,7 +627,10 @@ namespace AnimalGame.RobotMap
             float outerRadius = currentRadius + thickness;
             foreach (DiscoverableEntity entity in DiscoverableEntity.Active)
             {
-                if (entity == null || !entity.IsScannable)
+                if (entity == null)
+                    continue;
+                bool isAnimal = entity.Kind == DiscoverableKind.Animal;
+                if ((isAnimal && !detectsAnimals) || !entity.IsScannable)
                     continue;
                 int entityId = entity.GetInstanceID();
                 if (revealedEntityIds.Contains(entityId))
@@ -641,7 +646,7 @@ namespace AnimalGame.RobotMap
                     || distance - targetRadius > outerRadius)
                     continue;
                 revealedEntityIds.Add(entityId);
-                if (entity.Kind == DiscoverableKind.Animal)
+                if (isAnimal)
                 {
                     entity.SetDiscovered(true);
                     animalMarkers?.ShowScannedAnimal(entity);

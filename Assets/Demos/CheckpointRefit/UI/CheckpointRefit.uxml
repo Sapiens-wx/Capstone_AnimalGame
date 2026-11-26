@@ -133,7 +133,7 @@
                     </ui:VisualElement>
                     <ui:Button name="repair-confirm" class="repair-confirm" enabled="false">
                         <archive:ArchiveHoldCircleElement name="repair-hold" text="A" class="repair-hold" picking-mode="Ignore" />
-                        <ui:Label text="HOLD TO REPAIR" class="repair-confirm-caption" picking-mode="Ignore" />
+                        <ui:Label name="repair-confirm-caption" text="HOLD TO REPAIR" class="repair-confirm-caption" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Label name="repair-message" class="repair-message" picking-mode="Ignore" />
                 </ui:VisualElement>

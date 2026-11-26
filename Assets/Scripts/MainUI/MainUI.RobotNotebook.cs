@@ -19,10 +19,10 @@ namespace AnimalGame.MainUI
             RefreshRobotNotebook(0f);
         }
 
-        internal void SetOpeningGoalModule(float openness, bool showTab)
+        internal void SetOpeningGoalModule(float slideProgress, bool showTab)
         {
-            if (openness > 0f || showTab) EnsureRobotNotebookView();
-            robotNotebookView?.SetPresentation(openness, showTab ? 1f - openness : 0f);
+            if (slideProgress > 0f || showTab) EnsureRobotNotebookView();
+            robotNotebookView?.SetPresentation(slideProgress, showTab);
         }
 
         private void BindRobotNotebook()

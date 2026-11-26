@@ -253,8 +253,9 @@ namespace AnimalGame.Editor
                     writer.Write(time.Ticks);
                 }
                 var migrated = SaveSystem.LoadOrCreate(legacy);
-                Require(migrated.gameTime == time && migrated.conversations.Single().messages.Single().kind == MessageKind.Photos,
-                    "V4 migration skips unbound text while preserving photo messages and game time.");
+                Require(migrated.gameTime == GameSave.InitialGameTime + time.TimeOfDay
+                    && migrated.conversations.Single().messages.Single().kind == MessageKind.Photos,
+                    "V4 migration skips unbound text and preserves photo messages and time of day.");
             }
             finally { File.Delete(legacy); }
         }

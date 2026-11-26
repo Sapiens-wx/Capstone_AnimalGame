@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using AnimalGame.Animals.UI;
 using AnimalGame.Interaction;
 using AnimalGame.RobotMap;
 using AnimalGame.Save;
@@ -8,6 +9,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
+using GameHud = AnimalGame.MainUI.MainUI;
 
 namespace AnimalGame.World
 {
@@ -15,6 +17,7 @@ namespace AnimalGame.World
     [RequireComponent(typeof(UIDocument))]
     public sealed class StationLogUI : MonoBehaviour
     {
+        private const float SyncHoldDuration = .65f;
         private const float SyncDuration = .2f;
         private static StationLogUI active;
         private static int closedFrame = -1;
@@ -26,10 +29,12 @@ namespace AnimalGame.World
         private FacilityWindowTransition transition;
         private ScrollView list, body;
         private Button sync;
+        private ArchiveHoldCircleElement syncHold;
         private Label syncStatus, syncLabel;
         private int selectedIndex, heldDirection;
-        private float nextStep, syncElapsed, previousTimeScale;
-        private bool syncing, previousCursorVisible;
+        private int syncPointerId = -1;
+        private float nextStep, syncHoldElapsed, syncElapsed, previousTimeScale;
+        private bool syncHoldArmed, syncing, previousCursorVisible;
         private CursorLockMode previousCursorLock;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -73,14 +78,20 @@ namespace AnimalGame.World
                 transition = new FacilityWindowTransition(documentRoot, root, socketWorld.Value);
             root.Q<Label>("station-type").text = station.StationName;
             root.Q<Label>("station-code").text = station.StationId;
+            root.Q<Label>("log-maintainer-name").text = station.LogMaintainer;
             root.Q<Label>("sync-station-name").text = $"{station.StationName} {station.StationId}";
             list = root.Q<ScrollView>("record-list");
             body = root.Q<ScrollView>("log-body");
             sync = root.Q<Button>("sync");
+            syncHold = sync.Q<ArchiveHoldCircleElement>("sync-hold");
             syncProgress = root.Q("sync-progress");
             syncStatus = root.Q<Label>("sync-status");
             syncLabel = root.Q<Label>("sync-label");
-            sync.clicked += SyncStation;
+            sync.RegisterCallback<PointerDownEvent>(OnSyncPointerDown, TrickleDown.TrickleDown);
+            sync.RegisterCallback<PointerMoveEvent>(OnSyncPointerMove);
+            sync.RegisterCallback<PointerUpEvent>(OnSyncPointerUp);
+            sync.RegisterCallback<PointerCancelEvent>(OnSyncPointerCancel);
+            sync.RegisterCallback<PointerCaptureOutEvent>(OnSyncPointerCaptureOut);
             root.Q<Button>("close").clicked += Close;
             BuildList();
             ShowSelection();
@@ -157,13 +168,81 @@ namespace AnimalGame.World
 
         private void SyncStation()
         {
-            if (!sync.enabledSelf) return;
+            ReleaseSyncPointer();
+            syncHoldArmed = false;
             syncing = true;
             syncElapsed = 0f;
             sync.SetEnabled(false);
             sync.AddToClassList("sync-busy");
             syncLabel.text = "Syncing…";
             syncStatus.text = "Syncing station data…";
+        }
+
+        private void UpdateSyncHold(bool pressed, float deltaTime)
+        {
+            if (!sync.enabledInHierarchy) return;
+            if (!pressed) syncHoldArmed = true;
+            if (syncPointerId < 0 && (!pressed || !syncHoldArmed))
+            {
+                ResetSyncHold();
+                return;
+            }
+
+            syncHoldElapsed = Mathf.Min(syncHoldElapsed + deltaTime, SyncHoldDuration);
+            syncHold.Progress = syncHoldElapsed / SyncHoldDuration;
+            if (syncHoldElapsed >= SyncHoldDuration) SyncStation();
+        }
+
+        private void ResetSyncHold()
+        {
+            if (syncHoldElapsed <= 0f) return;
+            syncHoldElapsed = 0f;
+            syncHold.Progress = 0f;
+        }
+
+        private void OnSyncPointerDown(PointerDownEvent evt)
+        {
+            if (evt.button != 0 || syncPointerId >= 0 || !sync.enabledInHierarchy) return;
+            syncPointerId = evt.pointerId;
+            sync.CapturePointer(syncPointerId);
+            evt.StopImmediatePropagation();
+        }
+
+        private void OnSyncPointerMove(PointerMoveEvent evt)
+        {
+            if (evt.pointerId == syncPointerId && !sync.worldBound.Contains((Vector2)evt.position))
+                CancelSyncPointer();
+        }
+
+        private void OnSyncPointerUp(PointerUpEvent evt)
+        {
+            if (evt.pointerId == syncPointerId && evt.button == 0) CancelSyncPointer();
+        }
+
+        private void OnSyncPointerCancel(PointerCancelEvent evt)
+        {
+            if (evt.pointerId == syncPointerId) CancelSyncPointer();
+        }
+
+        private void OnSyncPointerCaptureOut(PointerCaptureOutEvent evt)
+        {
+            if (evt.pointerId != syncPointerId) return;
+            syncPointerId = -1;
+            ResetSyncHold();
+        }
+
+        private void CancelSyncPointer()
+        {
+            ReleaseSyncPointer();
+            ResetSyncHold();
+        }
+
+        private void ReleaseSyncPointer()
+        {
+            if (syncPointerId < 0) return;
+            int pointerId = syncPointerId;
+            syncPointerId = -1;
+            sync.ReleasePointer(pointerId);
         }
 
         private void OpenSurveyMap()
@@ -177,13 +256,13 @@ namespace AnimalGame.World
                     return;
                 }
                 ShowSyncState(SaveSystem.IsStationSynced(station.StationId));
-                if (sync.enabledSelf) syncStatus.text = "Station map unavailable. Select Sync to retry.";
+                if (sync.enabledSelf) syncStatus.text = "Station map unavailable. Hold to retry.";
             }
             catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
             {
                 Debug.LogException(error, this);
                 ShowSyncState(false);
-                syncStatus.text = "Could not save station data. Select Sync to retry.";
+                syncStatus.text = "Could not save station data. Hold to retry.";
             }
         }
 
@@ -193,14 +272,22 @@ namespace AnimalGame.World
             root.style.display = DisplayStyle.Flex;
         }
 
+        internal void FinishSurvey()
+        {
+            GameHud hud = GameHud.Active;
+            if (hud != null && hud.gameObject.scene == gameObject.scene) hud.QueueNavigationTelemetryReveal();
+            Close();
+        }
+
         private void ShowSyncState(bool complete)
         {
             syncing = false;
             sync.RemoveFromClassList("sync-busy");
             sync.EnableInClassList("sync-complete", complete);
             sync.SetEnabled(!complete);
+            ResetSyncHold();
             syncProgress.style.width = Length.Percent(0);
-            syncLabel.text = complete ? "Station Synced" : "Sync Station Data";
+            syncLabel.text = complete ? "Station Synced" : "Hold to Sync";
             syncStatus.text = complete ? "Station data synced" : "Ready to sync station data";
         }
 
@@ -226,9 +313,10 @@ namespace AnimalGame.World
                 Close();
                 return;
             }
-            if ((keyboard != null && keyboard.sKey.wasPressedThisFrame)
-                || AdaptiveLegacyGamepadInput.WasNorthFaceButtonPressedThisFrame())
-                SyncStation();
+            if (Application.isFocused)
+                UpdateSyncHold((keyboard != null && keyboard.sKey.isPressed)
+                    || AdaptiveLegacyGamepadInput.IsSouthFaceButtonHeld(), Time.unscaledDeltaTime);
+            if (syncing) return;
 
             float vertical = AdaptiveLegacyGamepadInput.ReadLeftStick().y;
             var pad = Gamepad.current;
@@ -251,15 +339,28 @@ namespace AnimalGame.World
 
         private void Close()
         {
+            ReleaseSyncPointer();
+            ResetSyncHold();
             if (transition != null) transition.Close(CloseImmediately);
             else CloseImmediately();
         }
 
         private void CloseImmediately() => gameObject.SetActive(false);
 
+        private void OnApplicationFocus(bool focused)
+        {
+            if (focused || active != this) return;
+            syncHoldArmed = false;
+            ReleaseSyncPointer();
+            if (!syncing) ResetSyncHold();
+        }
+
         private void OnDisable()
         {
             if (active != this) return;
+            syncHoldArmed = false;
+            ReleaseSyncPointer();
+            ResetSyncHold();
             if (WorldMapUI.Instance != null) WorldMapUI.Instance.CloseFor(this);
             active = null;
             closedFrame = Time.frameCount;

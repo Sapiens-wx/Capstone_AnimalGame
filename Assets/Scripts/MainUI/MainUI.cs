@@ -209,11 +209,14 @@ namespace AnimalGame.MainUI
             openingSignalPrompt = root.Q("OpeningSignalPrompt");
             openingSignalMapKey = root.Q<Label>("OpeningSignalMapKey");
             openingTraversalHint = root.Q("OpeningTraversalHint");
+            openingInterestScanHint = root.Q("OpeningInterestScanHint");
             openingArmHint = root.Q("OpeningArmHint");
             openingArmMotionHint = root.Q("OpeningArmMotionHint");
             openingArmMotionAction = root.Q<Label>("OpeningArmMotionAction");
             openingGrabHint = root.Q("OpeningGrabHint");
             openingGrabAction = root.Q<Label>("OpeningGrabAction");
+            openingHeavyGarbageHint = root.Q("OpeningHeavyGarbageHint");
+            openingRepairHint = root.Q("OpeningRepairHint");
             openingCargoHint = root.Q("OpeningCargoHint");
             timeOrbit = root.Q<TimeOrbitElement>("TimeOrbit");
             coordinates = root.Q("Coordinates");
@@ -387,10 +390,13 @@ namespace AnimalGame.MainUI
         private void LateUpdate()
         {
             RefreshLatePresentation();
+            AdvanceNavigationTelemetryReveal(Time.unscaledDeltaTime);
             RefreshDpadHoldHint();
             AdvanceOpeningDrivingHint(Time.unscaledDeltaTime);
             AdvanceOpeningSignalPrompt(Time.unscaledDeltaTime);
             AdvanceOpeningTraversalHint(Time.unscaledDeltaTime);
+            AdvanceOpeningInterestScanHint(Time.unscaledDeltaTime);
+            AdvanceOpeningHeavyGarbageHint(Time.unscaledDeltaTime);
             AdvanceOpeningArmHint(Time.unscaledDeltaTime);
             AdvanceOpeningCargoHint(Time.unscaledDeltaTime);
             UpdateDriveDamageWarning();
@@ -665,7 +671,7 @@ namespace AnimalGame.MainUI
         {
             if (openingPresentation == null && dateLabel != null)
                 dateLabel.text = navigationTelemetryUnavailable
-                    ? OpeningHudTimeline.UnknownReading : date.ToString("MM_dd\nyyyy", CultureInfo.InvariantCulture);
+                    ? OpeningHudTimeline.UnknownReading : date.ToString("M_dd\nyyyy", CultureInfo.InvariantCulture);
         }
         private void RefreshGameClock(DateTime previous, bool force = false)
         {
@@ -677,7 +683,7 @@ namespace AnimalGame.MainUI
 
         private void AdvanceGameClock(float deltaTime)
         {
-            if (deltaTime <= 0) return;
+            if (deltaTime <= 0 || navigationTelemetryUnavailable) return;
             DateTime previous = CurrentGameTime;
             SaveSystem.Current.gameTime = previous.AddTicks((long)(deltaTime * (double)TimeSpan.TicksPerMinute));
             RefreshGameClock(previous);
@@ -739,6 +745,7 @@ namespace AnimalGame.MainUI
             EndOpeningPresentation();
             HideDriveDamageWarning();
             TrackOpeningRecycle(null);
+            TrackOpeningHeavyGarbage(null);
             robotNotebookOpen = false;
             robotNotebookView?.Tick(false, false, 0f);
             if (animalDebugInstance != null) animalDebugInstance.SetActive(false);

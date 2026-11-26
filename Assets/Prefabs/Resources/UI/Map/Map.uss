@@ -174,9 +174,8 @@
     -unity-font-definition: resource('UI/Font/Orbitron-Medium');
     -unity-text-align: middle-left;
     font-size: 15px;
-    white-space: nowrap;
+    white-space: normal;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
 #map-coordinate-text {
     margin: 0;

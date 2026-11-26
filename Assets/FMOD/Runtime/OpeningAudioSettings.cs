@@ -91,7 +91,6 @@ namespace Capstone.Audio
         private static readonly AnimalSoundWaveSettings peckWave = new(2.5f, .42f, 3, 1f, 1f);
         private static readonly AnimalSoundWaveSettings takeoffWave = new(3.8f, .55f, 4, 1f, 1f);
         private const string LandingRecording = "365485__shanaygroen__bird-in-cage-flapping-wings.wav";
-        private const string TakeoffRecording = "Starting Raven.wav";
 
         private struct Voice
         {
@@ -126,7 +125,7 @@ namespace Capstone.Audio
 
         internal void PlayWoodpeckerTakeoff(Vector3 position, float bodyRadius)
         {
-            PlayWoodpeckerRecording(TakeoffRecording, 4f, .35f);
+            PlayWoodpeckerRecording(RavenFlyoverAudio.RecordingName, 4f, .35f);
             EmitWoodpeckerWave(position, bodyRadius, takeoffWave);
         }
 

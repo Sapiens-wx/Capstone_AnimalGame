@@ -21,6 +21,12 @@ namespace AnimalGame.MainUI
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             Camera camera = targetCamera != null ? targetCamera : bootstrap != null ? bootstrap.mapCamera : null;
             if (camera == null || !camera.orthographic) { Restore(); return; }
+            ApplyInventoryProjection(camera);
+            hud.AdvanceOpeningRepairHint(camera, Time.unscaledDeltaTime);
+        }
+
+        private void ApplyInventoryProjection(Camera camera)
+        {
             if (shiftedCamera != camera) { Restore(); shiftedCamera = camera; }
             if (!hud.IsInventoryOpen && hud.InventoryProgress == 0) { Restore(); return; }
             if (!hud.TryGetRingScreenGeometry(out Vector2 center, out _)) return;

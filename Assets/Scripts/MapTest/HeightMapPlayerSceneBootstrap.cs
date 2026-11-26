@@ -36,6 +36,9 @@ namespace AnimalGame.MapTest
         [Tooltip("Camera equipped when this scene creates the player. Leave empty to keep the robot prefab's default camera.")]
         [SerializeField] private PhotoCameraDefinition initialPhotoCamera;
 
+        [Header("Interest Scan")]
+        [SerializeField] private bool interestScanDetectsAnimals = true;
+
         [Header("Performance Display")]
         [SerializeField] private bool showFrameRate = true;
         [SerializeField, Min(0.05f)] private float frameRateRefreshInterval = 0.25f;
@@ -211,7 +214,7 @@ namespace AnimalGame.MapTest
             marker.BindScanInnerRing(scanChargeUi);
             vegetationDeformation = new VegetationSpriteDeformation.Driver(this, marker);
             mainUiObject.GetComponent<AnimalGame.MainUI.MainUIProjection>()?.Initialize(mapCamera);
-            bioScan.Initialize(scanChargeUi, mapCamera);
+            bioScan.Initialize(scanChargeUi, mapCamera, interestScanDetectsAnimals);
             photoModeUi.Initialize(photoMode, mapCamera);
             if (animalInfoLibrary != null) photoResultUi.Library = animalInfoLibrary;
             photoResultUi.Initialize(photoMode, photoModeUi, mapCamera, map);

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AnimalGame.MapTest;
 using AnimalGame.Save;
 using UnityEngine;
@@ -26,6 +27,7 @@ namespace AnimalGame.World
 
         public string Id => id;
         internal string DisplayName => displayName;
+        internal IReadOnlyList<Vector2> VisibleOutline => visibleOutline;
 
         private void LateUpdate()
         {

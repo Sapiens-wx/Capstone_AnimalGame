@@ -247,8 +247,8 @@ namespace AnimalGame.Editor
                     Assert(root.Q<CompassElement>("Compass").Heading >= 0 && root.Q<CompassElement>("Compass").Heading < 360,
                         "Normalized heading " + heading);
                 }
-                hud.SetHeading(0); hud.SetDate(new DateTime(2026, 1, 1));
-                Assert(root.Q<Label>("Date").text == "2026_01_01", "Date format");
+                hud.SetHeading(0); hud.SetDate(GameSave.InitialGameTime);
+                Assert(root.Q<Label>("Date").text == "8_04\n3164", "Date format");
                 hud.SetCoordinates(-12, -57); hud.SetAltitude(67);
                 Assert(root.Q<Label>("LatitudeHemisphere").text == "S" && root.Q<Label>("LongitudeHemisphere").text == "W",
                     "Coordinate display interface");
@@ -334,6 +334,8 @@ namespace AnimalGame.Editor
         private static void CheckGameClock(Hud hud, VisualElement root)
         {
             var current = typeof(SaveSystem).GetProperty(nameof(SaveSystem.Current));
+            var telemetryUnavailable = typeof(Hud).GetField("navigationTelemetryUnavailable", Flags);
+            var originalTelemetryUnavailable = telemetryUnavailable.GetValue(hud);
             var previousSave = SaveSystem.Current;
             var start = new DateTime(2026, 12, 31, 23, 59, 0);
             float previousScale = Time.timeScale;
@@ -341,13 +343,14 @@ namespace AnimalGame.Editor
             {
                 var save = new GameSave { gameTime = start.AddSeconds(45) };
                 current.SetValue(null, save);
+                telemetryUnavailable.SetValue(hud, false);
                 hud.Init();
                 Assert(hud.CurrentGameTime == start.AddSeconds(45), "Clock starts at the exact saved time");
                 Invoke(hud, "AdvanceGameClock", .125f);
                 Assert(hud.CurrentGameTime == start.AddSeconds(52.5), "Game clock advances fractional minutes");
                 Invoke(hud, "AdvanceGameClock", .125f);
                 Assert(hud.CurrentGameTime == start.AddMinutes(1)
-                    && root.Q<Label>("Date").text == "01_01\n2027", "Game clock rolls date across year end");
+                    && root.Q<Label>("Date").text == "1_01\n2027", "Game clock rolls date across year end");
                 var orbit = root.Q<TimeOrbitElement>("TimeOrbit");
                 Assert((float)typeof(TimeOrbitElement).GetField("dayProgress", Flags).GetValue(orbit) == 0,
                     "Midnight starts day progress");
@@ -365,7 +368,7 @@ namespace AnimalGame.Editor
                 Assert(hud.CurrentGameTime == start.AddMinutes(6), "UI reinitialization preserves clock and remainder");
                 Invoke(hud, "RefreshTelemetry", start.AddYears(-1), true);
                 Assert(hud.CurrentGameTime == start.AddMinutes(6)
-                    && root.Q<Label>("Date").text == "01_01\n2027", "Telemetry leaves game time intact");
+                    && root.Q<Label>("Date").text == "1_01\n2027", "Telemetry leaves game time intact");
                 // A minute tick must not replace the existing date string on the same day.
                 string dateText = root.Q<Label>("Date").text;
                 Invoke(hud, "AdvanceGameClock", 1f);
@@ -373,10 +376,20 @@ namespace AnimalGame.Editor
                 save.gameTime = new DateTime(2028, 2, 28, 23, 59, 0);
                 hud.Init();
                 Invoke(hud, "AdvanceGameClock", 1f);
-                Assert(root.Q<Label>("Date").text == "02_29\n2028", "DateTime handles leap-day rollover");
+                Assert(root.Q<Label>("Date").text == "2_29\n2028", "DateTime handles leap-day rollover");
+
+                save.gameTime = GameSave.InitialGameTime;
+                telemetryUnavailable.SetValue(hud, true);
+                Invoke(hud, "AdvanceGameClock", 1440f);
+                Assert(hud.CurrentGameTime == GameSave.InitialGameTime, "Opening clock waits for the station sync");
+                telemetryUnavailable.SetValue(hud, false);
+                Invoke(hud, "AdvanceGameClock", 1440f);
+                Assert(hud.CurrentGameTime == GameSave.InitialGameTime.AddDays(1)
+                    && root.Q<Label>("Date").text == "8_05\n3164", "Synchronized clock advances to the next day");
             }
             finally
             {
+                telemetryUnavailable.SetValue(hud, originalTelemetryUnavailable);
                 Time.timeScale = previousScale;
                 current.SetValue(null, previousSave);
                 hud.Init();

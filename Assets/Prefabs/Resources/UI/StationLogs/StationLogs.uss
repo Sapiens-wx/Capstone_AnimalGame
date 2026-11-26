@@ -181,9 +181,17 @@
 }
 
 .station-detail-meta { flex-direction: row; justify-content: space-between; align-items: center; }
-.station-logs #record-id, .station-logs #detail-date { color: #B3B3A8; font-size: 16px; }
-.station-logs #record-id { letter-spacing: 0.24px; }
+.station-logs #record-id { color: #B3B3A8; font-size: 16px; letter-spacing: 0.24px; }
+.station-logs #detail-date {
+    color: #D4B854;
+    font-size: 30px;
+    -unity-font-style: bold;
+    white-space: nowrap;
+}
 .station-logs #detail-title { margin-top: 16px; font-size: 52px; white-space: normal; }
+.station-maintainer { flex-direction: row; align-items: center; margin-top: 8px; }
+.station-logs .station-maintainer-label { color: #B3B3A8; font-size: 16px; margin-right: 8px; }
+.station-logs #log-maintainer-name { font-size: 20px; }
 .station-logs .station-section-title {
     margin-top: 24px;
     margin-bottom: 13px;
@@ -286,7 +294,12 @@
     -unity-text-align: middle-center;
 }
 
-.station-logs .sync-key-label { font-size: 26px; }
+.station-logs .sync-key-label {
+    width: 100%;
+    height: 100%;
+    font-size: 26px;
+    -unity-text-align: middle-center;
+}
 .station-logs .sync-shortcut {
     position: absolute;
     right: 34px;

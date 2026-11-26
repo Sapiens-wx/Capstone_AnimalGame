@@ -16,6 +16,9 @@ namespace AnimalGame.Demos.CheckpointRefit
     public sealed class CheckpointRefitView : MonoBehaviour
     {
         private static readonly string[] SlotNames = { "LEGS", "CAMERA", "BACK", "EXPANSION" };
+        private const float RepairWavePeriod = 2.1f;
+        private const float RepairWaveOuterRadius = 96f;
+        private const int RepairWaveCount = 3;
         private readonly Button[] slotButtons = new Button[4];
         private readonly Button[] moduleButtons = new Button[3];
         private readonly PhotoCameraDefinition[] cameraModules = new PhotoCameraDefinition[3];
@@ -48,7 +51,9 @@ namespace AnimalGame.Demos.CheckpointRefit
         private Label repairMessage;
         private Image repairIcon;
         private Button repairConfirm;
+        private Label repairConfirmCaption;
         private ArchiveHoldCircleElement repairHold;
+        private bool repairTutorialPending;
         private int repairPointerId = -1;
         private Label prompt;
         private Label checkpoint;
@@ -151,6 +156,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         private void LateUpdate()
         {
             if (!IsVisible) return;
+            if (IsRepairPage && repairTutorialPending) repairConfirm.MarkDirtyRepaint();
             var installed = cameraEquipment != null ? cameraEquipment.CurrentCamera : null;
             if (installed != displayedInstalledCamera) RefreshEquipment();
         }
@@ -180,6 +186,12 @@ namespace AnimalGame.Demos.CheckpointRefit
             tabFeedback?.Stop();
             ReleaseRepairPointer();
             SetRepairHoldProgress(0);
+            SetRepairShake(Vector2.zero);
+            if (repairTutorialPending)
+            {
+                repairTutorialPending = false;
+                repairConfirm.MarkDirtyRepaint();
+            }
             IsVisible = false;
             IsInspectionOpen = false;
             IsRepairPage = false;
@@ -205,7 +217,7 @@ namespace AnimalGame.Demos.CheckpointRefit
         }
 
         public void SetRepairStatus(float integrity, float power, float afterIntegrity, int cargo, int? storage,
-            int cost, Sprite icon, bool canRepair, string message)
+            int cost, Sprite icon, bool canRepair, string message, bool showTutorial = false)
         {
             if (!EnsureBound()) return;
             int total = cargo + storage.GetValueOrDefault();
@@ -221,7 +233,14 @@ namespace AnimalGame.Demos.CheckpointRefit
             repairTotal.text = total.ToString();
             repairCost.text = cost > 0 ? "\u2212" + cost : "0";
             repairRemaining.text = total >= cost ? (total - cost).ToString() : "\u2014";
-            repairMessage.text = message ?? string.Empty;
+            bool showRepairHint = showTutorial && canRepair;
+            bool showScrapHint = showTutorial && !canRepair && integrity < 1f && total < cost;
+            repairConfirmCaption.text = showRepairHint ? "HOLD TO REPAIR WITH METAL SCRAP" : "HOLD TO REPAIR";
+            repairConfirmCaption.EnableInClassList("repair-tutorial-hint", showRepairHint);
+            repairMessage.text = showScrapHint ? "RECYCLE WASTE TO GET METAL SCRAP" : message ?? string.Empty;
+            repairMessage.EnableInClassList("repair-tutorial-hint", showScrapHint);
+            repairTutorialPending = showTutorial;
+            repairConfirm.MarkDirtyRepaint();
             repairIcon.sprite = icon;
             if (!canRepair)
             {
@@ -234,6 +253,40 @@ namespace AnimalGame.Demos.CheckpointRefit
         public void SetRepairHoldProgress(float progress)
         {
             if (repairHold != null && repairHold.Progress != progress) repairHold.Progress = progress;
+        }
+
+        internal void SetRepairShake(Vector2 designOffset)
+        {
+            if (stage == null) return;
+            Vector2 offset = designOffset * stage.transform.scale.x;
+            if (offset == Vector2.zero) stage.style.translate = StyleKeyword.Null;
+            else stage.style.translate = new Translate(offset.x, offset.y);
+        }
+
+        private void DrawRepairWaves(MeshGenerationContext context)
+        {
+            if (!IsVisible || !IsRepairPage || !repairTutorialPending) return;
+            Rect badge = repairHold.layout;
+            if (!(badge.width > 0f)) return;
+
+            var painter = context.painter2D;
+            float cycle = Time.unscaledTime / RepairWavePeriod;
+            float startRadius = badge.width * .5f + 3f;
+            float strength = repairConfirm.enabledSelf ? .64f : .28f;
+            for (int i = 0; i < RepairWaveCount; i++)
+            {
+                float progress = Mathf.Repeat(cycle + (float)i / RepairWaveCount, 1f);
+                float remaining = 1f - progress;
+                Color color = HudDrawing.Yellow;
+                color.a = strength * remaining * remaining;
+                painter.strokeColor = color;
+                painter.lineWidth = Mathf.Lerp(2.5f, 1f, progress);
+                painter.BeginPath();
+                painter.Arc(badge.center, Mathf.Lerp(startRadius, RepairWaveOuterRadius, progress),
+                    Angle.Degrees(0f), Angle.Degrees(360f));
+                painter.ClosePath();
+                painter.Stroke();
+            }
         }
 
         private static string FormatPercent(float value) =>
@@ -401,7 +454,9 @@ namespace AnimalGame.Demos.CheckpointRefit
             repairIcon = repairContent.Q<Image>("repair-icon");
             repairIcon.scaleMode = ScaleMode.ScaleToFit;
             repairConfirm = repairContent.Q<Button>("repair-confirm");
+            repairConfirmCaption = repairConfirm.Q<Label>("repair-confirm-caption");
             repairHold = repairConfirm.Q<ArchiveHoldCircleElement>("repair-hold");
+            repairConfirm.generateVisualContent += DrawRepairWaves;
             BindClick(repairTab, () => RequestPage(true));
             BindClick(refitTab, () => RequestPage(false));
             repairTab.RegisterCallback<GeometryChangedEvent>(OnTabGeometryChanged);
@@ -482,6 +537,7 @@ namespace AnimalGame.Demos.CheckpointRefit
             refitTab?.UnregisterCallback<GeometryChangedEvent>(OnTabGeometryChanged);
             if (repairConfirm != null)
             {
+                repairConfirm.generateVisualContent -= DrawRepairWaves;
                 repairConfirm.UnregisterCallback<PointerDownEvent>(OnRepairPointerDown, TrickleDown.TrickleDown);
                 repairConfirm.UnregisterCallback<PointerMoveEvent>(OnRepairPointerMove);
                 repairConfirm.UnregisterCallback<PointerUpEvent>(OnRepairPointerUp);

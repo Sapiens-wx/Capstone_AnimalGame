@@ -28,6 +28,7 @@ namespace AnimalGame.World
         [SerializeField] private GameObject interactionPrompt;
         [SerializeField] private string stationId;
         [SerializeField] private string stationName;
+        [SerializeField] private string logMaintainer;
         [SerializeField] private StationLogEntry[] entries;
 
         private BoxCollider2D interactionTrigger;
@@ -36,6 +37,7 @@ namespace AnimalGame.World
 
         public string StationId => stationId;
         public string StationName => stationName;
+        public string LogMaintainer => logMaintainer;
         public IReadOnlyList<StationLogEntry> Entries => entries;
         internal bool HasPendingInteraction => !SaveSystem.IsStationSynced(stationId);
 
@@ -88,7 +90,7 @@ namespace AnimalGame.World
         internal static bool CanUseGroundConsole(WeatherTower tower, BoxCollider2D trigger)
         {
             RobotMover player = tower.Player;
-            return tower.EquipmentInteractionReady && tower.Phase == WeatherTowerPhase.Ground && trigger.enabled
+            return tower.Phase == WeatherTowerPhase.Ground && trigger.enabled
                 && player != null && player.isActiveAndEnabled && player.TowerCollisionRoot != null
                 && trigger.transform.IsChildOf(player.TowerCollisionRoot)
                 && IsInRange(trigger, player) && CanUseControls(player, tower.UsesStationPlugs);

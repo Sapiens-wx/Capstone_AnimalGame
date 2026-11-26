@@ -28,7 +28,7 @@
             </ui:VisualElement>
             <ui:VisualElement name="Time" picking-mode="Ignore" class="time" style="position: absolute; right: 28px; top: 19px;">
                 <hud:TimeOrbitElement name="TimeOrbit" line-width="4" tick-length="12" radius="77" dash-gap="18" class="time-orbit" style="position: absolute; left: 0; top: 0;" />
-                <ui:Label name="Date" text="2026_01_01" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
+                <ui:Label name="Date" class="date" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
             </ui:VisualElement>
             <hud:SoundElement name="Sound" line-width="4" line-length="45.2" class="sound" style="position: absolute; right: 278px; top: 67px; height: 136px; width: 162px;" />
             <ui:VisualElement name="Coordinates" picking-mode="Ignore" class="coordinates" style="position: absolute; right: 68px; bottom: 30px; width: 258px;">
@@ -85,6 +85,12 @@
                 <ui:Label text="CONTROL WEIGHT" class="driving-control-action" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="OpeningInterestScanHint" picking-mode="Ignore" class="opening-control-hint">
+            <ui:VisualElement class="driving-control">
+                <ui:Label text="LB" class="driving-control-key" />
+                <ui:Label text="HOLD, THEN RELEASE FOR INTEREST SCAN" class="driving-control-action" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:VisualElement name="OpeningArmHint" picking-mode="Ignore" class="opening-control-hint">
             <ui:VisualElement class="driving-control">
                 <ui:Label text="L" class="driving-control-key driving-control-stick" />
@@ -97,6 +103,24 @@
             <ui:VisualElement name="OpeningGrabHint" class="driving-control">
                 <ui:Label text="A" class="driving-control-key driving-control-stick" />
                 <ui:Label name="OpeningGrabAction" class="driving-control-action" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="OpeningHeavyGarbageHint" picking-mode="Ignore" class="opening-control-hint">
+            <ui:VisualElement class="driving-control">
+                <ui:Label text="A" class="driving-control-key driving-control-stick" />
+                <ui:Label text="KEEP HOLDING" class="driving-control-action" />
+            </ui:VisualElement>
+            <ui:VisualElement class="driving-control">
+                <ui:Label text="LT" class="driving-control-key" />
+                <ui:Label text="HOLD TO REVERSE AND BREAK APART" class="driving-control-action" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="OpeningRepairHint" picking-mode="Ignore" class="opening-control-hint">
+            <ui:VisualElement class="driving-control">
+                <ui:Label text="REPAIR STATION" class="driving-control-action opening-signal-title" />
+            </ui:VisualElement>
+            <ui:VisualElement class="driving-control">
+                <ui:Label text="USE METAL SCRAP TO REPAIR" class="driving-control-action" />
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="OpeningCargoHint" picking-mode="Ignore" class="opening-control-hint">

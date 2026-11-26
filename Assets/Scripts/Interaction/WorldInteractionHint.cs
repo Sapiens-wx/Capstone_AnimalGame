@@ -13,6 +13,8 @@ namespace AnimalGame.Interaction
         [SerializeField] private string actionLabel = "INTERACT";
         private VisualElement prompt;
 
+        internal void SetActionLabel(string label) => actionLabel = label;
+
         public static void ReplaceLegacyPrompt(GameObject anchor)
         {
             if (anchor.TryGetComponent(out TextMesh text))

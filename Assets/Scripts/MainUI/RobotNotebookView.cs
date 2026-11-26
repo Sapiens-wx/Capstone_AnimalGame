@@ -6,9 +6,18 @@ namespace AnimalGame.MainUI
 {
     internal sealed class RobotNotebookView
     {
-        private const float SlideDuration = .2f;
+        private const float SlideDuration = .44f;
         private const float FaultBlinkPeriod = 1.15f;
         private const float FaultBlinkDimTime = .20f;
+        // Matching values hold the panel in place. The backstep makes it look like the mechanism retries.
+        private static readonly AnimationCurve FaultedSlide = new(
+            new Keyframe(0f, 0f),
+            new Keyframe(.22f, .34f),
+            new Keyframe(.36f, .34f),
+            new Keyframe(.45f, .26f),
+            new Keyframe(.63f, .78f),
+            new Keyframe(.80f, .78f),
+            new Keyframe(1f, 1f));
         private static readonly Color FrameCut = new(.015f, .021f, .021f, 1f);
         private static readonly Color FaultTrace = new(Gold.r, Gold.g, Gold.b, .42f);
         private static readonly Color CorruptText = new(Gold.r, Gold.g, Gold.b, .6f);
@@ -81,11 +90,13 @@ namespace AnimalGame.MainUI
         internal void Tick(bool open, bool visible, float unscaledDeltaTime)
         {
             slide = visible ? Mathf.MoveTowards(slide, open ? 1f : 0f, unscaledDeltaTime / SlideDuration) : 0f;
-            SetPresentation(Mathf.SmoothStep(0f, 1f, slide), visible ? 1f - slide : 0f);
+            SetPresentation(slide, showTab: visible);
         }
 
-        internal void SetPresentation(float openness, float tabOpacity)
+        internal void SetPresentation(float slideProgress, bool showTab)
         {
+            float openness = FaultedSlide.Evaluate(slideProgress);
+            float tabOpacity = showTab ? 1f - openness : 0f;
             tab.style.display = tabOpacity > 0f ? DisplayStyle.Flex : DisplayStyle.None;
             Vector2 size = Root.layout.size;
             float fit = ScreenFit(size);

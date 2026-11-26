@@ -80,7 +80,7 @@ namespace AnimalGame.World
                 return;
             }
             // activeSelf distinguishes an explicitly disabled device from a hidden parent floor.
-            if (!station.enabled || !station.gameObject.activeSelf)
+            if (!station.enabled || !station.gameObject.activeSelf || station.HasViewedCommunications)
             {
                 Hide();
                 return;

@@ -6,10 +6,6 @@ Shader "AnimalGame/Player UI Clipped Sprite"
         _Color ("Tint", Color) = (1, 1, 1, 1)
         _RequirePlayerUiClip ("Require Active Player Disk", Float) = 0
         [Toggle(TOWER_INTERACTION_LIGHTS)] _TowerInteractionLights ("Blink Gold Interaction Strips", Float) = 0
-        [PerRendererData] _TowerUnpoweredTex ("Station structure", 2D) = "black" {}
-        [PerRendererData] _TowerPowerReveal ("Station equipment visibility", Range(0,1)) = 1
-        [PerRendererData] _TowerRoomLight ("Station room lighting", Range(0,1)) = 1
-        [PerRendererData] _TowerInteractionReveal ("Station interaction lighting", Range(0,1)) = 1
         [PerRendererData] _ConnectedSocketUV ("Seated Plug UV Centre and Half Size", Vector) = (0,0,0,0)
         [MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
         [PerRendererData] _AlphaTex ("External Alpha", 2D) = "white" {}
@@ -70,10 +66,6 @@ Shader "AnimalGame/Player UI Clipped Sprite"
             float _EnableExternalAlpha;
             float _RequirePlayerUiClip;
             float _WeatherTowerInteractionDim;
-            sampler2D _TowerUnpoweredTex;
-            float _TowerPowerReveal;
-            float _TowerRoomLight;
-            float _TowerInteractionReveal;
             float4 _ConnectedSocketUV;
             float _PlayerUiClipEnabled;
             float4 _PlayerUiClipCenterPixels;
@@ -138,16 +130,8 @@ Shader "AnimalGame/Player UI Clipped Sprite"
                 // Only the interaction strips have chroma in the station artwork.
                 half gold = smoothstep(0.01h, 0.18h, color.r - color.b);
                 bool seated = all(abs(input.texcoord - _ConnectedSocketUV.xy) < _ConnectedSocketUV.zw);
-                half gray = dot(color.rgb, half3(0.2126h, 0.7152h, 0.0722h));
-                color.rgb = lerp(half3(gray, gray, gray), color.rgb, _TowerInteractionReveal);
-                if (_TowerInteractionReveal >= 1.0h && !seated)
+                if (!seated)
                     color.rgb *= 1.0h - gold * _WeatherTowerInteractionDim;
-                if (_TowerPowerReveal < 1.0h)
-                {
-                    fixed4 structure = tex2D(_TowerUnpoweredTex, input.texcoord);
-                    color = lerp(structure, color, _TowerPowerReveal);
-                }
-                color.rgb *= _TowerRoomLight;
                 #endif
                 color *= input.color;
                 float2 screenUv = input.screenPosition.xy
