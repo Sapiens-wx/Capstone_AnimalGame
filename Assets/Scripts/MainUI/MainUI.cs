@@ -103,6 +103,7 @@ namespace AnimalGame.MainUI
         private const float DriveDamageWarningFadeDuration = .2f;
 
         public static MainUI Active { get; private set; }
+        internal HudFrameElement HudFrame => frame;
         internal static bool WorldPanelOpen => AnimalGame.World.Map.WorldMapUI.BlocksGameplay
             || AnimalGame.Animals.UI.AnimalArchiveUI.BlocksGameplay
             || AnimalGame.Animals.Communication.EarthlineUI.BlocksGameplay
@@ -487,7 +488,7 @@ namespace AnimalGame.MainUI
             if (compassHost.style.scale.value.value != compassScale)
             {
                 compassHost.style.scale = new Scale(compassScale);
-                (compassHost as CompassHostElement)?.RequestMaskRefresh();
+                (compassHost as CompassHostElement)?.RequestNotchRefresh();
             }
             if (levelIndicator != null)
                 levelIndicator.style.scale = new Scale(compassScale);
@@ -582,6 +583,12 @@ namespace AnimalGame.MainUI
             }
             center = cachedCenter; radius = cachedRadius;
             return hasGeometry;
+        }
+
+        internal void SetMapFrameActive(bool active)
+        {
+            stage.EnableInClassList("map-frame-active", active);
+            if (!active) (compassHost as CompassHostElement)?.RequestNotchRefresh();
         }
 
         internal bool TryGetOuterRingScreenGeometry(out Vector2 center, out float radius) =>

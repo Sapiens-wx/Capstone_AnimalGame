@@ -4,7 +4,7 @@
     display: none;
     overflow: hidden;
 }
-#map-opening-image, #map-content, #map-data-notice-layer {
+#map-opening-image, #map-content, #map-data-notice-layer, #map-shared-frame-layer {
     position: absolute;
     left: 0; top: 0; right: 0; bottom: 0;
 }
@@ -28,15 +28,9 @@
     left: 0; top: 0; right: 0; bottom: 0;
     -unity-background-scale-mode: stretch-to-fill;
 }
-.map-frame-region {
+#map-view-area {
     position: absolute;
-    left: 2%; right: 2%; top: 3%; bottom: 7%;
-    border-width: 1px;
-    border-color: transparent;
     overflow: hidden;
-}
-#map-frame {
-    border-color: white;
 }
 #map-viewport {
     position: absolute;
@@ -73,32 +67,42 @@
     position: absolute;
     left: 50%; bottom: 0;
     translate: -50% 0;
-    transform-origin: 50% 100%;
-    scale: 0.8 0.8;
-    width: 360px; height: 66px;
-    flex-direction: row;
-    align-items: flex-end;
     -unity-font-definition: resource('UI/Photo/GeosansLightStatic');
 }
 #map-pin-options {
-    width: 256px; height: 66px;
+    width: 100%; height: 100%;
     flex-direction: row;
-    background-color: black;
-    border-color: white;
-    border-width: 1px;
-    flex-shrink: 0;
 }
-.map-pin-choice { flex-grow: 1; flex-basis: 0; height: 64px; }
+.map-pin-choice { flex-grow: 1; flex-basis: 0; height: 100%; }
 .map-pin-cycle-key {
-    width: 52px; height: 44px;
-    margin: 0; padding: 0;
+    position: absolute;
+    top: 50%;
+    translate: 0 -50%;
+    margin: 0;
+    padding: 6px 0 0 0;
     background-color: black;
-    border-color: white;
-    border-width: 1px;
     color: #D4B854;
-    font-size: 22px;
+    font-size: 17.6px;
+    -unity-font-style: bold;
     -unity-text-align: middle-center;
-    flex-shrink: 0;
+}
+#map-pin-previous-key {
+    padding-left: 6px;
+}
+#map-pin-next-key {
+    padding-right: 6px;
+}
+.map-pin-key-border {
+    position: absolute;
+    bottom: 0;
+    border-color: white;
+    border-top-width: 1px;
+}
+#map-pin-previous-border {
+    border-left-width: 1px;
+}
+#map-pin-next-border {
+    border-right-width: 1px;
 }
 .map-circle {
     position: absolute;
@@ -190,7 +194,7 @@
 }
 #map-controls {
     position: absolute;
-    top: 93%; bottom: 0; left: 2%; right: 2%;
+    bottom: 0; left: 2%; right: 2%;
     color: #e7e7df;
     font-size: 24px;
     -unity-font-definition: resource('UI/Photo/GeosansLightStatic');

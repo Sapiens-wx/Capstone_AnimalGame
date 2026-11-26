@@ -366,6 +366,9 @@ namespace AnimalGame.MainUI
         private float displayRangeValue = 180;
         private Font metricsFont;
         private float fontDescentRatio;
+        private Rect notchClip;
+        private float notchBevel;
+        private VectorImage notchMask;
         public float Heading => heading;
 
         [UxmlAttribute] public float lineWidth { get => lineWidthValue; set => SetDimension(ref lineWidthValue, value); }
@@ -400,7 +403,9 @@ namespace AnimalGame.MainUI
         public CompassElement()
         {
             pickingMode = PickingMode.Ignore;
-            style.overflow = Overflow.Hidden;
+            style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Left);
+            style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Top);
             for (int i = 0; i < labels.Length; i++)
             {
                 var label = new Label();
@@ -413,7 +418,12 @@ namespace AnimalGame.MainUI
                 labels[i] = label;
                 Add(label);
             }
-            RegisterCallback<GeometryChangedEvent>(_ => UpdateLabels());
+            RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                UpdateLabels();
+                RefreshNotchMask();
+            });
+            RegisterCallback<DetachFromPanelEvent>(_ => ReleaseNotchMask());
             generateVisualContent += Draw;
             UpdateLabels();
         }
@@ -427,6 +437,80 @@ namespace AnimalGame.MainUI
         }
 
         private float X(float degrees) => contentRect.width * (.5f + (degrees - heading) / displayRange);
+
+        internal void SetNotchClip(Rect bounds, float bevel)
+        {
+            if (notchClip == bounds && notchBevel == bevel && notchMask != null) return;
+            notchClip = bounds;
+            notchBevel = bevel;
+            RefreshNotchMask();
+            MarkDirtyRepaint();
+        }
+
+        private void RefreshNotchMask()
+        {
+            float width = contentRect.width;
+            const float borderInset = .75f;
+            if (panel == null) return;
+            float maskHeight = NotchBottom(Mathf.Clamp(notchClip.center.x, 0f, width), 0f) - borderInset;
+            if (!(width > 0f && notchClip.height > 0f && maskHeight > 0f))
+            {
+                ReleaseNotchMask();
+                return;
+            }
+
+            // Build the stencil as one solid shape in compass coordinates. The full
+            // HUD frame has a hole and must not be cropped down to serve as this stencil.
+            Vector2 EdgePoint(float x) => new Vector2(x, Mathf.Max(0f, NotchBottom(x, 0f) - borderInset));
+            var image = ScriptableObject.CreateInstance<VectorImage>();
+            image.hideFlags = HideFlags.HideAndDontSave;
+            using var painter = new Painter2D();
+            painter.fillColor = Color.black;
+            painter.BeginPath();
+            painter.MoveTo(Vector2.zero);
+            painter.LineTo(new Vector2(width, 0f));
+            painter.LineTo(EdgePoint(width));
+            foreach (float x in new[] { notchClip.xMax + notchBevel, notchClip.xMax, notchClip.xMin, notchClip.xMin - notchBevel })
+                if (x > 0f && x < width) painter.LineTo(EdgePoint(x));
+            painter.LineTo(EdgePoint(0f));
+            painter.ClosePath();
+            painter.Fill();
+            if (!painter.SaveToVectorImage(image))
+            {
+                DestroyMask(image);
+                return;
+            }
+
+            ReleaseNotchMask();
+            notchMask = image;
+            style.backgroundSize = new BackgroundSize(new Length(width), new Length(maskHeight));
+            style.backgroundImage = Background.FromVectorImage(notchMask);
+            // A background change alone only dirties the paint. Enable clipping
+            // after the vector is installed so Unity selects stencil clipping.
+            style.overflow = Overflow.Hidden;
+        }
+
+        private void ReleaseNotchMask()
+        {
+            if (notchMask == null) return;
+            style.overflow = Overflow.Visible;
+            style.backgroundImage = StyleKeyword.Null;
+            DestroyMask(notchMask);
+            notchMask = null;
+        }
+
+        private static void DestroyMask(VectorImage image)
+        {
+            if (Application.isPlaying) UnityEngine.Object.Destroy(image);
+            else UnityEngine.Object.DestroyImmediate(image);
+        }
+
+        private float NotchBottom(float x, float halfWidth)
+        {
+            if (notchClip.height <= 0f) return contentRect.yMax;
+            float beyondFlatEdge = Mathf.Abs(x - notchClip.center.x) + halfWidth - notchClip.width * .5f;
+            return Mathf.Lerp(notchClip.yMax, notchClip.yMin, beyondFlatEdge / Mathf.Max(.001f, notchBevel));
+        }
 
         private void UpdateLabels()
         {
@@ -483,21 +567,24 @@ namespace AnimalGame.MainUI
             Painter2D p = context.painter2D;
             if (lineWidth <= 0) return;
             p.lineWidth = lineWidth; p.strokeColor = Color.white;
+            p.lineCap = LineCap.Butt;
             float y = contentRect.height - 3;
-            //HudDrawing.Line(p, new Vector2(0, y), new Vector2(contentRect.width, y));
             float halfRange = displayRange * .5f;
             int start = Mathf.FloorToInt((heading - halfRange) / 10) * 10;
             for (int degree = start; degree <= heading + halfRange; degree += 10)
             {
                 float x = X(degree);
                 if (x < lineWidth * .5f || x > contentRect.width - lineWidth * .5f) continue;
-                HudDrawing.Line(p, new Vector2(x, y), new Vector2(x, y - (degree % 30 == 0 ? 20 : 10)));
+                float top = y - (degree % 30 == 0 ? 20 : 10);
+                float bottom = Mathf.Min(y, NotchBottom(x, lineWidth * .5f));
+                if (bottom > top) HudDrawing.Line(p, new Vector2(x, top), new Vector2(x, bottom));
             }
             for (int i = 0; i < pinCount; i++)
             {
                 float delta = Mathf.DeltaAngle(heading, pinBearings[i]);
                 if (Mathf.Abs(delta) > halfRange) continue;
                 float x = X(heading + delta);
+                if (x - 8f < 0f || x + 8f > contentRect.width || y - 11f > NotchBottom(x, 8f)) continue;
                 AnimalGame.World.Map.WorldMapUI.DrawPinShape(p, new Vector2(x, y - 19), 7, pinShapes[i]);
             }
         }
@@ -506,15 +593,28 @@ namespace AnimalGame.MainUI
     [UxmlElement]
     public partial class CompassPointerElement : VisualElement
     {
+        private float clipBottom = float.PositiveInfinity;
+
         public CompassPointerElement()
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += context =>
             {
+                float y = Mathf.Min(clipBottom, contentRect.height);
+                if (y <= 0f) return;
+                float center = contentRect.width * .5f;
+                float halfWidth = center * (y / contentRect.height);
                 Painter2D p = context.painter2D; p.fillColor = HudDrawing.Yellow;
-                HudDrawing.Polygon(p, new[] { new Vector2(contentRect.width * .5f, 0),
-                    new Vector2(contentRect.width, contentRect.height), new Vector2(0, contentRect.height) }, true);
+                HudDrawing.Polygon(p, new[] { new Vector2(center, 0f),
+                    new Vector2(center + halfWidth, y), new Vector2(center - halfWidth, y) }, true);
             };
+        }
+
+        internal void SetClipBottom(float y)
+        {
+            if (clipBottom == y) return;
+            clipBottom = y;
+            MarkDirtyRepaint();
         }
     }
 
@@ -640,6 +740,8 @@ namespace AnimalGame.MainUI
     [UxmlElement]
     public partial class HudFrameElement : VisualElement
     {
+        private const float MapFooterHeightFraction = .07f;
+        private const float MinimumMapFooterHeight = 48f;
         private float marginValue = 20;
         private float cornerChamferValue = 46;
         private float topNotchWidthValue = 340;
@@ -650,6 +752,7 @@ namespace AnimalGame.MainUI
         private float bottomNotchChamferValue = 14;
         private OpeningScanBand[] openingScanBands;
         private int openingScanMask;
+        private float mapFrameProgress;
 
         [UxmlAttribute] public float margin { get => marginValue; set => SetDimension(ref marginValue, value); }
         [UxmlAttribute] public float cornerChamfer { get => cornerChamferValue; set => SetDimension(ref cornerChamferValue, value); }
@@ -688,61 +791,106 @@ namespace AnimalGame.MainUI
             MarkDirtyRepaint();
         }
 
-        private void Draw(MeshGenerationContext context)
+        private static float DesignScale(Vector2 size) => Mathf.Min(size.x / 1920f, size.y / 1080f);
+
+        internal Rect GetInteriorBounds(Vector2 size, float footerProgress)
         {
-            DrawShape(context.painter2D, true);
+            float inset = Mathf.Min(margin * DesignScale(size), Mathf.Min(size.x, size.y) * .45f);
+            float mapFooter = Mathf.Clamp(size.y * MapFooterHeightFraction, MinimumMapFooterHeight, size.y * .5f);
+            float footer = Mathf.Lerp(inset, Mathf.Max(inset, mapFooter), footerProgress);
+            return Rect.MinMaxRect(inset, inset, size.x - inset, size.y - footer);
         }
 
-        // Share both the filled mask and border vertices with CompassHostElement.
-        internal Vector2[] DrawShape(Painter2D p, bool drawBorder)
+        internal (float width, float bevel, float depth) GetBottomNotch(Vector2 size, Rect bounds)
         {
-            float w = contentRect.width, h = contentRect.height;
-            if (w <= 0 || h <= 0) return System.Array.Empty<Vector2>();
-            float scale = Mathf.Min(w / 1920f, h / 1080f);
-            float inset = Mathf.Min(margin * scale, Mathf.Min(w, h) * .45f);
-            float innerWidth = w - 2 * inset, innerHeight = h - 2 * inset;
-            float cut = Mathf.Min(cornerChamfer * scale, Mathf.Min(innerWidth, innerHeight) * .5f);
-            float maxNotchWidth = Mathf.Max(0, innerWidth - 2 * cut);
-            float topBevel = Mathf.Min(topNotchChamfer * scale, maxNotchWidth * .5f);
-            float bottomBevel = Mathf.Min(bottomNotchChamfer * scale, maxNotchWidth * .5f);
-            float topWidth = Mathf.Min(topNotchWidth * scale, Mathf.Max(0, maxNotchWidth - 2 * topBevel));
-            float bottomWidth = Mathf.Min(bottomNotchWidth * scale, Mathf.Max(0, maxNotchWidth - 2 * bottomBevel));
-            float topHeight = Mathf.Min(topNotchHeight * scale, innerHeight * .4f);
-            float bottomHeight = Mathf.Min(bottomNotchHeight * scale, innerHeight * .4f);
-            Vector2[] top = Notch(w * .5f, inset, topWidth, topHeight, topBevel, 1);
-            Vector2[] bottom = Notch(w * .5f, h - inset, bottomWidth, bottomHeight, bottomBevel, -1);
-            p.fillColor = Color.black;
-            HudDrawing.Rect(p, 0, 0, w, inset);
-            HudDrawing.Rect(p, 0, h - inset, w, inset);
-            HudDrawing.Rect(p, 0, inset, inset, innerHeight);
-            HudDrawing.Rect(p, w - inset, inset, inset, innerHeight);
-            HudDrawing.Polygon(p, top, true);
-            HudDrawing.Polygon(p, bottom, true);
-            HudDrawing.Polygon(p, new[] { new Vector2(inset, inset), new Vector2(inset + cut, inset), new Vector2(inset, inset + cut) }, true);
-            HudDrawing.Polygon(p, new[] { new Vector2(w - inset, inset), new Vector2(w - inset - cut, inset), new Vector2(w - inset, inset + cut) }, true);
-            HudDrawing.Polygon(p, new[] { new Vector2(inset, h - inset), new Vector2(inset + cut, h - inset), new Vector2(inset, h - inset - cut) }, true);
-            HudDrawing.Polygon(p, new[] { new Vector2(w - inset, h - inset), new Vector2(w - inset - cut, h - inset), new Vector2(w - inset, h - inset - cut) }, true);
+            float scale = DesignScale(size);
+            float maxWidth = Mathf.Max(0, bounds.width - 2 * GetCornerCut(size, bounds));
+            float bevel = Mathf.Min(bottomNotchChamfer * scale, maxWidth * .5f);
+            float width = Mathf.Min(bottomNotchWidth * scale, Mathf.Max(0, maxWidth - 2 * bevel));
+            float depth = Mathf.Min(bottomNotchHeight * scale, bounds.height * .4f);
+            return (width, bevel, depth);
+        }
 
-            var border = new System.Collections.Generic.List<Vector2> { new Vector2(inset + cut, inset) };
-            border.AddRange(top);
-            border.Add(new Vector2(w - inset - cut, inset));
-            border.Add(new Vector2(w - inset, inset + cut));
-            border.Add(new Vector2(w - inset, h - inset - cut));
-            border.Add(new Vector2(w - inset - cut, h - inset));
+        private float GetCornerCut(Vector2 size, Rect bounds) =>
+            Mathf.Min(cornerChamfer * DesignScale(size), Mathf.Min(bounds.width, bounds.height) * .5f);
+
+        private (float width, float bevel, float depth) GetTopNotch(Vector2 size, Rect bounds, float cut)
+        {
+            float scale = DesignScale(size);
+            float maxWidth = Mathf.Max(0, bounds.width - 2 * cut);
+            float bevel = Mathf.Min(topNotchChamfer * scale, maxWidth * .5f);
+            float width = Mathf.Min(topNotchWidth * scale, Mathf.Max(0, maxWidth - 2 * bevel));
+            float depth = Mathf.Lerp(Mathf.Min(topNotchHeight * scale, bounds.height * .4f), 0f, mapFrameProgress);
+            return (width, bevel, depth);
+        }
+
+        internal (Rect bounds, float bevel) GetCompassNotch(Vector2 size)
+        {
+            Rect bounds = GetInteriorBounds(size, mapFrameProgress);
+            var notch = GetTopNotch(size, bounds, GetCornerCut(size, bounds));
+            return (new Rect(bounds.center.x - notch.width * .5f, bounds.yMin, notch.width, notch.depth), notch.bevel);
+        }
+
+        internal (float cut, float height, float hiddenTopHalfWidth) GetMapRulerGeometry(Vector2 size)
+        {
+            Rect bounds = GetInteriorBounds(size, mapFrameProgress);
+            float cut = GetCornerCut(size, bounds);
+            var notch = GetTopNotch(size, bounds, cut);
+            return (cut, bounds.height, notch.depth > 0f ? notch.width * .5f + notch.bevel : 0f);
+        }
+
+        internal bool SetMapFrameProgress(float progress)
+        {
+            if (mapFrameProgress == progress) return false;
+            mapFrameProgress = progress;
+            MarkDirtyRepaint();
+            return true;
+        }
+
+        private void Draw(MeshGenerationContext context)
+        {
+            Painter2D p = context.painter2D;
+            float w = contentRect.width, h = contentRect.height;
+            if (w <= 0 || h <= 0) return;
+            Vector2 size = contentRect.size;
+            float scale = DesignScale(size);
+            Rect bounds = GetInteriorBounds(size, mapFrameProgress);
+            float left = bounds.xMin, right = bounds.xMax, topEdge = bounds.yMin, bottomEdge = bounds.yMax;
+            float cut = GetCornerCut(size, bounds);
+            var top = GetTopNotch(size, bounds, cut);
+            var bottomNotch = GetBottomNotch(size, bounds);
+            Vector2[] bottom = Notch(w * .5f, bottomEdge, bottomNotch.width, bottomNotch.depth, bottomNotch.bevel, -1);
+            var border = new System.Collections.Generic.List<Vector2> { new Vector2(left + cut, topEdge) };
+            if (top.depth > 0f)
+                border.AddRange(Notch(w * .5f, topEdge, top.width, top.depth, top.bevel, 1));
+            border.Add(new Vector2(right - cut, topEdge));
+            border.Add(new Vector2(right, topEdge + cut));
+            border.Add(new Vector2(right, bottomEdge - cut));
+            border.Add(new Vector2(right - cut, bottomEdge));
             // Traverse the bottom indentation from right to left to keep the border continuous.
             for (int i = bottom.Length - 1; i >= 0; i--) border.Add(bottom[i]);
-            border.Add(new Vector2(inset + cut, h - inset));
-            border.Add(new Vector2(inset, h - inset - cut));
-            border.Add(new Vector2(inset, inset + cut));
+            border.Add(new Vector2(left + cut, bottomEdge));
+            border.Add(new Vector2(left, bottomEdge - cut));
+            border.Add(new Vector2(left, topEdge + cut));
             Vector2[] points = border.ToArray();
-            if (drawBorder)
-            {
-                p.strokeColor = Color.white;
-                p.lineWidth = 1.5f * scale;
-                if (openingScanMask == 0) HudDrawing.Polygon(p, points);
-                else DrawOpeningOutline(p, points, w, h);
-            }
-            return points;
+
+            // Fill the outside as one path so the moving notches cannot expose seams between masks.
+            p.fillColor = Color.black;
+            p.BeginPath();
+            p.MoveTo(Vector2.zero);
+            p.LineTo(new Vector2(w, 0f));
+            p.LineTo(new Vector2(w, h));
+            p.LineTo(new Vector2(0f, h));
+            p.ClosePath();
+            p.MoveTo(points[0]);
+            for (int i = 1; i < points.Length; i++) p.LineTo(points[i]);
+            p.ClosePath();
+            p.Fill(FillRule.OddEven);
+
+            p.strokeColor = Color.white;
+            p.lineWidth = 1.5f * scale;
+            if (openingScanMask == 0) HudDrawing.Polygon(p, points);
+            else DrawOpeningOutline(p, points, w, h);
         }
 
         private void DrawOpeningOutline(Painter2D painter, Vector2[] points, float width, float height)

@@ -3,10 +3,12 @@ using AnimalGame.MapTest;
 using AnimalGame.RobotMap;
 using AnimalGame.Save;
 using AnimalGame.World.Checkpoints;
+using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using GameplayHud = AnimalGame.MainUI.MainUI;
 
 namespace AnimalGame.World.Map
 {
@@ -16,6 +18,8 @@ namespace AnimalGame.World.Map
     public sealed partial class WorldMapUI : MonoBehaviour
     {
         private const float PinLineWidth = 1.5f;
+        private const float PinChoiceSpacingIncrease = 3f;
+        private const float PinChoiceVerticalOffset = 5f;
         private const float UnknownSignalRadius = 94f;
         private const float UnknownSignalPeriod = 2.4f;
         private const float MapDataFaultDuration = .65f;
@@ -24,11 +28,17 @@ namespace AnimalGame.World.Map
         private const float SurveySweepDuration = 1.2f;
         private const float NorthOpenTurnDelay = .6f;
         private const float SouthOpenTurnDelay = .14625f;
-        private const float NorthTurnSpeedMultiplier = .21f;
+        private const float NorthOpenTurnSpeedMultiplier = .21f;
+        private const float NorthCloseTurnSpeedMultiplier = .35f;
         private const float SouthTurnSpeedMultiplier = 1.2f;
+        private const float NorthCloseZoomSpeedMultiplier = .455f;
+        private const float EastWestCloseZoomSpeedMultiplier = .775f;
+        private const float SouthCloseZoomSpeedMultiplier = .6f;
         private const float QuarterTurnDuration = 1.275f;
         private const float MinimumTurnDuration = .35f;
         private const float OpenApertureDuration = 2.6625f / 1.6f;
+        private const float OpenFrameDuration = OpenApertureDuration / 3f;
+        private const float FooterHintFadeDuration = .15f;
         private const float CloseApertureDuration = .96f;
         private const float CloseTurnDelayReference = .1125f;
         [SerializeField] private Shader contourShader;
@@ -57,6 +67,11 @@ namespace AnimalGame.World.Map
         public MapViewState View { get; } = new MapViewState();
 
         private VisualElement panel, root, cursor, playerIcon, mapRulers, northIndicator;
+        private VisualElement mapViewArea, frameLayer, gameplayFrameParent;
+        private GameplayHud gameplayHud;
+        private HudFrameElement sharedFrame;
+        private int gameplayFrameIndex;
+        private Vector2 mapPanelSize;
         private VisualElement mapDataNoticeLayer;
         private VisualElement unknownSignal;
         private string unknownSignalStationId;
@@ -71,6 +86,7 @@ namespace AnimalGame.World.Map
         private readonly VisualElement[] pinChoices = new VisualElement[MapViewState.PinLimit];
         private readonly System.Action<MeshGenerationContext>[] pinChoiceDrawHandlers = new System.Action<MeshGenerationContext>[MapViewState.PinLimit];
         private Label previousPinKey, nextPinKey;
+        private VisualElement previousPinKeyBorder, nextPinKeyBorder;
         private VisualElement pinSelector;
         private Image mapImage, mapOpeningImage;
         private PhotoResultGridElement mapGrid;
@@ -80,6 +96,7 @@ namespace AnimalGame.World.Map
         private Vector2 centeringStart, centeringCursorStart, centeringTarget;
         private VisualElement controls;
         private Label moveKey, zoomKey, pinKey, centerKey, closeKey;
+        private readonly Dictionary<Label, ControlFeedback> controlFeedback = new();
         private Label coordinateText;
         private VisualElement coordinateMask;
         private Vector2 hoverMapPosition;
@@ -96,6 +113,7 @@ namespace AnimalGame.World.Map
         private Vector2 gameplayFootprintPerScreenHeight;
         private float openingElapsed;
         private float closingRemaining;
+        private float closingHintElapsed;
         private bool closing;
         private CursorLockMode savedCursorLock;
         private bool savedCursorVisible, dirty;
@@ -117,6 +135,9 @@ namespace AnimalGame.World.Map
         {
             Instance = this;
             panel = GetComponent<UIDocument>().rootVisualElement.Q("world-map");
+            mapViewArea = panel.Q("map-view-area");
+            frameLayer = panel.Q("map-shared-frame-layer");
+            mapPanelSize = Vector2.zero;
             root = panel.Q("map-viewport");
             mapImage = root.Q<Image>("map-image");
             mapOpeningImage = panel.Q<Image>("map-opening-image");
@@ -177,7 +198,13 @@ namespace AnimalGame.World.Map
             closeKey = controls.Q<Label>("map-close-key");
             previousPinKey = panel.Q<Label>("map-pin-previous-key");
             nextPinKey = panel.Q<Label>("map-pin-next-key");
+            previousPinKeyBorder = panel.Q("map-pin-previous-border");
+            nextPinKeyBorder = panel.Q("map-pin-next-border");
             pinSelector = panel.Q("map-pin-selector");
+            foreach (var key in new[] { moveKey, zoomKey, pinKey, centerKey, closeKey })
+                controlFeedback.Add(key, new ControlFeedback(key, controls));
+            controlFeedback.Add(previousPinKey, new ControlFeedback(previousPinKey, pinSelector));
+            controlFeedback.Add(nextPinKey, new ControlFeedback(nextPinKey, pinSelector));
             UpdateControlHints();
             for (int i = 0; i < pinElements.Length; i++)
             {
@@ -208,14 +235,20 @@ namespace AnimalGame.World.Map
                     bool placed = View.HasPinShape(index);
                     Color color = placed ? Color.white : (Color)new Color32(0xD4, 0xB8, 0x54, 255);
                     color.a = selected ? (placed ? .75f : 1f) : .3f;
+                    float height = choice.contentRect.height;
+                    float stroke = PinLineWidth * element.resolvedStyle.scale.value.x;
+                    const float selectedScale = 1.35f;
+                    // Fit the largest selected pin and its pointed joins inside the lower edge.
+                    const float cornerProjection = .707107f;
+                    float usableHalfHeight = height * .5f - PinChoiceVerticalOffset - stroke * cornerProjection;
+                    if (usableHalfHeight <= 0f) return;
+                    float scale = Mathf.Min(height / 48f, usableHalfHeight / (17f * cornerProjection * selectedScale));
                     float radius = index == 1 ? 17f : index == 0 ? 14f : 12f;
-                    radius *= selected ? 1.35f : 1f;
+                    radius *= scale * (selected ? selectedScale : 1f);
                     Vector2 center = choice.contentRect.center;
+                    center.x += (index - (pinChoices.Length - 1) * .5f) * PinChoiceSpacingIncrease;
+                    center.y += PinChoiceVerticalOffset;
                     if (index == 0) center.y += radius * .25f;
-                    // Compensate for the selector's smaller transform so its stroke
-                    // matches the placed map pins in screen pixels.
-                    float stroke = PinLineWidth * element.resolvedStyle.scale.value.x
-                        / pinSelector.resolvedStyle.scale.value.x;
                     DrawPinShape(context.painter2D, center, radius, index, color, stroke);
                 };
                 choice.generateVisualContent += pinChoiceDrawHandlers[i];
@@ -264,26 +297,36 @@ namespace AnimalGame.World.Map
 
         private void DrawMapRulers(MeshGenerationContext context)
         {
+            if (sharedFrame == null) return;
             var painter = context.painter2D;
             painter.strokeColor = Color.white;
             painter.lineWidth = 2f;
             painter.lineCap = LineCap.Butt;
+            float halfStroke = painter.lineWidth * .5f;
             float step = mapGrid.gridLength * .5f;
             Vector2 size = mapRulers.contentRect.size;
+            var frame = sharedFrame.GetMapRulerGeometry(mapPanelSize);
+            // Keep the entire stroke and its antialiased edge off the chamfers.
+            float straightStart = frame.cut + halfStroke + 1f;
+            float lastX = size.x - straightStart;
+            float lastY = Mathf.Min(size.y - halfStroke, frame.height - straightStart);
             Vector2 offset = mapGrid.offset;
             float firstX = Mathf.Repeat(offset.x, step);
             float firstY = Mathf.Repeat(offset.y, step);
             int xIndex = Mathf.RoundToInt((firstX - offset.x) / step);
             int yIndex = Mathf.RoundToInt((firstY - offset.y) / step);
             painter.BeginPath();
-            for (float x = firstX; x < size.x; x += step, xIndex++)
+            for (float x = firstX; x <= lastX; x += step, xIndex++)
             {
+                if (x < straightStart || (frame.hiddenTopHalfWidth > 0f
+                    && Mathf.Abs(x - size.x * .5f) < frame.hiddenTopHalfWidth + halfStroke + 1f)) continue;
                 float length = xIndex % 5 == 0 ? 18.2f : 10.4f;
-                painter.MoveTo(new Vector2(x, 0));
+                painter.MoveTo(new Vector2(x, 0f));
                 painter.LineTo(new Vector2(x, length));
             }
-            for (float y = firstY; y < size.y; y += step, yIndex++)
+            for (float y = firstY; y <= lastY; y += step, yIndex++)
             {
+                if (y < straightStart) continue;
                 float length = yIndex % 5 == 0 ? 18.2f : 10.4f;
                 // Extend into the clipped edge so the ticks meet the outer frame.
                 painter.MoveTo(new Vector2(size.x + 1.5f, y));
@@ -358,13 +401,16 @@ namespace AnimalGame.World.Map
                     || (pad != null && pad.selectButton.wasPressedThisFrame)) Open();
                 return;
             }
+            float now = Time.unscaledTime;
+            foreach (var feedback in controlFeedback.Values) feedback.Tick(now);
             if (!closing && ((keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
                 || (pad != null && pad.buttonEast.wasPressedThisFrame)))
             {
+                if (OpeningHintProgress > 0f) controlFeedback[closeKey].Play(now);
                 Close();
                 return;
             }
-            Rect viewport = MapScreenRect();
+            Rect viewport = MapScreenRect(sharedFrame);
             Vector2 size = viewport.size;
             if (size != lastSize)
             {
@@ -372,6 +418,7 @@ namespace AnimalGame.World.Map
                 RecalculateZoomLimits();
                 CurrentZoom = Mathf.Clamp(CurrentZoom, MinimumZoom, MaximumZoom);
                 ResizeView();
+                UpdateFrameShape();
                 dirty = true;
                 lastSize = size;
             }
@@ -387,23 +434,35 @@ namespace AnimalGame.World.Map
                 return;
             }
             if ((pad != null && pad.leftShoulder.wasPressedThisFrame)
-                || (keyboard != null && keyboard.qKey.wasPressedThisFrame)) CyclePinSelection(-1);
+                || (keyboard != null && keyboard.qKey.wasPressedThisFrame))
+            {
+                CyclePinSelection(-1);
+                controlFeedback[previousPinKey].Play(now);
+            }
             if ((pad != null && pad.rightShoulder.wasPressedThisFrame)
-                || (keyboard != null && keyboard.eKey.wasPressedThisFrame)) CyclePinSelection(1);
+                || (keyboard != null && keyboard.eKey.wasPressedThisFrame))
+            {
+                CyclePinSelection(1);
+                controlFeedback[nextPinKey].Play(now);
+            }
             Vector2 movement = pad != null ? pad.leftStick.ReadValue() : Vector2.zero;
             if (movement.magnitude < stickDeadZone) movement = Vector2.zero;
             if (pad != null) movement += pad.dpad.ReadValue();
             if (keyboard != null)
                 movement += new Vector2((keyboard.dKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed ? 1 : 0),
                     (keyboard.wKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed ? 1 : 0));
-            if (movement.sqrMagnitude > .0001f) centeringMapView = false;
+            bool moving = movement.sqrMagnitude > .0001f;
+            bool directionPressed = keyboard != null && (keyboard.wKey.wasPressedThisFrame
+                || keyboard.aKey.wasPressedThisFrame || keyboard.sKey.wasPressedThisFrame || keyboard.dKey.wasPressedThisFrame);
+            if (moving && directionPressed) controlFeedback[moveKey].Play(now);
+            if (moving) centeringMapView = false;
             if (!centeringMapView)
             {
                 Vector2 beforePan = View.Center;
                 View.Move(Vector2.ClampMagnitude(movement, 1) * (cursorSpeed * Time.unscaledDeltaTime), size, map.MapSizeMeters);
                 // Accumulate only manual pan translation, before any zoom/centering
                 // changes the view origin. Zoom never writes the grid offset.
-                if (movement.sqrMagnitude > .0001f)
+                if (moving)
                 {
                     Vector2 shift = View.Center - beforePan;
                     Vector2 uiSize = root.contentRect.size;
@@ -420,6 +479,8 @@ namespace AnimalGame.World.Map
             float zoomAxis = pad != null ? pad.rightStick.ReadValue().y : 0;
             if (Mathf.Abs(zoomAxis) < stickDeadZone) zoomAxis = 0;
             float wheel = Mouse.current != null ? Mouse.current.scroll.ReadValue().y / 120f : 0;
+            if (wheel != 0f && !controlFeedback[zoomKey].IsPlaying)
+                controlFeedback[zoomKey].Play(now);
             float nextZoom = Mathf.Clamp(CurrentZoom * Mathf.Exp(-zoomAxis * zoomSpeed * Time.unscaledDeltaTime
                 - wheel * wheelZoomSpeed), MinimumZoom, MaximumZoom);
             if (!Mathf.Approximately(nextZoom, CurrentZoom))
@@ -432,6 +493,7 @@ namespace AnimalGame.World.Map
                 || (keyboard != null && keyboard.yKey.wasPressedThisFrame))
             {
                 BeginCentering(WorldToMap(HeightMapPlayerSceneBootstrap.inst.robotObject.transform.position));
+                controlFeedback[centerKey].Play(now);
             }
             bool cursorOnSignal = false;
             if (centeringMapView)
@@ -441,14 +503,71 @@ namespace AnimalGame.World.Map
                 cursorOnSignal = unknownSignalWorldPosition is Vector2 source && View.Cursor == WorldToMap(source);
                 View.Snap(size, cursorOnSignal ? 0f : circleRadius * 1.4f);
                 if ((keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
-                    || (pad != null && pad.buttonSouth.wasPressedThisFrame)) View.Submit();
+                    || (pad != null && pad.buttonSouth.wasPressedThisFrame))
+                {
+                    View.Submit();
+                    controlFeedback[pinKey].Play(now);
+                }
             }
             cursorSelectionSpread = Mathf.MoveTowards(cursorSelectionSpread, cursorOnSignal || View.SelectedPin >= 0 ? 1f : 0f,
                 Time.unscaledDeltaTime / .12f);
             cursor.MarkDirtyRepaint();
             UpdateControlHints();
             RefreshVisuals(viewport);
-            UpdateHoverCoordinates(movement.sqrMagnitude > .0001f || centeringMapView);
+            UpdateHoverCoordinates(moving || centeringMapView);
+        }
+
+        private sealed class ControlFeedback
+        {
+            private readonly Label key;
+            private readonly VisualElement layer;
+            private readonly PhotoUnlockPulse ripple;
+            private float started = float.NegativeInfinity;
+            private Vector2 center;
+            private float minimumRadius;
+
+            public bool IsPlaying => started != float.NegativeInfinity;
+
+            public ControlFeedback(Label key, VisualElement layer)
+            {
+                this.key = key;
+                this.layer = layer;
+                ripple = new PhotoUnlockPulse { name = key.name + "-ripple" };
+                layer.Insert(0, ripple);
+            }
+
+            public void Play(float now)
+            {
+                Vector2 size = key.layout.size;
+                if (!(size.x > 0f && size.y > 0f)) return;
+                center = key.ChangeCoordinatesTo(layer, size * .5f);
+                minimumRadius = Mathf.Max(0f, Mathf.Min(size.x, size.y) * .5f - 2f);
+                started = now;
+                ripple.style.display = DisplayStyle.Flex;
+                Tick(now);
+            }
+
+            public void Tick(float now)
+            {
+                if (!IsPlaying) return;
+                if (!PhotoUnlockPulse.EvaluatePress(now - started, out float scale, out float expansion))
+                {
+                    Stop();
+                    return;
+                }
+                key.style.scale = new Scale(Vector3.one * scale);
+                ripple.SetPulse(center, minimumRadius, PhotoUnlockPulse.MaximumRadius, expansion);
+            }
+
+            public void Stop()
+            {
+                if (!IsPlaying) return;
+                started = float.NegativeInfinity;
+                key.style.scale = StyleKeyword.Null;
+                ripple.style.display = DisplayStyle.None;
+            }
+
+            public void Detach() => ripple.RemoveFromHierarchy();
         }
 
         private void BeginCentering(Vector2 position)
@@ -617,7 +736,7 @@ namespace AnimalGame.World.Map
 
         public void Open()
         {
-            if (AnimalGame.MainUI.MainUI.BlocksGameplay || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput || Time.timeScale <= 0) return;
+            if (GameplayHud.BlocksGameplay || HeightMapPlayerSceneBootstrap.StationPlugOwnsInput || Time.timeScale <= 0) return;
             OpenMap(null);
         }
 
@@ -625,6 +744,8 @@ namespace AnimalGame.World.Map
         internal bool OpenMap(StationLogUI terminal)
         {
             if (BlocksGameplay || AnimalGame.AnimalDebug.DebugUI.BlocksOtherPanels) return false;
+            var hud = GameplayHud.Active;
+            if (hud?.HudFrame?.parent == null) return false;
             var bootstrap = HeightMapPlayerSceneBootstrap.inst;
             if (bootstrap == null || bootstrap.gameObject.scene != gameObject.scene || bootstrap.map == null
                 || !bootstrap.map.HasGeneratedMap || bootstrap.mapCamera == null || bootstrap.robotObject == null) return false;
@@ -652,7 +773,7 @@ namespace AnimalGame.World.Map
             Rect cameraPixels = camera.pixelRect;
             gameplayFootprintPerScreenHeight = new Vector2(footprint.x / cameraPixels.width,
                 footprint.y / cameraPixels.height) * Screen.height;
-            Rect viewport = MapScreenRect();
+            Rect viewport = MapScreenRect(hud.HudFrame);
             Vector2 viewportSize = viewport.size;
             float aspect = viewportSize.x / viewportSize.y;
             baseViewSize.y = Mathf.Max(footprint.y, footprint.x / aspect);
@@ -726,6 +847,13 @@ namespace AnimalGame.World.Map
             closing = false;
             openingElapsed = 0f;
             closingRemaining = 1f;
+            closingHintElapsed = 0f;
+            gameplayHud = hud;
+            sharedFrame = hud.HudFrame;
+            gameplayFrameParent = sharedFrame.parent;
+            gameplayFrameIndex = gameplayFrameParent.IndexOf(sharedFrame);
+            hud.SetMapFrameActive(true);
+            frameLayer.Add(sharedFrame);
             map.FadeOutSurfaceForOverlay(OpenApertureDuration);
             ApplyTransitionPose(viewportSize);
             mapDataNotice.EnableInClassList("survey-notice", terminal != null);
@@ -751,21 +879,26 @@ namespace AnimalGame.World.Map
             return true;
         }
 
-        private Rect MapScreenRect()
+        private Rect MapScreenRect(HudFrameElement frame)
         {
-            Rect content = root.contentRect;
-            float panelHeight = panel.contentRect.height;
-            if (content.width <= 0 || content.height <= 0 || panelHeight <= 0)
+            var screenSize = new Vector2(Screen.width, Screen.height);
+            Vector2 panelSize = RuntimePanelUtils.ScreenToPanel(panel.panel, screenSize)
+                - RuntimePanelUtils.ScreenToPanel(panel.panel, Vector2.zero);
+            Rect bounds = frame.GetInteriorBounds(panelSize, 1f);
+            if (mapPanelSize != panelSize)
             {
-                // The hidden panel has no layout yet. Use the map frame's USS margins.
-                return new Rect(Screen.width * .02f, Screen.height * .07f, Screen.width * .96f, Screen.height * .9f);
+                mapPanelSize = panelSize;
+                mapViewArea.style.left = bounds.xMin;
+                mapViewArea.style.top = bounds.yMin;
+                mapViewArea.style.right = panelSize.x - bounds.xMax;
+                mapViewArea.style.bottom = panelSize.y - bounds.yMax;
+                controls.style.top = bounds.yMax;
             }
 
-            float pixelsPerUnit = Screen.height / panelHeight;
-            Vector2 center = panel.WorldToLocal(root.LocalToWorld(content.center)) * pixelsPerUnit;
-            center.y = Screen.height - center.y;
-            Vector2 size = content.size * pixelsPerUnit;
-            return new Rect(center - size * .5f, size);
+            // Keep the rendered viewport at its final size while the border's bottom moves over it.
+            Vector2 pixelsPerUnit = screenSize / panelSize;
+            return new Rect(Vector2.Scale(new Vector2(bounds.xMin, panelSize.y - bounds.yMax), pixelsPerUnit),
+                Vector2.Scale(bounds.size, pixelsPerUnit));
         }
 
         private void RecalculateZoomLimits()
@@ -790,44 +923,53 @@ namespace AnimalGame.World.Map
             && View.ViewSize.y >= map.MapSizeMeters.y - .001f;
 
         private float TurnAngleFraction => Mathf.Abs(openingPlayerBearing) / 180f;
-        private float TurnSpeedMultiplier => Mathf.Lerp(NorthTurnSpeedMultiplier, SouthTurnSpeedMultiplier, TurnAngleFraction);
+        private float OpenTurnSpeedMultiplier => Mathf.Lerp(NorthOpenTurnSpeedMultiplier, SouthTurnSpeedMultiplier, TurnAngleFraction);
+        private float CloseTurnSpeedMultiplier => Mathf.Lerp(NorthCloseTurnSpeedMultiplier, SouthTurnSpeedMultiplier, TurnAngleFraction);
+        private float CloseZoomSpeedMultiplier => TurnAngleFraction <= .5f
+            ? Mathf.Lerp(NorthCloseZoomSpeedMultiplier, EastWestCloseZoomSpeedMultiplier, TurnAngleFraction * 2f)
+            : Mathf.Lerp(EastWestCloseZoomSpeedMultiplier, SouthCloseZoomSpeedMultiplier, TurnAngleFraction * 2f - 1f);
         private float OpenTurnDelay => Mathf.Lerp(NorthOpenTurnDelay, SouthOpenTurnDelay, TurnAngleFraction);
         private float BaseTurnDuration => Mathf.Max(MinimumTurnDuration, 2f * QuarterTurnDuration * TurnAngleFraction);
-        private float OpenTurnEnd => OpenTurnDelay + BaseTurnDuration / TurnSpeedMultiplier;
+        private float OpenTurnEnd => OpenTurnDelay + BaseTurnDuration / OpenTurnSpeedMultiplier;
         private float OpenTransitionDuration => Mathf.Max(OpenApertureDuration, OpenTurnEnd);
         private float OpeningTurnProgress => Mathf.InverseLerp(OpenTurnDelay, OpenTurnEnd, openingElapsed);
         private float OpeningApertureProgress => Mathf.Clamp01(openingElapsed / OpenApertureDuration);
+        private float OpeningHintProgress => Mathf.Clamp01((openingElapsed - OpenFrameDuration) / FooterHintFadeDuration);
         private float CloseTurnEnd => CloseTurnDelayReference / (CloseTurnDelayReference + BaseTurnDuration);
         private float CloseTurnOrigin => Mathf.Lerp(CloseTurnEnd, 1f, OpeningTurnProgress);
         private bool IsFullyOpen => !closing && openingElapsed == OpenTransitionDuration;
 
-        private float TransitionTurn
+        private float TransitionTurn => TransitionProgress(CloseTurnSpeedMultiplier);
+
+        private float TransitionProgress(float closeSpeedMultiplier)
         {
-            get
+            float t = OpeningTurnProgress;
+            if (closing)
             {
-                float t = OpeningTurnProgress;
-                if (closing)
-                {
-                    float turnRemaining = Mathf.Clamp01(1f - (1f - closingRemaining) * TurnSpeedMultiplier);
-                    t = Mathf.InverseLerp(CloseTurnEnd, 1f, CloseTurnOrigin * turnRemaining);
-                }
-                return t * t * t * (4f - 3f * t);
+                float remaining = Mathf.Clamp01(1f - (1f - closingRemaining) * closeSpeedMultiplier);
+                t = Mathf.InverseLerp(CloseTurnEnd, 1f, CloseTurnOrigin * remaining);
             }
+            return t * t * t * (4f - 3f * t);
         }
 
         private void AdvanceTransition(float deltaTime, Vector2 viewportSize)
         {
             if (closing)
             {
+                float hintTimeRemaining = OpeningHintProgress * FooterHintFadeDuration - closingHintElapsed;
+                float hintStep = Mathf.Min(deltaTime, Mathf.Max(0f, hintTimeRemaining));
+                closingHintElapsed += hintStep;
                 if (centeringMapView)
                 {
                     AdvanceCentering(deltaTime);
+                    UpdateFooterHints();
                     return;
                 }
 
+                deltaTime -= hintStep;
                 float duration = CloseApertureDuration * OpeningApertureProgress;
                 closingRemaining = Mathf.MoveTowards(closingRemaining, 0f, deltaTime / duration);
-                map.FadeInSurfaceOnOverlayClose(CloseApertureDuration, duration * closingRemaining);
+                if (deltaTime > 0f) map.FadeInSurfaceOnOverlayClose(CloseApertureDuration, duration * closingRemaining);
             }
             else
                 openingElapsed = Mathf.MoveTowards(openingElapsed, OpenTransitionDuration, deltaTime);
@@ -837,14 +979,49 @@ namespace AnimalGame.World.Map
             else if (IsFullyOpen) hoverIdleSince = Time.unscaledTime;
         }
 
+        private void UpdateFrameShape()
+        {
+            float progress = Mathf.SmoothStep(0f, 1f,
+                Mathf.Clamp01(openingElapsed / OpenFrameDuration) * closingRemaining);
+            if (sharedFrame.SetMapFrameProgress(progress)) mapRulers.MarkDirtyRepaint();
+            Rect bounds = sharedFrame.GetInteriorBounds(mapPanelSize, progress);
+            var notch = sharedFrame.GetBottomNotch(mapPanelSize, bounds);
+            pinSelector.style.bottom = mapPanelSize.y - bounds.yMax;
+            pinSelector.style.width = notch.width;
+            pinSelector.style.height = notch.depth;
+            const float keyHeightRatio = .66f;
+            // Clear the bevel even at the lower corners of the key boxes.
+            float keyGap = notch.bevel * (.5f + .5f * keyHeightRatio) + 3f;
+            float keyOffset = notch.width + keyGap;
+            float keyWidth = notch.depth * 1.08f;
+            previousPinKey.style.right = nextPinKey.style.left = keyOffset;
+            previousPinKey.style.width = nextPinKey.style.width = keyWidth;
+            previousPinKey.style.height = nextPinKey.style.height = notch.depth * keyHeightRatio;
+
+            float outerEdge = keyGap + keyWidth;
+            float bevelAtTop = notch.bevel * (.5f - .5f * keyHeightRatio);
+            previousPinKeyBorder.style.left = nextPinKeyBorder.style.right = -outerEdge;
+            previousPinKeyBorder.style.width = nextPinKeyBorder.style.width = outerEdge - bevelAtTop;
+            previousPinKeyBorder.style.height = nextPinKeyBorder.style.height = notch.depth * (.5f + .5f * keyHeightRatio);
+            UpdateFooterHints();
+        }
+
+        private void UpdateFooterHints()
+        {
+            float progress = OpeningHintProgress - closingHintElapsed / FooterHintFadeDuration;
+            pinSelector.style.opacity = controls.style.opacity = Mathf.SmoothStep(0f, 1f, progress);
+        }
+
         private void ApplyTransitionPose(Vector2 viewportSize)
         {
+            UpdateFrameShape();
             cursor.style.visibility = IsFullyOpen ? Visibility.Visible : Visibility.Hidden;
             float turn = TransitionTurn;
             View.Bearing = Mathf.Lerp(openingPlayerBearing, 0f, turn);
+            float zoom = closing ? TransitionProgress(CloseZoomSpeedMultiplier) : turn;
             // Crop the gameplay footprint to the map frame at the same metres per screen pixel.
             Vector2 gameplayViewSize = Vector2.Scale(gameplayFootprintPerScreenHeight, viewportSize / Screen.height);
-            View.TransitionViewSize = turn < 1f ? Vector2.Lerp(gameplayViewSize, View.ViewSize, turn) : null;
+            View.TransitionViewSize = zoom < 1f ? Vector2.Lerp(gameplayViewSize, View.ViewSize, zoom) : null;
             mapGrid.SetRotation(-View.Bearing);
             northIndicator.style.rotate = new Rotate(-View.Bearing);
             northLabel.style.rotate = new Rotate(View.Bearing);
@@ -1073,7 +1250,14 @@ namespace AnimalGame.World.Map
             centeringMapView = false;
             if (active == this) active = null;
             closedFrame = Time.frameCount;
+            foreach (var feedback in controlFeedback.Values) feedback.Stop();
             panel.style.display = DisplayStyle.None;
+            sharedFrame.SetMapFrameProgress(0f);
+            gameplayFrameParent.Insert(gameplayFrameIndex, sharedFrame);
+            if (gameplayHud != null) gameplayHud.SetMapFrameActive(false);
+            sharedFrame = null;
+            gameplayFrameParent = null;
+            gameplayHud = null;
             map.FadeInSurfaceOnOverlayClose(CloseApertureDuration);
             mapDataNotice.style.display = DisplayStyle.None;
             mapDataNoticeStartsAt = -1f;
@@ -1104,6 +1288,8 @@ namespace AnimalGame.World.Map
             }
             mapRulers?.RemoveFromHierarchy();
             playerIcon?.RemoveFromHierarchy();
+            foreach (var feedback in controlFeedback.Values) feedback.Detach();
+            controlFeedback.Clear();
             if (Instance == this) Instance = null;
         }
     }

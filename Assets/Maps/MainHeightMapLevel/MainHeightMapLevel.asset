@@ -114,7 +114,7 @@ MonoBehaviour:
   - {x: 12, y: 0, z: 0, w: 0}
   - {x: 4, y: 0, z: 0, w: 0}
   - {x: 8, y: 0, z: 0, w: 0}
-  - {x: 1.6, y: 0, z: 0, w: 0}
+  - {x: 3.2, y: 0, z: 0, w: 0}
   - {x: 2.3, y: 0, z: 0, w: 0}
   - {x: 18.101934, y: 0, z: 0, w: 0}
   - {x: 8, y: 0, z: 0, w: 0}
@@ -147,7 +147,7 @@ MonoBehaviour:
   - {x: 0.6875, y: 0.16015625, z: 0.0546875, w: 0.44140625}
   - {x: 0.828125, y: 0.05859375, z: 0.0546875, w: 0.44140625}
   - {x: 0.91015625, y: 0.52734375, z: 0.0546875, w: 0.44140625}
-  grasslandTileSizeMeters: 1.6
+  grasslandTileSizeMeters: 3.2
   grasslandAlphaNormalization: {x: 1, y: 0.75}
   grasslandOpacity: 1
   grasslandLayoutSeed: 0
