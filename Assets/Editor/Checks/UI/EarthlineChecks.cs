@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -56,7 +57,7 @@ namespace AnimalGame.Editor
                 clockObject = new GameObject("Earthline clock fixture"); clockObject.SetActive(false);
                 SceneManager.MoveGameObjectToScene(clockObject, scene);
                 var clock = clockObject.AddComponent<GameMainUI>();
-                SaveSystem.Current.gameTime = new DateTime(2026, 11, 4, 19, 12, 0);
+                SaveSystem.Current.gameTime = new DateTime(2026, 11, 4, 19, 12, 17);
                 typeof(GameMainUI).GetProperty("Active", Flags).SetValue(null, clock);
                 instance = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(
                     "Assets/Prefabs/Resources/UI/Communication/EarthlineUI.prefab"), scene);
@@ -86,8 +87,9 @@ namespace AnimalGame.Editor
                     "History follows the first child through the ordinary entry.");
                 var historyTimes = root.Q("chat-messages").Children().Select(item => item.Q(className: "message-header").Children().Last())
                     .Cast<Label>().Select(label => label.text);
-                Require(historyTimes.SequenceEqual(new[] { "2026.10.01 05:30", "2026.10.03 06:45", "2026.01.01 00:00" }),
-                    "History uses positional timestamps and falls back to the initial game time.");
+                Require(historyTimes.SequenceEqual(new[] { "2026.10.01 05:30", "2026.10.03 06:45",
+                    GameSave.InitialGameTime.ToString("yyyy.MM.dd HH:mm", CultureInfo.InvariantCulture) }),
+                    "History shows positional timestamps to the minute and falls back to the initial game time.");
                 Require(SaveSystem.Current.conversations.Count == 0, "The authored history is displayed without writing it to the save.");
                 ui.Navigate(1, 0); Require(ui.Focus == EarthlineFocus.Chat, "Right focuses the chat.");
                 Require(!root.Q("contacts-sidebar").ClassListContains("contacts-focused"), "Contact retains an unfocused selection style.");
@@ -104,8 +106,8 @@ namespace AnimalGame.Editor
                     "Sending a player message records its node and presents consecutive player replies.");
                 ui.Confirm();
                 Require(conversation.messages.Select(message => message.nodeId).SequenceEqual(new[] { 4, 8, 9, 10 })
-                    && conversation.messages.All(message => message.sentAt == new DateTime(2026, 11, 4, 19, 12, 0)),
-                    "A reply records consecutive NPC messages at the current game time.");
+                    && conversation.messages.All(message => message.sentAt == SaveSystem.CurrentGameTime),
+                    "A reply records consecutive NPC messages at the current game time, including seconds.");
                 Require(root.Q<Button>("reply-0").text.Contains("Continue later") && root.Q<Button>("reply-1").style.display.value == DisplayStyle.None,
                     "Unused reply buttons are hidden after the NPC chain.");
                 Require(root.Q<Label>("conversation-date").text == "2026.11.04", "Header uses the in-game date.");
@@ -123,8 +125,13 @@ namespace AnimalGame.Editor
                 picker.ToggleAll(); Require(picker.SelectedCount == 0, "Y deselects all photos.");
                 ui.Confirm(); ui.SendSelectedPhotos(); Settle(root, new Vector2(1920, 1080));
                 Require(ui.Focus == EarthlineFocus.Chat && SaveSystem.Current.photos[12].sent, "Sending closes the picker and marks the photo sent.");
-                Require(SaveSystem.LoadOrCreate(SaveSystem.SavePath).conversations.Single().messages.Last().photoIndices.Single() == 12,
-                    "Shared photos survive the binary reload.");
+                var sharedMessage = SaveSystem.LoadOrCreate(SaveSystem.SavePath).conversations.Single().messages.Last();
+                Require(sharedMessage.photoIndices.Single() == 12 && sharedMessage.second == 17,
+                    "Shared photos and their send seconds survive the binary reload.");
+                Require(root.Q("chat-messages").Children().Skip(3)
+                    .Select(item => ((Label)item.Q(className: "message-header").Children().Last()).text)
+                    .SequenceEqual(new[] { "2026.11.04 19:12", "2026.11.04 19:12", "2026.11.04 19:12", "2026.11.04 19:12", "19:12" }),
+                    "Earthline displays text and photo send times to the minute.");
                 Require(dialogue.GetCurrentNodeId(conversation) == 10, "Sharing photos preserves the current dialogue node.");
                 SaveSystem.SharePhotos(ContactId.Mara, new[] { 0, 1, 2, 3, 4, 5, 6 }, new DateTime(2026, 11, 4, 19, 14, 0));
                 Settle(root, new Vector2(1920, 1080));
@@ -196,7 +203,7 @@ namespace AnimalGame.Editor
             var progress = save.Progress(AnimalSpecies.AmericanBison);
             int recognitionBeforeUpload = progress.recognition;
             Require(progress.Tier == 3 && progress.sentPhotos == 0, "Capture recognition unlocks all tiers without uploading.");
-            var time = new DateTime(2026, 11, 4, 19, 11, 0);
+            var time = new DateTime(2026, 11, 4, 19, 11, 38);
             var options = ScriptableObject.CreateInstance<ContactOptions>();
             try
             {
@@ -230,8 +237,9 @@ namespace AnimalGame.Editor
             Require(loaded.conversations.Count == 3 && savedText.kind == MessageKind.Text && savedText.nodeId == 2 && savedText.sentAt == time,
                 "Contact threads, node IDs and full text timestamps round-trip.");
             var message = loaded.conversations[2].messages[0];
-            Require(message.fromPlayer && message.hour == 19 && message.minute == 11 && message.photoIndices.SequenceEqual(Enumerable.Range(7, 14)),
-                "Photo message ownership, hour, minute and indices round-trip.");
+            Require(message.fromPlayer && message.hour == 19 && message.minute == 11 && message.second == 38
+                && message.photoIndices.SequenceEqual(Enumerable.Range(7, 14)),
+                "Photo message ownership, time and indices round-trip.");
             string lastId = save.photos[20].id;
             SaveSystem.DeletePhoto(save.photos[1].id);
             Require(save.conversations[1].messages[0].photoIndices.SequenceEqual(Enumerable.Range(1, 5)), "Deleting a shared photo removes it and remaps subsequent indices.");
@@ -253,11 +261,62 @@ namespace AnimalGame.Editor
                     writer.Write(time.Ticks);
                 }
                 var migrated = SaveSystem.LoadOrCreate(legacy);
-                Require(migrated.gameTime == GameSave.InitialGameTime + time.TimeOfDay
-                    && migrated.conversations.Single().messages.Single().kind == MessageKind.Photos,
-                    "V4 migration skips unbound text and preserves photo messages and time of day.");
+                var migratedPhoto = migrated.conversations.Single().messages.Single();
+                Require(migrated.gameTime == GameSave.InitialGameTime + time.TimeOfDay && migratedPhoto.kind == MessageKind.Photos
+                    && migratedPhoto.hour == 19 && migratedPhoto.minute == 12 && migratedPhoto.second == 0,
+                    "V4 migration preserves the time of day and the photo message, with zero send seconds.");
+
+                var storyTime = GameSave.InitialGameTime.AddDays(2) + time.TimeOfDay;
+                // Both v9 layouts consume these photo fields in full, but assign different seconds and attachments.
+                CheckPhotoMessageMigration(legacy, 9, time, 2, GameSave.InitialGameTime + time.TimeOfDay);
+                CheckPhotoMessageMigration(legacy, 9, new DateTime(2660, 8, 6) + time.TimeOfDay, null, storyTime);
+                CheckPhotoMessageMigration(legacy, 12, storyTime, null, storyTime);
             }
             finally { File.Delete(legacy); }
+        }
+
+        private static void CheckPhotoMessageMigration(string path, int version, DateTime savedTime, int? seconds, DateTime expectedTime)
+        {
+            var photos = SaveSystem.Current.photos;
+            using (var writer = new BinaryWriter(File.Create(path)))
+            {
+                writer.Write(0x41475356); writer.Write(version);
+                writer.Write(2);
+                // Photo records have the same layout in all three formats.
+                var writePhoto = typeof(SaveSystem).GetMethod("WritePhoto", Flags);
+                writePhoto.Invoke(null, new object[] { writer, photos[0] });
+                writePhoto.Invoke(null, new object[] { writer, photos[1] });
+                writer.Write(0); // species progress
+                writer.Write(1); writer.Write((int)ContactId.Mara); writer.Write(1);
+                writer.Write((int)MessageKind.Photos); writer.Write(true); writer.Write(19); writer.Write(12);
+                if (seconds.HasValue) writer.Write(seconds.Value);
+                writer.Write(1); writer.Write(0); // one attachment, referencing the first photo
+                writer.Write(savedTime.Ticks);
+                writer.Write(1); writer.Write("WX-04"); // synced stations
+                writer.Write(0); // retired power records
+                writer.Write(0); // ruin discoveries
+                writer.Write(1); writer.Write("WX-05"); // completed repair tutorials
+                if (version == 12)
+                {
+                    writer.Write(true); // first tower raven flyover
+                    writer.Write(1); writer.Write("WX-04"); // viewed communications
+                }
+            }
+
+            for (int load = 0; load < 2; load++)
+            {
+                var save = SaveSystem.LoadOrCreate(path);
+                var conversation = save.conversations.Single();
+                var message = conversation.messages.Single();
+                Require(conversation.contact == ContactId.Mara && message.kind == MessageKind.Photos && message.fromPlayer
+                    && message.hour == 19 && message.minute == 12 && message.second == seconds.GetValueOrDefault()
+                    && message.photoIndices.Single() == 0 && save.photos[0].id == photos[0].id,
+                    $"V{version} preserves the photo timestamp and attachment on load {load + 1} (stored seconds: {seconds.HasValue}).");
+                Require(save.gameTime == expectedTime && save.syncedStationIds.Single() == "WX-04"
+                    && save.completedRepairTutorialIds.Single() == "WX-05" && save.playedFirstTowerRavenFlyover == (version == 12)
+                    && save.viewedStationCommunicationsIds.SequenceEqual(version == 12 ? new[] { "WX-04" } : Array.Empty<string>()),
+                    $"V{version} preserves the story clock and station progress on load {load + 1} (stored seconds: {seconds.HasValue}).");
+            }
         }
 
         private static ContactOptions CreateMaraDialogue()
@@ -278,8 +337,10 @@ namespace AnimalGame.Editor
             options.SetHistoryEntryNode(1);
             options.TryConnect(1, 2);
             options.UpdateHistory();
-            options.SetHistoryDate(0, new DateTime(2026, 10, 1, 5, 30, 0));
-            options.SetHistoryDate(1, new DateTime(2026, 10, 3, 6, 45, 0));
+            options.SetHistoryDate(0, new DateTime(2026, 10, 1, 5, 30, 14));
+            options.SetHistoryDate(1, new DateTime(2026, 10, 3, 6, 45, 29));
+            Require(options.HistoryDates[0].GameTime.Second == 14 && options.HistoryDates[1].GameTime.Second == 29,
+                "Authored history stores seconds.");
             options.TryConnect(2, 3);
             for (int reply = 4; reply <= 7; reply++) options.TryConnect(3, reply);
             options.TryConnect(4, 8);
@@ -318,8 +379,8 @@ namespace AnimalGame.Editor
                 Require(!HasPendingMessage(), "Delivered messages and a player-reply branch do not retain the new message reminder.");
                 var thread = SaveSystem.Current.conversations.Single();
                 Require(thread.messages.Select(message => message.nodeId).SequenceEqual(new[] { 2, 3 })
-                    && thread.messages.All(message => message.sentAt.Second == 0),
-                    "Opening ignores the secondary branch, omits the hidden entry, and records minute-precision timestamps.");
+                    && thread.messages.All(message => message.sentAt == time),
+                    "Opening ignores the secondary branch, omits the hidden entry, and records second-precision timestamps.");
                 Require(!SaveSystem.AdvanceConversation(contact, time) && options.GetCurrentNodeId(thread) == 3,
                     "Reopening stops at the same player decision.");
                 view.Render(SaveSystem.Current, contact, time);

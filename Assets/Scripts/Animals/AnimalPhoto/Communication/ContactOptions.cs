@@ -40,7 +40,7 @@ namespace AnimalGame.Animals.Communication
         public DateTime GameTime
         {
             get => new DateTime(gameTimeTicks);
-            internal set => gameTimeTicks = value.Ticks - value.Ticks % TimeSpan.TicksPerMinute;
+            internal set => gameTimeTicks = value.Ticks - value.Ticks % TimeSpan.TicksPerSecond;
         }
     }
 

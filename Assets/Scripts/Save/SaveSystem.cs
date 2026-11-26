@@ -21,7 +21,8 @@ namespace AnimalGame.Save
         private const int FirstTowerRavenFlyoverVersion = 10;
         private const int StationCommunicationsVersion = 11;
         private const int StoryCalendarRevision = 12;
-        private const int FileVersion = StoryCalendarRevision;
+        private const int PhotoMessageSecondsVersion = 13;
+        private const int FileVersion = PhotoMessageSecondsVersion;
         private static readonly DateTime PreviousStoryStart = new DateTime(2660, 8, 4);
         public static GameSave Current { get; private set; }
         public static DateTime CurrentGameTime => Current?.gameTime ?? GameSave.InitialGameTime;
@@ -66,7 +67,7 @@ namespace AnimalGame.Save
             }
             if (version < StoryCalendarRevision)
             {
-                if (version is >= GameClockVersion and < StoryClockVersion && save.gameTime < PreviousStoryStart)
+                if (version is >= GameClockVersion and <= StoryClockVersion && save.gameTime < PreviousStoryStart)
                     save.gameTime = GameSave.InitialGameTime + save.gameTime.TimeOfDay;
                 else if (version >= GameClockVersion)
                     save.gameTime = MovePreviousStoryDate(save.gameTime);
@@ -77,9 +78,8 @@ namespace AnimalGame.Save
                     foreach (var message in conversation.messages)
                         if (message.kind == MessageKind.Text)
                             message.sentAt = MovePreviousStoryDate(message.sentAt);
-
-                WriteTo(path, save);
             }
+            if (version < FileVersion) WriteTo(path, save);
             return save;
         }
 
@@ -94,6 +94,30 @@ namespace AnimalGame.Save
             if (reader.ReadInt32() != FileSignature) throw new InvalidDataException("Invalid game save signature.");
             version = reader.ReadInt32();
             if (version < 1 || version > FileVersion) throw new InvalidDataException($"Unsupported save version: {version}");
+            if (version != StoryClockVersion)
+                return ReadSaveData(reader, version, hasPhotoSeconds: version >= PhotoMessageSecondsVersion);
+
+            // Both layouts can be valid for the same attachment bytes. Story v9 started in
+            // 2660 and omitted seconds, while main v9 started in 2026 and included seconds.
+            long start = stream.Position;
+            var storySave = TryReadVersion9(hasPhotoSeconds: false);
+            if (storySave != null && storySave.gameTime >= PreviousStoryStart) return storySave;
+            return TryReadVersion9(hasPhotoSeconds: true) ?? storySave
+                ?? throw new InvalidDataException("Invalid version 9 game save.");
+
+            GameSave TryReadVersion9(bool hasPhotoSeconds)
+            {
+                stream.Position = start;
+                try { return ReadSaveData(reader, StoryClockVersion, hasPhotoSeconds); }
+                catch (Exception e) when (e is InvalidDataException or IOException or FormatException or ArgumentOutOfRangeException)
+                {
+                    return null;
+                }
+            }
+        }
+
+        private static GameSave ReadSaveData(BinaryReader reader, int version, bool hasPhotoSeconds)
+        {
             var save = new GameSave();
             int photoCount = ReadCount(reader);
             for (int i = 0; i < photoCount; i++) save.photos.Add(ReadPhoto(reader));
@@ -127,6 +151,11 @@ namespace AnimalGame.Save
                         message.fromPlayer = reader.ReadBoolean();
                         message.hour = reader.ReadInt32();
                         message.minute = reader.ReadInt32();
+                        if (hasPhotoSeconds)
+                        {
+                            message.second = reader.ReadInt32();
+                            if (message.second is < 0 or > 59) throw new InvalidDataException("Invalid photo message second.");
+                        }
                         if (version < NodeMessageVersion)
                         {
                             message.kind = (MessageKind)reader.ReadInt32();
@@ -138,7 +167,9 @@ namespace AnimalGame.Save
                             }
                             if (message.kind != MessageKind.Photos) throw new InvalidDataException("Unknown chat message kind.");
                         }
-                        message.photoIndices = new int[ReadCount(reader)];
+                        int indexCount = ReadCount(reader);
+                        if (indexCount > save.photos.Count) throw new InvalidDataException("Too many photos in a message.");
+                        message.photoIndices = new int[indexCount];
                         for (int k = 0; k < message.photoIndices.Length; k++)
                         {
                             int index = reader.ReadInt32();
@@ -163,7 +194,7 @@ namespace AnimalGame.Save
             if (version >= StationCommunicationsVersion) ReadIds(reader, save.viewedStationCommunicationsIds);
             // The v10 flyover could only start after viewing the WX-04 terminal.
             else if (save.playedFirstTowerRavenFlyover) save.viewedStationCommunicationsIds.Add("WX-04");
-            if (stream.Position != stream.Length) throw new InvalidDataException("Unexpected trailing game save data.");
+            if (reader.BaseStream.Position != reader.BaseStream.Length) throw new InvalidDataException("Unexpected trailing game save data.");
             return save;
         }
 
@@ -222,6 +253,7 @@ namespace AnimalGame.Save
                             else if (message.kind == MessageKind.Photos)
                             {
                                 writer.Write(message.fromPlayer); writer.Write(message.hour); writer.Write(message.minute);
+                                writer.Write(message.second);
                                 writer.Write(message.photoIndices.Length);
                                 foreach (int index in message.photoIndices) writer.Write(index);
                             }
@@ -425,7 +457,7 @@ namespace AnimalGame.Save
             int currentId = options.GetCurrentNodeId(conversation);
             var pending = new List<ChatMessage>();
             var visited = new HashSet<int>();
-            var sentAt = new DateTime(time.Ticks - time.Ticks % TimeSpan.TicksPerMinute);
+            var sentAt = new DateTime(time.Ticks - time.Ticks % TimeSpan.TicksPerSecond);
 
             if (replyId != 0)
             {
@@ -488,7 +520,7 @@ namespace AnimalGame.Save
             }
             try
             {
-                AppendMessages(contact, new[] { new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute,
+                AppendMessages(contact, new[] { new ChatMessage { fromPlayer = true, hour = time.Hour, minute = time.Minute, second = time.Second,
                     kind = MessageKind.Photos, photoIndices = (int[])indices.Clone() } });
             }
             catch
